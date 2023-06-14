@@ -15,21 +15,30 @@
  * limitations under the License.
  */
 
-// XMLDoc check fails on older SDKs: https://github.com/dotnet/roslyn/issues/44571.
-#pragma warning disable CS1572
-#pragma warning disable CS1573
 namespace Apache.Ignite.Internal.Table
 {
     using System.Collections.Generic;
+    using Proto.BinaryTuple;
 
     /// <summary>
     /// Schema.
     /// </summary>
     /// <param name="Version">Version.</param>
+    /// <param name="TableId">Table id.</param>
     /// <param name="KeyColumnCount">Key column count.</param>
     /// <param name="Columns">Columns in schema order.</param>
-    internal record Schema(
+    internal sealed record Schema(
         int Version,
+        int TableId,
         int KeyColumnCount,
-        IReadOnlyList<Column> Columns);
+        IReadOnlyList<Column> Columns) : IHashedColumnIndexProvider
+    {
+        /// <summary>
+        /// Gets the value column count.
+        /// </summary>
+        public int ValueColumnCount => Columns.Count - KeyColumnCount;
+
+        /// <inheritdoc/>
+        public bool IsHashedColumnIndex(int index) => index < KeyColumnCount && Columns[index].IsColocation;
+    }
 }

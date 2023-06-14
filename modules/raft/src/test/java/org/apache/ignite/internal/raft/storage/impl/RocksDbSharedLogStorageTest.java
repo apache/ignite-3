@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -42,7 +42,7 @@ public class RocksDbSharedLogStorageTest extends BaseLogStorageTest {
     /** {@inheritDoc} */
     @AfterEach
     @Override
-    public void teardown() throws Exception {
+    public void teardown() {
         super.teardown();
 
         logStorageProvider.close();

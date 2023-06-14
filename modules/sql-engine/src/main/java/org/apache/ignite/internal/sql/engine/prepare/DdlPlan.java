@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,9 +20,11 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import java.util.List;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
+import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlColumnType;
 
 /**
  * DdlPlan.
@@ -31,7 +33,7 @@ import org.apache.ignite.sql.SqlColumnType;
 public class DdlPlan implements QueryPlan {
     /** DDL metadata holder. */
     private static final ResultSetMetadata DDL_METADATA = new ResultSetMetadataImpl(List.of(
-            new ColumnMetadataImpl("APPLIED", SqlColumnType.BOOLEAN, 1, Integer.MIN_VALUE, false, null)));
+            new ColumnMetadataImpl("APPLIED", ColumnType.BOOLEAN, 1, ColumnMetadata.UNDEFINED_SCALE, false, null)));
 
     private final DdlCommand cmd;
 
@@ -45,8 +47,8 @@ public class DdlPlan implements QueryPlan {
 
     /** {@inheritDoc} */
     @Override
-    public Type type() {
-        return Type.DDL;
+    public SqlQueryType type() {
+        return SqlQueryType.DDL;
     }
 
     /** {@inheritDoc} */

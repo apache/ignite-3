@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import java.math.BigInteger;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -100,14 +99,6 @@ public class ClientMessageUnpackerTest {
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE})
     public void testUnpackLong(long l) {
         testUnpacker(p -> p.packLong(l), ClientMessageUnpacker::unpackLong, l);
-    }
-
-    @ParameterizedTest
-    @ValueSource(longs = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
-            Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE})
-    public void testUnpackBigInteger(long l) {
-        var bi = BigInteger.valueOf(l);
-        testUnpacker(p -> p.packBigInteger(bi), ClientMessageUnpacker::unpackBigInteger, bi);
     }
 
     @ParameterizedTest

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,9 @@
 
 package org.apache.ignite.distributed;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.TestInfo;
@@ -35,21 +38,25 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
     }
 
     /** {@inheritDoc} */
-    @Override protected int nodes() {
+    @Override
+    protected int nodes() {
         return 3;
     }
 
     /** {@inheritDoc} */
-    @Override protected int replicas() {
+    @Override
+    protected int replicas() {
         return 3;
     }
 
     @Override
     @AfterEach
     public void after() throws Exception {
-        IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(accounts, 0), 5_000);
-        IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(customers, 0), 5_000);
-
-        super.after();
+        try {
+            assertTrue(IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(accounts, 0), TimeUnit.SECONDS.toMillis(5)));
+            assertTrue(IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(customers, 0), TimeUnit.SECONDS.toMillis(5)));
+        } finally {
+            super.after();
+        }
     }
 }

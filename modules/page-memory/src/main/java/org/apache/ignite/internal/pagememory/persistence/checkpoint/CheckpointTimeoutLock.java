@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -26,6 +26,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -35,8 +36,8 @@ import org.apache.ignite.lang.NodeStoppingException;
  * taking of inside checkpoint lock(timeout, force checkpoint, etc.).
  */
 public class CheckpointTimeoutLock {
-    /** Ignite logger. */
-    protected final IgniteLogger log;
+    /** Logger. */
+    protected static final IgniteLogger LOG = Loggers.forClass(CheckpointTimeoutLock.class);
 
     /**
      * {@link PersistentPageMemory#safeToUpdate() Safe update check} for all page memories, should return {@code false} if there are many
@@ -59,7 +60,6 @@ public class CheckpointTimeoutLock {
     /**
      * Constructor.
      *
-     * @param log Logger.
      * @param checkpointReadWriteLock Checkpoint read-write lock.
      * @param checkpointReadLockTimeout Timeout for checkpoint read lock acquisition in milliseconds.
      * @param safeToUpdateAllPageMemories {@link PersistentPageMemory#safeToUpdate() Safe update check} for all page memories, should return
@@ -67,13 +67,11 @@ public class CheckpointTimeoutLock {
      * @param checkpointer Service for triggering the checkpoint.
      */
     public CheckpointTimeoutLock(
-            IgniteLogger log,
             CheckpointReadWriteLock checkpointReadWriteLock,
             long checkpointReadLockTimeout,
             BooleanSupplier safeToUpdateAllPageMemories,
             Checkpointer checkpointer
     ) {
-        this.log = log;
         this.checkpointReadWriteLock = checkpointReadWriteLock;
         this.checkpointReadLockTimeout = checkpointReadLockTimeout;
         this.safeToUpdateAllPageMemories = safeToUpdateAllPageMemories;
@@ -170,7 +168,7 @@ public class CheckpointTimeoutLock {
                         }
                     }
                 } catch (CheckpointReadLockTimeoutException e) {
-                    log.debug(e.getMessage(), e);
+                    LOG.debug(e.getMessage(), e);
 
                     throw e;
 

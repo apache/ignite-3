@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
 import java.util.concurrent.Future;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.CliOptions;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.rpc.CliClientService;
@@ -40,7 +41,6 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.rpc.impl.AbstractClientService;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 
 /**
  *
@@ -59,68 +59,68 @@ public class CliClientServiceImpl extends AbstractClientService implements CliCl
     }
 
     @Override
-    public Future<Message> addPeer(final Endpoint endpoint, final AddPeerRequest request,
+    public Future<Message> addPeer(final PeerId peerId, final AddPeerRequest request,
         final RpcResponseClosure<AddPeerResponse> done) {
-        return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
+        return invokeWithDone(peerId, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
-    public Future<Message> removePeer(final Endpoint endpoint, final RemovePeerRequest request,
+    public Future<Message> removePeer(final PeerId peerId, final RemovePeerRequest request,
         final RpcResponseClosure<RemovePeerResponse> done) {
-        return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
+        return invokeWithDone(peerId, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
-    public Future<Message> resetPeer(final Endpoint endpoint, final ResetPeerRequest request,
+    public Future<Message> resetPeer(final PeerId peerId, final ResetPeerRequest request,
         final RpcResponseClosure<ErrorResponse> done) {
-        return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
+        return invokeWithDone(peerId, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
-    public Future<Message> snapshot(final Endpoint endpoint, final SnapshotRequest request,
+    public Future<Message> snapshot(final PeerId peerId, final SnapshotRequest request,
         final RpcResponseClosure<ErrorResponse> done) {
-        return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
+        return invokeWithDone(peerId, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
-    public Future<Message> changePeers(final Endpoint endpoint, final ChangePeersRequest request,
+    public Future<Message> changePeers(final PeerId peerId, final ChangePeersRequest request,
         final RpcResponseClosure<ChangePeersResponse> done) {
-        return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
+        return invokeWithDone(peerId, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
-    public Future<Message> addLearners(final Endpoint endpoint, final AddLearnersRequest request,
+    public Future<Message> addLearners(final PeerId peerId, final AddLearnersRequest request,
         final RpcResponseClosure<LearnersOpResponse> done) {
-        return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
+        return invokeWithDone(peerId, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
-    public Future<Message> removeLearners(final Endpoint endpoint, final RemoveLearnersRequest request,
+    public Future<Message> removeLearners(final PeerId peerId, final RemoveLearnersRequest request,
         final RpcResponseClosure<LearnersOpResponse> done) {
-        return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
+        return invokeWithDone(peerId, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
-    public Future<Message> resetLearners(final Endpoint endpoint, final ResetLearnersRequest request,
+    public Future<Message> resetLearners(final PeerId peerId, final ResetLearnersRequest request,
         final RpcResponseClosure<LearnersOpResponse> done) {
-        return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
+        return invokeWithDone(peerId, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
-    public Future<Message> getLeader(final Endpoint endpoint, final GetLeaderRequest request,
+    public Future<Message> getLeader(final PeerId peerId, final GetLeaderRequest request,
         final RpcResponseClosure<GetLeaderResponse> done) {
-        return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
+        return invokeWithDone(peerId, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
-    public Future<Message> transferLeader(final Endpoint endpoint, final TransferLeaderRequest request,
+    public Future<Message> transferLeader(final PeerId peerId, final TransferLeaderRequest request,
         final RpcResponseClosure<ErrorResponse> done) {
-        return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
+        return invokeWithDone(peerId, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
-    public Future<Message> getPeers(final Endpoint endpoint, final CliRequests.GetPeersRequest request,
+    public Future<Message> getPeers(final PeerId peerId, final CliRequests.GetPeersRequest request,
         final RpcResponseClosure<CliRequests.GetPeersResponse> done) {
-        return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
+        return invokeWithDone(peerId, request, done, this.cliOptions.getTimeoutMs());
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,16 +25,21 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
+import java.util.UUID;
 import java.util.function.Function;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.client.ClientUtils;
+import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
+import org.apache.ignite.internal.client.RetryPolicyContextImpl;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -143,8 +148,8 @@ public class RetryPolicyTest {
 
         try (var client = getClient(plc)) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
-            recView.get(null, Tuple.create().set("id", 1));
-            recView.get(null, Tuple.create().set("id", 1));
+            recView.get(null, Tuple.create().set("id", 1L));
+            recView.get(null, Tuple.create().set("id", 1L));
 
             assertEquals(1, plc.invocations.size());
         }
@@ -168,23 +173,33 @@ public class RetryPolicyTest {
 
     @Test
     public void testRetryReadPolicyRetriesReadOperations() throws Exception {
-        initServer(reqId -> reqId % 3 == 0);
+        // Standard requests are:
+        // 1: Handshake
+        // 2: SCHEMAS_GET
+        // 3: PARTITION_ASSIGNMENT_GET
+        // => fail on 4th request
+        initServer(reqId -> reqId % 4 == 0);
 
-        try (var client = getClient(new RetryReadPolicy())) {
+        var loggerFactory = new TestLoggerFactory("c");
+
+        try (var client = getClient(new RetryReadPolicy(), loggerFactory)) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
-            recView.get(null, Tuple.create().set("id", 1));
-            recView.get(null, Tuple.create().set("id", 1));
+            recView.get(null, Tuple.create().set("id", 1L));
+            recView.get(null, Tuple.create().set("id", 1L));
+
+            loggerFactory.assertLogContains("Connection closed");
+            loggerFactory.assertLogContains("Retrying operation [opCode=12, opType=TUPLE_GET, attempt=0, lastError=java.util");
         }
     }
 
     @Test
     public void testRetryReadPolicyDoesNotRetryWriteOperations() throws Exception {
-        initServer(reqId -> reqId % 5 == 0);
+        initServer(reqId -> reqId % 6 == 0);
 
         try (var client = getClient(new RetryReadPolicy())) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
-            recView.upsert(null, Tuple.create().set("id", 1));
-            assertThrows(IgniteClientConnectionException.class, () -> recView.upsert(null, Tuple.create().set("id", 1)));
+            recView.upsert(null, Tuple.create().set("id", 1L));
+            assertThrows(IgniteClientConnectionException.class, () -> recView.upsert(null, Tuple.create().set("id", 1L)));
         }
     }
 
@@ -201,13 +216,24 @@ public class RetryPolicyTest {
             }
         }
 
-        long expectedNullCount = 17;
+        long expectedNullCount = 20;
 
         String msg = nullOpFields.size()
                 + " operation codes do not have public equivalent. When adding new codes, update ClientOperationType too. Missing ops: "
                 + String.join(", ", nullOpFields);
 
         assertEquals(expectedNullCount, nullOpFields.size(), msg);
+    }
+
+    @Test
+    public void testRetryReadPolicyAllOperationsSupported() {
+        var plc = new RetryReadPolicy();
+        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, 0, 0, null, 0, 0, null, null, null, false, null);
+
+        for (var op : ClientOperationType.values()) {
+            var ctx = new RetryPolicyContextImpl(cfg, op, 0, null);
+            plc.shouldRetry(ctx);
+        }
     }
 
     @Test
@@ -222,18 +248,37 @@ public class RetryPolicyTest {
         }
     }
 
-    private IgniteClient getClient(RetryPolicy retryPolicy) {
+    @Test
+    public void testExceptionInRetryPolicyPropagatesToCaller() throws Exception {
+        initServer(reqId -> reqId % 2 == 0);
+        var plc = new TestRetryPolicy();
+        plc.shouldThrow = true;
+
+        try (var client = getClient(plc)) {
+            IgniteException ex = assertThrows(IgniteException.class, () -> client.tables().tables());
+            var cause = (RuntimeException) ex.getCause();
+
+            assertEquals("TestRetryPolicy exception.", cause.getMessage());
+        }
+    }
+
+    private IgniteClient getClient(@Nullable RetryPolicy retryPolicy) {
+        return getClient(retryPolicy, null);
+    }
+
+    private IgniteClient getClient(@Nullable RetryPolicy retryPolicy, @Nullable LoggerFactory loggerFactory) {
         return IgniteClient.builder()
                 .addresses("127.0.0.1:" + server.port())
                 .retryPolicy(retryPolicy)
                 .reconnectThrottlingPeriod(0)
+                .loggerFactory(loggerFactory)
                 .build();
     }
 
     private void initServer(Function<Integer, Boolean> shouldDropConnection) {
         FakeIgnite ign = new FakeIgnite();
-        ign.tables().createTable("t", c -> {});
+        ((FakeIgniteTables) ign.tables()).createTable("t");
 
-        server = new TestServer(10900, 10, 0, ign, shouldDropConnection, null);
+        server = new TestServer(10900, 10, 0, ign, shouldDropConnection, null, null, UUID.randomUUID(), null);
     }
 }

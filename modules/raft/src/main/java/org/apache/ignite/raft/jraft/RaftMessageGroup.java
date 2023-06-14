@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,10 +19,10 @@ package org.apache.ignite.raft.jraft;
 
 import org.apache.ignite.network.annotations.MessageGroup;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
-import org.apache.ignite.raft.jraft.rpc.CliRequests;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.ActionResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 
 /**
  * Message group for the Raft module.
@@ -89,6 +89,15 @@ public class RaftMessageGroup {
 
         /** */
         public static final short CHANGE_PEERS_ASYNC_RESPONSE = 1018;
+
+        /** */
+        public static final short SUBSCRIPTION_LEADER_CHANGE_REQUEST = 1019;
+
+        /** */
+        public static final short SUBSCRIPTION_LEADER_CHANGE_REQUEST_ACKNOWLEDGE = 1020;
+
+        /** */
+        public static final short LEADER_CHANGE_NOTIFICATION = 1021;
     }
 
     /**

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,135 +17,67 @@
 
 package org.apache.ignite.internal.test;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.doAnswer;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getField;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Optional;
+import java.lang.reflect.Field;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.WatchEvent;
-import org.apache.ignite.internal.metastorage.client.WatchListener;
-import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
-import org.apache.ignite.internal.metastorage.watch.WatchAggregator;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.jetbrains.annotations.NotNull;
-import org.junit.platform.commons.util.ReflectionUtils;
-import org.mockito.Mockito;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.server.WatchProcessor;
+import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 
 /**
- * Listener which wraps another one to inhibit events.
+ * Class for blocking Watch processing on a given Ignite node.
  */
-public class WatchListenerInhibitor implements WatchListener {
-    /** Inhibited events. Guarded by {@code this}. */
-    private final Collection<WatchEvent> inhibitEvents = new ArrayList<>();
+public class WatchListenerInhibitor {
+    private final WatchProcessor watchProcessor;
 
-    /** Inhibit flag. Guarded by {@code this}. */
-    private boolean inhibit = false;
+    private final Field notificationFutureField;
 
-    /** Wrapped listener. Guarded by {@code this}. */
-    private WatchListener realListener;
+    /** Future used to block the watch notification thread. */
+    private final CompletableFuture<Void> inhibitFuture = new CompletableFuture<>();
 
     /**
      * Creates the specific listener which can inhibit events for real metastorage listener.
      *
      * @param ignite Ignite.
      * @return Listener inhibitor.
-     * @throws Exception If something wrong when creating the listener inhibitor.
      */
-    public static WatchListenerInhibitor metastorageEventsInhibitor(Ignite ignite)
-            throws Exception {
+    public static WatchListenerInhibitor metastorageEventsInhibitor(Ignite ignite) {
         //TODO: IGNITE-15723 After a component factory will be implemented, need to got rid of reflection here.
-        MetaStorageManager metaMngr = (MetaStorageManager) ReflectionUtils.tryToReadFieldValue(
-                IgniteImpl.class,
-                "metaStorageMgr",
-                (IgniteImpl) ignite
-        ).get();
+        var metaStorageManager = (MetaStorageManagerImpl) getFieldValue(ignite, IgniteImpl.class, "metaStorageMgr");
 
-        assertNotNull(metaMngr);
+        var storage = (RocksDbKeyValueStorage) getFieldValue(metaStorageManager, MetaStorageManagerImpl.class, "storage");
 
-        WatchAggregator aggregator = (WatchAggregator) ReflectionUtils.tryToReadFieldValue(
-                MetaStorageManager.class,
-                "watchAggregator",
-                metaMngr
-        ).get();
+        var watchProcessor = (WatchProcessor) getFieldValue(storage, RocksDbKeyValueStorage.class, "watchProcessor");
 
-        assertNotNull(aggregator);
+        return new WatchListenerInhibitor(watchProcessor);
+    }
 
-        WatchAggregator aggregatorSpy = Mockito.spy(aggregator);
-
-        WatchListenerInhibitor inhibitor = new WatchListenerInhibitor();
-
-        doAnswer(mock -> {
-            Optional<AggregatedWatch> op = (Optional<AggregatedWatch>) mock.callRealMethod();
-
-            assertTrue(op.isPresent());
-
-            inhibitor.setRealListener(op.get().listener());
-
-            return Optional.of(new AggregatedWatch(op.get().keyCriterion(), op.get().revision(),
-                    inhibitor));
-        }).when(aggregatorSpy).watch(anyLong(), any());
-
-        IgniteTestUtils.setFieldValue(metaMngr, "watchAggregator", aggregatorSpy);
-
-        // Redeploy metastorage watch. The Watch inhibitor will be used after.
-        metaMngr.unregisterWatch(-1);
-
-        return inhibitor;
+    private WatchListenerInhibitor(WatchProcessor watchProcessor) {
+        this.watchProcessor = watchProcessor;
+        this.notificationFutureField = getField(watchProcessor, WatchProcessor.class, "notificationFuture");
     }
 
     /**
-     * Default constructor.
+     * Starts inhibiting events.
      */
-    private WatchListenerInhibitor() {
-    }
+    public void startInhibit() {
+        try {
+            CompletableFuture<Void> notificationFuture = (CompletableFuture<Void>) notificationFutureField.get(watchProcessor);
 
-    /**
-     * Sets a wrapped listener.
-     *
-     * @param realListener Listener to wrap.
-     */
-    private synchronized void setRealListener(WatchListener realListener) {
-        this.realListener = realListener;
-    }
-
-    /** {@inheritDoc} */
-    @Override public synchronized boolean onUpdate(@NotNull WatchEvent evt) {
-        if (!inhibit) {
-            return realListener.onUpdate(evt);
+            notificationFutureField.set(watchProcessor, notificationFuture.thenCompose(v -> inhibitFuture));
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
         }
-
-        return inhibitEvents.add(evt);
-    }
-
-    /** {@inheritDoc} */
-    @Override public synchronized void onError(@NotNull Throwable e) {
-        realListener.onError(e);
     }
 
     /**
-     * Starts inhibit events.
+     * Stops inhibiting events.
      */
-    public synchronized void startInhibit() {
-        inhibit = true;
-    }
-
-    /**
-     * Stops inhibit events.
-     */
-    public synchronized void stopInhibit() {
-        inhibit = false;
-
-        for (WatchEvent evt : inhibitEvents) {
-            realListener.onUpdate(evt);
-        }
-
-        inhibitEvents.clear();
+    public void stopInhibit() {
+        inhibitFuture.complete(null);
     }
 }

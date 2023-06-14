@@ -76,6 +76,10 @@ NULL
 statement error
 SELECT CASE WHEN 'hello' THEN b ELSE a END FROM test
 
+# illegal mixing of types in CASE or COALESCE statement
+statement error
+SELECT CASE WHEN b=22 THEN 'hello' ELSE b END FROM test
+
 # but only when cast cannot be performed
 query I
 SELECT CASE WHEN true THEN NULL ELSE b+1 END FROM test ORDER BY b
@@ -91,3 +95,85 @@ SELECT CASE WHEN false THEN NULL ELSE b+1 END FROM test ORDER BY b
 23
 23
 
+query T
+SELECT CASE WHEN 1 = 1 THEN NULL ELSE 1 END IS NULL;
+----
+true
+
+statement ok
+CREATE TABLE tbl(ID INT PRIMARY KEY, VAL VARCHAR, NUM INT)
+
+statement ok
+INSERT INTO tbl VALUES (0, 'abc', 0), (1, 'abc', NULL), (2, NULL, 0)
+
+query T
+SELECT CASE WHEN (val = 'abc') THEN 0 ELSE (CASE WHEN (num = 0) THEN 1 ELSE NULL END) END FROM tbl ORDER BY id
+----
+0
+0
+1
+
+query T
+SELECT CASE WHEN (val = 'abc') THEN 0 ELSE (CASE WHEN (num = 0) THEN 1 ELSE NULL END) END IS NULL FROM tbl
+----
+false
+false
+false
+
+query T
+SELECT CASE WHEN (val IS NULL) THEN '0' ELSE (CASE WHEN (num IS NULL) THEN '1' ELSE NULL END) END FROM tbl ORDER BY id
+----
+NULL
+1
+0
+
+query T
+SELECT CASE WHEN (val IS NULL) THEN '0' ELSE (CASE WHEN (num IS NULL) THEN '1' ELSE NULL END) END IS NULL FROM tbl ORDER BY id
+----
+true
+false
+false
+
+# NULL in THEN operand
+query T
+SELECT CASE WHEN (val = 'diff') THEN 0 ELSE (CASE WHEN (num IS NULL) THEN NULL ELSE 1 END) END FROM tbl ORDER BY id
+----
+1
+NULL
+1
+
+query T
+SELECT CASE WHEN (val = 'diff') THEN 0 ELSE (CASE WHEN (num IS NULL) THEN NULL ELSE 1 END) END IS NULL FROM tbl ORDER BY id
+----
+false
+true
+false
+
+query T
+SELECT CASE WHEN (val = 'diff') THEN 0 ELSE (CASE WHEN (num IS NULL) THEN NULL ELSE 1 END) END IS DISTINCT FROM NULL FROM tbl ORDER BY id
+----
+true
+false
+true
+
+# NULL in ELSE operand
+query T
+SELECT CASE WHEN (val = 'diff') THEN 0 ELSE (CASE WHEN (num IS NULL) THEN 1 ELSE NULL END) END FROM tbl ORDER BY id
+----
+NULL
+1
+NULL
+
+query T
+SELECT CASE WHEN (val = 'diff') THEN 0 ELSE (CASE WHEN (num IS NULL) THEN 1 ELSE NULL END) END IS NULL FROM tbl ORDER BY id
+----
+true
+false
+true
+
+query T
+SELECT CASE WHEN (val = 'diff') THEN 0 ELSE (CASE WHEN (num IS NULL) THEN 1 ELSE NULL END) END IS DISTINCT FROM NULL from tbl ORDER BY id
+----
+false
+true
+false

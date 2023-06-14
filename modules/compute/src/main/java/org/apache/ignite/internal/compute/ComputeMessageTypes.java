@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.network.annotations.MessageGroup;
@@ -24,7 +25,7 @@ import org.apache.ignite.network.annotations.MessageGroup;
 /**
  * Message types for the Compute module.
  */
-@MessageGroup(groupName = "ComputeMessages", groupType = 6)
+@MessageGroup(groupType = 6, groupName = "ComputeMessages")
 public class ComputeMessageTypes {
     /**
      * Type for {@link ExecuteRequest}.
@@ -35,4 +36,9 @@ public class ComputeMessageTypes {
      * Type for {@link ExecuteResponse}.
      */
     public static final short EXECUTE_RESPONSE = 1;
+
+    /**
+     * Type for {@link DeploymentUnitMsg}.
+     */
+    public static final short DEPLOYMENT_UNIT = 2;
 }

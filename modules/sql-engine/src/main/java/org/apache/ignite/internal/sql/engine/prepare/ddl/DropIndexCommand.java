@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,11 +21,14 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
  * DROP INDEX statement.
  */
 public class DropIndexCommand implements DdlCommand {
-    /** Idx name. */
+    /** Index name. */
     private String indexName;
 
     /** If exist flag. */
-    private boolean ifExist;
+    private boolean ifExists;
+
+    /** Schema name where this index will be dropped. */
+    private String schemaName;
 
     /** Return idx name. */
     public String indexName() {
@@ -37,11 +40,39 @@ public class DropIndexCommand implements DdlCommand {
         this.indexName = indexName;
     }
 
-    public boolean ifExist() {
-        return ifExist;
+    /**
+     * Quietly ignore this command if index doesn't exist.
+     *
+     * @return Quietly ignore flag.
+     */
+    public boolean ifNotExists() {
+        return ifExists;
     }
 
-    public void ifExist(boolean ifExist) {
-        this.ifExist = ifExist;
+    /**
+     * Quietly ignore this command if index doesn't exist.
+     *
+     * @param ifExist Exists flag.
+     */
+    public void ifNotExists(boolean ifExist) {
+        this.ifExists = ifExist;
+    }
+
+    /**
+     * Return index schema name.
+     *
+     * @return Schema name.
+     */
+    public String schemaName() {
+        return schemaName;
+    }
+
+    /**
+     * Sets index schema name.
+     *
+     * @param schemaName Schema name.
+     */
+    public void schemaName(String schemaName) {
+        this.schemaName = schemaName;
     }
 }

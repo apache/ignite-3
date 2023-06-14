@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,10 +20,9 @@ package org.apache.ignite.lang;
 import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
 import static org.apache.ignite.lang.ErrorGroup.errorGroupByCode;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
-import static org.apache.ignite.lang.ErrorGroup.errorMessageFromCause;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
@@ -68,8 +67,6 @@ public class IgniteInternalCheckedException extends Exception {
      * @param code Full error code.
      */
     public IgniteInternalCheckedException(UUID traceId, int code) {
-        super(errorMessage(traceId, code, null));
-
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
         this.code = code;
@@ -93,7 +90,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @param message Detail message.
      */
     public IgniteInternalCheckedException(UUID traceId, int code, String message) {
-        super(errorMessage(traceId, code, message));
+        super(message);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -118,7 +115,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteInternalCheckedException(UUID traceId, int code, Throwable cause) {
-        super(errorMessageFromCause(traceId, code, cause), cause);
+        super((cause != null) ? cause.getLocalizedMessage() : null, cause);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -145,7 +142,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteInternalCheckedException(UUID traceId, int code, String message, Throwable cause) {
-        super(errorMessage(traceId, code, message), cause);
+        super(message, cause);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -168,7 +165,7 @@ public class IgniteInternalCheckedException extends Exception {
             @Nullable Throwable cause,
             boolean writableStackTrace
     ) {
-        super(errorMessage(traceId, code, message), cause, true, writableStackTrace);
+        super(message, cause, true, writableStackTrace);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -180,7 +177,7 @@ public class IgniteInternalCheckedException extends Exception {
      */
     @Deprecated
     public IgniteInternalCheckedException() {
-        this(UNKNOWN_ERR);
+        this(INTERNAL_ERR);
     }
 
     /**
@@ -190,7 +187,7 @@ public class IgniteInternalCheckedException extends Exception {
      */
     @Deprecated
     public IgniteInternalCheckedException(String msg) {
-        this(UNKNOWN_ERR, msg);
+        this(INTERNAL_ERR, msg);
     }
 
     /**
@@ -200,7 +197,7 @@ public class IgniteInternalCheckedException extends Exception {
      */
     @Deprecated
     public IgniteInternalCheckedException(Throwable cause) {
-        this(UNKNOWN_ERR, cause);
+        this(INTERNAL_ERR, cause);
     }
 
     /**
@@ -212,7 +209,7 @@ public class IgniteInternalCheckedException extends Exception {
      */
     @Deprecated
     public IgniteInternalCheckedException(String msg, @Nullable Throwable cause, boolean writableStackTrace) {
-        this(UUID.randomUUID(), UNKNOWN_ERR, msg, cause, writableStackTrace);
+        this(UUID.randomUUID(), INTERNAL_ERR, msg, cause, writableStackTrace);
     }
 
     /**
@@ -223,7 +220,7 @@ public class IgniteInternalCheckedException extends Exception {
      */
     @Deprecated
     public IgniteInternalCheckedException(String msg, @Nullable Throwable cause) {
-        this(UNKNOWN_ERR, msg, cause);
+        this(INTERNAL_ERR, msg, cause);
     }
 
     /**
@@ -286,5 +283,13 @@ public class IgniteInternalCheckedException extends Exception {
      */
     public UUID traceId() {
         return traceId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        String s = getClass().getName();
+        String message = errorMessage(traceId, groupName, code, getLocalizedMessage());
+        return (message != null) ? (s + ": " + message) : s;
     }
 }

@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to you under the Apache License, Version 2.0
+ * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,7 +24,10 @@ import org.apache.calcite.sql.fun.SqlLibraryOperators;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeTransforms;
 import org.apache.calcite.sql.util.ReflectiveSqlOperatorTable;
+import org.apache.ignite.internal.sql.engine.type.UuidType;
 
 /**
  * Operator table that contains only Ignite-specific functions and operators.
@@ -49,6 +52,116 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     null,
                     OperandTypes.ANY,
                     SqlFunctionCategory.SYSTEM);
+
+    /**
+     * Replacement for NULL values in search bounds. Required to distinguish searchable NULL values
+     * (for example, 'a IS NULL' condition) and not searchable NULL values (for example, 'a = NULL' condition).
+     *
+     * <p>Note: System function, cannot be used by user.
+     */
+    public static final SqlFunction NULL_BOUND =
+            new SqlFunction(
+                    "$NULL_BOUND",
+                    SqlKind.OTHER_FUNCTION,
+                    ReturnTypes.explicit(SqlTypeName.ANY),
+                    null,
+                    OperandTypes.NILADIC,
+                    SqlFunctionCategory.SYSTEM);
+
+    /**
+     * Least of two arguments. Unlike LEAST, which is converted to CASE WHEN THEN END clause, this function
+     * is natively implemented.
+     *
+     * <p>Note: System function, cannot be used by user.
+     */
+    public static final SqlFunction LEAST2 =
+            new SqlFunction(
+                    "$LEAST2",
+                    SqlKind.OTHER_FUNCTION,
+                    ReturnTypes.LEAST_RESTRICTIVE.andThen(SqlTypeTransforms.TO_NULLABLE),
+                    null,
+                    OperandTypes.SAME_SAME,
+                    SqlFunctionCategory.SYSTEM);
+
+    /**
+     * Greatest of two arguments. Unlike GREATEST, which is converted to CASE WHEN THEN END clause, this function
+     * is natively implemented.
+     *
+     * <p>Note: System function, cannot be used by user.
+     */
+    public static final SqlFunction GREATEST2 =
+            new SqlFunction(
+                    "$GREATEST2",
+                    SqlKind.OTHER_FUNCTION,
+                    ReturnTypes.LEAST_RESTRICTIVE.andThen(SqlTypeTransforms.TO_NULLABLE),
+                    null,
+                    OperandTypes.SAME_SAME,
+                    SqlFunctionCategory.SYSTEM);
+
+    /**
+     * Substring function.
+     */
+    public static final SqlFunction SUBSTRING = new SqlSubstringFunction();
+
+    /**
+     * Generic {@code SUBSTR(string, position [, length]} function.
+     * This function works exactly the same as {@link SqlSubstringFunction SUSBSTRING(string, position [, length])}.
+     */
+    public static final SqlFunction SUBSTR =
+            new SqlFunction(
+                    "SUBSTR",
+                    SqlKind.OTHER_FUNCTION,
+                    ReturnTypes.ARG0_NULLABLE_VARYING,
+                    null,
+                    OperandTypes.STRING_INTEGER_OPTIONAL_INTEGER,
+                    SqlFunctionCategory.STRING);
+
+    /**
+     * The {@code RAND_UUID()} function, which yields a random UUID.
+     */
+    public static final SqlFunction RAND_UUID =
+            new SqlFunction(
+                    "RAND_UUID",
+                    SqlKind.OTHER_FUNCTION,
+                    ReturnTypes.explicit(new UuidType(false)),
+                    null,
+                    OperandTypes.NILADIC,
+                    SqlFunctionCategory.SYSTEM
+            ) {
+                @Override
+                public boolean isDynamicFunction() {
+                    return true;
+                }
+
+                @Override
+                public boolean isDeterministic() {
+                    return false;
+                }
+            };
+
+    /**
+     * This function is used to generate a value for implicit primary key.
+     */
+    // TODO This function should removed when https://issues.apache.org/jira/browse/IGNITE-19103 is complete.
+    public static final SqlFunction GEN_RANDOM_UUID =
+            new SqlFunction(
+                    "GEN_RANDOM_UUID",
+                    SqlKind.OTHER_FUNCTION,
+                    ReturnTypes.explicit(SqlTypeName.VARCHAR),
+                    null,
+                    OperandTypes.NILADIC,
+                    SqlFunctionCategory.SYSTEM
+            ) {
+                @Override
+                public boolean isDynamicFunction() {
+                    return true;
+                }
+
+                @Override
+                public boolean isDeterministic() {
+                    return false;
+                }
+            };
 
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
@@ -93,12 +206,16 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         // Aggregates.
         register(SqlStdOperatorTable.COUNT);
         register(SqlStdOperatorTable.SUM);
+        register(SqlStdOperatorTable.SUM0);
         register(SqlStdOperatorTable.AVG);
         register(SqlStdOperatorTable.MIN);
         register(SqlStdOperatorTable.MAX);
         register(SqlStdOperatorTable.ANY_VALUE);
         register(SqlStdOperatorTable.SINGLE_VALUE);
         register(SqlStdOperatorTable.FILTER);
+
+        register(SqlStdOperatorTable.EVERY);
+        register(SqlStdOperatorTable.SOME);
 
         // IS ... operator.
         register(SqlStdOperatorTable.IS_NULL);
@@ -132,7 +249,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlLibraryOperators.FROM_BASE64);
         register(SqlLibraryOperators.MD5);
         register(SqlLibraryOperators.SHA1);
-        register(SqlStdOperatorTable.SUBSTRING);
+        register(SUBSTRING);
         register(SqlLibraryOperators.LEFT);
         register(SqlLibraryOperators.RIGHT);
         register(SqlStdOperatorTable.REPLACE);
@@ -154,6 +271,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.TRIM);
         register(SqlLibraryOperators.LTRIM);
         register(SqlLibraryOperators.RTRIM);
+        register(SUBSTR);
 
         // Math functions.
         register(SqlStdOperatorTable.MOD); // Arithmetic remainder.
@@ -230,7 +348,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.IS_EMPTY);
         register(SqlStdOperatorTable.IS_NOT_EMPTY);
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-15550
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19332
         //register(SqlStdOperatorTable.MAP_QUERY);
         //register(SqlStdOperatorTable.ARRAY_QUERY);
 
@@ -309,5 +427,10 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(LENGTH);
         register(SYSTEM_RANGE);
         register(TYPEOF);
+        register(LEAST2);
+        register(GREATEST2);
+        register(NULL_BOUND);
+        register(RAND_UUID);
+        register(GEN_RANDOM_UUID);
     }
 }

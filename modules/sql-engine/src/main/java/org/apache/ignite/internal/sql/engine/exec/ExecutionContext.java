@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.internal.sql.engine.util.Commons.checkRange;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -33,6 +34,7 @@ import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
@@ -40,11 +42,9 @@ import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.AbstractQueryContext;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -70,9 +70,9 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
     private final Map<String, Object> params;
 
-    private final String locNodeId;
+    private final ClusterNode localNode;
 
-    private final String originatingNodeId;
+    private final String originatingNodeName;
 
     private final RowHandler<RowT> handler;
 
@@ -80,39 +80,37 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
     private final AtomicBoolean cancelFlag = new AtomicBoolean();
 
-    /** Transaction. */
-    private InternalTransaction tx;
-
     /**
      * Need to store timestamp, since SQL standard says that functions such as CURRENT_TIMESTAMP return the same value throughout the
      * query.
      */
     private final long startTs;
 
-    private Object[] correlations = new Object[16];
+    private final TxAttributes txAttributes;
+
+    private SharedState sharedState = new SharedState();
 
     /**
      * Constructor.
      *
-     * @param executor     Task executor.
-     * @param qctx         Base query context.
-     * @param qryId        Query ID.
+     * @param executor Task executor.
+     * @param qctx Base query context.
+     * @param qryId Query ID.
      * @param fragmentDesc Partitions information.
-     * @param handler      Row handler.
-     * @param params       Parameters.
-     * @param tx           Transaction.
+     * @param handler Row handler.
+     * @param params Parameters.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
             BaseQueryContext qctx,
             QueryTaskExecutor executor,
             UUID qryId,
-            String locNodeId,
-            String originatingNodeId,
+            ClusterNode localNode,
+            String originatingNodeName,
             FragmentDescription fragmentDesc,
             RowHandler<RowT> handler,
             Map<String, Object> params,
-            InternalTransaction tx
+            TxAttributes txAttributes
     ) {
         super(qctx);
 
@@ -122,9 +120,9 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         this.fragmentDesc = fragmentDesc;
         this.handler = handler;
         this.params = params;
-        this.locNodeId = locNodeId;
-        this.originatingNodeId = originatingNodeId;
-        this.tx = tx;
+        this.localNode = localNode;
+        this.originatingNodeName = originatingNodeName;
+        this.txAttributes = txAttributes;
 
         expressionFactory = new ExpressionFactoryImpl<>(
                 this,
@@ -187,13 +185,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     }
 
     /**
-     * Get keep binary flag.
-     */
-    public boolean keepBinary() {
-        return true; // TODO
-    }
-
-    /**
      * Get handler to access row fields.
      */
     public RowHandler<RowT> rowHandler() {
@@ -208,17 +199,17 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     }
 
     /**
-     * Get originating node ID.
+     * Get originating node consistent ID.
      */
-    public String originatingNodeId() {
-        return originatingNodeId;
+    public String originatingNodeName() {
+        return originatingNodeName;
     }
 
     /**
-     * Get local node ID.
+     * Get local node.
      */
-    public String localNodeId() {
-        return locNodeId;
+    public ClusterNode localNode() {
+        return localNode;
     }
 
     /** {@inheritDoc} */
@@ -257,10 +248,17 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         }
 
         if (name.startsWith("?")) {
-            return TypeUtils.toInternal(this, params.get(name));
+            return TypeUtils.toInternal(params.get(name));
         }
 
         return params.get(name);
+    }
+
+    /** Gets dynamic parameters by name. */
+    public Object getParameter(String name, Type storageType) {
+        assert name.startsWith("?") : name;
+
+        return TypeUtils.toInternal(params.get(name), storageType);
     }
 
     /**
@@ -269,22 +267,36 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      * @param id Correlation ID.
      * @return Correlated value.
      */
-    public @NotNull Object getCorrelated(int id) {
-        checkRange(correlations, id);
-
-        return correlations[id];
+    public Object correlatedVariable(int id) {
+        return sharedState.correlatedVariable(id);
     }
 
     /**
      * Sets correlated value.
      *
-     * @param id    Correlation ID.
+     * @param id Correlation ID.
      * @param value Correlated value.
      */
-    public void setCorrelated(@NotNull Object value, int id) {
-        correlations = Commons.ensureCapacity(correlations, id + 1);
+    public void correlatedVariable(Object value, int id) {
+        sharedState.correlatedVariable(id, value);
+    }
 
-        correlations[id] = value;
+    /**
+     * Updates the state in the context with the given one.
+     *
+     * @param state A state to update with.
+     */
+    public void sharedState(SharedState state) {
+        sharedState = state;
+    }
+
+    /**
+     * Returns the current state.
+     *
+     * @return Current state.
+     */
+    public SharedState sharedState() {
+        return sharedState;
     }
 
     /**
@@ -305,14 +317,14 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             } catch (Throwable e) {
                 onError.accept(e);
 
-                throw new IgniteInternalException("Unexpected exception", e);
+                throw new IgniteInternalException(INTERNAL_ERR, "Unexpected exception", e);
             }
         });
     }
 
     /**
-     * Submits a Runnable task for execution and returns a Future representing that task. The Future's {@code get} method will return {@code
-     * null} upon <em>successful</em> completion.
+     * Submits a Runnable task for execution and returns a Future representing that task. The Future's {@code get} method will return
+     * {@code null} upon <em>successful</em> completion.
      *
      * @param task the task to submit.
      * @return a {@link CompletableFuture} representing pending task
@@ -326,7 +338,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             } catch (Throwable e) {
                 onError.accept(e);
 
-                throw new IgniteInternalException("Unexpected exception", e);
+                throw new IgniteInternalException(INTERNAL_ERR, "Unexpected exception", e);
             }
         });
     }
@@ -340,8 +352,8 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     }
 
     /** Transaction for current context. */
-    public InternalTransaction transaction() {
-        return tx;
+    public TxAttributes txAttributes() {
+        return txAttributes;
     }
 
     /**
@@ -376,6 +388,11 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         ExecutionContext<?> context = (ExecutionContext<?>) o;
 
         return qryId.equals(context.qryId) && fragmentDesc.fragmentId() == context.fragmentDesc.fragmentId();
+    }
+
+    /** Null bound. */
+    public Object nullBound() {
+        return BinaryRowConverter.NULL_BOUND;
     }
 
     /** {@inheritDoc} */

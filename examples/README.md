@@ -2,8 +2,8 @@
 
 This project contains code examples for Apache Ignite 3.
 
-Examples are shipped as a separate Maven project, so to start running you simply need
-to import provided `pom.xml` file into your favourite IDE.
+Examples are shipped as a separate Gradle module, so to start running you simply need
+to import provided `build.gradle` file into your favourite IDE.
 
 The following examples are included:
 * `RecordViewExample` - demonstrates the usage of the `org.apache.ignite.table.RecordView` API

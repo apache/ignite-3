@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,15 +17,19 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.table.manager.IgniteTables;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Internal tables facade provides low-level methods for table operations.
  */
-public interface IgniteTablesInternal {
+public interface IgniteTablesInternal extends IgniteTables {
     /**
      * Gets a table by id.
      *
@@ -33,7 +37,7 @@ public interface IgniteTablesInternal {
      * @return Table or {@code null} when not exists.
      * @throws NodeStoppingException If an implementation stopped before the method was invoked.
      */
-    TableImpl table(UUID id) throws NodeStoppingException;
+    TableImpl table(int id) throws NodeStoppingException;
 
     /**
      * Gets a table future by id. If the table exists, the future will point to it, otherwise to {@code null}.
@@ -42,7 +46,7 @@ public interface IgniteTablesInternal {
      * @return Future representing pending completion of the operation.
      * @throws NodeStoppingException If an implementation stopped before the method was invoked.
      */
-    CompletableFuture<TableImpl> tableAsync(UUID id) throws NodeStoppingException;
+    CompletableFuture<TableImpl> tableAsync(int id) throws NodeStoppingException;
 
     // TODO: IGNITE-16750 - the following two methods look a bit ugly, separation of public/internal Table aspects should help
 
@@ -73,4 +77,30 @@ public interface IgniteTablesInternal {
      *                         </ul>
      */
     CompletableFuture<TableImpl> tableImplAsync(String name);
+
+    /**
+     * Gets a list of the current table assignments.
+     *
+     * <p>Returns a list where on the i-th place resides a node id that considered as a leader for
+     * the i-th partition on the moment of invocation.
+     *
+     * @param tableId Unique id of a table.
+     * @return List of the current assignments.
+     */
+    @Nullable
+    List<String> assignments(int tableId) throws NodeStoppingException;
+
+    /**
+     * Adds a listener to track changes in {@link #assignments(UUID)}.
+     *
+     * @param listener Listener.
+     */
+    void addAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener);
+
+    /**
+     * Removes assignments change listener.
+     *
+     * @param listener Listener.
+     */
+    boolean removeAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener);
 }

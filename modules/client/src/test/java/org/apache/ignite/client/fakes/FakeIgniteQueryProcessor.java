@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.fakes;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -25,13 +26,14 @@ import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 
 /**
  * Fake {@link QueryProcessor}.
  */
 public class FakeIgniteQueryProcessor implements QueryProcessor {
     @Override
-    public SessionId createSession(PropertiesHolder queryProperties) {
+    public SessionId createSession(PropertiesHolder properties) {
         return new SessionId(UUID.randomUUID());
     }
 
@@ -41,14 +43,8 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     }
 
     @Override
-    public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params) {
-        return List.of(CompletableFuture.completedFuture(new FakeCursor()));
-    }
-
-    @Override
-    public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(QueryContext context, String schemaName,
-            String qry, Object... params) {
-        return List.of(CompletableFuture.completedFuture(new FakeCursor()));
+    public List<SessionInfo> liveSessions() {
+        return Collections.emptyList();
     }
 
     @Override

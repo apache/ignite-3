@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,12 +19,11 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXPRESSION_COMPILATION_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import java.io.Reader;
 import java.io.StringReader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -40,7 +39,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -51,33 +49,32 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.DataContexts;
 import org.apache.calcite.config.CalciteSystemProperty;
-import org.apache.calcite.config.Lex;
 import org.apache.calcite.config.NullCollation;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.Aggregate;
+import org.apache.calcite.rel.hint.HintPredicates;
 import org.apache.calcite.rel.hint.HintStrategyTable;
-import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.parser.SqlParseException;
-import org.apache.calcite.sql.parser.SqlParser;
+import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
-import org.apache.calcite.util.SourceStringReader;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
-import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
+import org.apache.calcite.util.mapping.Mappings.TargetMapping;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -85,30 +82,23 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.VarlenNativeType;
-import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexExecutorImpl;
+import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
-import org.apache.ignite.internal.sql.engine.prepare.AbstractMultiStepPlan;
-import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
-import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlConformance;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTraitDef;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteSystemProperties;
-import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
@@ -124,6 +114,23 @@ public final class Commons {
 
     public static final int IN_BUFFER_SIZE = 512;
 
+    public static final int IO_BATCH_SIZE = 256;
+    public static final int IO_BATCH_COUNT = 4;
+
+    /**
+     * The number of elements to be prefetched from each partition when scanning the sorted index.
+     * The higher the value, the fewer calls to the upstream will be, but at the same time, the bigger
+     * internal buffer will be.
+     */
+    public static final int SORTED_IDX_PART_PREFETCH_SIZE = 100;
+
+    @SuppressWarnings("rawtypes")
+    public static final List<RelTraitDef> DISTRIBUTED_TRAITS_SET = List.of(
+            ConventionTraitDef.INSTANCE,
+            RelCollationTraitDef.INSTANCE,
+            DistributionTraitDef.INSTANCE
+    );
+
     public static final FrameworkConfig FRAMEWORK_CONFIG = Frameworks.newConfigBuilder()
             .executor(new RexExecutorImpl(DataContexts.EMPTY))
             .sqlToRelConverterConfig(SqlToRelConverter.config()
@@ -136,20 +143,17 @@ public final class Commons {
                     .withExpand(false)
                     .withHintStrategyTable(
                             HintStrategyTable.builder()
-                                    .hintStrategy("DISABLE_RULE", (hint, rel) -> true)
-                                    .hintStrategy("EXPAND_DISTINCT_AGG", (hint, rel) -> rel instanceof Aggregate)
+                                    .hintStrategy(IgniteHint.ENFORCE_JOIN_ORDER.name(), HintPredicates.JOIN)
+                                    .hintStrategy(IgniteHint.DISABLE_RULE.name(), (hint, rel) -> true)
+                                    .hintStrategy(IgniteHint.EXPAND_DISTINCT_AGG.name(), HintPredicates.AGGREGATE)
                                     .build()
                     )
             )
             .convertletTable(IgniteConvertletTable.INSTANCE)
-            .parserConfig(
-                    SqlParser.config()
-                            .withParserFactory(IgniteSqlParserImpl.FACTORY)
-                            .withLex(Lex.ORACLE)
-                            .withConformance(IgniteSqlConformance.INSTANCE))
+            .parserConfig(IgniteSqlParser.PARSER_CONFIG)
             .sqlValidatorConfig(SqlValidator.Config.DEFAULT
                     .withIdentifierExpansion(true)
-                    .withDefaultNullCollation(NullCollation.LOW)
+                    .withDefaultNullCollation(NullCollation.HIGH)
                     .withSqlConformance(IgniteSqlConformance.INSTANCE)
                     .withTypeCoercionFactory(IgniteTypeCoercion::new))
             // Dialects support.
@@ -159,67 +163,10 @@ public final class Commons {
             // Custom cost factory to use during optimization
             .costFactory(new IgniteCostFactory())
             .typeSystem(IgniteTypeSystem.INSTANCE)
-            .traitDefs(new RelTraitDef<?>[] {
-                    ConventionTraitDef.INSTANCE,
-                    RelCollationTraitDef.INSTANCE,
-                    DistributionTraitDef.INSTANCE,
-                    RewindabilityTraitDef.INSTANCE,
-                    CorrelationTraitDef.INSTANCE,
-            })
+            .traitDefs(DISTRIBUTED_TRAITS_SET)
             .build();
 
-    private static Boolean implicitPkEnabled;
-
     private Commons() {
-    }
-
-    /**
-     * Create cursor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static <T> SqlCursor<T> createCursor(Iterable<T> iterable, QueryPlan plan) {
-        return createCursor(iterable.iterator(), plan);
-    }
-
-    /**
-     * Create cursor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static <T> SqlCursor<T> createCursor(Iterator<T> iter, QueryPlan plan) {
-        return new SqlCursor<>() {
-            @Override
-            public SqlQueryType queryType() {
-                return SqlQueryType.mapPlanTypeToSqlType(plan.type());
-            }
-
-            @Override
-            public ResultSetMetadata metadata() {
-                return plan instanceof AbstractMultiStepPlan ? ((MultiStepPlan) plan).metadata()
-                        : ((ExplainPlan) plan).metadata();
-            }
-
-            @Override
-            public void remove() {
-                iter.remove();
-            }
-
-            @Override
-            public boolean hasNext() {
-                return iter.hasNext();
-            }
-
-            @Override
-            public T next() {
-                return iter.next();
-            }
-
-            @Override
-            public void close() throws Exception {
-                if (iter instanceof AutoCloseable) {
-                    ((AutoCloseable) iter).close();
-                }
-            }
-        };
     }
 
     /**
@@ -322,6 +269,11 @@ public final class Commons {
         return typeFactory(cluster());
     }
 
+    /** Row-expression builder. **/
+    public static RexBuilder rexBuilder() {
+        return cluster().getRexBuilder();
+    }
+
     /**
      * Extracts query context.
      */
@@ -399,14 +351,6 @@ public final class Commons {
             }
         }
     }
-    //
-    //    /**
-    //     * @param o Object to close.
-    //     */
-    //    public static void closeQuiet(Object o) {
-    //        if (o instanceof AutoCloseable)
-    //            U.closeQuiet((AutoCloseable) o);
-    //    }
 
     /**
      * Flat.
@@ -414,42 +358,6 @@ public final class Commons {
      */
     public static <T> List<T> flat(List<List<? extends T>> src) {
         return src.stream().flatMap(List::stream).collect(Collectors.toList());
-    }
-
-    /**
-     * Max.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static int max(ImmutableIntList list) {
-        if (list.isEmpty()) {
-            throw new UnsupportedOperationException();
-        }
-
-        int res = list.getInt(0);
-
-        for (int i = 1; i < list.size(); i++) {
-            res = Math.max(res, list.getInt(i));
-        }
-
-        return res;
-    }
-
-    /**
-     * Min.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static int min(ImmutableIntList list) {
-        if (list.isEmpty()) {
-            throw new UnsupportedOperationException();
-        }
-
-        int res = list.getInt(0);
-
-        for (int i = 1; i < list.size(); i++) {
-            res = Math.min(res, list.getInt(i));
-        }
-
-        return res;
     }
 
     /**
@@ -467,7 +375,7 @@ public final class Commons {
             final ICompilerFactory compilerFactory;
 
             try {
-                compilerFactory = CompilerFactoryFactory.getDefaultCompilerFactory();
+                compilerFactory = CompilerFactoryFactory.getDefaultCompilerFactory(ExpressionFactoryImpl.class.getClassLoader());
             } catch (Exception e) {
                 throw new IllegalStateException(
                         "Unable to instantiate java compiler", e);
@@ -476,7 +384,6 @@ public final class Commons {
             IClassBodyEvaluator cbe = compilerFactory.newClassBodyEvaluator();
 
             cbe.setImplementedInterfaces(new Class[]{interfaceType});
-            cbe.setParentClassLoader(ExpressionFactoryImpl.class.getClassLoader());
 
             if (debug) {
                 // Add line numbers to the generated janino class
@@ -485,7 +392,7 @@ public final class Commons {
 
             return (T) cbe.createInstance(new StringReader(body));
         } catch (Exception e) {
-            throw new IgniteException(e);
+            throw new SqlException(EXPRESSION_COMPILATION_ERR, e);
         }
     }
 
@@ -538,28 +445,57 @@ public final class Commons {
     }
 
     /**
-     * Mapping.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates mapping to trim the fields.
+     *
+     * <p>To find a new index of element after trimming call {@code mapping.getTargetOpt(index)}.
+     *
+     * <p>This mapping can be used to adjust traits or aggregations, for example, when several fields have been truncated.
+     * Assume the following scenario:
+     * <pre>
+     *     We got a plan like below:
+     *
+     *     Project(b, d)
+     *       TableScan(t, Distribution(b:1, d:3)): RowType(a, b, c, d)
+     *
+     *     In order to decrease amount of occupied memory, we can trim
+     *     all the fields we aren't interested in. But such a trimming
+     *     should change and indexes in Distribution trait as well. The
+     *     plan after trimming should looks like this:
+     *
+     *     Project(b, d)
+     *       TableScan(t, Distribution(b:0, d:1)): RowType(b, d)
+     * </pre>
+     *
+     * @param sourceSize A size of the source collection.
+     * @param requiredElements A set of elements that should be preserved.
+     * @return A mapping for desired elements.
+     * @see org.apache.calcite.plan.RelTrait#apply(TargetMapping)
+     * @see org.apache.calcite.rel.core.AggregateCall#transform(TargetMapping)
      */
-    public static Mappings.TargetMapping mapping(ImmutableBitSet bitSet, int sourceSize) {
-        Mapping mapping = Mappings.create(MappingType.PARTIAL_FUNCTION, sourceSize, bitSet.cardinality());
-        for (Ord<Integer> ord : Ord.zip(bitSet)) {
+    public static Mappings.TargetMapping trimmingMapping(int sourceSize, ImmutableBitSet requiredElements) {
+        Mapping mapping = Mappings.create(MappingType.PARTIAL_FUNCTION, sourceSize, requiredElements.cardinality());
+        for (Ord<Integer> ord : Ord.zip(requiredElements)) {
             mapping.set(ord.e, ord.i);
         }
         return mapping;
     }
 
     /**
-     * InverseMapping.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Create a mapping to redo trimming made by {@link #trimmingMapping(int, ImmutableBitSet)}.
+     *
+     * <p>To find an old index of element before trimming call {@code mapping.getSourceOpt(index)}.
+     *
+     * <p>This mapping can be used to remap traits or aggregates back as if the trimming has never happened.
+     *
+     * @param sourceSize Count of elements in a non trimmed collection.
+     * @param requiredElements Elements which were preserved during trimming.
+     * @return A mapping to restore the original mapping.
+     * @see #trimmingMapping(int, ImmutableBitSet)
      */
-    public static Mappings.TargetMapping inverseMapping(ImmutableBitSet bitSet, int sourceSize) {
-        Mapping mapping = Mappings.create(MappingType.INVERSE_FUNCTION, sourceSize, bitSet.cardinality());
-        for (Ord<Integer> ord : Ord.zip(bitSet)) {
-            mapping.set(ord.e, ord.i);
-        }
-        return mapping;
+    public static Mappings.TargetMapping inverseTrimmingMapping(int sourceSize, ImmutableBitSet requiredElements) {
+        return Mappings.invert(trimmingMapping(sourceSize, requiredElements).inverse());
     }
+
 
     /**
      * Checks if there is a such permutation of all {@code elems} that is prefix of provided {@code seq}.
@@ -630,8 +566,10 @@ public final class Commons {
     }
 
     /**
-     * NativeTypeToClass.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Provide mapping Native types to java classes.
+     *
+     * @param type Native type
+     * @return Java corresponding class.
      */
     public static Class<?> nativeTypeToClass(NativeType type) {
         assert type != null;
@@ -687,6 +625,28 @@ public final class Commons {
 
             default:
                 throw new IllegalArgumentException("Unsupported type " + type.spec());
+        }
+    }
+
+    /**
+     * Provide mapping Native types to JDBC classes.
+     *
+     * @param type Native type
+     * @return JDBC corresponding class.
+     */
+    public static Class<?> nativeTypeToJdbcClass(NativeType type) {
+        assert type != null;
+
+        switch (type.spec()) {
+            case DATE:
+                return java.sql.Date.class;
+            case TIME:
+                return java.sql.Time.class;
+            case DATETIME:
+            case TIMESTAMP:
+                return java.sql.Timestamp.class;
+            default:
+                return nativeTypeToClass(type);
         }
     }
 
@@ -792,35 +752,6 @@ public final class Commons {
         };
     }
 
-    /**
-     * Parses a SQL statement.
-     *
-     * @param qry Query string.
-     * @param parserCfg Parser config.
-     * @return Parsed query.
-     */
-    public static SqlNodeList parse(String qry, SqlParser.Config parserCfg) {
-        try {
-            return parse(new SourceStringReader(qry), parserCfg);
-        } catch (SqlParseException e) {
-            throw new SqlException(QUERY_INVALID_ERR, "Failed to parse query", e);
-        }
-    }
-
-    /**
-     * Parses a SQL statement.
-     *
-     * @param reader Source string reader.
-     * @param parserCfg Parser config.
-     * @return Parsed query.
-     * @throws org.apache.calcite.sql.parser.SqlParseException on parse error.
-     */
-    public static SqlNodeList parse(Reader reader, SqlParser.Config parserCfg) throws SqlParseException {
-        SqlParser parser = SqlParser.create(reader, parserCfg);
-
-        return parser.parseStmtList();
-    }
-
     public static RelOptCluster cluster() {
         return CLUSTER;
     }
@@ -833,10 +764,65 @@ public final class Commons {
      * @return A {@code true} if implicit pk mode is enabled, {@code false} otherwise.
      */
     public static boolean implicitPkEnabled() {
-        if (implicitPkEnabled == null) {
-            implicitPkEnabled = IgniteSystemProperties.getBoolean("IMPLICIT_PK_ENABLED", false);
+        return IgniteSystemProperties.getBoolean("IMPLICIT_PK_ENABLED", false);
+    }
+
+    /**
+     * Returns a short version of a rule description.
+     *
+     * <p>Short description is used to match the rule to disable in DISABLE_RULE hint processor.
+     *
+     * @param rule A rule to derive description from.
+     * @return A short description of the rule.
+     */
+    public static String shortRuleName(RelOptRule rule) {
+        String ruleDescription = rule.toString();
+
+        int pos = ruleDescription.indexOf('(');
+
+        if (pos == -1) {
+            return ruleDescription;
         }
 
-        return implicitPkEnabled;
+        return ruleDescription.substring(0, pos);
+    }
+
+    /**
+     * Returns a {@link SqlQueryType} for the given {@link SqlNode}.
+     * 
+     * <p>If the given node is neither {@code QUERY}, nor {@code DDL}, nor {@code DML}, this method returns {@code null}.
+     *
+     * @param sqlNode An SQL node.
+     * @return A query type.
+     */
+    @Nullable
+    public static SqlQueryType getQueryType(SqlNode sqlNode) {
+        SqlKind sqlKind = sqlNode.getKind();
+        if (SqlKind.DDL.contains(sqlKind)) {
+            return SqlQueryType.DDL;
+        }
+
+        switch (sqlKind) {
+            case SELECT:
+            case ORDER_BY:
+            case WITH:
+            case VALUES:
+            case UNION:
+            case EXCEPT:
+            case INTERSECT:
+                return SqlQueryType.QUERY;
+
+            case INSERT:
+            case DELETE:
+            case UPDATE:
+            case MERGE:
+                return SqlQueryType.DML;
+
+            case EXPLAIN:
+                return SqlQueryType.EXPLAIN;
+
+            default:
+                return null;
+        }
     }
 }

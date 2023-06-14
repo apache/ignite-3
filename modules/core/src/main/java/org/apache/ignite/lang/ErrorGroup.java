@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -16,6 +16,8 @@
  */
 
 package org.apache.ignite.lang;
+
+import static java.util.regex.Pattern.DOTALL;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -36,7 +38,7 @@ public class ErrorGroup {
 
     /** Error message pattern. */
     private static final Pattern EXCEPTION_MESSAGE_PATTERN =
-            Pattern.compile("(.*)(IGN)-([A-Z]+)-(\\d+)\\s(TraceId:)([a-f0-9]{8}(?:-[a-f0-9]{4}){4}[a-f0-9]{8})(\\s?)(.*)");
+            Pattern.compile("(.*)(IGN)-([A-Z]+)-(\\d+)\\s(TraceId:)([a-f0-9]{8}(?:-[a-f0-9]{4}){4}[a-f0-9]{8})(\\s?)(.*)", DOTALL);
 
     /** List of all registered error groups. */
     private static final Int2ObjectMap<ErrorGroup> registeredGroups = new Int2ObjectOpenHashMap<>();
@@ -201,7 +203,8 @@ public class ErrorGroup {
      * @return New error message with predefined prefix.
      */
     public static String errorMessage(UUID traceId, String groupName, int code, String message) {
-        return ERR_PREFIX + groupName + '-' + extractErrorCode(code) + " TraceId:" + traceId + ((message != null) ? ' ' + message : "");
+        return ERR_PREFIX + groupName + '-' + extractErrorCode(code) + " TraceId:" + traceId
+                + ((message != null && !message.isEmpty()) ? ' ' + message : "");
     }
 
     /**
@@ -229,12 +232,27 @@ public class ErrorGroup {
         String c = (cause != null && cause.getMessage() != null) ? cause.getMessage() : null;
 
         if (c != null) {
-            Matcher m = EXCEPTION_MESSAGE_PATTERN.matcher(c);
-
-            c = (m.matches()) ? m.group(8) : c;
+            c = extractCauseMessage(c);
         }
 
         return errorMessage(traceId, groupName, code, c);
+    }
+
+    /**
+     * Returns a message extracted from the given {@code errorMessage} if this {@code errorMessage} matches
+     * {@link #EXCEPTION_MESSAGE_PATTERN}. If {@code errorMessage} does not match the pattern or {@code null} then returns the original
+     * {@code errorMessage}.
+     *
+     * @param errorMessage Message that is returned by {@link Throwable#getMessage()}
+     * @return Extracted message.
+     */
+    public static String extractCauseMessage(String errorMessage) {
+        if (errorMessage == null) {
+            return null;
+        }
+
+        Matcher m = EXCEPTION_MESSAGE_PATTERN.matcher(errorMessage);
+        return (m.matches()) ? m.group(8) : errorMessage;
     }
 
     /** {@inheritDoc} */

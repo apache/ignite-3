@@ -14,61 +14,27 @@
 // limitations under the License.
 = Data Region Configuration
 
-You can set configuration for data regions by using HOCON format. You can configure your data regions to run either RocksDB or B+Tree storage, and fine-tune their performance. A cluster can have several data regions, and you can select the preferred storage type for each.
+You can set configuration for data regions by using HOCON format. You can configure your data regions to run either RocksDB or B+Tree storage, and fine-tune their performance. A cluster can have several data regions, and you can select the preferred storage type for each. Configuration parameters for data regions are available in the storage-related articles.
 
-We recommend to use B+ Tree storage for read-heavy workloads, and RocksDB for write-heavy workloads.
+We recommend to use B+Tree storage for read-heavy workloads, and RocksDB for write-heavy workloads.
 
-
-=== RocksDB Region Configuration
-
-Below is the list of properties for link:https://rocksdb.org/[RocksDB,window=_blank] data regions:
-
-[cols="1,1,3",opts="header", stripes=none]
-|===
-|Property|Default|Description
-|name|| The name of the data region.
-|size| `256 * 1024 * 1024` | Size of the offheap cache.
-|writeBufferSize | `64 * 1024 * 1024` | Size of the write buffer.
-|cache| `lru` | The type of the cache to use. Currently only lru is supported.
-|numShardBits| `-1` | The number of parts the cache is sharded to.
-|===
-
-== Page Memory Region Configuration
-
-Page memory keeps data in B+Tree format. You can set up the following configuration parameters:
-
-[cols="1,1,3",opts="header", stripes=none]
-|===
-|name|| The name of the data region.
-|persistent|`false`| Specifies if the data region is persistent.
-|initSize|`256 * 1024 * 1024`| Sets the initial space allocated to the data region.
-|maxSize|`256 * 1024 * 1024`| Sets the maximum space that can be allocated to the data region.
-|evictionMode|`DISABLED`| Sets the eviction algorithm to use.
-|replacementMode|`CLOCK`| Sets the page replacement algorithm.
-|evictionThreshold|`0.9`| Configures when the eviction process starts.
-|emptyPagesPoolSize|100| The maximum number of empty pages Ignite will try to keep.
-|checkpointPageBufSize|0| Sets the size of the page buffer.
-|lazyMemoryAllocation|true|If enabled, memory will not be allocated until necessary.
-|===
 
 == Configuration Example
 
-The example below shows how to configure two data regions, one using RocksDB storage, and another using page memory:
+The example below shows how to configure two data regions, one using RocksDB storage, and another using a volatile page memory:
 
 ----
 ignite config set --type cluster \
 "{
-    rocksDb.regions: [{
+    rocksdb.regions: [{
         name: lsm_region,
         size: 256000000,
         cache: lru
     }],
 
-    pageMemory.regions: [{
-        name: btree_region,
-        persistent: false,
-        maxSize: 256000000,
-        lazyMemoryAllocation: true
+    aimem.regions: [{
+        name: btree_volatile_region,
+        maxSize: 256000000
     }]
 }"
 ----

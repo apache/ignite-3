@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -46,6 +46,9 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
     /** Sql query arguments. */
     private Object[] args;
 
+    /** Flag indicating whether auto-commit mode is enabled. */
+    private boolean autoCommit;
+
     /**
      * Default constructor. For deserialization purposes.
      */
@@ -61,11 +64,13 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
      * @param maxRows    Max rows.
      * @param sqlQry     SQL query.
      * @param args       Arguments list.
+     * @param autoCommit Flag indicating whether auto-commit mode is enabled.
      */
-    public JdbcQueryExecuteRequest(JdbcStatementType stmtType,
-            String schemaName, int pageSize, int maxRows, String sqlQry, Object[] args) {
+    public JdbcQueryExecuteRequest(JdbcStatementType stmtType, String schemaName,
+            int pageSize, int maxRows, String sqlQry, Object[] args, boolean autoCommit) {
         Objects.requireNonNull(stmtType);
 
+        this.autoCommit = autoCommit;
         this.stmtType = stmtType;
         this.schemaName = schemaName == null || schemaName.isEmpty() ? null : schemaName;
         this.pageSize = pageSize;
@@ -128,28 +133,39 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         return stmtType;
     }
 
+    /**
+     * Get flag indicating whether auto-commit mode is enabled.
+     *
+     * @return {@code true} if auto-commit mode is enabled, {@code false} otherwise.
+     */
+    public boolean autoCommit() {
+        return autoCommit;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
+        packer.packBoolean(autoCommit);
         packer.packByte(stmtType.getId());
         packer.packString(schemaName);
         packer.packInt(pageSize);
         packer.packInt(maxRows);
         packer.packString(sqlQry);
 
-        packer.packObjectArray(args);
+        packer.packObjectArrayAsBinaryTuple(args);
     }
 
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
+        autoCommit = unpacker.unpackBoolean();
         stmtType = JdbcStatementType.getStatement(unpacker.unpackByte());
         schemaName = unpacker.unpackString();
         pageSize = unpacker.unpackInt();
         maxRows = unpacker.unpackInt();
         sqlQry = unpacker.unpackString();
 
-        args = unpacker.unpackObjectArray();
+        args = unpacker.unpackObjectArrayFromBinaryTuple();
     }
 
     /** {@inheritDoc} */

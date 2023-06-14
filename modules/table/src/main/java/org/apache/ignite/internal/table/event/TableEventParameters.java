@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,57 +17,24 @@
 
 package org.apache.ignite.internal.table.event;
 
-import java.util.UUID;
 import org.apache.ignite.internal.manager.EventParameters;
-import org.apache.ignite.internal.table.TableImpl;
 
 /**
  * Table event parameters. There are properties which associate with a concrete table.
  */
 public class TableEventParameters extends EventParameters {
     /** Table identifier. */
-    private final UUID tableId;
-
-    /** Table name. */
-    private final String tableName;
-
-    /** Table instance. */
-    private final TableImpl table;
-
-    /**
-     * Constructor.
-     *
-     * @param causalityToken Causality token.
-     * @param table Table instance.
-     */
-    public TableEventParameters(long causalityToken, TableImpl table) {
-        this(causalityToken, table.tableId(), table.name(), table);
-    }
+    private final int tableId;
 
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
      * @param tableId   Table identifier.
-     * @param tableName Table name.
      */
-    public TableEventParameters(long causalityToken, UUID tableId, String tableName) {
-        this(causalityToken, tableId, tableName, null);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param causalityToken Causality token.
-     * @param tableId   Table identifier.
-     * @param tableName Table name.
-     * @param table     Table instance.
-     */
-    public TableEventParameters(long causalityToken, UUID tableId, String tableName, TableImpl table) {
+    public TableEventParameters(long causalityToken, int tableId) {
         super(causalityToken);
         this.tableId = tableId;
-        this.tableName = tableName;
-        this.table = table;
     }
 
     /**
@@ -75,25 +42,7 @@ public class TableEventParameters extends EventParameters {
      *
      * @return Table id.
      */
-    public UUID tableId() {
+    public int tableId() {
         return tableId;
-    }
-
-    /**
-     * Gets the table name.
-     *
-     * @return Table name.
-     */
-    public String tableName() {
-        return tableName;
-    }
-
-    /**
-     * Gets a table instance associated with the event.
-     *
-     * @return Table.
-     */
-    public TableImpl table() {
-        return table;
     }
 }

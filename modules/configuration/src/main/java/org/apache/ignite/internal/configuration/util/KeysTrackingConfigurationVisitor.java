@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.util;
 
 import java.io.Serializable;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -36,11 +37,11 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
 
     /** {@inheritDoc} */
     @Override
-    public final T visitLeafNode(String key, Serializable val) {
+    public final T visitLeafNode(Field field, String key, Serializable val) {
         int prevPos = startVisit(key, false, true);
 
         try {
-            return doVisitLeafNode(key, val);
+            return doVisitLeafNode(field, key, val);
         } finally {
             endVisit(prevPos);
         }
@@ -48,11 +49,11 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
 
     /** {@inheritDoc} */
     @Override
-    public final T visitInnerNode(String key, InnerNode node) {
+    public final T visitInnerNode(Field field, String key, InnerNode node) {
         int prevPos = startVisit(key, false, false);
 
         try {
-            return doVisitInnerNode(key, node);
+            return doVisitInnerNode(field, key, node);
         } finally {
             endVisit(prevPos);
         }
@@ -60,35 +61,35 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
 
     /** {@inheritDoc} */
     @Override
-    public final T visitNamedListNode(String key, NamedListNode<?> node) {
+    public final T visitNamedListNode(Field field, String key, NamedListNode<?> node) {
         int prevPos = startVisit(key, false, false);
 
         try {
-            return doVisitNamedListNode(key, node);
+            return doVisitNamedListNode(field, key, node);
         } finally {
             endVisit(prevPos);
         }
     }
 
     /**
-     * To be used instead of {@link ConfigurationVisitor#visitLeafNode(String, Serializable)}.
+     * To be used instead of {@link ConfigurationVisitor#visitLeafNode(Field, String, Serializable)}.
      *
      * @param key Name of the node retrieved from its holder object.
      * @param val Configuration value.
      * @return Anything that implementation decides to return.
      */
-    protected T doVisitLeafNode(String key, Serializable val) {
+    protected T doVisitLeafNode(Field field, String key, Serializable val) {
         return null;
     }
 
     /**
-     * To be used instead of {@link ConfigurationVisitor#visitInnerNode(String, InnerNode)}.
+     * To be used instead of {@link ConfigurationVisitor#visitInnerNode(Field, String, InnerNode)}.
      *
      * @param key  Name of the node retrieved from its holder object.
      * @param node Inner configuration node.
      * @return Anything that implementation decides to return.
      */
-    protected T doVisitInnerNode(String key, InnerNode node) {
+    protected T doVisitInnerNode(Field field, String key, InnerNode node) {
         node.traverseChildren(this, true);
 
         return null;
@@ -101,12 +102,12 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
      * @param node Named list inner configuration node.
      * @return Anything that implementation decides to return.
      */
-    protected T doVisitNamedListNode(String key, NamedListNode<?> node) {
+    protected T doVisitNamedListNode(Field field, String key, NamedListNode<?> node) {
         for (String namedListKey : node.namedListKeys()) {
             int prevPos = startVisit(namedListKey, true, false);
 
             try {
-                doVisitInnerNode(namedListKey, node.getInnerNode(namedListKey));
+                doVisitInnerNode(field, namedListKey, node.getInnerNode(namedListKey));
             } finally {
                 endVisit(prevPos);
             }

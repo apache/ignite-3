@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.function.Predicate;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 
 /**
@@ -45,11 +44,10 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx  Execution context.
-     * @param rowType Rel data type.
      * @param pred Predicate.
      */
-    public FilterNode(ExecutionContext<RowT> ctx, RelDataType rowType, Predicate<RowT> pred) {
-        super(ctx, rowType);
+    public FilterNode(ExecutionContext<RowT> ctx, Predicate<RowT> pred) {
+        super(ctx);
 
         this.pred = pred;
     }

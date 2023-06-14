@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -29,26 +29,32 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * FragmentMapping.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class FragmentMapping implements Serializable {
-    private List<ColocationGroup> colocationGroups;
+    private final List<ColocationGroup> colocationGroups;
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Assignments of a table that will be updated by the fragment.
+     *
+     * <p>Currently only one table can be modified by query. Used to dispatch the request.
      */
-    public FragmentMapping() {
-    }
+    private final @Nullable List<NodeWithTerm> updatingTableAssignments;
 
     private FragmentMapping(ColocationGroup colocationGroup) {
         this(asList(colocationGroup));
     }
 
     private FragmentMapping(List<ColocationGroup> colocationGroups) {
+        this(null, colocationGroups);
+    }
+
+    private FragmentMapping(@Nullable List<NodeWithTerm> updatingTableAssignments, List<ColocationGroup> colocationGroups) {
+        this.updatingTableAssignments = updatingTableAssignments;
         this.colocationGroups = colocationGroups;
     }
 
@@ -56,16 +62,8 @@ public class FragmentMapping implements Serializable {
      * Create.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static FragmentMapping create() {
-        return new FragmentMapping(Collections.emptyList());
-    }
-
-    /**
-     * Create.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static FragmentMapping create(String nodeId) {
-        return new FragmentMapping(ColocationGroup.forNodes(Collections.singletonList(nodeId)));
+    public static FragmentMapping create(String nodeName) {
+        return new FragmentMapping(ColocationGroup.forNodes(Collections.singletonList(nodeName)));
     }
 
     /**
@@ -105,7 +103,27 @@ public class FragmentMapping implements Serializable {
             return this;
         }
 
-        return new FragmentMapping(first(colocationGroups).prune(rel));
+        return new FragmentMapping(updatingTableAssignments, List.of(first(colocationGroups).prune(rel)));
+    }
+
+    /**
+     * Enriches the mapping with assignments of the table that will be modified by the fragment.
+     *
+     * <p>This assignments will be used by execution to dispatch the update request to the node managing
+     * the primary replica of particular partition.
+     *
+     * @param updatingTableAssignments Assignments of the table that will be modified.
+     * @return Enriched mapping.
+     */
+    public FragmentMapping updatingTableAssignments(List<NodeWithTerm> updatingTableAssignments) {
+        // currently only one table can be modified by query
+        assert this.updatingTableAssignments == null;
+
+        return new FragmentMapping(updatingTableAssignments, colocationGroups);
+    }
+
+    public List<NodeWithTerm> updatingTableAssignments() {
+        return updatingTableAssignments;
     }
 
     /**
@@ -113,7 +131,11 @@ public class FragmentMapping implements Serializable {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public FragmentMapping combine(FragmentMapping other) {
-        return new FragmentMapping(Commons.combine(colocationGroups, other.colocationGroups));
+        assert updatingTableAssignments == null || other.updatingTableAssignments == null;
+
+        List<NodeWithTerm> updatingTableAssignments = firstNotNull(this.updatingTableAssignments, other.updatingTableAssignments);
+
+        return new FragmentMapping(updatingTableAssignments, Commons.combine(colocationGroups, other.colocationGroups));
     }
 
     /**
@@ -122,16 +144,20 @@ public class FragmentMapping implements Serializable {
      */
     public FragmentMapping colocate(FragmentMapping other) throws ColocationMappingException {
         assert colocated() && other.colocated();
+        assert updatingTableAssignments == null || other.updatingTableAssignments == null;
 
         ColocationGroup first = first(colocationGroups);
         ColocationGroup second = first(other.colocationGroups);
+        List<NodeWithTerm> updatingTableAssignments = firstNotNull(this.updatingTableAssignments, other.updatingTableAssignments);
 
-        if (first == null && second == null) {
+        if (first == null && second == null && updatingTableAssignments == null) {
             return this;
+        } else if (first == null && second == null) {
+            return new FragmentMapping(updatingTableAssignments, List.of());
         } else if (first == null || second == null) {
-            return new FragmentMapping(firstNotNull(first, second));
+            return new FragmentMapping(updatingTableAssignments, List.of(firstNotNull(first, second)));
         } else {
-            return new FragmentMapping(first.colocate(second));
+            return new FragmentMapping(updatingTableAssignments, List.of(first.colocate(second)));
         }
     }
 
@@ -139,9 +165,9 @@ public class FragmentMapping implements Serializable {
      * NodeIds.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public List<String> nodeIds() {
+    public List<String> nodeNames() {
         return colocationGroups.stream()
-                .flatMap(g -> g.nodeIds().stream())
+                .flatMap(g -> g.nodeNames().stream())
                 .distinct().collect(Collectors.toList());
     }
 
@@ -156,14 +182,14 @@ public class FragmentMapping implements Serializable {
 
         List<ColocationGroup> colocationGroups = this.colocationGroups;
 
-        colocationGroups = Commons.transform(colocationGroups, ColocationGroup::finalaze);
+        colocationGroups = Commons.transform(colocationGroups, ColocationGroup::complete);
 
-        List<String> nodes = nodeIds();
+        List<String> nodes = nodeNames();
         List<String> nodes0 = nodes.isEmpty() ? nodesSource.get() : nodes;
 
         colocationGroups = Commons.transform(colocationGroups, g -> g.mapToNodes(nodes0));
 
-        return new FragmentMapping(colocationGroups);
+        return new FragmentMapping(updatingTableAssignments, colocationGroups);
     }
 
     /**

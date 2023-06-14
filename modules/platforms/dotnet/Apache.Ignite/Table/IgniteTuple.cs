@@ -19,7 +19,8 @@ namespace Apache.Ignite.Table
 {
     using System;
     using System.Collections.Generic;
-    using System.Text;
+    using System.Diagnostics.CodeAnalysis;
+    using Internal.Common;
 
     /// <summary>
     /// Ignite tuple.
@@ -27,6 +28,7 @@ namespace Apache.Ignite.Table
     public sealed class IgniteTuple : IIgniteTuple, IEquatable<IgniteTuple>
     {
         /** Key-value pairs. */
+        [SuppressMessage("Microsoft.Design", "CA1002:DoNotExposeGenericLists", Justification = "Private.")]
         private readonly List<(string Key, object? Value)> _pairs;
 
         /** Column index map. */
@@ -84,32 +86,18 @@ namespace Apache.Ignite.Table
         /// <inheritdoc />
         public override string ToString()
         {
-            if (FieldCount == 0)
-            {
-                return nameof(IgniteTuple) + " { }";
-            }
-
-            var sb = new StringBuilder();
-
-            sb.Append(nameof(IgniteTuple)).Append(" { ");
+            var builder = new IgniteToStringBuilder(GetType());
 
             for (var i = 0; i < FieldCount; i++)
             {
-                if (i > 0)
-                {
-                    sb.Append(", ");
-                }
-
-                sb.Append(GetName(i)).Append(" = ").Append(this[i]);
+                builder.Append(this[i], GetName(i));
             }
 
-            sb.Append(" }");
-
-            return sb.ToString();
+            return builder.Build();
         }
 
         /// <inheritdoc />
-        public bool Equals(IgniteTuple other)
+        public bool Equals(IgniteTuple? other)
         {
             return IIgniteTuple.Equals(this, other);
         }
@@ -126,19 +114,19 @@ namespace Apache.Ignite.Table
             return IIgniteTuple.GetHashCode(this);
         }
 
-        private static string ParseName(string str)
+        private static string ParseName(string name)
         {
-            if (string.IsNullOrEmpty(str))
+            if (string.IsNullOrEmpty(name))
             {
-                throw new IgniteClientException("Column name can not be null or empty.");
+                throw new ArgumentException("Column name can not be null or empty.");
             }
 
-            if (str.Length > 2 && str.StartsWith('"') && str.EndsWith('"'))
+            if (name.Length > 2 && name.StartsWith('"') && name.EndsWith('"'))
             {
-                return str.Substring(1, str.Length - 2);
+                return name.Substring(1, name.Length - 2);
             }
 
-            return str.ToUpperInvariant();
+            return name.ToUpperInvariant();
         }
     }
 }

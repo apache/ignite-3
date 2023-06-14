@@ -18,7 +18,7 @@ Apache Ignite is shipped with JDBC driver that allows processing of distributed 
 
 WARNING:
 ----
-This Alpha release implementation of JDBC driver does not support the following functionality:
+This Beta release implementation of JDBC driver does not support the following functionality:
 
 * SSL/TLS connection;
 * Multiple Endpoints;
@@ -28,7 +28,7 @@ This Alpha release implementation of JDBC driver does not support the following 
 
 == Setting Up
 
-The name of the driver’s class is `org.apache.ignite.jdbc.IgniteJdbcDriver`. For instance, this is how you can open a JDBC connection to the cluster node listening on IP address `192.168.0.50`:
+The name of the driver’s class is `org.apache.ignite.internal.jdbc.IgniteJdbcDriver`. For instance, this is how you can open a JDBC connection to the cluster node listening on IP address `192.168.0.50`:
 
 [source, java]
 ----

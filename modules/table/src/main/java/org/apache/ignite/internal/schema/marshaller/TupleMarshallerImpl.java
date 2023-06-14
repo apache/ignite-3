@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -24,8 +24,11 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
+import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
@@ -62,6 +65,18 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     public Row marshal(@NotNull Tuple tuple) throws TupleMarshallerException {
         try {
             SchemaDescriptor schema = schemaReg.schema();
+
+            if (tuple instanceof SchemaAware && tuple instanceof BinaryTupleContainer) {
+                SchemaDescriptor tupleSchema = ((SchemaAware) tuple).schema();
+                BinaryTupleReader tupleReader = ((BinaryTupleContainer) tuple).binaryTuple();
+
+                if (tupleSchema != null
+                        && tupleReader != null
+                        && tupleSchema.version() == schema.version()
+                        && !binaryTupleRebuildRequired(schema)) {
+                    return new Row(schema, RowAssembler.build(tupleReader.byteBuffer(), schema.version(), true));
+                }
+            }
 
             InternalTuple keyTuple0 = toInternalTuple(schema, tuple, true);
             InternalTuple valTuple0 = toInternalTuple(schema, tuple, false);
@@ -183,14 +198,15 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
         Columns columns = keyFlag ? schema.keyColumns() : schema.valueColumns();
 
-        int nonNullVarlen = 0;
-        int nonNullVarlenSize = 0;
+        boolean hasNulls = false;
+        int estimatedValueSize = 0;
         int knownColumns = 0;
         Map<String, Object> defaults = new HashMap<>();
 
         if (tuple instanceof SchemaAware && Objects.equals(((SchemaAware) tuple).schema(), schema)) {
             for (int i = 0, len = columns.length(); i < len; i++) {
                 final Column col = columns.column(i);
+                NativeType colType = col.type();
 
                 Object val = tuple.valueOrDefault(col.name(), POISON_OBJECT);
 
@@ -198,16 +214,18 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
                 knownColumns++;
 
-                if (val == null || columns.firstVarlengthColumn() < i) {
-                    continue;
+                if (val == null) {
+                    hasNulls = true;
+                } else if (colType.spec().fixedLength()) {
+                    estimatedValueSize += colType.sizeInBytes();
+                } else {
+                    estimatedValueSize += getValueSize(val, colType);
                 }
-
-                nonNullVarlenSize += getValueSize(val, col.type());
-                nonNullVarlen++;
             }
         } else {
             for (int i = 0, len = columns.length(); i < len; i++) {
                 final Column col = columns.column(i);
+                NativeType colType = col.type();
 
                 Object val = tuple.valueOrDefault(col.name(), POISON_OBJECT);
 
@@ -225,16 +243,17 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
                 col.validate(val);
 
-                if (val == null || columns.isFixedSize(i)) {
-                    continue;
+                if (val == null) {
+                    hasNulls = true;
+                } else if (colType.spec().fixedLength()) {
+                    estimatedValueSize += colType.sizeInBytes();
+                } else {
+                    estimatedValueSize += getValueSize(val, colType);
                 }
-
-                nonNullVarlenSize += getValueSize(val, col.type());
-                nonNullVarlen++;
             }
         }
 
-        return new InternalTuple(tuple, nonNullVarlen, nonNullVarlenSize, defaults, knownColumns);
+        return new InternalTuple(tuple, hasNulls, estimatedValueSize, defaults, knownColumns);
     }
 
     /**
@@ -291,13 +310,17 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @param valTuple Internal value tuple.
      * @return Row assembler.
      */
-    private RowAssembler createAssembler(SchemaDescriptor schema, InternalTuple keyTuple, InternalTuple valTuple) {
-        return new RowAssembler(
-                schema,
-                keyTuple.nonNullVarLenSize,
-                keyTuple.nonNullVarlen,
-                valTuple.nonNullVarLenSize,
-                valTuple.nonNullVarlen);
+    private static RowAssembler createAssembler(SchemaDescriptor schema, InternalTuple keyTuple, InternalTuple valTuple) {
+        Columns valueColumns = valTuple.tuple != null ? schema.valueColumns() : null;
+        boolean hasNulls = keyTuple.hasNulls || valTuple.hasNulls;
+        int totalValueSize;
+        if (keyTuple.estimatedValueSize < 0 || valTuple.estimatedValueSize < 0) {
+            totalValueSize = -1;
+        } else {
+            totalValueSize = keyTuple.estimatedValueSize + valTuple.estimatedValueSize;
+        }
+
+        return new RowAssembler(schema.keyColumns(), valueColumns, schema.version(), hasNulls, totalValueSize);
     }
 
     /**
@@ -308,8 +331,19 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @param tup    Internal tuple.
      * @throws SchemaMismatchException If a tuple column value doesn't match the current column type.
      */
-    private void writeColumn(RowAssembler rowAsm, Column col, InternalTuple tup) throws SchemaMismatchException {
+    private static void writeColumn(RowAssembler rowAsm, Column col, InternalTuple tup) throws SchemaMismatchException {
         RowAssembler.writeValue(rowAsm, col, tup.value(col.name()));
+    }
+
+    /**
+     * Determines whether binary tuple rebuild is required.
+     *
+     * @param schema Schema.
+     * @return True if binary tuple rebuild is required; false if the tuple can be written to storage as is.
+     */
+    private static boolean binaryTupleRebuildRequired(SchemaDescriptor schema) {
+        // Temporal columns require normalization according to the specified precision.
+        return schema.hasTemporalColumns();
     }
 
     /**
@@ -317,16 +351,16 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      */
     private static class InternalTuple {
         /** Cached zero statistics. */
-        static final InternalTuple NO_VALUE = new InternalTuple(null, 0, 0, null, 0);
+        static final InternalTuple NO_VALUE = new InternalTuple(null, false, 0, null, 0);
 
         /** Original tuple. */
         private final Tuple tuple;
 
-        /** Number of non-null varlen columns. */
-        private final int nonNullVarlen;
+        /** Whether there are NULL values or not. */
+        private final boolean hasNulls;
 
-        /** Length of all non-null fields of varlen types. */
-        private final int nonNullVarLenSize;
+        /** Estimated total size of the object. */
+        private final int estimatedValueSize;
 
         /** Pre-calculated defaults. */
         private final Map<String, Object> defaults;
@@ -337,15 +371,15 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         /**
          * Creates internal tuple.
          *
-         * @param tuple             Tuple.
-         * @param nonNullVarlen     Non-null varlen values.
-         * @param nonNullVarlenSize Total size of non-null varlen values.
-         * @param defaults          Default values map.
-         * @param knownColumns      Number of columns that match schema.
+         * @param tuple Tuple.
+         * @param hasNulls Whether there are NULL values or not..
+         * @param estimatedValueSize Estimated total size of the object.
+         * @param defaults Default values map.
+         * @param knownColumns Number of columns that match schema.
          */
-        InternalTuple(Tuple tuple, int nonNullVarlen, int nonNullVarlenSize, Map<String, Object> defaults, int knownColumns) {
-            this.nonNullVarlen = nonNullVarlen;
-            this.nonNullVarLenSize = nonNullVarlenSize;
+        InternalTuple(Tuple tuple, boolean hasNulls, int estimatedValueSize, Map<String, Object> defaults, int knownColumns) {
+            this.hasNulls = hasNulls;
+            this.estimatedValueSize = estimatedValueSize;
             this.tuple = tuple;
             this.defaults = defaults;
             this.knownColumns = knownColumns;

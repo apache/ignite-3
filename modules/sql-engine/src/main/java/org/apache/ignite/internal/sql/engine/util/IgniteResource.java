@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -37,4 +37,14 @@ public interface IgniteResource {
 
     @Resources.BaseMessage("Illegal value of {0}. The value must be positive and less than Integer.MAX_VALUE (" + Integer.MAX_VALUE + ").")
     Resources.ExInst<SqlValidatorException> correctIntegerLimit(String a0);
+
+    @Resources.BaseMessage("Invalid decimal literal.")
+    Resources.ExInst<SqlValidatorException> decimalLiteralInvalid();
+
+    @Resources.BaseMessage
+            ("Values passed to {0} operator must have compatible types. Dynamic parameter requires adding explicit type cast.")
+    Resources.ExInst<SqlValidatorException> operationRequiresExplicitCast(String operation);
+
+    @Resources.BaseMessage("Assignment from {0} to {1} can not be performed. Dynamic parameter requires adding explicit type cast.")
+    Resources.ExInst<SqlValidatorException> assignmentRequiresExplicitCast(String type1, String type2);
 }

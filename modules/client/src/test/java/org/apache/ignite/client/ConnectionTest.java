@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,11 +17,17 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.endsWith;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.UUID;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
+import org.apache.ignite.client.IgniteClient.Builder;
+import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -64,13 +70,30 @@ public class ConnectionTest extends AbstractClientTest {
         testConnection("127.0.0.1:47500", "127.0.0.1:10801", "127.0.0.1:" + serverPort);
     }
 
-    @Disabled("IPv6 is not enabled by default on some systems.")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15611 . IPv6 is not enabled by default on some systems.")
     @Test
     public void testIpv6NodeAddresses() throws Exception {
         testConnection("[::1]:" + serverPort);
     }
 
-    private void testConnection(String... addrs) throws Exception {
-        AbstractClientTest.startClient(addrs).close();
+    @SuppressWarnings("ThrowableNotThrown")
+    @Test
+    public void testNoResponseFromServerWithinConnectTimeoutThrowsException() throws Exception {
+        Function<Integer, Integer> responseDelay = x -> 500;
+
+        try (var srv = new TestServer(10800, 10, 300, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID(), null)) {
+            Builder builder = IgniteClient.builder()
+                    .addresses("127.0.0.1:" + srv.port())
+                    .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                    .connectTimeout(50);
+
+            assertThrowsWithCause(builder::build, TimeoutException.class);
+        }
+    }
+
+    private static void testConnection(String... addrs) throws Exception {
+        IgniteClient c = AbstractClientTest.startClient(addrs);
+
+        c.close();
     }
 }

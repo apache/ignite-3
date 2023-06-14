@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /** Tests for correlated queries. */
-public class ItCorrelatesTest extends AbstractBasicIntegrationTest {
+public class ItCorrelatesTest extends ClusterPerClassIntegrationTest {
     private static final String DISABLED_JOIN_RULES = " /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter') */ ";
 
     /**
@@ -57,32 +57,15 @@ public class ItCorrelatesTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    /** Checks that correlates can't be moved under the table spool. */
-    @Test
-    public void testCorrelatesWithTableSpool() {
-        sql("CREATE TABLE test(k INTEGER primary key, i1 INT, i2 INT)");
-
-        //TODO: IGNITE-16323 When the issue is not fixed the invocation required for update metadata.
-        CLUSTER_NODES.get(0).tables().tables();
-
-        sql("INSERT INTO test VALUES (1, 1, 1), (2, 2, 2)");
-
-        assertQuery("SELECT " + DISABLED_JOIN_RULES + " (SELECT t1.i1 + t1.i2 + t0.i2 FROM test t1 WHERE i1 = 1) FROM test t0")
-                .matches(containsSubPlan("IgniteCorrelatedNestedLoopJoin"))
-                .matches(containsSubPlan("IgniteTableSpool"))
-                .returns(3)
-                .returns(4)
-                .check();
-    }
-
     /**
-     * Tests resolving of collisions in correlates.
+     * Tests resolving of collisions in correlates with correlate variables in the left hand.
      */
     @Test
-    public void testCorrelatesCollision() {
+    public void testCorrelatesCollisionLeft() throws InterruptedException {
         sql("CREATE TABLE test1 (a INTEGER PRIMARY KEY, b INTEGER)");
-        sql("INSERT INTO test1 VALUES (11, 1), (12, 2), (13, 3)");
         sql("CREATE TABLE test2 (a INTEGER PRIMARY KEY, c INTEGER)");
+
+        sql("INSERT INTO test1 VALUES (11, 1), (12, 2), (13, 3)");
         sql("INSERT INTO test2 VALUES (11, 1), (12, 1), (13, 4)");
 
         // Collision by correlate variables in the left hand.
@@ -91,6 +74,18 @@ public class ItCorrelatesTest extends AbstractBasicIntegrationTest {
                 + "AND NOT EXISTS(SELECT * FROM test2 WHERE test1.a=test2.a AND test1.b<test2.c)")
                 .returns(12, 2)
                 .check();
+    }
+
+    /**
+     * Tests resolving of collisions in correlates with correlate variables in both, left and right hands.
+     */
+    @Test
+    public void testCorrelatesCollisionRight() throws InterruptedException {
+        sql("CREATE TABLE test1 (a INTEGER PRIMARY KEY, b INTEGER)");
+        sql("CREATE TABLE test2 (a INTEGER PRIMARY KEY, c INTEGER)");
+
+        sql("INSERT INTO test1 VALUES (11, 1), (12, 2), (13, 3)");
+        sql("INSERT INTO test2 VALUES (11, 1), (12, 1), (13, 4)");
 
         // Collision by correlate variables in both, left and right hands.
         assertQuery("SELECT * FROM test1 WHERE "

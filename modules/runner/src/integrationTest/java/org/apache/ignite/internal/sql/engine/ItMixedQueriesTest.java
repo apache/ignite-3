@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,29 +25,24 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.table.Table;
+import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Group of tests that still has not been sorted out. It’s better to avoid extending this class with new tests.
  */
-public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
+public class ItMixedQueriesTest extends ClusterPerClassIntegrationTest {
     /**
      * Before all.
      */
     @BeforeAll
     static void initTestData() {
-        Table emp1 = createTable("EMP1");
-        Table emp2 = createTable("EMP2");
+        createTable("EMP1");
+        createTable("EMP2");
 
         int idx = 0;
-        insertData(emp1, new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+        insertData("EMP1", List.of("ID", "NAME", "SALARY"), new Object[][]{
                 {idx++, "Igor", 10d},
                 {idx++, "Igor", 11d},
                 {idx++, "Igor", 12d},
@@ -58,7 +53,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         });
 
         idx = 0;
-        insertData(emp2, new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+        insertData("EMP2", List.of("ID", "NAME", "SALARY"), new Object[][]{
                 {idx++, "Roman", 10d},
                 {idx++, "Roman", 11d},
                 {idx++, "Roman", 12d},
@@ -208,24 +203,10 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(1, rows.size());
     }
 
-    @Test
-    public void testSequentialInserts() {
-        sql("CREATE TABLE t(x INTEGER PRIMARY KEY, y int)");
-
-        for (int i = 0; i < 10_000; i++) {
-            sql("INSERT INTO t VALUES (?,?)", i, i);
-        }
-
-        assertEquals(10_000L, sql("SELECT count(*) FROM t").get(0).get(0));
-
-        sql("DROP TABLE IF EXISTS t");
-    }
-
     /**
      * Verifies that table modification events are passed to a calcite schema modification listener.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
     public void testIgniteSchemaAwaresAlterTableCommand() {
         String selectAllQry = "select * from test_tbl";
 
@@ -243,20 +224,12 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
         assertQuery(selectAllQry).columnNames("ID", "VAL", "NEW_COL").check();
 
-        sql("alter table test_tbl add column if not exists new_col int");
-
-        assertQuery(selectAllQry).columnNames("ID", "VAL", "NEW_COL").check();
-
         sql("alter table test_tbl drop column new_col");
 
         assertQuery(selectAllQry).columnNames("ID", "VAL").check();
 
         // column with such name is not exists
         assertThrows(Exception.class, () -> sql("alter table test_tbl drop column new_col"));
-
-        assertQuery(selectAllQry).columnNames("ID", "VAL").check();
-
-        sql("alter table test_tbl drop column if exists new_col");
 
         assertQuery(selectAllQry).columnNames("ID", "VAL").check();
     }
@@ -303,93 +276,79 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     /**
-     * Test verifies that
-     * 1) proper indexes will be chosen for queries with different kinds of ordering, and
-     * 2) result set returned will be sorted as expected.
+     * Test verifies that 1) proper indexes will be chosen for queries with different kinds of ordering, and 2) result set returned will be
+     * sorted as expected.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17304")
-    public void testSelectWithOrdering() {
-        // sql("drop table if exists test_tbl", true);
-        // sql("create table test_tbl (c1 int)", true);
-        // sql("insert into test_tbl values (1), (2), (3), (null)", true);
+    public void testSelectWithOrdering() throws InterruptedException {
+        sql("drop table if exists test_tbl");
+        sql("create table test_tbl (k1 int primary key, c1 int)");
 
-        // sql("create index idx_asc on test_tbl (c1)", true);
-        // sql("create index idx_desc on test_tbl (c1 desc)", true);
+        sql("create index idx_asc on test_tbl (c1)");
+        sql("create index idx_desc on test_tbl (c1 desc)");
+
+        sql("insert into test_tbl values (1, 1), (2, 2), (3, 3), (4, null)");
 
         assertQuery("select c1 from test_tbl ORDER BY c1")
-                // .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_ASC"))
-                // .matches(not(containsSubPlan("IgniteSort")))
-                .ordered()
-                .returns(new Object[]{null})
-                .returns(1)
-                .returns(2)
-                .returns(3)
-                .check();
-
-        assertQuery("select c1 from test_tbl ORDER BY c1 asc nulls first")
                 .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_ASC"))
                 .matches(not(containsSubPlan("IgniteSort")))
                 .ordered()
-                .returns(new Object[]{null})
+                .returns(1)
+                .returns(2)
+                .returns(3)
+                .returns(null)
+                .check();
+
+        assertQuery("select c1 from test_tbl ORDER BY c1 asc nulls first")
+                .matches(containsSubPlan("IgniteSort"))
+                .ordered()
+                .returns(null)
                 .returns(1)
                 .returns(2)
                 .returns(3)
                 .check();
 
         assertQuery("select c1 from test_tbl ORDER BY c1 asc nulls last")
-                .matches(containsSubPlan("IgniteSort"))
+                .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_ASC"))
+                .matches(not(containsSubPlan("IgniteSort")))
                 .ordered()
                 .returns(1)
                 .returns(2)
                 .returns(3)
-                .returns(new Object[]{null})
+                .returns(null)
                 .check();
 
         assertQuery("select c1 from test_tbl ORDER BY c1 desc")
                 .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_DESC"))
                 .matches(not(containsSubPlan("IgniteSort")))
                 .ordered()
+                .returns(null)
                 .returns(3)
                 .returns(2)
                 .returns(1)
-                .returns(new Object[]{null})
                 .check();
 
         assertQuery("select c1 from test_tbl ORDER BY c1 desc nulls first")
-                .matches(containsSubPlan("IgniteSort"))
+                .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_DESC"))
+                .matches(not(containsSubPlan("IgniteSort")))
                 .ordered()
-                .returns(new Object[]{null})
+                .returns(null)
                 .returns(3)
                 .returns(2)
                 .returns(1)
                 .check();
 
         assertQuery("select c1 from test_tbl ORDER BY c1 desc nulls last")
-                .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_DESC"))
-                .matches(not(containsSubPlan("IgniteSort")))
+                .matches(containsSubPlan("IgniteSort"))
                 .ordered()
                 .returns(3)
                 .returns(2)
                 .returns(1)
-                .returns(new Object[]{null})
+                .returns(null)
                 .check();
     }
 
-    private static Table createTable(String tableName) {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", tableName)
-                .columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build(),
-                        SchemaBuilders.column("SALARY", ColumnType.DOUBLE).asNullable(true).build()
-                )
-                .withPrimaryKey("ID")
-                .build();
-
-        return CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        );
+    private static void createTable(String tableName) {
+        sql("CREATE TABLE " + tableName + "(id INT PRIMARY KEY, name VARCHAR, salary DOUBLE)");
     }
 }

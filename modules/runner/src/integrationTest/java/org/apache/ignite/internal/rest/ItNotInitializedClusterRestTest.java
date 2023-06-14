@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,20 +18,27 @@
 package org.apache.ignite.internal.rest;
 
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.matchesRegex;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -39,6 +46,18 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
+    /** <a href="https://semver.org">semver</a> compatible regex. */
+    private static final String IGNITE_SEMVER_REGEX =
+            "(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)((?<snapshot>-SNAPSHOT)|-(?<alpha>alpha\\d+)|--(?<beta>beta\\d+))?";
+
+    private ObjectMapper objectMapper;
+
+    @BeforeEach
+    @Override
+    void setUp(TestInfo testInfo) throws IOException, InterruptedException {
+        super.setUp(testInfo);
+        objectMapper = new ObjectMapper();
+    }
 
     @Test
     @DisplayName("Node configuration is available when the cluster in not initialized")
@@ -85,10 +104,13 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         HttpResponse<String> response = client.send(get("/management/v1/configuration/cluster"), BodyHandlers.ofString());
 
         // Expect cluster configuration is not available
-        assertThat(response.statusCode(), is(500));
-        // todo: check that human-readable problem json is returned
-        // "{\"message\":\"Internal Server Error\",\"_embedded\":{\"errors\":[{\"message\":\"Internal Server Error: null\"}]},
-        // \"_links\":{\"self\":{\"href\":\"/management/v1/configuration/cluster\",\"templated\":false}}}"
+        Problem problem = objectMapper.readValue(response.body(), Problem.class);
+        assertAll(
+                () -> assertThat(problem.status(), is(409)),
+                () -> assertThat(problem.title(), is("Conflict")),
+                () -> assertThat(problem.detail(),
+                        is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster."))
+        );
     }
 
     @Test
@@ -100,8 +122,14 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
                 BodyHandlers.ofString()
         );
 
-        // Expect
-        assertThat(response.statusCode(), is(500)); //todo
+        // Expect cluster configuration could not be updated
+        Problem problem = objectMapper.readValue(response.body(), Problem.class);
+        assertAll(
+                () -> assertThat(problem.status(), is(409)),
+                () -> assertThat(problem.title(), is("Conflict")),
+                () -> assertThat(problem.detail(),
+                        is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster."))
+        );
     }
 
     @Test
@@ -111,7 +139,13 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         HttpResponse<String> response = client.send(get("/management/v1/cluster/topology/logical"), BodyHandlers.ofString());
 
         // Then
-        assertThat(response.statusCode(), is(404));
+        Problem problem = objectMapper.readValue(response.body(), Problem.class);
+        assertAll(
+                () -> assertThat(problem.status(), is(409)),
+                () -> assertThat(problem.title(), is("Conflict")),
+                () -> assertThat(problem.detail(),
+                        is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster."))
+        );
     }
 
     @Test
@@ -127,7 +161,9 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
                 () -> assertThat(response.body(), hasJsonPath("$[0:2].name")),
                 () -> assertThat(response.body(), hasJsonPath("$[0:2].id")),
                 () -> assertThat(response.body(), hasJsonPath("$[0:2].address.host")),
-                () -> assertThat(response.body(), hasJsonPath("$[0:2].address.port"))
+                () -> assertThat(response.body(), hasJsonPath("$[0:2].address.port")),
+                () -> assertThat(response.body(), hasJsonPath("$[0:2].metadata.restPort")),
+                () -> assertThat(response.body(), hasJsonPath("$[0:2].metadata.restHost"))
         );
     }
 
@@ -152,6 +188,58 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         HttpResponse<String> response = client.send(get("/management/v1/cluster/state"), BodyHandlers.ofString());
 
         // Then
-        assertThat(response.statusCode(), is(404));
+        Problem problem = objectMapper.readValue(response.body(), Problem.class);
+        assertAll(
+                () -> assertThat(problem.status(), is(409)),
+                () -> assertThat(problem.title(), is("Conflict")),
+                () -> assertThat(problem.detail(),
+                        is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster."))
+        );
+    }
+
+    @Test
+    @DisplayName("Node version is available on not initialized cluster")
+    void nodeVersion() throws IOException, InterruptedException {
+        // When GET /management/v1/node/version/
+        HttpResponse<String> response = client.send(get("/management/v1/node/version/"), BodyHandlers.ofString());
+
+        // Then
+        assertThat(response.statusCode(), is(200));
+        // And version is a semver
+        assertThat(response.body(), matchesRegex(IGNITE_SEMVER_REGEX));
+    }
+
+    @Test
+    @DisplayName("Cluster is not initialized, if config is invalid")
+    void initClusterWithInvalidConfig() throws IOException, InterruptedException {
+        // When POST /management/v1/cluster/init with invalid config
+        String requestBody = "{\n"
+                + "    \"metaStorageNodes\": [\n"
+                + "        \"" + nodeNames.get(0) + "\"\n"
+                + "    ],\n"
+                + "    \"cmgNodes\": [],\n"
+                + "    \"clusterName\": \"cluster\",\n"
+                + "    \"clusterConfiguration\": \"{"
+                + "         security.authentication.enabled:true "
+                + "     }\"\n"
+                + "  }";
+
+        // Then
+        HttpResponse<String> initResponse = client.send(post("/management/v1/cluster/init", requestBody), BodyHandlers.ofString());
+        Problem initProblem = objectMapper.readValue(initResponse.body(), Problem.class);
+
+        assertThat(initResponse.statusCode(), is(400));
+        assertAll(
+                () -> assertThat(initProblem.status(), is(400)),
+                () -> assertThat(initProblem.title(), is("Bad Request")),
+                () -> assertThat(
+                        initProblem.detail(),
+                        containsString("Validation did not pass for keys: "
+                                + "[security.authentication, Providers must be present, if auth is enabled]")
+                )
+        );
+
+        // And cluster is not initialized
+        startingNodes.forEach(it -> assertThat(it, willTimeoutFast()));
     }
 }

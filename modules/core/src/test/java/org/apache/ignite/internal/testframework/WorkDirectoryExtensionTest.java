@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,6 +19,7 @@ package org.apache.ignite.internal.testframework;
 
 import static org.apache.ignite.internal.testframework.JunitExtensionTestUtils.assertExecutesSuccessfully;
 import static org.apache.ignite.internal.testframework.JunitExtensionTestUtils.assertExecutesWithFailure;
+import static org.apache.ignite.internal.testframework.WorkDirectoryExtension.keepWorkDirPropertyValid;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.not;
@@ -31,8 +32,10 @@ import static org.junit.platform.testkit.engine.TestExecutionResultConditions.me
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -204,16 +207,33 @@ class WorkDirectoryExtensionTest {
 
         private static Path file2;
 
+        private static Path file3;
+
+        private static final String TMP_PATH;
+
+        static {
+            try {
+                TMP_PATH = Files.createTempDirectory("testdir").toString();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
         @AfterAll
-        static void verify() throws IOException {
+        static void verify() {
             assertTrue(Files.exists(file1));
             assertFalse(Files.exists(file2));
+            assertFalse(Files.exists(file3));
+            assertTrue(Files.exists(Paths.get(TMP_PATH)));
 
-            Files.delete(file1);
+            IgniteUtils.deleteIfExists(file1.getParent());
+            IgniteUtils.deleteIfExists(Paths.get(TMP_PATH));
+
+            System.clearProperty(WorkDirectoryExtension.ARTIFACT_DIR_PROPERTY);
         }
 
         @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
-        @WithSystemProperty(key = WorkDirectoryExtension.KEEP_WORK_DIR_PROPERTY, value = "true")
+        @WithSystemProperty(key = WorkDirectoryExtension.KEEP_WORK_DIR_PROPERTY, value = "SystemPropertiesTest.test1")
         @Test
         void test1(@WorkDirectory Path workDir) throws IOException {
             file1 = Files.createFile(workDir.resolve("foo"));
@@ -223,6 +243,83 @@ class WorkDirectoryExtensionTest {
         @Test
         void test2(@WorkDirectory Path workDir) throws IOException {
             file2 = Files.createFile(workDir.resolve("foo"));
+        }
+
+        @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
+        @WithSystemProperty(key = WorkDirectoryExtension.KEEP_WORK_DIR_PROPERTY, value = "SystemPropertiesTest.test3")
+        @Test
+        void test3(@WorkDirectory Path workDir) throws IOException {
+            file3 = Files.createFile(workDir.resolve("foo"));
+
+            System.setProperty(WorkDirectoryExtension.ARTIFACT_DIR_PROPERTY, TMP_PATH);
+        }
+    }
+
+    /**
+     * Test class for the {@link #testSystemPropertyWithStaticWorkDir()} test.
+     */
+    @ExtendWith(SystemPropertiesExtension.class)
+    @ExtendWith(WorkDirectoryExtension.class)
+    @WithSystemProperty(key = WorkDirectoryExtension.KEEP_WORK_DIR_PROPERTY, value = "SystemPropertiesTestWithStaticWorkDir")
+    static class SystemPropertiesTestWithStaticWorkDir {
+        private static Path file1;
+
+        private static Path file2;
+
+        @WorkDirectory
+        static Path workDir;
+
+        @AfterAll
+        static void verify() {
+            assertTrue(Files.exists(file1));
+            assertTrue(Files.exists(file2));
+
+            IgniteUtils.deleteIfExists(file1.getParent());
+        }
+
+        @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
+        @Test
+        void test1() throws IOException {
+            file1 = Files.createFile(workDir.resolve("foo"));
+        }
+
+        @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
+        @Test
+        void test2() throws IOException {
+            file2 = Files.createFile(workDir.resolve("bar"));
+        }
+    }
+
+    /**
+     * Test class for the {@link #testSystemPropertyWithMultipleTests()} test.
+     */
+    @ExtendWith(SystemPropertiesExtension.class)
+    @ExtendWith(WorkDirectoryExtension.class)
+    @WithSystemProperty(key = WorkDirectoryExtension.KEEP_WORK_DIR_PROPERTY, value = "SystemPropertiesTestWithMultipleTests.test1,"
+            + "SystemPropertiesTestWithMultipleTests.test2")
+    static class SystemPropertiesTestWithMultipleTests {
+        private static Path file1;
+
+        private static Path file2;
+
+        @AfterAll
+        static void verify() {
+            assertTrue(Files.exists(file1));
+            assertTrue(Files.exists(file2));
+
+            IgniteUtils.deleteIfExists(file1.getParent());
+        }
+
+        @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
+        @Test
+        void test1(@WorkDirectory Path workDir) throws IOException {
+            file1 = Files.createFile(workDir.resolve("foo"));
+        }
+
+        @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
+        @Test
+        void test2(@WorkDirectory Path workDir) throws IOException {
+            file2 = Files.createFile(workDir.resolve("bar"));
         }
     }
 
@@ -235,6 +332,38 @@ class WorkDirectoryExtensionTest {
     }
 
     /**
+     * Tests that a static work directory can be preserved when a special system property is set.
+     */
+    @Test
+    void testSystemPropertyWithStaticWorkDir() {
+        assertExecutesSuccessfully(SystemPropertiesTestWithMultipleTests.class);
+    }
+
+    /**
+     * Tests that a static work directory can be preserved when a special system property is set.
+     */
+    @Test
+    void testSystemPropertyWithMultipleTests() {
+        assertExecutesSuccessfully(SystemPropertiesTestWithMultipleTests.class);
+    }
+
+    /**
+     * Tests {@link WorkDirectoryExtension#keepWorkDirPropertyValid}.
+     */
+    @Test
+    void testKeepWorkDirectoryPattern() {
+        assertTrue(keepWorkDirPropertyValid("Foo"));
+        assertTrue(keepWorkDirPropertyValid("Foo.bar"));
+        assertTrue(keepWorkDirPropertyValid("Foo,Foo"));
+        assertTrue(keepWorkDirPropertyValid("Foo.bar,Foo"));
+        assertTrue(keepWorkDirPropertyValid("Foo.bar,Foo.bar"));
+
+        assertFalse(keepWorkDirPropertyValid("Foo#bar"));
+        assertFalse(keepWorkDirPropertyValid("Foo.bar, Foo"));
+        assertFalse(keepWorkDirPropertyValid("Foo ,Foo.bar"));
+    }
+
+    /**
      * Test class for the {@link #testEmptyClass()} test.
      */
     @ExtendWith(WorkDirectoryExtension.class)
@@ -242,7 +371,7 @@ class WorkDirectoryExtensionTest {
         @WorkDirectory
         private Path workDir;
 
-        @Disabled
+        @Disabled("https://issues.apache.org/jira/browse/IGNITE-15799")
         @Test
         void test() {
         }

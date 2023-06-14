@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -28,7 +28,7 @@ import java.lang.annotation.Target;
  * This annotation marks the {@link PolymorphicConfig polymorphic configuration schema} field as a special (read only) leaf that will store
  * the current {@link PolymorphicConfigInstance#value polymorphic configuration type}.
  *
- * <p>NOTE: Field must be the first in the schema, and the type must be {@link String}.
+ * <p>NOTE: Field type must be {@link String}.
  */
 @Target(FIELD)
 @Retention(RUNTIME)

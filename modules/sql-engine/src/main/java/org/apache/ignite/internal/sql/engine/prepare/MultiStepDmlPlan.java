@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,8 +20,10 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import java.util.List;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlColumnType;
 
 /**
  * Distributed dml plan.
@@ -29,7 +31,8 @@ import org.apache.ignite.sql.SqlColumnType;
 public class MultiStepDmlPlan extends AbstractMultiStepPlan {
     /** DML metadata holder. */
     private static final ResultSetMetadata DML_METADATA = new ResultSetMetadataImpl(List.of(
-            new ColumnMetadataImpl("ROWCOUNT", SqlColumnType.INT64, -1, Integer.MIN_VALUE, false, null)));
+            new ColumnMetadataImpl("ROWCOUNT", ColumnType.INT64,
+                    ColumnMetadata.UNDEFINED_PRECISION, ColumnMetadata.UNDEFINED_SCALE, false, null)));
 
     /**
      * Constructor.
@@ -40,8 +43,8 @@ public class MultiStepDmlPlan extends AbstractMultiStepPlan {
     }
 
     /** {@inheritDoc} */
-    @Override public Type type() {
-        return Type.DML;
+    @Override public SqlQueryType type() {
+        return SqlQueryType.DML;
     }
 
     /** {@inheritDoc} */

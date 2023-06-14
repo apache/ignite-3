@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,21 +18,20 @@
 package org.apache.ignite.internal.cluster.management.raft.responses;
 
 import java.io.Serializable;
-import java.util.Collection;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 
 /**
  * Response containing the current logical topology.
  */
 public class LogicalTopologyResponse implements Serializable {
-    private final Collection<ClusterNode> topology;
+    private final LogicalTopologySnapshot topology;
 
     /**
      * Creates a new response.
      *
      * @param topology Logical topology.
      */
-    public LogicalTopologyResponse(Collection<ClusterNode> topology) {
+    public LogicalTopologyResponse(LogicalTopologySnapshot topology) {
         this.topology = topology;
     }
 
@@ -41,7 +40,7 @@ public class LogicalTopologyResponse implements Serializable {
      *
      * @return Logical topology.
      */
-    public Collection<ClusterNode> logicalTopology() {
+    public LogicalTopologySnapshot logicalTopology() {
         return topology;
     }
 }

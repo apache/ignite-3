@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,8 +20,6 @@ package org.apache.ignite.internal.schema;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.BitSet;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.ColumnType.TemporalColumnType;
 import org.jetbrains.annotations.Contract;
 
 /**
@@ -103,7 +101,7 @@ public class NativeTypes {
     /**
      * Creates a STRING type with maximal length is <code>len</code>.
      *
-     * @param len Maximum length of the string.
+     * @param len Maximum length of the string, {@link Integer#MAX_VALUE} if not defined.
      * @return Native type.
      */
     public static NativeType stringOf(int len) {
@@ -113,7 +111,7 @@ public class NativeTypes {
     /**
      * Creates a BYTES type with maximal length is <code>len</code>.
      *
-     * @param len Maximum length of the byte array.
+     * @param len Maximum length of the byte array, {@link Integer#MAX_VALUE} if not defined.
      * @return Native type.
      */
     public static NativeType blobOf(int len) {
@@ -148,7 +146,7 @@ public class NativeTypes {
      * @see #time(int)
      */
     public static NativeType time() {
-        return TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_TIME_PRECISION);
+        return TemporalNativeType.time(TemporalNativeType.DEFAULT_TIME_PRECISION);
     }
 
     /**
@@ -168,7 +166,7 @@ public class NativeTypes {
      * @see #datetime(int)
      */
     public static NativeType datetime() {
-        return TemporalNativeType.datetime(TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION);
+        return TemporalNativeType.datetime(TemporalNativeType.DEFAULT_TIMESTAMP_PRECISION);
     }
 
     /**
@@ -188,7 +186,7 @@ public class NativeTypes {
      * @see #timestamp(int)
      */
     public static NativeType timestamp() {
-        return TemporalNativeType.timestamp(ColumnType.TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION);
+        return TemporalNativeType.timestamp(TemporalNativeType.DEFAULT_TIMESTAMP_PRECISION);
     }
 
     /**

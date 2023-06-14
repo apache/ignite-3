@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.io;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 
@@ -46,7 +47,7 @@ public interface ClientConnectionMultiplexer {
      * @return Created connection.
      * @throws IgniteClientConnectionException when connection can't be established.
      */
-    ClientConnection open(
+    CompletableFuture<ClientConnection> openAsync(
             InetSocketAddress addr,
             ClientMessageHandler msgHnd,
             ClientConnectionStateHandler stateHnd)

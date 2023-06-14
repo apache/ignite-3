@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,27 +19,31 @@ package org.apache.ignite.client.fakes;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.configuration.schemas.table.TableChange;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
-import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Fake tables.
  */
-public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
+public class FakeIgniteTables implements IgniteTablesInternal {
     public static final String TABLE_EXISTS = "Table exists";
 
     public static final String TABLE_ALL_COLUMNS = "all-columns";
@@ -48,18 +52,43 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     public static final String TABLE_WITH_DEFAULT_VALUES = "default-columns";
 
+    public static final String TABLE_COMPOSITE_KEY = "composite-key";
+
+    public static final String TABLE_COLOCATION_KEY = "colocation-key";
+
     public static final String BAD_TABLE = "bad-table";
 
     public static final String BAD_TABLE_ERR = "Err!";
 
     private final ConcurrentHashMap<String, TableImpl> tables = new ConcurrentHashMap<>();
 
-    private final ConcurrentHashMap<UUID, TableImpl> tablesById = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, TableImpl> tablesById = new ConcurrentHashMap<>();
 
-    /** {@inheritDoc} */
-    @Override
-    public Table createTable(String name, Consumer<TableChange> tableInitChange) {
-        var newTable = getNewTable(name);
+    private final CopyOnWriteArrayList<Consumer<IgniteTablesInternal>> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
+
+    private volatile List<String> partitionAssignments = null;
+
+    private final AtomicInteger nextTableId = new AtomicInteger(1);
+
+    /**
+     * Creates a table.
+     *
+     * @param name Table name.
+     * @return Table.
+     */
+    public Table createTable(String name) {
+        return createTable(name, nextTableId.getAndIncrement());
+    }
+
+    /**
+     * Creates a table.
+     *
+     * @param name Table name.
+     * @param id Table id.
+     * @return Table.
+     */
+    public TableImpl createTable(String name, int id) {
+        var newTable = getNewTable(name, id);
 
         var oldTable = tables.putIfAbsent(name, newTable);
 
@@ -72,39 +101,17 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
         return newTable;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange) {
-        return CompletableFuture.completedFuture(createTable(name, tableInitChange));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void alterTable(String name, Consumer<TableChange> tableChange) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Drops a table.
+     *
+     * @param name Table name.
+     */
     public void dropTable(String name) {
         var table = tables.remove(name);
 
         if (table != null) {
             tablesById.remove(table.tableId());
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> dropTableAsync(String name) {
-        dropTable(name);
-
-        return CompletableFuture.completedFuture(null);
     }
 
     /** {@inheritDoc} */
@@ -131,7 +138,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public TableImpl table(UUID id) {
+    public TableImpl table(int id) {
         return tablesById.get(id);
     }
 
@@ -143,7 +150,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<TableImpl> tableAsync(UUID id) {
+    public CompletableFuture<TableImpl> tableAsync(int id) {
         return CompletableFuture.completedFuture(tablesById.get(id));
     }
 
@@ -159,8 +166,43 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
         return CompletableFuture.completedFuture(tableImpl(name));
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public List<String> assignments(int tableId) {
+        return partitionAssignments;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void addAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
+        Objects.requireNonNull(listener);
+
+        assignmentsChangeListeners.add(listener);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean removeAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
+        Objects.requireNonNull(listener);
+
+        return assignmentsChangeListeners.remove(listener);
+    }
+
+    /**
+     * Sets partition assignments.
+     *
+     * @param assignments Assignments.
+     */
+    public void setPartitionAssignments(List<String> assignments) {
+        partitionAssignments = assignments;
+
+        for (var listener : assignmentsChangeListeners) {
+            listener.accept(this);
+        }
+    }
+
     @NotNull
-    private TableImpl getNewTable(String name) {
+    private TableImpl getNewTable(String name, int id) {
         Function<Integer, SchemaDescriptor> history;
 
         switch (name) {
@@ -176,14 +218,28 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                 history = this::getDefaultColumnValuesSchema;
                 break;
 
+            case TABLE_COMPOSITE_KEY:
+                history = this::getCompositeKeySchema;
+                break;
+
+            case TABLE_COLOCATION_KEY:
+                history = this::getColocationKeySchema;
+                break;
+
             default:
                 history = this::getSchema;
                 break;
         }
 
+        FakeSchemaRegistry schemaReg = new FakeSchemaRegistry(history);
+        Function<BinaryRow, BinaryTuple> keyExtractor = binaryRow -> {
+            SchemaDescriptor schema = schemaReg.schema(binaryRow.schemaVersion());
+            return BinaryRowConverter.keyExtractor(schema).apply(binaryRow);
+        };
         return new TableImpl(
-                new FakeInternalTable(name, UUID.randomUUID()),
-                new FakeSchemaRegistry(history)
+                new FakeInternalTable(name, id, keyExtractor),
+                schemaReg,
+                new HeapLockManager()
         );
     }
 
@@ -224,7 +280,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
         return new SchemaDescriptor(
                 v,
                 new Column[]{
-                        new Column("gid".toUpperCase(), NativeTypes.INT32, false),
+                        new Column("gid".toUpperCase(), NativeTypes.INT64, false),
                         new Column("id".toUpperCase(), NativeTypes.STRING, false)
                 },
                 new Column[]{
@@ -241,7 +297,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                         new Column("zbytes".toUpperCase(), NativeTypes.BYTES, true),
                         new Column("zuuid".toUpperCase(), NativeTypes.UUID, true),
                         new Column("zbitmask".toUpperCase(), NativeTypes.bitmaskOf(16), true),
-                        new Column("zdecimal".toUpperCase(), NativeTypes.decimalOf(20, 3), true),
+                        new Column("zdecimal".toUpperCase(), NativeTypes.decimalOf(20, 10), true),
                         new Column("znumber".toUpperCase(), NativeTypes.numberOf(24), true),
                 });
     }
@@ -263,6 +319,48 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                         new Column("str".toUpperCase(), NativeTypes.STRING, true, DefaultValueProvider.constantProvider("def_str")),
                         new Column("strNonNull".toUpperCase(), NativeTypes.STRING,
                                 false, DefaultValueProvider.constantProvider("def_str2")),
+                });
+    }
+
+    /**
+     * Gets the schema.
+     *
+     * @param v Version.
+     * @return Schema descriptor.
+     */
+    private SchemaDescriptor getCompositeKeySchema(Integer v) {
+        return new SchemaDescriptor(
+                v,
+                new Column[]{
+                        new Column("ID1", NativeTypes.INT32, false),
+                        new Column("ID2", NativeTypes.STRING, false)
+                },
+                new Column[]{
+                        new Column("STR", NativeTypes.STRING, true)
+                });
+    }
+
+
+    /**
+     * Gets the schema.
+     *
+     * @param v Version.
+     * @return Schema descriptor.
+     */
+    private SchemaDescriptor getColocationKeySchema(Integer v) {
+        Column colocationCol1 = new Column("COLO-1", NativeTypes.STRING, false);
+        Column colocationCol2 = new Column("COLO-2", NativeTypes.INT64, true);
+
+        return new SchemaDescriptor(
+                v,
+                new Column[]{
+                        new Column("ID", NativeTypes.INT32, false),
+                },
+                new String[]{ colocationCol1.name(), colocationCol2.name() },
+                new Column[]{
+                        colocationCol1,
+                        colocationCol2,
+                        new Column("STR", NativeTypes.STRING, true)
                 });
     }
 

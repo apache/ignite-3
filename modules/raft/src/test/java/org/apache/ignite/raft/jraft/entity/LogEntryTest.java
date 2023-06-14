@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class LogEntryTest {
@@ -36,7 +37,7 @@ public class LogEntryTest {
         LogEntry entry = new LogEntry(EnumOutter.EntryType.ENTRY_TYPE_NO_OP);
         entry.setId(new LogId(100, 3));
         entry.setPeers(Arrays.asList(new PeerId("localhost", 99, 1), new PeerId("localhost", 100, 2)));
-        assertNull(entry.getData());
+        assertSame(LogEntry.EMPTY_DATA, entry.getData());
         assertNull(entry.getOldPeers());
 
         DefaultLogEntryCodecFactory factory = DefaultLogEntryCodecFactory.getInstance();
@@ -55,7 +56,7 @@ public class LogEntryTest {
         assertEquals(2, nentry.getPeers().size());
         assertEquals("localhost:99:1", nentry.getPeers().get(0).toString());
         assertEquals("localhost:100:2", nentry.getPeers().get(1).toString());
-        assertNull(nentry.getData());
+        assertSame(LogEntry.EMPTY_DATA, entry.getData());
         assertNull(nentry.getOldPeers());
     }
 

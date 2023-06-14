@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,6 +22,7 @@ import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
@@ -30,6 +31,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Splits a query into a list of query fragments.
@@ -37,7 +40,9 @@ import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
 public class Splitter extends IgniteRelShuttle {
     private final Deque<FragmentProto> stack = new LinkedList<>();
 
-    private FragmentProto curr;
+    private @Nullable FragmentProto curr;
+
+    private boolean correlated = false;
 
     /**
      * Go.
@@ -46,10 +51,21 @@ public class Splitter extends IgniteRelShuttle {
     public List<Fragment> go(IgniteRel root) {
         ArrayList<Fragment> res = new ArrayList<>();
 
-        stack.push(new FragmentProto(IdGenerator.nextId(), root));
+        stack.push(new FragmentProto(IdGenerator.nextId(), false, root));
 
         while (!stack.isEmpty()) {
             curr = stack.pop();
+
+            // We need to clone it after CALCITE-5503, otherwise it become possible to obtain equals multiple inputs i.e.:
+            //          rel#348IgniteExchange
+            //          rel#287IgniteMergeJoin
+            //       _____|             |_____
+            //       V                       V
+            //   IgniteSort#285            IgniteSort#285
+            //   IgniteTableScan#180       IgniteTableScan#180
+            curr.root = Cloner.clone(curr.root);
+
+            correlated = curr.correlated;
 
             curr.root = visit(curr.root);
 
@@ -69,6 +85,24 @@ public class Splitter extends IgniteRelShuttle {
 
     /** {@inheritDoc} */
     @Override
+    public IgniteRel visit(IgniteCorrelatedNestedLoopJoin rel) {
+        List<IgniteRel> inputs = Commons.cast(rel.getInputs());
+
+        assert inputs.size() == 2;
+
+        visitChild(rel, 0, inputs.get(0));
+
+        boolean correlatedBefore = correlated;
+
+        correlated = true;
+        visitChild(rel, 1, inputs.get(1));
+        correlated = correlatedBefore;
+
+        return rel;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public IgniteRel visit(IgniteExchange rel) {
         RelOptCluster cluster = rel.getCluster();
 
@@ -81,7 +115,7 @@ public class Splitter extends IgniteRelShuttle {
                 rel.distribution());
 
         curr.remotes.add(receiver);
-        stack.push(new FragmentProto(sourceFragmentId, sender));
+        stack.push(new FragmentProto(sourceFragmentId, correlated, sender));
 
         return receiver;
     }
@@ -106,18 +140,20 @@ public class Splitter extends IgniteRelShuttle {
 
     private static class FragmentProto {
         private final long id;
+        private final boolean correlated;
 
         private IgniteRel root;
 
         private final List<IgniteReceiver> remotes = new ArrayList<>();
 
-        private FragmentProto(long id, IgniteRel root) {
+        private FragmentProto(long id, boolean correlated, IgniteRel root) {
             this.id = id;
+            this.correlated = correlated;
             this.root = root;
         }
 
         Fragment build() {
-            return new Fragment(id, root, List.copyOf(remotes));
+            return new Fragment(id, correlated, root, List.copyOf(remotes));
         }
     }
 }

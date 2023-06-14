@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -29,8 +29,9 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Convenience class representing mutable tuple of three values.
- * <h2 class="header">Thread Safety</h2>
- * This class doesn't provide any synchronization for multi-threaded access and it is responsibility of the user of this class to provide
+ *
+ * <p>This class does not provide any synchronization for multi-threaded access
+ * and it is responsibility of the user of this class to provide
  * outside synchronization, if needed.
  */
 public class IgniteTuple3<V1, V2, V3> implements Iterable<Object>, Externalizable, Cloneable {

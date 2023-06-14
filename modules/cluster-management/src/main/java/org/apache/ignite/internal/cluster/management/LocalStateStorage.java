@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -64,7 +64,7 @@ class LocalStateStorage {
      */
     CompletableFuture<LocalState> getLocalState() {
         return vault.get(CMG_STATE_VAULT_KEY)
-                .thenApply(entry -> entry == null ? null : (LocalState) ByteUtils.fromBytes(entry.value()));
+                .thenApply(entry -> entry == null ? null : ByteUtils.fromBytes(entry.value()));
     }
 
     /**

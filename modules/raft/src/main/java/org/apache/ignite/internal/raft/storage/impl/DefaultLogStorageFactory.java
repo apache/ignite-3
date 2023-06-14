@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -30,8 +30,8 @@ import java.util.concurrent.Executors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
@@ -127,10 +127,10 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void close() {
         ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
 
-        IgniteUtils.closeAll(confHandle, dataHandle, db, dbOptions);
+        RocksUtils.closeAll(confHandle, dataHandle, db, dbOptions);
     }
 
     /** {@inheritDoc} */

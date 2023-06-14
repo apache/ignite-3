@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -59,22 +59,22 @@ public class CmgMessageHandlerFactory {
      * @return Handler proxy with added common logic.
      */
     public NetworkMessageHandler wrapHandler(NetworkMessageHandler handler) {
-        return (message, senderAddr, correlationId) -> {
+        return (message, sender, correlationId) -> {
             if (!busyLock.enterBusy()) {
                 if (correlationId != null) {
-                    clusterService.messagingService().respond(senderAddr, initFailed(new NodeStoppingException()), correlationId);
+                    clusterService.messagingService().respond(sender, initFailed(new NodeStoppingException()), correlationId);
                 }
 
                 return;
             }
 
             try {
-                handler.onReceived(message, senderAddr, correlationId);
+                handler.onReceived(message, sender, correlationId);
             } catch (Exception e) {
                 LOG.debug("CMG message handling failed", e);
 
                 if (correlationId != null) {
-                    clusterService.messagingService().respond(senderAddr, initFailed(e), correlationId);
+                    clusterService.messagingService().respond(sender, initFailed(e), correlationId);
                 }
             } finally {
                 busyLock.leaveBusy();

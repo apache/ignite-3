@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -23,7 +23,11 @@ package org.apache.ignite.internal.rest.constants;
 public enum HttpCode {
     OK(200, "OK"),
     BAD_REQUEST(400, "Bad Request"),
+    UNAUTHORIZED(401, "Unauthorized"),
+    FORBIDDEN(403, "Forbidden"),
     NOT_FOUND(404, "Not Found"),
+    // May be used in case of "Already exists" problem.
+    CONFLICT(409, "Conflict"),
     INTERNAL_ERROR(500, "Internal Server Error");
 
     private final int code;

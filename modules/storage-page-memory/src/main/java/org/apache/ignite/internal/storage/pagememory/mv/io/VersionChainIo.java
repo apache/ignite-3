@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv.io;
 
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getShort;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
-import static org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
-import static org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLinks.readPartitionlessLink;
-import static org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLinks.writePartitionlessLink;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 import static org.apache.ignite.internal.storage.pagememory.mv.VersionChain.NULL_UUID_COMPONENT;
 
 import java.util.UUID;
@@ -34,7 +38,10 @@ import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 
 /**
  * Interface for VersionChain B+Tree-related IO. Defines a following data layout:
- * <pre><code>[rowId's UUID (16 bytes), txId (16 bytes), head link (6 bytes), next link (6 bytes)]</code></pre>
+ * <pre><code>
+ * [rowId's UUID (16 bytes), txId (16 bytes), commitTableId (16 bytes), commitPartitionId (2 bytes), head link (6 bytes),
+ * next link (6 bytes)]
+ * </code></pre>
  */
 public interface VersionChainIo {
     /** Offset of rowId's most significant bits, 8 bytes. */
@@ -49,8 +56,14 @@ public interface VersionChainIo {
     /** Offset of txId's least significant bits, 8 bytes. */
     int TX_ID_LSB_OFFSET = TX_ID_MSB_OFFSET + Long.BYTES;
 
+    /** Offset of commit table id. */
+    int COMMIT_TABLE_ID = TX_ID_LSB_OFFSET + Long.BYTES;
+
+    /** Offset of commit partition id. */
+    int COMMIT_PARTITION_ID_OFFSET = COMMIT_TABLE_ID + Integer.BYTES;
+
     /** Offset of partitionless head link, 6 bytes. */
-    int HEAD_LINK_OFFSET = TX_ID_LSB_OFFSET + Long.BYTES;
+    int HEAD_LINK_OFFSET = COMMIT_PARTITION_ID_OFFSET + Short.BYTES;
 
     /** Offset of partitionless next link, 6 bytes. */
     int NEXT_LINK_OFFSET = HEAD_LINK_OFFSET + PARTITIONLESS_LINK_SIZE_BYTES;
@@ -72,7 +85,7 @@ public interface VersionChainIo {
      */
     default void store(long dstPageAddr, int dstIdx, BplusIo<VersionChainKey> srcIo, long srcPageAddr, int srcIdx) {
         int dstOffset = offset(dstIdx);
-        int srcOffset = offset(srcIdx);
+        int srcOffset = srcIo.offset(srcIdx);
 
         PageUtils.copyMemory(srcPageAddr, srcOffset, dstPageAddr, dstOffset, SIZE_IN_BYTES);
     }
@@ -93,17 +106,28 @@ public interface VersionChainIo {
         putLong(pageAddr, off + ROW_ID_LSB_OFFSET, rowId.leastSignificantBits());
 
         UUID txId = row.transactionId();
+        Integer commitTableId = row.commitTableId();
+        int commitPartitionId = row.commitPartitionId();
 
         if (txId == null) {
+            assert commitTableId == null;
+            assert commitPartitionId == -1;
+
             putLong(pageAddr, off + TX_ID_MSB_OFFSET, NULL_UUID_COMPONENT);
             putLong(pageAddr, off + TX_ID_LSB_OFFSET, NULL_UUID_COMPONENT);
         } else {
+            assert commitTableId != null;
+            assert commitPartitionId >= 0;
+
             putLong(pageAddr, off + TX_ID_MSB_OFFSET, txId.getMostSignificantBits());
             putLong(pageAddr, off + TX_ID_LSB_OFFSET, txId.getLeastSignificantBits());
+
+            putInt(pageAddr, off + COMMIT_TABLE_ID, commitTableId);
+            putShort(pageAddr, off + COMMIT_PARTITION_ID_OFFSET, (short) commitPartitionId);
         }
 
-        writePartitionlessLink(pageAddr + off + HEAD_LINK_OFFSET, row.headLink());
-        writePartitionlessLink(pageAddr + off + NEXT_LINK_OFFSET, row.nextLink());
+        writePartitionless(pageAddr + off + HEAD_LINK_OFFSET, row.headLink());
+        writePartitionless(pageAddr + off + NEXT_LINK_OFFSET, row.nextLink());
     }
 
     /**
@@ -150,9 +174,17 @@ public interface VersionChainIo {
 
         UUID txId = (txIdMsb == NULL_UUID_COMPONENT && txIdLsb == NULL_UUID_COMPONENT) ? null : new UUID(txIdMsb, txIdLsb);
 
-        long headLink = readPartitionlessLink(partitionId, pageAddr, offset + HEAD_LINK_OFFSET);
-        long nextLink = readPartitionlessLink(partitionId, pageAddr, offset + NEXT_LINK_OFFSET);
+        long headLink = readPartitionless(partitionId, pageAddr, offset + HEAD_LINK_OFFSET);
+        long nextLink = readPartitionless(partitionId, pageAddr, offset + NEXT_LINK_OFFSET);
 
-        return new VersionChain(rowId, txId, headLink, nextLink);
+        if (txId != null) {
+            int commitTableId = getInt(pageAddr, offset + COMMIT_TABLE_ID);
+
+            int commitPartitionId = getShort(pageAddr, offset + COMMIT_PARTITION_ID_OFFSET) & 0xFFFF;
+
+            return VersionChain.createUncommitted(rowId, txId, commitTableId, commitPartitionId, headLink, nextLink);
+        }
+
+        return VersionChain.createCommitted(rowId, headLink, nextLink);
     }
 }

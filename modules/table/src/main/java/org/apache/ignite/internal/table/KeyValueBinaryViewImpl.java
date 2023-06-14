@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.table;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -35,7 +36,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
-import org.apache.ignite.table.InvokeProcessor;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -395,50 +396,6 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public <R extends Serializable> R invoke(
-            @Nullable Transaction tx,
-            @NotNull Tuple key,
-            InvokeProcessor<Tuple, Tuple, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <R extends Serializable> CompletableFuture<R> invokeAsync(
-            @Nullable Transaction tx,
-            @NotNull Tuple key,
-            InvokeProcessor<Tuple, Tuple, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R extends Serializable> Map<Tuple, R> invokeAll(
-            @Nullable Transaction tx,
-            @NotNull Collection<Tuple> keys,
-            InvokeProcessor<Tuple, Tuple, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <R extends Serializable> CompletableFuture<Map<Tuple, R>> invokeAllAsync(
-            @Nullable Transaction tx,
-            @NotNull Collection<Tuple> keys,
-            InvokeProcessor<Tuple, Tuple, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
     /**
      * Marshal key-value pair to a row.
      *
@@ -479,9 +436,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Map<Tuple, Tuple> pairs = IgniteUtils.newHashMap(rows.size());
 
         for (Row row : schemaReg.resolve(rows)) {
-            if (row.hasValue()) {
-                pairs.put(TableRow.keyTuple(row), TableRow.valueTuple(row));
-            }
+            pairs.put(TableRow.keyTuple(row), TableRow.valueTuple(row));
         }
 
         return pairs;
@@ -526,5 +481,12 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         }
 
         return tuples;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> streamData(Publisher<Entry<Tuple, Tuple>> publisher, @Nullable DataStreamerOptions options) {
+        // TODO IGNITE-19617 Server-side Basic Data Streamer.
+        throw new UnsupportedOperationException("Not supported.");
     }
 }

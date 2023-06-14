@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -28,7 +28,7 @@ import org.apache.ignite.network.ClusterService;
  * Baseline manager is responsible for handling baseline related logic.
  */
 // TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
-// TODO: https://issues.apache.org/jira/browse/IGNITE-14716 Adapt concept of baseline topology IEP-4.
+// TODO: https://issues.apache.org/jira/browse/IGNITE-19425
 @SuppressWarnings({"FieldCanBeLocal", "unused"})
 public class BaselineManager implements IgniteComponent {
     /** Configuration manager in order to handle and listen baseline specific configuration. */
@@ -81,4 +81,3 @@ public class BaselineManager implements IgniteComponent {
         return clusterSvc.topologyService().allMembers();
     }
 }
-

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,12 +18,32 @@
 package org.apache.ignite.internal.schema;
 
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.schema.definition.ColumnType.TemporalColumnType;
 
 /**
  * Temporal native type.
  */
 public class TemporalNativeType extends NativeType {
+    /**
+     * Default TIMESTAMP type precision: microseconds.
+     *
+     * <p>SQL99 part 2 section 6.1 syntax rule 30
+     */
+    public static final int DEFAULT_TIMESTAMP_PRECISION = 6;
+
+    /**
+     * Default TIME type precision: seconds.
+     *
+     * <p>SQL99 part 2 section 6.1 syntax rule 30
+     */
+    public static final int DEFAULT_TIME_PRECISION = 0;
+
+    /**
+     * Max TIME precision.
+     *
+     * <p>SQL99 part 2 section 6.1 syntax rule 32
+     */
+    public static final int MAX_TIME_PRECISION = 9;
+
     /**
      * Creates TIME type.
      *
@@ -72,7 +92,7 @@ public class TemporalNativeType extends NativeType {
     private TemporalNativeType(NativeTypeSpec typeSpec, int size, int precision) {
         super(typeSpec, size);
 
-        if (precision < 0 || precision > TemporalColumnType.MAX_TIME_PRECISION) {
+        if (precision < 0 || precision > MAX_TIME_PRECISION) {
             throw new IllegalArgumentException("Unsupported fractional seconds precision: " + precision);
         }
 
@@ -86,12 +106,6 @@ public class TemporalNativeType extends NativeType {
      */
     public int precision() {
         return precision;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean mismatch(NativeType type) {
-        return super.mismatch(type) || precision < ((TemporalNativeType) type).precision;
     }
 
     /** {@inheritDoc} */

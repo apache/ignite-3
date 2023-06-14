@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,19 +17,18 @@
 
 package org.apache.ignite.internal.storage.configuration;
 
-import java.lang.annotation.Annotation;
-import java.util.Map;
+import com.google.auto.service.AutoService;
 import java.util.ServiceLoader;
 import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.store.ExistingDataStorage;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.storage.DataStorageModule;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-api.
  */
+@AutoService(ConfigurationModule.class)
 public class StorageEngineDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
@@ -39,7 +38,7 @@ public class StorageEngineDistributedConfigurationModule implements Configuratio
 
     /** {@inheritDoc} */
     @Override
-    public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        return Map.of(ExistingDataStorage.class, Set.of(new ExistingDataStorageValidator(ServiceLoader.load(DataStorageModule.class))));
+    public Set<Validator<?, ?>> validators() {
+        return Set.of(new ExistingDataStorageValidator(ServiceLoader.load(DataStorageModule.class)));
     }
 }

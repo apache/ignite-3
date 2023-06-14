@@ -58,6 +58,8 @@ SELECT ('0.5'::DECIMAL(1,1) + 10000)::VARCHAR,
 10000.5432154321543215432154321
 
 # out of range
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18660
 statement error
 SELECT ('0.54321543215432154321543215432154321'::DECIMAL(35,35) + 10000)::VARCHAR
 
@@ -163,6 +165,8 @@ SELECT '0.001'::DECIMAL * 100::TINYINT,
 100000.000
 
 # multiplication could not be performed exactly: throw error
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18661
 statement error
 SELECT '0.000000000000000000000000000001'::DECIMAL(38,30) * '0.000000000000000000000000000001'::DECIMAL(38,30)
 

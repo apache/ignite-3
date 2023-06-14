@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.configuration;
 
-import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockValidationContext;
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.validate;
 import static org.mockito.Mockito.mock;
@@ -25,7 +24,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.configuration.schemas.store.ExistingDataStorage;
+import org.apache.ignite.internal.schema.configuration.storage.ExistingDataStorage;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.junit.jupiter.api.Test;
 
@@ -62,9 +61,8 @@ public class ExistingDataStorageValidatorTest {
                 createMockedStorageEngineFactory(dataStorage2)
         ));
 
-        validate(validator, annotation, mockValidationContext(UNKNOWN_DATA_STORAGE, UNKNOWN_DATA_STORAGE), null);
-        validate(validator, annotation, mockValidationContext(dataStorage1, dataStorage1), null);
-        validate(validator, annotation, mockValidationContext(dataStorage2, dataStorage2), null);
+        validate(validator, annotation, mockValidationContext(dataStorage1, dataStorage1));
+        validate(validator, annotation, mockValidationContext(dataStorage2, dataStorage2));
     }
 
     private DataStorageModule createMockedStorageEngineFactory(String name) {

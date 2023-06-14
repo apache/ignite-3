@@ -12,10 +12,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-- title: Documentation Overview
+- title: About Apache Ignite 3
   url: index
 - title: Getting Started Guide
   url: quick-start/getting-started-guide
+- title: Installation
+  url: installation
+  items:
+    - title: Installing Using ZIP Archive
+      url: installation/installing-using-zip
+    - title: Installing Using Docker
+      url: installation/installing-using-docker
+    - title: Installing DEB or RPM package
+      url: installation/deb-rpm
 - title: Ignite CLI Tool
   url: ignite-cli-tool
 - title: Working with SQL
@@ -32,18 +41,39 @@
       url: sql-reference/ddl
     - title: Data Manipulation Language (DML)
       url: sql-reference/dml
+    - title: Distribution Zones
+      url: sql-reference/distribution-zones
     - title: Supported Operators and Functions
       url: sql-reference/operators-and-functions
-- title: REST API
-  url: rest/rest-api
+- title: REST
+  items:
+    - title: Overview
+      url: rest/rest-api
+    - title: Reference
+      url: rest/reference
+- title: Clients & Drivers
+  items:
+    - title: Ignite Clients
+      url: thin-clients/index
+    - title: .NET LINQ Queries
+      url: thin-clients/linq
 - title: Distributed Computing
   url: compute/compute
 - title: Data Region Configuration
   url: config/data-region
+- title: Storage Configuration
+  url: storage/persistent
+  items:
+    - title: Native Persistent Storage
+      url: storage/persistent
+    - title: RocksDB Persistent Storage
+      url: storage/rocksdb
+    - title: Volatile Storage
+      url: storage/volatile
 - title: Binary Client Protocol
   url: binary-protocol
-- title: Native Persistence
-  url: persistence
+- title: SSL/TLS
+  url: ssl-tls
 - title: Data Rebalancing
   url: rebalance
 - title: Performing Transactions
@@ -52,4 +82,5 @@
   url: table-views
 - title: Handling Exceptions
   url: handling-exceptions
-
+- title: Glossary
+  url: glossary/glossary

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,10 +17,15 @@
 
 package org.apache.ignite.internal.util;
 
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -31,23 +36,33 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -98,6 +113,11 @@ public class IgniteUtils {
 
     /** Class cache. */
     private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class<?>>> classCache = new ConcurrentHashMap<>();
+
+    /**
+     * Root package for JMX MBeans.
+     */
+    private static final String JMX_MBEAN_PACKAGE = "org.apache";
 
     /**
      * Get JDK version.
@@ -495,31 +515,57 @@ public class IgniteUtils {
      */
     public static boolean deleteIfExists(Path path) {
         try {
-            Files.walkFileTree(path, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                    if (exc != null) {
-                        throw exc;
-                    }
-
-                    Files.delete(dir);
-
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    Files.delete(file);
-
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-
+            deleteIfExistsThrowable(path);
             return true;
         } catch (NoSuchFileException e) {
             return true;
         } catch (IOException e) {
             return false;
+        }
+    }
+
+    /**
+     * Deletes a file or a directory with all sub-directories and files.
+     *
+     * @param path File or directory to delete.
+     * @throws IOException if an I/O error is thrown by a visitor method
+     */
+    public static void deleteIfExistsThrowable(Path path) throws IOException {
+        Files.walkFileTree(path, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                if (exc != null) {
+                    throw exc;
+                }
+
+                Files.delete(dir);
+
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                Files.delete(file);
+
+                return FileVisitResult.CONTINUE;
+            }
+        });
+    }
+
+    /**
+     * Generate file with dummy content with provided size.
+     *
+     * @param file File path.
+     * @param fileSize File size in bytes.
+     * @throws IOException if an I/O error is thrown.
+     */
+    public static void fillDummyFile(Path file, long fileSize) throws IOException {
+        try (SeekableByteChannel channel = Files.newByteChannel(file, WRITE, CREATE)) {
+            channel.position(fileSize - 4);
+
+            ByteBuffer buf = ByteBuffer.allocate(4).putInt(2);
+            buf.rewind();
+            channel.write(buf);
         }
     }
 
@@ -620,6 +666,43 @@ public class IgniteUtils {
      */
     public static void closeAll(AutoCloseable... closeables) throws Exception {
         closeAll(Arrays.stream(closeables));
+    }
+
+    /**
+     * Closes all provided objects. If any of the {@link ManuallyCloseable#close} methods throw an exception,
+     * only the first thrown exception will be propagated to the caller, after all other objects are closed,
+     * similar to the try-with-resources block.
+     *
+     * @param closeables Stream of objects to close.
+     * @throws Exception If failed to close.
+     */
+    public static void closeAllManually(Stream<? extends ManuallyCloseable> closeables) throws Exception {
+        AtomicReference<Exception> ex = new AtomicReference<>();
+
+        closeables.filter(Objects::nonNull).forEach(closeable -> {
+            try {
+                closeable.close();
+            } catch (Exception e) {
+                if (!ex.compareAndSet(null, e)) {
+                    ex.get().addSuppressed(e);
+                }
+            }
+        });
+
+        if (ex.get() != null) {
+            throw ex.get();
+        }
+    }
+
+    /**
+     * Closes all provided objects.
+     *
+     * @param closeables Array of closeable objects to close.
+     * @throws Exception If failed to close.
+     * @see #closeAll(Collection)
+     */
+    public static void closeAllManually(ManuallyCloseable... closeables) throws Exception {
+        closeAllManually(Arrays.stream(closeables));
     }
 
     /**
@@ -827,5 +910,181 @@ public class IgniteUtils {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Collects all the fields of given class which are defined as a public static within the specified class.
+     *
+     * @param sourceCls The class to lookup fields in.
+     * @param targetCls Type of the fields of interest.
+     * @return A mapping name to property itself.
+     */
+    public static <T> List<T> collectStaticFields(Class<?> sourceCls, Class<? extends T> targetCls) {
+        List<T> result = new ArrayList<>();
+
+        for (Field f : sourceCls.getDeclaredFields()) {
+            if (!targetCls.equals(f.getType())
+                    || !Modifier.isStatic(f.getModifiers())
+                    || !Modifier.isPublic(f.getModifiers())) {
+                continue;
+            }
+
+            try {
+                T value = targetCls.cast(f.get(sourceCls));
+
+                result.add(value);
+            } catch (IllegalAccessException e) {
+                // should not happen
+                throw new AssertionError(e);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Cancels the future and runs a consumer on future's result if it was completed before the cancellation.
+     * Does nothing if future is cancelled or completed exceptionally.
+     *
+     * @param future Future.
+     * @param consumer Consumer that accepts future's result.
+     * @param <T> Future's result type.
+     */
+    public static <T> void cancelOrConsume(CompletableFuture<T> future, Consumer<T> consumer) {
+        future.cancel(true);
+
+        if (future.isCancelled() || future.isCompletedExceptionally()) {
+            return;
+        }
+
+        assert future.isDone();
+
+        T res = future.join();
+
+        assert res != null;
+
+        consumer.accept(res);
+    }
+
+    /**
+     * Produce new MBean name according to received group and name.
+     *
+     * @param group pkg:group=value part of MBean name.
+     * @param name pkg:name=value part of MBean name.
+     * @return new ObjectName.
+     * @throws MalformedObjectNameException if MBean name can't be formed from the received arguments.
+     */
+    public static ObjectName makeMbeanName(String group, String name) throws MalformedObjectNameException {
+        return new ObjectName(String.format("%s:group=%s,name=%s", JMX_MBEAN_PACKAGE, group, name));
+    }
+
+    /**
+     * Filter the collection using the given predicate.
+     *
+     * @param collection Collection.
+     * @param predicate Predicate.
+     * @return Filtered list.
+     */
+    public static <T> List<T> filter(Collection<T> collection, Predicate<T> predicate) {
+        List<T> result = new ArrayList<>();
+
+        for (T e : collection) {
+            if (predicate.test(e)) {
+                result.add(e);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Find any element in given collection.
+     *
+     * @param collection Collection.
+     * @return Optional containing element (if present).
+     */
+    public static <T> Optional<T> findAny(Collection<T> collection) {
+        return findAny(collection, null);
+    }
+
+    /**
+     * Find any element in given collection for which the predicate returns {@code true}.
+     *
+     * @param collection Collection.
+     * @param predicate Predicate.
+     * @return Optional containing element (if present).
+     */
+    public static <T> Optional<T> findAny(Collection<T> collection, @Nullable Predicate<T> predicate) {
+        if (!collection.isEmpty()) {
+            for (Iterator<T> it = collection.iterator(); it.hasNext(); ) {
+                T t = it.next();
+
+                if (predicate == null || predicate.test(t)) {
+                    return Optional.ofNullable(t);
+                }
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    /**
+     * Retries operation until it succeeds or fails with exception that is different than the given.
+     *
+     * @param operation Operation.
+     * @param stopRetryCondition Condition that accepts the exception if one has been thrown, and defines whether retries should be stopped.
+     * @param executor Executor to make retry in.
+     * @return Future that is completed when operation is successful or failed with other exception than the given.
+     */
+    public static <T> CompletableFuture<T> retryOperationUntilSuccess(
+            Supplier<CompletableFuture<T>> operation,
+            Function<Throwable, Boolean> stopRetryCondition,
+            Executor executor
+    ) {
+        CompletableFuture<T> fut = new CompletableFuture<>();
+
+        retryOperationUntilSuccess(operation, stopRetryCondition, fut, executor);
+
+        return fut;
+    }
+
+    /**
+     * Retries operation until it succeeds or fails with exception that is different than the given.
+     *
+     * @param operation Operation.
+     * @param stopRetryCondition Condition that accepts the exception if one has been thrown, and defines whether retries should be stopped.
+     * @param executor Executor to make retry in.
+     * @param fut Future that is completed when operation is successful or failed with other exception than the given.
+     */
+    public static <T> void retryOperationUntilSuccess(
+            Supplier<CompletableFuture<T>> operation,
+            Function<Throwable, Boolean> stopRetryCondition,
+            CompletableFuture<T> fut,
+            Executor executor
+    ) {
+        operation.get()
+                .whenComplete((res, e) -> {
+                    if (e == null) {
+                        fut.complete(res);
+                    } else {
+                        if (stopRetryCondition.apply(e)) {
+                            fut.completeExceptionally(e);
+                        } else {
+                            executor.execute(() -> retryOperationUntilSuccess(operation, stopRetryCondition, fut, executor));
+                        }
+                    }
+                });
+    }
+
+    /**
+     * Utility method to check if one byte array starts with a specified sequence of bytes.
+     *
+     * @param key The array to check.
+     * @param prefix The prefix bytes to test for.
+     * @return {@code true} if the key starts with the bytes from the prefix.
+     */
+    public static boolean startsWith(byte[] key, byte[] prefix) {
+        return key.length >= prefix.length
+                && Arrays.equals(key, 0, prefix.length, prefix, 0, prefix.length);
     }
 }

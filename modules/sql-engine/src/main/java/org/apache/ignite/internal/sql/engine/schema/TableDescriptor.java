@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,26 +19,19 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.sql2rel.InitializerExpressionFactory;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * TableDescriptor interface.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public interface TableDescriptor extends RelProtoDataType, InitializerExpressionFactory {
+public interface TableDescriptor extends InitializerExpressionFactory {
     /** Returns distribution of the table. */
     IgniteDistribution distribution();
-
-    /** {@inheritDoc} */
-    @Override
-    default RelDataType apply(RelDataTypeFactory factory) {
-        return rowType((IgniteTypeFactory) factory, null);
-    }
 
     /**
      * Returns row type excluding effectively virtual fields.
@@ -77,7 +70,7 @@ public interface TableDescriptor extends RelProtoDataType, InitializerExpression
      * @param usedColumns Participating columns numeration.
      * @return Row type.
      */
-    RelDataType rowType(IgniteTypeFactory factory, ImmutableBitSet usedColumns);
+    RelDataType rowType(IgniteTypeFactory factory, @Nullable ImmutableBitSet usedColumns);
 
     /**
      * Checks whether is possible to update a column with a given index.

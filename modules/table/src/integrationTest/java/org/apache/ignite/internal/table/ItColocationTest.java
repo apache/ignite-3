@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toMap;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -33,13 +35,16 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
@@ -47,7 +52,19 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -58,21 +75,25 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.table.distributed.command.InsertCommand;
-import org.apache.ignite.internal.table.distributed.command.MultiKeyCommand;
-import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
+import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
+import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
+import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.client.Command;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -96,6 +117,9 @@ public class ItColocationTest {
     /** Map of the Raft commands are set by table operation. */
     private static final Int2ObjectMap<Set<Command>> CMDS_MAP = new Int2ObjectOpenHashMap<>();
 
+    /** Message factory to create messages - RAFT commands.  */
+    private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
+
     private SchemaDescriptor schema;
 
     private SchemaRegistry schemaRegistry;
@@ -108,19 +132,41 @@ public class ItColocationTest {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager()) {
+        ClusterNode clusterNode = new ClusterNode(UUID.randomUUID().toString(), "node", new NetworkAddress("", 0));
+
+        ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+
+        TxManager txManager = new TxManagerImpl(
+                replicaService,
+                new HeapLockManager(),
+                new HybridClockImpl(),
+                new TransactionIdGenerator(0xdeadbeef)
+        ) {
             @Override
-            public CompletableFuture<Void> finishRemote(NetworkAddress addr, boolean commit, Set<String> groups, UUID id) {
-                return CompletableFuture.completedFuture(null);
+            public CompletableFuture<Void> finish(
+                    TablePartitionId commitPartition,
+                    ClusterNode recipientNode,
+                    Long term,
+                    boolean commit,
+                    Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+                    UUID txId) {
+                return completedFuture(null);
             }
         };
         txManager.start();
 
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
+        Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
+
+        int tblId = 1;
 
         for (int i = 0; i < PARTS; ++i) {
+            TablePartitionId groupId = new TablePartitionId(tblId, i);
+
             RaftGroupService r = Mockito.mock(RaftGroupService.class);
             when(r.leader()).thenReturn(Mockito.mock(Peer.class));
+            when(r.groupId()).thenReturn(groupId);
+            when(r.refreshAndGetLeaderWithTerm()).thenReturn(completedFuture(new LeaderWithTerm(new Peer(clusterNode.name()), 0L)));
 
             final int part = i;
             doAnswer(invocation -> {
@@ -132,25 +178,65 @@ public class ItColocationTest {
                     return set;
                 });
 
-                if (cmd instanceof MultiKeyCommand) {
-                    return CompletableFuture.completedFuture(new MultiRowsResponse(List.of()));
+                if (cmd instanceof UpdateAllCommand) {
+                    return completedFuture(List.of());
                 } else {
-                    return CompletableFuture.completedFuture(true);
+                    return completedFuture(true);
                 }
             }).when(r).run(any());
 
             partRafts.put(i, r);
+            groupRafts.put(new TablePartitionId(tblId, i), r);
         }
+
+        when(replicaService.invoke(any(ClusterNode.class), any())).thenAnswer(invocation -> {
+            ReplicaRequest request = invocation.getArgument(1);
+            var commitPartId = new TablePartitionId(2, 0);
+
+            RaftGroupService r = groupRafts.get(request.groupId());
+
+            if (request instanceof ReadWriteMultiRowReplicaRequest) {
+                Map<UUID, ByteBuffer> rows = ((ReadWriteMultiRowReplicaRequest) request).binaryRows()
+                        .stream()
+                        .collect(toMap(row -> TestTransactionIds.newTransactionId(), BinaryRow::byteBuffer));
+
+                return r.run(MSG_FACTORY.updateAllCommand()
+                                .tablePartitionId(MSG_FACTORY.tablePartitionIdMessage()
+                                        .tableId(commitPartId.tableId())
+                                        .partitionId(commitPartId.partitionId())
+                                        .build()
+                                )
+                            .rowsToUpdate(rows)
+                            .txId(UUID.randomUUID())
+                            .build());
+            } else {
+                assertThat(request, is(instanceOf(ReadWriteSingleRowReplicaRequest.class)));
+
+                return r.run(MSG_FACTORY.updateCommand()
+                        .tablePartitionId(
+                                MSG_FACTORY.tablePartitionIdMessage()
+                                        .tableId(commitPartId.tableId())
+                                        .partitionId(commitPartId.partitionId())
+                                        .build()
+                        )
+                        .rowUuid(UUID.randomUUID())
+                        .rowBuffer(((ReadWriteSingleRowReplicaRequest) request).binaryRow().byteBuffer())
+                        .txId(TestTransactionIds.newTransactionId())
+                        .build());
+            }
+        });
 
         INT_TABLE = new InternalTableImpl(
                 "PUBLIC.TEST",
-                UUID.randomUUID(),
+                tblId,
                 partRafts,
                 PARTS,
-                null,
-                null,
+                name -> clusterNode,
                 txManager,
-                Mockito.mock(MvTableStorage.class)
+                Mockito.mock(MvTableStorage.class),
+                new TestTxStateTableStorage(),
+                replicaService,
+                Mockito.mock(HybridClock.class)
         );
     }
 
@@ -274,7 +360,7 @@ public class ItColocationTest {
 
             int part = INT_TABLE.partition(r);
 
-            assertThat(CollectionUtils.first(CMDS_MAP.get(part)), is(instanceOf(InsertCommand.class)));
+            assertThat(CollectionUtils.first(CMDS_MAP.get(part)), is(instanceOf(UpdateCommand.class)));
         }
     }
 
@@ -304,11 +390,11 @@ public class ItColocationTest {
         assertEquals(partsMap.size(), CMDS_MAP.size());
 
         CMDS_MAP.forEach((p, set) -> {
-            MultiKeyCommand cmd = (MultiKeyCommand) CollectionUtils.first(set);
-            assertEquals(partsMap.get(p), cmd.getRows().size(), () -> "part=" + p + ", set=" + set);
+            UpdateAllCommand cmd = (UpdateAllCommand) CollectionUtils.first(set);
+            assertEquals(partsMap.get(p), cmd.rowsToUpdate().size(), () -> "part=" + p + ", set=" + set);
 
-            cmd.getRows().forEach(binRow -> {
-                Row r = new Row(schema, binRow);
+            cmd.rowsToUpdate().values().forEach(byteBuffer -> {
+                Row r = new Row(schema, new ByteBufferRow(byteBuffer));
 
                 assertEquals(INT_TABLE.partition(r), p);
             });
@@ -330,7 +416,7 @@ public class ItColocationTest {
 
         schemaRegistry = new DummySchemaManagerImpl(schema);
 
-        tbl = new TableImpl(INT_TABLE, schemaRegistry);
+        tbl = new TableImpl(INT_TABLE, schemaRegistry, new HeapLockManager());
 
         marshaller = new TupleMarshallerImpl(schemaRegistry);
     }

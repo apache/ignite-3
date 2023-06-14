@@ -18,15 +18,17 @@
 namespace Apache.Ignite.Table
 {
     using System.Collections.Generic;
+    using System.Linq;
     using System.Threading.Tasks;
+    using Sql;
     using Transactions;
 
     /// <summary>
     /// Record view interface provides methods to access table records.
     /// </summary>
     /// <typeparam name="T">Record type.</typeparam>
-    public interface IRecordView<T>
-        where T : class // TODO: Remove class constraint (IGNITE-16355)
+    public interface IRecordView<T> : IDataStreamerTarget<T>
+        where T : notnull
     {
         /// <summary>
         /// Gets a record by key.
@@ -37,7 +39,18 @@ namespace Apache.Ignite.Table
         /// A <see cref="Task"/> representing the asynchronous operation.
         /// The task result contains a record with all columns.
         /// </returns>
-        Task<T?> GetAsync(ITransaction? transaction, T key);
+        Task<Option<T>> GetAsync(ITransaction? transaction, T key);
+
+        /// <summary>
+        /// Determines if the table contains an entry for the specified key.
+        /// </summary>
+        /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+        /// <param name="key">A record with key columns set.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result is <c>true</c> if a value exists for the specified key, and <c>false</c> otherwise.
+        /// </returns>
+        Task<bool> ContainsKeyAsync(ITransaction? transaction, T key);
 
         /// <summary>
         /// Gets multiple records by keys.
@@ -48,9 +61,9 @@ namespace Apache.Ignite.Table
         /// A <see cref="Task"/> representing the asynchronous operation.
         /// The task result contains matching records with all columns filled from the table. The order of collection
         /// elements is guaranteed to be the same as the order of <paramref name="keys"/>. If a record does not exist,
-        /// the element at the corresponding index of the resulting collection will be <c>null</c>.
+        /// the element at the corresponding index of the resulting collection will be empty <see cref="Option{T}"/>.
         /// </returns>
-        Task<IList<T?>> GetAllAsync(ITransaction? transaction, IEnumerable<T> keys);
+        Task<IList<Option<T>>> GetAllAsync(ITransaction? transaction, IEnumerable<T> keys);
 
         /// <summary>
         /// Inserts a record into the table if it does not exist or replaces the existing one.
@@ -69,7 +82,7 @@ namespace Apache.Ignite.Table
         Task UpsertAllAsync(ITransaction? transaction, IEnumerable<T> records);
 
         /// <summary>
-        /// Inserts a record into the table if it does not exist or replaces the existing one.
+        /// Inserts a record into the table and returns previous record.
         /// </summary>
         /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
         /// <param name="record">Record to upsert.</param>
@@ -77,7 +90,7 @@ namespace Apache.Ignite.Table
         /// A <see cref="Task"/> representing the asynchronous operation.
         /// The task result contains replaced record or null if it did not exist.
         /// </returns>
-        Task<T?> GetAndUpsertAsync(ITransaction? transaction, T record);
+        Task<Option<T>> GetAndUpsertAsync(ITransaction? transaction, T record);
 
         /// <summary>
         /// Inserts a record into the table if it does not exist.
@@ -133,9 +146,9 @@ namespace Apache.Ignite.Table
         /// <param name="record">Record to insert.</param>
         /// <returns>
         /// A <see cref="Task"/> representing the asynchronous operation.
-        /// The task result contains the previous value for the given key, or <c>null</c> if it did not exist.
+        /// The task result contains the previous value for the given key, or empty <see cref="Option{T}"/> if it did not exist.
         /// </returns>
-        Task<T?> GetAndReplaceAsync(ITransaction? transaction, T record);
+        Task<Option<T>> GetAndReplaceAsync(ITransaction? transaction, T record);
 
         /// <summary>
         /// Deletes a record with the specified key.
@@ -166,9 +179,9 @@ namespace Apache.Ignite.Table
         /// <param name="key">A record with key columns set.</param>
         /// <returns>
         /// A <see cref="Task"/> representing the asynchronous operation.
-        /// The task result contains deleted record or <c>null</c> if it did not exist.
+        /// The task result contains deleted record or empty <see cref="Option{T}"/> if it did not exist.
         /// </returns>
-        Task<T?> GetAndDeleteAsync(ITransaction? transaction, T key);
+        Task<Option<T>> GetAndDeleteAsync(ITransaction? transaction, T key);
 
         /// <summary>
         /// Deletes multiple records. If one or more keys do not exist, other records are still deleted.
@@ -192,5 +205,16 @@ namespace Apache.Ignite.Table
         /// The task result contains records from <paramref name="records"/> that did not exist.
         /// </returns>
         Task<IList<T>> DeleteAllExactAsync(ITransaction? transaction, IEnumerable<T> records);
+
+        /// <summary>
+        /// Gets a <see cref="IQueryable{T}"/> to perform Ignite SQL queries using LINQ
+        /// (see <see href="https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/linq/" />).
+        /// <para />
+        /// Use <see cref="IgniteQueryableExtensions.ToResultSetAsync{T}"/> to materialize query results asynchronously.
+        /// </summary>
+        /// <param name="transaction">Optional transaction.</param>
+        /// <param name="options">Options.</param>
+        /// <returns><see cref="IQueryable{T}"/>.</returns>
+        IQueryable<T> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null);
     }
 }

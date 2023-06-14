@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,6 +20,8 @@ package org.apache.ignite.internal.rest.api.node;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Produces;
+import io.micronaut.security.annotation.Secured;
+import io.micronaut.security.rules.SecurityRule;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -33,20 +35,26 @@ import org.apache.ignite.internal.rest.constants.MediaType;
  * REST endpoint allows to read node state.
  */
 @Controller("/management/v1/node")
+@Secured(SecurityRule.IS_AUTHENTICATED)
 @Tag(name = "nodeManagement")
 public interface NodeManagementApi {
 
     @Get("state")
-    @Operation(operationId = "nodeState")
+    @Operation(operationId = "nodeState", description = "Gets current network status.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Return node state",
+            @ApiResponse(responseCode = "200", description = "Current node status.",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = NodeState.class))),
-            @ApiResponse(responseCode = "500", description = "Internal error",
+            @ApiResponse(responseCode = "500", description = "Internal error.",
                     content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     })
-    @Produces({
-            MediaType.APPLICATION_JSON,
-            MediaType.PROBLEM_JSON
-    })
     NodeState state();
+
+    @Get("version")
+    @Operation(operationId = "nodeVersion", description = "Gets the version of Apache Ignite the node uses.")
+    @ApiResponse(responseCode = "200", description = "Node version.",
+            content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")))
+    @ApiResponse(responseCode = "500", description = "Internal error",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @Produces(MediaType.PROBLEM_JSON)
+    String version();
 }

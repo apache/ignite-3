@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,6 +20,10 @@ package org.apache.ignite.internal.inmemory;
 import static ca.seinesoftware.hamcrest.path.PathMatcher.exists;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
@@ -33,10 +37,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.AbstractClusterIntegrationTest;
+import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.raft.configuration.EntryCountBudgetChange;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageChange;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.junit.jupiter.api.Test;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -50,11 +60,11 @@ import org.rocksdb.Slice;
  * Tests for making sure that RAFT groups corresponding to partition stores of in-memory tables use volatile
  * storages for storing RAFT meta and RAFT log, while they are persistent for persistent storages.
  */
-class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
+class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     private static final String TABLE_NAME = "test";
 
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 
@@ -68,7 +78,11 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
     }
 
     private void createInMemoryTable() {
-        executeSql("CREATE TABLE " + TABLE_NAME + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) ENGINE aimem");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE aimem");
+
+        executeSql("CREATE TABLE " + TABLE_NAME
+                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_"
+                + TABLE_NAME.toUpperCase() + "'");
     }
 
     /**
@@ -78,7 +92,7 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
      * @return Paths for 'meta' directories corresponding to Raft meta storages for partitions of the test table.
      */
     private List<Path> partitionRaftMetaPaths(IgniteImpl ignite) {
-        try (Stream<Path> paths = Files.list(WORK_DIR.resolve(ignite.name()))) {
+        try (Stream<Path> paths = Files.list(workDir.resolve(ignite.name()))) {
             return paths
                     .filter(path -> isPartitionDir(path, ignite))
                     .map(path -> path.resolve("meta"))
@@ -96,9 +110,9 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
         return testTableId(ignite) + "_part_";
     }
 
-    private UUID testTableId(IgniteImpl ignite) {
+    private int testTableId(IgniteImpl ignite) {
         TableManager tables = (TableManager) ignite.tables();
-        return tables.tableImpl("PUBLIC." + TABLE_NAME).tableId();
+        return tables.tableImpl(TABLE_NAME).tableId();
     }
 
     @Test
@@ -111,7 +125,7 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
 
         node(0).close();
 
-        Path logRocksDbDir = WORK_DIR.resolve(nodeName).resolve("log");
+        Path logRocksDbDir = workDir.resolve(nodeName).resolve("log");
 
         List<ColumnFamilyDescriptor> cfDescriptors = List.of(
                 // Column family to store configuration log entry.
@@ -152,7 +166,11 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
     }
 
     private void createPersistentTable() {
-        executeSql("CREATE TABLE " + TABLE_NAME + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) ENGINE rocksdb");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE rocksdb");
+
+        executeSql("CREATE TABLE " + TABLE_NAME
+                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_"
+                + TABLE_NAME.toUpperCase() + "'");
     }
 
     @Test
@@ -165,7 +183,7 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
 
         node(0).close();
 
-        Path logRocksDbDir = WORK_DIR.resolve(nodeName).resolve("log");
+        Path logRocksDbDir = workDir.resolve(nodeName).resolve("log");
 
         List<ColumnFamilyDescriptor> cfDescriptors = List.of(
                 // Column family to store configuration log entry.
@@ -205,5 +223,35 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
         List<List<Object>> tuples = executeSql("SELECT k, v FROM " + TABLE_NAME);
 
         assertThat(tuples, equalTo(List.of(List.of(1, 101))));
+    }
+
+    @Test
+    void logSpillsOutToDisk() {
+        node(0).nodeConfiguration().getConfiguration(RaftConfiguration.KEY).change(cfg -> {
+            cfg.changeVolatileRaft(change -> {
+                change.changeLogStorage(budgetChange -> budgetChange.convert(EntryCountBudgetChange.class).changeEntriesCountLimit(1));
+            });
+        });
+
+        createTableWithMaxOneInMemoryEntryAllowed("PERSON");
+
+        executeSql("INSERT INTO PERSON(ID, NAME) VALUES (1, 'JOHN')");
+        executeSql("INSERT INTO PERSON(ID, NAME) VALUES (2, 'JANE')");
+    }
+
+    private void createTableWithMaxOneInMemoryEntryAllowed(String tableName) {
+        int zoneId = await(createZone(
+                node(0).distributionZoneManager(), "zone1", 1, DEFAULT_PARTITION_COUNT,
+                dataStorageChange -> dataStorageChange.convert(VolatilePageMemoryDataStorageChange.class)));
+
+        TableDefinition tableDef = SchemaBuilders.tableBuilder("PUBLIC", tableName).columns(
+                SchemaBuilders.column("ID", ColumnType.INT32).build(),
+                SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build()
+        ).withPrimaryKey("ID").build();
+
+        await(((TableManager) node(0).tables()).createTableAsync(tableName, DEFAULT_ZONE_NAME, tableChange -> {
+            SchemaConfigurationConverter.convert(tableDef, tableChange)
+                    .changeZoneId(zoneId);
+        }));
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,8 +19,13 @@ package org.apache.ignite.internal.index;
 
 import java.util.BitSet;
 import java.util.UUID;
+import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.utils.PrimaryReplica;
+import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An object describing an abstract index.
@@ -29,15 +34,50 @@ import org.apache.ignite.internal.util.Cursor;
  */
 public interface Index<DescriptorT extends IndexDescriptor> {
     /** Returns identifier of the index. */
-    UUID id();
+    int id();
 
     /** Returns name of the index. */
     String name();
 
-    UUID tableId();
+    /** Returns table id index belong to. */
+    int tableId();
 
+    /** Returns index descriptor. */
     DescriptorT descriptor();
 
-    /** Returns cursor for the values corresponding to the given key. */
-    Cursor<BinaryTuple> scan(BinaryTuple key, BitSet columns);
+    /**
+     * Returns cursor for the values corresponding to the given key.
+     *
+     * @param partId Partition id.
+     * @param txId Transaction id.
+     * @param recipient Primary replica that will handle given get request.
+     * @param key Key to lookup.
+     * @param columns Columns to include.
+     * @return A cursor from resulting rows.
+     */
+    Publisher<BinaryRow> lookup(
+            int partId,
+            UUID txId,
+            PrimaryReplica recipient,
+            BinaryTuple key,
+            @Nullable BitSet columns
+    );
+
+    /**
+     * Returns cursor for the values corresponding to the given key.
+     *
+     * @param partId Partition id.
+     * @param readTimestamp Read timestamp.
+     * @param recipientNode Cluster node that will handle given get request.
+     * @param key Key to search.
+     * @param columns Columns to include.
+     * @return A cursor from resulting rows.
+     */
+    Publisher<BinaryRow> lookup(
+            int partId,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode,
+            BinaryTuple key,
+            @Nullable BitSet columns
+    );
 }

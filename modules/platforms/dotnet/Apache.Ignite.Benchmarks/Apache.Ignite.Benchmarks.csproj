@@ -19,9 +19,7 @@
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFramework>netcoreapp3.1</TargetFramework>
-<!--        <TargetFrameworks>netcoreapp3.1;net6.0</TargetFrameworks>-->
-        <CodeAnalysisRuleSet>..\Apache.Ignite.Tests.ruleset</CodeAnalysisRuleSet>
+        <TargetFramework>net6.0</TargetFramework>
         <SignAssembly>true</SignAssembly>
         <AssemblyOriginatorKeyFile>Apache.Ignite.Benchmarks.snk</AssemblyOriginatorKeyFile>
         <ServerGarbageCollection>true</ServerGarbageCollection>

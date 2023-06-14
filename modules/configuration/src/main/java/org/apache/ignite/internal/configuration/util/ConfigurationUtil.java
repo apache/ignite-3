@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -44,9 +44,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationProperty;
-import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
-import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.AbstractConfiguration;
@@ -62,14 +60,9 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.configuration.ConfigurationNode;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
-import org.apache.ignite.internal.configuration.NamedListConfiguration;
-import org.apache.ignite.internal.configuration.direct.DirectNamedListProxy;
-import org.apache.ignite.internal.configuration.direct.DirectPropertyProxy;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
-import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -146,39 +139,39 @@ public class ConfigurationUtil {
     /**
      * Search for the configuration node by the list of keys.
      *
-     * @param keys            Random access list with keys.
-     * @param node            Node where method will search for subnode.
+     * @param keys Random access list with keys.
+     * @param node Node where method will search for subnode.
      * @param includeInternal Include internal configuration nodes (private configuration extensions).
      * @return Either {@link TraversableTreeNode} or {@link Serializable} depending on the keys and schema.
-     * @throws KeyNotFoundException            If node is not found.
+     * @throws KeyNotFoundException If node is not found.
      * @throws WrongPolymorphicTypeIdException If the type of the polymorphic configuration instance is not correct (unknown).
      */
-    public static <T> T find(
+    public static <T> NodeValue<T> find(
             List<String> keys,
             TraversableTreeNode node,
             boolean includeInternal
     ) throws KeyNotFoundException, WrongPolymorphicTypeIdException {
         assert keys instanceof RandomAccess : keys.getClass();
 
-        var visitor = new ConfigurationVisitor<T>() {
+        var visitor = new ConfigurationVisitor<NodeValue<T>>() {
             /** Current index of the key in the {@code keys}. */
             private int idx;
 
             /** {@inheritDoc} */
             @Override
-            public T visitLeafNode(String key, Serializable val) {
+            public NodeValue<T> visitLeafNode(Field field, String key, Serializable val) {
                 if (idx != keys.size()) {
                     throw new KeyNotFoundException("Configuration value '" + join(keys.subList(0, idx)) + "' is a leaf");
                 } else {
-                    return (T) val;
+                    return new NodeValue(field, val);
                 }
             }
 
             /** {@inheritDoc} */
             @Override
-            public T visitInnerNode(String key, InnerNode node) {
+            public NodeValue<T> visitInnerNode(Field field, String key, InnerNode node) {
                 if (idx == keys.size()) {
-                    return (T) node;
+                    return new NodeValue<>(field, (T) node);
                 } else if (node == null) {
                     throw new KeyNotFoundException("Configuration node '" + join(keys.subList(0, idx)) + "' is null");
                 } else {
@@ -199,18 +192,18 @@ public class ConfigurationUtil {
 
             /** {@inheritDoc} */
             @Override
-            public T visitNamedListNode(String key, NamedListNode<?> node) {
+            public NodeValue<T> visitNamedListNode(Field field, String key, NamedListNode<?> node) {
                 if (idx == keys.size()) {
-                    return (T) node;
+                    return new NodeValue<>(field, (T) node);
                 } else {
                     String name = keys.get(idx++);
 
-                    return visitInnerNode(name, node.getInnerNode(name));
+                    return visitInnerNode(field, name, node.getInnerNode(name));
                 }
             }
         };
 
-        return node.accept(null, visitor);
+        return node.accept(null, null, visitor);
     }
 
     /**
@@ -309,7 +302,7 @@ public class ConfigurationUtil {
         node.traverseChildren(new ConfigurationVisitor<>() {
             /** {@inheritDoc} */
             @Override
-            public Object visitLeafNode(String key, Serializable val) {
+            public Object visitLeafNode(Field field, String key, Serializable val) {
                 // If source value is null then initialise the same value on the destination node.
                 if (val == null) {
                     node.constructDefault(key);
@@ -320,15 +313,11 @@ public class ConfigurationUtil {
 
             /** {@inheritDoc} */
             @Override
-            public Object visitInnerNode(String key, InnerNode innerNode) {
+            public Object visitInnerNode(Field field, String key, InnerNode innerNode) {
+                // Copy or create the element.
+                node.construct(key, EMPTY_CFG_SRC, true);
+
                 InnerNode childNode = node.traverseChild(key, innerNodeVisitor(), true);
-
-                // Instantiate field in destination node before doing something else.
-                if (childNode == null) {
-                    node.construct(key, EMPTY_CFG_SRC, true);
-
-                    childNode = node.traverseChild(key, innerNodeVisitor(), true);
-                }
 
                 addDefaults(childNode);
 
@@ -337,7 +326,10 @@ public class ConfigurationUtil {
 
             /** {@inheritDoc} */
             @Override
-            public Object visitNamedListNode(String key, NamedListNode<?> namedList) {
+            public Object visitNamedListNode(Field field, String key, NamedListNode<?> namedList) {
+                // Copy or create the element.
+                node.construct(key, EMPTY_CFG_SRC, true);
+
                 namedList = node.traverseChild(key, namedListNodeVisitor(), true);
 
                 for (String namedListKey : namedList.namedListKeys()) {
@@ -362,14 +354,14 @@ public class ConfigurationUtil {
     public static void dropNulls(InnerNode node) {
         node.traverseChildren(new ConfigurationVisitor<>() {
             @Override
-            public Object visitInnerNode(String key, InnerNode innerNode) {
+            public Object visitInnerNode(Field field, String key, InnerNode innerNode) {
                 dropNulls(innerNode);
 
                 return null;
             }
 
             @Override
-            public Object visitNamedListNode(String key, NamedListNode<?> namedList) {
+            public Object visitNamedListNode(Field field, String key, NamedListNode<?> namedList) {
                 for (String namedListKey : namedList.namedListKeys()) {
                     InnerNode element = namedList.getInnerNode(namedListKey);
 
@@ -393,7 +385,7 @@ public class ConfigurationUtil {
     public static ConfigurationVisitor<Serializable> leafNodeVisitor() {
         return new ConfigurationVisitor<>() {
             @Override
-            public Serializable visitLeafNode(String key, Serializable val) {
+            public Serializable visitLeafNode(Field field, String key, Serializable val) {
                 return val;
             }
         };
@@ -407,7 +399,7 @@ public class ConfigurationUtil {
     public static ConfigurationVisitor<InnerNode> innerNodeVisitor() {
         return new ConfigurationVisitor<>() {
             @Override
-            public InnerNode visitInnerNode(String key, InnerNode node) {
+            public InnerNode visitInnerNode(Field field, String key, InnerNode node) {
                 return node;
             }
         };
@@ -422,7 +414,7 @@ public class ConfigurationUtil {
         return new ConfigurationVisitor<>() {
             /** {@inheritDoc} */
             @Override
-            public NamedListNode<?> visitNamedListNode(String key, NamedListNode<?> node) {
+            public NamedListNode<?> visitNamedListNode(Field field, String key, NamedListNode<?> node) {
                 return node;
             }
         };
@@ -782,7 +774,7 @@ public class ConfigurationUtil {
 
                 /** {@inheritDoc} */
                 @Override
-                public T visitLeafNode(String key, Serializable val) {
+                public T visitLeafNode(Field field, String key, Serializable val) {
                     if (idx != pathSize) {
                         throw new KeyNotFoundException("Configuration value '" + joinPath(path.subList(0, idx)) + "' is a leaf");
                     } else {
@@ -792,7 +784,7 @@ public class ConfigurationUtil {
 
                 /** {@inheritDoc} */
                 @Override
-                public T visitInnerNode(String key, InnerNode node) {
+                public T visitInnerNode(Field field, String key, InnerNode node) {
                     if (node == null) {
                         throw new KeyNotFoundException("Configuration node '" + joinPath(path.subList(0, idx)) + "' is null");
                     } else if (idx == pathSize) {
@@ -826,7 +818,7 @@ public class ConfigurationUtil {
 
                 /** {@inheritDoc} */
                 @Override
-                public T visitNamedListNode(String key, NamedListNode<?> node) {
+                public T visitNamedListNode(Field field, String key, NamedListNode<?> node) {
                     if (idx == pathSize) {
                         return (T) node;
                     } else {
@@ -842,12 +834,12 @@ public class ConfigurationUtil {
                                 ? pathNode.key
                                 : node.keyByInternalId(UUID.fromString(pathNode.key));
 
-                        return visitInnerNode(name, node.getInnerNode(name));
+                        return visitInnerNode(field, name, node.getInnerNode(name));
                     }
                 }
             };
 
-            return rootNode.accept(null, visitor);
+            return rootNode.accept(null, null, visitor);
         } catch (KeyNotFoundException e) {
             throw new NoSuchElementException(joinPath(path));
         }
@@ -1098,81 +1090,13 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Returns a configuration tree for the purpose of reading configuration directly from the underlying storage. Actual reading is only
-     * happening while invoking {@link ConfigurationTree#value()}. It will either throw {@link NoSuchElementException},
-     * {@link StorageException} or return the value.
-     * <p/>
-     * It is important to understand how it processes named list elements. Imagine having element named {@code a} with internalId
-     * {@code aId}.
-     * <pre><code>
-     *     var namedListProxy = directProxy(namedList);
+     * Extracts the internal ID of the element located in the given named list node under the given name.
      *
-     *     // Creates another proxy.
-     *     var aElementProxy = namedListProxy.get("a");
-     *
-     *     // This operation performs actual reading. It'll throw an exception if element named "a" doesn't exist anymore.
-     *     // It's been renamed or deleted.
-     *     var aElement = aElementProxy.value();
-     *
-     *     // Creates another proxy.
-     *     var aIdElementProxy = getByInternalId(namedListProxy, aId);
-     *
-     *     // This operation performs actual reading as previously stated. But, unlike the access by name, it won't throw an exception in
-     *     // case of a rename. Only after deletion.
-     *     var aIdElement = aIdElementProxy.value();
-     * </code></pre>
-     * <p/>
-     * Another important case is how already resolved named list elements are being proxied.
-     * <pre><code>
-     *     // Following code is in fact equivalent to a "getByInternalId(directProxy(namedList), aId);"
-     *     // Already resolved elements are always referenced to by their internal ids. This means that proxy will return a valid value
-     *     // even after rename despite it looking like name "a" should be resolved once again.
-     *     var aElementProxy = directProxy(namedList.get("a"));
-     * </code></pre>
-     *
-     * @see #getByInternalId(NamedConfigurationTree, UUID)
-     * @see #getByInternalId(NamedListView, UUID)
+     * @param node Named list node.
+     * @param name Name of the element inside the named list node.
+     * @return Internal ID of the element.
      */
-    public static <T extends ConfigurationProperty<?>> T directProxy(T property) {
-        if (property instanceof DirectPropertyProxy) {
-            return property;
-        }
-
-        assert property instanceof ConfigurationNode;
-
-        return (T) ((ConfigurationNode<T>) property).directProxy();
-    }
-
-    /**
-     * Returns named list configuration element by its internal id rather than its name.
-     */
-    public static <T extends ConfigurationProperty<?>> T getByInternalId(NamedConfigurationTree<T, ?, ?> cfg, UUID internalId) {
-        assert cfg instanceof NamedListConfiguration || cfg instanceof DirectNamedListProxy : cfg.getClass();
-
-        if (cfg instanceof NamedListConfiguration) {
-            return ((NamedListConfiguration<T, ?, ?>) cfg).getByInternalId(internalId);
-        } else {
-            return ((DirectNamedListProxy<T, ?, ?>) cfg).getByInternalId(internalId);
-        }
-    }
-
-    /**
-     * Returns named list node element by its internal id rather than its name.
-     */
-    public static <N> N getByInternalId(NamedListView<N> node, UUID internalId) {
-        return node.get(((NamedListNode<?>) node).keyByInternalId(internalId));
-    }
-
-    /**
-     * Returns all internal ids of the elements from the list.
-     */
-    public static List<UUID> internalIds(NamedConfigurationTree<?, ?, ?> cfg) {
-        assert cfg instanceof NamedListConfiguration || cfg instanceof DirectNamedListProxy : cfg.getClass();
-
-        if (cfg instanceof NamedListConfiguration) {
-            return ((NamedListConfiguration<?, ?, ?>) cfg).internalIds();
-        } else {
-            return ((DirectNamedListProxy<?, ?, ?>) cfg).internalIds();
-        }
+    public static UUID internalId(NamedListView<?> node, String name) {
+        return ((NamedListNode<?>) node).internalId(name);
     }
 }

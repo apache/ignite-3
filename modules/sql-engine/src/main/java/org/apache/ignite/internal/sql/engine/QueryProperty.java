@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Enumerates the properties which might be used during query execution.
  */
-public class QueryProperty {
+public final class QueryProperty {
     public static final Property<Long> QUERY_TIMEOUT = new Property<>("query_timeout", Long.class);
     public static final Property<String> DEFAULT_SCHEMA = new Property<>("default_schema", String.class);
 

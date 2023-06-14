@@ -18,10 +18,8 @@
 namespace Apache.Ignite.Benchmarks.Proto
 {
     using System;
-    using System.Diagnostics.CodeAnalysis;
     using BenchmarkDotNet.Attributes;
     using Internal.Buffers;
-    using Internal.Proto;
 
     /// <summary>
     /// Results on Intel Core i7-7700HQ, .NET SDK 5.0.400, Ubuntu 20.04:
@@ -30,7 +28,6 @@ namespace Apache.Ignite.Benchmarks.Proto
     /// | WriteTwoLongs | 173.9 ns | 1.43 ns | 1.34 ns |
     /// |     WriteGuid | 171.1 ns | 3.38 ns | 3.16 ns |.
     /// </summary>
-    [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     public class WriteGuidBenchmarks
     {
         private static readonly Guid Guid = Guid.NewGuid();
@@ -38,20 +35,18 @@ namespace Apache.Ignite.Benchmarks.Proto
         [Benchmark]
         public void WriteTwoLongs()
         {
-            using var bufferWriter = new PooledArrayBufferWriter();
-            var writer = bufferWriter.GetMessageWriter();
+            using var bufferWriter = new PooledArrayBuffer();
+            var writer = bufferWriter.MessageWriter;
             writer.Write(long.MaxValue);
             writer.Write(long.MaxValue);
-            writer.Flush();
         }
 
         [Benchmark]
         public void WriteGuid()
         {
-            using var bufferWriter = new PooledArrayBufferWriter();
-            var writer = bufferWriter.GetMessageWriter();
+            using var bufferWriter = new PooledArrayBuffer();
+            var writer = bufferWriter.MessageWriter;
             writer.Write(Guid);
-            writer.Flush();
         }
     }
 }

@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table
 {
     using System;
+    using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
     using NUnit.Framework;
@@ -30,10 +31,11 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestGetTables()
         {
-            var tables = await Client.Tables.GetTablesAsync();
+            var tables = (await Client.Tables.GetTablesAsync()).OrderBy(x => x.Name).ToList();
 
-            Assert.AreEqual(1, tables.Count);
-            Assert.AreEqual(TableName, tables[0].Name);
+            Assert.GreaterOrEqual(tables.Count, 2);
+            CollectionAssert.Contains(tables.Select(x => x.Name), TableName);
+            CollectionAssert.Contains(tables.Select(x => x.Name), TableAllColumnsName);
         }
 
         [Test]
@@ -63,6 +65,15 @@ namespace Apache.Ignite.Tests.Table
             var table = await Client.Tables.GetTableAsync(Guid.NewGuid().ToString());
 
             Assert.IsNull(table);
+        }
+
+        [Test]
+        public async Task TestToString()
+        {
+            _ = await Client.Tables.GetTablesAsync();
+
+            StringAssert.StartsWith("Tables { CachedTables = [ Table { Name = ", Client.Tables.ToString());
+            StringAssert.Contains("{ Name = TBL_STRING, Id = ", Client.Tables.ToString());
         }
     }
 }

@@ -45,5 +45,21 @@ namespace Apache.Ignite.Tests
 
             Assert.Greater(tables.Count, 0);
         }
+
+        [Test]
+        public async Task TestToString()
+        {
+            var cfg = new IgniteClientConfiguration { Endpoints = { "127.0.0.1:" + ServerPort } };
+            using var client = await IgniteClient.StartAsync(cfg);
+
+            // IgniteClientInternal { Connections = [ ClusterNode {
+            // Id = 703cc4d7-41ef-4321-b960-70ad9df2617b,
+            // Name = org.apache.ignite.internal.runner.app.PlatformTestNodeRunner,
+            // Address = 127.0.0.1:10942 } ] }
+            StringAssert.StartsWith("IgniteClientInternal { Connections = [ ClusterNode { Id = ", client.ToString());
+            StringAssert.Contains(
+                "Name = org.apache.ignite.internal.runner.app.PlatformTestNodeRunner, Address = 127.0.0.1:109",
+                client.ToString());
+        }
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.storage;
 
 import java.nio.file.Path;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.jetbrains.annotations.Nullable;
 

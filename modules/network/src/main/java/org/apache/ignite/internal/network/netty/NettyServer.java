@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -23,16 +23,18 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.ssl.SslContext;
 import java.net.SocketAddress;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.apache.ignite.configuration.schemas.network.NetworkView;
+import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.network.serialization.SerializationService;
+import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.jetbrains.annotations.Nullable;
@@ -129,7 +131,12 @@ public class NettyServer {
                             // Get handshake manager for the new channel.
                             HandshakeManager manager = handshakeManager.get();
 
-                            PipelineUtils.setup(ch.pipeline(), sessionSerializationService, manager, messageListener);
+                            if (configuration.ssl().enabled()) {
+                                SslContext sslContext = SslContextProvider.createServerSslContext(configuration.ssl());
+                                PipelineUtils.setup(ch.pipeline(), sessionSerializationService, manager, messageListener, sslContext);
+                            } else {
+                                PipelineUtils.setup(ch.pipeline(), sessionSerializationService, manager, messageListener);
+                            }
 
                             manager.handshakeFuture().thenAccept(newConnectionListener);
                         }

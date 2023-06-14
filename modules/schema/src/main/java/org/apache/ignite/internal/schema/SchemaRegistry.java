@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema;
 import java.util.Collection;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.row.Row;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Table schema registry interface.
@@ -29,7 +30,6 @@ import org.apache.ignite.internal.schema.row.Row;
  *
  * <p>After some table maintenance process some first versions may become outdated and can be safely cleaned up if the process guarantees
  * the table no longer has a data of these versions.
- * TODO: IGNITE-16550 Redesign SchemaRegistry to use causality tokens
  *
  * @implSpec The changes in between two arbitrary actual versions MUST NOT be lost. Thus, schema versions can only be removed from the
  *      beginning.
@@ -53,6 +53,14 @@ public interface SchemaRegistry {
     SchemaDescriptor schema(int ver) throws SchemaRegistryException;
 
     /**
+     * Gets cached schema descriptor for given version.
+     *
+     * @param ver Schema version to get descriptor for.
+     * @return Schema descriptor of given version or {@code null} if missed in cache.
+     */
+    @Nullable SchemaDescriptor schemaCached(int ver);
+
+    /**
      * Gets schema descriptor for the latest version in cluster.
      *
      * @return Schema descriptor if initialized, {@code null} otherwise.
@@ -62,7 +70,7 @@ public interface SchemaRegistry {
     /**
      * Get last registered schema version.
      */
-    public int lastSchemaVersion();
+    int lastSchemaVersion();
 
     /**
      * Resolve binary row against given schema.

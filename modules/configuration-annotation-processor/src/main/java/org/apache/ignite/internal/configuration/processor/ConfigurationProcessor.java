@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -35,6 +35,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
+import com.google.auto.service.AutoService;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
@@ -55,6 +56,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
@@ -83,6 +85,7 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.annotation.Secret;
 import org.apache.ignite.configuration.annotation.Value;
 import org.jetbrains.annotations.Nullable;
 
@@ -90,6 +93,7 @@ import org.jetbrains.annotations.Nullable;
  * Annotation processor that produces configuration classes.
  */
 // TODO: IGNITE-17166 Split into classes/methods for regular/internal/polymorphic/abstract configuration
+@AutoService(Processor.class)
 public class ConfigurationProcessor extends AbstractProcessor {
     /** Java file padding. */
     private static final String INDENT = "    ";
@@ -108,6 +112,8 @@ public class ConfigurationProcessor extends AbstractProcessor {
 
     /** Error format is that the field must be a specific class. */
     private static final String FIELD_MUST_BE_SPECIFIC_CLASS_ERROR_FORMAT = "%s %s.%s field must be a %s";
+
+    private static final String SECRET_FIELD_MUST_BE_STRING = "%s.%s must be String. Only String field can be annotated with @Secret";
 
     /** Postfix with which any configuration schema class name must end. */
     private static final String CONFIGURATION_SCHEMA_POSTFIX = "ConfigurationSchema";
@@ -186,13 +192,15 @@ public class ConfigurationProcessor extends AbstractProcessor {
 
                 Value valueAnnotation = field.getAnnotation(Value.class);
                 if (valueAnnotation != null) {
-                    // Must be a primitive or an array of the primitives (including java.lang.String)
-                    if (!isPrimitiveOrArray(field.asType())) {
-                        throw new ConfigurationProcessorException(
-                                "@Value " + clazz.getQualifiedName() + "." + field.getSimpleName() + " field must"
-                                        + " have one of the following types: boolean, int, long, double, String or an array of "
-                                        + "aforementioned type."
-                        );
+                    // Must be a primitive or an array of the primitives (including java.lang.String, java.util.UUID).
+                    if (!isValidValueAnnotationFieldType(field.asType())) {
+                        throw new ConfigurationProcessorException(String.format(
+                                "%s %s.%s field must have one of the following types: "
+                                        + "boolean, int, long, double, String, UUID or an array of aforementioned type.",
+                                simpleName(Value.class),
+                                clazz.getQualifiedName(),
+                                field.getSimpleName()
+                        ));
                     }
                 }
 
@@ -218,6 +226,14 @@ public class ConfigurationProcessor extends AbstractProcessor {
                                 field.getSimpleName(),
                                 UUID.class.getSimpleName()
                         ));
+                    }
+                }
+
+                if (field.getAnnotation(Secret.class) != null) {
+                    if (!isClass(field.asType(), String.class)) {
+                        throw new ConfigurationProcessorException(
+                                String.format(SECRET_FIELD_MUST_BE_STRING, clazz.getQualifiedName(), field.getSimpleName())
+                        );
                     }
                 }
 
@@ -251,7 +267,12 @@ public class ConfigurationProcessor extends AbstractProcessor {
                 createRootKeyField(configInterface, configurationInterfaceBuilder, schemaClassName, clazz);
             }
 
-            // Write configuration interface
+            // Generates "public FooConfiguration directProxy();" in the configuration interface.
+            configurationInterfaceBuilder.addMethod(
+                    MethodSpec.methodBuilder("directProxy").addModifiers(PUBLIC, ABSTRACT).returns(configInterface).build()
+            );
+
+            // Write configuration interface.
             buildClass(packageName, configurationInterfaceBuilder.build());
         }
 
@@ -460,7 +481,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
             TypeMirror schemaFieldType = field.asType();
             TypeName schemaFieldTypeName = TypeName.get(schemaFieldType);
 
-            boolean leafField = isPrimitiveOrArray(schemaFieldType)
+            boolean leafField = isValidValueAnnotationFieldType(schemaFieldType)
                     || !((ClassName) schemaFieldTypeName).simpleName().contains(CONFIGURATION_SCHEMA_POSTFIX);
 
             boolean namedListField = field.getAnnotation(NamedConfigValue.class) != null;
@@ -513,6 +534,15 @@ public class ConfigurationProcessor extends AbstractProcessor {
             }
 
             changeClsBuilder.addMethod(changeMtdBuilder.build());
+
+            // Create "FooChange changeFoo()" method with no parameters, if it's a config value or named list value.
+            if (valAnnotation == null) {
+                MethodSpec.Builder shortChangeMtdBuilder = MethodSpec.methodBuilder(changeMtdName)
+                        .addModifiers(PUBLIC, ABSTRACT)
+                        .returns(changeFieldType);
+
+                changeClsBuilder.addMethod(shortChangeMtdBuilder.build());
+            }
         }
 
         if (isPolymorphicConfig) {
@@ -566,12 +596,13 @@ public class ConfigurationProcessor extends AbstractProcessor {
     }
 
     /**
-     * Checks whether the given type is a primitive (or String) or an array of primitives (or Strings).
+     * Checks that the type of the field with {@link Value} is valid: primitive, {@link String}, or {@link UUID} (or an array of one of
+     * these).
      *
-     * @param type type
-     * @return {@code true} if type is a primitive or a String or an array of primitives or Strings
+     * @param type Field type with {@link Value}.
+     * @return {@code True} if the field type is valid.
      */
-    private boolean isPrimitiveOrArray(TypeMirror type) {
+    private boolean isValidValueAnnotationFieldType(TypeMirror type) {
         if (type.getKind() == TypeKind.ARRAY) {
             type = ((ArrayType) type).getComponentType();
         }
@@ -580,12 +611,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
             return true;
         }
 
-        TypeMirror stringType = processingEnv
-                .getElementUtils()
-                .getTypeElement(String.class.getCanonicalName())
-                .asType();
-
-        return processingEnv.getTypeUtils().isSameType(type, stringType);
+        return isClass(type, String.class) || isClass(type, UUID.class);
     }
 
     /**

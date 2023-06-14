@@ -1,7 +1,7 @@
 # name: test/sql/insert/test_insert_type.test
 # description: Test insert into from wrong type
 # group: [insert]
-# Ignored: https://issues.apache.org/jira/browse/IGNITE-17271
+# Ignored: https://issues.apache.org/jira/browse/IGNITE-18365
 
 statement ok
 CREATE TABLE strings(a VARCHAR)
@@ -18,9 +18,9 @@ INSERT INTO strings SELECT * FROM integers
 query T
 SELECT * FROM strings ORDER BY 1
 ----
-NULL
 3
 4
+NULL
 
 statement ok
 UPDATE strings SET a=13 WHERE a=3
@@ -28,6 +28,6 @@ UPDATE strings SET a=13 WHERE a=3
 query T
 SELECT * FROM strings ORDER BY cast(a AS INTEGER)
 ----
-NULL
 4
 13
+NULL

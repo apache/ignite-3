@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,6 +25,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 
 /**
@@ -32,152 +33,182 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
  */
 public class ClientMarshallerReader implements MarshallerReader {
     /** Unpacker. */
-    private final ClientMessageUnpacker unpacker;
+    private final BinaryTupleReader unpacker;
+
+    /** Index. */
+    private int index;
 
     /**
      * Constructor.
      *
      * @param unpacker Unpacker.
      */
-    public ClientMarshallerReader(ClientMessageUnpacker unpacker) {
+    public ClientMarshallerReader(BinaryTupleReader unpacker) {
         this.unpacker = unpacker;
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param unpacker Unpacker.
+     * @param index Start index.
+     */
+    public ClientMarshallerReader(BinaryTupleReader unpacker, int index) {
+        this.unpacker = unpacker;
+        this.index = index;
     }
 
     /** {@inheritDoc} */
     @Override
     public void skipValue() {
-        unpacker.skipValues(1);
+        index++;
     }
 
     /** {@inheritDoc} */
     @Override
     public byte readByte() {
-        return unpacker.unpackByte();
+        return unpacker.byteValue(index++);
     }
 
     /** {@inheritDoc} */
     @Override
     public Byte readByteBoxed() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackByte();
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.byteValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public short readShort() {
-        return unpacker.unpackShort();
+        return unpacker.shortValue(index++);
     }
 
     /** {@inheritDoc} */
     @Override
     public Short readShortBoxed() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackShort();
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.shortValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public int readInt() {
-        return unpacker.unpackInt();
+        return unpacker.intValue(index++);
     }
 
     /** {@inheritDoc} */
     @Override
     public Integer readIntBoxed() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackInt();
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.intValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public long readLong() {
-        return unpacker.unpackLong();
+        return unpacker.longValue(index++);
     }
 
     /** {@inheritDoc} */
     @Override
     public Long readLongBoxed() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackLong();
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.longValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public float readFloat() {
-        return unpacker.unpackFloat();
+        return unpacker.floatValue(index++);
     }
 
     /** {@inheritDoc} */
     @Override
     public Float readFloatBoxed() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackFloat();
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.floatValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public double readDouble() {
-        return unpacker.unpackDouble();
+        return unpacker.doubleValue(index++);
     }
 
     /** {@inheritDoc} */
     @Override
     public Double readDoubleBoxed() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackDouble();
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.doubleValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public String readString() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.stringValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public UUID readUuid() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackUuid();
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.uuidValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public byte[] readBytes() {
-        return unpacker.tryUnpackNil() ? null : unpacker.readPayload(unpacker.unpackBinaryHeader());
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.bytesValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public BitSet readBitSet() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackBitSet();
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.bitmaskValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public BigInteger readBigInt() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackNumber();
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.numberValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
-    public BigDecimal readBigDecimal() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackDecimal();
+    public BigDecimal readBigDecimal(int scale) {
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.decimalValue(idx, scale);
     }
 
     /** {@inheritDoc} */
     @Override
     public LocalDate readDate() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackDate();
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.dateValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public LocalTime readTime() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackTime();
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.timeValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public Instant readTimestamp() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackTimestamp();
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.timestampValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public LocalDateTime readDateTime() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackDateTime();
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.dateTimeValue(idx);
     }
 }

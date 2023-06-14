@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -29,32 +29,43 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
-import java.util.function.Function;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptListener;
+import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.AbstractRelNode;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelDistribution;
+import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelReferentialConstraint;
 import org.apache.calcite.rel.RelVisitor;
-import org.apache.calcite.rel.core.TableModify.Operation;
+import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.hint.HintStrategyTable;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -70,13 +81,21 @@ import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql2rel.InitializerContext;
+import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.index.ColumnCollation;
+import org.apache.ignite.internal.index.Index;
+import org.apache.ignite.internal.index.IndexDescriptor;
+import org.apache.ignite.internal.index.SortedIndex;
+import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.Cloner;
@@ -86,6 +105,7 @@ import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.Splitter;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -96,19 +116,19 @@ import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
-import org.apache.ignite.internal.sql.engine.schema.ModifyRow;
-import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.utils.PrimaryReplica;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -116,14 +136,18 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public abstract class AbstractPlannerTest extends IgniteAbstractTest {
-    protected static final IgniteTypeFactory TYPE_FACTORY = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+    protected static final IgniteTypeFactory TYPE_FACTORY = Commons.typeFactory();
 
     protected static final int DEFAULT_TBL_SIZE = 500_000;
 
     protected static final String DEFAULT_SCHEMA = "PUBLIC";
 
+    protected static final int DEFAULT_ZONE_ID = 0;
+
+    private static final AtomicInteger NEXT_TABLE_ID = new AtomicInteger(2001);
+
     /** Last error message. */
-    private String lastErrorMsg;
+    String lastErrorMsg;
 
     interface TestVisitor {
         void visit(RelNode node, int ordinal, RelNode parent);
@@ -157,6 +181,14 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         v.visit(n, -1, null);
 
         n.childrenAccept(new TestRelVisitor(v));
+    }
+
+    protected static IgniteDistribution someAffinity() {
+        return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
+    }
+
+    protected static int nextTableId() {
+        return NEXT_TABLE_ID.getAndIncrement();
     }
 
     /**
@@ -214,12 +246,18 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * Create planner context for specified query.
      */
     protected PlanningContext plannerCtx(String sql, IgniteSchema publicSchema, String... disabledRules) {
-        return plannerCtx(sql, Collections.singleton(publicSchema), disabledRules);
+        return plannerCtx(sql, Collections.singleton(publicSchema), null, List.of(), disabledRules);
     }
 
-    protected PlanningContext plannerCtx(String sql, Collection<IgniteSchema> schemas, String... disabledRules) {
+    private PlanningContext plannerCtx(
+            String sql,
+            Collection<IgniteSchema> schemas,
+            HintStrategyTable hintStrategies,
+            List<Object> params,
+            String... disabledRules
+    ) {
         PlanningContext ctx = PlanningContext.builder()
-                .parentContext(baseQueryContext(schemas))
+                .parentContext(baseQueryContext(schemas, hintStrategies, params.toArray()))
                 .query(sql)
                 .build();
 
@@ -232,7 +270,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         return ctx;
     }
 
-    protected BaseQueryContext baseQueryContext(Collection<IgniteSchema> schemas) {
+    protected BaseQueryContext baseQueryContext(
+            Collection<IgniteSchema> schemas,
+            @Nullable HintStrategyTable hintStrategies,
+            Object... params
+    ) {
         SchemaPlus rootSchema = createRootSchema(false);
         SchemaPlus dfltSchema = null;
 
@@ -244,13 +286,21 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             }
         }
 
+        SqlToRelConverter.Config relConvCfg = FRAMEWORK_CONFIG.getSqlToRelConverterConfig();
+
+        if (hintStrategies != null) {
+            relConvCfg = relConvCfg.withHintStrategyTable(hintStrategies);
+        }
+
         return BaseQueryContext.builder()
                 .frameworkConfig(
                         newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(dfltSchema)
+                                .sqlToRelConverterConfig(relConvCfg)
                                 .build()
                 )
                 .logger(log)
+                .parameters(params)
                 .build();
     }
 
@@ -287,48 +337,66 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     /**
      * Optimize the specified query and build query physical plan for a test.
      */
-    protected IgniteRel physicalPlan(String sql, IgniteSchema publicSchema, String... disabledRules) throws Exception {
-        return physicalPlan(sql, plannerCtx(sql, publicSchema, disabledRules));
+    protected IgniteRel physicalPlan(
+            String sql,
+            IgniteSchema publicSchema,
+            String... disabledRules) throws Exception {
+        return physicalPlan(sql, publicSchema, null, disabledRules);
     }
 
-    protected IgniteRel physicalPlan(String sql, Collection<IgniteSchema> schemas, String... disabledRules) throws Exception {
-        return physicalPlan(plannerCtx(sql, schemas, disabledRules));
+    /**
+     * Optimize the specified query and build query physical plan for a test.
+     */
+    protected IgniteRel physicalPlan(
+            String sql,
+            IgniteSchema publicSchema,
+            @Nullable RelOptListener listener,
+            String... disabledRules) throws Exception {
+        return physicalPlan(sql, Collections.singleton(publicSchema), null, List.of(), listener, disabledRules);
+    }
+
+    protected IgniteRel physicalPlan(
+            String sql,
+            Collection<IgniteSchema> schemas,
+            HintStrategyTable hintStrategies,
+            List<Object> params,
+            @Nullable RelOptListener listener,
+            String... disabledRules
+    ) throws Exception {
+        PlanningContext planningContext = plannerCtx(sql, schemas, hintStrategies, params, disabledRules);
+        return physicalPlan(planningContext, listener);
     }
 
     protected IgniteRel physicalPlan(PlanningContext ctx) throws Exception {
+        return physicalPlan(ctx, null);
+    }
+
+    protected IgniteRel physicalPlan(PlanningContext ctx, @Nullable RelOptListener listener) throws Exception {
         try (IgnitePlanner planner = ctx.planner()) {
             assertNotNull(planner);
             assertNotNull(ctx.query());
 
-            return physicalPlan(ctx.query(), ctx);
+            if (listener != null) {
+                planner.addListener(listener);
+            }
+
+            return physicalPlan(planner, ctx.query());
         }
     }
 
-    protected IgniteRel physicalPlan(String sql, PlanningContext ctx) throws Exception {
-        try (IgnitePlanner planner = ctx.planner()) {
-            assertNotNull(planner);
+    protected IgniteRel physicalPlan(IgnitePlanner planner, String qry) throws Exception {
+        // Parse
+        SqlNode sqlNode = planner.parse(qry);
 
-            String qry = ctx.query();
+        // Validate
+        sqlNode = planner.validate(sqlNode);
 
-            assertNotNull(qry);
+        try {
+            return PlannerHelper.optimize(sqlNode, planner);
+        } catch (Throwable ex) {
+            System.err.println(planner.dump());
 
-            // Parse
-            SqlNode sqlNode = planner.parse(qry);
-
-            // Validate
-            sqlNode = planner.validate(sqlNode);
-
-            try {
-                IgniteRel rel = PlannerHelper.optimize(sqlNode, planner);
-
-                // System.out.println(RelOptUtil.toString(rel));
-
-                return rel;
-            } catch (Throwable ex) {
-                System.err.println(planner.dump());
-
-                throw ex;
-            }
+            throw ex;
         }
     }
 
@@ -373,15 +441,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         };
     }
 
-    protected static void createTable(IgniteSchema schema, String name, RelDataType type, IgniteDistribution distr) {
-        TestTable table = new TestTable(type, name) {
-            @Override
-            public IgniteDistribution distribution() {
-                return distr;
-            }
-        };
+    protected static TestTable createTable(IgniteSchema schema, String name, RelDataType type, IgniteDistribution distr) {
+        TestTable table = createTable(name, type, DEFAULT_TBL_SIZE, distr);
 
-        schema.addTable(name, table);
+        schema.addTable(table);
+
+        return table;
     }
 
     /**
@@ -398,7 +463,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected static TestTable createTable(IgniteSchema schema, String name, IgniteDistribution distr, Object... fields) {
         TestTable tbl = createTable(name, DEFAULT_TBL_SIZE, distr, fields);
 
-        schema.addTable(name, tbl);
+        schema.addTable(tbl);
 
         return tbl;
     }
@@ -439,7 +504,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             b.add((String) fields[i], TYPE_FACTORY.createJavaType((Class<?>) fields[i + 1]));
         }
 
-        return new TestTable(name, b.build(), size) {
+        return createTable(name, b.build(), size, distr);
+    }
+
+    protected static TestTable createTable(String name, RelDataType type, int size, IgniteDistribution distr) {
+        return new TestTable(name, type, size) {
             @Override
             public IgniteDistribution distribution() {
                 return distr;
@@ -453,7 +522,16 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             Predicate<T> predicate,
             String... disabledRules
     ) throws Exception {
-        assertPlan(sql, Collections.singleton(schema), predicate, disabledRules);
+        assertPlan(sql, Collections.singleton(schema), predicate, List.of(), disabledRules);
+    }
+
+    protected <T extends RelNode> void assertPlan(
+            String sql,
+            IgniteSchema schema,
+            Predicate<T> predicate,
+            List<Object> params
+    ) throws Exception {
+        assertPlan(sql, Collections.singleton(schema), predicate, params);
     }
 
     protected <T extends RelNode> void assertPlan(
@@ -462,22 +540,50 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             Predicate<T> predicate,
             String... disabledRules
     ) throws Exception {
-        IgniteRel plan = physicalPlan(sql, schemas, disabledRules);
+        assertPlan(sql, schemas, predicate, null, List.of(), disabledRules);
+    }
+
+    protected <T extends RelNode> void assertPlan(
+            String sql,
+            Collection<IgniteSchema> schemas,
+            Predicate<T> predicate,
+            List<Object> params,
+            String... disabledRules
+    ) throws Exception {
+        assertPlan(sql, schemas, predicate, null, params, disabledRules);
+    }
+
+    protected <T extends RelNode> void assertPlan(
+            String sql,
+            Collection<IgniteSchema> schemas,
+            Predicate<T> predicate,
+            HintStrategyTable hintStrategies,
+            List<Object> params,
+            String... disabledRules
+    ) throws Exception {
+        IgniteRel plan = physicalPlan(sql, schemas, hintStrategies, params, null, disabledRules);
 
         checkSplitAndSerialization(plan, schemas);
 
-        if (!predicate.test((T) plan)) {
-            String invalidPlanMsg = "Invalid plan (" + lastErrorMsg + "):\n"
+        try {
+            if (predicate.test((T) plan)) {
+                return;
+            }
+        } catch (Throwable th) {
+            String invalidPlanMsg = "Failed to validate plan (" + lastErrorMsg + "):\n"
                     + RelOptUtil.toString(plan, SqlExplainLevel.ALL_ATTRIBUTES);
 
-            fail(invalidPlanMsg);
+            fail(invalidPlanMsg, th);
         }
+
+        fail("Invalid plan (" + lastErrorMsg + "):\n"
+                + RelOptUtil.toString(plan, SqlExplainLevel.ALL_ATTRIBUTES));
     }
 
     /**
      * Predicate builder for "Instance of class" condition.
      */
-    protected <T extends RelNode> Predicate<T> isInstanceOf(Class<T> cls) {
+    protected <T> Predicate<T> isInstanceOf(Class<T> cls) {
         return node -> {
             if (cls.isInstance(node)) {
                 return true;
@@ -494,8 +600,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      */
     protected <T extends RelNode> Predicate<IgniteTableScan> isTableScan(String tableName) {
         return isInstanceOf(IgniteTableScan.class).and(
-            n -> {
-                String scanTableName = Util.last(n.getTable().getQualifiedName());
+                n -> {
+                    String scanTableName = Util.last(n.getTable().getQualifiedName());
 
                     if (tableName.equalsIgnoreCase(scanTableName)) {
                         return true;
@@ -505,6 +611,21 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
                     return false;
                 });
+    }
+
+    /**
+     * Predicate builder for "Operator has distribution" condition.
+     */
+    protected <T extends IgniteRel> Predicate<IgniteRel> hasDistribution(IgniteDistribution distribution) {
+        return node -> {
+            if (distribution.getType() == RelDistribution.Type.HASH_DISTRIBUTED
+                    && node.distribution().getType() == RelDistribution.Type.HASH_DISTRIBUTED
+            ) {
+                return distribution.satisfies(node.distribution());
+            }
+
+            return distribution.equals(node.distribution());
+        };
     }
 
     /**
@@ -577,11 +698,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * @param tbls Tables to create schema for.
      * @return Public schema.
      */
-    protected static IgniteSchema createSchema(TestTable... tbls) {
+    protected static IgniteSchema createSchema(IgniteTable... tbls) {
         IgniteSchema schema = new IgniteSchema("PUBLIC");
 
-        for (TestTable tbl : tbls) {
-            schema.addTable(tbl.name(), tbl);
+        for (IgniteTable tbl : tbls) {
+            schema.addTable(tbl);
         }
 
         return schema;
@@ -614,17 +735,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         List<RelNode> deserializedNodes = new ArrayList<>();
 
-        Map<UUID, IgniteTable> tableMap = new HashMap<>();
-
-        for (IgniteSchema schema : schemas) {
-            tableMap.putAll(schema.getTableNames().stream()
-                    .map(schema::getTable)
-                    .map(IgniteTable.class::cast)
-                    .collect(Collectors.toMap(IgniteTable::id, Function.identity())));
-        }
+        BaseQueryContext ctx = baseQueryContext(schemas, null);
 
         for (String s : serialized) {
-            RelJsonReader reader = new RelJsonReader(new SqlSchemaManagerImpl(tableMap));
+            RelJsonReader reader = new RelJsonReader(ctx.catalogReader());
             deserializedNodes.add(reader.read(s));
         }
 
@@ -640,6 +754,9 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
             clearTraits(expected);
             clearTraits(deserialized);
+
+            // Hints are not serializable.
+            clearHints(expected);
 
             if (!expected.deepEquals(deserialized)) {
                 assertTrue(
@@ -681,8 +798,16 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         rel.getInputs().forEach(this::clearTraits);
     }
 
+    protected void clearHints(RelNode rel) {
+        if (rel instanceof TableScan) {
+            IgniteTestUtils.setFieldValue(rel, TableScan.class, "hints", ImmutableList.of());
+        }
+
+        rel.getInputs().forEach(this::clearHints);
+    }
+
     /** Test table. */
-    public abstract static class TestTable implements InternalIgniteTable {
+    public abstract static class TestTable implements IgniteTable {
         private final String name;
 
         private final RelProtoDataType protoType;
@@ -693,7 +818,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         private final TableDescriptor desc;
 
-        private final UUID id = UUID.randomUUID();
+        private final int id = nextTableId();
 
         /** Constructor. */
         public TestTable(RelDataType type) {
@@ -721,7 +846,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public UUID id() {
+        public int id() {
             return id;
         }
 
@@ -736,11 +861,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         public IgniteLogicalTableScan toRel(
                 RelOptCluster cluster,
                 RelOptTable relOptTbl,
+                List<RelHint> hints,
                 @Nullable List<RexNode> proj,
                 @Nullable RexNode cond,
                 @Nullable ImmutableBitSet requiredColumns
         ) {
-            return IgniteLogicalTableScan.create(cluster, cluster.traitSet(), relOptTbl, proj, cond, requiredColumns);
+            return IgniteLogicalTableScan.create(cluster, cluster.traitSet(), hints, relOptTbl, proj, cond, requiredColumns);
         }
 
         /** {@inheritDoc} */
@@ -872,7 +998,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          */
         public TestTable addIndex(RelCollation collation, String name) {
-            indexes.put(name, new IgniteIndex(collation, name, this));
+            indexes.put(name, new IgniteIndex(TestSortedIndex.create(collation, name, this)));
 
             return this;
         }
@@ -899,30 +1025,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             throw new AssertionError();
         }
 
-        /**
-         * Get name.
-         */
+        /** {@inheritDoc} */
+        @Override
         public String name() {
             return name;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public InternalTable table() {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
-                @Nullable ImmutableBitSet requiredColumns) {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public <RowT> ModifyRow toModifyRow(ExecutionContext<RowT> ectx, RowT row, Operation op, @Nullable List<String> arg) {
-            throw new AssertionError();
         }
     }
 
@@ -966,7 +1072,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         @Override
         public ColumnDescriptor columnDescriptor(String fieldName) {
             RelDataTypeField field = rowType.getField(fieldName, false, false);
-            return new TestColumnDescriptor(field.getIndex(), fieldName);
+
+            NativeType nativeType = field.getType() instanceof BasicSqlType ? IgniteTypeFactory.relDataTypeToNative(field.getType()) : null;
+
+            return new TestColumnDescriptor(field.getIndex(), fieldName, nativeType);
         }
 
         /** {@inheritDoc} */
@@ -974,7 +1083,9 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         public ColumnDescriptor columnDescriptor(int idx) {
             RelDataTypeField field = rowType.getFieldList().get(idx);
 
-            return new TestColumnDescriptor(field.getIndex(), field.getName());
+            NativeType nativeType = field.getType() instanceof BasicSqlType ? IgniteTypeFactory.relDataTypeToNative(field.getType()) : null;
+
+            return new TestColumnDescriptor(field.getIndex(), field.getName(), nativeType);
         }
 
         /** {@inheritDoc} */
@@ -1020,9 +1131,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         private final String name;
 
-        TestColumnDescriptor(int idx, String name) {
+        private final NativeType physicalType;
+
+        TestColumnDescriptor(int idx, String name, NativeType physicalType) {
             this.idx = idx;
             this.name = name;
+            this.physicalType = physicalType;
         }
 
         /** {@inheritDoc} */
@@ -1064,7 +1178,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         public NativeType physicalType() {
-            throw new AssertionError();
+            if (physicalType == null) {
+                throw new AssertionError();
+            }
+
+            return physicalType;
         }
 
         /** {@inheritDoc} */
@@ -1074,21 +1192,241 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
     }
 
-    static class SqlSchemaManagerImpl implements SqlSchemaManager {
-        private final Map<UUID, IgniteTable> tablesById;
+    static class TestSortedIndex implements SortedIndex {
+        private final int id = 1;
 
-        public SqlSchemaManagerImpl(Map<UUID, IgniteTable> tablesById) {
-            this.tablesById = tablesById;
+        private final int tableId = 1;
+
+        private final SortedIndexDescriptor descriptor;
+
+        public static TestSortedIndex create(RelCollation collation, String name, IgniteTable table) {
+            List<String> columns = new ArrayList<>();
+            List<ColumnCollation> collations = new ArrayList<>();
+            TableDescriptor tableDescriptor = table.descriptor();
+
+            for (var fieldCollation : collation.getFieldCollations()) {
+                columns.add(tableDescriptor.columnDescriptor(fieldCollation.getFieldIndex()).name());
+                collations.add(ColumnCollation.get(
+                        !fieldCollation.getDirection().isDescending(),
+                        fieldCollation.nullDirection == NullDirection.FIRST
+                ));
+            }
+
+            var descriptor = new SortedIndexDescriptor(name, columns, collations);
+
+            return new TestSortedIndex(descriptor);
+        }
+
+        public TestSortedIndex(SortedIndexDescriptor descriptor) {
+            this.descriptor = descriptor;
         }
 
         @Override
-        public SchemaPlus schema(@Nullable String schema) {
-            throw new AssertionError();
+        public int id() {
+            return id;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String name() {
+            return descriptor.name();
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public int tableId() {
+            return tableId;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public SortedIndexDescriptor descriptor() {
+            return descriptor;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Publisher<BinaryRow> lookup(int partId, UUID txId, PrimaryReplica recipient, BinaryTuple key,
+                @Nullable BitSet columns) {
+            throw new AssertionError("Should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipient, BinaryTuple key, BitSet columns) {
+            throw new AssertionError("Should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Publisher<BinaryRow> scan(int partId, HybridTimestamp timestamp, ClusterNode recipient,
+                @Nullable BinaryTuplePrefix leftBound, @Nullable BinaryTuplePrefix rightBound, int flags, BitSet columnsToInclude) {
+            throw new AssertionError("Should not be called");
         }
 
         @Override
-        public IgniteTable tableById(UUID id, int ver) {
-            return tablesById.get(id);
+        public Publisher<BinaryRow> scan(int partId, UUID txId, PrimaryReplica recipient, @Nullable BinaryTuplePrefix leftBound,
+                @Nullable BinaryTuplePrefix rightBound, int flags, @Nullable BitSet columnsToInclude) {
+            throw new AssertionError("Should not be called");
+        }
+    }
+
+    /** Test Hash index implementation. */
+    public static class TestHashIndex implements Index<IndexDescriptor> {
+        private final int id = 1;
+
+        private int tableId = 1;
+
+        private final IndexDescriptor descriptor;
+
+        /** Create index. */
+        public static TestHashIndex create(List<String> indexedColumns, String name, int tableId) {
+            var descriptor = new IndexDescriptor(name, indexedColumns);
+
+            TestHashIndex idx = new TestHashIndex(descriptor);
+
+            idx.tableId = tableId;
+
+            return idx;
+        }
+
+        /** Create index. */
+        public static TestHashIndex create(List<String> indexedColumns, String name) {
+            var descriptor = new IndexDescriptor(name, indexedColumns);
+
+            return new TestHashIndex(descriptor);
+        }
+
+        TestHashIndex(IndexDescriptor descriptor) {
+            this.descriptor = descriptor;
+        }
+
+        @Override
+        public int id() {
+            return id;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String name() {
+            return descriptor.name();
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public int tableId() {
+            return tableId;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public IndexDescriptor descriptor() {
+            return descriptor;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Publisher<BinaryRow> lookup(int partId, UUID txId, PrimaryReplica recipient, BinaryTuple key,
+                @Nullable BitSet columns) {
+            throw new AssertionError("Should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipient, BinaryTuple key, BitSet columns) {
+            throw new AssertionError("Should not be called");
+        }
+    }
+
+    Predicate<SearchBounds> empty() {
+        return Objects::isNull;
+    }
+
+    /**
+     * Wrapper for RelOptListener with empty realization for each of their methods. Good choice in case you need implement just one or few
+     * methods for listener.
+     */
+    static class NoopRelOptListener implements RelOptListener {
+
+        @Override
+        public void relEquivalenceFound(RelEquivalenceEvent event) {}
+
+        @Override
+        public void ruleAttempted(RuleAttemptedEvent event) {}
+
+        @Override
+        public void ruleProductionSucceeded(RuleProductionEvent event) {}
+
+        @Override
+        public void relDiscarded(RelDiscardedEvent event) {}
+
+        @Override
+        public void relChosen(RelChosenEvent event) {}
+    }
+
+    /**
+     * Listener which keeps information about attempts of applying optimization rules.
+     */
+    public class RuleAttemptListener extends NoopRelOptListener {
+        Set<RelOptRule> attemptedRules = new HashSet<>();
+
+        @Override
+        public void ruleAttempted(RuleAttemptedEvent event) {
+            if (event.isBefore()) {
+                attemptedRules.add(event.getRuleCall().getRule());
+            }
+        }
+
+        public boolean isApplied(RelOptRule rule) {
+            return attemptedRules.stream().anyMatch(r -> rule.toString().equals(r.toString()));
+        }
+
+        public void reset() {
+            attemptedRules.clear();
+        }
+    }
+
+    /**
+     * A shorthand for {@code checkStatement().sql(statement, params)}.
+     */
+    public StatementChecker sql(String statement, Object... params) {
+        return checkStatement().sql(statement, params);
+    }
+
+    /**
+     * Creates an instance of {@link StatementChecker statement checker} to test plans.
+     * <pre>
+     *     checkStatement().sql("SELECT 1").ok()
+     * </pre>
+     */
+    public StatementChecker checkStatement() {
+        return new PlanChecker();
+    }
+
+    /**
+     * Creates an instance of {@link PlanChecker statement checker} with the given setup.
+     * A shorthand for {@code checkStatement().setup(func)}.
+     */
+    public StatementChecker checkStatement(Consumer<StatementChecker> setup) {
+        return new PlanChecker().setup(setup);
+    }
+
+    /**
+     * An implementation of {@link PlanChecker} with initialized {@link SqlPrepare} to test plans.
+     */
+    public class PlanChecker extends StatementChecker {
+
+        PlanChecker() {
+            super((schema, sql, params) -> {
+                return physicalPlan(sql, List.of(schema), HintStrategyTable.EMPTY,
+                        params, new NoopRelOptListener());
+            });
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        protected void checkRel(IgniteRel igniteRel, IgniteSchema schema) {
+            checkSplitAndSerialization(igniteRel, schema);
         }
     }
 }

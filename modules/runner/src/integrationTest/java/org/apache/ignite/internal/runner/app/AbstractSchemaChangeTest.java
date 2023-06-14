@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,7 +19,7 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -33,31 +33,30 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.configuration.schemas.table.ColumnChange;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultChange;
+import org.apache.ignite.InitParameters;
+import org.apache.ignite.internal.IgniteIntegrationTest;
+import org.apache.ignite.internal.schema.configuration.ColumnChange;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultChange;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteObjectName;
+import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnDefinition;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
+import org.apache.ignite.sql.Session;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
 
 /**
  * Ignition interface tests.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-abstract class AbstractSchemaChangeTest {
+abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
     /** Table name. */
-    public static final String TABLE = "PUBLIC.tbl1";
+    public static final String TABLE = "TBL1";
 
     /** Network ports of the test nodes. */
     private static final int[] PORTS = {3344, 3345, 3346};
@@ -174,14 +173,22 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Returns grid nodes.
      */
-    protected List<Ignite> startGrid() throws Exception {
+    protected List<Ignite> startGrid() {
         List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
-                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .collect(toList());
 
         String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
-        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(metaStorageNode)
+                .metaStorageNodeNames(List.of(metaStorageNode))
+                .clusterName("cluster")
+                .build();
+
+        IgnitionManager.init(initParameters);
+
+        await(CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])));
 
         return futures.stream()
                 .map(CompletableFuture::join)
@@ -194,20 +201,10 @@ abstract class AbstractSchemaChangeTest {
      * @param nodes Cluster nodes.
      */
     protected static void createTable(List<Ignite> nodes) {
-        // Create table on node 0.
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build(),
-                SchemaBuilders.column("valBlob", ColumnType.blob()).asNullable(true).build(),
-                SchemaBuilders.column("valDecimal", ColumnType.decimal()).asNullable(true).build(),
-                SchemaBuilders.column("valBigInt", ColumnType.number()).asNullable(true).build(),
-                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()
-        ).withPrimaryKey("key").build();
-
-        nodes.get(0).tables().createTable(
-                schTbl1.canonicalName(),
-                tblCh -> convert(schTbl1, tblCh).changeReplicas(1).changePartitions(10)
-        );
+        try (Session session = nodes.get(0).sql().createSession()) {
+            session.execute(null, "CREATE TABLE tbl1(key BIGINT PRIMARY KEY, valint INT, valblob BINARY,"
+                    + "valdecimal DECIMAL, valbigint BIGINT, valstr VARCHAR NOT NULL DEFAULT 'default')");
+        }
     }
 
     /**
@@ -216,10 +213,10 @@ abstract class AbstractSchemaChangeTest {
      * @param nodes Cluster nodes.
      * @param columnToAdd Column to add.
      */
-    protected static void addColumn(List<Ignite> nodes, ColumnDefinition columnToAdd) {
-        nodes.get(0).tables().alterTable(TABLE,
-                chng -> chng.changeColumns(cols -> cols.create(columnToAdd.name(), colChg -> convert(columnToAdd, colChg)))
-        );
+    protected static void addColumn(List<Ignite> nodes, String columnToAdd) {
+        try (Session session = nodes.get(0).sql().createSession()) {
+            session.execute(null, "ALTER TABLE " + TABLE + " ADD COLUMN " + columnToAdd);
+        }
     }
 
     /**
@@ -229,8 +226,9 @@ abstract class AbstractSchemaChangeTest {
      * @param colName Name of column to drop.
      */
     protected static void dropColumn(List<Ignite> nodes, String colName) {
-        nodes.get(0).tables()
-                .alterTable(TABLE, chng -> chng.changeColumns(cols -> cols.delete(IgniteObjectName.parse(colName))));
+        try (Session session = nodes.get(0).sql().createSession()) {
+            session.execute(null, "ALTER TABLE " + TABLE + " DROP COLUMN " + colName + "");
+        }
     }
 
     /**
@@ -241,12 +239,13 @@ abstract class AbstractSchemaChangeTest {
      * @param newName New column name.
      */
     protected static void renameColumn(List<Ignite> nodes, String oldName, String newName) {
-        nodes.get(0).tables().alterTable(TABLE,
-                tblChanger -> tblChanger.changeColumns(
-                        colListChanger -> colListChanger
-                                .rename(IgniteObjectName.parse(oldName), IgniteObjectName.parse(newName))
-                )
-        );
+        await(((TableManager) nodes.get(0).tables()).alterTableAsync(TABLE,
+                tblChanger -> {
+                    tblChanger.changeColumns(
+                            colListChanger -> colListChanger
+                                .rename(IgniteNameUtils.parseSimpleName(oldName), IgniteNameUtils.parseSimpleName(newName)));
+                    return true;
+            }));
     }
 
     /**
@@ -257,16 +256,16 @@ abstract class AbstractSchemaChangeTest {
      * @param defSup Default value supplier.
      */
     protected static void changeDefault(List<Ignite> nodes, String colName, Supplier<Object> defSup) {
-        nodes.get(0).tables().alterTable(TABLE,
-                tblChanger -> tblChanger.changeColumns(
-                        colListChanger -> colListChanger
-                                .update(
-                                        IgniteObjectName.parse(colName),
-                                        colChanger -> colChanger.changeDefaultValueProvider(colDefChange -> colDefChange.convert(
-                                                ConstantValueDefaultChange.class).changeDefaultValue(defSup.get().toString()))
-                                )
-                )
-        );
+        await(((TableManager) nodes.get(0).tables()).alterTableAsync(TABLE, tblChanger -> {
+            tblChanger.changeColumns(
+                    colListChanger -> colListChanger
+                            .update(
+                                    IgniteNameUtils.parseSimpleName(colName),
+                                    colChanger -> colChanger.changeDefaultValueProvider(colDefChange -> colDefChange.convert(
+                                            ConstantValueDefaultChange.class).changeDefaultValue(defSup.get().toString()))
+                            ));
+            return true;
+        }));
     }
 
     /**
@@ -278,11 +277,12 @@ abstract class AbstractSchemaChangeTest {
      */
     private static void assertColumnChangeFailed(List<Ignite> grid, String colName, Consumer<ColumnChange> colChanger) {
         assertThrows(IgniteException.class, () ->
-                grid.get(0).tables().alterTable(TABLE,
-                        tblChanger -> tblChanger.changeColumns(
-                                listChanger -> listChanger.update(IgniteObjectName.parse(colName), colChanger)
-                        )
-                )
+                await(((TableManager) grid.get(0).tables()).alterTableAsync(TABLE, tblChanger -> {
+                    tblChanger.changeColumns(
+                            listChanger ->
+                                    listChanger.update(IgniteNameUtils.parseSimpleName(colName), colChanger));
+                    return true;
+                }))
         );
     }
 

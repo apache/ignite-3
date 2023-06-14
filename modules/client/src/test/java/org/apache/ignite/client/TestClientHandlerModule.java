@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -29,20 +29,25 @@ import io.netty.channel.ChannelOption;
 import io.netty.util.ReferenceCounted;
 import java.net.BindException;
 import java.net.SocketAddress;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
+import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.security.authentication.AuthenticationManager;
+import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -58,11 +63,20 @@ public class TestClientHandlerModule implements IgniteComponent {
     /** Connection drop condition. */
     private final Function<Integer, Boolean> shouldDropConnection;
 
+    /** Server response delay function. */
+    private final Function<Integer, Integer> responseDelay;
+
     /** Cluster service. */
     private final ClusterService clusterService;
 
     /** Compute. */
     private final IgniteCompute compute;
+
+    /** Cluster id. */
+    private final UUID clusterId;
+
+    /** Metrics. */
+    private final ClientHandlerMetricSource metrics;
 
     /** Netty channel. */
     private volatile Channel channel;
@@ -70,23 +84,33 @@ public class TestClientHandlerModule implements IgniteComponent {
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory bootstrapFactory;
 
+    /** Authentication configuration. */
+    private final AuthenticationConfiguration authenticationConfiguration;
+
     /**
      * Constructor.
      *
-     * @param ignite               Ignite.
-     * @param registry             Configuration registry.
-     * @param bootstrapFactory     Bootstrap factory.
+     * @param ignite Ignite.
+     * @param registry Configuration registry.
+     * @param bootstrapFactory Bootstrap factory.
      * @param shouldDropConnection Connection drop condition.
-     * @param clusterService       Cluster service.
-     * @param compute              Compute.
+     * @param responseDelay Response delay, in milliseconds.
+     * @param clusterService Cluster service.
+     * @param compute Compute.
+     * @param clusterId Cluster id.
+     * @param metrics Metrics.
      */
     public TestClientHandlerModule(
             Ignite ignite,
             ConfigurationRegistry registry,
             NettyBootstrapFactory bootstrapFactory,
             Function<Integer, Boolean> shouldDropConnection,
+            @Nullable Function<Integer, Integer> responseDelay,
             ClusterService clusterService,
-            IgniteCompute compute) {
+            IgniteCompute compute,
+            UUID clusterId,
+            ClientHandlerMetricSource metrics,
+            AuthenticationConfiguration authenticationConfiguration) {
         assert ignite != null;
         assert registry != null;
         assert bootstrapFactory != null;
@@ -95,8 +119,12 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.registry = registry;
         this.bootstrapFactory = bootstrapFactory;
         this.shouldDropConnection = shouldDropConnection;
+        this.responseDelay = responseDelay;
         this.clusterService = clusterService;
         this.compute = compute;
+        this.clusterId = clusterId;
+        this.metrics = metrics;
+        this.authenticationConfiguration = authenticationConfiguration;
     }
 
     /** {@inheritDoc} */
@@ -158,14 +186,18 @@ public class TestClientHandlerModule implements IgniteComponent {
                         ch.pipeline().addLast(
                                 new ClientMessageDecoder(),
                                 new ConnectionDropHandler(requestCounter, shouldDropConnection),
+                                new ResponseDelayHandler(responseDelay),
                                 new ClientInboundMessageHandler(
-                                        ignite.tables(),
+                                        (IgniteTablesInternal) ignite.tables(),
                                         ignite.transactions(),
                                         mock(QueryProcessor.class),
                                         configuration,
                                         compute,
                                         clusterService,
-                                        mock(IgniteSql.class)));
+                                        ignite.sql(),
+                                        clusterId,
+                                        metrics,
+                                        authenticationManager(authenticationConfiguration)));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
@@ -220,5 +252,39 @@ public class TestClientHandlerModule implements IgniteComponent {
                 super.channelRead(ctx, msg);
             }
         }
+    }
+
+    private static class ResponseDelayHandler extends ChannelInboundHandlerAdapter {
+        /** Delay. */
+        private final Function<Integer, Integer> delay;
+
+        /** Counter. */
+        private final AtomicInteger cnt = new AtomicInteger();
+
+        /**
+         * Constructor.
+         *
+         * @param delay Delay.
+         */
+        private ResponseDelayHandler(@Nullable Function<Integer, Integer> delay) {
+            this.delay = delay;
+        }
+
+        @Override
+        public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+            var delayMs = delay == null ? 0 : delay.apply(cnt.incrementAndGet());
+
+            if (delayMs > 0) {
+                Thread.sleep(delayMs);
+            }
+
+            super.channelRead(ctx, msg);
+        }
+    }
+
+    private AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) {
+        AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
+        authenticationConfiguration.listen(manager);
+        return manager;
     }
 }

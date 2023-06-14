@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to you under the Apache License, Version 2.0
+ * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -98,9 +98,10 @@ public class RexExecutorImpl implements RexExecutor {
 
         final SqlConformance conformance = SqlConformanceEnum.DEFAULT;
         final RexProgram program = programBuilder.getProgram();
+
         final List<Expression> expressions =
-                RexToLixTranslator.translateProjects(program, javaTypeFactory,
-                        conformance, blockBuilder, null, root_, getter, null);
+                RexToLixTranslator.translateProjects(program,  javaTypeFactory,
+                        conformance, blockBuilder, null, null, root_, getter, null);
 
         blockBuilder.add(
                 Expressions.return_(

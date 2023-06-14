@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -29,7 +30,6 @@ import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.storage.pagememory.mv.io.RowVersionDataIo;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,11 +39,11 @@ import org.jetbrains.annotations.Nullable;
 public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
     private static final IgniteLogger LOG = Loggers.forClass(RowVersionFreeList.class);
 
-    private final PageEvictionTracker evictionTracker;
-
     private final IoStatisticsHolder statHolder;
 
     private final UpdateTimestampHandler updateTimestampHandler = new UpdateTimestampHandler();
+
+    private final UpdateNextLinkHandler updateNextLinkHandler = new UpdateNextLinkHandler();
 
     /**
      * Constructor.
@@ -87,7 +87,6 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
                 evictionTracker
         );
 
-        this.evictionTracker = evictionTracker;
         this.statHolder = statHolder;
     }
 
@@ -108,8 +107,19 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
      * @param newTimestamp timestamp to set
      * @throws IgniteInternalCheckedException if something fails
      */
-    public void updateTimestamp(long link, Timestamp newTimestamp) throws IgniteInternalCheckedException {
+    public void updateTimestamp(long link, HybridTimestamp newTimestamp) throws IgniteInternalCheckedException {
         updateDataRow(link, updateTimestampHandler, newTimestamp, statHolder);
+    }
+
+    /**
+     * Updates row version's next link.
+     *
+     * @param link Row version link.
+     * @param nextLink Next row version link to set.
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    public void updateNextLink(long link, long nextLink) throws IgniteInternalCheckedException {
+        updateDataRow(link, updateNextLinkHandler, nextLink, statHolder);
     }
 
     /**
@@ -122,8 +132,7 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
         super.removeDataRowByLink(link, statHolder);
     }
 
-    private class UpdateTimestampHandler implements PageHandler<Timestamp, Object> {
-        /** {@inheritDoc} */
+    private class UpdateTimestampHandler implements PageHandler<HybridTimestamp, Object> {
         @Override
         public Object run(
                 int groupId,
@@ -131,13 +140,35 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
                 long page,
                 long pageAddr,
                 PageIo io,
-                Timestamp arg,
+                HybridTimestamp arg,
                 int itemId,
                 IoStatisticsHolder statHolder
         ) throws IgniteInternalCheckedException {
             RowVersionDataIo dataIo = (RowVersionDataIo) io;
 
             dataIo.updateTimestamp(pageAddr, itemId, pageSize(), arg);
+
+            evictionTracker.touchPage(pageId);
+
+            return true;
+        }
+    }
+
+    private class UpdateNextLinkHandler implements PageHandler<Long, Object> {
+        @Override
+        public Object run(
+                int groupId,
+                long pageId,
+                long page,
+                long pageAddr,
+                PageIo io,
+                Long nextLink,
+                int itemId,
+                IoStatisticsHolder statHolder
+        ) throws IgniteInternalCheckedException {
+            RowVersionDataIo dataIo = (RowVersionDataIo) io;
+
+            dataIo.updateNextLink(pageAddr, itemId, pageSize(), nextLink);
 
             evictionTracker.touchPage(pageId);
 

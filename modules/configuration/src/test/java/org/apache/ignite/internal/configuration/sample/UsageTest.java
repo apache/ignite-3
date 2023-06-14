@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,9 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.Map;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -49,10 +50,9 @@ public class UsageTest {
     public void test() throws Exception {
         registry = new ConfigurationRegistry(
                 List.of(LocalConfiguration.KEY),
-                Map.of(),
                 new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of()
+                new ConfigurationTreeGenerator(LocalConfiguration.KEY),
+                new TestConfigurationValidator()
         );
 
         registry.start();
@@ -111,10 +111,9 @@ public class UsageTest {
 
         registry = new ConfigurationRegistry(
                 List.of(NetworkConfiguration.KEY, LocalConfiguration.KEY),
-                Map.of(),
                 new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of()
+                new ConfigurationTreeGenerator(NetworkConfiguration.KEY, LocalConfiguration.KEY),
+                new TestConfigurationValidator()
         );
 
         registry.start();

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -24,17 +24,17 @@ import java.util.List;
  */
 public interface ResultSetMetadata {
     /**
-     * Returns metadata with description for every column in result set.
+     * Returns metadata with a description for every column in the result set.
      *
-     * @return Columns metadata.
+     * @return Column metadata.
      */
     List<ColumnMetadata> columns();
 
     /**
-     * Returns column index in columns list by given column name.
+     * Returns a column index for the column with a given name.
      *
-     * @param columnName Columns name which index is resolving.
-     * @return Column index, or {@code -1} when a column with given name is not present.
+     * @param columnName Name of the column whose index is being resolved.
+     * @return Column index or {@code -1} if the specified column is not found.
      */
     int indexOf(String columnName);
 }

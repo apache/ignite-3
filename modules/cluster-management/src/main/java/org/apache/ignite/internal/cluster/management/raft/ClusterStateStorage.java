@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,25 +21,14 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Storage for the CMG Raft service.
  */
-public interface ClusterStateStorage extends AutoCloseable {
-    /**
-     * Starts the storage.
-     */
-    void start();
-
-    /**
-     * Returns {@code true} if the storage has been started.
-     *
-     * @return {@code true} if the storage has been started.
-     */
-    boolean isStarted();
-
+public interface ClusterStateStorage extends IgniteComponent {
     /**
      * Retrieves a value associated with the given key or {@code null} if no such value exists.
      *
@@ -55,6 +44,15 @@ public interface ClusterStateStorage extends AutoCloseable {
      * @param value Value.
      */
     void put(byte[] key, byte[] value);
+
+    /**
+     * Atomically removes all keys starting with the given prefix and inserts a new value associated with the given key.
+     *
+     * @param prefix Key prefix that should be removed.
+     * @param key Key to insert.
+     * @param value Value to insert.
+     */
+    void replaceAll(byte[] prefix, byte[] key, byte[] value);
 
     /**
      * Removes the value associated with the given key. Does nothing if no such association exists.

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,20 +21,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
-import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
-import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -49,37 +44,6 @@ import org.mockito.Mockito;
  * Checks if data compliant with the schema, otherwise the correct exception is thrown.
  */
 public class SchemaValidationTest {
-    /** Table ID test value. */
-    public final java.util.UUID tableId = java.util.UUID.randomUUID();
-
-    private ClusterService clusterService;
-
-    /**
-     * Creates a table for tests.
-     *
-     * @return The test table.
-     */
-    private InternalTable createTable() {
-        clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
-
-        TxManagerImpl txManager = new TxManagerImpl(clusterService, new HeapLockManager());
-
-        AtomicLong raftIndex = new AtomicLong();
-
-        DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestConcurrentHashMapMvPartitionStorage(0), txManager),
-                txManager,
-                raftIndex
-        );
-
-        List<PartitionListener> partitionListeners = List.of(table.getPartitionListener());
-
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners, pl -> raftIndex);
-        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
-
-        return table;
-    }
 
     @Test
     public void columnNotExist() {
@@ -203,8 +167,24 @@ public class SchemaValidationTest {
 
     }
 
-    private TableImpl createTableImpl(SchemaDescriptor schema) {
-        return new TableImpl(createTable(), new DummySchemaManagerImpl(schema));
+    private static TableImpl createTableImpl(SchemaDescriptor schema) {
+        return new TableImpl(createTable(schema), new DummySchemaManagerImpl(schema), new HeapLockManager());
+    }
+
+    /**
+     * Creates a table for tests.
+     *
+     * @return The test table.
+     */
+    private static InternalTable createTable(SchemaDescriptor schema) {
+        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
+
+        DummyInternalTableImpl table = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema);
+
+        Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
+
+        return table;
     }
 
     private <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {

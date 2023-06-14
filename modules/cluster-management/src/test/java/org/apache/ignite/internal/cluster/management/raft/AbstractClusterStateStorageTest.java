@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,13 +27,13 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
@@ -59,13 +59,11 @@ public abstract class AbstractClusterStateStorageTest {
         storage = createStorage();
 
         storage.start();
-
-        assertTrue(storage.isStarted());
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        storage.close();
+        storage.stop();
     }
 
     /**
@@ -107,6 +105,72 @@ public abstract class AbstractClusterStateStorageTest {
         storage.put(key, value2);
 
         assertThat(storage.get(key), is(equalTo(value2)));
+    }
+
+    @Test
+    void testReplaceAll() {
+        byte[] key1 = "key1".getBytes(UTF_8);
+        byte[] key2 = "key2".getBytes(UTF_8);
+        byte[] key3 = "keg".getBytes(UTF_8);
+
+        byte[] value1 = "value1".getBytes(UTF_8);
+        byte[] value2 = "value2".getBytes(UTF_8);
+        byte[] value3 = "value3".getBytes(UTF_8);
+
+        storage.put(key1, value1);
+        storage.put(key2, value2);
+        storage.put(key3, value3);
+
+        // Replace by prefix common for all keys
+        storage.replaceAll("ke".getBytes(UTF_8), key1, value2);
+
+        assertThat(storage.get(key1), is(equalTo(value2)));
+        assertThat(storage.get(key2), is(nullValue()));
+        assertThat(storage.get(key3), is(nullValue()));
+    }
+
+    @Test
+    void testReplaceAllNonExistentPrefix() {
+        byte[] key1 = "key1".getBytes(UTF_8);
+        byte[] key2 = "key2".getBytes(UTF_8);
+        byte[] key3 = "keg".getBytes(UTF_8);
+
+        byte[] value1 = "value1".getBytes(UTF_8);
+        byte[] value2 = "value2".getBytes(UTF_8);
+        byte[] value3 = "value3".getBytes(UTF_8);
+
+        storage.put(key1, value1);
+        storage.put(key2, value2);
+        storage.put(key3, value3);
+
+        // Replace by nonexistent prefix
+        storage.replaceAll("bar".getBytes(UTF_8), key1, value3);
+
+        assertThat(storage.get(key1), is(equalTo(value3)));
+        assertThat(storage.get(key2), is(equalTo(value2)));
+        assertThat(storage.get(key3), is(equalTo(value3)));
+    }
+
+    @Test
+    void testReplaceAllTwoKeys() {
+        byte[] key1 = "key1".getBytes(UTF_8);
+        byte[] key2 = "key2".getBytes(UTF_8);
+        byte[] key3 = "keg".getBytes(UTF_8);
+
+        byte[] value1 = "value1".getBytes(UTF_8);
+        byte[] value2 = "value2".getBytes(UTF_8);
+        byte[] value3 = "value3".getBytes(UTF_8);
+
+        storage.put(key1, value1);
+        storage.put(key2, value2);
+        storage.put(key3, value3);
+
+        // Replace by prefix common for two keys
+        storage.replaceAll("key".getBytes(UTF_8), key1, value3);
+
+        assertThat(storage.get(key1), is(equalTo(value3)));
+        assertThat(storage.get(key2), is(nullValue()));
+        assertThat(storage.get(key3), is(equalTo(value3)));
     }
 
     /**
@@ -185,9 +249,7 @@ public abstract class AbstractClusterStateStorageTest {
     @Test
     void testGetWithPrefixBorder() throws Exception {
         byte[] key1 = "key1".getBytes(UTF_8);
-        byte[] key2 = key1.clone();
-
-        key2[key2.length - 1] += 1;
+        byte[] key2 = RocksUtils.incrementPrefix(key1);
 
         storage.put(key1, "value1".getBytes(UTF_8));
         storage.put(key2, "value2".getBytes(UTF_8));

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,12 +19,19 @@ package org.apache.ignite.internal.configuration;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -36,6 +43,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -48,20 +56,26 @@ public class ConfigurationRegistryTest {
                 IllegalArgumentException.class,
                 () -> new ConfigurationRegistry(
                         List.of(SecondRootConfiguration.KEY),
-                        Map.of(),
                         new TestConfigurationStorage(LOCAL),
-                        List.of(ExtendedFirstRootConfigurationSchema.class),
-                        List.of()
+                        new ConfigurationTreeGenerator(
+                                List.of(SecondRootConfiguration.KEY),
+                                List.of(ExtendedFirstRootConfigurationSchema.class),
+                                List.of()
+                        ),
+                        new TestConfigurationValidator()
                 )
         );
 
         // Check that everything is fine.
         ConfigurationRegistry configRegistry = new ConfigurationRegistry(
                 List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
-                Map.of(),
                 new TestConfigurationStorage(LOCAL),
-                List.of(ExtendedFirstRootConfigurationSchema.class),
-                List.of()
+                new ConfigurationTreeGenerator(
+                        List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
+                        List.of(ExtendedFirstRootConfigurationSchema.class),
+                        List.of()
+                ),
+                new TestConfigurationValidator()
         );
 
         configRegistry.stop();
@@ -74,10 +88,13 @@ public class ConfigurationRegistryTest {
                 IllegalArgumentException.class,
                 () -> new ConfigurationRegistry(
                         List.of(ThirdRootConfiguration.KEY),
-                        Map.of(),
                         new TestConfigurationStorage(LOCAL),
-                        List.of(),
-                        List.of(Second0PolymorphicConfigurationSchema.class)
+                        new ConfigurationTreeGenerator(
+                                List.of(ThirdRootConfiguration.KEY),
+                                List.of(),
+                                List.of(Second0PolymorphicConfigurationSchema.class)
+                        ),
+                        new TestConfigurationValidator()
                 )
         );
 
@@ -86,26 +103,32 @@ public class ConfigurationRegistryTest {
                 IllegalArgumentException.class,
                 () -> new ConfigurationRegistry(
                         List.of(ThirdRootConfiguration.KEY),
-                        Map.of(),
                         new TestConfigurationStorage(LOCAL),
-                        List.of(),
-                        List.of(First0PolymorphicConfigurationSchema.class, ErrorFirst0PolymorphicConfigurationSchema.class)
+                        new ConfigurationTreeGenerator(
+                                List.of(ThirdRootConfiguration.KEY),
+                                List.of(),
+                                List.of(First0PolymorphicConfigurationSchema.class, ErrorFirst0PolymorphicConfigurationSchema.class)
+                        ),
+                        new TestConfigurationValidator()
                 )
         );
 
         // Check that everything is fine.
         ConfigurationRegistry configRegistry = new ConfigurationRegistry(
                 List.of(ThirdRootConfiguration.KEY, FourthRootConfiguration.KEY, FifthRootConfiguration.KEY),
-                Map.of(),
                 new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of(
-                        First0PolymorphicConfigurationSchema.class,
-                        First1PolymorphicConfigurationSchema.class,
-                        Second0PolymorphicConfigurationSchema.class,
-                        Third0PolymorphicConfigurationSchema.class,
-                        Third1PolymorphicConfigurationSchema.class
-                )
+                new ConfigurationTreeGenerator(
+                        List.of(ThirdRootConfiguration.KEY, FourthRootConfiguration.KEY, FifthRootConfiguration.KEY),
+                        List.of(),
+                        List.of(
+                                First0PolymorphicConfigurationSchema.class,
+                                First1PolymorphicConfigurationSchema.class,
+                                Second0PolymorphicConfigurationSchema.class,
+                                Third0PolymorphicConfigurationSchema.class,
+                                Third1PolymorphicConfigurationSchema.class
+                        )
+                ),
+                new TestConfigurationValidator()
         );
 
         configRegistry.stop();
@@ -117,10 +140,9 @@ public class ConfigurationRegistryTest {
                 IllegalArgumentException.class,
                 () -> new ConfigurationRegistry(
                         List.of(ThirdRootConfiguration.KEY),
-                        Map.of(),
                         new TestConfigurationStorage(LOCAL),
-                        List.of(),
-                        List.of()
+                        new ConfigurationTreeGenerator(ThirdRootConfiguration.KEY),
+                        new TestConfigurationValidator()
                 )
         );
 
@@ -131,12 +153,23 @@ public class ConfigurationRegistryTest {
 
     @Test
     void testComplicatedPolymorphicConfig() throws Exception {
+
+        Map<String, Serializable> bootstrapConfig = Map.of(
+                "sixth.entity.poly.strVal", "val",
+                "sixth.poly.strVal", "val",
+                "sixth.entity.poly.intVal", 1,
+                "sixth.poly.intVal", 1
+        );
+
         ConfigurationRegistry registry = new ConfigurationRegistry(
                 List.of(SixthRootConfiguration.KEY),
-                Map.of(),
-                new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of(Fourth0PolymorphicConfigurationSchema.class)
+                new TestConfigurationStorage(LOCAL, bootstrapConfig),
+                new ConfigurationTreeGenerator(
+                        List.of(SixthRootConfiguration.KEY),
+                        List.of(),
+                        List.of(Fourth0PolymorphicConfigurationSchema.class)
+                ),
+                new TestConfigurationValidator()
         );
 
         registry.start();
@@ -151,6 +184,48 @@ public class ConfigurationRegistryTest {
                             c1 -> c1.changePoly(toFirst0Polymorphic(4))
                                     .changePolyNamed(c2 -> c2.create("5", toFirst0Polymorphic(5)))))
             ).get(1, SECONDS);
+        } finally {
+            registry.stop();
+        }
+    }
+
+    @Test
+    void testChangeSuperRoot() throws Exception {
+        TestConfigurationStorage storage = new TestConfigurationStorage(LOCAL);
+
+        var registry = new ConfigurationRegistry(
+                List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
+                storage,
+                new ConfigurationTreeGenerator(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
+                new TestConfigurationValidator()
+        );
+
+        registry.start();
+
+        try {
+            FirstRootConfiguration firstConfiguration = registry.getConfiguration(FirstRootConfiguration.KEY);
+            SecondRootConfiguration secondConfiguration = registry.getConfiguration(SecondRootConfiguration.KEY);
+
+            CompletableFuture<Void> changeFuture = registry.change(superRootChange -> {
+                assertNotNull(superRootChange);
+
+                // Check that originally we have the same value for the root.
+                assertSame(firstConfiguration.value(), superRootChange.viewRoot(FirstRootConfiguration.KEY));
+
+                FirstRootChange firstRootChange = superRootChange.changeRoot(FirstRootConfiguration.KEY);
+
+                // Check that the value of the root has changed.
+                assertNotSame(firstConfiguration.value(), firstRootChange);
+                assertSame(firstRootChange, superRootChange.viewRoot(FirstRootConfiguration.KEY));
+
+                firstRootChange.changeStr("foo");
+                superRootChange.changeRoot(SecondRootConfiguration.KEY).changeStr("bar");
+            });
+
+            assertThat(changeFuture, willCompleteSuccessfully());
+
+            assertEquals("foo", firstConfiguration.str().value());
+            assertEquals("bar", secondConfiguration.str().value());
         } finally {
             registry.stop();
         }
@@ -321,8 +396,8 @@ public class ConfigurationRegistryTest {
         @PolymorphicId(hasDefault = true)
         public String typeId = "fourth0";
 
-        @Value
-        public String strVal;
+        @Value(hasDefault = true)
+        public String strVal = "";
     }
 
     /**
@@ -330,7 +405,7 @@ public class ConfigurationRegistryTest {
      */
     @PolymorphicConfigInstance("fourth0")
     public static class Fourth0PolymorphicConfigurationSchema extends FourthPolymorphicConfigurationSchema {
-        @Value
-        public int intVal;
+        @Value(hasDefault = true)
+        public int intVal = 0;
     }
 }

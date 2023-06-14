@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,12 +17,20 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import org.apache.ignite.internal.close.ManuallyCloseable;
+
 /**
  * Runtime index interface. The temporary index is built and available only on query execution. Not stored at the schema.
  */
-public interface RuntimeIndex<RowT> extends AutoCloseable {
+public interface RuntimeIndex<RowT> extends ManuallyCloseable {
     /**
      * Add row to index.
      */
     void push(RowT r);
+
+    /**
+     * Closes the index.
+     */
+    @Override
+    void close();
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.file.Path;
@@ -27,13 +28,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.fileio.AsyncFileIoFactory;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
@@ -43,7 +41,8 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMa
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageView;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -107,7 +106,11 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
         return engineConfig;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public String name() {
+        return ENGINE_NAME;
+    }
+
     @Override
     public void start() throws StorageException {
         int pageSize = engineConfig.pageSize().value();
@@ -118,7 +121,6 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     : new RandomAccessFileIoFactory();
 
             filePageStoreManager = new FilePageStoreManager(
-                    Loggers.forClass(FilePageStoreManager.class),
                     igniteInstanceName,
                     storagePath,
                     fileIoFactory,
@@ -150,21 +152,19 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             throw new StorageException("Error starting checkpoint manager", e);
         }
 
-        addDataRegion(engineConfig.defaultRegion());
+        addDataRegion(DEFAULT_DATA_REGION_NAME);
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
         engineConfig.regions().listenElements(new ConfigurationNamedListListener<>() {
-            /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<PersistentPageMemoryDataRegionView> ctx) {
-                addDataRegion(ctx.config(PersistentPageMemoryDataRegionConfiguration.class));
+                addDataRegion(ctx.newName(PersistentPageMemoryDataRegionView.class));
 
                 return completedFuture(null);
             }
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
         try {
@@ -178,22 +178,22 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     filePageStoreManager == null ? null : (AutoCloseable) filePageStoreManager::stop
             );
 
-            closeAll(Stream.concat(closeRegions, closeManagers));
+            closeAll(Stream.concat(closeManagers, closeRegions));
         } catch (Exception e) {
             throw new StorageException("Error when stopping components", e);
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public PersistentPageMemoryTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
-        TableView tableView = tableCfg.value();
+    public PersistentPageMemoryTableStorage createMvTable(
+            StorageTableDescriptor tableDescriptor,
+            StorageIndexDescriptorSupplier indexDescriptorSupplier
+    ) throws StorageException {
+        PersistentPageMemoryDataRegion dataRegion = regions.get(tableDescriptor.getDataRegion());
 
-        assert tableView.dataStorage().name().equals(ENGINE_NAME) : tableView.dataStorage().name();
+        assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getDataRegion();
 
-        PersistentPageMemoryDataStorageView dataStorageView = (PersistentPageMemoryDataStorageView) tableView.dataStorage();
-
-        return new PersistentPageMemoryTableStorage(this, tableCfg, regions.get(dataStorageView.dataRegion()));
+        return new PersistentPageMemoryTableStorage(tableDescriptor, indexDescriptorSupplier, this, dataRegion);
     }
 
     /**
@@ -206,12 +206,14 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     /**
      * Creates, starts and adds a new data region to the engine.
      *
-     * @param dataRegionConfig Data region configuration.
+     * @param name Data region name.
      */
-    private void addDataRegion(PersistentPageMemoryDataRegionConfiguration dataRegionConfig) {
-        int pageSize = engineConfig.pageSize().value();
+    private void addDataRegion(String name) {
+        PersistentPageMemoryDataRegionConfiguration dataRegionConfig = DEFAULT_DATA_REGION_NAME.equals(name)
+                ? engineConfig.defaultRegion()
+                : engineConfig.regions().get(name);
 
-        String name = dataRegionConfig.name().value();
+        int pageSize = engineConfig.pageSize().value();
 
         PersistentPageMemoryDataRegion dataRegion = new PersistentPageMemoryDataRegion(
                 dataRegionConfig,

@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Compute
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
     using Buffers;
@@ -57,7 +58,7 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
-        public async Task<T> ExecuteAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object[] args)
+        public async Task<T> ExecuteAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object?[]? args)
         {
             IgniteArgumentCheck.NotNull(nodes, nameof(nodes));
             IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
@@ -66,7 +67,7 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
-        public async Task<T> ExecuteColocatedAsync<T>(string tableName, IIgniteTuple key, string jobClassName, params object[] args) =>
+        public async Task<T> ExecuteColocatedAsync<T>(string tableName, IIgniteTuple key, string jobClassName, params object?[]? args) =>
             await ExecuteColocatedAsync<T, IIgniteTuple>(
                     tableName,
                     key,
@@ -76,8 +77,8 @@ namespace Apache.Ignite.Internal.Compute
                 .ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task<T> ExecuteColocatedAsync<T, TKey>(string tableName, TKey key, string jobClassName, params object[] args)
-            where TKey : class =>
+        public async Task<T> ExecuteColocatedAsync<T, TKey>(string tableName, TKey key, string jobClassName, params object?[]? args)
+            where TKey : notnull =>
             await ExecuteColocatedAsync<T, TKey>(
                     tableName,
                     key,
@@ -87,7 +88,7 @@ namespace Apache.Ignite.Internal.Compute
                 .ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public IDictionary<IClusterNode, Task<T>> BroadcastAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object[] args)
+        public IDictionary<IClusterNode, Task<T>> BroadcastAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object?[]? args)
         {
             IgniteArgumentCheck.NotNull(nodes, nameof(nodes));
             IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
@@ -104,13 +105,17 @@ namespace Apache.Ignite.Internal.Compute
             return res;
         }
 
+        /// <inheritdoc/>
+        public override string ToString() => IgniteToStringBuilder.Build(GetType());
+
+        [SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "Secure random is not required here.")]
         private static IClusterNode GetRandomNode(IEnumerable<IClusterNode> nodes)
         {
             var nodesCol = GetNodesCollection(nodes);
 
             IgniteArgumentCheck.Ensure(nodesCol.Count > 0, nameof(nodes), "Nodes can't be empty.");
 
-            var idx = ThreadLocalRandom.Instance.Next(0, nodesCol.Count);
+            var idx = Random.Shared.Next(0, nodesCol.Count);
 
             return nodesCol.ElementAt(idx);
         }
@@ -118,58 +123,32 @@ namespace Apache.Ignite.Internal.Compute
         private static ICollection<IClusterNode> GetNodesCollection(IEnumerable<IClusterNode> nodes) =>
             nodes as ICollection<IClusterNode> ?? nodes.ToList();
 
-        private async Task<T> ExecuteOnOneNode<T>(IClusterNode node, string jobClassName, object[] args)
+        private async Task<T> ExecuteOnOneNode<T>(IClusterNode node, string jobClassName, object?[]? args)
         {
             IgniteArgumentCheck.NotNull(node, nameof(node));
 
-            // Try direct connection to the specified node.
-            if (_socket.GetEndpoint(node.Name) is { } endpoint)
+            using var writer = ProtoCommon.GetMessageWriter();
+            Write();
+
+            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name))
+                .ConfigureAwait(false);
+
+            return Read(res);
+
+            void Write()
             {
-                using var writerWithoutNode = new PooledArrayBufferWriter();
-                Write(writerWithoutNode, writeNode: false);
+                var w = writer.MessageWriter;
 
-                using var res1 = await _socket.TryDoOutInOpAsync(endpoint, ClientOp.ComputeExecute, writerWithoutNode)
-                    .ConfigureAwait(false);
-
-                // Result is null when there was a connection issue, but retry policy allows another try.
-                if (res1 != null)
-                {
-                    return Read(res1.Value);
-                }
-            }
-
-            // When direct connection is not available, use default connection and pass target node info to the server.
-            using var writerWithNode = new PooledArrayBufferWriter();
-            Write(writerWithNode, writeNode: true);
-
-            using var res2 = await _socket.DoOutInOpAsync(ClientOp.ComputeExecute, writerWithNode).ConfigureAwait(false);
-
-            return Read(res2);
-
-            void Write(PooledArrayBufferWriter writer, bool writeNode)
-            {
-                var w = writer.GetMessageWriter();
-
-                if (writeNode)
-                {
-                    w.Write(node.Name);
-                }
-                else
-                {
-                    w.WriteNil();
-                }
-
+                w.Write(node.Name);
                 w.Write(jobClassName);
-                w.WriteObjectArrayWithTypes(args);
-
-                w.Flush();
+                w.WriteObjectCollectionAsBinaryTuple(args);
             }
 
             static T Read(in PooledBuffer buf)
             {
                 var reader = buf.GetReader();
 
-                return (T)reader.ReadObjectWithType()!;
+                return (T)reader.ReadObjectFromBinaryTuple()!;
             }
         }
 
@@ -190,7 +169,7 @@ namespace Apache.Ignite.Internal.Compute
 
             _tableCache.TryRemove(tableName, out _);
 
-            throw new IgniteClientException($"Table '{tableName}' does not exist.");
+            throw new IgniteClientException(ErrorGroups.Client.TableIdNotFound, $"Table '{tableName}' does not exist.");
         }
 
         private async Task<T> ExecuteColocatedAsync<T, TKey>(
@@ -198,10 +177,9 @@ namespace Apache.Ignite.Internal.Compute
             TKey key,
             Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc,
             string jobClassName,
-            params object[] args)
-            where TKey : class
+            params object?[]? args)
+            where TKey : notnull
         {
-            // TODO: IGNITE-16990 - implement partition awareness.
             IgniteArgumentCheck.NotNull(tableName, nameof(tableName));
             IgniteArgumentCheck.NotNull(key, nameof(key));
             IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
@@ -211,16 +189,18 @@ namespace Apache.Ignite.Internal.Compute
                 var table = await GetTableAsync(tableName).ConfigureAwait(false);
                 var schema = await table.GetLatestSchemaAsync().ConfigureAwait(false);
 
-                using var bufferWriter = Write(table, schema);
+                using var bufferWriter = ProtoCommon.GetMessageWriter();
+                var colocationHash = Write(bufferWriter, table, schema);
+                var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
 
-                // TODO: IGNITE-17390 replace magic ErrorCode number with constant.
                 try
                 {
-                    using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter).ConfigureAwait(false);
+                    using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode)
+                        .ConfigureAwait(false);
 
                     return Read(res);
                 }
-                catch (IgniteClientException e) when (e.ErrorCode == 196612)
+                catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
                 {
                     // Table was dropped - remove from cache.
                     // Try again in case a new table with the same name exists.
@@ -228,30 +208,29 @@ namespace Apache.Ignite.Internal.Compute
                 }
             }
 
-            PooledArrayBufferWriter Write(Table table, Schema schema)
+            int Write(PooledArrayBuffer bufferWriter, Table table, Schema schema)
             {
-                var bufferWriter = new PooledArrayBufferWriter();
-                var w = bufferWriter.GetMessageWriter();
+                var w = bufferWriter.MessageWriter;
 
                 w.Write(table.Id);
                 w.Write(schema.Version);
 
                 var serializerHandler = serializerHandlerFunc(table);
-                serializerHandler.Write(ref w, schema, key, true);
+                var colocationHash = serializerHandler.Write(ref w, schema, key, keyOnly: true, computeHash: true);
 
                 w.Write(jobClassName);
-                w.WriteObjectArrayWithTypes(args);
+                w.WriteObjectCollectionAsBinaryTuple(args);
 
-                w.Flush();
-
-                return bufferWriter;
+                return colocationHash;
             }
 
             static T Read(in PooledBuffer buf)
             {
                 var reader = buf.GetReader();
 
-                return (T)reader.ReadObjectWithType()!;
+                _ = reader.ReadInt32();
+
+                return (T)reader.ReadObjectFromBinaryTuple()!;
             }
         }
     }

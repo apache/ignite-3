@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,8 +19,9 @@ package org.apache.ignite.internal.sql.engine.trait;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory.RowHashFunction;
+import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Partitioned.
@@ -29,13 +30,13 @@ import java.util.stream.Collectors;
 public final class Partitioned<RowT> implements Destination<RowT> {
     private final List<List<String>> assignments;
 
-    private final ToIntFunction<RowT> partFun;
+    private final RowHashFunction<RowT> partFun;
 
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public Partitioned(List<List<String>> assignments, ToIntFunction<RowT> partFun) {
+    public Partitioned(List<List<String>> assignments, RowHashFunction<RowT> partFun) {
         this.assignments = assignments;
         this.partFun = partFun;
     }
@@ -43,7 +44,7 @@ public final class Partitioned<RowT> implements Destination<RowT> {
     /** {@inheritDoc} */
     @Override
     public List<String> targets(RowT row) {
-        return assignments.get(partFun.applyAsInt(row) % assignments.size());
+        return assignments.get(IgniteUtils.safeAbs(partFun.hashOf(row) % assignments.size()));
     }
 
     /** {@inheritDoc} */

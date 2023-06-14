@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,6 +19,7 @@ package org.apache.ignite.internal.vault;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.Nullable;
@@ -26,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Defines interface for accessing to the Vault service.
  */
-public interface VaultService extends AutoCloseable {
+public interface VaultService extends ManuallyCloseable {
     /**
      * Starts the service.
      */
@@ -76,4 +77,10 @@ public interface VaultService extends AutoCloseable {
      * @return Future representing pending completion of the operation. Cannot be {@code null}.
      */
     CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals);
+
+    /**
+     * Closes the service.
+     */
+    @Override
+    void close();
 }

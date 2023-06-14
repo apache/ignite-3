@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -39,6 +39,9 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
     /** Batch of query arguments. */
     private List<Object[]> args;
 
+    /** Flag indicating whether auto-commit mode is enabled. */
+    private boolean autoCommit;
+
     /**
      * Default constructor.
      */
@@ -51,14 +54,16 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
      * @param schemaName Schema name.
      * @param query Sql query string.
      * @param args Sql query arguments.
+     * @param autoCommit Flag indicating whether auto-commit mode is enabled.
      */
-    public JdbcBatchPreparedStmntRequest(String schemaName, String query, List<Object[]> args) {
+    public JdbcBatchPreparedStmntRequest(String schemaName, String query, List<Object[]> args, boolean autoCommit) {
         assert !StringUtil.isNullOrEmpty(query);
         assert !CollectionUtils.nullOrEmpty(args);
 
         this.query = query;
         this.args = args;
         this.schemaName = schemaName;
+        this.autoCommit = autoCommit;
     }
 
     /**
@@ -88,22 +93,33 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         return args;
     }
 
+    /**
+     * Get flag indicating whether auto-commit mode is enabled.
+     *
+     * @return {@code true} if auto-commit mode is enabled, {@code false} otherwise.
+     */
+    public boolean autoCommit() {
+        return autoCommit;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
+        packer.packBoolean(autoCommit);
         ClientMessageUtils.writeStringNullable(packer, schemaName);
 
         packer.packString(query);
         packer.packArrayHeader(args.size());
 
         for (Object[] arg : args) {
-            packer.packObjectArray(arg);
+            packer.packObjectArrayAsBinaryTuple(arg);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
+        autoCommit = unpacker.unpackBoolean();
         schemaName = ClientMessageUtils.readStringNullable(unpacker);
 
         query = unpacker.unpackString();
@@ -113,7 +129,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         args = new ArrayList<>(n);
 
         for (int i = 0; i < n; ++i) {
-            args.add(unpacker.unpackObjectArray());
+            args.add(unpacker.unpackObjectArrayFromBinaryTuple());
         }
     }
 

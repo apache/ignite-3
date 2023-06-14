@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.KE
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.escape;
 
 import java.io.Serializable;
+import java.lang.reflect.Field;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
@@ -113,7 +114,7 @@ public class ConfigurationFlattener {
 
         /** {@inheritDoc} */
         @Override
-        public Void doVisitLeafNode(String key, Serializable newVal) {
+        public Void doVisitLeafNode(Field field, String key, Serializable newVal) {
             // Read same value from old tree.
             Serializable oldVal = oldInnerNodesStack.element().traverseChild(key, ConfigurationUtil.leafNodeVisitor(), true);
 
@@ -127,12 +128,18 @@ public class ConfigurationFlattener {
 
         /** {@inheritDoc} */
         @Override
-        public Void doVisitInnerNode(String key, InnerNode newNode) {
+        public Void doVisitInnerNode(Field field, String key, InnerNode newNode) {
             // Read same node from old tree.
             InnerNode oldNode = oldInnerNodesStack.element().traverseChild(key, ConfigurationUtil.innerNodeVisitor(), true);
 
             // Skip subtree that has not changed.
             if (oldNode == newNode && !singleTreeTraversal) {
+                return null;
+            }
+
+            // In case inner node is null in both trees,
+            // see LocalFileConfigurationStorageTest#innerNodeWithPartialContent – the node is someConfigurationValue.
+            if (oldNode == null && newNode == null) {
                 return null;
             }
 
@@ -158,9 +165,10 @@ public class ConfigurationFlattener {
 
         /** {@inheritDoc} */
         @Override
-        public Void doVisitNamedListNode(String key, NamedListNode<?> newNode) {
+        public Void doVisitNamedListNode(Field field, String key, NamedListNode<?> newNode) {
             // Read same named list node from old tree.
-            NamedListNode<?> oldNode = oldInnerNodesStack.element().traverseChild(key, ConfigurationUtil.namedListNodeVisitor(), true);
+            NamedListNode<?> oldNode =
+                    oldInnerNodesStack.element().traverseChild(key, ConfigurationUtil.namedListNodeVisitor(), true);
 
             // Skip subtree that has not changed.
             if (oldNode == newNode && !singleTreeTraversal) {
@@ -238,7 +246,7 @@ public class ConfigurationFlattener {
                             resMap.put(idKey(namedListFullKey, oldNodeKey), null);
                         } else {
                             // Creation as a part of outer named list's new element.
-                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId.toString());
+                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId);
                         }
                     } else {
                         // Regular deletion.
@@ -246,13 +254,13 @@ public class ConfigurationFlattener {
                             resMap.put(idKey(namedListFullKey, oldNodeKey), null);
                         } else if (oldNamedElement == null) {
                             // Regular creation.
-                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId.toString());
+                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId);
                         } else if (!oldNodeKey.equals(newNodeKey)) {
                             // Rename. Old value is nullified.
                             resMap.put(idKey(namedListFullKey, oldNodeKey), null);
 
                             // And new value is initialized.
-                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId.toString());
+                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId);
                         }
                     }
 

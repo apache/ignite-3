@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,11 +21,11 @@ import java.util.Collection;
 import java.util.function.Predicate;
 
 /**
- * A list implementation based on segments.Only supports removing elements from start or end. The list keep the elements
+ * A list implementation based on segments. Only supports removing elements from start or end. The list keep the elements
  * in a segment list, every segment contains at most 128 elements.
  *
  * [segment, segment, segment ...] /                 |                    \ segment             segment
- * segment [0, 1 ...  127]    [128, 129 ... 255]    [256, 1 ... 383]
+ * segment [0, 1 ... 127]    [128, 129 ... 255]    [256, 257 ... 383]
  */
 public class SegmentList<T> {
     private static final int SEGMENT_SHIFT = 7;

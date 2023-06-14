@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -96,7 +96,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
         RecordView<IncompletePojo> pojoView = table.recordView(IncompletePojo.class);
 
-        kvView.put(null, allClumnsTableKey(1), allColumnsTableVal("x"));
+        kvView.put(null, allColumnsTableKey(1), allColumnsTableVal("x"));
 
         var key = new IncompletePojo();
         key.id = "1";
@@ -172,10 +172,10 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         pojoView.upsert(null, val);
 
-        Tuple res = table.recordView().get(null, Tuple.create().set("id", "112").set("gid", 111));
+        Tuple res = table.recordView().get(null, Tuple.create().set("id", "112").set("gid", 111L));
 
         assertNotNull(res);
-        assertEquals(111, res.intValue("gid"));
+        assertEquals(111, res.longValue("gid"));
         assertEquals("112", res.stringValue("id"));
         assertEquals(113, res.byteValue("zbyte"));
         assertEquals(114, res.shortValue("zshort"));
@@ -189,7 +189,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals("119", res.stringValue("zstring"));
         assertEquals(120, ((byte[]) res.value("zbytes"))[0]);
         assertEquals(BitSet.valueOf(new byte[]{121}), res.bitmaskValue("zbitmask"));
-        assertEquals(122, ((Number) res.value("zdecimal")).longValue());
+        assertEquals(122, ((BigDecimal) res.value("zdecimal")).longValue());
         assertEquals(BigInteger.valueOf(123), res.value("znumber"));
         assertEquals(uuid, res.uuidValue("zuuid"));
     }
@@ -492,7 +492,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         pojoView.upsert(null, new PersonPojo());
 
-        var res = recordView.get(null, tupleKey(0));
+        var res = recordView.get(null, Tuple.create().set("id", 0));
 
         assertEquals("def_str", res.stringValue("str"));
         assertEquals("def_str2", res.stringValue("strNonNull"));
@@ -511,7 +511,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         pojoView.upsert(null, pojo);
 
-        var res = recordView.get(null, tupleKey(1));
+        var res = recordView.get(null, Tuple.create().set("id", 1));
 
         assertNull(res.stringValue("str"));
     }

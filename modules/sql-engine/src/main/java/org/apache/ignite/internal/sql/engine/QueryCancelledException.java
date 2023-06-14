@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -16,6 +16,8 @@
  */
 
 package org.apache.ignite.internal.sql.engine;
+
+import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 
 import org.apache.ignite.lang.IgniteException;
 
@@ -31,6 +33,6 @@ public class QueryCancelledException extends IgniteException {
      * Default constructor.
      */
     public QueryCancelledException() {
-        super(ERR_MSG);
+        super(OPERATION_INTERRUPTED_ERR, ERR_MSG);
     }
 }

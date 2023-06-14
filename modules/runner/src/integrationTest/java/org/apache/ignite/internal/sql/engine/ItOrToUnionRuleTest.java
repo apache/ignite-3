@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,16 +20,11 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUnion;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.table.Table;
-import org.hamcrest.CoreMatchers;
+import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -42,8 +37,7 @@ import org.junit.jupiter.api.Test;
  * <p>SELECT * FROM products WHERE category = 'Photo' UNION ALL SELECT * FROM products WHERE subcategory ='Camera Media' AND LNNVL(category,
  * 'Photo');
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-17304")
-public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
+public class ItOrToUnionRuleTest extends ClusterPerClassIntegrationTest {
     public static final String IDX_SUBCAT_ID = "IDX_SUBCAT_ID";
 
     public static final String IDX_SUBCATEGORY = "IDX_SUBCATEGORY";
@@ -57,28 +51,15 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
      */
     @BeforeAll
     static void initTestData() {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "PRODUCTS").columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("CATEGORY", ColumnType.string()).asNullable(true).build(),
-                        SchemaBuilders.column("CAT_ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("SUBCATEGORY", ColumnType.string()).asNullable(true).build(),
-                        SchemaBuilders.column("SUBCAT_ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build()
-                )
-                .withPrimaryKey("ID")
-                .withIndex(SchemaBuilders.sortedIndex(IDX_CATEGORY).addIndexColumn("CATEGORY").done().build())
-                .withIndex(SchemaBuilders.sortedIndex(IDX_CAT_ID).addIndexColumn("CAT_ID").done().build())
-                .withIndex(SchemaBuilders.sortedIndex(IDX_SUBCATEGORY).addIndexColumn("SUBCATEGORY").done().build())
-                .withIndex(SchemaBuilders.sortedIndex(IDX_SUBCAT_ID).addIndexColumn("SUBCAT_ID").done().build())
-                .build();
+        sql("CREATE TABLE products (id INT PRIMARY KEY, category VARCHAR, cat_id INT NOT NULL,"
+                + " subcategory VARCHAR, subcat_id INT NOT NULL, name VARCHAR)");
 
-        Table tbl = CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        );
+        sql("CREATE INDEX " + IDX_CATEGORY + " ON products (category)");
+        sql("CREATE INDEX " + IDX_CAT_ID + " ON products (cat_id)");
+        sql("CREATE INDEX " + IDX_SUBCATEGORY + " ON products (subcategory)");
+        sql("CREATE INDEX " + IDX_SUBCAT_ID + " ON products (subcat_id)");
 
-        insertData(tbl, new String[]{"ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"}, new Object[][]{
+        insertData("products", List.of("ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"), new Object[][]{
                 {1, "Photo", 1, "Camera Media", 11, "Media 1"},
                 {2, "Photo", 1, "Camera Media", 11, "Media 2"},
                 {3, "Photo", 1, "Camera Lens", 12, "Lens 1"},
@@ -128,27 +109,6 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
     }
 
     /**
-     * Check 'OR -> UNION' rule is applied for equality conditions on indexed columns.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testNonDistinctOrToUnionAllRewrite() {
-        assertQuery("SELECT * "
-                + "FROM products "
-                + "WHERE subcategory = 'Camera Lens' "
-                + "OR subcategory = 'Other'")
-                .matches(containsUnion(true))
-                .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
-                .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
-                .returns(3, "Photo", 1, "Camera Lens", 12, "Lens 1")
-                .returns(4, "Photo", 1, "Other", 12, "Charger 1")
-                .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
-                .returns(8, null, 0, "Camera Lens", 11, "Zeiss")
-                .check();
-    }
-
-    /**
      * Check 'OR -> UNION' rule is applied for mixed conditions on indexed columns.
      *
      * @throws Exception If failed.
@@ -170,10 +130,29 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
+    /*--- "Not contains union" section. ---*/
+
+    /**
+     * Check 'OR -> UNION' rule is NOT applied for equality conditions on the same indexed column.
+     */
+    @Test
+    public void testNonDistinctOrToUnionAllRewrite() {
+        assertQuery("SELECT * "
+                + "FROM products "
+                + "WHERE subcategory = 'Camera Lens' "
+                + "OR subcategory = 'Other'")
+                .matches(not(containsUnion(true)))
+                .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
+                .matches(containsString("searchBounds=[[MultiBounds"))
+                .returns(3, "Photo", 1, "Camera Lens", 12, "Lens 1")
+                .returns(4, "Photo", 1, "Other", 12, "Charger 1")
+                .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
+                .returns(8, null, 0, "Camera Lens", 11, "Zeiss")
+                .check();
+    }
+
     /**
      * Check 'OR -> UNION' rule is not applied for range conditions on indexed columns.
-     *
-     * @throws Exception If failed.
      */
     @Test
     public void testRangeOrToUnionAllRewrite() {
@@ -196,7 +175,7 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
     @Test
     public void testUnionRuleNotApplicable() {
         assertQuery("SELECT * FROM products WHERE name = 'Canon' OR subcat_id = 22")
-                .matches(CoreMatchers.not(containsUnion(true)))
+                .matches(not(containsUnion(true)))
                 .matches(containsTableScan("PUBLIC", "PRODUCTS"))
                 .returns(7, "Video", 1, null, 0, "Canon")
                 .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
@@ -212,8 +191,8 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
                 + "FROM products "
                 + "WHERE name = 'Canon' "
                 + "OR category = 'Video'")
-                .matches(containsUnion(true))
-                .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_CATEGORY"))
+                .matches(not(containsUnion(true)))
+                .matches(containsTableScan("PUBLIC", "PRODUCTS"))
                 .returns(5, "Video", 2, "Camera Media", 21, "Media 3")
                 .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
                 .returns(7, "Video", 1, null, 0, "Canon")

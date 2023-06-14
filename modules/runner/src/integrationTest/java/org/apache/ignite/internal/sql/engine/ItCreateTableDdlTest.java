@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -26,14 +26,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
- * Integration test for set op (EXCEPT, INTERSECT).
+ * Integration test for CREATE TABLE DDL command.
  */
-public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
+public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     /**
      * Clear tables after each test.
      *
@@ -95,7 +96,7 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
                         IgniteException.class,
                         () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID0, VAL)")
                 ).getMessage(),
-                containsString("Schema definition error: All colocation columns must be part of primary key")
+                containsString("Colocation columns must be subset of primary key")
         );
 
         assertThat(
@@ -103,7 +104,7 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
                         IgniteException.class,
                         () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID1, ID0, ID1)")
                 ).getMessage(),
-                containsString("Schema definition error: Colocation columns must not be duplicated")
+                containsString("Colocation columns contains duplicates")
         );
     }
 
@@ -114,7 +115,7 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
     public void implicitColocationColumns() {
         sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0))");
 
-        Column[] colocationColumns = ((TableImpl) table("PUBLIC.T0")).schemaView().schema().colocationColumns();
+        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().schema().colocationColumns();
 
         assertEquals(2, colocationColumns.length);
         assertEquals("ID1", colocationColumns[0].name());
@@ -128,7 +129,7 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
     public void explicitColocationColumns() {
         sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE BY (id0)");
 
-        Column[] colocationColumns = ((TableImpl) table("PUBLIC.T0")).schemaView().schema().colocationColumns();
+        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().schema().colocationColumns();
 
         assertEquals(1, colocationColumns.length);
         assertEquals("ID0", colocationColumns[0].name());
@@ -141,9 +142,17 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
     public void explicitColocationColumnsCaseSensitive() {
         sql("CREATE TABLE T0(\"Id0\" INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, \"Id0\")) COLOCATE BY (\"Id0\")");
 
-        Column[] colocationColumns = ((TableImpl) table("PUBLIC.T0")).schemaView().schema().colocationColumns();
+        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().schema().colocationColumns();
 
         assertEquals(1, colocationColumns.length);
         assertEquals("Id0", colocationColumns[0].name());
+    }
+
+    @Test
+    public void doNotAllowFunctionsInNonPkColumns() {
+        SqlException t = assertThrows(SqlException.class,
+                () -> sql("create table t (id varchar primary key, val varchar default gen_random_uuid)"));
+
+        assertThat(t.getMessage(), containsString("Functional defaults are not supported for non-primary key columns"));
     }
 }

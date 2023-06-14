@@ -18,9 +18,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>netcoreapp3.1</TargetFramework>
+        <TargetFramework>net6.0</TargetFramework>
         <IsPackable>false</IsPackable>
-        <CodeAnalysisRuleSet>..\Apache.Ignite.Tests.ruleset</CodeAnalysisRuleSet>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <SignAssembly>true</SignAssembly>
         <AssemblyOriginatorKeyFile>Apache.Ignite.Tests.snk</AssemblyOriginatorKeyFile>
@@ -28,13 +27,26 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.9.4" />
-        <PackageReference Include="NUnit" Version="3.13.1" />
-        <PackageReference Include="NUnit3TestAdapter" Version="3.17.0" />
+        <PackageReference Include="NUnit" Version="3.13.3" />
+        <PackageReference Include="NUnit3TestAdapter" Version="4.3.1" />
         <PackageReference Include="System.Linq.Async" Version="6.0.1" />
+        <PackageReference Include="NUnit.Analyzers" Version="3.6.1" />
+
+        <!-- Test-only dependency to use as a reference implementation. -->
+        <PackageReference Include="MessagePack" Version="[2.1.90,)" />
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\Apache.Ignite\Apache.Ignite.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Update="truststore.pfx">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="keystore.pfx">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
 </Project>

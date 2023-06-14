@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -42,8 +42,8 @@ public class IgnitePrograms {
      */
     public static Program hep(RuleSet rules) {
         return (planner, rel, traits, materializations, lattices) -> {
-            final HepProgramBuilder builder = new HepProgramBuilder();
-            final List<RelOptRule> ruleList = new ArrayList<>();
+            HepProgramBuilder builder = new HepProgramBuilder();
+            List<RelOptRule> ruleList = new ArrayList<>();
 
             for (RelOptRule rule : rules) {
                 ruleList.add(rule);
@@ -51,8 +51,10 @@ public class IgnitePrograms {
 
             builder.addRuleCollection(ruleList);
 
-            final HepPlanner hepPlanner = new HepPlanner(builder.build(), Commons.context(rel), true,
+            HepPlanner hepPlanner = new HepPlanner(builder.build(), Commons.context(rel), true,
                     null, Commons.context(rel).config().getCostFactory());
+
+            hepPlanner.setExecutor(planner.getExecutor());
 
             for (RelOptMaterialization materialization : materializations) {
                 hepPlanner.addMaterialization(materialization);

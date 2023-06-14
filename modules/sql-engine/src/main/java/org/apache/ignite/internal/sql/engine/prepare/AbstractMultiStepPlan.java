@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
-import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -96,7 +95,7 @@ public abstract class AbstractMultiStepPlan implements MultiStepPlan {
         Long2ObjectOpenHashMap<List<String>> res = new Long2ObjectOpenHashMap<>(capacity(remotes.size()));
 
         for (IgniteReceiver remote : remotes) {
-            res.put(remote.exchangeId(), mapping(remote.sourceFragmentId()).nodeIds());
+            res.put(remote.exchangeId(), mapping(remote.sourceFragmentId()).nodeNames());
         }
 
         return res;
@@ -104,7 +103,7 @@ public abstract class AbstractMultiStepPlan implements MultiStepPlan {
 
     /** {@inheritDoc} */
     @Override
-    public void init(MappingService mappingService, MappingQueryContext ctx) {
-        executionPlan = queryTemplate.map(mappingService, ctx);
+    public void init(MappingQueryContext ctx) {
+        executionPlan = queryTemplate.map(ctx);
     }
 }

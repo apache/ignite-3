@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -24,11 +24,11 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.schemas.network.InboundView;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.network.NetworkView;
-import org.apache.ignite.configuration.schemas.network.OutboundView;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.configuration.InboundView;
+import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkView;
+import org.apache.ignite.internal.network.configuration.OutboundView;
 import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup;
 import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup.NetworkThread;
 
@@ -57,10 +57,7 @@ public class NettyBootstrapFactory implements IgniteComponent {
      * @param networkConfiguration     Network configuration.
      * @param eventLoopGroupNamePrefix Prefix for event loop group names.
      */
-    public NettyBootstrapFactory(
-            NetworkConfiguration networkConfiguration,
-            String eventLoopGroupNamePrefix
-    ) {
+    public NettyBootstrapFactory(NetworkConfiguration networkConfiguration, String eventLoopGroupNamePrefix) {
         assert eventLoopGroupNamePrefix != null;
         assert networkConfiguration != null;
 

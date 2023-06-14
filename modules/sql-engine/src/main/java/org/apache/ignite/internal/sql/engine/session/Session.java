@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -52,7 +52,7 @@ public class Session implements AsyncCloseable {
     private final long idleTimeoutMs;
     private final SessionId sessionId;
     private final AtomicLong lastTouched;
-    private final PropertiesHolder queryProperties;
+    private final PropertiesHolder properties;
     private final CurrentTimeProvider currentTimeProvider;
 
     /**
@@ -62,30 +62,35 @@ public class Session implements AsyncCloseable {
      * @param currentTimeProvider The time provider used to update the timestamp on every touch of this object.
      * @param idleTimeoutMs Duration in milliseconds after which the session will be considered expired if no action have been
      *                      performed on behalf of this session during this period.
-     * @param queryProperties The properties to keep within.
+     * @param properties The properties to keep within.
      */
     public Session(
             SessionId sessionId,
             CurrentTimeProvider currentTimeProvider,
             long idleTimeoutMs,
-            PropertiesHolder queryProperties
+            PropertiesHolder properties
     ) {
         this.sessionId = sessionId;
         this.currentTimeProvider = currentTimeProvider;
         this.idleTimeoutMs = idleTimeoutMs;
-        this.queryProperties = queryProperties;
+        this.properties = properties;
 
         lastTouched = new AtomicLong(currentTimeProvider.now());
     }
 
     /** Returns the properties this session associated with. */
-    public PropertiesHolder queryProperties() {
-        return queryProperties;
+    public PropertiesHolder properties() {
+        return properties;
     }
 
     /** Returns the identifier of this session. */
     public SessionId sessionId() {
         return sessionId;
+    }
+
+    /** Returns the duration in millis after which the session will be considered expired if no one touched it in the middle. */
+    public long idleTimeoutMs() {
+        return idleTimeoutMs;
     }
 
     /** Checks whether the given session has expired or not. */
@@ -129,7 +134,13 @@ public class Session implements AsyncCloseable {
      * @param resource Resource to be registered within session.
      */
     public void registerResource(AsyncCloseable resource) {
-        if (!lock.readLock().tryLock() || expired()) {
+        if (!lock.readLock().tryLock()) {
+            throw new IllegalStateException(format("Attempt to register resource to an expired session [{}]", sessionId));
+        }
+
+        if (expired()) {
+            lock.readLock().unlock();
+
             throw new IllegalStateException(format("Attempt to register resource to an expired session [{}]", sessionId));
         }
 
@@ -140,8 +151,21 @@ public class Session implements AsyncCloseable {
         }
     }
 
+    /**
+     * Unregisters the given resource from session.
+     *
+     * @param resource Resource to unregister.
+     */
     public void unregisterResource(AsyncCloseable resource) {
-        resources.remove(resource);
+        if (!lock.readLock().tryLock()) {
+            return;
+        }
+
+        try {
+            resources.remove(resource);
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 
     /** {@inheritDoc} */

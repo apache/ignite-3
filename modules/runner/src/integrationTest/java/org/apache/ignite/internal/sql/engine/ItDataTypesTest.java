@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,10 +20,11 @@ package org.apache.ignite.internal.sql.engine;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.junit.jupiter.api.AfterEach;
@@ -32,7 +33,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test SQL data types.
  */
-public class ItDataTypesTest extends AbstractBasicIntegrationTest {
+public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
     /**
      * Drops all created tables.
      */
@@ -40,16 +41,9 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
     public void dropTables() {
         var igniteTables = CLUSTER_NODES.get(0).tables();
 
-        var tables = igniteTables.tables();
-
-        var futs = new CompletableFuture<?>[tables.size()];
-
-        int idx = 0;
-        for (var table : tables) {
-            futs[idx++] = igniteTables.dropTableAsync(table.name());
+        for (var table : igniteTables.tables()) {
+            sql("DROP TABLE " + table.name());
         }
-
-        CompletableFuture.allOf(futs).join();
     }
 
     /** Tests correctness with unicode. */
@@ -57,7 +51,7 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
     public void testUnicodeStrings() {
         sql("CREATE TABLE string_table(key int primary key, val varchar)");
 
-        String[] values = new String[]{"Кирилл", "Müller", "我是谁", "ASCII"};
+        String[] values = {"Кирилл", "Müller", "我是谁", "ASCII"};
 
         int key = 0;
 
@@ -174,9 +168,9 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testDateTime() {
-        assertQuery("select date '1992-01-19'").returns(sqlDate("1992-01-19")).check();
-        assertQuery("select date '1992-01-18' + interval (1) days").returns(sqlDate("1992-01-19")).check();
-        assertQuery("select date '1992-01-18' + interval (24) hours").returns(sqlDate("1992-01-19")).check();
+        assertQuery("SELECT date '1992-01-19'").returns(sqlDate("1992-01-19")).check();
+        assertQuery("SELECT date '1992-01-18' + interval (1) days").returns(sqlDate("1992-01-19")).check();
+        assertQuery("SELECT date '1992-01-18' + interval (24) hours").returns(sqlDate("1992-01-19")).check();
         assertQuery("SELECT timestamp '1992-01-18 02:30:00' + interval (25) hours")
                 .returns(sqlDateTime("1992-01-19T03:30:00")).check();
         assertQuery("SELECT timestamp '1992-01-18 02:30:00' + interval (23) hours")
@@ -184,9 +178,9 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT timestamp '1992-01-18 02:30:00' + interval (24) hours")
                 .returns(sqlDateTime("1992-01-19T02:30:00.000")).check();
 
-        assertQuery("select date '1992-03-29'").returns(sqlDate("1992-03-29")).check();
-        assertQuery("select date '1992-03-28' + interval (1) days").returns(sqlDate("1992-03-29")).check();
-        assertQuery("select date '1992-03-28' + interval (24) hours").returns(sqlDate("1992-03-29")).check();
+        assertQuery("SELECT date '1992-03-29'").returns(sqlDate("1992-03-29")).check();
+        assertQuery("SELECT date '1992-03-28' + interval (1) days").returns(sqlDate("1992-03-29")).check();
+        assertQuery("SELECT date '1992-03-28' + interval (24) hours").returns(sqlDate("1992-03-29")).check();
         assertQuery("SELECT timestamp '1992-03-28 02:30:00' + interval (25) hours")
                 .returns(sqlDateTime("1992-03-29T03:30:00.000")).check();
         assertQuery("SELECT timestamp '1992-03-28 02:30:00' + interval (23) hours")
@@ -194,9 +188,9 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT timestamp '1992-03-28 02:30:00' + interval (24) hours")
                 .returns(sqlDateTime("1992-03-29T02:30:00.000")).check();
 
-        assertQuery("select date '1992-09-27'").returns(sqlDate("1992-09-27")).check();
-        assertQuery("select date '1992-09-26' + interval (1) days").returns(sqlDate("1992-09-27")).check();
-        assertQuery("select date '1992-09-26' + interval (24) hours").returns(sqlDate("1992-09-27")).check();
+        assertQuery("SELECT date '1992-09-27'").returns(sqlDate("1992-09-27")).check();
+        assertQuery("SELECT date '1992-09-26' + interval (1) days").returns(sqlDate("1992-09-27")).check();
+        assertQuery("SELECT date '1992-09-26' + interval (24) hours").returns(sqlDate("1992-09-27")).check();
         assertQuery("SELECT timestamp '1992-09-26 02:30:00' + interval (25) hours")
                 .returns(sqlDateTime("1992-09-27T03:30:00.000")).check();
         assertQuery("SELECT timestamp '1992-09-26 02:30:00' + interval (23) hours")
@@ -204,9 +198,9 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT timestamp '1992-09-26 02:30:00' + interval (24) hours")
                 .returns(sqlDateTime("1992-09-27T02:30:00.000")).check();
 
-        assertQuery("select date '2021-11-07'").returns(sqlDate("2021-11-07")).check();
-        assertQuery("select date '2021-11-06' + interval (1) days").returns(sqlDate("2021-11-07")).check();
-        assertQuery("select date '2021-11-06' + interval (24) hours").returns(sqlDate("2021-11-07")).check();
+        assertQuery("SELECT date '2021-11-07'").returns(sqlDate("2021-11-07")).check();
+        assertQuery("SELECT date '2021-11-06' + interval (1) days").returns(sqlDate("2021-11-07")).check();
+        assertQuery("SELECT date '2021-11-06' + interval (24) hours").returns(sqlDate("2021-11-07")).check();
         assertQuery("SELECT timestamp '2021-11-06 01:30:00' + interval (25) hours")
                 .returns(sqlDateTime("2021-11-07T02:30:00.000")).check();
         // Check string representation here, since after timestamp calculation we have '2021-11-07T01:30:00.000-0800'
@@ -216,6 +210,109 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
                 .returns("2021-11-07 01:30:00").check();
         assertQuery("SELECT (timestamp '2021-11-06 01:30:00' + interval (24) hours)::varchar")
                 .returns("2021-11-07 01:30:00").check();
+    }
+
+    /** Test decimal scale for dynamic parameters. */
+    @Test
+    public void testDecimalScale() {
+        sql("CREATE TABLE t (id INT PRIMARY KEY, val1 DECIMAL(5, 3), val2 DECIMAL(3), val3 DECIMAL)");
+
+        // Check literals scale.
+        sql("INSERT INTO t values (0, 0, 0, 0)");
+        sql("INSERT INTO t values (1.1, 1.1, 1.1, 1.1)");
+        sql("INSERT INTO t values (2.123, 2.123, 2.123, 2.123)");
+        sql("INSERT INTO t values (3.123456, 3.123456, 3.123456, 3.123456)");
+
+        // Check dynamic parameters scale.
+        List<Number> params = List.of(4, 5L, 6f, 7.25f, 8d, 9.03125d, new BigDecimal("10"),
+                new BigDecimal("11.1"), new BigDecimal("12.123456"));
+
+        for (Object val : params) {
+            sql("INSERT INTO t values (?, ?, ?, ?)", val, val, val, val);
+        }
+
+        assertQuery("SELECT * FROM t")
+                .returns(0, new BigDecimal("0.000"), new BigDecimal("0"), new BigDecimal("0"))
+                .returns(1, new BigDecimal("1.100"), new BigDecimal("1"), new BigDecimal("1"))
+                .returns(2, new BigDecimal("2.123"), new BigDecimal("2"), new BigDecimal("2"))
+                .returns(3, new BigDecimal("3.123"), new BigDecimal("3"), new BigDecimal("3"))
+                .returns(4, new BigDecimal("4.000"), new BigDecimal("4"), new BigDecimal("4"))
+                .returns(5, new BigDecimal("5.000"), new BigDecimal("5"), new BigDecimal("5"))
+                .returns(6, new BigDecimal("6.000"), new BigDecimal("6"), new BigDecimal("6"))
+                .returns(7, new BigDecimal("7.250"), new BigDecimal("7"), new BigDecimal("7"))
+                .returns(8, new BigDecimal("8.000"), new BigDecimal("8"), new BigDecimal("8"))
+                .returns(9, new BigDecimal("9.031"), new BigDecimal("9"), new BigDecimal("9"))
+                .returns(10, new BigDecimal("10.000"), new BigDecimal("10"), new BigDecimal("10"))
+                .returns(11, new BigDecimal("11.100"), new BigDecimal("11"), new BigDecimal("11"))
+                .returns(12, new BigDecimal("12.123"), new BigDecimal("12"), new BigDecimal("12"))
+                .check();
+    }
+
+    /** Tests conversion between numeric types. */
+    @Test
+    public void testNumericConversion() {
+        sql("CREATE TABLE t (v1 TINYINT PRIMARY KEY, v2 SMALLINT, v3 INT, v4 BIGINT, v5 DECIMAL, v6 FLOAT, v7 DOUBLE)");
+
+        List<Number> params = List.of((byte) 1, (short) 2, 3, 4L, BigDecimal.valueOf(5), 6f, 7d);
+
+        for (Object val : params) {
+            sql("INSERT INTO t values (?, ?, ?, ?, ?, ?, ?)", val, val, val, val, val, val, val);
+        }
+
+        assertQuery("SELECT * FROM t")
+                .returns((byte) 1, (short) 1, 1, 1L, BigDecimal.valueOf(1), 1f, 1d)
+                .returns((byte) 2, (short) 2, 2, 2L, BigDecimal.valueOf(2), 2f, 2d)
+                .returns((byte) 3, (short) 3, 3, 3L, BigDecimal.valueOf(3), 3f, 3d)
+                .returns((byte) 4, (short) 4, 4, 4L, BigDecimal.valueOf(4), 4f, 4d)
+                .returns((byte) 5, (short) 5, 5, 5L, BigDecimal.valueOf(5), 5f, 5d)
+                .returns((byte) 6, (short) 6, 6, 6L, BigDecimal.valueOf(6), 6f, 6d)
+                .returns((byte) 7, (short) 7, 7, 7L, BigDecimal.valueOf(7), 7f, 7d)
+                .check();
+    }
+
+    /**
+     * Test cases for decimal literals.
+     */
+    @Test
+    public void testDecimalLiteral() {
+        sql("CREATE TABLE tbl(id int PRIMARY KEY, val DECIMAL(32, 5))");
+
+        assertQuery("SELECT DECIMAL '-123.0'").returns(new BigDecimal(("-123.0"))).check();
+        assertQuery("SELECT DECIMAL '10'").returns(new BigDecimal(("10"))).check();
+        assertQuery("SELECT DECIMAL '10.000'").returns(new BigDecimal(("10.000"))).check();
+
+        assertQuery("SELECT DECIMAL '10.000' + DECIMAL '0.1'").returns(new BigDecimal(("10.100"))).check();
+        assertQuery("SELECT DECIMAL '10.000' - DECIMAL '0.01'").returns(new BigDecimal(("9.990"))).check();
+        assertQuery("SELECT DECIMAL '10.000' * DECIMAL '0.01'").returns(new BigDecimal(("0.10000"))).check();
+        assertQuery("SELECT DECIMAL '10.000' / DECIMAL '0.01'").returns(new BigDecimal(("1000.0"))).check();
+
+        assertQuery("SELECT DECIMAL '10.000' = '10.000'").returns(true).check();
+        assertQuery("SELECT DECIMAL '10.000' = '10.001'").returns(false).check();
+
+        assertQuery("SELECT CASE WHEN true THEN DECIMAL '1.00' ELSE DECIMAL '0' END")
+                .returns(new BigDecimal("1.00")).check();
+
+        assertQuery("SELECT CASE WHEN false THEN DECIMAL '1.00' ELSE DECIMAL '0.0' END")
+                .returns(new BigDecimal("0.0")).check();
+
+        assertQuery("SELECT DECIMAL \"10\" FROM (SELECT 1 as decimal) tmp").returns(1).check();
+
+        assertQuery(
+                "SELECT DECIMAL '0.09'  BETWEEN DECIMAL '0.06' AND DECIMAL '0.07'")
+                .returns(false).check();
+
+        assertQuery("SELECT ROUND(DECIMAL '10.000', 2)").returns(new BigDecimal("10.00")).check();
+        assertQuery("SELECT CAST(DECIMAL '10.000' AS VARCHAR)").returns("10.000").check();
+        assertQuery("SELECT CAST(DECIMAL '10.000' AS INTEGER)").returns(10).check();
+
+        sql("INSERT INTO tbl VALUES(1, DECIMAL '10.01')");
+
+        assertQuery("SELECT val FROM tbl").returns(new BigDecimal("10.01000")).check();
+
+        assertQuery("SELECT id FROM tbl WHERE val = DECIMAL '10.01'").returns(1).check();
+
+        sql("UPDATE tbl SET val=DECIMAL '10.20' WHERE id = 1");
+        assertQuery("SELECT id FROM tbl WHERE val = DECIMAL '10.20'").returns(1).check();
     }
 
     private LocalDate sqlDate(String str) {

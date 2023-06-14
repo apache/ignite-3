@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.sql.engine.util.Commons.negate;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.ErrorGroups.Sql.TOO_MANY_GROUPING_EXPRESSIONS_ERR;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -29,7 +30,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -69,9 +69,9 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
      * @param ctx Execution context.
      */
     public HashAggregateNode(
-            ExecutionContext<RowT> ctx, RelDataType rowType, AggregateType type, List<ImmutableBitSet> grpSets,
+            ExecutionContext<RowT> ctx, AggregateType type, List<ImmutableBitSet> grpSets,
             Supplier<List<AccumulatorWrapper<RowT>>> accFactory, RowFactory<RowT> rowFactory) {
-        super(ctx, rowType);
+        super(ctx);
 
         this.type = type;
         this.accFactory = accFactory;
@@ -80,7 +80,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         ImmutableBitSet.Builder b = ImmutableBitSet.builder();
 
         if (grpSets.size() > Byte.MAX_VALUE) {
-            throw new IgniteInternalException("Too many groups");
+            throw new IgniteInternalException(TOO_MANY_GROUPING_EXPRESSIONS_ERR, "Too many groups");
         }
 
         groupings = new ArrayList<>(grpSets.size());
@@ -244,7 +244,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             // Initializes aggregates for case when no any rows will be added into the aggregate to have 0 as result.
             // Doesn't do it for MAP type due to we don't want send from MAP node zero results because it looks redundant.
             if (grpFields.isEmpty() && (type == AggregateType.REDUCE || type == AggregateType.SINGLE)) {
-                groups.put(GroupKey.EMPTY_GRP_KEY, create(GroupKey.EMPTY_GRP_KEY));
+                groups.put(GroupKey.EMPTY_GRP_KEY, create());
             }
         }
 
@@ -288,7 +288,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
             GroupKey grpKey = b.build();
 
-            List<AccumulatorWrapper<RowT>> wrappers = groups.computeIfAbsent(grpKey, this::create);
+            List<AccumulatorWrapper<RowT>> wrappers = groups.computeIfAbsent(grpKey, k -> create());
 
             for (AccumulatorWrapper<RowT> wrapper : wrappers) {
                 wrapper.add(row);
@@ -304,7 +304,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
             GroupKey grpKey = (GroupKey) handler.get(1, row);
 
-            List<AccumulatorWrapper<RowT>> wrappers = groups.computeIfAbsent(grpKey, this::create);
+            List<AccumulatorWrapper<RowT>> wrappers = groups.computeIfAbsent(grpKey, k -> create());
             List<Accumulator> accums = hasAccumulators() ? (List<Accumulator>) handler.get(2, row) : Collections.emptyList();
 
             for (int i = 0; i < wrappers.size(); i++) {
@@ -369,7 +369,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             return res;
         }
 
-        private List<AccumulatorWrapper<RowT>> create(GroupKey key) {
+        private List<AccumulatorWrapper<RowT>> create() {
             if (accFactory == null) {
                 return Collections.emptyList();
             }

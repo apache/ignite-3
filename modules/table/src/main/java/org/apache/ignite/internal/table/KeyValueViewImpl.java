@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.table;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -39,7 +40,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
-import org.apache.ignite.table.InvokeProcessor;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -349,50 +350,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
                        .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r)));
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public <R extends Serializable> R invoke(
-            @Nullable Transaction tx,
-            @NotNull K key,
-            InvokeProcessor<K, V, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <R extends Serializable> CompletableFuture<R> invokeAsync(
-            @Nullable Transaction tx,
-            @NotNull K key,
-            InvokeProcessor<K, V, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R extends Serializable> Map<K, R> invokeAll(
-            @Nullable Transaction tx,
-            @NotNull Collection<K> keys,
-            InvokeProcessor<K, V, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <R extends Serializable> CompletableFuture<Map<K, R>> invokeAllAsync(
-            @Nullable Transaction tx,
-            @NotNull Collection<K> keys,
-            InvokeProcessor<K, V, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
     /**
      * Returns marshaller.
      *
@@ -591,5 +548,12 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         }
 
         return v;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> streamData(Publisher<Entry<K, V>> publisher, @Nullable DataStreamerOptions options) {
+        // TODO IGNITE-19617 Server-side Basic Data Streamer.
+        throw new UnsupportedOperationException("Not supported.");
     }
 }

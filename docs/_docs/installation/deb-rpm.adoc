@@ -1,0 +1,82 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Installing Using DEP and RPM Package
+
+Apache Ignite can be installed from the official link:https://www.apache.org/dist/ignite/rpm[RPM] or link:https://www.apache.org/dist/ignite/deb[DEB] repositories.
+
+== Installing Deb Package
+
+//Configure the repository:
+
+//[source, shell]
+//----
+//sudo apt update
+//sudo apt install gnupg ca-certificates --no-install-recommends -y
+//----
+
+
+//[source, shell]
+//----
+//sudo bash -c 'cat <<EOF > /etc/apt/sources.list.d/ignite.list
+//deb http://apache.org/dist/ignite/deb/ apache-ignite main
+//EOF'
+//sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 0EE62FB37A00258D
+//sudo apt update
+//sudo apt install apache-ignite --no-install-recommends
+//----
+
+. Download the archive with the Ignite CLI tool:
++
+[tabs]
+--
+tab:deb[]
+[source,shell]
+----
+curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-beta1/ignite3-cli_3.0.0~beta1_all.deb" -o ignite3-cli_3.0.0-beta1_all.deb
+
+curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-beta1/ignite3-db_3.0.0~beta1_all.deb" -o ignite3-db_3.0.0-beta1_all.deb
+----
+
+tab:RPM[]
+[source,shell]
+----
+curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-beta1/ignite3-cli-3.0.0~beta1.noarch.rpm" -o ignite3-cli-3.0.0~beta1.noarch.rpm
+
+curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-beta1/ignite3-db-3.0.0~beta1.noarch.rpm" -o ignite3-db-3.0.0~beta1.noarch.rpm
+----
+--
+
+
+
+Install the Apache Ignite 3 package:
+
+[tabs]
+--
+tab:deb[]
+[source, shell]
+----
+sudo apt install ignite3-db_3.0.0-beta1_all.deb --no-install-recommends
+sudo apt install ignite3-cli_3.0.0-beta1_all.deb --no-install-recommends
+----
+
+tab:RPM[]
+[source,shell]
+----
+sudo rpm -i ignite3-db-3.0.0~beta1.noarch.rpm
+
+sudo rpm -i ignite3-cli-3.0.0~beta1.noarch.rpm
+----
+
+--

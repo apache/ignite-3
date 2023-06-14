@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 
+import com.google.common.base.Functions;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
@@ -28,11 +31,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -62,13 +63,9 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx Execution context.
-     * @param rowType Rel data type.
      */
-    public RootNode(ExecutionContext<RowT> ctx, RelDataType rowType) {
-        super(ctx, rowType);
-
-        onClose = this::closeInternal;
-        converter = TypeUtils.resultTypeConverter(ctx, rowType);
+    public RootNode(ExecutionContext<RowT> ctx) {
+        this(ctx, Functions.identity());
     }
 
     /**
@@ -76,14 +73,28 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx Execution context.
-     * @param rowType Rel data type.
+     * @param converter Output rows converter.
+     */
+    public RootNode(ExecutionContext<RowT> ctx, Function<RowT, RowT> converter) {
+        super(ctx);
+
+        this.converter = converter;
+        this.onClose = this::closeInternal;
+    }
+
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @param ctx Execution context.
+     * @param converter Output rows converter.
      * @param onClose Runnable.
      */
-    public RootNode(ExecutionContext<RowT> ctx, RelDataType rowType, Runnable onClose) {
-        super(ctx, rowType);
+    public RootNode(ExecutionContext<RowT> ctx, Function<RowT, RowT> converter, Runnable onClose) {
+        super(ctx);
 
+        this.converter = converter;
         this.onClose = onClose;
-        converter = TypeUtils.resultTypeConverter(ctx, rowType);
     }
 
     public UUID queryId() {
@@ -257,7 +268,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                 cond.await();
             }
         } catch (InterruptedException e) {
-            throw new IgniteInternalException(e);
+            throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, e);
         } finally {
             lock.unlock();
         }
@@ -275,7 +286,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         if (e instanceof RuntimeException) {
             throw (RuntimeException) e;
         } else {
-            throw new IgniteInternalException("An error occurred while query executing.", e);
+            throw new IgniteInternalException(INTERNAL_ERR, "An error occurred while query executing.", e);
         }
         // TODO: rework with SQL error code
         //        if (e instanceof IgniteSQLException)

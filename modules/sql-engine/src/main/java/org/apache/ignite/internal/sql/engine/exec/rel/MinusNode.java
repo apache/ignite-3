@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
@@ -27,9 +26,9 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
  * Execution node for MINUS (EXCEPT) operator.
  */
 public class MinusNode<RowT> extends AbstractSetOpNode<RowT> {
-    public MinusNode(ExecutionContext<RowT> ctx, RelDataType rowType, AggregateType type, boolean all,
+    public MinusNode(ExecutionContext<RowT> ctx, AggregateType type, boolean all,
             RowFactory<RowT> rowFactory) {
-        super(ctx, rowType, type, all, rowFactory, new MinusGrouping<>(ctx, rowFactory, type, all));
+        super(ctx, type, all, rowFactory, new MinusGrouping<>(ctx, rowFactory, type, all));
     }
 
     private static class MinusGrouping<RowT> extends Grouping<RowT> {

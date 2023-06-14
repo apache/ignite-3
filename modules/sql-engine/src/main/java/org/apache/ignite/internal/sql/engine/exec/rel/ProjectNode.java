@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.function.Function;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 
 /**
@@ -35,11 +34,10 @@ public class ProjectNode<RowT> extends AbstractNode<RowT> implements SingleNode<
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx Execution context.
-     * @param rowType Rel data type.
      * @param prj Projection.
      */
-    public ProjectNode(ExecutionContext<RowT> ctx, RelDataType rowType, Function<RowT, RowT> prj) {
-        super(ctx, rowType);
+    public ProjectNode(ExecutionContext<RowT> ctx, Function<RowT, RowT> prj) {
+        super(ctx);
 
         this.prj = prj;
     }

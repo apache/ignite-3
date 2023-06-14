@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,8 +19,7 @@ package org.apache.ignite.raft.server;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -33,9 +32,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Abstract test for raft server.
  */
-abstract class RaftServerAbstractTest {
-    protected static final IgniteLogger LOG = Loggers.forClass(RaftServerAbstractTest.class);
-
+abstract class RaftServerAbstractTest extends IgniteAbstractTest {
     protected static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     /**

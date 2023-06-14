@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,17 +21,18 @@ import java.io.Serializable;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 
 /**
  * Common interface for configuration storage.
  */
-public interface ConfigurationStorage extends AutoCloseable {
+public interface ConfigurationStorage extends ManuallyCloseable {
     /**
-     * Read all configuration values and current storage version.
+     * Reads all configuration values and current storage version during the recovery phase.
      *
      * @return Future that resolves into extracted values and version or a {@link StorageException} if the data could not be read.
      */
-    CompletableFuture<Data> readAll();
+    CompletableFuture<Data> readDataOnRecovery();
 
     /**
      * Retrieves the most recent values which keys start with the given prefix, regardless of the current storage version.
@@ -77,4 +78,21 @@ public interface ConfigurationStorage extends AutoCloseable {
      * Returns a future that will be completed when the latest revision of the storage is received.
      */
     CompletableFuture<Long> lastRevision();
+
+    /**
+     * Writes previous and current configuration's MetaStorage revision for recovery.
+     * We need previous and current for the fail-safety: in case if node fails before changing master key on configuration update,
+     * MetaStorage's applied revision will be lower than {@code currentRevision} and we will be using previous revision.
+     *
+     * @param prevRevision Previous revision.
+     * @param currentRevision Current revision.
+     * @return A future that will be completed when revisions are written to the storage.
+     */
+    CompletableFuture<Void> writeConfigurationRevision(long prevRevision, long currentRevision);
+
+    /**
+     * Closes the storage.
+     */
+    @Override
+    void close();
 }

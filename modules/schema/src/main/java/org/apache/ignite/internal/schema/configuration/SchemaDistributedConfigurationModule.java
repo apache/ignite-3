@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,46 +17,58 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
-import java.lang.annotation.Annotation;
+import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.table.ColumnTypeValidator;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.index.IndexValidatorImpl;
+import org.apache.ignite.internal.schema.configuration.index.SortedIndexConfigurationSchema;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-schema.
  */
+@AutoService(ConfigurationModule.class)
 public class SchemaDistributedConfigurationModule implements ConfigurationModule {
-    /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
         return ConfigurationType.DISTRIBUTED;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        return Map.of(
-                TableValidator.class, Set.of(TableValidatorImpl.INSTANCE),
-                ColumnTypeValidator.class, Set.of(ColumnTypeValidatorImpl.INSTANCE)
+    public Collection<RootKey<?, ?>> rootKeys() {
+        return List.of(TablesConfiguration.KEY);
+    }
+
+    @Override
+    public Set<Validator<?, ?>> validators() {
+        return Set.of(
+                TableValidatorImpl.INSTANCE,
+                ColumnTypeValidatorImpl.INSTANCE,
+                IndexValidatorImpl.INSTANCE
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(
                 ConstantValueDefaultConfigurationSchema.class,
                 FunctionCallDefaultConfigurationSchema.class,
-                NullValueDefaultConfigurationSchema.class
+                NullValueDefaultConfigurationSchema.class,
+                HashIndexConfigurationSchema.class,
+                SortedIndexConfigurationSchema.class
         );
+    }
+
+    @Override
+    public Collection<Class<?>> internalSchemaExtensions() {
+        return List.of(ExtendedTableConfigurationSchema.class);
     }
 }

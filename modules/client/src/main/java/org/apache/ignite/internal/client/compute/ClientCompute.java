@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,6 +21,7 @@ import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -28,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
-import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -48,6 +49,8 @@ import org.apache.ignite.table.mapper.Mapper;
  * Client compute implementation.
  */
 public class ClientCompute implements IgniteCompute {
+    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+
     /** Indicates a missing table. */
     private static final Object MISSING_TABLE_TOKEN = new Object();
 
@@ -73,13 +76,7 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args) {
-        return execute(nodes, jobClass.getName(), args);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, String jobClassName, Object... args) {
+    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(jobClassName);
 
@@ -94,8 +91,25 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, Class<? extends ComputeJob<R>> jobClass, Object... args) {
-        return executeColocated(tableName, key, jobClass.getName(), args);
+    public <R> CompletableFuture<R> executeColocated(
+            String tableName,
+            Tuple key,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        Objects.requireNonNull(tableName);
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(jobClassName);
+
+        return getTable(tableName)
+                .thenCompose(table -> (CompletableFuture<R>) executeColocatedTupleKey(table, key, jobClassName, args))
+                .handle((res, err) -> handleMissingTable(tableName, res, err))
+                .thenCompose(r ->
+                        // If a table was dropped, try again: maybe a new table was created with the same name and new id.
+                        r == MISSING_TABLE_TOKEN
+                                ? executeColocated(tableName, key, units, jobClassName, args)
+                                : CompletableFuture.completedFuture(r));
     }
 
     /** {@inheritDoc} */
@@ -104,59 +118,33 @@ public class ClientCompute implements IgniteCompute {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            Class<? extends ComputeJob<R>> jobClass,
+            List<DeploymentUnit> units,
+            String jobClassName,
             Object... args
     ) {
-        return executeColocated(tableName, key, keyMapper, jobClass.getName(), args);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, String jobClassName, Object... args) {
-        Objects.requireNonNull(tableName);
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(jobClassName);
-
-        // TODO: IGNITE-16925 - implement partition awareness.
-        return getTable(tableName)
-                .thenCompose(table -> this.<R>executeColocatedTupleKey(table, key, jobClassName, args))
-                .handle((res, err) -> handleMissingTable(tableName, res, err))
-                .thenCompose(r ->
-                        // If a table was dropped, try again: maybe a new table was created with the same name and new id.
-                        r == MISSING_TABLE_TOKEN
-                                ? executeColocated(tableName, key, jobClassName, args)
-                                : CompletableFuture.completedFuture(r));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <K, R> CompletableFuture<R> executeColocated(String tableName, K key, Mapper<K> keyMapper, String jobClassName, Object... args) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
         Objects.requireNonNull(jobClassName);
 
-        // TODO: IGNITE-16925 - implement partition awareness.
         return getTable(tableName)
-                .thenCompose(table -> this.<K, R>executeColocatedObjectKey(table, key, keyMapper, jobClassName, args))
+                .thenCompose(table -> (CompletableFuture<R>) executeColocatedObjectKey(table, key, keyMapper, jobClassName, args))
                 .handle((res, err) -> handleMissingTable(tableName, res, err))
                 .thenCompose(r ->
                         // If a table was dropped, try again: maybe a new table was created with the same name and new id.
                         r == MISSING_TABLE_TOKEN
-                                ? executeColocated(tableName, key, keyMapper, jobClassName, args)
+                                ? executeColocated(tableName, key, keyMapper, units, jobClassName, args)
                                 : CompletableFuture.completedFuture(r));
     }
 
     /** {@inheritDoc} */
     @Override
-    public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass,
-            Object... args) {
-        return broadcast(nodes, jobClass.getName(), args);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, String jobClassName, Object... args) {
+    public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(
+            Set<ClusterNode> nodes,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(jobClassName);
 
@@ -180,11 +168,15 @@ public class ClientCompute implements IgniteCompute {
             }
 
             w.out().packString(jobClassName);
-            w.out().packObjectArray(args);
-        }, r -> (R) r.in().unpackObjectWithType(), node.name());
+            w.out().packObjectArrayAsBinaryTuple(args);
+        }, r -> (R) r.in().unpackObjectFromBinaryTuple(), node.name(), null, null);
     }
 
-    private ClusterNode randomNode(Set<ClusterNode> nodes) {
+    private static ClusterNode randomNode(Set<ClusterNode> nodes) {
+        if (nodes.size() == 1) {
+            return nodes.iterator().next();
+        }
+
         int nodesToSkip = ThreadLocalRandom.current().nextInt(nodes.size());
 
         Iterator<ClusterNode> iterator = nodes.iterator();
@@ -195,7 +187,7 @@ public class ClientCompute implements IgniteCompute {
         return iterator.next();
     }
 
-    private <K, R> CompletableFuture<R> executeColocatedObjectKey(
+    private static <K, R> CompletableFuture<R> executeColocatedObjectKey(
             ClientTable t,
             K key,
             Mapper<K> keyMapper,
@@ -206,18 +198,19 @@ public class ClientCompute implements IgniteCompute {
                 (schema, outputChannel) -> {
                     ClientMessagePacker w = outputChannel.out();
 
-                    w.packUuid(t.tableId());
+                    w.packInt(t.tableId());
                     w.packInt(schema.version());
 
                     ClientRecordSerializer.writeRecRaw(key, keyMapper, schema, w, TuplePart.KEY);
 
                     w.packString(jobClassName);
-                    w.packObjectArray(args);
+                    w.packObjectArrayAsBinaryTuple(args);
                 },
-                r -> (R) r.unpackObjectWithType());
+                r -> (R) r.unpackObjectFromBinaryTuple(),
+                ClientTupleSerializer.getPartitionAwarenessProvider(null, keyMapper, key));
     }
 
-    private <R> CompletableFuture<R> executeColocatedTupleKey(
+    private static <R> CompletableFuture<R> executeColocatedTupleKey(
             ClientTable t,
             Tuple key,
             String jobClassName,
@@ -227,15 +220,16 @@ public class ClientCompute implements IgniteCompute {
                 (schema, outputChannel) -> {
                     ClientMessagePacker w = outputChannel.out();
 
-                    w.packUuid(t.tableId());
+                    w.packInt(t.tableId());
                     w.packInt(schema.version());
 
                     ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true);
 
                     w.packString(jobClassName);
-                    w.packObjectArray(args);
+                    w.packObjectArrayAsBinaryTuple(args);
                 },
-                r -> (R) r.unpackObjectWithType());
+                r -> (R) r.unpackObjectFromBinaryTuple(),
+                ClientTupleSerializer.getPartitionAwarenessProvider(null, key));
     }
 
     private CompletableFuture<ClientTable> getTable(String tableName) {
@@ -248,7 +242,7 @@ public class ClientCompute implements IgniteCompute {
 
         return tables.tableAsync(tableName).thenApply(t -> {
             if (t == null) {
-                throw new TableNotFoundException(tableName);
+                throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, tableName);
             }
 
             ClientTable clientTable = (ClientTable) t;

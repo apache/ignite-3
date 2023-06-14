@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.UUID;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 
@@ -89,20 +90,22 @@ public class AbstractClientTableTest extends AbstractClientTest {
     }
 
     protected Table defaultTable() {
-        server.tables().createTable(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
+        if (server.tables().table(DEFAULT_TABLE) == null) {
+            ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE);
+        }
 
         return client.tables().table(DEFAULT_TABLE);
     }
 
     protected Table tableWithDefaultValues() {
         if (server.tables().table(TABLE_WITH_DEFAULT_VALUES) == null) {
-            server.tables().createTable(TABLE_WITH_DEFAULT_VALUES, tbl -> tbl.changeReplicas(1));
+            ((FakeIgniteTables) server.tables()).createTable(TABLE_WITH_DEFAULT_VALUES);
         }
 
         return client.tables().table(TABLE_WITH_DEFAULT_VALUES);
     }
 
-    protected static Tuple allClumnsTableKey(long id) {
+    protected static Tuple allColumnsTableKey(long id) {
         return Tuple.create().set("gid", id).set("id", String.valueOf(id));
     }
 
@@ -129,7 +132,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
 
     protected Table fullTable() {
         if (server.tables().table(TABLE_ALL_COLUMNS) == null) {
-            server.tables().createTable(TABLE_ALL_COLUMNS, tbl -> tbl.changeReplicas(1));
+            ((FakeIgniteTables) server.tables()).createTable(TABLE_ALL_COLUMNS);
         }
 
         return client.tables().table(TABLE_ALL_COLUMNS);
@@ -141,7 +144,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
 
     protected Table oneColumnTable() {
         if (server.tables().table(TABLE_ONE_COLUMN) == null) {
-            server.tables().createTable(TABLE_ONE_COLUMN, tbl -> tbl.changeReplicas(1));
+            ((FakeIgniteTables) server.tables()).createTable(TABLE_ONE_COLUMN);
         }
 
         return client.tables().table(TABLE_ONE_COLUMN);

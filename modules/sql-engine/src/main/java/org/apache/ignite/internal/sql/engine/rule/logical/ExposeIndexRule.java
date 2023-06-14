@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -31,7 +31,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.immutables.value.Value;
 
 /**
@@ -48,7 +48,7 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
 
     private static boolean preMatch(IgniteLogicalTableScan scan) {
         // has indexes to expose
-        return !scan.getTable().unwrap(InternalIgniteTable.class).indexes().isEmpty();
+        return !scan.getTable().unwrap(IgniteTable.class).indexes().isEmpty();
     }
 
     /** {@inheritDoc} */
@@ -58,7 +58,7 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
         RelOptCluster cluster = scan.getCluster();
 
         RelOptTable optTable = scan.getTable();
-        InternalIgniteTable igniteTable = optTable.unwrap(InternalIgniteTable.class);
+        IgniteTable igniteTable = optTable.unwrap(IgniteTable.class);
         List<RexNode> proj = scan.projects();
         RexNode condition = scan.condition();
         ImmutableBitSet requiredCols = scan.requiredColumns();

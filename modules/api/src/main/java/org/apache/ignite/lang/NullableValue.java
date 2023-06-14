@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,12 +21,13 @@ import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A container object which contains a nullable value. {@code NullableValue} is primarily intended for use as a method return type where
- * it's not clear if the value is absent or value is {@code null}.
+ * Container object that contains a nullable value. {@code NullableValue} is primarily used as a return type for methods where
+ * it's not clear whether the value is absent or is {@code null}.
  *
- * <p>In contrast to {@link java.util.Optional} this class allows {@code null} values, and allow a method with {@code NullableValue}
- * returning type to return a {@code null} as well as {@code NullableValue} object. Thus, if the method returns {@code null} that means no
- * value present, and {@code NullableValue} object means the value is present, but value itself can be {@code null} though.
+ * <p>Unlike {@link java.util.Optional}, this class supports {@code null} values and allows a method with {@code NullableValue}
+ * returning type to return a {@code null}, as well as the {@code NullableValue} object. If the method returns {@code null},
+ * this means that no value is present. If the method returns the {@code NullableValue} object,
+ * this means that a value is present but this value can be {@code null}.
  *
  * @param <T> Value type.
  */
@@ -35,9 +36,9 @@ public final class NullableValue<T> {
     private static final NullableValue<?> NULL = new NullableValue<>(null);
 
     /**
-     * Wraps nullable object.
+     * Wraps a nullable object.
      *
-     * @param obj Value to wrap, or {@code null}.
+     * @param obj Value to wrap or {@code null}.
      * @return Nullable value.
      */
     public static <T> NullableValue<T> of(@Nullable T obj) {
@@ -48,7 +49,7 @@ public final class NullableValue<T> {
     private T value;
 
     /**
-     * Creates a wrapper for nullable value.
+     * Creates a wrapper for a nullable value.
      *
      * @param value Value.
      */
@@ -57,7 +58,7 @@ public final class NullableValue<T> {
     }
 
     /**
-     * Returns wrapped value.
+     * Returns a wrapped value.
      *
      * @return Value.
      */

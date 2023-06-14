@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,7 +19,7 @@ package org.apache.ignite.internal.pagememory.datastructure;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.MAX_ITEMID_NUM;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.MAX_ITEM_ID_NUM;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.flag;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.toDetailStr
 
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -46,7 +47,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Base class for all the data structures based on {@link PageMemory}.
  */
-public abstract class DataStructure {
+public abstract class DataStructure implements ManuallyCloseable {
     /** For tests. */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-16350
     public static Random rnd;
@@ -453,7 +454,7 @@ public abstract class DataStructure {
             recycled = PageIdUtils.rotatePageId(pageId);
         }
 
-        assert itemId(recycled) > 0 && itemId(recycled) <= MAX_ITEMID_NUM : IgniteUtils.hexLong(recycled);
+        assert itemId(recycled) > 0 && itemId(recycled) <= MAX_ITEM_ID_NUM : IgniteUtils.hexLong(recycled);
 
         PageIo.setPageId(pageAddr, recycled);
 
@@ -470,6 +471,7 @@ public abstract class DataStructure {
     /**
      * Frees the resources allocated by this structure.
      */
+    @Override
     public void close() {
         lockLsnr.close();
     }

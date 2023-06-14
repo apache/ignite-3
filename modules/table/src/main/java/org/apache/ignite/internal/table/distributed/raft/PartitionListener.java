@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,477 +17,248 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import static java.util.Objects.requireNonNull;
+import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.tx.TxState.ABORTED;
+import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.util.CollectionUtils.last;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.DataRow;
-import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.basic.BinarySearchRow;
-import org.apache.ignite.internal.storage.basic.DelegatingDataRow;
-import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
-import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
-import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
-import org.apache.ignite.internal.table.distributed.command.DeleteExactCommand;
+import java.util.stream.Stream;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.ReadCommand;
+import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.CommittedConfiguration;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
+import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
+import org.apache.ignite.internal.storage.ReadResult;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
+import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
-import org.apache.ignite.internal.table.distributed.command.GetAllCommand;
-import org.apache.ignite.internal.table.distributed.command.GetAndDeleteCommand;
-import org.apache.ignite.internal.table.distributed.command.GetAndReplaceCommand;
-import org.apache.ignite.internal.table.distributed.command.GetAndUpsertCommand;
-import org.apache.ignite.internal.table.distributed.command.GetCommand;
-import org.apache.ignite.internal.table.distributed.command.InsertAllCommand;
-import org.apache.ignite.internal.table.distributed.command.InsertCommand;
-import org.apache.ignite.internal.table.distributed.command.MultiKeyCommand;
-import org.apache.ignite.internal.table.distributed.command.ReplaceCommand;
-import org.apache.ignite.internal.table.distributed.command.ReplaceIfExistCommand;
-import org.apache.ignite.internal.table.distributed.command.SingleKeyCommand;
-import org.apache.ignite.internal.table.distributed.command.TransactionalCommand;
-import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
-import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
-import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
-import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
-import org.apache.ignite.internal.table.distributed.command.scan.ScanCloseCommand;
-import org.apache.ignite.internal.table.distributed.command.scan.ScanInitCommand;
-import org.apache.ignite.internal.table.distributed.command.scan.ScanRetrieveBatchCommand;
-import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
-import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
+import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
+import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
+import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.raft.client.Command;
-import org.apache.ignite.raft.client.ReadCommand;
-import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.client.service.CommandClosure;
-import org.apache.ignite.raft.client.service.RaftGroupListener;
-import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.TestOnly;
 
 /**
  * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener {
-    /** Lock id. */
-    private final IgniteUuid lockId;
+    /** Logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
-    /** The versioned storage. */
-    private final VersionedRowStore storage;
+    /** Empty sorted set. */
+    private static final SortedSet<RowId> EMPTY_SET = Collections.emptySortedSet();
 
-    /** Cursors map. */
-    private final Map<IgniteUuid, CursorMeta> cursors;
+    /** Partition storage with access to MV data of a partition. */
+    private final PartitionDataStorage storage;
 
-    /** Transaction manager. */
-    private final TxManager txManager;
+    /** Handler that processes storage updates. */
+    private final StorageUpdateHandler storageUpdateHandler;
+
+    /** Storage of transaction metadata. */
+    private final TxStateStorage txStateStorage;
+
+    /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
+    private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new HashMap<>();
+
+    /** Safe time tracker. */
+    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
+
+    /** Storage index tracker. */
+    private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
     /**
      * The constructor.
      *
-     * @param tableId Table id.
-     * @param store  The storage.
+     * @param partitionDataStorage The storage.
+     * @param safeTime Safe time tracker.
+     * @param storageIndexTracker Storage index tracker.
      */
-    public PartitionListener(UUID tableId, VersionedRowStore store) {
-        this.lockId = new IgniteUuid(tableId, 0);
-        this.storage = store;
-        this.txManager = store.txManager();
-        this.cursors = new ConcurrentHashMap<>();
+    public PartitionListener(
+            PartitionDataStorage partitionDataStorage,
+            StorageUpdateHandler storageUpdateHandler,
+            TxStateStorage txStateStorage,
+            PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker
+    ) {
+        this.storage = partitionDataStorage;
+        this.storageUpdateHandler = storageUpdateHandler;
+        this.txStateStorage = txStateStorage;
+        this.safeTime = safeTime;
+        this.storageIndexTracker = storageIndexTracker;
+
+        // TODO: IGNITE-18502 Implement a pending update storage
+        try (PartitionTimestampCursor cursor = partitionDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
+            while (cursor.hasNext()) {
+                ReadResult readResult = cursor.next();
+
+                if (readResult.isWriteIntent()) {
+                    txsPendingRowIds.computeIfAbsent(readResult.transactionId(), key -> new TreeSet<>()).add(readResult.rowId());
+                }
+            }
+        }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends ReadCommand> clo) -> {
             Command command = clo.command();
 
-            if (!tryEnlistIntoTransaction(command, clo)) {
-                return;
-            }
-
-            if (command instanceof GetCommand) {
-                clo.result(handleGetCommand((GetCommand) command));
-            } else if (command instanceof GetAllCommand) {
-                clo.result(handleGetAllCommand((GetAllCommand) command));
-            } else {
-                assert false : "Command was not found [cmd=" + clo.command() + ']';
-            }
+            assert false : "No read commands expected, [cmd=" + command + ']';
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
             Command command = clo.command();
 
-            if (!tryEnlistIntoTransaction(command, clo)) {
-                return;
-            }
-
             long commandIndex = clo.index();
+            long commandTerm = clo.term();
 
-            long storageAppliedIndex = storage.lastAppliedIndex();
+            // We choose the minimum applied index, since we choose it (the minimum one) on local recovery so as not to lose the data for
+            // one of the storages.
+            long storagesAppliedIndex = Math.min(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
 
-            assert storageAppliedIndex < commandIndex
-                    : "Pending write command has a higher index than already processed commands [commandIndex=" + commandIndex
-                    + ", storageAppliedIndex=" + storageAppliedIndex + ']';
+            assert commandIndex > storagesAppliedIndex :
+                    "Write command must have an index greater than that of storages [commandIndex=" + commandIndex
+                            + ", mvAppliedIndex=" + storage.lastAppliedIndex()
+                            + ", txStateAppliedIndex=" + txStateStorage.lastAppliedIndex() + "]";
 
-            if (command instanceof InsertCommand) {
-                clo.result(handleInsertCommand((InsertCommand) command, commandIndex));
-            } else if (command instanceof DeleteCommand) {
-                clo.result(handleDeleteCommand((DeleteCommand) command, commandIndex));
-            } else if (command instanceof ReplaceCommand) {
-                clo.result(handleReplaceCommand((ReplaceCommand) command, commandIndex));
-            } else if (command instanceof UpsertCommand) {
-                handleUpsertCommand((UpsertCommand) command, commandIndex);
+            // NB: Make sure that ANY command we accept here updates lastAppliedIndex+term info in one of the underlying
+            // storages!
+            // Otherwise, a gap between lastAppliedIndex from the point of view of JRaft and our storage might appear.
+            // If a leader has such a gap, and does doSnapshot(), it will subsequently truncate its log too aggressively
+            // in comparison with 'snapshot' state stored in our storages; and if we install a snapshot from our storages
+            // to a follower at this point, for a subsequent AppendEntries the leader will not be able to get prevLogTerm
+            // (because it's already truncated in the leader's log), so it will have to install a snapshot again, and then
+            // repeat same thing over and over again.
+
+            storage.acquirePartitionSnapshotsReadLock();
+
+            try {
+                if (command instanceof UpdateCommand) {
+                    handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof UpdateAllCommand) {
+                    handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof FinishTxCommand) {
+                    handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof TxCleanupCommand) {
+                    handleTxCleanupCommand((TxCleanupCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof SafeTimeSyncCommand) {
+                    handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof BuildIndexCommand) {
+                    handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
+                } else {
+                    assert false : "Command was not found [cmd=" + command + ']';
+                }
 
                 clo.result(null);
-            } else if (command instanceof InsertAllCommand) {
-                clo.result(handleInsertAllCommand((InsertAllCommand) command, commandIndex));
-            } else if (command instanceof UpsertAllCommand) {
-                handleUpsertAllCommand((UpsertAllCommand) command, commandIndex);
+            } catch (IgniteInternalException e) {
+                clo.result(e);
+            } catch (CompletionException e) {
+                clo.result(e.getCause());
+            } catch (Throwable t) {
+                LOG.error(
+                        "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
+                        t,
+                        clo.index(), clo.index(), command
+                );
 
-                clo.result(null);
-            } else if (command instanceof DeleteAllCommand) {
-                clo.result(handleDeleteAllCommand((DeleteAllCommand) command, commandIndex));
-            } else if (command instanceof DeleteExactCommand) {
-                clo.result(handleDeleteExactCommand((DeleteExactCommand) command, commandIndex));
-            } else if (command instanceof DeleteExactAllCommand) {
-                clo.result(handleDeleteExactAllCommand((DeleteExactAllCommand) command, commandIndex));
-            } else if (command instanceof ReplaceIfExistCommand) {
-                clo.result(handleReplaceIfExistsCommand((ReplaceIfExistCommand) command, commandIndex));
-            } else if (command instanceof GetAndDeleteCommand) {
-                clo.result(handleGetAndDeleteCommand((GetAndDeleteCommand) command, commandIndex));
-            } else if (command instanceof GetAndReplaceCommand) {
-                clo.result(handleGetAndReplaceCommand((GetAndReplaceCommand) command, commandIndex));
-            } else if (command instanceof GetAndUpsertCommand) {
-                clo.result(handleGetAndUpsertCommand((GetAndUpsertCommand) command, commandIndex));
-            } else if (command instanceof ScanInitCommand) {
-                handleScanInitCommand((CommandClosure<ScanInitCommand>) clo, (ScanInitCommand) command);
-            } else if (command instanceof ScanRetrieveBatchCommand) {
-                handleScanRetrieveBatchCommand((CommandClosure<ScanRetrieveBatchCommand>) clo, (ScanRetrieveBatchCommand) command);
-            } else if (command instanceof ScanCloseCommand) {
-                handleScanCloseCommand((CommandClosure<ScanCloseCommand>) clo, (ScanCloseCommand) command);
-            } else if (command instanceof FinishTxCommand) {
-                clo.result(handleFinishTxCommand((FinishTxCommand) command, commandIndex));
-            } else {
-                assert false : "Command was not found [cmd=" + command + ']';
+                throw t;
+            } finally {
+                storage.releasePartitionSnapshotsReadLock();
             }
+
+            if (command instanceof SafeTimePropagatingCommand) {
+                SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) command;
+
+                assert safeTimePropagatingCommand.safeTime() != null;
+
+                updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
+            }
+
+            updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
         });
     }
 
     /**
-     * Attempts to enlist a command into a transaction.
+     * Handler for the {@link UpdateCommand}.
      *
-     * @param command The command.
-     * @param clo     The closure.
-     * @return {@code true} if a command is compatible with a transaction state or a command is not transactional.
+     * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
+     * @param commandTerm Term of the RAFT command.
      */
-    private boolean tryEnlistIntoTransaction(Command command, CommandClosure<?> clo) {
-        if (command instanceof TransactionalCommand) {
-            UUID txId = ((TransactionalCommand) command).getTxId();
-
-            TxState state = txManager.getOrCreateTransaction(txId);
-
-            if (state != null && state != TxState.PENDING) {
-                clo.result(new TransactionException(format("Failed to enlist a key into a transaction, state={}", state)));
-
-                return false;
-            }
+    private void handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
         }
 
-        return true;
+        storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.rowBuffer(),
+                rowId -> {
+                    txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new TreeSet<>()).add(rowId);
+
+                    storage.lastApplied(commandIndex, commandTerm);
+                }
+        );
     }
 
     /**
-     * Handler for the {@link GetCommand}.
-     *
-     * @param cmd Command.
-     * @return Result.
-     */
-    private SingleRowResponse handleGetCommand(GetCommand cmd) {
-        return new SingleRowResponse(storage.get(cmd.getRow(), cmd.getTxId()));
-    }
-
-    /**
-     * Handler for the {@link GetAllCommand}.
-     *
-     * @param cmd Command.
-     * @return Result.
-     */
-    private MultiRowsResponse handleGetAllCommand(GetAllCommand cmd) {
-        Collection<BinaryRow> keyRows = cmd.getRows();
-
-        assert keyRows != null && !keyRows.isEmpty();
-
-        // TODO asch IGNITE-15934 all reads are sequential, can be parallelized ?
-        return new MultiRowsResponse(storage.getAll(keyRows, cmd.getTxId()));
-    }
-
-    /**
-     * Handler for the {@link InsertCommand}.
+     * Handler for the {@link UpdateAllCommand}.
      *
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
-     * @return Result.
+     * @param commandTerm Term of the RAFT command.
      */
-    private boolean handleInsertCommand(InsertCommand cmd, long commandIndex) {
-        return storage.delegate().runConsistently(() -> {
-            boolean res = storage.insert(cmd.getRow(), cmd.getTxId());
+    private void handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
 
-            storage.delegate().lastAppliedIndex(commandIndex);
+        storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), rowIds -> {
+            for (RowId rowId : rowIds) {
+                txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new TreeSet<>()).add(rowId);
+            }
 
-            return res;
-        });
-    }
-
-    /**
-     * Handler for the {@link DeleteCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     * @return Result.
-     */
-    private boolean handleDeleteCommand(DeleteCommand cmd, long commandIndex) {
-        return storage.delegate().runConsistently(() -> {
-            boolean res = storage.delete(cmd.getRow(), cmd.getTxId());
-
-            storage.delegate().lastAppliedIndex(commandIndex);
-
-            return res;
-        });
-    }
-
-    /**
-     * Handler for the {@link ReplaceCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     * @return Result.
-     */
-    private boolean handleReplaceCommand(ReplaceCommand cmd, long commandIndex) {
-        return storage.delegate().runConsistently(() -> {
-            boolean res = storage.replace(cmd.getOldRow(), cmd.getRow(), cmd.getTxId());
-
-            storage.delegate().lastAppliedIndex(commandIndex);
-
-            return res;
-        });
-    }
-
-    /**
-     * Handler for the {@link UpsertCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     */
-    private void handleUpsertCommand(UpsertCommand cmd, long commandIndex) {
-        storage.delegate().runConsistently(() -> {
-            storage.upsert(cmd.getRow(), cmd.getTxId());
-
-            storage.delegate().lastAppliedIndex(commandIndex);
-
-            return null;
-        });
-    }
-
-    /**
-     * Handler for the {@link InsertAllCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     * @return Result.
-     */
-    private MultiRowsResponse handleInsertAllCommand(InsertAllCommand cmd, long commandIndex) {
-        return storage.delegate().runConsistently(() -> {
-            Collection<BinaryRow> rows = cmd.getRows();
-
-            assert rows != null && !rows.isEmpty();
-
-            List<BinaryRow> res = storage.insertAll(rows, cmd.getTxId());
-
-            storage.delegate().lastAppliedIndex(commandIndex);
-
-            return new MultiRowsResponse(res);
-        });
-    }
-
-    /**
-     * Handler for the {@link UpsertAllCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     */
-    private void handleUpsertAllCommand(UpsertAllCommand cmd, long commandIndex) {
-        storage.delegate().runConsistently(() -> {
-            Collection<BinaryRow> rows = cmd.getRows();
-
-            assert rows != null && !rows.isEmpty();
-
-            storage.upsertAll(rows, cmd.getTxId());
-
-            storage.delegate().lastAppliedIndex(commandIndex);
-
-            return null;
-        });
-    }
-
-    /**
-     * Handler for the {@link DeleteAllCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     * @return Result.
-     */
-    private MultiRowsResponse handleDeleteAllCommand(DeleteAllCommand cmd, long commandIndex) {
-        return storage.delegate().runConsistently(() -> {
-            Collection<BinaryRow> rows = cmd.getRows();
-
-            assert rows != null && !rows.isEmpty();
-
-            List<BinaryRow> res = storage.deleteAll(rows, cmd.getTxId());
-
-            storage.delegate().lastAppliedIndex(commandIndex);
-
-            return new MultiRowsResponse(res);
-        });
-    }
-
-    /**
-     * Handler for the {@link DeleteExactCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     * @return Result.
-     */
-    private boolean handleDeleteExactCommand(DeleteExactCommand cmd, long commandIndex) {
-        return storage.delegate().runConsistently(() -> {
-            BinaryRow row = cmd.getRow();
-
-            assert row != null;
-            assert row.hasValue();
-
-            boolean res = storage.deleteExact(row, cmd.getTxId());
-
-            storage.delegate().lastAppliedIndex(commandIndex);
-
-            return res;
-        });
-    }
-
-    /**
-     * Handler for the {@link DeleteExactAllCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     * @return Result.
-     */
-    private MultiRowsResponse handleDeleteExactAllCommand(DeleteExactAllCommand cmd, long commandIndex) {
-        return storage.delegate().runConsistently(() -> {
-            Collection<BinaryRow> rows = cmd.getRows();
-
-            assert rows != null && !rows.isEmpty();
-
-            List<BinaryRow> res = storage.deleteAllExact(rows, cmd.getTxId());
-
-            storage.delegate().lastAppliedIndex(commandIndex);
-
-            return new MultiRowsResponse(res);
-        });
-    }
-
-    /**
-     * Handler for the {@link ReplaceIfExistCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     * @return Result.
-     */
-    private boolean handleReplaceIfExistsCommand(ReplaceIfExistCommand cmd, long commandIndex) {
-        return storage.delegate().runConsistently(() -> {
-            BinaryRow row = cmd.getRow();
-
-            assert row != null;
-
-            boolean res = storage.replace(row, cmd.getTxId());
-
-            storage.delegate().lastAppliedIndex(commandIndex);
-
-            return res;
-        });
-    }
-
-    /**
-     * Handler for the {@link GetAndDeleteCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     * @return Result.
-     */
-    private SingleRowResponse handleGetAndDeleteCommand(GetAndDeleteCommand cmd, long commandIndex) {
-        return storage.delegate().runConsistently(() -> {
-            BinaryRow row = cmd.getRow();
-
-            assert row != null;
-
-            BinaryRow res = storage.getAndDelete(row, cmd.getTxId());
-
-            storage.delegate().lastAppliedIndex(commandIndex);
-
-            return new SingleRowResponse(res);
-        });
-    }
-
-    /**
-     * Handler for the {@link GetAndReplaceCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     * @return Result.
-     */
-    private SingleRowResponse handleGetAndReplaceCommand(GetAndReplaceCommand cmd, long commandIndex) {
-        return storage.delegate().runConsistently(() -> {
-            BinaryRow row = cmd.getRow();
-
-            assert row != null && row.hasValue();
-
-            BinaryRow res = storage.getAndReplace(row, cmd.getTxId());
-
-            storage.delegate().lastAppliedIndex(commandIndex);
-
-            return new SingleRowResponse(res);
-        });
-    }
-
-    /**
-     * Handler for the {@link GetAndUpsertCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     * @return Result.
-     */
-    private SingleRowResponse handleGetAndUpsertCommand(GetAndUpsertCommand cmd, long commandIndex) {
-        return storage.delegate().runConsistently(() -> {
-            BinaryRow row = cmd.getRow();
-
-            assert row != null && row.hasValue();
-
-            BinaryRow res = storage.getAndUpsert(row, cmd.getTxId());
-
-            storage.delegate().lastAppliedIndex(commandIndex);
-
-            return new SingleRowResponse(res);
+            storage.lastApplied(commandIndex, commandTerm);
         });
     }
 
@@ -496,241 +267,263 @@ public class PartitionListener implements RaftGroupListener {
      *
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
-     * @return Result.
+     * @param commandTerm Term of the RAFT command.
+     * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
-    private boolean handleFinishTxCommand(FinishTxCommand cmd, long commandIndex) {
-        return storage.delegate().runConsistently(() -> {
-            UUID txId = cmd.txId();
+    private void handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm) throws IgniteInternalException {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= txStateStorage.lastAppliedIndex()) {
+            return;
+        }
 
-            boolean stateChanged = txManager.changeState(txId, TxState.PENDING, cmd.finish() ? TxState.COMMITED : TxState.ABORTED);
+        UUID txId = cmd.txId();
 
-            // This code is technically incorrect and assumes that "stateChanged" is always true. This was done because transaction state is
-            // not persisted and thus FinishTxCommand couldn't be completed on recovery after node restart ("changeState" uses "replace").
-            if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
-                cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(key -> {
-                    storage.commitWrite(ByteBuffer.wrap(key), txId);
-                });
-            } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
-                cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(key -> {
-                    storage.abortWrite(ByteBuffer.wrap(key));
-                });
-            }
+        TxState stateToSet = cmd.commit() ? COMMITED : ABORTED;
 
-            storage.delegate().lastAppliedIndex(commandIndex);
+        TxMeta txMetaToSet = new TxMeta(
+                stateToSet,
+                cmd.tablePartitionIds()
+                        .stream()
+                        .map(TablePartitionIdMessage::asTablePartitionId)
+                        .collect(toList()),
+                cmd.commitTimestamp()
+        );
 
-            return stateChanged;
+        TxMeta txMetaBeforeCas = txStateStorage.get(txId);
+
+        boolean txStateChangeRes = txStateStorage.compareAndSet(
+                txId,
+                null,
+                txMetaToSet,
+                commandIndex,
+                commandTerm
+        );
+
+        LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
+
+        if (!txStateChangeRes) {
+            UUID traceId = UUID.randomUUID();
+
+            String errorMsg = format("Fail to finish the transaction txId = {} because of inconsistent state = {},"
+                            + " expected state = null, state to set = {}",
+                    txId,
+                    txMetaBeforeCas,
+                    txMetaToSet
+            );
+
+            IgniteInternalException stateChangeException = new IgniteInternalException(traceId, TX_UNEXPECTED_STATE_ERR, errorMsg);
+
+            // Exception is explicitly logged because otherwise it can be lost if it did not occur on the leader.
+            LOG.error(errorMsg);
+
+            throw stateChangeException;
+        }
+    }
+
+
+    /**
+     * Handler for the {@link TxCleanupCommand}.
+     *
+     * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
+     * @param commandTerm Term of the RAFT command.
+     */
+    private void handleTxCleanupCommand(TxCleanupCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        UUID txId = cmd.txId();
+
+        Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, EMPTY_SET);
+
+        if (cmd.commit()) {
+            storage.runConsistently(locker -> {
+                pendingRowIds.forEach(locker::lock);
+
+                pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp()));
+
+                txsPendingRowIds.remove(txId);
+
+                storage.lastApplied(commandIndex, commandTerm);
+
+                return null;
+            });
+        } else {
+            storageUpdateHandler.handleTransactionAbortion(pendingRowIds, () -> {
+                // on replication callback
+                txsPendingRowIds.remove(txId);
+
+                storage.lastApplied(commandIndex, commandTerm);
+            });
+        }
+    }
+
+    /**
+     * Handler for the {@link SafeTimeSyncCommand}.
+     *
+     * @param cmd Command.
+     * @param commandIndex RAFT index of the command.
+     * @param commandTerm  RAFT term of the command.
+     */
+    private void handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        // We MUST bump information about last updated index+term.
+        // See a comment in #onWrite() for explanation.
+        storage.runConsistently(locker -> {
+            storage.lastApplied(commandIndex, commandTerm);
+
+            return null;
         });
     }
 
-    /**
-     * Handler for the {@link ScanInitCommand}.
-     *
-     * @param clo Command closure.
-     * @param cmd Command.
-     */
-    private void handleScanInitCommand(
-            CommandClosure<ScanInitCommand> clo,
-            ScanInitCommand cmd
-    ) {
-        IgniteUuid cursorId = cmd.scanId();
-
-        try {
-            Cursor<BinaryRow> cursor = storage.scan(key -> true);
-
-            cursors.put(
-                    cursorId,
-                    new CursorMeta(
-                            cursor,
-                            cmd.requesterNodeId(),
-                            new AtomicInteger(0)
-                    )
-            );
-        } catch (StorageException e) {
-            clo.result(e);
-        }
-
-        clo.result(null);
-    }
-
-    /**
-     * Handler for the {@link ScanRetrieveBatchCommand}.
-     *
-     * @param clo Command closure.
-     * @param cmd Command.
-     */
-    private void handleScanRetrieveBatchCommand(
-            CommandClosure<ScanRetrieveBatchCommand> clo,
-            ScanRetrieveBatchCommand cmd
-    ) {
-        CursorMeta cursorDesc = cursors.get(cmd.scanId());
-
-        if (cursorDesc == null) {
-            clo.result(new NoSuchElementException(format(
-                    "Cursor with id={} is not found on server side.", cmd.scanId())));
-
+    @Override
+    public void onConfigurationCommitted(CommittedConfiguration config) {
+        // Skips the update because the storage has already recorded it.
+        if (config.index() <= storage.lastAppliedIndex()) {
             return;
         }
 
-        AtomicInteger internalBatchCounter = cursorDesc.batchCounter();
-
-        if (internalBatchCounter.getAndSet(clo.command().batchCounter()) != clo.command().batchCounter() - 1) {
-            throw new IllegalStateException(
-                    "Counters from received scan command and handled scan command in partition listener are inconsistent");
-        }
-
-        List<BinaryRow> res = new ArrayList<>();
+        // Do the update under lock to make sure no snapshot is started concurrently with this update.
+        // Note that we do not need to protect from a concurrent command execution by this listener because
+        // configuration is committed in the same thread in which commands are applied.
+        storage.acquirePartitionSnapshotsReadLock();
 
         try {
-            for (int i = 0; i < cmd.itemsToRetrieveCount() && cursorDesc.cursor().hasNext(); i++) {
-                res.add(cursorDesc.cursor().next());
-            }
-        } catch (NoSuchElementException e) {
-            clo.result(e);
-        }
+            storage.runConsistently(locker -> {
+                storage.committedGroupConfiguration(
+                        new RaftGroupConfiguration(config.peers(), config.learners(), config.oldPeers(), config.oldLearners())
+                );
+                storage.lastApplied(config.index(), config.term());
 
-        clo.result(new MultiRowsResponse(res));
+                return null;
+            });
+        } finally {
+            storage.releasePartitionSnapshotsReadLock();
+        }
     }
 
-    /**
-     * Handler for the {@link ScanCloseCommand}.
-     *
-     * @param clo Command closure.
-     * @param cmd Command.
-     */
-    private void handleScanCloseCommand(
-            CommandClosure<ScanCloseCommand> clo,
-            ScanCloseCommand cmd
-    ) {
-        CursorMeta cursorDesc = cursors.remove(cmd.scanId());
-
-        if (cursorDesc == null) {
-            clo.result(null);
-
-            return;
-        }
-
-        try {
-            cursorDesc.cursor().close();
-        } catch (Exception e) {
-            throw new IgniteInternalException(e);
-        }
-
-        clo.result(null);
-    }
-
-    /** {@inheritDoc} */
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        storage.snapshot(path).whenComplete((unused, throwable) -> {
-            doneClo.accept(throwable);
+        // The max index here is required for local recovery and a possible scenario
+        // of false node failure when we actually have all required data. This might happen because we use the minimal index
+        // among storages on a node restart.
+        // Let's consider a more detailed example:
+        //      1) We don't propagate the maximal lastAppliedIndex among storages, and onSnapshotSave finishes, it leads to the raft log
+        //         truncation until the maximal lastAppliedIndex.
+        //      2) Unexpected cluster restart happens.
+        //      3) Local recovery of a node is started, where we request data from the minimal lastAppliedIndex among storages, because
+        //         some data for some node might not have been flushed before unexpected cluster restart.
+        //      4) When we try to restore data starting from the minimal lastAppliedIndex, we come to the situation
+        //         that a raft node doesn't have such data, because the truncation until the maximal lastAppliedIndex from 1) has happened.
+        //      5) Node cannot finish local recovery.
+        long maxLastAppliedIndex = Math.max(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
+        long maxLastAppliedTerm = Math.max(storage.lastAppliedTerm(), txStateStorage.lastAppliedTerm());
+
+        storage.runConsistently(locker -> {
+            storage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
+
+            return null;
         });
+
+        txStateStorage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
+
+        CompletableFuture.allOf(storage.flush(), txStateStorage.flush())
+                .whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean onSnapshotLoad(Path path) {
-        storage.restoreSnapshot(path);
-
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onShutdown() {
-        try {
-            storage.close();
-        } catch (Exception e) {
-            throw new IgniteInternalException("Failed to close storage: " + e.getMessage(), e);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> onBeforeApply(Command command) {
-        if (command instanceof SingleKeyCommand) {
-            SingleKeyCommand cmd0 = (SingleKeyCommand) command;
-
-            return cmd0 instanceof ReadCommand
-                    ? txManager.readLock(lockId, cmd0.getRow().keySlice(), cmd0.getTxId()) :
-                    txManager.writeLock(lockId, cmd0.getRow().keySlice(), cmd0.getTxId());
-        } else if (command instanceof MultiKeyCommand) {
-            MultiKeyCommand cmd0 = (MultiKeyCommand) command;
-
-            Collection<BinaryRow> rows = cmd0.getRows();
-
-            CompletableFuture<Void>[] futs = new CompletableFuture[rows.size()];
-
-            int i = 0;
-            boolean read = cmd0 instanceof ReadCommand;
-
-            for (BinaryRow row : rows) {
-                futs[i++] = read ? txManager.readLock(lockId, row.keySlice(), cmd0.getTxId()) :
-                        txManager.writeLock(lockId, row.keySlice(), cmd0.getTxId());
-            }
-
-            return CompletableFuture.allOf(futs);
-        }
-
-        return null;
-    }
-
-    /**
-     * Extracts a key and a value from the {@link BinaryRow} and wraps it in a {@link DataRow}.
-     *
-     * @param row Binary row.
-     * @return Data row.
-     */
-    @NotNull
-    private static DataRow extractAndWrapKeyValue(@NotNull BinaryRow row) {
-        return new DelegatingDataRow(new BinarySearchRow(row), row.bytes());
+        storage.close();
     }
 
     /**
      * Returns underlying storage.
      */
     @TestOnly
-    public VersionedRowStore getStorage() {
-        return storage;
+    public MvPartitionStorage getMvStorage() {
+        return storage.getStorage();
     }
 
     /**
-     * Cursor meta information: origin node id and type.
+     * Handler for the {@link BuildIndexCommand}.
+     *
+     * @param cmd Command.
+     * @param commandIndex RAFT index of the command.
+     * @param commandTerm RAFT term of the command.
      */
-    private static class CursorMeta {
-        /** Cursor. */
-        private final Cursor<BinaryRow> cursor;
-
-        /** Id of the node that creates cursor. */
-        private final String requesterNodeId;
-
-        /** Batch counter of a cursor. */
-        private final AtomicInteger batchCounter;
-
-        /**
-         * The constructor.
-         *
-         * @param cursor          The cursor.
-         * @param requesterNodeId Id of the node that creates cursor.
-         */
-        CursorMeta(Cursor<BinaryRow> cursor, String requesterNodeId, AtomicInteger batchCounter) {
-            this.cursor = cursor;
-            this.requesterNodeId = requesterNodeId;
-            this.batchCounter = batchCounter;
+    void handleBuildIndexCommand(BuildIndexCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
         }
 
-        /** Returns cursor. */
-        public Cursor<BinaryRow> cursor() {
-            return cursor;
-        }
+        // It's important to not block any thread while being inside of the "runConsistently" section.
+        storageUpdateHandler.getIndexUpdateHandler().waitForIndex(cmd.indexId());
 
-        /** Returns id of the node that creates cursor. */
-        public String requesterNodeId() {
-            return requesterNodeId;
-        }
+        storage.runConsistently(locker -> {
+            List<UUID> rowUuids = new ArrayList<>(cmd.rowIds());
 
-        /** Returns batch counter of a cursor. */
-        public AtomicInteger batchCounter() {
-            return batchCounter;
+            // Natural UUID order matches RowId order within the same partition.
+            Collections.sort(rowUuids);
+
+            Stream<BinaryRowAndRowId> buildIndexRowStream = createBuildIndexRowStream(rowUuids, locker);
+
+            RowId nextRowIdToBuild = cmd.finish() ? null : toRowId(requireNonNull(last(rowUuids))).increment();
+
+            storageUpdateHandler.getIndexUpdateHandler().buildIndex(cmd.indexId(), buildIndexRowStream, nextRowIdToBuild);
+
+            storage.lastApplied(commandIndex, commandTerm);
+
+            return null;
+        });
+
+        if (cmd.finish()) {
+            LOG.info(
+                    "Finish building the index: [tableId={}, partitionId={}, indexId={}]",
+                    cmd.tablePartitionId().tableId(), cmd.tablePartitionId().partitionId(), cmd.indexId()
+            );
         }
+    }
+
+    private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
+            PendingComparableValuesTracker<T, Void> tracker,
+            T newValue
+    ) {
+        try {
+            tracker.update(newValue, null);
+        } catch (TrackerClosedException ignored) {
+            // No-op.
+        }
+    }
+
+    private Stream<BinaryRowAndRowId> createBuildIndexRowStream(List<UUID> rowUuids, Locker locker) {
+        return rowUuids.stream()
+                .map(this::toRowId)
+                .peek(locker::lock)
+                .map(rowId -> {
+                    try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
+                        return cursor.stream()
+                                .filter(not(ReadResult::isEmpty))
+                                .map(ReadResult::binaryRow)
+                                .map(binaryRow -> new BinaryRowAndRowId(binaryRow, rowId))
+                                .collect(toList());
+                    }
+                })
+                .flatMap(Collection::stream);
+    }
+
+    private RowId toRowId(UUID rowUuid) {
+        return new RowId(storageUpdateHandler.partitionId(), rowUuid);
     }
 }

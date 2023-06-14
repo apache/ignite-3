@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,14 +19,11 @@ package org.apache.ignite.raft.jraft.entity;
 import java.io.Serializable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.raft.jraft.core.ElectionPriority;
 import org.apache.ignite.raft.jraft.util.AsciiStringUtil;
 import org.apache.ignite.raft.jraft.util.Copiable;
 import org.apache.ignite.raft.jraft.util.CrcUtil;
-import org.apache.ignite.raft.jraft.util.Endpoint;
-import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,14 +36,14 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
     private static final IgniteLogger LOG = Loggers.forClass(PeerId.class);
 
     /**
-     * Peer address.
+     * Peer consistent ID.
      */
-    private Endpoint endpoint = new Endpoint(Utils.IP_ANY, 0);
+    private String consistentId = "";
 
     /**
      * Index in same addr, default is 0.
      */
-    private int idx; // TODO IGNITE-14832 asch drop support for peer index
+    private int idx;
 
     /**
      * Cached toString result.
@@ -57,8 +54,6 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
      * Node's local priority value, if node don't support priority election, this value is -1.
      */
     private int priority = ElectionPriority.Disabled;
-
-    public static final PeerId ANY_PEER = new PeerId();
 
     private long checksum;
 
@@ -85,13 +80,13 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
 
     @Override
     public PeerId copy() {
-        return new PeerId(this.endpoint.copy(), this.idx, this.priority);
+        return new PeerId(this.consistentId, this.idx, this.priority);
     }
 
     /**
-     * Parse a peer from string in the format of "ip:port:idx", returns null if fail to parse.
+     * Parse a peer from string in the format of "consistentId:idx", returns null if fail to parse.
      *
-     * @param s input string with the format of "ip:port:idx"
+     * @param s input string with the format of "consistentId:idx"
      * @return parsed peer
      */
     public static PeerId parsePeer(final String s) {
@@ -102,50 +97,26 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
         return null;
     }
 
-    public PeerId(final Endpoint endpoint, final int idx) {
+    public PeerId(final String consistentId) {
         super();
-        this.endpoint = endpoint;
+        this.consistentId = consistentId;
+    }
+
+    public PeerId(final String consistentId, final int idx) {
+        super();
+        this.consistentId = consistentId;
         this.idx = idx;
     }
 
-    public PeerId(NetworkAddress address) {
-        this(address.host(), address.port());
-    }
-
-    public PeerId(final String ip, final int port) {
-        this(ip, port, 0);
-    }
-
-    public PeerId(final String ip, final int port, final int idx) {
+    public PeerId(final String consistentId, final int idx, final int priority) {
         super();
-        this.endpoint = new Endpoint(ip, port);
-        this.idx = idx;
-    }
-
-    public PeerId(final Endpoint endpoint, final int idx, final int priority) {
-        super();
-        this.endpoint = endpoint;
+        this.consistentId = consistentId;
         this.idx = idx;
         this.priority = priority;
     }
 
-    public PeerId(final String ip, final int port, final int idx, final int priority) {
-        super();
-        this.endpoint = new Endpoint(ip, port);
-        this.idx = idx;
-        this.priority = priority;
-    }
-
-    public Endpoint getEndpoint() {
-        return this.endpoint;
-    }
-
-    public String getIp() {
-        return this.endpoint.getIp();
-    }
-
-    public int getPort() {
-        return this.endpoint.getPort();
+    public String getConsistentId() {
+        return this.consistentId;
     }
 
     public int getIdx() {
@@ -162,16 +133,16 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
     }
 
     /**
-     * Returns true when ip is ANY_IP, port is zero and idx is zero too.
+     * Returns true when consistentId is empty and idx is zero.
      */
     public boolean isEmpty() {
-        return getIp().equals(Utils.IP_ANY) && getPort() == 0 && this.idx == 0;
+        return this.consistentId.isEmpty() && this.idx == 0;
     }
 
     @Override
     public String toString() {
         if (this.str == null) {
-            final StringBuilder buf = new StringBuilder(this.endpoint.toString());
+            final StringBuilder buf = new StringBuilder(consistentId);
 
             if (this.idx != 0) {
                 buf.append(':').append(this.idx);
@@ -194,37 +165,42 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
      * are below:
      *
      * <pre>
-     * PeerId.parse("a:b")          = new PeerId("a", "b", 0 , -1)
-     * PeerId.parse("a:b:c")        = new PeerId("a", "b", "c", -1)
-     * PeerId.parse("a:b::d")       = new PeerId("a", "b", 0, "d")
-     * PeerId.parse("a:b:c:d")      = new PeerId("a", "b", "c", "d")
+     * PeerId.parse("")           = new PeerId("", 0 , -1)
+     * PeerId.parse("a")          = new PeerId("a", 0 , -1)
+     * PeerId.parse("a:b")        = new PeerId("a", "b", -1)
+     * PeerId.parse("a:b:c")      = new PeerId("a", "b", "c")
+     * PeerId.parse("a::c")       = new PeerId("a", 0, "c")
      * </pre>
      */
     public boolean parse(final String s) {
-        if (StringUtils.isEmpty(s)) {
+        if (s == null) {
             return false;
+        }
+
+        // Empty consistent ID is treated as an "empty" Peer ID.
+        if (s.isEmpty()) {
+            return true;
         }
 
         final String[] tmps = Utils.parsePeerId(s);
-        if (tmps.length < 2 || tmps.length > 4) {
+        if (tmps.length < 1 || tmps.length > 3) {
             return false;
         }
         try {
-            final int port = Integer.parseInt(tmps[1]);
-            this.endpoint = new Endpoint(tmps[0], port);
+            this.consistentId = tmps[0];
 
             switch (tmps.length) {
-                case 3:
-                    this.idx = Integer.parseInt(tmps[2]);
+                case 2:
+                    this.idx = Integer.parseInt(tmps[1]);
                     break;
-                case 4:
-                    if ("".equals(tmps[2])) {
+                case 3:
+                    if (tmps[1].isEmpty()) {
                         this.idx = 0;
                     }
                     else {
-                        this.idx = Integer.parseInt(tmps[2]);
+                        this.idx = Integer.parseInt(tmps[1]);
                     }
-                    this.priority = Integer.parseInt(tmps[3]);
+                    this.priority = Integer.parseInt(tmps[2]);
                     break;
                 default:
                     break;
@@ -260,7 +236,7 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + (this.endpoint == null ? 0 : this.endpoint.hashCode());
+        result = prime * result + this.consistentId.hashCode();
         result = prime * result + this.idx;
         return result;
     }
@@ -277,12 +253,7 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
             return false;
         }
         final PeerId other = (PeerId) obj;
-        if (this.endpoint == null) {
-            if (other.endpoint != null) {
-                return false;
-            }
-        }
-        else if (!this.endpoint.equals(other.endpoint)) {
+        if (!this.consistentId.equals(other.consistentId)) {
             return false;
         }
         return this.idx == other.idx;
@@ -298,6 +269,6 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
         if (p == null)
             return null;
         else
-            return new PeerId(p.address().host(), p.address().port(), 0, p.getPriority());
+            return new PeerId(p.consistentId(), p.idx());
     }
 }

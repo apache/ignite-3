@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -29,7 +30,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -83,7 +90,7 @@ public class ClientTableTest extends AbstractClientTableTest {
         assertEquals(DEFAULT_NAME, iter.next());
 
         assertFalse(iter.hasNext());
-        assertNull(iter.next());
+        assertThrows(NoSuchElementException.class, iter::next);
 
         assertTupleEquals(tuple, resTuple);
     }
@@ -126,6 +133,27 @@ public class ClientTableTest extends AbstractClientTableTest {
             assertEquals(DEFAULT_NAME, resTuple.stringValue("name"));
             assertEquals(DEFAULT_ID, resTuple.longValue("id"));
         }
+    }
+
+    @Test
+    public void testOperationWithoutTupleResultRequestsNewSchema() throws Exception {
+        AtomicLong idGen = new AtomicLong(1000L);
+
+        checkSchemaUpdate(recordView -> recordView.get(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.getAll(null, List.of(tuple(idGen.incrementAndGet()))));
+        checkSchemaUpdate(recordView -> recordView.upsert(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.upsertAll(null, List.of(tuple(idGen.incrementAndGet()))));
+        checkSchemaUpdate(recordView -> recordView.getAndUpsert(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.insert(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.insertAll(null, List.of(tuple(idGen.incrementAndGet()))));
+        checkSchemaUpdate(recordView -> recordView.replace(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.replace(null, tuple(idGen.incrementAndGet()), tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.getAndReplace(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.delete(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.deleteExact(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.getAndDelete(null, tuple(idGen.incrementAndGet())));
+        checkSchemaUpdate(recordView -> recordView.deleteAll(null, List.of(tuple(idGen.incrementAndGet()))));
+        checkSchemaUpdate(recordView -> recordView.deleteAllExact(null, List.of(tuple(idGen.incrementAndGet()))));
     }
 
     @Test
@@ -307,10 +335,10 @@ public class ClientTableTest extends AbstractClientTableTest {
         assertNotNull(table.get(null, tuple(2L)));
 
         assertEquals(3L, skippedTuples[0].longValue("id"));
-        assertNull(skippedTuples[0].stringValue("name"));
+        assertEquals(-1, skippedTuples[0].columnIndex("name"));
 
         assertEquals(4L, skippedTuples[1].longValue("id"));
-        assertNull(skippedTuples[1].stringValue("name"));
+        assertEquals(-1, skippedTuples[1].columnIndex("name"));
     }
 
     @Test
@@ -383,19 +411,39 @@ public class ClientTableTest extends AbstractClientTableTest {
 
         var ex = assertThrows(IgniteException.class, () -> defaultTable().recordView().upsert(null, tuple));
 
-        assertTrue(ex.getMessage().contains("Incorrect value type for column 'ID': Expected Integer, but got String"), ex.getMessage());
+        String expectedErr = "Incorrect value type for column 'ID': class java.lang.String cannot be cast to class java.lang.Long";
+        assertThat(ex.getMessage(), containsString(expectedErr));
     }
 
     @Test
     public void testGetFromDroppedTableThrowsException() {
-        server.tables().createTable("drop-me", null);
+        ((FakeIgniteTables) server.tables()).createTable("drop-me");
         Table clientTable = client.tables().table("drop-me");
-        server.tables().dropTable("drop-me");
+        ((FakeIgniteTables) server.tables()).dropTable("drop-me");
 
         Tuple tuple = Tuple.create().set("id", 1);
         var ex = assertThrows(IgniteException.class, () -> clientTable.recordView().get(null, tuple));
 
         assertThat(ex.getMessage(), containsString("Table does not exist: "));
         assertEquals(TABLE_ID_NOT_FOUND_ERR, ex.code());
+    }
+
+    private void checkSchemaUpdate(Consumer<RecordView<Tuple>> consumer) throws Exception {
+        try (var client2 = startClient()) {
+            var table = client2.tables().table(defaultTable().name());
+            Map<Integer, Object> schemas = IgniteTestUtils.getFieldValue(table, "schemas");
+            var recView = table.recordView();
+
+            assertEquals(0, schemas.size());
+
+            FakeSchemaRegistry.setLastVer(1);
+            consumer.accept(recView);
+            assertNull(schemas.get(2));
+
+            FakeSchemaRegistry.setLastVer(2);
+            consumer.accept(recView);
+
+            assertTrue(waitForCondition(() -> schemas.get(2) != null, 1000));
+        }
     }
 }

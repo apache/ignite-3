@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -24,38 +24,67 @@ import org.rocksdb.RocksDB;
  * Utilities for converting partition IDs and index names into Column Family names and vice versa.
  */
 class ColumnFamilyUtils {
-    /**
-     * Name of the meta column family matches default columns family, meaning that it always exist when new table is created.
-     */
+    /** Name of the meta column family matches default columns family, meaning that it always exist when new table is created. */
     static final String META_CF_NAME = new String(RocksDB.DEFAULT_COLUMN_FAMILY, StandardCharsets.UTF_8);
 
-    /**
-     * Name of the Column Family that stores partition data.
-     */
+    /** Name of the Column Family that stores partition data. */
     static final String PARTITION_CF_NAME = "cf-part";
 
-    /**
-     * Utility enum to describe a type of the column family - meta or partition.
-     */
+    /** Name of the Column Family that stores garbage collection queue. */
+    static final String GC_QUEUE_CF_NAME = "cf-gc";
+
+    /** Name of the Column Family that stores hash index data. */
+    static final String HASH_INDEX_CF_NAME = "cf-hash";
+
+    /** Prefix for SQL indexes column family names. */
+    static final String SORTED_INDEX_CF_PREFIX = "cf-sorted-";
+
+    /** Utility enum to describe a type of the column family - meta or partition. */
     enum ColumnFamilyType {
-        META, PARTITION, UNKNOWN
+        META, PARTITION, GC_QUEUE, HASH_INDEX, SORTED_INDEX, UNKNOWN;
+
+        /**
+         * Determines column family type by its name.
+         *
+         * @param cfName Column family name.
+         * @return Column family type.
+         */
+        static ColumnFamilyType fromCfName(String cfName) {
+            if (META_CF_NAME.equals(cfName)) {
+                return META;
+            } else if (PARTITION_CF_NAME.equals(cfName)) {
+                return PARTITION;
+            } else if (GC_QUEUE_CF_NAME.equals(cfName)) {
+                return GC_QUEUE;
+            } else if (HASH_INDEX_CF_NAME.equals(cfName)) {
+                return HASH_INDEX;
+            } else if (cfName.startsWith(SORTED_INDEX_CF_PREFIX)) {
+                return SORTED_INDEX;
+            } else {
+                return UNKNOWN;
+            }
+        }
     }
 
     /**
-     * Determines column family type by its name.
+     * Creates a column family name by index ID.
      *
-     * @param cfName Column family name.
-     * @return Column family type.
+     * @param indexId Index ID.
+     *
+     * @see #sortedIndexId
      */
-    static ColumnFamilyType columnFamilyType(String cfName) {
-        if (META_CF_NAME.equals(cfName)) {
-            return ColumnFamilyType.META;
-        }
+    static String sortedIndexCfName(int indexId) {
+        return SORTED_INDEX_CF_PREFIX + indexId;
+    }
 
-        if (PARTITION_CF_NAME.equals(cfName)) {
-            return ColumnFamilyType.PARTITION;
-        }
-
-        return ColumnFamilyType.UNKNOWN;
+    /**
+     * Extracts a Sorted Index ID from the given Column Family name.
+     *
+     * @param cfName Column Family name.
+     *
+     * @see #sortedIndexCfName
+     */
+    static int sortedIndexId(String cfName) {
+        return Integer.parseInt(cfName.substring(SORTED_INDEX_CF_PREFIX.length()));
     }
 }

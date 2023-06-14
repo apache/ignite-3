@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -1373,6 +1373,30 @@ public class IgniteToStringBuilder {
 
         try {
             return toStringImpl(str, sb, propNames, propVals, propSens, 7);
+        } finally {
+            if (newStr) {
+                sb.reset();
+            }
+        }
+    }
+
+    /**
+     * Creates an uniformed string presentation for the binary-like object.
+     *
+     * @param str Output prefix or {@code null} if empty.
+     * @param propNames Names of object properties.
+     * @param propVals Property values.
+     * @return String presentation of the object.
+     */
+    public static String toString(String str, List<?> propNames, List<?> propVals) {
+        StringBuilderLimitedLength sb = threadLocSB.get();
+
+        boolean newStr = sb.length() == 0;
+
+        try {
+            assert propNames.size() == propVals.size();
+
+            return toStringImpl(str, sb, propNames.toArray(), propVals.toArray(), null, propNames.size());
         } finally {
             if (newStr) {
                 sb.reset();

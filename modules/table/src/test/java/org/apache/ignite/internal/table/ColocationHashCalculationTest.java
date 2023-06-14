@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,10 +27,11 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.RowTest;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
@@ -57,7 +58,7 @@ public class ColocationHashCalculationTest {
     public void initRandom() {
         long seed = System.currentTimeMillis();
 
-        Loggers.forClass(RowTest.class).info("Using seed: " + seed + "L; //");
+        Loggers.forClass(ColocationHashCalculationTest.class).info("Using seed: " + seed + "L; //");
 
         rnd = new Random(seed);
     }
@@ -72,7 +73,7 @@ public class ColocationHashCalculationTest {
                 },
                 new Column[]{new Column(3, "val", INT32, true).copy(3)});
 
-        RowAssembler rasm = new RowAssembler(schema, 1, 0);
+        RowAssembler rasm = new RowAssembler(schema);
 
         rasm.appendByte((byte) 1);
         rasm.appendInt(2);
@@ -134,7 +135,9 @@ public class ColocationHashCalculationTest {
     private int colocationHash(Row r) {
         HashCalculator hashCalc = new HashCalculator();
         for (Column c : r.schema().colocationColumns()) {
-            hashCalc.append(r.value(c.schemaIndex()));
+            var scale = c.type() instanceof DecimalNativeType ? ((DecimalNativeType) c.type()).scale() : 0;
+            var precision = c.type() instanceof TemporalNativeType ? ((TemporalNativeType) c.type()).precision() : 0;
+            hashCalc.append(r.value(c.schemaIndex()), scale, precision);
         }
 
         return hashCalc.hash();

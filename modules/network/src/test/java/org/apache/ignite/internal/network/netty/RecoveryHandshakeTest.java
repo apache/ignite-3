@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -35,10 +36,15 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
+import org.apache.ignite.internal.network.messages.TestMessage;
+import org.apache.ignite.internal.network.messages.TestMessagesFactory;
+import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
+import org.apache.ignite.internal.network.recovery.AllIdsAreStale;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
+import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
@@ -47,9 +53,6 @@ import org.apache.ignite.internal.network.serialization.UserObjectSerializationC
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
-import org.apache.ignite.network.TestMessage;
-import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
-import org.apache.ignite.network.TestMessagesFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.Test;
 
@@ -61,7 +64,7 @@ public class RecoveryHandshakeTest {
     private static final short CONNECTION_ID = 1337;
 
     /** Serialization registry. */
-    private static final MessageSerializationRegistry MESSAGE_REGISTRY = new TestMessageSerializationRegistryImpl();
+    private static final MessageSerializationRegistry MESSAGE_REGISTRY = defaultSerializationRegistry();
 
     /** Message factory. */
     private static final NetworkMessagesFactory MESSAGE_FACTORY = new NetworkMessagesFactory();
@@ -254,7 +257,7 @@ public class RecoveryHandshakeTest {
     }
 
     /**
-     * Tests that message was received exactly once in case if network failure during acknowledgement.
+     * Tests that message was received exactly once in case of network failure during acknowledgement.
      *
      * @param serverDidntReceiveAck {@code true} if server didn't receive the acknowledgement, {@code false} if client didn't receive
      *                              the acknowledgement.
@@ -351,6 +354,77 @@ public class RecoveryHandshakeTest {
         assertFalse(clientSideChannel.finish());
     }
 
+    @Test
+    public void serverFailsHandshakeIfClientIdIsAlreadySeen() throws Exception {
+        RecoveryDescriptorProvider clientRecovery = createRecoveryDescriptorProvider();
+        RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
+
+        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(clientRecovery);
+        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(
+                "server",
+                UUID.randomUUID(),
+                serverRecovery,
+                new AllIdsAreStale()
+        );
+
+        EmbeddedChannel clientSideChannel = setupChannel(clientHandshakeManager, noMessageListener);
+
+        EmbeddedChannel serverSideChannel = setupChannel(serverHandshakeManager, noMessageListener);
+
+        assertTrue(serverSideChannel.isActive());
+
+        exchangeServerToClient(serverSideChannel, clientSideChannel);
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
+        exchangeServerToClient(serverSideChannel, clientSideChannel);
+
+        assertNull(clientSideChannel.readOutbound());
+        assertNull(serverSideChannel.readOutbound());
+
+        checkHandshakeCompletedExceptionally(serverHandshakeManager);
+        checkHandshakeCompletedExceptionally(clientHandshakeManager);
+
+        checkPipelineAfterHandshake(serverSideChannel);
+        checkPipelineAfterHandshake(clientSideChannel);
+
+        assertFalse(serverSideChannel.finish());
+        assertFalse(clientSideChannel.finish());
+    }
+
+    @Test
+    public void clientFailsHandshakeIfServerIdIsAlreadySeen() throws Exception {
+        RecoveryDescriptorProvider clientRecovery = createRecoveryDescriptorProvider();
+        RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
+
+        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(
+                "client",
+                UUID.randomUUID(),
+                clientRecovery,
+                new AllIdsAreStale()
+        );
+        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(serverRecovery);
+
+        EmbeddedChannel clientSideChannel = setupChannel(clientHandshakeManager, noMessageListener);
+
+        EmbeddedChannel serverSideChannel = setupChannel(serverHandshakeManager, noMessageListener);
+
+        assertTrue(serverSideChannel.isActive());
+
+        exchangeServerToClient(serverSideChannel, clientSideChannel);
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
+
+        assertNull(clientSideChannel.readOutbound());
+        assertNull(serverSideChannel.readOutbound());
+
+        checkHandshakeCompletedExceptionally(serverHandshakeManager);
+        checkHandshakeCompletedExceptionally(clientHandshakeManager);
+
+        checkPipelineAfterHandshake(serverSideChannel);
+        checkPipelineAfterHandshake(clientSideChannel);
+
+        assertFalse(serverSideChannel.finish());
+        assertFalse(clientSideChannel.finish());
+    }
+
     /** Message listener that accepts a specific message only once. */
     private static class MessageListener implements Consumer<InNetworkObject> {
         /** Expected message. */
@@ -393,6 +467,14 @@ public class RecoveryHandshakeTest {
         CompletableFuture<NettySender> handshakeFuture = manager.handshakeFuture();
         assertTrue(handshakeFuture.isDone());
         assertFalse(handshakeFuture.isCompletedExceptionally());
+        assertFalse(handshakeFuture.isCancelled());
+    }
+
+    private void checkHandshakeCompletedExceptionally(HandshakeManager manager) {
+        CompletableFuture<NettySender> handshakeFuture = manager.handshakeFuture();
+
+        assertTrue(handshakeFuture.isDone());
+        assertTrue(handshakeFuture.isCompletedExceptionally());
         assertFalse(handshakeFuture.isCancelled());
     }
 
@@ -447,7 +529,12 @@ public class RecoveryHandshakeTest {
 
     private RecoveryClientHandshakeManager createRecoveryClientHandshakeManager(String consistentId, UUID launchId,
             RecoveryDescriptorProvider provider) {
-        return new RecoveryClientHandshakeManager(launchId, consistentId, CONNECTION_ID, MESSAGE_FACTORY, provider);
+        return createRecoveryClientHandshakeManager(consistentId, launchId, provider, new AllIdsAreFresh());
+    }
+
+    private RecoveryClientHandshakeManager createRecoveryClientHandshakeManager(String consistentId, UUID launchId,
+            RecoveryDescriptorProvider provider, StaleIdDetector staleIdDetector) {
+        return new RecoveryClientHandshakeManager(launchId, consistentId, CONNECTION_ID, provider, staleIdDetector);
     }
 
     private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(RecoveryDescriptorProvider provider) {
@@ -456,7 +543,12 @@ public class RecoveryHandshakeTest {
 
     private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(String consistentId, UUID launchId,
             RecoveryDescriptorProvider provider) {
-        return new RecoveryServerHandshakeManager(launchId, consistentId, MESSAGE_FACTORY, provider);
+        return createRecoveryServerHandshakeManager(consistentId, launchId, provider, new AllIdsAreFresh());
+    }
+
+    private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(String consistentId, UUID launchId,
+            RecoveryDescriptorProvider provider, StaleIdDetector staleIdDetector) {
+        return new RecoveryServerHandshakeManager(launchId, consistentId, MESSAGE_FACTORY, provider, staleIdDetector);
     }
 
     private RecoveryDescriptorProvider createRecoveryDescriptorProvider() {

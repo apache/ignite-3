@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,7 +22,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
@@ -76,7 +75,7 @@ public class AsyncWrapper<T> implements AsyncCursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<BatchedResult<T>> requestNextAsync(int rows) {
+    public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
         CompletableFuture<BatchedResult<T>> next = new CompletableFuture<>();
         CompletableFuture<BatchedResult<T>> prev;
 

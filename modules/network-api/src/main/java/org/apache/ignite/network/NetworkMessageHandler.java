@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -26,10 +26,10 @@ public interface NetworkMessageHandler {
     /**
      * Method that gets invoked when a network message is received.
      *
-     * @param message       Message, which was received from the cluster.
-     * @param senderAddr    Sender address. Use {@link TopologyService#getByAddress} to resolve the corresponding {@link ClusterNode}.
+     * @param message Message, which was received from the cluster.
+     * @param senderConsistentId Consistend ID of the sender node.
      * @param correlationId Correlation id. Used to track correspondence between requests and responses. Can be {@code null} if the received
-     *                      message is not a request from a {@link MessagingService#invoke} method from another node.
+     *     message is not a request from a {@link MessagingService#invoke} method from another node.
      */
-    void onReceived(NetworkMessage message, NetworkAddress senderAddr, @Nullable Long correlationId);
+    void onReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId);
 }

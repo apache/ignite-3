@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
+import java.util.Map;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelRule;
 import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Sort;
 import org.apache.calcite.rel.logical.LogicalSort;
@@ -68,15 +70,27 @@ public class SortConverterRule extends RelRule<SortConverterRule.Config> {
                     .replace(sort.getCollation())
                     .replace(IgniteDistributions.single());
 
-            call.transformTo(
-                    new IgniteLimit(
-                            cluster,
-                            traits,
-                            convert(sort.getInput(), traits),
-                            sort.offset,
-                            sort.fetch
-                    )
-            );
+            if (sort.collation == RelCollations.EMPTY || sort.fetch == null) {
+                call.transformTo(new IgniteLimit(cluster, traits, convert(sort.getInput(), traits), sort.offset,
+                        sort.fetch));
+            } else {
+                RelNode igniteSort = new IgniteSort(
+                        cluster,
+                        cluster.traitSetOf(IgniteConvention.INSTANCE).replace(sort.getCollation()),
+                        convert(sort.getInput(), cluster.traitSetOf(IgniteConvention.INSTANCE)),
+                        sort.getCollation(),
+                        sort.offset,
+                        sort.fetch
+                );
+
+                call.transformTo(
+                        new IgniteLimit(cluster, traits, convert(igniteSort, traits), sort.offset, sort.fetch),
+                        Map.of(
+                                new IgniteLimit(cluster, traits, convert(sort.getInput(), traits), sort.offset, sort.fetch),
+                                sort
+                        )
+                );
+            }
         } else {
             RelTraitSet outTraits = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(sort.getCollation());
             RelTraitSet inTraits = cluster.traitSetOf(IgniteConvention.INSTANCE);

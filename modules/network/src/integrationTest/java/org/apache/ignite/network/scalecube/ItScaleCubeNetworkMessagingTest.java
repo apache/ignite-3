@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.network.scalecube;
 
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -35,26 +36,34 @@ import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
-import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
+import org.apache.ignite.internal.network.messages.TestMessage;
+import org.apache.ignite.internal.network.messages.TestMessageTypes;
+import org.apache.ignite.internal.network.messages.TestMessagesFactory;
+import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
+import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
+import org.apache.ignite.internal.testframework.jul.NoOpHandler;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.DefaultMessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.TestMessage;
-import org.apache.ignite.network.TestMessageTypes;
-import org.apache.ignite.network.TestMessagesFactory;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -98,8 +107,8 @@ class ItScaleCubeNetworkMessagingTest {
         for (ClusterService member : testCluster.members) {
             member.messagingService().addMessageHandler(
                     TestMessageTypes.class,
-                    (message, senderAddr, correlationId) -> {
-                        messageStorage.put(member.localConfiguration().getName(), (TestMessage) message);
+                    (message, sender, correlationId) -> {
+                        messageStorage.put(member.nodeName(), (TestMessage) message);
                         messageReceivedLatch.countDown();
                     }
             );
@@ -119,7 +128,7 @@ class ItScaleCubeNetworkMessagingTest {
         assertTrue(messagesReceived);
 
         testCluster.members.stream()
-                .map(member -> member.localConfiguration().getName())
+                .map(ClusterService::nodeName)
                 .map(messageStorage::get)
                 .forEach(msg -> assertThat(msg.msg(), is(testMessage.msg())));
     }
@@ -161,13 +170,13 @@ class ItScaleCubeNetworkMessagingTest {
         class Data {
             private final TestMessage message;
 
-            private final NetworkAddress sender;
+            private final String senderConsistentId;
 
             private final Long correlationId;
 
-            private Data(TestMessage message, NetworkAddress sender, Long correlationId) {
+            private Data(TestMessage message, String senderConsistentId, Long correlationId) {
                 this.message = message;
-                this.sender = sender;
+                this.senderConsistentId = senderConsistentId;
                 this.correlationId = correlationId;
             }
         }
@@ -176,8 +185,8 @@ class ItScaleCubeNetworkMessagingTest {
 
         member.messagingService().addMessageHandler(
                 TestMessageTypes.class,
-                (message, senderAddr, correlationId) ->
-                        dataFuture.complete(new Data((TestMessage) message, senderAddr, correlationId))
+                (message, sender, correlationId) ->
+                        dataFuture.complete(new Data((TestMessage) message, sender, correlationId))
         );
 
         var requestMessage = messageFactory.testMessage().msg("request").build();
@@ -187,7 +196,7 @@ class ItScaleCubeNetworkMessagingTest {
         Data actualData = dataFuture.get(3, TimeUnit.SECONDS);
 
         assertThat(actualData.message.msg(), is(requestMessage.msg()));
-        assertThat(actualData.sender.consistentId(), is(self.name()));
+        assertThat(actualData.senderConsistentId, is(self.name()));
         assertNull(actualData.correlationId);
     }
 
@@ -210,7 +219,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         member.messagingService().addMessageHandler(
                 TestMessageTypes.class,
-                (message, senderAddr, correlationId) -> {
+                (message, sender, correlationId) -> {
                     if (message.equals(requestMessage)) {
                         member.messagingService().respond(self, responseMessage, correlationId);
                     }
@@ -283,19 +292,19 @@ class ItScaleCubeNetworkMessagingTest {
         // register multiple handlers for the same group
         node1.messagingService().addMessageHandler(
                 TestMessageTypes.class,
-                (message, senderAddr, correlationId) -> assertTrue(testMessageFuture1.complete(message))
+                (message, sender, correlationId) -> assertTrue(testMessageFuture1.complete(message))
         );
 
         node1.messagingService().addMessageHandler(
                 TestMessageTypes.class,
-                (message, senderAddr, correlationId) -> assertTrue(testMessageFuture2.complete(message))
+                (message, sender, correlationId) -> assertTrue(testMessageFuture2.complete(message))
         );
 
         // register a different handle for the second group
         node1.messagingService().addMessageHandler(
                 NetworkMessageTypes.class,
-                (message, senderAddr, correlationId) -> {
-                    if (message instanceof FieldDescriptorMessage) {
+                (message, sender, correlationId) -> {
+                    if (message instanceof HandshakeFinishMessage) {
                         assertTrue(networkMessageFuture.complete(message));
                     }
                 }
@@ -303,7 +312,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         var testMessage = messageFactory.testMessage().msg("foo").build();
 
-        FieldDescriptorMessage networkMessage = new NetworkMessagesFactory().fieldDescriptorMessage().build();
+        HandshakeFinishMessage networkMessage = new NetworkMessagesFactory().handshakeFinishMessage().build();
 
         // test that a message gets delivered to both handlers
         node2.messagingService()
@@ -321,6 +330,93 @@ class ItScaleCubeNetworkMessagingTest {
     }
 
     /**
+     * Makes sure that a node that dropped out from the Physical Topology cannot reappear with same ID.
+     *
+     * @throws Exception in case of errors.
+     */
+    @SuppressWarnings("ConstantConditions")
+    @Test
+    public void nodeCannotReuseOldId(TestInfo testInfo) throws Exception {
+        testCluster = new Cluster(3, testInfo);
+
+        testCluster.startAwait();
+
+        String outcastName = testCluster.members.get(testCluster.members.size() - 1).nodeName();
+
+        knockOutNode(outcastName);
+
+        IgniteBiTuple<CountDownLatch, AtomicBoolean> pair = reanimateNode(outcastName);
+        CountDownLatch ready = pair.get1();
+        AtomicBoolean reappeared = pair.get2();
+
+        assertTrue(ready.await(10, TimeUnit.SECONDS), "Node neither reappeared, not was rejected");
+
+        assertThat(reappeared.get(), is(false));
+    }
+
+    private void knockOutNode(String outcastName) throws InterruptedException {
+        CountDownLatch disappeared = new CountDownLatch(1);
+
+        testCluster.members.get(0).topologyService().addEventHandler(new TopologyEventHandler() {
+            @Override
+            public void onDisappeared(ClusterNode member) {
+                if (Objects.equals(member.name(), outcastName)) {
+                    disappeared.countDown();
+                }
+            }
+        });
+
+        testCluster.members.stream()
+                .filter(service -> !outcastName.equals(service.nodeName()))
+                .forEach(service -> {
+                    DefaultMessagingService messagingService = (DefaultMessagingService) service.messagingService();
+                    messagingService.dropMessages((recipientConsistentId, message) -> outcastName.equals(recipientConsistentId));
+                });
+
+        assertTrue(disappeared.await(10, TimeUnit.SECONDS), "Node did not disappear in time");
+    }
+
+    private IgniteBiTuple<CountDownLatch, AtomicBoolean> reanimateNode(String outcastName) {
+        CountDownLatch ready = new CountDownLatch(1);
+        AtomicBoolean reappeared = new AtomicBoolean(false);
+
+        testCluster.members.get(0).topologyService().addEventHandler(new TopologyEventHandler() {
+            @Override
+            public void onAppeared(ClusterNode member) {
+                if (Objects.equals(member.name(), outcastName)) {
+                    reappeared.compareAndSet(false, true);
+
+                    ready.countDown();
+                }
+            }
+        });
+
+        Handler rejectedHandshakeHandler = new NoOpHandler() {
+            @Override
+            public void publish(LogRecord record) {
+                if (record.getMessage().startsWith("Handshake rejected by ")) {
+                    ready.countDown();
+                }
+            }
+        };
+
+        Logger clientHandshakeManagerLogger = Logger.getLogger(RecoveryClientHandshakeManager.class.getName());
+        clientHandshakeManagerLogger.addHandler(rejectedHandshakeHandler);
+
+        Logger serverHandshakeManagerLogger = Logger.getLogger(RecoveryServerHandshakeManager.class.getName());
+        serverHandshakeManagerLogger.addHandler(rejectedHandshakeHandler);
+
+        testCluster.members.stream()
+                .filter(service -> !outcastName.equals(service.nodeName()))
+                .forEach(service -> {
+                    DefaultMessagingService messagingService = (DefaultMessagingService) service.messagingService();
+                    messagingService.stopDroppingMessages();
+                });
+
+        return new IgniteBiTuple<>(ready, reappeared);
+    }
+
+    /**
      * Tests shutdown.
      *
      * @param testInfo Test info.
@@ -333,7 +429,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         ClusterService alice = testCluster.members.get(0);
         ClusterService bob = testCluster.members.get(1);
-        String aliceName = alice.localConfiguration().getName();
+        String aliceName = alice.nodeName();
 
         var aliceShutdownLatch = new CountDownLatch(1);
 
@@ -420,7 +516,7 @@ class ItScaleCubeNetworkMessagingTest {
 
             members = addresses.stream()
                     .map(addr -> startNode(testInfo, addr, isInitial.getAndSet(false)))
-                    .collect(Collectors.toUnmodifiableList());
+                    .collect(toUnmodifiableList());
         }
 
         /**

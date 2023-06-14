@@ -35,7 +35,7 @@ namespace Apache.Ignite.Compute
         /// <param name="args">Job arguments.</param>
         /// <typeparam name="T">Job result type.</typeparam>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<T> ExecuteAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object[] args);
+        Task<T> ExecuteAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object?[]? args);
 
         /// <summary>
         /// Executes a job represented by the given class on one node where the given key is located.
@@ -46,7 +46,7 @@ namespace Apache.Ignite.Compute
         /// <param name="args">Job arguments.</param>
         /// <typeparam name="T">Job result type.</typeparam>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<T> ExecuteColocatedAsync<T>(string tableName, IIgniteTuple key, string jobClassName, params object[] args);
+        Task<T> ExecuteColocatedAsync<T>(string tableName, IIgniteTuple key, string jobClassName, params object?[]? args);
 
         /// <summary>
         /// Executes a job represented by the given class on one node where the given key is located.
@@ -58,8 +58,8 @@ namespace Apache.Ignite.Compute
         /// <typeparam name="T">Job result type.</typeparam>
         /// <typeparam name="TKey">Key type.</typeparam>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<T> ExecuteColocatedAsync<T, TKey>(string tableName, TKey key, string jobClassName, params object[] args)
-            where TKey : class; // TODO: Remove class constraint (IGNITE-16355)
+        Task<T> ExecuteColocatedAsync<T, TKey>(string tableName, TKey key, string jobClassName, params object?[]? args)
+            where TKey : notnull;
 
         /// <summary>
         /// Executes a compute job represented by the given class on all of the specified nodes.
@@ -69,6 +69,6 @@ namespace Apache.Ignite.Compute
         /// <param name="args">Job arguments.</param>
         /// <typeparam name="T">Job result type.</typeparam>
         /// <returns>A map of <see cref="Task"/> representing the asynchronous operation for every node.</returns>
-        IDictionary<IClusterNode, Task<T>> BroadcastAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object[] args);
+        IDictionary<IClusterNode, Task<T>> BroadcastAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object?[]? args);
     }
 }

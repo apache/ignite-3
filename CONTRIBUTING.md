@@ -63,8 +63,8 @@ Inspection profile is placed to IDEA [Project_Default](idea/ignite_inspections.x
 * Configure [IDEA Codestyle](https://cwiki.apache.org/confluence/display/IGNITE/Coding+Guidelines#CodingGuidelines-A.ConfigureIntelliJIDEAcodestyle).
 
 ### Building project
-Usually all Maven builds are to be run with skipped tests:
+Compile project via Gradle
 ```
-mvn -DskipTests <goal>
+./gradlew assemble
 ```
 See also [DEVNOTES.md](DEVNOTES.md)

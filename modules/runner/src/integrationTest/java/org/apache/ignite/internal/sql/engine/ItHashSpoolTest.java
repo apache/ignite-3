@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -28,8 +28,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Hash spool test.
  */
-public class ItHashSpoolTest extends AbstractBasicIntegrationTest {
-    private static final IgniteLogger LOG = Loggers.forClass(AbstractBasicIntegrationTest.class);
+public class ItHashSpoolTest extends ClusterPerClassIntegrationTest {
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterPerClassIntegrationTest.class);
 
     /**
      * After each.
@@ -40,9 +40,9 @@ public class ItHashSpoolTest extends AbstractBasicIntegrationTest {
             LOG.info("Start cleanUp()");
         }
 
-        CLUSTER_NODES.get(0).tables().tables().stream()
-                .map(Table::name)
-                .forEach(CLUSTER_NODES.get(0).tables()::dropTable);
+        for (Table table : CLUSTER_NODES.get(0).tables().tables()) {
+            sql("DROP TABLE " + table.name());
+        }
 
         if (LOG.isInfoEnabled()) {
             LOG.info("End cleanUp()");
@@ -50,7 +50,7 @@ public class ItHashSpoolTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18689")
     @SuppressWarnings("unchecked")
     public void testHashSpoolCondition() {
         sql("CREATE TABLE t(id INT PRIMARY KEY, i INTEGER)");

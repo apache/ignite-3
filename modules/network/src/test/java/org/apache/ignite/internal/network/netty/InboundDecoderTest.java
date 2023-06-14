@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -34,17 +35,16 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
-import org.apache.ignite.internal.network.AllTypesMessage;
 import org.apache.ignite.internal.network.AllTypesMessageGenerator;
-import org.apache.ignite.internal.network.NestedMessageMessage;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
+import org.apache.ignite.internal.network.messages.AllTypesMessage;
+import org.apache.ignite.internal.network.messages.NestedMessageMessage;
+import org.apache.ignite.internal.network.messages.TestMessage;
+import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.TestMessage;
-import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
-import org.apache.ignite.network.TestMessagesFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
 import org.junit.jupiter.api.Test;
@@ -60,7 +60,7 @@ public class InboundDecoderTest {
     private final UnpooledByteBufAllocator allocator = UnpooledByteBufAllocator.DEFAULT;
 
     /** Registry. */
-    private final MessageSerializationRegistry registry = new TestMessageSerializationRegistryImpl();
+    private final MessageSerializationRegistry registry = defaultSerializationRegistry();
 
     /**
      * Tests that an {@link InboundDecoder} can successfully read a message with all types supported by direct marshalling.
@@ -100,7 +100,7 @@ public class InboundDecoderTest {
         var perSessionSerializationService = new PerSessionSerializationService(serializationService);
         var channel = new EmbeddedChannel(new InboundDecoder(perSessionSerializationService));
 
-        var writer = new DirectMessageWriter(perSessionSerializationService, ConnectionManager.DIRECT_PROTOCOL_VERSION);
+        var writer = new DirectMessageWriter(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
 
         MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.groupType(), msg.messageType());
 
@@ -158,8 +158,8 @@ public class InboundDecoderTest {
     }
 
     /**
-     * Tests that an {@link InboundDecoder} can handle a {@link ByteBuf} where reader index is not {@code 0} at the start of the {@link
-     * InboundDecoder#decode}.
+     * Tests that an {@link InboundDecoder} can handle a {@link ByteBuf} where reader index is not {@code 0} at the start of the
+     * {@link InboundDecoder#decode}.
      *
      * @throws Exception If failed.
      */
@@ -177,7 +177,7 @@ public class InboundDecoderTest {
 
         final var list = new ArrayList<>();
 
-        var writer = new DirectMessageWriter(perSessionSerializationService, ConnectionManager.DIRECT_PROTOCOL_VERSION);
+        var writer = new DirectMessageWriter(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
 
         var msg = new TestMessagesFactory().testMessage().msg("abcdefghijklmn").build();
 

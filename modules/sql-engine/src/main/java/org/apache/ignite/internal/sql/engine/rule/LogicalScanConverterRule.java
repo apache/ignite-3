@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to you under the Apache License, Version 2.0
+ * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,20 +17,16 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
-import static org.apache.ignite.internal.util.CollectionUtils.concat;
-
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelDistribution;
-import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
@@ -44,11 +40,9 @@ import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
-import org.apache.ignite.internal.sql.engine.util.RexUtils;
-import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 
 /**
  * LogicalScanConverterRule.
@@ -67,11 +61,12 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                         IgniteLogicalIndexScan rel
                 ) {
                     RelOptCluster cluster = rel.getCluster();
-                    InternalIgniteTable table = rel.getTable().unwrap(InternalIgniteTable.class);
+                    IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
                     IgniteIndex index = table.getIndex(rel.indexName());
 
                     RelDistribution distribution = table.distribution();
-                    RelCollation collation = index.collation();
+                    RelCollation collation = TraitUtils.createCollation(index.columns(), index.collations(), table.descriptor());
+                    RelCollation outputCollation = index.type() == Type.HASH ? RelCollations.EMPTY : collation;
 
                     if (rel.projects() != null || rel.requiredColumns() != null) {
                         Mappings.TargetMapping mapping = createMapping(
@@ -81,30 +76,24 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                         );
 
                         distribution = distribution.apply(mapping);
-                        collation = collation.apply(mapping);
-                    }
-
-                    Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(rel.condition());
-
-                    if (!CollectionUtils.nullOrEmpty(rel.projects())) {
-                        corrIds = new HashSet<>(concat(corrIds, RexUtils.extractCorrelationIds(rel.projects())));
+                        outputCollation = outputCollation.apply(mapping);
                     }
 
                     RelTraitSet traits = rel.getCluster().traitSetOf(IgniteConvention.INSTANCE)
-                            .replace(RewindabilityTrait.REWINDABLE)
                             .replace(distribution)
-                            .replace(collation)
-                            .replace(corrIds.isEmpty() ? CorrelationTrait.UNCORRELATED : CorrelationTrait.correlations(corrIds));
+                            .replace(outputCollation);
 
                     return new IgniteIndexScan(
-                        cluster,
-                        traits,
-                        rel.getTable(),
-                        rel.indexName(),
-                        rel.projects(),
-                        rel.condition(),
-                        rel.indexConditions(),
-                        rel.requiredColumns()
+                            cluster,
+                            traits,
+                            rel.getTable(),
+                            rel.indexName(),
+                            index.type(),
+                            collation,
+                            rel.projects(),
+                            rel.condition(),
+                            rel.searchBounds(),
+                            rel.requiredColumns()
                     );
                 }
             };
@@ -119,7 +108,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                         IgniteLogicalTableScan rel
                 ) {
                     RelOptCluster cluster = rel.getCluster();
-                    InternalIgniteTable table = rel.getTable().unwrap(InternalIgniteTable.class);
+                    IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
 
                     RelDistribution distribution = table.distribution();
                     if (rel.requiredColumns() != null) {
@@ -132,19 +121,11 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                         distribution = distribution.apply(mapping);
                     }
 
-                    Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(rel.condition());
-
-                    if (!CollectionUtils.nullOrEmpty(rel.projects())) {
-                        corrIds = new HashSet<>(concat(corrIds, RexUtils.extractCorrelationIds(rel.projects())));
-                    }
-
                     RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
-                            .replace(RewindabilityTrait.REWINDABLE)
-                            .replace(distribution)
-                            .replace(corrIds.isEmpty() ? CorrelationTrait.UNCORRELATED : CorrelationTrait.correlations(corrIds));
+                            .replace(distribution);
 
-                    return new IgniteTableScan(rel.getCluster(), traits,
-                        rel.getTable(), rel.projects(), rel.condition(), rel.requiredColumns());
+                    return new IgniteTableScan(rel.getCluster(), traits, rel.getTable(), rel.getHints(),
+                        rel.projects(), rel.condition(), rel.requiredColumns());
                 }
             };
 
@@ -153,7 +134,8 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
         super(clazz, descPrefix);
     }
 
-    private static Mappings.TargetMapping createMapping(
+    /** Creates column mapping regarding the projection. */
+    public static Mappings.TargetMapping createMapping(
             List<RexNode> projects,
             ImmutableBitSet requiredColumns,
             int tableRowSize

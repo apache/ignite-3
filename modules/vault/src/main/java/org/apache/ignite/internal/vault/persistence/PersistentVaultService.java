@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -28,6 +28,7 @@ import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -59,7 +60,7 @@ public class PersistentVaultService implements VaultService {
 
     private static final IgniteLogger LOG = Loggers.forClass(PersistentVaultService.class);
 
-    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("vault", LOG));
+    private final ExecutorService threadPool;
 
     private final InFlightFutures futureTracker = new InFlightFutures();
 
@@ -73,10 +74,13 @@ public class PersistentVaultService implements VaultService {
     /**
      * Creates persistent vault service.
      *
+     * @param nodeName Node name.
      * @param path base path for RocksDB
      */
-    public PersistentVaultService(Path path) {
+    public PersistentVaultService(String nodeName, Path path) {
         this.path = path;
+
+        threadPool = Executors.newFixedThreadPool(4, NamedThreadFactory.create(nodeName, "vault", LOG));
     }
 
     private static Options options() {
@@ -110,12 +114,12 @@ public class PersistentVaultService implements VaultService {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void close() {
         IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
 
         futureTracker.cancelInFlightFutures();
 
-        IgniteUtils.closeAll(options, db);
+        RocksUtils.closeAll(options, db);
     }
 
     /** {@inheritDoc} */
@@ -180,10 +184,10 @@ public class PersistentVaultService implements VaultService {
             }
 
             @Override
-            public void close() throws Exception {
+            public void close() {
                 super.close();
 
-                IgniteUtils.closeAll(upperBound, readOpts);
+                RocksUtils.closeAll(upperBound, readOpts);
             }
         };
     }

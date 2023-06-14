@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,29 +19,35 @@ package org.apache.ignite.raft.server;
 
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
+import static org.apache.ignite.raft.server.counter.GetValueCommand.getValueCommand;
+import static org.apache.ignite.raft.server.counter.IncrementAndGetCommand.incrementAndGetCommand;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
+import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
+import org.apache.ignite.raft.server.counter.CounterListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,7 +56,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Single node raft server.
  */
-@ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     /**
      * The server implementation.
@@ -60,12 +66,12 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     /**
      * Counter raft group 0.
      */
-    private static final String COUNTER_GROUP_ID_0 = "counter0";
+    private static final TestReplicationGroupId COUNTER_GROUP_ID_0 = new TestReplicationGroupId("counter0");
 
     /**
      * Counter raft group 1.
      */
-    private static final String COUNTER_GROUP_ID_1 = "counter1";
+    private static final TestReplicationGroupId COUNTER_GROUP_ID_1 = new TestReplicationGroupId("counter1");
 
     /**
      * The client 1.
@@ -77,24 +83,22 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
      */
     private RaftGroupService client2;
 
-    @WorkDirectory
-    private Path dataPath;
-
     /** Executor for raft group services. */
     private ScheduledExecutorService executor;
+
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
 
     /**
      * Before each.
      */
     @BeforeEach
     void before() throws Exception {
-        LOG.info(">>>> Starting test {}", testInfo.getTestMethod().orElseThrow().getName());
-
         var addr = new NetworkAddress("localhost", PORT);
 
         ClusterService service = clusterService(PORT, List.of(addr), true);
 
-        server = new JraftServerImpl(service, dataPath) {
+        server = new JraftServerImpl(service, workDir) {
             @Override
             public synchronized void stop() throws Exception {
                 super.stop();
@@ -105,26 +109,32 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         server.start();
 
-        ClusterNode serverNode = server.clusterService().topologyService().localMember();
+        String serverNodeName = server.clusterService().topologyService().localMember().name();
+
+        PeersAndLearners memberConfiguration = PeersAndLearners.fromConsistentIds(Set.of(serverNodeName));
+
+        Peer serverPeer = memberConfiguration.peer(serverNodeName);
 
         assertTrue(
-                server.startRaftGroup(COUNTER_GROUP_ID_0, new CounterListener(), List.of(new Peer(serverNode.address())), defaults())
+                server.startRaftNode(new RaftNodeId(COUNTER_GROUP_ID_0, serverPeer), memberConfiguration, new CounterListener(), defaults())
         );
         assertTrue(
-                server.startRaftGroup(COUNTER_GROUP_ID_1, new CounterListener(), List.of(new Peer(serverNode.address())), defaults())
+                server.startRaftNode(new RaftNodeId(COUNTER_GROUP_ID_1, serverPeer), memberConfiguration, new CounterListener(), defaults())
         );
 
         ClusterService clientNode1 = clusterService(PORT + 1, List.of(addr), true);
 
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, logger()));
 
-        client1 = RaftGroupServiceImpl.start(COUNTER_GROUP_ID_0, clientNode1, FACTORY, 1000,
-                List.of(new Peer(serverNode.address())), false, 200, executor).get(3, TimeUnit.SECONDS);
+        client1 = RaftGroupServiceImpl
+                .start(COUNTER_GROUP_ID_0, clientNode1, FACTORY, raftConfiguration, memberConfiguration, false, executor)
+                .get(3, TimeUnit.SECONDS);
 
         ClusterService clientNode2 = clusterService(PORT + 2, List.of(addr), true);
 
-        client2 = RaftGroupServiceImpl.start(COUNTER_GROUP_ID_1, clientNode2, FACTORY, 1000,
-                List.of(new Peer(serverNode.address())), false, 200, executor).get(3, TimeUnit.SECONDS);
+        client2 = RaftGroupServiceImpl
+                .start(COUNTER_GROUP_ID_1, clientNode2, FACTORY, raftConfiguration, memberConfiguration, false, executor)
+                .get(3, TimeUnit.SECONDS);
 
         assertTrue(waitForTopology(service, 3, 1000));
         assertTrue(waitForTopology(clientNode1, 3, 1000));
@@ -137,15 +147,14 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     @AfterEach
     @Override
     public void after() throws Exception {
-        server.stopRaftGroup(COUNTER_GROUP_ID_0);
-        server.stopRaftGroup(COUNTER_GROUP_ID_1);
-
-        server.stop();
-
-        client1.shutdown();
-        client2.shutdown();
-
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        IgniteUtils.closeAll(
+                () -> server.stopRaftNodes(COUNTER_GROUP_ID_0),
+                () -> server.stopRaftNodes(COUNTER_GROUP_ID_1),
+                server::stop,
+                client1::shutdown,
+                client2::shutdown,
+                () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)
+        );
 
         super.after();
     }
@@ -169,14 +178,14 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
         assertNotNull(client1.leader());
         assertNotNull(client2.leader());
 
-        assertEquals(2, client1.<Long>run(new IncrementAndGetCommand(2)).get());
-        assertEquals(2, client1.<Long>run(new GetValueCommand()).get());
-        assertEquals(3, client1.<Long>run(new IncrementAndGetCommand(1)).get());
-        assertEquals(3, client1.<Long>run(new GetValueCommand()).get());
+        assertEquals(2, client1.<Long>run(incrementAndGetCommand(2)).get());
+        assertEquals(2, client1.<Long>run(getValueCommand()).get());
+        assertEquals(3, client1.<Long>run(incrementAndGetCommand(1)).get());
+        assertEquals(3, client1.<Long>run(getValueCommand()).get());
 
-        assertEquals(4, client2.<Long>run(new IncrementAndGetCommand(4)).get());
-        assertEquals(4, client2.<Long>run(new GetValueCommand()).get());
-        assertEquals(7, client2.<Long>run(new IncrementAndGetCommand(3)).get());
-        assertEquals(7, client2.<Long>run(new GetValueCommand()).get());
+        assertEquals(4, client2.<Long>run(incrementAndGetCommand(4)).get());
+        assertEquals(4, client2.<Long>run(getValueCommand()).get());
+        assertEquals(7, client2.<Long>run(incrementAndGetCommand(3)).get());
+        assertEquals(7, client2.<Long>run(getValueCommand()).get());
     }
 }

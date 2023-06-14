@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,18 +18,13 @@
 package org.apache.ignite.internal.sql.engine.rel.set;
 
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -40,25 +35,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 public interface IgniteMapSetOp extends IgniteSetOp {
     /** {@inheritDoc} */
     @Override
-    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
-            RelTraitSet nodeTraits,
-            List<RelTraitSet> inputTraits
-    ) {
-        boolean rewindable = inputTraits.stream()
-                .map(TraitUtils::rewindability)
-                .allMatch(RewindabilityTrait::rewindable);
-
-        if (rewindable) {
-            return List.of(Pair.of(nodeTraits.replace(RewindabilityTrait.REWINDABLE), inputTraits));
-        }
-
-        return List.of(Pair.of(nodeTraits.replace(RewindabilityTrait.ONE_WAY),
-                Commons.transform(inputTraits, t -> t.replace(RewindabilityTrait.ONE_WAY))));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
+    default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
     ) {
@@ -75,23 +52,8 @@ public interface IgniteMapSetOp extends IgniteSetOp {
         );
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
-            RelTraitSet nodeTraits,
-            List<RelTraitSet> inTraits
-    ) {
-        Set<CorrelationId> correlationIds = inTraits.stream()
-                .map(TraitUtils::correlation)
-                .flatMap(corrTr -> corrTr.correlationIds().stream())
-                .collect(Collectors.toSet());
-
-        return List.of(Pair.of(nodeTraits.replace(CorrelationTrait.correlations(correlationIds)),
-                inTraits));
-    }
-
     /** Build RowType for MAP node. */
-    public default RelDataType buildRowType() {
+    default RelDataType buildRowType() {
         RelDataTypeFactory typeFactory = Commons.typeFactory(getCluster());
 
         assert typeFactory instanceof IgniteTypeFactory;
@@ -106,7 +68,7 @@ public interface IgniteMapSetOp extends IgniteSetOp {
 
     /** {@inheritDoc} */
     @Override
-    public default AggregateType aggregateType() {
+    default AggregateType aggregateType() {
         return AggregateType.MAP;
     }
 }

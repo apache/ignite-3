@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.registry;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -30,7 +31,9 @@ import static org.apache.ignite.internal.schema.NativeTypes.datetime;
 import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
@@ -43,11 +46,11 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
@@ -148,18 +151,30 @@ public class UpgradingRowAdapterTest {
 
         List<Object> values = generateRowValues(schema);
 
-        ByteBufferRow row = new ByteBufferRow(serializeValuesToRow(schema, values));
+        BinaryRow row = serializeValuesToRow(schema, values);
+
+        var schemaRegistry = new SchemaRegistryImpl(
+                v -> v == 1 ? completedFuture(schema) : completedFuture(schema2),
+                () -> completedFuture(INITIAL_SCHEMA_VERSION),
+                schema
+        );
 
         // Validate row.
-        validateRow(values, new SchemaRegistryImpl(v -> v == 1 ? schema : schema2, () -> INITIAL_SCHEMA_VERSION, schema), row);
+        validateRow(values, schemaRegistry, row);
 
         // Validate upgraded row.
         values.add(addedColumnIndex, null);
 
-        validateRow(values, new SchemaRegistryImpl(v -> v == 1 ? schema : schema2, () -> schema2.version(), schema2), row);
+        var schema2Registry = new SchemaRegistryImpl(
+                v -> v == 1 ? completedFuture(schema) : completedFuture(schema2),
+                () -> completedFuture(schema2.version()),
+                schema2
+        );
+
+        validateRow(values, schema2Registry, row);
     }
 
-    private void validateRow(List<Object> values, SchemaRegistryImpl schemaRegistry, ByteBufferRow binaryRow) {
+    private void validateRow(List<Object> values, SchemaRegistryImpl schemaRegistry, BinaryRow binaryRow) {
         Row row = schemaRegistry.resolve(binaryRow);
 
         SchemaDescriptor schema = row.schema();
@@ -167,14 +182,7 @@ public class UpgradingRowAdapterTest {
         for (int i = 0; i < values.size(); i++) {
             Column col = schema.column(i);
 
-            NativeTypeSpec type = col.type().spec();
-
-            if (type == NativeTypeSpec.BYTES) {
-                assertArrayEquals((byte[]) values.get(i), (byte[]) NativeTypeSpec.BYTES.objectValue(row, col.schemaIndex()),
-                        "Failed for column: " + col);
-            } else {
-                assertEquals(values.get(i), type.objectValue(row, col.schemaIndex()), "Failed for column: " + col);
-            }
+            assertThat("Failed for column: " + col, row.value(col.schemaIndex()), is(equalTo(values.get(i))));
         }
     }
 
@@ -203,63 +211,10 @@ public class UpgradingRowAdapterTest {
      * @param vals   Row values.
      * @return Row bytes.
      */
-    private byte[] serializeValuesToRow(SchemaDescriptor schema, List<Object> vals) {
+    private BinaryRow serializeValuesToRow(SchemaDescriptor schema, List<Object> vals) {
         assertEquals(schema.keyColumns().length() + schema.valueColumns().length(), vals.size());
 
-        int nonNullVarLenKeyCols = 0;
-        int nonNullVarLenValCols = 0;
-        int nonNullVarLenKeySize = 0;
-        int nonNullVarLenValSize = 0;
-
-        for (int i = 0; i < vals.size(); i++) {
-            NativeTypeSpec type = schema.column(i).type().spec();
-
-            if (vals.get(i) != null && !type.fixedLength()) {
-                if (type == NativeTypeSpec.BYTES) {
-                    byte[] val = (byte[]) vals.get(i);
-                    if (schema.isKeyColumn(i)) {
-                        nonNullVarLenKeyCols++;
-                        nonNullVarLenKeySize += val.length;
-                    } else {
-                        nonNullVarLenValCols++;
-                        nonNullVarLenValSize += val.length;
-                    }
-                } else if (type == NativeTypeSpec.STRING) {
-                    if (schema.isKeyColumn(i)) {
-                        nonNullVarLenKeyCols++;
-                        nonNullVarLenKeySize += RowAssembler.utf8EncodedLength((CharSequence) vals.get(i));
-                    } else {
-                        nonNullVarLenValCols++;
-                        nonNullVarLenValSize += RowAssembler.utf8EncodedLength((CharSequence) vals.get(i));
-                    }
-                } else if (type == NativeTypeSpec.NUMBER) {
-                    if (schema.isKeyColumn(i)) {
-                        nonNullVarLenKeyCols++;
-                        nonNullVarLenKeySize += RowAssembler.sizeInBytes((BigInteger) vals.get(i));
-                    } else {
-                        nonNullVarLenValCols++;
-                        nonNullVarLenValSize += RowAssembler.sizeInBytes((BigInteger) vals.get(i));
-                    }
-                } else if (type == NativeTypeSpec.DECIMAL) {
-                    if (schema.isKeyColumn(i)) {
-                        nonNullVarLenKeyCols++;
-                        nonNullVarLenKeySize += RowAssembler.sizeInBytes((BigDecimal) vals.get(i));
-                    } else {
-                        nonNullVarLenValCols++;
-                        nonNullVarLenValSize += RowAssembler.sizeInBytes((BigDecimal) vals.get(i));
-                    }
-                } else {
-                    throw new IllegalStateException("Unsupported variable-length type: " + type);
-                }
-            }
-        }
-
-        RowAssembler asm = new RowAssembler(
-                schema,
-                nonNullVarLenKeySize,
-                nonNullVarLenKeyCols,
-                nonNullVarLenValSize,
-                nonNullVarLenValCols);
+        RowAssembler asm = new RowAssembler(schema);
 
         for (int i = 0; i < vals.size(); i++) {
             if (vals.get(i) == null) {
@@ -293,7 +248,7 @@ public class UpgradingRowAdapterTest {
                         break;
 
                     case UUID:
-                        asm.appendUuid((java.util.UUID) vals.get(i));
+                        asm.appendUuid((UUID) vals.get(i));
                         break;
 
                     case STRING:
@@ -338,6 +293,6 @@ public class UpgradingRowAdapterTest {
             }
         }
 
-        return asm.toBytes();
+        return asm.build();
     }
 }

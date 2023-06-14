@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,6 +20,8 @@ package org.apache.ignite.network.scalecube;
 import io.scalecube.cluster.Cluster;
 import io.scalecube.cluster.Member;
 import io.scalecube.cluster.membership.MembershipEvent;
+import io.scalecube.cluster.metadata.MetadataCodec;
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,8 +32,10 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.AbstractTopologyService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link TopologyService} based on ScaleCube.
@@ -39,6 +43,9 @@ import org.apache.ignite.network.TopologyService;
 final class ScaleCubeTopologyService extends AbstractTopologyService {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ScaleCubeTopologyService.class);
+
+    /** Metadata codec. */
+    private static final MetadataCodec METADATA_CODEC = MetadataCodec.INSTANCE;
 
     /**
      * Inner representation of a ScaleCube cluster.
@@ -66,7 +73,8 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      * @param event Membership event.
      */
     void onMembershipEvent(MembershipEvent event) {
-        ClusterNode member = fromMember(event.member());
+        NodeMetadata metadata = deserializeMetadata(event.newMetadata());
+        ClusterNode member = fromMember(event.member(), metadata);
 
         if (event.isAdded()) {
             members.put(member.address(), member);
@@ -75,12 +83,21 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
             LOG.info("Node joined [node={}]", member);
 
             fireAppearedEvent(member);
-        } else if (event.isRemoved()) {
+        } else if (event.isUpdated()) {
+            members.put(member.address(), member);
+            consistentIdToMemberMap.put(member.name(), member);
+        } else if (event.isRemoved() || event.isLeaving()) {
+            // We treat LEAVING as 'node left' because the node will not be back and we don't want to wait for the suspicion timeout.
+
             members.compute(member.address(), (addr, node) -> {
                 // Ignore stale remove event.
                 if (node == null || node.id().equals(member.id())) {
+                    LOG.info("Node left [member={}, eventType={}]", member, event.type());
+
                     return null;
                 } else {
+                    LOG.info("Node left (noop as it has already reappeared) [member={}, eventType={}]", member, event.type());
+
                     return node;
                 }
             });
@@ -94,14 +111,23 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
                 }
             });
 
-            LOG.info("Node left [member={}]", member);
-
             fireDisappearedEvent(member);
         }
 
         if (LOG.isInfoEnabled()) {
             LOG.info("Topology snapshot [nodes={}]", members.values().stream().map(ClusterNode::name).collect(Collectors.toList()));
         }
+    }
+
+    /**
+     * Updates metadata of the local member.
+     *
+     * @param metadata metadata of the local member.
+     */
+    void updateLocalMetadata(@Nullable NodeMetadata metadata) {
+        ClusterNode node = fromMember(cluster.member(), metadata);
+        members.put(node.address(), node);
+        consistentIdToMemberMap.put(node.name(), node);
     }
 
     /**
@@ -130,10 +156,11 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     @Override
     public ClusterNode localMember() {
         Member localMember = cluster.member();
+        NodeMetadata nodeMetadata = cluster.<NodeMetadata>metadata().orElse(null);
 
         assert localMember != null : "Cluster has not been started";
 
-        return fromMember(localMember);
+        return fromMember(localMember, nodeMetadata);
     }
 
     /** {@inheritDoc} */
@@ -160,9 +187,29 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      * @param member ScaleCube's cluster member.
      * @return Cluster node.
      */
-    private static ClusterNode fromMember(Member member) {
+    private static ClusterNode fromMember(Member member, @Nullable NodeMetadata nodeMetadata) {
         var addr = new NetworkAddress(member.address().host(), member.address().port());
 
-        return new ClusterNode(member.id(), member.alias(), addr);
+        return new ClusterNode(member.id(), member.alias(), addr, nodeMetadata);
+    }
+
+
+    /**
+     * Deserializes the given {@link ByteBuffer} to a {@link NodeMetadata}.
+     *
+     * @param buffer ByteBuffer to deserialize.
+     * @return NodeMetadata or null if something goes wrong.
+     */
+    @Nullable
+    private static NodeMetadata deserializeMetadata(@Nullable ByteBuffer buffer) {
+        if (buffer == null) {
+            return null;
+        }
+        try {
+            return (NodeMetadata) METADATA_CODEC.deserialize(buffer);
+        } catch (Exception e) {
+            LOG.warn("Couldn't deserialize metadata: {}", e);
+            return null;
+        }
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal;
 
+import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -33,7 +32,7 @@ import org.junit.jupiter.api.Test;
  * The test check that the behavior of the cluster whit property IGNITE_GET_METADATA_LOCALLY_ONLY is correct.
  */
 @WithSystemProperty(key = "IGNITE_GET_METADATA_LOCALLY_ONLY", value = "true")
-public class ItNoSyncMetadataTest extends AbstractBasicIntegrationTest {
+public class ItNoSyncMetadataTest extends ClusterPerClassIntegrationTest {
 
     /**
      * Creates a table and waits when the metadata synchronizes among nodes of the cluster.
@@ -41,14 +40,7 @@ public class ItNoSyncMetadataTest extends AbstractBasicIntegrationTest {
      */
     @BeforeAll
     void startNodes() {
-        createTable(
-                SchemaBuilders.tableBuilder("PUBLIC", "T1").columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("C1", ColumnType.INT32).build(),
-                        SchemaBuilders.column("C2", ColumnType.INT32).asNullable(true).build(),
-                        SchemaBuilders.column("C3", ColumnType.INT32).asNullable(true).build()
-                ).withPrimaryKey("ID")
-        );
+        sql("CREATE TABLE t1 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");
 
         try {
             Assertions.assertTrue(IgniteTestUtils.waitForCondition(
@@ -66,7 +58,7 @@ public class ItNoSyncMetadataTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void test() {
-        insertData("PUBLIC.T1", new String[]{"ID", "C1", "C2", "C3"},
+        insertData("T1", List.of("ID", "C1", "C2", "C3"),
                 new Object[]{0, 1, 1, 1},
                 new Object[]{1, 2, null, 2},
                 new Object[]{2, 2, 2, 2},
@@ -76,7 +68,7 @@ public class ItNoSyncMetadataTest extends AbstractBasicIntegrationTest {
         );
 
         for (Ignite ignite : CLUSTER_NODES) {
-            checkData(ignite.tables().table("PUBLIC.T1"), new String[]{"ID", "C1", "C2", "C3"},
+            checkData(ignite.tables().table("T1"), new String[]{"ID", "C1", "C2", "C3"},
                     new Object[]{0, 1, 1, 1},
                     new Object[]{1, 2, null, 2},
                     new Object[]{2, 2, 2, 2},

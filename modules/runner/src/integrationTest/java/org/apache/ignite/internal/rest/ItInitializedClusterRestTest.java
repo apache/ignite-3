@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.matchesRegex;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import com.typesafe.config.Config;
@@ -38,16 +39,27 @@ import org.junit.jupiter.api.TestInfo;
  * Test for the REST endpoints in case cluster is initialized.
  */
 public class ItInitializedClusterRestTest extends AbstractRestTestBase {
+    /** <a href="https://semver.org">semver</a> compatible regex. */
+    private static final String IGNITE_SEMVER_REGEX =
+            "(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)((?<snapshot>-SNAPSHOT)|-(?<alpha>alpha\\d+)|--(?<beta>beta\\d+))?";
+
     @BeforeEach
     void setUp(TestInfo testInfo) throws IOException, InterruptedException {
         super.setUp(testInfo);
 
         // For each test case the cluster is already initialized
-        HttpResponse<String> response = client.send(
-                post("/management/v1/cluster/init",
-                        "{\"metaStorageNodes\": [\"" + nodeNames.get(0) + "\"], \"clusterName\": \"cluster\"}"),
-                BodyHandlers.ofString()
-        );
+        String requestBody = "{\n"
+                + "    \"metaStorageNodes\": [\n"
+                + "        \"" + nodeNames.get(0) + "\"\n"
+                + "    ],\n"
+                + "    \"cmgNodes\": [],\n"
+                + "    \"clusterName\": \"cluster\",\n"
+                + "    \"authConfig\": {\n"
+                + "        \"enabled\": false\n"
+                + "    }\n"
+                + "}";
+
+        HttpResponse<String> response = client.send(post("/management/v1/cluster/init", requestBody), BodyHandlers.ofString());
 
         assertThat(response.statusCode(), is(200));
         checkAllNodesStarted();
@@ -140,6 +152,21 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     }
 
     @Test
+    @DisplayName("Cluster configuration can not be updated if provided config did not pass the validation")
+    void clusterConfigurationUpdateValidation() throws IOException, InterruptedException {
+        // When PATCH /management/v1/configuration/cluster invalid with invalid value
+        HttpResponse<String> patchRequest = client.send(
+                patch("/management/v1/configuration/cluster", "rocksDb.defaultRegion.cache=invalid"),
+                BodyHandlers.ofString()
+        );
+
+        // Then
+        assertThat(patchRequest.statusCode(), is(400));
+        // And invalidParams key is in response body
+        assertThat(patchRequest.body(), hasJsonPath("$.invalidParams"));
+    }
+
+    @Test
     @DisplayName("Cluster configuration by path is available when the cluster is initialized")
     void clusterConfigurationByPath() throws IOException, InterruptedException {
         // When GET /management/v1/configuration/cluster and path selector is "rocksDb.defaultRegion"
@@ -219,5 +246,17 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
                 () -> assertThat(response.body(), hasJsonPath("$.name")),
                 () -> assertThat(response.body(), hasJsonPath("$.state", is(equalTo("STARTED"))))
         );
+    }
+
+    @Test
+    @DisplayName("Node version is available on initialized cluster")
+    void nodeVersion() throws IOException, InterruptedException {
+        // When GET /management/v1/node/version/
+        HttpResponse<String> response = client.send(get("/management/v1/node/version/"), BodyHandlers.ofString());
+
+        // Then
+        assertThat(response.statusCode(), is(200));
+        // And version is a semver
+        assertThat(response.body(), matchesRegex(IGNITE_SEMVER_REGEX));
     }
 }

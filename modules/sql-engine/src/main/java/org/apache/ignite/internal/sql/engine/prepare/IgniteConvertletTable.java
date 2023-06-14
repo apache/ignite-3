@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,7 +27,6 @@ import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlIntervalQualifier;
-import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -66,8 +65,8 @@ public class IgniteConvertletTable extends ReflectiveConvertletTable {
             // TIMESTAMPDIFF(unit, t1, t2)
             //    => (t2 - t1) UNIT
             final RexBuilder rexBuilder = cx.getRexBuilder();
-            final SqlLiteral unitLiteral = call.operand(0);
-            TimeUnit unit = unitLiteral.getValueAs(TimeUnit.class);
+            final SqlIntervalQualifier unitLiteral = call.operand(0);
+            TimeUnit unit = unitLiteral.getUnit();
             BigDecimal multiplier = BigDecimal.ONE;
             BigDecimal divider = BigDecimal.ONE;
             SqlTypeName sqlTypeName = unit == TimeUnit.NANOSECOND

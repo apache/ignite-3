@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -26,9 +26,11 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,6 +38,8 @@ import org.jetbrains.annotations.Nullable;
  * Client SQL session.
  */
 public class FakeSession implements Session {
+    public static final String FAILED_SQL = "SELECT FAIL";
+
     @Nullable
     private final Integer defaultPageSize;
 
@@ -43,7 +47,10 @@ public class FakeSession implements Session {
     private final String defaultSchema;
 
     @Nullable
-    private final Long defaultTimeout;
+    private final Long defaultQueryTimeout;
+
+    @Nullable
+    private final Long defaultSessionTimeout;
 
     @Nullable
     private final Map<String, Object> properties;
@@ -53,36 +60,62 @@ public class FakeSession implements Session {
      *
      * @param defaultPageSize Default page size.
      * @param defaultSchema Default schema.
-     * @param defaultTimeout Default timeout.
+     * @param defaultQueryTimeout Default timeout.
      * @param properties Properties.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public FakeSession(
             @Nullable Integer defaultPageSize,
             @Nullable String defaultSchema,
-            @Nullable Long defaultTimeout,
+            @Nullable Long defaultQueryTimeout,
+            @Nullable Long defaultSessionTimeout,
             @Nullable Map<String, Object> properties) {
         this.defaultPageSize = defaultPageSize;
         this.defaultSchema = defaultSchema;
-        this.defaultTimeout = defaultTimeout;
+        this.defaultQueryTimeout = defaultQueryTimeout;
+        this.defaultSessionTimeout = defaultSessionTimeout;
         this.properties = properties;
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
+    public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
+            @Nullable Transaction transaction,
+            String query,
+            @Nullable Object... arguments) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncResultSet> executeAsync(
+    public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
             Statement statement,
             @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
 
+        if (FAILED_SQL.equals(statement.query())) {
+            return CompletableFuture.failedFuture(new RuntimeException("Query failed"));
+        }
+
         return CompletableFuture.completedFuture(new FakeAsyncResultSet(this, transaction, statement, arguments));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(@Nullable Transaction transaction, @Nullable Mapper<T> mapper,
+            String query, @Nullable Object... arguments) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
+            @Nullable Transaction transaction,
+            @Nullable Mapper<T> mapper,
+            Statement statement,
+            @Nullable Object... arguments) {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -147,8 +180,14 @@ public class FakeSession implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public long defaultTimeout(TimeUnit timeUnit) {
-        return defaultTimeout;
+    public long defaultQueryTimeout(TimeUnit timeUnit) {
+        return defaultQueryTimeout;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long idleTimeout(TimeUnit timeUnit) {
+        return defaultSessionTimeout;
     }
 
     /** {@inheritDoc} */
@@ -166,7 +205,7 @@ public class FakeSession implements Session {
     /** {@inheritDoc} */
     @Override
     public @Nullable Object property(String name) {
-        return null;
+        return properties == null ? null : properties.get(name);
     }
 
     /** {@inheritDoc} */

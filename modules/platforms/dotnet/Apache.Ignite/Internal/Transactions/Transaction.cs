@@ -19,16 +19,15 @@ namespace Apache.Ignite.Internal.Transactions
 {
     using System.Threading;
     using System.Threading.Tasks;
-    using System.Transactions;
-    using Buffers;
+    using Common;
     using Ignite.Transactions;
-    using MessagePack;
     using Proto;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Ignite transaction.
     /// </summary>
-    internal class Transaction : ITransaction
+    internal sealed class Transaction : ITransaction
     {
         /** Open state. */
         private const int StateOpen = 0;
@@ -48,11 +47,13 @@ namespace Apache.Ignite.Internal.Transactions
         /// <param name="id">Transaction id.</param>
         /// <param name="socket">Associated connection.</param>
         /// <param name="failoverSocket">Associated connection multiplexer.</param>
-        public Transaction(long id, ClientSocket socket, ClientFailoverSocket failoverSocket)
+        /// <param name="isReadOnly">Read-only flag.</param>
+        public Transaction(long id, ClientSocket socket, ClientFailoverSocket failoverSocket, bool isReadOnly)
         {
             Id = id;
             Socket = socket;
             FailoverSocket = failoverSocket;
+            IsReadOnly = isReadOnly;
         }
 
         /// <summary>
@@ -71,43 +72,56 @@ namespace Apache.Ignite.Internal.Transactions
         public long Id { get; }
 
         /// <inheritdoc/>
+        public bool IsReadOnly { get; }
+
+        /// <inheritdoc/>
         public async Task CommitAsync()
         {
-            SetState(StateCommitted);
-
-            using var writer = new PooledArrayBufferWriter();
-            Write(writer.GetMessageWriter());
-
-            await Socket.DoOutInOpAsync(ClientOp.TxCommit, writer).ConfigureAwait(false);
-        }
-
-        /// <inheritdoc/>
-        public async Task RollbackAsync()
-        {
-            SetState(StateRolledBack);
-
-            await RollbackAsyncInternal().ConfigureAwait(false);
-        }
-
-        /// <inheritdoc/>
-        public async ValueTask DisposeAsync()
-        {
-            // Roll back if the transaction is still open, otherwise do nothing.
-            if (TrySetState(StateRolledBack))
+            if (TrySetState(StateCommitted))
             {
-                await RollbackAsyncInternal().ConfigureAwait(false);
+                using var writer = ProtoCommon.GetMessageWriter();
+                Write(writer.MessageWriter);
+
+                await Socket.DoOutInOpAsync(ClientOp.TxCommit, writer).ConfigureAwait(false);
             }
+        }
+
+        /// <inheritdoc/>
+        public async Task RollbackAsync() => await RollbackAsyncInternal().ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public async ValueTask DisposeAsync() => await RollbackAsyncInternal().ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public override string ToString()
+        {
+            var state = _state switch
+            {
+                StateOpen => "Open",
+                StateCommitted => "Committed",
+                _ => "RolledBack"
+            };
+
+            var builder = new IgniteToStringBuilder(typeof(Transaction));
+            builder.Append(Id);
+            builder.Append(state, "State");
+            builder.Append(IsReadOnly);
+
+            return builder.Build();
         }
 
         /// <summary>
         /// Rolls back the transaction without state check.
         /// </summary>
-        private async Task RollbackAsyncInternal()
+        private async ValueTask RollbackAsyncInternal()
         {
-            using var writer = new PooledArrayBufferWriter();
-            Write(writer.GetMessageWriter());
+            if (TrySetState(StateRolledBack))
+            {
+                using var writer = ProtoCommon.GetMessageWriter();
+                Write(writer.MessageWriter);
 
-            await Socket.DoOutInOpAsync(ClientOp.TxRollback, writer).ConfigureAwait(false);
+                await Socket.DoOutInOpAsync(ClientOp.TxRollback, writer).ConfigureAwait(false);
+            }
         }
 
         /// <summary>
@@ -115,41 +129,12 @@ namespace Apache.Ignite.Internal.Transactions
         /// </summary>
         /// <param name="state">State to set.</param>
         /// <returns>True when specified state was set successfully; false otherwise.</returns>
-        private bool TrySetState(int state)
-        {
-            return Interlocked.CompareExchange(ref _state, state, StateOpen) == StateOpen;
-        }
-
-        /// <summary>
-        /// Sets the specified state. Throws <see cref="TransactionException"/> when current state is different from
-        /// <see cref="StateOpen"/>.
-        /// </summary>
-        /// <param name="state">State to set.</param>
-        /// <exception cref="TransactionException">When current state is not <see cref="StateOpen"/>.</exception>
-        private void SetState(int state)
-        {
-            var oldState = Interlocked.CompareExchange(ref _state, state, StateOpen);
-
-            if (oldState == StateOpen)
-            {
-                return;
-            }
-
-            var message = oldState == StateCommitted
-                ? "Transaction is already committed."
-                : "Transaction is already rolled back.";
-
-            throw new TransactionException(message);
-        }
+        private bool TrySetState(int state) => Interlocked.CompareExchange(ref _state, state, StateOpen) == StateOpen;
 
         /// <summary>
         /// Writes the transaction.
         /// </summary>
         /// <param name="writer">Writer.</param>
-        private void Write(MessagePackWriter writer)
-        {
-            writer.Write(Id);
-            writer.Flush();
-        }
+        private void Write(MsgPackWriter writer) => writer.Write(Id);
     }
 }

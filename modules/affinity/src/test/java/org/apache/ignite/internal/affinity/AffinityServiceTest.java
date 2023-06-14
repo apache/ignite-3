@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,9 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -34,31 +32,22 @@ import org.junit.jupiter.api.Test;
 public class AffinityServiceTest {
     @Test
     public void testCalculatedAssignmentHappyPath() {
-        List<List<ClusterNode>> assignments = AffinityUtils.calculateAssignments(
-                Arrays.asList(
-                        new ClusterNode(
-                                UUID.randomUUID().toString(), "node0",
-                                new NetworkAddress("localhost", 8080)
-                        ),
-                        new ClusterNode(
-                                UUID.randomUUID().toString(), "node1",
-                                new NetworkAddress("localhost", 8081)
-                        )
-                ),
+        List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(
+                Arrays.asList("node0", "node1"),
                 10,
                 3
         );
 
         assertEquals(10, assignments.size());
 
-        for (List<ClusterNode> partitionAssignment : assignments) {
+        for (Set<Assignment> partitionAssignment : assignments) {
             assertEquals(2, partitionAssignment.size());
         }
     }
 
     @Test
     public void testEmptyBaselineAssignmentsCalculation() {
-        List<List<ClusterNode>> assignments = AffinityUtils.calculateAssignments(
+        List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(
                 Collections.emptyList(),
                 10,
                 3
@@ -66,7 +55,7 @@ public class AffinityServiceTest {
 
         assertEquals(10, assignments.size());
 
-        for (List<ClusterNode> partitionAssignment : assignments) {
+        for (Set<Assignment> partitionAssignment : assignments) {
             assertEquals(0, partitionAssignment.size());
         }
     }

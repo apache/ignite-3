@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -31,10 +32,10 @@ public interface QueryProcessor extends IgniteComponent {
     /**
      * Creates a session with given properties.
      *
-     * @param queryProperties Properties to store within a new session.
+     * @param properties Properties to store within a new session.
      * @return An identifier of a created session.
      */
-    SessionId createSession(PropertiesHolder queryProperties);
+    SessionId createSession(PropertiesHolder properties);
 
     /**
      * Closes the session with given id.
@@ -47,29 +48,13 @@ public interface QueryProcessor extends IgniteComponent {
     CompletableFuture<Void> closeSession(SessionId sessionId);
 
     /**
-     * Execute the query with given schema name and parameters.
+     * Provide list of live sessions.
      *
-     * @param schemaName Schema name.
-     * @param qry Sql query.
-     * @param params Query parameters.
-     * @return List of sql cursors.
+     * <p>This method return the information is actual only on method invocation time.
      *
-     * @throws IgniteException in case of an error.
+     * @return List of active sessions.
      */
-    List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params);
-
-    /**
-     * Execute the query with given schema name and parameters.
-     *
-     * @param context User query context.
-     * @param schemaName Schema name.
-     * @param qry Sql query.
-     * @param params Query parameters.
-     * @return List of sql cursors.
-     *
-     * @throws IgniteException in case of an error.
-     */
-    List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(QueryContext context, String schemaName, String qry, Object... params);
+    List<SessionInfo> liveSessions();
 
     /**
      * Execute the single statement query with given schema name and parameters.

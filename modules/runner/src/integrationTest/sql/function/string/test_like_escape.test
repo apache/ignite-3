@@ -14,10 +14,6 @@ SELECT '%++' NOT LIKE '*%++' ESCAPE '*';
 ----
 false
 
-# unterminated escapes
-statement error
-SELECT '%' LIKE '%' ESCAPE '%';
-
 statement error
 SELECT '%' LIKE '*' ESCAPE '*';
 

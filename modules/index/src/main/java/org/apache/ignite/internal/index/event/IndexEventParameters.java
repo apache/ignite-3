@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.index.event;
 
-import java.util.UUID;
-import org.apache.ignite.internal.index.Index;
+import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.manager.EventParameters;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,44 +25,49 @@ import org.jetbrains.annotations.Nullable;
  * Index event parameters. There are properties which associate with a particular index.
  */
 public class IndexEventParameters extends EventParameters {
+    /** Table identifier. */
+    private final int tableId;
+
     /** Index identifier. */
-    private final UUID indexId;
+    private final int indexId;
 
     /** Index instance. */
-    private final @Nullable Index<?> index;
+    private final @Nullable IndexDescriptor indexDescriptor;
 
     /**
      * Constructor.
      *
      * @param revision Causality token.
-     * @param index An index instance.
+     * @param tableId Table identifier.
+     * @param indexId Index identifier.
      */
-    public IndexEventParameters(long revision, Index<?> index) {
-        this(revision, index.id(), index);
+    public IndexEventParameters(long revision, int tableId, int indexId) {
+        this(revision, tableId, indexId, null);
     }
 
     /**
      * Constructor.
      *
      * @param revision Causality token.
-     * @param indexId  An index identifier.
+     * @param tableId Table identifier.
+     * @param indexId Index identifier.
+     * @param indexDescriptor Index descriptor.
      */
-    public IndexEventParameters(long revision, UUID indexId) {
-        this(revision, indexId, null);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param revision Causality token.
-     * @param indexId An index identifier.
-     * @param index An index instance.
-     */
-    private IndexEventParameters(long revision, UUID indexId, @Nullable Index<?> index) {
+    public IndexEventParameters(long revision, int tableId, int indexId, @Nullable IndexDescriptor indexDescriptor) {
         super(revision);
 
+        this.tableId = tableId;
         this.indexId = indexId;
-        this.index = index;
+        this.indexDescriptor = indexDescriptor;
+    }
+
+    /**
+     * Returns an identifier of the table this event relates to.
+     *
+     * @return An id of the table.
+     */
+    public int tableId() {
+        return tableId;
     }
 
     /**
@@ -71,7 +75,7 @@ public class IndexEventParameters extends EventParameters {
      *
      * @return An id of the index.
      */
-    public UUID indexId() {
+    public int indexId() {
         return indexId;
     }
 
@@ -80,7 +84,7 @@ public class IndexEventParameters extends EventParameters {
      *
      * @return An index.
      */
-    public @Nullable Index<?> index() {
-        return index;
+    public @Nullable IndexDescriptor indexDescriptor() {
+        return indexDescriptor;
     }
 }

@@ -15,12 +15,19 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table
-{
-    using Proto;
+namespace Apache.Ignite.Internal.Table;
 
-    /// <summary>
-    /// Schema column.
-    /// </summary>
-    internal record Column(string Name, ClientDataType Type, bool Nullable, bool IsKey, int SchemaIndex);
-}
+using Ignite.Sql;
+
+/// <summary>
+/// Schema column.
+/// </summary>
+internal record Column(
+    string Name,
+    ColumnType Type,
+    bool IsNullable,
+    bool IsColocation,
+    bool IsKey,
+    int SchemaIndex,
+    int Scale,
+    int Precision);

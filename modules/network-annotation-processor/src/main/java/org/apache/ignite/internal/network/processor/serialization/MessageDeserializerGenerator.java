@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,11 +19,13 @@ package org.apache.ignite.internal.network.processor.serialization;
 
 import static org.apache.ignite.internal.network.processor.messages.MessageImplGenerator.getByteArrayFieldName;
 
+import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
+import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -68,7 +70,7 @@ public class MessageDeserializerGenerator {
      */
     public TypeSpec generateDeserializer(MessageClass message) {
         processingEnv.getMessager()
-                .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageDeserializer", message.element());
+                .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageDeserializer for " + message.className());
 
         FieldSpec msgField = FieldSpec.builder(message.builderClassName(), "msg")
                 .addModifiers(Modifier.PRIVATE, Modifier.FINAL)
@@ -128,9 +130,17 @@ public class MessageDeserializerGenerator {
             method.beginControlFlow("switch (reader.state())");
 
             for (int i = 0; i < getters.size(); ++i) {
+                ExecutableElement getter = getters.get(i);
+
+                String name = getter.getSimpleName().toString();
+
+                if (getter.getAnnotation(Marshallable.class) != null) {
+                    name = getByteArrayFieldName(name);
+                }
+
                 method
                         .beginControlFlow("case $L:", i)
-                        .addStatement(readMessageCodeBlock(getters.get(i), msgField))
+                        .addStatement(readMessageCodeBlock(getter))
                         .addCode("\n")
                         .addCode(CodeBlock.builder()
                                 .beginControlFlow("if (!reader.isLastRead())")
@@ -139,6 +149,7 @@ public class MessageDeserializerGenerator {
                                 .build()
                         )
                         .addCode("\n")
+                        .addStatement("$N.$N(tmp)", msgField, name)
                         .addStatement("reader.incrementState()")
                         .endControlFlow()
                         .addComment("Falls through");
@@ -155,19 +166,20 @@ public class MessageDeserializerGenerator {
     /**
      * Helper method for resolving a {@link MessageReader} "read*" call based on the message field type.
      */
-    private CodeBlock readMessageCodeBlock(ExecutableElement getter, FieldSpec msgField) {
+    private CodeBlock readMessageCodeBlock(ExecutableElement getter) {
         var methodResolver = new MessageReaderMethodResolver(processingEnv);
 
-        String name = getter.getSimpleName().toString();
+        TypeName varType;
 
         if (getter.getAnnotation(Marshallable.class) != null) {
-            name = getByteArrayFieldName(name);
+            varType = ArrayTypeName.of(TypeName.BYTE);
+        } else {
+            varType = TypeName.get(getter.getReturnType());
         }
 
         return CodeBlock.builder()
-                .add("$N.$N(reader.", msgField, name)
+                .add("$T tmp = reader.", varType)
                 .add(methodResolver.resolveReadMethod(getter))
-                .add(")")
                 .build();
     }
 }

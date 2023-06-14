@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Transactions
 {
     using System.Threading.Tasks;
+    using Common;
     using Ignite.Transactions;
     using Proto;
 
@@ -39,17 +40,23 @@ namespace Apache.Ignite.Internal.Transactions
         }
 
         /// <inheritdoc/>
-        public async Task<ITransaction> BeginAsync()
+        public async Task<ITransaction> BeginAsync(TransactionOptions options)
         {
+            using var writer = ProtoCommon.GetMessageWriter();
+            writer.MessageWriter.Write(options.ReadOnly);
+
             // Transaction and all corresponding operations must be performed using the same connection.
-            var (resBuf, socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.TxBegin).ConfigureAwait(false);
+            var (resBuf, socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.TxBegin, request: writer).ConfigureAwait(false);
 
             using (resBuf)
             {
                 var txId = resBuf.GetReader().ReadInt64();
 
-                return new Transaction(txId, socket, _socket);
+                return new Transaction(txId, socket, _socket, options.ReadOnly);
             }
         }
+
+        /// <inheritdoc />
+        public override string ToString() => IgniteToStringBuilder.Build(GetType());
     }
 }

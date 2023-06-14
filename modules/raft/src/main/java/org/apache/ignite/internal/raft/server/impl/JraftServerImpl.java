@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.raft.server.impl;
 
-import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.io.File;
 import java.io.IOException;
@@ -26,31 +27,35 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiPredicate;
-import java.util.stream.Collectors;
-import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
+import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.CommittedConfiguration;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.client.ElectionPriority;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.client.service.CommandClosure;
-import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -58,9 +63,10 @@ import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
-import org.apache.ignite.raft.jraft.core.FSMCallerImpl;
-import org.apache.ignite.raft.jraft.core.NodeImpl;
-import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl;
+import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
+import org.apache.ignite.raft.jraft.core.FSMCallerImpl.ApplyTask;
+import org.apache.ignite.raft.jraft.core.NodeImpl.LogEntryAndClosure;
+import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl.ReadIndexEvent;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -68,12 +74,13 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
-import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.StableClosureEvent;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
-import org.apache.ignite.raft.jraft.util.JDKMarshaller;
+import org.apache.ignite.raft.jraft.util.Marshaller;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -94,8 +101,8 @@ public class JraftServerImpl implements RaftServer {
     /** Server instance. */
     private IgniteRpcServer rpcServer;
 
-    /** Started groups. */
-    private ConcurrentMap<String, RaftGroupService> groups = new ConcurrentHashMap<>();
+    /** Started nodes. */
+    private final ConcurrentMap<RaftNodeId, RaftGroupService> nodes = new ConcurrentHashMap<>();
 
     /** Lock storage with predefined monitor objects,
      * needed to prevent concurrent start of the same raft group. */
@@ -107,8 +114,16 @@ public class JraftServerImpl implements RaftServer {
     /** Options. */
     private final NodeOptions opts;
 
+    private final RaftGroupEventsClientListener raftGroupEventsClientListener;
+
     /** Request executor. */
     private ExecutorService requestExecutor;
+
+    /** Marshaller for RAFT commands. */
+    private final Marshaller commandsMarshaller;
+
+    /** Raft service event interceptor. */
+    private RaftServiceEventInterceptor serviceEventInterceptor;
 
     /** The number of parallel raft groups starts. */
     private static final int SIMULTANEOUS_GROUP_START_PARALLELISM = Math.min(Utils.cpus() * 3, 25);
@@ -120,7 +135,7 @@ public class JraftServerImpl implements RaftServer {
      * @param dataPath Data path.
      */
     public JraftServerImpl(ClusterService service, Path dataPath) {
-        this(service, dataPath, new NodeOptions());
+        this(service, dataPath, new NodeOptions(), new RaftGroupEventsClientListener());
     }
 
     /**
@@ -130,12 +145,18 @@ public class JraftServerImpl implements RaftServer {
      * @param dataPath Data path.
      * @param opts     Default node options.
      */
-    public JraftServerImpl(ClusterService service, Path dataPath, NodeOptions opts) {
+    public JraftServerImpl(
+            ClusterService service,
+            Path dataPath,
+            NodeOptions opts,
+            RaftGroupEventsClientListener raftGroupEventsClientListener
+    ) {
         this.service = service;
         this.dataPath = dataPath;
         this.nodeManager = new NodeManager();
         this.logStorageFactory = new DefaultLogStorageFactory(dataPath.resolve("log"));
         this.opts = opts;
+        this.raftGroupEventsClientListener = raftGroupEventsClientListener;
 
         // Auto-adjust options.
         this.opts.setRpcConnectTimeoutMs(this.opts.getElectionTimeoutMs() / 3);
@@ -143,7 +164,7 @@ public class JraftServerImpl implements RaftServer {
         this.opts.setSharedPools(true);
 
         if (opts.getServerName() == null) {
-            this.opts.setServerName(service.localConfiguration().getName());
+            this.opts.setServerName(service.nodeName());
         }
 
         /*
@@ -165,6 +186,9 @@ public class JraftServerImpl implements RaftServer {
         }
 
         startGroupInProgressMonitors = Collections.unmodifiableList(monitors);
+
+        commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.serializationRegistry());
+        serviceEventInterceptor = new RaftServiceEventInterceptor();
     }
 
     /** {@inheritDoc} */
@@ -211,14 +235,16 @@ public class JraftServerImpl implements RaftServer {
                 service,
                 nodeManager,
                 opts.getRaftMessagesFactory(),
-                requestExecutor
+                requestExecutor,
+                serviceEventInterceptor,
+                raftGroupEventsClientListener
         );
 
         if (opts.getfSMCallerExecutorDisruptor() == null) {
             opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
                     NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-FSMCaller-Disruptor"),
                     opts.getRaftOptions().getDisruptorBufferSize(),
-                    () -> new FSMCallerImpl.ApplyTask(),
+                    ApplyTask::new,
                     opts.getStripes()));
         }
 
@@ -226,7 +252,7 @@ public class JraftServerImpl implements RaftServer {
             opts.setNodeApplyDisruptor(new StripedDisruptor<>(
                     NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-NodeImpl-Disruptor"),
                     opts.getRaftOptions().getDisruptorBufferSize(),
-                    () -> new NodeImpl.LogEntryAndClosure(),
+                    LogEntryAndClosure::new,
                     opts.getStripes()));
         }
 
@@ -234,15 +260,15 @@ public class JraftServerImpl implements RaftServer {
             opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
                     NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-ReadOnlyService-Disruptor"),
                     opts.getRaftOptions().getDisruptorBufferSize(),
-                    () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
+                    ReadIndexEvent::new,
                     opts.getStripes()));
         }
 
         if (opts.getLogManagerDisruptor() == null) {
-            opts.setLogManagerDisruptor(new StripedDisruptor<LogManagerImpl.StableClosureEvent>(
+            opts.setLogManagerDisruptor(new StripedDisruptor<>(
                     NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-LogManager-Disruptor"),
                     opts.getRaftOptions().getDisruptorBufferSize(),
-                    () -> new LogManagerImpl.StableClosureEvent(),
+                    StableClosureEvent::new,
                     opts.getStripes()));
         }
 
@@ -254,7 +280,7 @@ public class JraftServerImpl implements RaftServer {
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
-        assert groups.isEmpty() : IgniteStringFormatter.format("Raft groups {} are still running on the node {}", groups.keySet(),
+        assert nodes.isEmpty() : IgniteStringFormatter.format("Raft nodes {} are still running on the Ignite node {}", nodes.keySet(),
                 service.topologyService().localMember().name());
 
         rpcServer.shutdown();
@@ -321,69 +347,75 @@ public class JraftServerImpl implements RaftServer {
     /**
      * Returns path to persistence folder.
      *
-     * @param groupId Group id.
+     * @param nodeId Node ID.
      * @return The path to persistence folder.
      */
-    public Path getServerDataPath(String groupId) {
-        ClusterNode clusterNode = service.topologyService().localMember();
-
-        String dirName = groupId + "_" + clusterNode.address().toString().replace(':', '_');
-
-        return this.dataPath.resolve(dirName);
+    public Path getServerDataPath(RaftNodeId nodeId) {
+        return this.dataPath.resolve(nodeIdStr(nodeId));
     }
 
-    /** {@inheritDoc} */
+    private static String nodeIdStr(RaftNodeId nodeId) {
+        return String.join(
+                "_",
+                nodeId.groupId().toString(),
+                nodeId.peer().consistentId(),
+                String.valueOf(nodeId.peer().idx())
+        );
+    }
+
     @Override
-    public boolean startRaftGroup(
-            String groupId,
+    public boolean startRaftNode(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
             RaftGroupListener lsnr,
-            @Nullable List<Peer> initialConf,
             RaftGroupOptions groupOptions
     ) {
-        return startRaftGroup(groupId, RaftGroupEventsListener.noopLsnr, lsnr, initialConf, groupOptions);
+        return startRaftNode(nodeId, configuration, RaftGroupEventsListener.noopLsnr, lsnr, groupOptions);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public boolean startRaftGroup(
-            String grpId,
+    public boolean startRaftNode(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
             RaftGroupEventsListener evLsnr,
             RaftGroupListener lsnr,
-            @Nullable List<Peer> initialConf,
             RaftGroupOptions groupOptions
     ) {
-        // fast track to check if group with the same name is already created.
-        if (groups.containsKey(grpId)) {
+        assert nodeId.peer().consistentId().equals(service.topologyService().localMember().name());
+
+        // fast track to check if node with the same ID is already created.
+        if (nodes.containsKey(nodeId)) {
             return false;
         }
 
-        synchronized (groupMonitor(grpId)) {
-            // double check if group wasn't created before receiving the lock.
-            if (groups.containsKey(grpId)) {
+        synchronized (startNodeMonitor(nodeId)) {
+            // double check if node wasn't created before receiving the lock.
+            if (nodes.containsKey(nodeId)) {
                 return false;
             }
 
             // Thread pools are shared by all raft groups.
             NodeOptions nodeOptions = opts.copy();
 
-            // TODO: IGNITE-17083 - Do not create paths for volatile stores at all when we get rid of snapshot storage on FS.
-            Path serverDataPath = getServerDataPath(grpId);
+            nodeOptions.setLogUri(nodeIdStr(nodeId));
 
-            try {
-                Files.createDirectories(serverDataPath);
-            } catch (IOException e) {
-                throw new IgniteInternalException(e);
+            Path serverDataPath = getServerDataPath(nodeId);
+
+            if (!groupOptions.volatileStores()) {
+                try {
+                    Files.createDirectories(serverDataPath);
+                } catch (IOException e) {
+                    throw new IgniteInternalException(e);
+                }
             }
-
-            nodeOptions.setLogUri(grpId);
 
             nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
 
             nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
 
-            nodeOptions.setFsm(new DelegatingStateMachine(lsnr));
+            nodeOptions.setFsm(new DelegatingStateMachine(lsnr, commandsMarshaller));
 
-            nodeOptions.setRaftGrpEvtsLsnr(evLsnr);
+            nodeOptions.setRaftGrpEvtsLsnr(new RaftGroupEventsListenerAdapter(nodeId.groupId(), serviceEventInterceptor, evLsnr));
 
             LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory() == null
                     ? this.logStorageFactory : groupOptions.getLogStorageFactory();
@@ -400,34 +432,44 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setServiceFactory(serviceFactory);
 
-            if (initialConf != null) {
-                List<PeerId> mapped = initialConf.stream().map(PeerId::fromPeer).collect(Collectors.toList());
+            List<PeerId> peerIds = configuration.peers().stream().map(PeerId::fromPeer).collect(toList());
 
-                nodeOptions.setInitialConf(new Configuration(mapped, null));
-            }
+            List<PeerId> learnerIds = configuration.learners().stream().map(PeerId::fromPeer).collect(toList());
+
+            nodeOptions.setInitialConf(new Configuration(peerIds, learnerIds));
 
             IgniteRpcClient client = new IgniteRpcClient(service);
 
             nodeOptions.setRpcClient(client);
 
-            NetworkAddress addr = service.topologyService().localMember().address();
-
-            var peerId = new PeerId(addr.host(), addr.port(), 0, ElectionPriority.DISABLED);
-
-            var server = new RaftGroupService(grpId, peerId, nodeOptions, rpcServer, nodeManager);
+            var server = new RaftGroupService(
+                    nodeId.groupId().toString(),
+                    PeerId.fromPeer(nodeId.peer()),
+                    nodeOptions,
+                    rpcServer,
+                    nodeManager,
+                    groupOptions.ownFsmCallerExecutorDisruptorConfig()
+            );
 
             server.start();
 
-            groups.put(grpId, server);
+            nodes.put(nodeId, server);
 
             return true;
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public boolean stopRaftGroup(String grpId) {
-        RaftGroupService svc = groups.remove(grpId);
+    public CompletableFuture<Long> raftNodeReadyFuture(ReplicationGroupId groupId) {
+        RaftGroupService jraftNode = nodes.entrySet().stream().filter(entry -> entry.getKey().groupId().equals(groupId))
+                .map(Entry::getValue).findAny().get();
+
+        return jraftNode.getApplyCommittedFuture();
+    }
+
+    @Override
+    public boolean stopRaftNode(RaftNodeId nodeId) {
+        RaftGroupService svc = nodes.remove(nodeId);
 
         boolean stopped = svc != null;
 
@@ -438,45 +480,62 @@ public class JraftServerImpl implements RaftServer {
         return stopped;
     }
 
+    @Override
+    public boolean stopRaftNodes(ReplicationGroupId groupId) {
+        return nodes.entrySet().removeIf(e -> {
+            RaftNodeId nodeId = e.getKey();
+            RaftGroupService service = e.getValue();
+
+            if (nodeId.groupId().equals(groupId)) {
+                service.shutdown();
+
+                return true;
+            } else {
+                return false;
+            }
+        });
+    }
+
     /** {@inheritDoc} */
     @Override
-    public Peer localPeer(String groupId) {
-        RaftGroupService service = groups.get(groupId);
-
-        if (service == null) {
-            return null;
-        }
-
-        PeerId peerId = service.getRaftNode().getNodeId().getPeerId();
-
-        return new Peer(addressFromEndpoint(peerId.getEndpoint()), peerId.getPriority());
+    public List<Peer> localPeers(ReplicationGroupId groupId) {
+        return nodes.keySet().stream()
+                .filter(nodeId -> nodeId.groupId().equals(groupId))
+                .map(RaftNodeId::peer)
+                .collect(toList());
     }
 
     /**
      * Returns service group.
      *
-     * @param groupId Group id.
+     * @param nodeId Node ID.
      * @return Service group.
      */
-    public RaftGroupService raftGroupService(String groupId) {
-        return groups.get(groupId);
+    public RaftGroupService raftGroupService(RaftNodeId nodeId) {
+        return nodes.get(nodeId);
     }
 
     /** {@inheritDoc} */
     @Override
-    public Set<String> startedGroups() {
-        return groups.keySet();
+    public Set<RaftNodeId> localNodes() {
+        return nodes.keySet();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NodeOptions options() {
+        return opts;
     }
 
     /**
      * Blocks messages for raft group node according to provided predicate.
      *
-     * @param groupId Raft group id.
+     * @param nodeId Raft node ID.
      * @param predicate Predicate to block messages.
      */
     @TestOnly
-    public void blockMessages(String groupId, BiPredicate<Object, String> predicate) {
-        IgniteRpcClient client = (IgniteRpcClient) groups.get(groupId).getNodeOptions().getRpcClient();
+    public void blockMessages(RaftNodeId nodeId, BiPredicate<Object, String> predicate) {
+        IgniteRpcClient client = (IgniteRpcClient) nodes.get(nodeId).getNodeOptions().getRpcClient();
 
         client.blockMessages(predicate);
     }
@@ -484,23 +543,23 @@ public class JraftServerImpl implements RaftServer {
     /**
      * Stops blocking messages for raft group node.
      *
-     * @param groupId Raft group id.
+     * @param nodeId Raft node ID.
      */
     @TestOnly
-    public void stopBlockMessages(String groupId) {
-        IgniteRpcClient client = (IgniteRpcClient) groups.get(groupId).getNodeOptions().getRpcClient();
+    public void stopBlockMessages(RaftNodeId nodeId) {
+        IgniteRpcClient client = (IgniteRpcClient) nodes.get(nodeId).getNodeOptions().getRpcClient();
 
         client.stopBlock();
     }
 
     /**
-     * Returns the monitor object, which can be used to synchronize start operation by group id.
+     * Returns the monitor object, which can be used to synchronize start operation by node ID.
      *
-     * @param grpId Group id.
+     * @param nodeId Node ID.
      * @return Monitor object.
      */
-    private Object groupMonitor(String grpId) {
-        return startGroupInProgressMonitors.get(Math.abs(grpId.hashCode() % SIMULTANEOUS_GROUP_START_PARALLELISM));
+    private Object startNodeMonitor(RaftNodeId nodeId) {
+        return startGroupInProgressMonitors.get(Math.abs(nodeId.hashCode() % SIMULTANEOUS_GROUP_START_PARALLELISM));
     }
 
     /**
@@ -509,13 +568,17 @@ public class JraftServerImpl implements RaftServer {
     public static class DelegatingStateMachine extends StateMachineAdapter {
         private final RaftGroupListener listener;
 
+        private final Marshaller marshaller;
+
         /**
          * Constructor.
          *
          * @param listener The listener.
+         * @param marshaller Marshaller.
          */
-        DelegatingStateMachine(RaftGroupListener listener) {
+        DelegatingStateMachine(RaftGroupListener listener, Marshaller marshaller) {
             this.listener = listener;
+            this.marshaller = marshaller;
         }
 
         public RaftGroupListener getListener() {
@@ -537,15 +600,22 @@ public class JraftServerImpl implements RaftServer {
                         @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) iter.done();
                         ByteBuffer data = iter.getData();
 
-                        WriteCommand command = done == null ? JDKMarshaller.DEFAULT.unmarshall(data.array()) : done.command();
+                        WriteCommand command = done == null ? marshaller.unmarshall(data.array()) : done.command();
 
                         long commandIndex = iter.getIndex();
+                        long commandTerm = iter.getTerm();
 
                         return new CommandClosure<>() {
                             /** {@inheritDoc} */
                             @Override
                             public long index() {
                                 return commandIndex;
+                            }
+
+                            /** {@inheritDoc} */
+                            @Override
+                            public long term() {
+                                return commandTerm;
                             }
 
                             /** {@inheritDoc} */
@@ -581,6 +651,26 @@ public class JraftServerImpl implements RaftServer {
 
                 iter.setErrorAndRollback(1, st);
             }
+        }
+
+        @Override
+        public void onRawConfigurationCommitted(ConfigurationEntry entry) {
+            boolean hasOldConf = entry.getOldConf() != null && entry.getOldConf().getPeers() != null;
+
+            CommittedConfiguration committedConf = new CommittedConfiguration(
+                    entry.getId().getIndex(),
+                    entry.getId().getTerm(),
+                    peersIdsToStrings(entry.getConf().getPeers()),
+                    peersIdsToStrings(entry.getConf().getLearners()),
+                    hasOldConf ? peersIdsToStrings(entry.getOldConf().getPeers()) : null,
+                    hasOldConf ? peersIdsToStrings(entry.getOldConf().getLearners()) : null
+            );
+
+            listener.onConfigurationCommitted(committedConf);
+        }
+
+        private static List<String> peersIdsToStrings(Collection<PeerId> peerIds) {
+            return peerIds.stream().map(PeerId::toString).collect(toUnmodifiableList());
         }
 
         /** {@inheritDoc} */

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -28,8 +28,7 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationMappingException;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentMappingException;
-import org.apache.ignite.internal.sql.engine.metadata.IgniteMdFragmentMapping;
-import org.apache.ignite.internal.sql.engine.metadata.MappingService;
+import org.apache.ignite.internal.sql.engine.metadata.IgniteFragmentMapping;
 import org.apache.ignite.internal.sql.engine.metadata.NodeMappingException;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -37,7 +36,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -56,27 +54,32 @@ public class Fragment {
 
     private final List<IgniteReceiver> remotes;
 
+    private final boolean correlated;
+
     /**
      * Constructor.
      *
-     * @param id      Fragment id.
-     * @param root    Root node of the fragment.
+     * @param id An identifier of this fragment.
+     * @param correlated Whether some correlated variables should be set prior to fragment execution.
+     * @param root Root node of the fragment.
      * @param remotes Remote sources of the fragment.
      */
-    public Fragment(long id, IgniteRel root, List<IgniteReceiver> remotes) {
-        this(id, root, remotes, null, null);
+    public Fragment(long id, boolean correlated, IgniteRel root, List<IgniteReceiver> remotes) {
+        this(id, root, correlated, remotes, null, null);
     }
 
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    Fragment(long id, IgniteRel root, List<IgniteReceiver> remotes, @Nullable String rootSer, @Nullable FragmentMapping mapping) {
+    Fragment(long id, IgniteRel root, boolean correlated, List<IgniteReceiver> remotes,
+            @Nullable String rootSer, @Nullable FragmentMapping mapping) {
         this.id = id;
         this.root = root;
         this.remotes = List.copyOf(remotes);
         this.rootSer = rootSer != null ? rootSer : toJson(root);
         this.mapping = mapping;
+        this.correlated = correlated;
     }
 
     /**
@@ -108,18 +111,18 @@ public class Fragment {
 
     private FragmentMapping mapping(MappingQueryContext ctx, RelMetadataQuery mq, Supplier<List<String>> nodesSource) {
         try {
-            FragmentMapping mapping = IgniteMdFragmentMapping.fragmentMappingForMetadataQuery(root, mq, ctx);
+            FragmentMapping mapping = IgniteFragmentMapping.calculateMapping(root, mq, ctx);
 
             if (rootFragment()) {
-                mapping = FragmentMapping.create(ctx.localNodeId()).colocate(mapping);
+                mapping = FragmentMapping.create(ctx.locNodeName()).colocate(mapping);
             }
 
-            if (single() && mapping.nodeIds().size() > 1) {
+            if (single() && mapping.nodeNames().size() > 1) {
                 // this is possible when the fragment contains scan of a replicated cache, which brings
                 // several nodes (actually all containing nodes) to the colocation group, but this fragment
                 // supposed to be executed on a single node, so let's choose one wisely
-                mapping = FragmentMapping.create(mapping.nodeIds()
-                        .get(ThreadLocalRandom.current().nextInt(mapping.nodeIds().size()))).colocate(mapping);
+                mapping = FragmentMapping.create(mapping.nodeNames()
+                        .get(ThreadLocalRandom.current().nextInt(mapping.nodeNames().size()))).colocate(mapping);
             }
 
             return mapping.finalize(nodesSource);
@@ -128,6 +131,16 @@ public class Fragment {
         } catch (ColocationMappingException e) {
             throw new FragmentMappingException("Failed to calculate physical distribution", this, root, e);
         }
+    }
+
+    /**
+     * Returns {@code true} if this fragment expecting some correlated variables being set from
+     * outside (e.g. parent fragment).
+     *
+     * @return {@code true} if correlated variables should be set prior to start the execution of this fragment.
+     */
+    public boolean correlated() {
+        return correlated;
     }
 
     /**
@@ -151,17 +164,16 @@ public class Fragment {
      * @param ctx Planner context.
      * @param mq  Metadata query.
      */
-    Fragment map(MappingService mappingSrvc, MappingQueryContext ctx, RelMetadataQuery mq) throws FragmentMappingException {
+    Fragment map(MappingQueryContext ctx, RelMetadataQuery mq) throws FragmentMappingException {
         if (mapping != null) {
             return this;
         }
 
-        return new Fragment(id, root, remotes, rootSer, mapping(ctx, mq, nodesSource(mappingSrvc, ctx)));
+        return new Fragment(id, root, correlated, remotes, rootSer, mapping(ctx, mq, nodesSource(ctx)));
     }
 
-    @NotNull
-    private Supplier<List<String>> nodesSource(MappingService mappingSrvc, MappingQueryContext ctx) {
-        return () -> mappingSrvc.executionNodes(single(), null);
+    private Supplier<List<String>> nodesSource(MappingQueryContext ctx) {
+        return () -> ctx.mappingService().executionNodes(single(), null);
     }
 
     private boolean single() {

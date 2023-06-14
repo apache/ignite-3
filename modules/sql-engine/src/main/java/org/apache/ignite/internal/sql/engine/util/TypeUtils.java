@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,7 +20,10 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
 
 import java.lang.reflect.Type;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -30,6 +33,7 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -39,20 +43,25 @@ import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.VarlenNativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * TypeUtils.
@@ -82,6 +91,30 @@ public class TypeUtils {
             SqlTypeName.INTERVAL_YEAR_MONTH
     );
 
+    private static class SupportedParamClassesHolder {
+        static final Set<Class<?>> supportedParamClasses;
+
+        static {
+            supportedParamClasses = Arrays.stream(ColumnType.values()).map(ColumnType::columnTypeToClass).collect(Collectors.toSet());
+            supportedParamClasses.add(boolean.class);
+            supportedParamClasses.add(byte.class);
+            supportedParamClasses.add(short.class);
+            supportedParamClasses.add(int.class);
+            supportedParamClasses.add(long.class);
+            supportedParamClasses.add(float.class);
+            supportedParamClasses.add(double.class);
+        }
+    }
+
+    private static Set<Class<?>> supportedParamClasses() {
+        return SupportedParamClassesHolder.supportedParamClasses;
+    }
+
+    /** Return {@code true} if supplied object is suitable as dynamic parameter. */
+    public static boolean supportParamInstance(Object param) {
+        return param == null || supportedParamClasses().contains(param.getClass());
+    }
+
     /**
      * CombinedRowType.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -106,48 +139,6 @@ public class TypeUtils {
         }
 
         return builder.build();
-    }
-
-    /**
-     * NeedCast.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static boolean needCast(RelDataTypeFactory factory, RelDataType fromType, RelDataType toType) {
-        // This prevents that we cast a JavaType to normal RelDataType.
-        if (fromType instanceof RelDataTypeFactoryImpl.JavaType
-                && toType.getSqlTypeName() == fromType.getSqlTypeName()) {
-            return false;
-        }
-
-        // Do not make a cast when we don't know specific type (ANY) of the origin node.
-        if (toType.getSqlTypeName() == SqlTypeName.ANY
-                || fromType.getSqlTypeName() == SqlTypeName.ANY) {
-            return false;
-        }
-
-        // No need to cast between char and varchar.
-        if (SqlTypeUtil.isCharacter(toType) && SqlTypeUtil.isCharacter(fromType)) {
-            return false;
-        }
-
-        // No need to cast if the source type precedence list
-        // contains target type. i.e. do not cast from
-        // tinyint to int or int to bigint.
-        if (fromType.getPrecedenceList().containsType(toType)
-                && SqlTypeUtil.isIntType(fromType)
-                && SqlTypeUtil.isIntType(toType)) {
-            return false;
-        }
-
-        // Implicit type coercion does not handle nullability.
-        if (SqlTypeUtil.equalSansNullability(factory, fromType, toType)) {
-            return false;
-        }
-
-        // Should keep sync with rules in SqlTypeCoercionRule.
-        assert SqlTypeUtil.canCastFrom(toType, fromType, true);
-
-        return true;
     }
 
     /**
@@ -212,7 +203,7 @@ public class TypeUtils {
         Type storageType = ectx.getTypeFactory().getResultClass(fieldType);
 
         if (isConvertableType(fieldType)) {
-            return v -> fromInternal(ectx, v, storageType);
+            return v -> fromInternal(v, storageType);
         }
 
         return Function.identity();
@@ -232,18 +223,22 @@ public class TypeUtils {
     }
 
     /**
-     * ToInternal.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * ToInternal. Converts the given value to its presentation used by the execution engine.
+     *
+     * @deprecated The implementation of this method is incorrect because it relies on the assumption that
+     *      {@code val.getClass() == storageType(val)} is always true, which sometimes is not the case.
+     *      Use {@link #toInternal(Object, Type)} that provides type information instead.
      */
-    public static Object toInternal(ExecutionContext<?> ectx, Object val) {
-        return val == null ? null : toInternal(ectx, val, val.getClass());
+    @Deprecated
+    public static @Nullable Object toInternal(Object val) {
+        return val == null ? null : toInternal(val, val.getClass());
     }
 
     /**
      * ToInternal.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static Object toInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
+    public static @Nullable Object toInternal(Object val, Type storageType) {
         if (val == null) {
             return null;
         } else if (storageType == LocalDate.class) {
@@ -254,15 +249,48 @@ public class TypeUtils {
             var dt = (LocalDateTime) val;
 
             return TimeUnit.SECONDS.toMillis(dt.toEpochSecond(ZoneOffset.UTC)) + TimeUnit.NANOSECONDS.toMillis(dt.getNano());
+        } else if (storageType == Instant.class) {
+            var timeStamp = (Instant) val;
+
+            return timeStamp.toEpochMilli();
         } else if (storageType == Duration.class) {
             return TimeUnit.SECONDS.toMillis(((Duration) val).getSeconds())
                     + TimeUnit.NANOSECONDS.toMillis(((Duration) val).getNano());
         } else if (storageType == Period.class) {
             return (int) ((Period) val).toTotalMonths();
         } else if (storageType == byte[].class) {
-            return new ByteString((byte[]) val);
+            if (val instanceof String) {
+                return new ByteString(((String) val).getBytes(StandardCharsets.UTF_8));
+            } else if (val instanceof byte[]) {
+                return new ByteString((byte[]) val);
+            } else {
+                assert val instanceof ByteString : "Expected ByteString but got " + val + ", type=" + val.getClass().getTypeName();
+                return val;
+            }
+        } else if (val instanceof Number && storageType != val.getClass()) {
+            // For dynamic parameters we don't know exact parameter type in compile time. To avoid casting errors in
+            // runtime we should convert parameter value to expected type.
+            Number num = (Number) val;
+
+            return Byte.class.equals(storageType) || byte.class.equals(storageType) ? SqlFunctions.toByte(num) :
+                    Short.class.equals(storageType) || short.class.equals(storageType) ? SqlFunctions.toShort(num) :
+                            Integer.class.equals(storageType) || int.class.equals(storageType) ? SqlFunctions.toInt(num) :
+                                    Long.class.equals(storageType) || long.class.equals(storageType) ? SqlFunctions.toLong(num) :
+                                            Float.class.equals(storageType) || float.class.equals(storageType) ? SqlFunctions.toFloat(num) :
+                                                    Double.class.equals(storageType) || double.class.equals(storageType)
+                                                            ? SqlFunctions.toDouble(num) :
+                                                            BigDecimal.class.equals(storageType) ? SqlFunctions.toBigDecimal(num) : num;
         } else {
-            return val;
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17298 SQL: Support BOOLEAN datatype.
+            //   Fix this after BOOLEAN type supported is implemented.
+            if (storageType == Boolean.class || storageType == boolean.class) {
+                return val;
+            }
+            var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
+            assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
+
+            var customType = SafeCustomTypeInternalConversion.INSTANCE.tryConvertToInternal(val, nativeTypeSpec);
+            return customType != null ? customType : val;
         }
     }
 
@@ -270,7 +298,7 @@ public class TypeUtils {
      * FromInternal.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static Object fromInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
+    public static @Nullable Object fromInternal(@Nullable  Object val, Type storageType) {
         if (val == null) {
             return null;
         } else if (storageType == LocalDate.class && val instanceof Integer) {
@@ -280,6 +308,8 @@ public class TypeUtils {
         } else if (storageType == LocalDateTime.class && (val instanceof Long)) {
             return LocalDateTime.ofEpochSecond(TimeUnit.MILLISECONDS.toSeconds((Long) val),
                     (int) TimeUnit.MILLISECONDS.toNanos((Long) val % 1000), ZoneOffset.UTC);
+        } else if (storageType == Instant.class && val instanceof Long) {
+            return Instant.ofEpochMilli((long) val);
         } else if (storageType == Duration.class && val instanceof Long) {
             return Duration.ofMillis((Long) val);
         } else if (storageType == Period.class && val instanceof Integer) {
@@ -287,53 +317,67 @@ public class TypeUtils {
         } else if (storageType == byte[].class && val instanceof ByteString) {
             return ((ByteString) val).getBytes();
         } else {
-            return val;
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17298 SQL: Support BOOLEAN datatype.
+            //   Fix this after BOOLEAN type supported is implemented.
+            if (storageType == Boolean.class) {
+                return val;
+            }
+            var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
+            assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
+
+            var customType = SafeCustomTypeInternalConversion.INSTANCE.tryConvertFromInternal(val, nativeTypeSpec);
+            return customType != null ? customType : val;
         }
     }
 
     /**
      * Convert calcite date type to Ignite native type.
      */
-    public static SqlColumnType columnType(RelDataType type) {
+    public static ColumnType columnType(RelDataType type) {
         switch (type.getSqlTypeName()) {
             case VARCHAR:
             case CHAR:
-                return SqlColumnType.STRING;
+                return ColumnType.STRING;
             case DATE:
-                return SqlColumnType.DATE;
+                return ColumnType.DATE;
             case TIME:
             case TIME_WITH_LOCAL_TIME_ZONE:
-                return SqlColumnType.TIME;
+                return ColumnType.TIME;
             case INTEGER:
-                return SqlColumnType.INT32;
+                return ColumnType.INT32;
             case TIMESTAMP:
-                return SqlColumnType.DATETIME;
+                return ColumnType.DATETIME;
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return SqlColumnType.TIMESTAMP;
+                return ColumnType.TIMESTAMP;
             case BIGINT:
-                return SqlColumnType.INT64;
+                return ColumnType.INT64;
             case SMALLINT:
-                return SqlColumnType.INT16;
+                return ColumnType.INT16;
             case TINYINT:
-                return SqlColumnType.INT8;
+                return ColumnType.INT8;
             case BOOLEAN:
-                return SqlColumnType.BOOLEAN;
+                return ColumnType.BOOLEAN;
             case DECIMAL:
-                return SqlColumnType.DECIMAL;
+                return ColumnType.DECIMAL;
             case DOUBLE:
-                return SqlColumnType.DOUBLE;
+                return ColumnType.DOUBLE;
             case REAL:
             case FLOAT:
-                return SqlColumnType.FLOAT;
+                return ColumnType.FLOAT;
             case BINARY:
             case VARBINARY:
             case ANY:
+                if (type instanceof IgniteCustomType) {
+                    IgniteCustomType customType = (IgniteCustomType) type;
+                    return customType.spec().columnType();
+                }
+                // fallthrough
             case OTHER:
-                return SqlColumnType.BYTE_ARRAY;
+                return ColumnType.BYTE_ARRAY;
             case INTERVAL_YEAR:
             case INTERVAL_YEAR_MONTH:
             case INTERVAL_MONTH:
-                return SqlColumnType.PERIOD;
+                return ColumnType.PERIOD;
             case INTERVAL_DAY_HOUR:
             case INTERVAL_DAY_MINUTE:
             case INTERVAL_DAY_SECOND:
@@ -344,7 +388,9 @@ public class TypeUtils {
             case INTERVAL_MINUTE_SECOND:
             case INTERVAL_SECOND:
             case INTERVAL_DAY:
-                return SqlColumnType.DURATION;
+                return ColumnType.DURATION;
+            case NULL:
+                return ColumnType.NULL;
             default:
                 assert false : "Unexpected type of result: " + type.getSqlTypeName();
                 return null;
@@ -391,7 +437,8 @@ public class TypeUtils {
 
                 return factory.createSqlType(SqlTypeName.DECIMAL, decimal.precision(), decimal.scale());
             case UUID:
-                throw new AssertionError("UUID is not supported yet");
+                IgniteTypeFactory concreteTypeFactory = (IgniteTypeFactory) factory;
+                return concreteTypeFactory.createCustomType(UuidType.NAME);
             case STRING: {
                 assert nativeType instanceof VarlenNativeType;
 
@@ -404,9 +451,10 @@ public class TypeUtils {
 
                 var varlen = (VarlenNativeType) nativeType;
 
-                return factory.createSqlType(SqlTypeName.BINARY, varlen.length());
+                return factory.createSqlType(SqlTypeName.VARBINARY, varlen.length());
             }
             case BITMASK:
+                // TODO IGNITE-18431.
                 throw new AssertionError("BITMASK is not supported yet");
             case NUMBER:
                 assert nativeType instanceof NumberNativeType;
@@ -436,6 +484,85 @@ public class TypeUtils {
                 return factory.createSqlType(SqlTypeName.TIMESTAMP, dt.precision());
             default:
                 throw new IllegalStateException("Unexpected native type " + nativeType);
+        }
+    }
+
+    /** Converts {@link ColumnType} to corresponding {@link NativeType}. */
+    public static NativeType columnType2NativeType(ColumnType columnType, int precision, int scale) {
+        switch (columnType) {
+            case BOOLEAN:
+                throw new IllegalArgumentException("No NativeType for type: " + columnType);
+            case INT8:
+                return NativeTypes.INT8;
+            case INT16:
+                return NativeTypes.INT16;
+            case INT32:
+                return NativeTypes.INT32;
+            case INT64:
+                return NativeTypes.INT64;
+            case FLOAT:
+                return NativeTypes.FLOAT;
+            case DOUBLE:
+                return NativeTypes.DOUBLE;
+            case DECIMAL:
+                return NativeTypes.decimalOf(precision, scale);
+            case DATE:
+                return NativeTypes.DATE;
+            case TIME:
+                return NativeTypes.time(precision);
+            case DATETIME:
+                return NativeTypes.datetime(precision);
+            case TIMESTAMP:
+                return NativeTypes.timestamp(precision);
+            case UUID:
+                return NativeTypes.UUID;
+            case BITMASK:
+                return NativeTypes.bitmaskOf(precision);
+            case STRING:
+                return NativeTypes.stringOf(precision);
+            case BYTE_ARRAY:
+                return NativeTypes.blobOf(precision);
+            case NUMBER:
+                return NativeTypes.numberOf(precision);
+                // fallthrough
+            case PERIOD:
+            case DURATION:
+            case NULL:
+            default:
+                throw new IllegalArgumentException("No NativeType for type: " + columnType);
+        }
+    }
+
+
+    /**
+     * Checks that {@code toType} and {@code fromType} have compatible type families taking into account custom data types.
+     * Types {@code T1} and {@code T2} have compatible type families if {@code T1} can be assigned to {@code T2} and vice-versa.
+     *
+     * @see SqlTypeUtil#canAssignFrom(RelDataType, RelDataType)
+     */
+    public static boolean typeFamiliesAreCompatible(RelDataTypeFactory typeFactory, RelDataType toType, RelDataType fromType) {
+
+        // Same types are always compatible.
+        if (SqlTypeUtil.equalSansNullability(typeFactory, toType, fromType)) {
+            return true;
+        }
+
+        // NULL is compatible with all types.
+        if (fromType.getSqlTypeName() == SqlTypeName.NULL || toType.getSqlTypeName() == SqlTypeName.NULL) {
+            return true;
+        } else if (fromType instanceof IgniteCustomType && toType instanceof IgniteCustomType) {
+            IgniteCustomType fromCustom = (IgniteCustomType) fromType;
+            IgniteCustomType toCustom = (IgniteCustomType) toType;
+
+            // IgniteCustomType: different custom data types are not compatible.
+            return Objects.equals(fromCustom.getCustomTypeName(), toCustom.getCustomTypeName());
+        } else if (fromType instanceof IgniteCustomType || toType instanceof IgniteCustomType) {
+            // IgniteCustomType: custom data types are not compatible with other types.
+            return false;
+        } else if (SqlTypeUtil.canAssignFrom(toType, fromType)) {
+            return SqlTypeUtil.canAssignFrom(fromType, toType);
+        } else {
+            return false;
         }
     }
 }

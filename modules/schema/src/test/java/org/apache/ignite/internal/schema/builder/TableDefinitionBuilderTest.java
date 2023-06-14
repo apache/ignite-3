@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,10 +19,10 @@ package org.apache.ignite.internal.schema.builder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.schema.definition.builder.TableDefinitionBuilder;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.builder.TableDefinitionBuilder;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -42,7 +42,6 @@ public class TableDefinitionBuilderTest {
 
         TableDefinition tbl = builder.build();
 
-        assertEquals("SNAME.TNAME", tbl.canonicalName());
         assertEquals("TNAME", tbl.name());
         assertEquals(1, tbl.keyColumns().size());
     }

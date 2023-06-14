@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,26 +17,18 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
-import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockValidationContext;
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.validate;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableValidator;
-import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.schema.configuration.schema.TestDataStorageConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -46,33 +38,41 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class TableValidatorImplTest {
-    /** Basic table configuration to mutate and then validate. */
     @InjectConfiguration(
-            value = "mock.tables = [{\n"
-                    + "    name = schema.table,\n"
-                    + "    columns.id {type.type = STRING, nullable = true},\n"
-                    + "    primaryKey {columns = [id], colocationColumns = [id]},\n"
-                    + "    indices.foo {type = HASH, columnNames = [id]}\n"
-                    + "}]",
-            polymorphicExtensions = {
-                    HashIndexConfigurationSchema.class,
-                    SortedIndexConfigurationSchema.class,
-                    UnknownDataStorageConfigurationSchema.class,
-                    TestDataStorageConfigurationSchema.class,
-                    ConstantValueDefaultConfigurationSchema.class,
-                    FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class,
-                    EntryCountBudgetConfigurationSchema.class
-            }
+            "mock.tables.table {"
+                    + "columns.id {type.type: INT32}, "
+                    + "columns.affId {type.type: INT32}, "
+                    + "columns.id2 {type.type: STRING}, "
+                    + "primaryKey {columns: [affId, id], colocationColumns: [affId]}"
+                    + "}"
     )
     private TablesConfiguration tablesCfg;
 
     /** Tests that validator finds no issues in a simple valid configuration. */
     @Test
     public void testNoIssues() {
-        ValidationContext<NamedListView<TableView>> ctx = mockValidationContext(null, tablesCfg.tables().value());
+        validate0((String[]) null);
+    }
 
-        validate(TableValidatorImpl.INSTANCE, mock(TableValidator.class), ctx, null);
+    @Test
+    void testCreateTableWithSameIndexName() {
+        assertThat(
+                tablesCfg.indexes().change(indexesChange ->
+                        indexesChange.create("table", indexChange -> indexChange.convert(HashIndexChange.class))
+                ),
+                willCompleteSuccessfully()
+        );
+
+        validate0("Unable to create table. Index with the same name already exists.");
+    }
+
+    private void validate0(String @Nullable ... errorMessagePrefixes) {
+        ValidationContext<NamedListView<TableView>> validationContext = mock(ValidationContext.class);
+
+        when(validationContext.getNewValue()).then(invocation -> tablesCfg.tables().value());
+
+        when(validationContext.getNewRoot(TablesConfiguration.KEY)).then(invocation -> tablesCfg.value());
+
+        validate(TableValidatorImpl.INSTANCE, mock(TableValidator.class), validationContext, errorMessagePrefixes);
     }
 }

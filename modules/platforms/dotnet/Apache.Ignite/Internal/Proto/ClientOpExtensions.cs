@@ -51,6 +51,7 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.TupleDeleteExact => ClientOperationType.TupleDeleteExact,
                 ClientOp.TupleDeleteAllExact => ClientOperationType.TupleDeleteAllExact,
                 ClientOp.TupleGetAndDelete => ClientOperationType.TupleGetAndDelete,
+                ClientOp.TupleContainsKey => ClientOperationType.TupleContainsKey,
                 ClientOp.ComputeExecute => ClientOperationType.ComputeExecute,
                 ClientOp.ComputeExecuteColocated => ClientOperationType.ComputeExecute,
                 ClientOp.SqlExec => ClientOperationType.SqlExecute,
@@ -61,9 +62,11 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.TxRollback => null,
                 ClientOp.Heartbeat => null,
                 ClientOp.ClusterGetNodes => null,
+                ClientOp.PartitionAssignmentGet => null,
 
                 // Do not return null from default arm intentionally so we don't forget to update this when new ClientOp values are added.
-                _ => throw new ArgumentOutOfRangeException(nameof(op), op, message: null)
+                // ReSharper disable once PatternIsRedundant
+                ClientOp.None or _ => throw new ArgumentOutOfRangeException(nameof(op), op, message: null)
             };
         }
     }

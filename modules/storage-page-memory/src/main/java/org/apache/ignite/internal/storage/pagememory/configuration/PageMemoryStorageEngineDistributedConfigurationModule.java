@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,16 +17,14 @@
 
 package org.apache.ignite.internal.storage.pagememory.configuration;
 
-import java.lang.annotation.Annotation;
+import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
@@ -35,6 +33,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-page-memory.
  */
+@AutoService(ConfigurationModule.class)
 public class PageMemoryStorageEngineDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
@@ -53,14 +52,13 @@ public class PageMemoryStorageEngineDistributedConfigurationModule implements Co
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(
                 VolatilePageMemoryDataStorageConfigurationSchema.class,
-                PersistentPageMemoryDataStorageConfigurationSchema.class,
-                UnsafeMemoryAllocatorConfigurationSchema.class
+                PersistentPageMemoryDataStorageConfigurationSchema.class
         );
     }
 
     /** {@inheritDoc} */
     @Override
-    public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        return Map.of(PageMemoryDataRegionName.class, Set.of(PageMemoryDataRegionValidatorImpl.INSTANCE));
+    public Set<Validator<?, ?>> validators() {
+        return Set.of(PageMemoryDataRegionValidatorImpl.INSTANCE);
     }
 }

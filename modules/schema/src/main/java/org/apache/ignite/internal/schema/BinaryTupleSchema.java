@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,41 +17,13 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.UUID;
-import org.apache.ignite.lang.IgniteInternalException;
+import java.math.BigDecimal;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 
 /**
  * Description of a binary tuple.
  */
 public class BinaryTupleSchema {
-    /** Size of a tuple header, in bytes. */
-    public static final int HEADER_SIZE = 1;
-
-    /** Mask for size of entries in variable-length offset table. */
-    public static final int VARSIZE_MASK = 0b011;
-
-    /** Flag that indicates null map presence. */
-    public static final int NULLMAP_FLAG = 0b100;
-
-    /** Default value for UUID elements. */
-    public static final UUID DEFAULT_UUID = new UUID(0, 0);
-
-    /** Default value for Date elements (Jan 1st 1 BC). */
-    public static final LocalDate DEFAULT_DATE = LocalDate.of(0, 1, 1);
-
-    /** Default value for Time elements (00:00:00). */
-    public static final LocalTime DEFAULT_TIME = LocalTime.of(0, 0);
-
-    /** Default value for DateTime elements (Jan 1st 1 BC, 00:00:00). */
-    public static final LocalDateTime DEFAULT_DATE_TIME = LocalDateTime.of(0, 1, 1, 0, 0);
-
-    /** Default value for Timestamp elements. */
-    public static final Instant DEFAULT_TIMESTAMP = Instant.EPOCH;
-
     /**
      * Tuple element description used for tuple parsing and building.
      *
@@ -86,6 +58,33 @@ public class BinaryTupleSchema {
 
             this.nullable = nullable;
         }
+
+        /**
+         * Gets the type spec.
+         *
+         * @return Type spec.
+         */
+        public NativeTypeSpec typeSpec() {
+            return typeSpec;
+        }
+
+        /**
+         * Gets the decimal scale.
+         *
+         * @return Decimal scale.
+         */
+        public int decimalScale() {
+            return decimalScale;
+        }
+
+        /**
+         * Gets the nullable flag.
+         *
+         * @return Nullable flag.
+         */
+        public boolean nullable() {
+            return nullable;
+        }
     }
 
     /** Tuple schema corresponding to a set of row columns going in a contiguous range. */
@@ -111,7 +110,7 @@ public class BinaryTupleSchema {
         /** {@inheritDoc} */
         @Override
         public int columnIndex(int index) {
-            return index - columnBase;
+            return index + columnBase;
         }
 
         /** {@inheritDoc} */
@@ -239,73 +238,14 @@ public class BinaryTupleSchema {
         Element[] elements = new Element[columns.length];
         boolean hasNullables = false;
 
-        for (int i : columns) {
-            Column column = descriptor.column(i);
+        for (int i = 0; i < columns.length; i++) {
+            Column column = descriptor.column(columns[i]);
             boolean nullable = column.nullable();
             elements[i] = new Element(column.type(), nullable);
             hasNullables |= nullable;
         }
 
         return new SparseRowSchema(elements, columns.clone(), hasNullables);
-    }
-
-    /**
-     * Calculates flags for a given size of variable-length area.
-     *
-     * @param size Variable-length area size.
-     * @return Flags value.
-     */
-    public static byte valueSizeToFlags(long size) {
-        if (size <= 0xff) {
-            return 0b00;
-        }
-        if (size <= 0xffff) {
-            return 0b01;
-        }
-        if (size <= Integer.MAX_VALUE) {
-            return 0b10;
-        }
-        throw new IgniteInternalException("Too big binary tuple size");
-    }
-
-    /**
-     * Calculates the size of entry in variable-length offset table for given flags.
-     *
-     * @param flags Flags value.
-     * @return Size of entry in variable-length offset table.
-     */
-    public static int flagsToEntrySize(byte flags) {
-        return 1 << (flags & VARSIZE_MASK);
-    }
-
-    /**
-     * Calculates the null map size.
-     *
-     * @param numElements Number of tuple elements.
-     * @return Null map size in bytes.
-     */
-    public static int nullMapSize(int numElements) {
-        return (numElements + 7) / 8;
-    }
-
-    /**
-     * Returns offset of the byte that contains null-bit of a given tuple element.
-     *
-     * @param index Tuple element index.
-     * @return Offset of the required byte relative to the tuple start.
-     */
-    public static int nullOffset(int index) {
-        return HEADER_SIZE + index / 8;
-    }
-
-    /**
-     * Returns a null-bit mask corresponding to a given tuple element.
-     *
-     * @param index Tuple element index.
-     * @return Mask to extract the required null-bit.
-     */
-    public static byte nullMask(int index) {
-        return (byte) (1 << (index % 8));
     }
 
     /**
@@ -345,6 +285,49 @@ public class BinaryTupleSchema {
      */
     public boolean convertible() {
         return false;
+    }
+
+    /**
+     * Reads a {@code BigDecimal} value from the given tuple at the given field.
+     *
+     * @param tuple Tuple to read the value from.
+     * @param index Field index.
+     * @return {@code BigDecimal} value of the field.
+     */
+    public BigDecimal decimalValue(BinaryTupleReader tuple, int index) {
+        return tuple.decimalValue(index, element(index).decimalScale);
+    }
+
+    /**
+     * Gets an Object representation from a tuple's field. This method does no type conversions and
+     * will throw an exception if row column type differs from this type.
+     *
+     * @param tuple Tuple to read the value from.
+     * @param index Field index to read.
+     * @return An Object representation of the value.
+     */
+    public Object value(BinaryTupleReader tuple, int index) {
+        Element element = element(index);
+
+        switch (element.typeSpec) {
+            case INT8: return tuple.byteValueBoxed(index);
+            case INT16: return tuple.shortValueBoxed(index);
+            case INT32: return tuple.intValueBoxed(index);
+            case INT64: return tuple.longValueBoxed(index);
+            case FLOAT: return tuple.floatValueBoxed(index);
+            case DOUBLE: return tuple.doubleValueBoxed(index);
+            case DECIMAL: return tuple.decimalValue(index, element.decimalScale);
+            case UUID: return tuple.uuidValue(index);
+            case STRING: return tuple.stringValue(index);
+            case BYTES: return tuple.bytesValue(index);
+            case BITMASK: return tuple.bitmaskValue(index);
+            case NUMBER: return tuple.numberValue(index);
+            case DATE: return tuple.dateValue(index);
+            case TIME: return tuple.timeValue(index);
+            case DATETIME: return tuple.dateTimeValue(index);
+            case TIMESTAMP: return tuple.timestampValue(index);
+            default: throw new InvalidTypeException("Unknown element type: " + element.typeSpec);
+        }
     }
 
     /** Tests if there are any nullable elements in the array. */

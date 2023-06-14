@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,9 +19,11 @@ package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine.ENGINE_NAME;
 
+import com.google.auto.service.AutoService;
 import java.nio.file.Path;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
@@ -32,6 +34,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation for creating {@link VolatilePageMemoryStorageEngine}.
  */
+@AutoService(DataStorageModule.class)
 public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
     /** {@inheritDoc} */
     @Override
@@ -57,6 +60,6 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
 
         ioRegistry.loadFromServiceLoader();
 
-        return new VolatilePageMemoryStorageEngine(engineConfig, ioRegistry);
+        return new VolatilePageMemoryStorageEngine(igniteInstanceName, engineConfig, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
     }
 }

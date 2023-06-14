@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -38,9 +38,17 @@ public interface Waiter {
     boolean locked();
 
     /**
-     * Returns lock type.
+     * Returns lock mode.
      *
-     * @return {@code True} if a read request.
+     * @return Lock mode.
      */
-    boolean isForRead();
+    LockMode lockMode();
+
+    /**
+     * Returns lock mode that is intended to be taken, but has not been taken yet. This is NOT specific to intention lock modes,
+     * such as IS and IX.
+     *
+     * @return Lock mode.
+     */
+    LockMode intendedLockMode();
 }

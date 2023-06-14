@@ -19,19 +19,21 @@
 namespace Apache.Ignite.Internal.Common
 {
     using System;
-    using System.Collections.Generic;
+    using System.Runtime.CompilerServices;
+    using JetBrains.Annotations;
 
     /// <summary>
     /// Arguments check helpers.
     /// </summary>
-    public static class IgniteArgumentCheck
+    internal static class IgniteArgumentCheck
     {
         /// <summary>
         /// Throws an ArgumentNullException if specified arg is null.
         /// </summary>
         /// <param name="arg">The argument.</param>
         /// <param name="argName">Name of the argument.</param>
-        public static void NotNull(object arg, string argName)
+        /// <typeparam name="T">Arg type.</typeparam>
+        public static void NotNull<T>([NoEnumeration] T arg, [CallerArgumentExpression("arg")] string? argName = null)
         {
             if (arg == null)
             {
@@ -45,7 +47,7 @@ namespace Apache.Ignite.Internal.Common
         /// <param name="arg">The argument.</param>
         /// <param name="argName">Name of the argument.</param>
         /// <returns>Argument.</returns>
-        public static string NotNullOrEmpty(string arg, string argName)
+        public static string NotNullOrEmpty(string arg, [CallerArgumentExpression("arg")] string? argName = null)
         {
             if (string.IsNullOrEmpty(arg))
             {
@@ -53,20 +55,6 @@ namespace Apache.Ignite.Internal.Common
             }
 
             return arg;
-        }
-
-        /// <summary>
-        /// Throws an ArgumentException if specified arg is null or empty string.
-        /// </summary>
-        /// <param name="collection">The collection.</param>
-        /// <param name="argName">Name of the argument.</param>
-        /// <typeparam name="T">Type.</typeparam>
-        public static void NotNullOrEmpty<T>(ICollection<T> collection, string? argName)
-        {
-            if (collection == null || collection.Count == 0)
-            {
-                throw new ArgumentException($"'{argName}' argument should not be null or empty.", argName);
-            }
         }
 
         /// <summary>

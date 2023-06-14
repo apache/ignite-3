@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,11 +18,12 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.cause;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.lang.ErrorGroups.Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.Streams;
@@ -35,16 +36,17 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
+import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.BatchedArguments;
@@ -55,7 +57,10 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -64,7 +69,7 @@ import org.junit.jupiter.api.TestInfo;
  * Tests for synchronous SQL API.
  */
 @SuppressWarnings("ThrowableNotThrown")
-public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
+public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     private static final int ROW_COUNT = 16;
 
     /**
@@ -92,8 +97,12 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         return CLUSTER_NODES.get(0).sql();
     }
 
+    protected IgniteTransactions igniteTx() {
+        return CLUSTER_NODES.get(0).transactions();
+    }
+
     @Test
-    public void ddl() {
+    public void ddl() throws Exception {
         IgniteSql sql = igniteSql();
         Session ses = sql.createSession();
 
@@ -101,64 +110,121 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         checkDdl(true, ses, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         checkError(
                 TableAlreadyExistsException.class,
-                "Table already exists [name=PUBLIC.TEST]",
+                "Table already exists [name=\"PUBLIC\".\"TEST\"]",
                 ses,
                 "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)"
+        );
+        checkError(
+                SqlException.class,
+                "Can't create table with duplicate columns: ID, VAL, VAL",
+                ses,
+                "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL INT, VAL INT)"
         );
         checkDdl(false, ses, "CREATE TABLE IF NOT EXISTS TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
 
         // ADD COLUMN
-        checkDdl(true, ses, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS VAL1 VARCHAR");
+        checkDdl(true, ses, "ALTER TABLE TEST ADD COLUMN VAL1 VARCHAR");
         checkError(
                 TableNotFoundException.class,
-                "Table does not exist [name=PUBLIC.NOT_EXISTS_TABLE]",
+                "The table does not exist [name=\"PUBLIC\".\"NOT_EXISTS_TABLE\"]",
                 ses,
                 "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"
         );
         checkDdl(false, ses, "ALTER TABLE IF EXISTS NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR");
         checkError(
                 ColumnAlreadyExistsException.class,
-                "Column already exists [name=VAL1]",
+                "Column already exists [name=\"VAL1\"]",
                 ses,
                 "ALTER TABLE TEST ADD COLUMN VAL1 INT"
         );
-        checkDdl(false, ses, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS VAL1 INT");
 
         // CREATE INDEX
         checkDdl(true, ses, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
         checkError(
                 IndexAlreadyExistsException.class,
-                "Index already exists [name=TEST_IDX]",
+                "Index already exists [name=\"PUBLIC\".\"TEST_IDX\"]",
                 ses,
                 "CREATE INDEX TEST_IDX ON TEST(VAL1)"
         );
         checkDdl(false, ses, "CREATE INDEX IF NOT EXISTS TEST_IDX ON TEST(VAL1)");
 
+        // TODO: IGNITE-19150 We are waiting for schema synchronization to avoid races to create and destroy indexes
+        waitForIndexBuild("TEST", "TEST_IDX");
+
+        checkDdl(true, ses, "DROP INDEX TESt_iDX");
+        checkDdl(true, ses, "CREATE INDEX TEST_IDX1 ON TEST(VAL0)");
+        checkDdl(true, ses, "CREATE INDEX TEST_IDX2 ON TEST(VAL0)");
+        checkDdl(true, ses, "CREATE INDEX TEST_IDX3 ON TEST(ID, VAL0, VAL1)");
+        checkError(
+                SqlException.class,
+                "Can't create index on duplicate columns: VAL0, VAL0",
+                ses,
+                "CREATE INDEX TEST_IDX4 ON TEST(VAL0, VAL0)"
+        );
+
+        checkError(
+                SqlException.class,
+                "Can`t delete column(s). Column VAL1 is used by indexes [TEST_IDX3].",
+                ses,
+                "ALTER TABLE TEST DROP COLUMN val1"
+        );
+
+        SqlException ex = IgniteTestUtils.cause(assertThrows(Throwable.class,
+                () -> await(ses.executeAsync(null, "ALTER TABLE TEST DROP COLUMN (val0, val1)"))), SqlException.class);
+        assertNotNull(ex);
+        assertEquals(DROP_IDX_COLUMN_CONSTRAINT_ERR, ex.code());
+
+        String msg = ex.getMessage();
+        String explainMsg = "Unexpected error message: " + msg;
+
+        assertTrue(msg.contains("Column VAL0 is used by indexes ["), explainMsg);
+        assertTrue(msg.contains("TEST_IDX1") && msg.contains("TEST_IDX2") && msg.contains("TEST_IDX3"), explainMsg);
+        assertTrue(msg.contains("Column VAL1 is used by indexes [TEST_IDX3]"), explainMsg);
+
+        checkError(
+                SqlException.class,
+                "Can`t delete column, belongs to primary key: [name=ID]",
+                ses,
+                "ALTER TABLE TEST DROP COLUMN id"
+        );
+
+        // TODO: IGNITE-19150 We are waiting for schema synchronization to avoid races to create and destroy indexes
+        waitForIndexBuild("TEST", "TEST_IDX3");
+        checkDdl(true, ses, "DROP INDEX TESt_iDX3");
+
         // DROP COLUMNS
         checkDdl(true, ses, "ALTER TABLE TEST DROP COLUMN VAL1");
         checkError(
                 TableNotFoundException.class,
-                "Table does not exist [name=PUBLIC.NOT_EXISTS_TABLE]",
+                "The table does not exist [name=\"PUBLIC\".\"NOT_EXISTS_TABLE\"]",
                 ses,
                 "ALTER TABLE NOT_EXISTS_TABLE DROP COLUMN VAL1"
         );
         checkDdl(false, ses, "ALTER TABLE IF EXISTS NOT_EXISTS_TABLE DROP COLUMN VAL1");
         checkError(
                 ColumnNotFoundException.class,
-                "Column 'VAL1' does not exist in table '\"PUBLIC\".\"TEST\"'",
+                "Column does not exist [tableName=\"PUBLIC\".\"TEST\", columnName=\"VAL1\"]",
                 ses,
                 "ALTER TABLE TEST DROP COLUMN VAL1"
         );
-        checkDdl(false, ses, "ALTER TABLE TEST DROP COLUMN IF EXISTS VAL1");
 
         // DROP TABLE
         checkDdl(false, ses, "DROP TABLE IF EXISTS NOT_EXISTS_TABLE");
+
         checkDdl(true, ses, "DROP TABLE TEST");
         checkError(
                 TableNotFoundException.class,
-                "Table does not exist [name=PUBLIC.TEST]",
+                "The table does not exist [name=\"PUBLIC\".\"TEST\"]",
                 ses,
                 "DROP TABLE TEST"
+        );
+
+        checkDdl(false, ses, "DROP INDEX IF EXISTS TEST_IDX");
+
+        checkError(
+                IndexNotFoundException.class,
+                "Index does not exist [name=\"PUBLIC\".\"TEST_IDX\"]", ses,
+                "DROP INDEX TEST_IDX"
         );
     }
 
@@ -181,7 +247,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
 
         var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
 
-        states.forEach((k, v) -> assertNotSame(v, TxState.PENDING));
+        assertEquals(txManagerInternal.finished(), states.size());
 
         checkDml(ROW_COUNT, ses, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
@@ -199,7 +265,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 4).build();
 
-        ResultSet rs = ses.execute(null, "SELECT ID FROM TEST");
+        ResultSet<SqlRow> rs = ses.execute(null, "SELECT ID FROM TEST");
 
         Set<Integer> set = Streams.stream(rs).map(r -> r.intValue(0)).collect(Collectors.toSet());
 
@@ -233,7 +299,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         assertThrowsWithCause(
                 () -> ses.execute(null, "SELECT 1; SELECT 2"),
                 SqlException.class,
-                "Multiple statements aren't allowed"
+                "Multiple statements are not allowed"
         );
 
         // Planning error.
@@ -263,6 +329,46 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
             rs.close();
             assertThrowsWithCause(() -> rs.forEachRemaining(Object::hashCode), CursorClosedException.class);
         }
+    }
+
+    /**
+     * DDL is non-transactional.
+     */
+    @Test
+    public void ddlInTransaction() {
+        Session ses = igniteSql().createSession();
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        {
+            Transaction tx = igniteTx().begin();
+            try {
+                assertThrowsWithCause(() -> ses.execute(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)"),
+                        SqlException.class,
+                        "DDL doesn't support transactions."
+                );
+            } finally {
+                tx.rollback();
+            }
+        }
+        {
+            Transaction tx = igniteTx().begin();
+            ResultSet<SqlRow> res = ses.execute(tx, "INSERT INTO TEST VALUES (?, ?)", -1, -1);
+            assertEquals(1, res.affectedRows());
+
+            assertThrowsWithCause(() -> ses.execute(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)"),
+                    SqlException.class,
+                    "DDL doesn't support transactions."
+            );
+            tx.commit();
+
+            assertEquals(1, sql("SELECT ID FROM TEST WHERE ID = -1").size());
+        }
+
+        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
+
+        var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
+
+        assertEquals(txManagerInternal.finished(), states.size());
     }
 
     @Test
@@ -319,13 +425,12 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
             }
         }
 
-        Throwable ex = assertThrowsWithCause(
-                () -> ses.executeBatch(null, "INSERT INTO TEST VALUES (?, ?)", args),
-                SqlBatchException.class
+        SqlBatchException batchEx = assertThrows(
+                SqlBatchException.class,
+                () -> ses.executeBatch(null, "INSERT INTO TEST VALUES (?, ?)", args)
         );
-        assertTrue(hasCause(ex, IgniteInternalException.class, "Failed to INSERT some keys because they are already in cache"));
-        SqlBatchException batchEx = cause(ex, SqlBatchException.class, null);
 
+        assertEquals(Sql.DUPLICATE_KEYS_ERR, batchEx.code());
         assertEquals(err, batchEx.updateCounters().length);
         IntStream.range(0, batchEx.updateCounters().length).forEach(i -> assertEquals(1, batchEx.updateCounters()[i]));
     }

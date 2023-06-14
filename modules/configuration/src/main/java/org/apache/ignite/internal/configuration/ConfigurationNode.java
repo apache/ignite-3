@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration;
 
 import java.io.Serializable;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -122,14 +123,6 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
     }
 
     /**
-     * Converts current configuration node into a "direct proxy node". Unlike regular nodes, proxies read value from underlying storage
-     * every time {@link ConfigurationProperty#value()} is invoked.
-     *
-     * @return Direct proxy instance.
-     */
-    public abstract DirectPropertyProxy<VIEWT> directProxy();
-
-    /**
      * Returns latest value of the configuration or throws exception.
      *
      * @return Latest configuration value.
@@ -153,7 +146,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
         }
 
         try {
-            VIEWT newVal = ConfigurationUtil.find(keys.subList(1, keys.size()), newRootNode, true);
+            VIEWT newVal = ConfigurationUtil.<VIEWT>find(keys.subList(1, keys.size()), newRootNode, true).value();
 
             synchronized (this) {
                 if (cachedRootNode == oldRootNode) {
@@ -229,7 +222,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
             /** {@inheritDoc} */
             @Nullable
             @Override
-            public List<KeyPathNode> visitLeafNode(String key, Serializable val) {
+            public List<KeyPathNode> visitLeafNode(Field field, String key, Serializable val) {
                 res.add(new KeyPathNode(key));
 
                 return res;
@@ -238,7 +231,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
             /** {@inheritDoc} */
             @Nullable
             @Override
-            public List<KeyPathNode> visitInnerNode(String key, InnerNode node) {
+            public List<KeyPathNode> visitInnerNode(Field field, String key, InnerNode node) {
                 res.add(new KeyPathNode(key));
 
                 if (keys.size() == idx) {
@@ -253,7 +246,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
             /** {@inheritDoc} */
             @Nullable
             @Override
-            public List<KeyPathNode> visitNamedListNode(String key, NamedListNode node) {
+            public List<KeyPathNode> visitNamedListNode(Field field, String key, NamedListNode node) {
                 res.add(new KeyPathNode(key));
 
                 if (keys.size() == idx) {
@@ -279,7 +272,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
             }
         };
 
-        return changer.getRootNode(rootKey).accept(keys.get(0), visitor);
+        return changer.getRootNode(rootKey).accept(null, keys.get(0), visitor);
     }
 
     /**

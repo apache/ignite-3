@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -45,21 +45,6 @@ public interface FreeList<T extends Storable> {
      * @throws IgniteInternalCheckedException If failed.
      */
     void insertDataRows(Collection<T> rows, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException;
-
-    /**
-     * Makes an in-place update of a row identified by the link.
-     * This has a couple of restrictions:
-     * 1. The size of the payload must not change, otherwise the page will be broken (and next insertion will fail due
-     * to assertion failure).
-     * 2. The row cannot be fragmented. If it is, this will return {@code false} without doing anything.
-     *
-     * @param link Row link.
-     * @param row New row data.
-     * @param statHolder Statistics holder to track IO operations.
-     * @return {@code True} if was able to update row.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    boolean updateDataRow(long link, T row, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException;
 
     /**
      * Updates a row by link.

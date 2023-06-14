@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
+import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
@@ -47,4 +48,15 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
      */
     @Marshallable
     Object[] parameters();
+
+    /**
+     * Transaction id.
+     */
+    @Marshallable
+    TxAttributes txAttributes();
+
+    /**
+     * Return last schema version, just a stub, need to be removed after IGNITE-18733.
+     */
+    long schemaVersion();
 }

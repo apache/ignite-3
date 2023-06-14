@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,7 @@
 package org.apache.ignite.configuration.validation;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Configuration validation exception.
@@ -41,7 +42,7 @@ public class ConfigurationValidationException extends RuntimeException {
      * @param issues List of issues occurred during validation.
      */
     public ConfigurationValidationException(List<ValidationIssue> issues) {
-        super(issues.toString());
+        super(createMessageFromIssues(issues));
 
         this.issues = issues;
     }
@@ -53,5 +54,10 @@ public class ConfigurationValidationException extends RuntimeException {
      */
     public List<ValidationIssue> getIssues() {
         return issues;
+    }
+
+    private static String createMessageFromIssues(List<ValidationIssue> issues) {
+        return "Validation did not pass for keys: "
+                + issues.stream().map(issue -> "[" + issue.key() + ", " + issue.message() + "]").collect(Collectors.joining(", "));
     }
 }

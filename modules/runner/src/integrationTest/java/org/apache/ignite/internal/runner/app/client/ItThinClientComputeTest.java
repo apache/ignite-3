@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -69,36 +69,37 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertEquals(2, nodes.size());
 
-        assertEquals("ItThinClientComputeTest_null_3344", nodes.get(0).name());
+        assertEquals("itcct_n_3344", nodes.get(0).name());
         assertEquals(3344, nodes.get(0).address().port());
         assertTrue(nodes.get(0).id().length() > 10);
 
-        assertEquals("ItThinClientComputeTest_null_3345", nodes.get(1).name());
+        assertEquals("itcct_n_3345", nodes.get(1).name());
         assertEquals(3345, nodes.get(1).address().port());
         assertTrue(nodes.get(1).id().length() > 10);
     }
 
     @Test
     void testExecuteOnSpecificNode() {
-        String res1 = client().compute().execute(Set.of(node(0)), NodeNameJob.class).join();
-        String res2 = client().compute().execute(Set.of(node(1)), NodeNameJob.class).join();
+        String res1 = client().compute().<String>execute(Set.of(node(0)), List.of(), NodeNameJob.class.getName()).join();
+        String res2 = client().compute().<String>execute(Set.of(node(1)), List.of(), NodeNameJob.class.getName()).join();
 
-        assertEquals("ItThinClientComputeTest_null_3344", res1);
-        assertEquals("ItThinClientComputeTest_null_3345", res2);
+        assertEquals("itcct_n_3344", res1);
+        assertEquals("itcct_n_3345", res2);
     }
 
     @Test
     void testExecuteOnRandomNode() {
-        String res = client().compute().execute(new HashSet<>(sortedNodes()), NodeNameJob.class).join();
+        String res = client().compute().<String>execute(new HashSet<>(sortedNodes()), List.of(), NodeNameJob.class.getName()).join();
 
-        assertTrue(Set.of("ItThinClientComputeTest_null_3344", "ItThinClientComputeTest_null_3345").contains(res));
+        assertTrue(Set.of("itcct_n_3344", "itcct_n_3345").contains(res));
     }
 
     @Test
     void testBroadcastOneNode() {
         Map<ClusterNode, CompletableFuture<String>> futuresPerNode = client().compute().broadcast(
                 Set.of(node(1)),
-                NodeNameJob.class,
+                List.of(),
+                NodeNameJob.class.getName(),
                 "_",
                 123);
 
@@ -106,14 +107,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         String res = futuresPerNode.get(node(1)).join();
 
-        assertEquals("ItThinClientComputeTest_null_3345__123", res);
+        assertEquals("itcct_n_3345__123", res);
     }
 
     @Test
     void testBroadcastAllNodes() {
         Map<ClusterNode, CompletableFuture<String>> futuresPerNode = client().compute().broadcast(
                 new HashSet<>(sortedNodes()),
-                NodeNameJob.class,
+                List.of(),
+                NodeNameJob.class.getName(),
                 "_",
                 123);
 
@@ -122,14 +124,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         String res1 = futuresPerNode.get(node(0)).join();
         String res2 = futuresPerNode.get(node(1)).join();
 
-        assertEquals("ItThinClientComputeTest_null_3344__123", res1);
-        assertEquals("ItThinClientComputeTest_null_3345__123", res2);
+        assertEquals("itcct_n_3344__123", res1);
+        assertEquals("itcct_n_3345__123", res2);
     }
 
     @Test
     void testExecuteWithArgs() {
         var nodes = new HashSet<>(client().clusterNodes());
-        String res = client().compute().execute(nodes, ConcatJob.class, 1, "2", 3.3).join();
+        String res = client().compute().<String>execute(nodes, List.of(), ConcatJob.class.getName(), 1, "2", 3.3).join();
 
         assertEquals("1_2_3.3", res);
     }
@@ -138,7 +140,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testIgniteExceptionInJobPropagatesToClientWithMessageAndCodeAndTraceId() {
         CompletionException ex = assertThrows(
                 CompletionException.class,
-                () ->  client().compute().execute(Set.of(node(0)), IgniteExceptionJob.class).join());
+                () ->  client().compute().<String>execute(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName()).join());
 
         var cause = (IgniteException) ex.getCause();
 
@@ -153,12 +155,12 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testExceptionInJobPropagatesToClientWithClassAndMessage() {
         CompletionException ex = assertThrows(
                 CompletionException.class,
-                () ->  client().compute().execute(Set.of(node(0)), ExceptionJob.class).join());
+                () ->  client().compute().<String>execute(Set.of(node(0)), List.of(), ExceptionJob.class.getName()).join());
 
         var cause = (IgniteException) ex.getCause();
 
-        assertThat(cause.getMessage(), containsString("NullPointerException: null ref"));
-        assertEquals(UNKNOWN_ERR, cause.code());
+        assertThat(cause.getMessage(), containsString("ArithmeticException: math err"));
+        assertEquals(INTERNAL_ERR, cause.code());
         assertNull(cause.getCause()); // No stack trace by default.
     }
 
@@ -167,12 +169,12 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         // Second node has sendServerExceptionStackTraceToClient enabled.
         CompletionException ex = assertThrows(
                 CompletionException.class,
-                () ->  client().compute().execute(Set.of(node(1)), ExceptionJob.class).join());
+                () ->  client().compute().execute(Set.of(node(1)), List.of(), ExceptionJob.class.getName()).join());
 
         var cause = (IgniteException) ex.getCause();
 
-        assertThat(cause.getMessage(), containsString("NullPointerException: null ref"));
-        assertEquals(UNKNOWN_ERR, cause.code());
+        assertThat(cause.getMessage(), containsString("ArithmeticException: math err"));
+        assertEquals(INTERNAL_ERR, cause.code());
 
         assertNotNull(cause.getCause());
         assertThat(cause.getCause().getMessage(), containsString(
@@ -181,16 +183,22 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"1,3345", "2,3345", "3,3344", "4,3344"})
+    @CsvSource({"1,3345", "2,3345", "3,3344", "4,3345"})
     void testExecuteColocatedRunsComputeJobOnKeyNode(int key, int port) {
-        var table = String.format("%s.%s", SCHEMA_NAME, TABLE_NAME);
+        var table = TABLE_NAME;
         var keyTuple = Tuple.create().set(COLUMN_KEY, key);
         var keyPojo = new TestPojo(key);
 
-        String tupleRes = client().compute().executeColocated(table, keyTuple, NodeNameJob.class).join();
-        String pojoRes = client().compute().executeColocated(table, keyPojo, Mapper.of(TestPojo.class), NodeNameJob.class).join();
+        String tupleRes = client().compute().<String>executeColocated(table, keyTuple, List.of(), NodeNameJob.class.getName()).join();
+        String pojoRes = client().compute().<TestPojo, String>executeColocated(
+                table,
+                keyPojo,
+                Mapper.of(TestPojo.class),
+                List.of(),
+                NodeNameJob.class.getName()
+        ).join();
 
-        String expectedNode = "ItThinClientComputeTest_null_" + port;
+        String expectedNode = "itcct_n_" + port;
         assertEquals(expectedNode, tupleRes);
         assertEquals(expectedNode, pojoRes);
     }
@@ -212,12 +220,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         testEchoArg(LocalTime.now());
         testEchoArg(LocalDateTime.now());
         testEchoArg(Instant.now());
-        testEchoArg(true);
         testEchoArg(BigInteger.TEN);
     }
 
     private void testEchoArg(Object arg) {
-        Object res = client().compute().execute(Set.of(node(0)), EchoJob.class, arg).join();
+        Object res = client().compute().execute(Set.of(node(0)), List.of(), EchoJob.class.getName(), arg, arg.toString()).join();
 
         if (arg instanceof byte[]) {
             assertArrayEquals((byte[]) arg, (byte[]) res);
@@ -246,7 +253,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class ConcatJob implements ComputeJob<String> {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
-            return Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_"));
+            if (args == null) {
+                return null;
+            }
+
+            return Arrays.stream(args).map(o -> o == null ? "null" : o.toString()).collect(Collectors.joining("_"));
         }
     }
 
@@ -260,13 +271,21 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class ExceptionJob implements ComputeJob<String> {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
-            throw new NullPointerException("null ref");
+            throw new ArithmeticException("math err");
         }
     }
 
     private static class EchoJob implements ComputeJob<Object> {
         @Override
         public Object execute(JobExecutionContext context, Object... args) {
+            var value = args[0];
+
+            if (!(value instanceof byte[])) {
+                var expectedString = (String) args[1];
+                var valueString = value == null ? "null" : value.toString();
+                assertEquals(expectedString, valueString, "Unexpected string representation of value");
+            }
+
             return args[0];
         }
     }

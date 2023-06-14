@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,30 +17,32 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
-import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
-import org.junit.jupiter.api.AfterAll;
+import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
-/** Different DML tests. */
-public class ItDmlTest extends AbstractBasicIntegrationTest {
+/**
+ * Various DML tests.
+ */
+public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
     @Override
     protected int nodes() {
@@ -61,14 +63,46 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
         super.tearDownBase(testInfo);
     }
 
-    @AfterAll
-    public static void resetStaticState() {
-        IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
+    @Test
+    public void pkConstraintConsistencyTest() {
+        sql("CREATE TABLE my (id INT PRIMARY KEY, val INT)");
+        assertQuery("INSERT INTO my VALUES (?, ?)")
+                .withParams(0, 1)
+                .returns(1L)
+                .check();
+        assertQuery("SELECT val FROM my WHERE id = 0")
+                .returns(1)
+                .check();
+
+        {
+            SqlException ex = assertThrows(SqlException.class, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 2));
+
+            assertEquals(ex.code(), Sql.DUPLICATE_KEYS_ERR);
+        }
+
+        assertQuery("DELETE FROM my WHERE id=?")
+                .withParams(0)
+                .returns(1L)
+                .check();
+
+        assertQuery("INSERT INTO my VALUES (?, ?)")
+                .withParams(0, 2)
+                .returns(1L)
+                .check();
+
+        assertQuery("SELECT val FROM my WHERE id = 0")
+                .returns(2)
+                .check();
+
+        {
+            SqlException ex = assertThrows(SqlException.class, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 3));
+
+            assertEquals(ex.code(), Sql.DUPLICATE_KEYS_ERR);
+        }
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16529")
-    public void mergeOpChangePrimaryKey() {
+    public void failMergeOpOnChangePrimaryKey() {
         clearAndPopulateMergeTable1();
 
         clearAndPopulateMergeTable2();
@@ -77,12 +111,78 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
                 + "WHEN MATCHED THEN UPDATE SET b = src.b, k1 = src.k1 "
                 + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b) VALUES (src.k1, src.k2, src.a, src.b)";
 
-        sql(sql);
+        assertThrows(CalciteContextException.class, () -> sql(sql));
+    }
 
-        assertQuery("SELECT * FROM test2 ORDER BY k1")
-                .returns(222, 222, 1, 300, null)
-                .returns(111, 333, 0, 100, "")
-                .returns(444, 444, 2, 200, null)
+    @Test
+    public void batchWithConflictShouldBeRejectedEntirely() {
+        sql("CREATE TABLE test (id int primary key, val int)");
+
+        sql("INSERT INTO test values (1, 1)");
+
+        assertQuery("SELECT count(*) FROM test")
+                .returns(1L)
+                .check();
+
+        var sqlException = assertThrows(
+                SqlException.class,
+                () -> sql("INSERT INTO test VALUES (0, 0), (1, 1), (2, 2)")
+        );
+
+        assertEquals(Sql.DUPLICATE_KEYS_ERR, sqlException.code());
+
+        assertQuery("SELECT count(*) FROM test")
+                .returns(1L)
+                .check();
+    }
+
+    /**
+     * Test ensures inserts are possible after read lock on a range.
+     */
+    @Test
+    public void rangeReadAndExclusiveInsert() {
+        sql("CREATE TABLE test (id INT, aff_key INT, val INT, PRIMARY KEY (id, aff_key)) COLOCATE BY (aff_key) ");
+        sql("CREATE INDEX test_val_asc_idx ON test (val ASC)");
+        sql("INSERT INTO test VALUES (1, 1, 1), (2, 1, 2), (3, 1, 3)");
+
+        log.info("Data was loaded.");
+
+        Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
+
+        sql(tx, "SELECT * FROM test WHERE val <= 1 ORDER BY val");
+
+        sql("INSERT INTO test VALUES (4, 1, 4)"); // <-- this INSERT uses implicit transaction
+    }
+
+    /**
+     * Test ensures that big insert although being split to several chunks will share the same implicit transaction.
+     */
+    @Test
+    public void bigBatchSpanTheSameTransaction() {
+        List<Integer> values = new ArrayList<>(AbstractNode.MODIFY_BATCH_SIZE * 2);
+
+        // need to generate batch big enough to be split on several chunks
+        for (int i = 0; i < AbstractNode.MODIFY_BATCH_SIZE * 1.5; i++) {
+            values.add(i);
+        }
+
+        values.add(values.get(0)); // add conflict entry from the first chunk
+
+        sql("CREATE TABLE test (id int primary key, val int default 1)");
+
+        String insertStatement = "INSERT INTO test (id) VALUES " + values.stream()
+                .map(Object::toString)
+                .collect(Collectors.joining("), (", "(", ")"));
+
+        SqlException sqlException = assertThrows(
+                SqlException.class,
+                () -> sql(insertStatement)
+        );
+
+        assertEquals(Sql.DUPLICATE_KEYS_ERR, sqlException.code());
+
+        assertQuery("SELECT count(*) FROM test")
+                .returns(0L)
                 .check();
     }
 
@@ -97,7 +197,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
                 + "WHEN MATCHED THEN UPDATE SET b = 100 * src.b "
                 + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b) VALUES (src.k1, src.k2, 10 * src.a, src.b)";
 
-        assertQuery(sql).matches(containsSubPlan("IgniteTableSpool")).check();
+        sql(sql);
 
         assertQuery("SELECT * FROM test2 ORDER BY k1")
                 .returns(222, 222, 10, 300, null)
@@ -203,7 +303,6 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
 
     /** Test MERGE operator with large batch. */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
     public void testMergeBatch() {
         sql("CREATE TABLE test1 (key int PRIMARY KEY, a int)");
 
@@ -290,14 +389,39 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
                                 + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
                                 + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
 
-        assertTrue(ex.getCause().getMessage().contains("Failed to MERGE some keys due to keys conflict"));
+        assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
+    }
+
+    /**
+     * Test verifies that scan is executed within provided transaction.
+     */
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15081")
+    public void scanExecutedWithinGivenTransaction() {
+        sql("CREATE TABLE test (id int primary key, val int)");
+
+        Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
+
+        sql(tx, "INSERT INTO test VALUES (0, 0)");
+
+        // just inserted row should be visible within the same transaction
+        assertEquals(1, sql(tx, "select * from test").size());
+
+        Transaction anotherTx = CLUSTER_NODES.get(0).transactions().begin();
+
+        // just inserted row should not be visible until related transaction is committed
+        assertEquals(0, sql(anotherTx, "select * from test").size());
+
+        tx.commit();
+
+        assertEquals(1, sql(anotherTx, "select * from test").size());
+
+        anotherTx.commit();
     }
 
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void implicitPk() {
-        IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
-
         sql("CREATE TABLE T(VAL INT)");
 
         sql("INSERT INTO t VALUES (1), (2), (3)");
@@ -372,7 +496,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
     }
 
     private void checkDefaultValue(List<DefaultValueArg> args) {
-        assert args.size() > 0;
+        assert !args.isEmpty();
 
         try {
             StringBuilder createStatementBuilder = new StringBuilder("CREATE TABLE test (id INT PRIMARY KEY");
@@ -412,6 +536,17 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
         }
     }
 
+    @Test
+    public void testCheckNullValueErrorMessageForColumnWithDefaultValue() {
+        sql("CREATE TABLE tbl(key int DEFAULT 9 primary key, val varchar)");
+
+        var e = assertThrows(CalciteContextException.class,
+                () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
+
+        var expectedMessage = "From line 1, column 28 to line 1, column 45: Column 'KEY' does not allow NULLs";
+        assertEquals(expectedMessage, e.getMessage(), "error message");
+    }
+
     private void checkQueryResult(String sql, List<Object> expectedVals) {
         assertQuery(sql).returns(expectedVals.toArray()).check();
     }
@@ -438,5 +573,44 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
             this.sqlVal = sqlVal;
             this.expectedVal = expectedVal;
         }
+    }
+
+    @Test
+    public void testInsertMultipleDefaults() {
+        sql("CREATE TABLE integers(i INTEGER PRIMARY KEY, j INTEGER DEFAULT 2)");
+
+        sql("INSERT INTO integers VALUES (1, DEFAULT)");
+
+        assertQuery("SELECT i, j FROM integers").returns(1, 2).check();
+
+        sql("INSERT INTO integers VALUES (2, 3), (3, DEFAULT), (4, 4), (5, DEFAULT)");
+
+        assertQuery("SELECT i, j FROM integers ORDER BY i")
+                .returns(1, 2)
+                .returns(2, 3)
+                .returns(3, 2)
+                .returns(4, 4)
+                .returns(5, 2)
+                .check();
+    }
+
+    @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void testInsertMultipleDefaultsWithImplicitPk() {
+        sql("CREATE TABLE integers(i INTEGER, j INTEGER DEFAULT 2)");
+
+        sql("INSERT INTO integers VALUES (1, DEFAULT)");
+
+        assertQuery("SELECT i, j FROM integers").returns(1, 2).check();
+
+        sql("INSERT INTO integers VALUES (2, 3), (3, DEFAULT), (4, 4), (5, DEFAULT)");
+
+        assertQuery("SELECT i, j FROM integers ORDER BY i")
+                .returns(1, 2)
+                .returns(2, 3)
+                .returns(3, 2)
+                .returns(4, 4)
+                .returns(5, 2)
+                .check();
     }
 }

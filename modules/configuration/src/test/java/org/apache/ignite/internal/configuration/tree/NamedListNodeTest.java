@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -31,15 +31,18 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
-import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -76,7 +79,7 @@ public class NamedListNodeTest {
     }
 
     /** Runtime implementations generator. */
-    private static ConfigurationAsmGenerator cgen;
+    private static ConfigurationTreeGenerator cgen;
 
     /** Test configuration storage. */
     private TestConfigurationStorage storage;
@@ -87,13 +90,13 @@ public class NamedListNodeTest {
     /** Instantiates {@link #cgen}. */
     @BeforeAll
     public static void beforeAll() {
-        cgen = new ConfigurationAsmGenerator();
+        cgen = new ConfigurationTreeGenerator(FirstConfiguration.KEY);
     }
 
     /** Nullifies {@link #cgen} to prevent memory leak from having runtime ClassLoader accessible from GC root. */
     @AfterAll
     public static void afterAll() {
-        cgen = null;
+        cgen.close();
     }
 
     /**
@@ -104,12 +107,10 @@ public class NamedListNodeTest {
         storage = new TestConfigurationStorage(LOCAL);
 
         changer = new TestConfigurationChanger(
-                cgen,
                 List.of(FirstConfiguration.KEY),
-                Map.of(),
                 storage,
-                List.of(),
-                List.of()
+                cgen,
+                new TestConfigurationValidator()
         );
 
         changer.start();
@@ -134,13 +135,12 @@ public class NamedListNodeTest {
         var a = (FirstConfiguration) cgen.instantiateCfg(FirstConfiguration.KEY, changer);
 
         // Create values on several layers at the same time. They all should have <order> = 0.
-        a.second().change(b -> b.create("X", x -> x.changeThird(xb -> xb.create("Z0", z0 -> {
-        })))).get();
+        a.second().change(b -> b.create("X", x -> x.changeThird(xb -> xb.create("Z0", z0 -> {})))).get();
 
-        String x0Id = ((NamedListNode<?>) a.second().value()).internalId("X").toString();
-        String z0Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z0").toString();
+        UUID x0Id = ((NamedListNode<?>) a.second().value()).internalId("X");
+        UUID z0Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z0");
 
-        CompletableFuture<Map<String, ? extends Serializable>> storageValues = storage.readAll().thenApply(Data::values);
+        CompletableFuture<Map<String, ? extends Serializable>> storageValues = storage.readDataOnRecovery().thenApply(Data::values);
 
         assertThat(
                 storageValues,
@@ -160,12 +160,11 @@ public class NamedListNodeTest {
         SecondConfiguration x = a.second().get("X");
 
         // Append new key. It should have <order> = 1.
-        x.third().change(xb -> xb.create("Z5", z5 -> {
-        })).get();
+        x.third().change(xb -> xb.create("Z5", z5 -> {})).get();
 
-        String z5Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z5").toString();
+        UUID z5Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z5");
 
-        storageValues = storage.readAll().thenApply(Data::values);
+        storageValues = storage.readDataOnRecovery().thenApply(Data::values);
 
         assertThat(
                 storageValues,
@@ -187,12 +186,11 @@ public class NamedListNodeTest {
         );
 
         // Insert new key somewhere in the middle. Index of Z5 should be updated to 2.
-        x.third().change(xb -> xb.create(1, "Z2", z2 -> {
-        })).get();
+        x.third().change(xb -> xb.create(1, "Z2", z2 -> {})).get();
 
-        String z2Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z2").toString();
+        UUID z2Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z2");
 
-        storageValues = storage.readAll().thenApply(Data::values);
+        storageValues = storage.readDataOnRecovery().thenApply(Data::values);
 
         assertThat(
                 storageValues,
@@ -218,12 +216,11 @@ public class NamedListNodeTest {
         );
 
         // Insert new key somewhere in the middle. Indexes of Z3 and Z5 should be updated to 2 and 3.
-        x.third().change(xb -> xb.createAfter("Z2", "Z3", z3 -> {
-        })).get();
+        x.third().change(xb -> xb.createAfter("Z2", "Z3", z3 -> {})).get();
 
-        String z3Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z3").toString();
+        UUID z3Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z3");
 
-        storageValues = storage.readAll().thenApply(Data::values);
+        storageValues = storage.readDataOnRecovery().thenApply(Data::values);
 
         assertThat(
                 storageValues,
@@ -255,7 +252,7 @@ public class NamedListNodeTest {
         // Delete keys from the middle. Indexes of Z3 should be updated to 1.
         x.third().change(xb -> xb.delete("Z2").delete("Z5")).get();
 
-        storageValues = storage.readAll().thenApply(Data::values);
+        storageValues = storage.readDataOnRecovery().thenApply(Data::values);
 
         assertThat(
                 storageValues,
@@ -279,7 +276,7 @@ public class NamedListNodeTest {
         // Delete keys from the middle. Indexes of Z3 should be updated to 1.
         x.third().change(xb -> xb.rename("Z0", "Z1")).get();
 
-        storageValues = storage.readAll().thenApply(Data::values);
+        storageValues = storage.readDataOnRecovery().thenApply(Data::values);
 
         assertThat(
                 storageValues,
@@ -303,13 +300,13 @@ public class NamedListNodeTest {
         // Delete values on several layers simultaneously. Storage must be empty after that.
         a.second().change(b -> b.delete("X")).get();
 
-        assertThat(storage.readAll().thenApply(Data::values), willBe(anEmptyMap()));
+        assertThat(storage.readDataOnRecovery().thenApply(Data::values), willBe(anEmptyMap()));
     }
 
     /** Tests exceptions described in methods signatures. */
     @Test
     public void errors() throws Exception {
-        var b = new NamedListNode<>("name", () -> cgen.instantiateNode(SecondConfigurationSchema.class), null);
+        var b = new NamedListNode<>("name", NamedListNodeTest::instantiateChildNode, null);
 
         b.create("X", x -> {
         }).create("Y", y -> {
@@ -366,7 +363,7 @@ public class NamedListNodeTest {
      */
     @Test
     public void testUpdate() {
-        var list = new NamedListNode<SecondChange>("name", () -> cgen.instantiateNode(SecondConfigurationSchema.class), null);
+        var list = new NamedListNode<SecondChange>("name", NamedListNodeTest::instantiateChildNode, null);
 
         list.create("foo", ch -> ch.changeStr("bar"));
 
@@ -384,7 +381,7 @@ public class NamedListNodeTest {
 
     @Test
     public void testUpdateErrors() {
-        var list = new NamedListNode<SecondChange>("name", () -> cgen.instantiateNode(SecondConfigurationSchema.class), null);
+        var list = new NamedListNode<SecondChange>("name", NamedListNodeTest::instantiateChildNode, null);
 
         assertThrows(NullPointerException.class, () -> list.update(null, ch -> {}));
         assertThrows(NullPointerException.class, () -> list.update("foo", null));
@@ -395,7 +392,7 @@ public class NamedListNodeTest {
 
     @Test
     void testCreateAfterErrors() {
-        var list = new NamedListNode<>("name", () -> cgen.instantiateNode(SecondConfigurationSchema.class), null);
+        var list = new NamedListNode<>("name", NamedListNodeTest::instantiateChildNode, null);
 
         list
                 .create("X", x -> {})
@@ -415,5 +412,33 @@ public class NamedListNodeTest {
 
         // inserting after a removed key should throw
         assertThrows(IllegalArgumentException.class, () -> list.delete("X").createAfter("X", "foo", foo -> {}));
+    }
+
+    @Test
+    public void makeImmutable() {
+        var list = new NamedListNode<>("name", NamedListNodeTest::instantiateChildNode, null);
+
+        list.makeImmutable();
+
+        assertThrows(AssertionError.class, () -> list.construct("elem", ConfigurationUtil.EMPTY_CFG_SRC, true));
+
+        assertThrows(AssertionError.class, () -> list.setInternalId("elem", UUID.randomUUID()));
+
+        assertThrows(AssertionError.class, () -> list.reorderKeys(List.of()));
+
+        assertThrows(AssertionError.class, () -> list.create("elem", elem -> {}));
+        assertThrows(AssertionError.class, () -> list.create(0, "elem", elem -> {}));
+        assertThrows(AssertionError.class, () -> list.createAfter("foo", "elem", elem -> {}));
+        assertThrows(AssertionError.class, () -> list.createOrUpdate("elem", elem -> {}));
+
+        assertThrows(AssertionError.class, () -> list.delete("elem"));
+        assertThrows(AssertionError.class, () -> list.forceDelete("elem"));
+
+        // Copy is always mutable.
+        list.copy().create("elem", elem -> {});
+    }
+
+    private static InnerNode instantiateChildNode() {
+        return cgen.instantiateNode(SecondConfigurationSchema.class);
     }
 }

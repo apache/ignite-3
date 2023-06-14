@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to you under the Apache License, Version 2.0
+ * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine.externalize;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.igniteClassLoader;
+import static org.apache.ignite.lang.ErrorGroups.Sql.CLASS_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.REL_DESERIALIZATION_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
@@ -102,15 +104,21 @@ import org.apache.calcite.sql.validate.SqlNameMatchers;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
-import org.apache.ignite.internal.sql.engine.rel.InternalIgniteRel;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
+import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 
 /**
  * Utilities for converting {@link RelNode} into JSON format.
@@ -150,7 +158,7 @@ class RelJson {
         try {
             constructor = (Constructor<RelNode>) clazz.getConstructor(RelInput.class);
         } catch (NoSuchMethodException e) {
-            throw new IgniteException("class does not have required constructor, "
+            throw new SqlException(REL_DESERIALIZATION_ERR, "class does not have required constructor, "
                     + clazz + "(RelInput)");
         }
 
@@ -204,7 +212,7 @@ class RelJson {
             return IgniteUtils.forName(typeName, igniteClassLoader());
         } catch (ClassNotFoundException e) {
             if (!skipNotFound) {
-                throw new IgniteException("unknown type " + typeName);
+                throw new SqlException(CLASS_NOT_FOUND_ERR, "unknown type " + typeName);
             }
         }
 
@@ -234,7 +242,7 @@ class RelJson {
     }
 
     String classToTypeName(Class<? extends RelNode> cls) {
-        if (InternalIgniteRel.class.isAssignableFrom(cls)) {
+        if (IgniteRel.class.isAssignableFrom(cls)) {
             return cls.getSimpleName();
         }
 
@@ -298,6 +306,8 @@ class RelJson {
             return toJson((RelDataTypeField) value);
         } else if (value instanceof ByteString) {
             return toJson((ByteString) value);
+        } else if (value instanceof SearchBounds) {
+            return toJson((SearchBounds) value);
         } else {
             throw new UnsupportedOperationException("type not serializable: "
                     + value + " (type " + value.getClass().getCanonicalName() + ")");
@@ -353,7 +363,7 @@ class RelJson {
             map.put("type", toJson(node.getSqlTypeName()));
             map.put("elementType", toJson(node.getComponentType()));
             return map;
-        } else  if (node.getSqlTypeName() == SqlTypeName.MAP) {
+        } else if (node.getSqlTypeName() == SqlTypeName.MAP) {
             Map<String, Object> map = map();
             map.put("type", toJson(node.getSqlTypeName()));
             map.put("keyType", toJson(node.getKeyType()));
@@ -370,6 +380,12 @@ class RelJson {
             }
             if (node.getSqlTypeName().allowsScale()) {
                 map.put("scale", node.getScale());
+            }
+            if (node instanceof IgniteCustomType) {
+                // In case of a custom data type we must store its name to correctly
+                // deserialize it because we want to distinguish a custom type from ANY.
+                IgniteCustomType customType = (IgniteCustomType) node;
+                map.put("customType", customType.getCustomTypeName());
             }
             return map;
         }
@@ -519,6 +535,13 @@ class RelJson {
 
                 map.put("keys", keys);
 
+                DistributionFunction function = distribution.function();
+
+                if (function.affinity()) {
+                    map.put("zoneId", ((AffinityDistribution) function).zoneId());
+                    map.put("tableId", Integer.toString(((AffinityDistribution) function).tableId()));
+                }
+
                 return map;
             default:
                 throw new AssertionError("Unexpected distribution type.");
@@ -567,6 +590,59 @@ class RelJson {
         return map;
     }
 
+    private Object toJson(SearchBounds val) {
+        Map map = map();
+        map.put("type", val.type().name());
+
+        if (val instanceof ExactBounds) {
+            map.put("bound", toJson(((ExactBounds) val).bound()));
+        } else if (val instanceof MultiBounds) {
+            map.put("bounds", toJson(((MultiBounds) val).bounds()));
+        } else {
+            assert val instanceof RangeBounds : val;
+
+            RangeBounds val0 = (RangeBounds) val;
+
+            map.put("lowerBound", val0.lowerBound() == null ? null : toJson(val0.lowerBound()));
+            map.put("upperBound", val0.upperBound() == null ? null : toJson(val0.upperBound()));
+            map.put("lowerInclude", val0.lowerInclude());
+            map.put("upperInclude", val0.upperInclude());
+        }
+
+        return map;
+    }
+
+    private SearchBounds toSearchBound(RelInput input, Map<String, Object> map) {
+        if (map == null) {
+            return null;
+        }
+
+        String type = (String) map.get("type");
+
+        if (SearchBounds.Type.EXACT.name().equals(type)) {
+            return new ExactBounds(null, toRex(input, map.get("bound")));
+        } else if (SearchBounds.Type.MULTI.name().equals(type)) {
+            return new MultiBounds(null, toSearchBoundList(input, (List<Map<String, Object>>) map.get("bounds")));
+        } else if (SearchBounds.Type.RANGE.name().equals(type)) {
+            return new RangeBounds(null,
+                    toRex(input, map.get("lowerBound")),
+                    toRex(input, map.get("upperBound")),
+                    (Boolean) map.get("lowerInclude"),
+                    (Boolean) map.get("upperInclude")
+            );
+        }
+
+        throw new IllegalStateException("Unsupported search bound type: " + type);
+    }
+
+    List<SearchBounds> toSearchBoundList(RelInput input, List<Map<String, Object>> bounds) {
+        if (bounds == null) {
+            return null;
+        }
+
+        return bounds.stream().map(b -> toSearchBound(input, b)).collect(Collectors.toList());
+    }
+
     RelCollation toCollation(List<Map<String, Object>> jsonFieldCollations) {
         if (jsonFieldCollations == null) {
             return RelCollations.EMPTY;
@@ -596,10 +672,13 @@ class RelJson {
         }
 
         Map<String, Object> map = (Map<String, Object>) distribution;
-        Number cacheId = (Number) map.get("cacheId");
-        if (cacheId != null) {
-            return IgniteDistributions.hash(ImmutableIntList.copyOf((List<Integer>) map.get("keys")),
-                    DistributionFunction.affinity(cacheId.intValue(), cacheId));
+        String tableIdStr = (String) map.get("tableId");
+
+        if (tableIdStr != null) {
+            int tableId = Integer.parseInt(tableIdStr);
+            Object zoneId = map.get("zoneId");
+
+            return IgniteDistributions.affinity((List<Integer>) map.get("keys"), tableId, zoneId);
         }
 
         return IgniteDistributions.hash(ImmutableIntList.copyOf((List<Integer>) map.get("keys")), DistributionFunction.hash());
@@ -616,11 +695,12 @@ class RelJson {
         } else if (o instanceof Map) {
             Map<String, Object> map = (Map<String, Object>) o;
             String clazz = (String) map.get("class");
+            boolean nullable = Boolean.TRUE == map.get("nullable");
 
             if (clazz != null) {
                 RelDataType type = typeFactory.createJavaType(classForName(clazz, false));
 
-                if (Boolean.TRUE == map.get("nullable")) {
+                if (nullable) {
                     type = typeFactory.createTypeWithNullability(type, true);
                 }
 
@@ -628,6 +708,8 @@ class RelJson {
             }
 
             Object fields = map.get("fields");
+            // IgniteCustomType: In case of a custom data type JSON must contain a name of that type.
+            String customType = (String) map.get("customType");
 
             if (fields != null) {
                 return toType(typeFactory, fields);
@@ -649,6 +731,8 @@ class RelJson {
                             toType(typeFactory, map.get("keyType")),
                             toType(typeFactory, map.get("valueType"))
                     );
+                } else if (sqlTypeName == SqlTypeName.ANY && customType != null) {
+                    type = ((IgniteTypeFactory) typeFactory).createCustomType(customType, precision);
                 } else if (precision == null) {
                     type = typeFactory.createSqlType(sqlTypeName);
                 } else if (scale == null) {
@@ -657,7 +741,7 @@ class RelJson {
                     type = typeFactory.createSqlType(sqlTypeName, precision, scale);
                 }
 
-                if (Boolean.TRUE == map.get("nullable")) {
+                if (nullable) {
                     type = typeFactory.createTypeWithNullability(type, true);
                 }
 

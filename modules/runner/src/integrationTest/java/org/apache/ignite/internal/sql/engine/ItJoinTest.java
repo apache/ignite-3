@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,44 +18,30 @@
 package org.apache.ignite.internal.sql.engine;
 
 import java.util.Arrays;
-import java.util.stream.Collectors;
+import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Check JOIN on basic cases.
  */
-public class ItJoinTest extends AbstractBasicIntegrationTest {
+public class ItJoinTest extends ClusterPerClassIntegrationTest {
     @BeforeAll
     public static void beforeTestsStarted() {
-        createTable(
-                SchemaBuilders.tableBuilder("PUBLIC", "T1").columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("C1", ColumnType.INT32).build(),
-                        SchemaBuilders.column("C2", ColumnType.INT32).asNullable(true).build(),
-                        SchemaBuilders.column("C3", ColumnType.INT32).asNullable(true).build()
-                ).withPrimaryKey("ID")
-        );
+        sql("CREATE TABLE t1 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");
+        sql("CREATE TABLE t2 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");
 
-        createTable(
-                SchemaBuilders.tableBuilder("PUBLIC", "T2").columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("C1", ColumnType.INT32).build(),
-                        SchemaBuilders.column("C2", ColumnType.INT32).asNullable(true).build(),
-                        SchemaBuilders.column("C3", ColumnType.INT32).asNullable(true).build()
-                ).withPrimaryKey("ID")
-        );
+        sql("create index t1_idx on t1 (c3, c2, c1)");
+        sql("create index t2_idx on t2 (c3, c2, c1)");
 
-        // TODO: support indexes. https://issues.apache.org/jira/browse/IGNITE-17304
-        // sql("create index t1_idx on t1 (c3, c2, c1)");
-        // sql("create index t2_idx on t2 (c3, c2, c1)");
-
-        insertData("PUBLIC.T1", new String[] {"ID", "C1", "C2", "C3"},
+        insertData("t1", List.of("ID", "C1", "C2", "C3"),
                 new Object[] {0, 1, 1, 1},
                 new Object[] {1, 2, null, 2},
                 new Object[] {2, 2, 2, 2},
@@ -64,7 +50,7 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
                 new Object[] {5, 4, 4, 4}
         );
 
-        insertData("PUBLIC.T2", new String[] {"ID", "C1", "C2", "C3"},
+        insertData("t2", List.of("ID", "C1", "C2", "C3"),
                 new Object[] {0, 1, 1, 1},
                 new Object[] {1, 2, 2, null},
                 new Object[] {2, 2, 2, 2},
@@ -93,8 +79,8 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
                 .returns(1, 1, 1, 1, 1)
                 .returns(2, 2, 2, 2, 2)
                 .returns(2, 2, 2, 2, 2)
-                .returns(3, 3, null, 3, 3)
                 .returns(3, 3, 3, 3, 3)
+                .returns(3, 3, null, 3, 3)
                 .returns(4, 4, 4, 4, 4)
                 .check();
 
@@ -145,8 +131,8 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
         )
                 .ordered()
                 .returns(4, 4, 4, 4, 4)
-                .returns(3, 3, null, 3, 3)
                 .returns(3, 3, 3, 3, 3)
+                .returns(3, 3, null, 3, 3)
                 .returns(2, 2, 2, 2, 2)
                 .returns(2, 2, 2, 2, 2)
                 .returns(1, 1, 1, 1, 1)
@@ -274,11 +260,11 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
         )
                 .ordered()
                 .returns(1, 1, 1, 1, 1)
+                .returns(2, 2, 2, 2, 2)
+                .returns(2, 2, 2, 2, 2)
                 .returns(2, null, 2, null, null)
-                .returns(2, 2, 2, 2, 2)
-                .returns(2, 2, 2, 2, 2)
-                .returns(3, 3, null, 3, 3)
                 .returns(3, 3, 3, 3, 3)
+                .returns(3, 3, null, 3, 3)
                 .returns(4, 4, 4, 4, 4)
                 .check();
 
@@ -331,11 +317,11 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
         )
                 .ordered()
                 .returns(4, 4, 4, 4, 4)
-                .returns(3, 3, null, 3, 3)
                 .returns(3, 3, 3, 3, 3)
+                .returns(3, 3, null, 3, 3)
+                .returns(2, 2, 2, 2, 2)
+                .returns(2, 2, 2, 2, 2)
                 .returns(2, null, 2, null, null)
-                .returns(2, 2, 2, 2, 2)
-                .returns(2, 2, 2, 2, 2)
                 .returns(1, 1, 1, 1, 1)
                 .check();
 
@@ -352,9 +338,9 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
                 .returns(4, 4, 4, 4, 4)
                 .returns(3, 3, null, 3, 3)
                 .returns(3, 3, 3, 3, 3)
+                .returns(2, 2, 2, 2, 2)
+                .returns(2, 2, 2, 2, 2)
                 .returns(2, null, 2, null, null)
-                .returns(2, 2, 2, 2, 2)
-                .returns(2, 2, 2, 2, 2)
                 .returns(1, 1, 1, 1, 1)
                 .check();
 
@@ -371,9 +357,9 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
                 .returns(4, 4, 4, 4, 4)
                 .returns(3, 3, 3, 3, 3)
                 .returns(3, 3, null, 3, 3)
+                .returns(2, 2, 2, 2, 2)
+                .returns(2, 2, 2, 2, 2)
                 .returns(2, null, 2, null, null)
-                .returns(2, 2, 2, 2, 2)
-                .returns(2, 2, 2, 2, 2)
                 .returns(1, 1, 1, 1, 1)
                 .check();
 
@@ -387,12 +373,12 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
                 joinType
         )
                 .ordered()
-                .returns(null, 3, null, null)
                 .returns(1, 1, 1, 1)
-                .returns(2, null, null, null)
                 .returns(2, 2, 2, 2)
+                .returns(2, null, null, null)
                 .returns(3, 3, 3, 3)
                 .returns(4, 4, 4, 4)
+                .returns(null, 3, null, null)
                 .check();
 
         assertQuery(""
@@ -489,11 +475,11 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
         )
                 .ordered()
                 .returns(1, 1, 1, 1, 1)
-                .returns(2, 2, 2, 2, null)
                 .returns(2, 2, 2, 2, 2)
+                .returns(2, 2, 2, 2, null)
+                .returns(3, 3, 3, 3, 3)
+                .returns(3, 3, 3, 3, 3)
                 .returns(null, null, 3, null, 3)
-                .returns(3, 3, 3, 3, 3)
-                .returns(3, 3, 3, 3, 3)
                 .returns(4, 4, 4, 4, 4)
                 .check();
 
@@ -546,11 +532,11 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
         )
                 .ordered()
                 .returns(4, 4, 4, 4, 4)
+                .returns(3, 3, 3, 3, 3)
+                .returns(3, 3, 3, 3, 3)
                 .returns(null, null, 3, null, 3)
-                .returns(3, 3, 3, 3, 3)
-                .returns(3, 3, 3, 3, 3)
-                .returns(2, 2, 2, 2, null)
                 .returns(2, 2, 2, 2, 2)
+                .returns(2, 2, 2, 2, null)
                 .returns(1, 1, 1, 1, 1)
                 .check();
 
@@ -565,9 +551,9 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
         )
                 .ordered()
                 .returns(4, 4, 4, 4, 4)
+                .returns(3, 3, 3, 3, 3)
+                .returns(3, 3, 3, 3, 3)
                 .returns(null, null, 3, null, 3)
-                .returns(3, 3, 3, 3, 3)
-                .returns(3, 3, 3, 3, 3)
                 .returns(2, 2, 2, 2, null)
                 .returns(2, 2, 2, 2, 2)
                 .returns(1, 1, 1, 1, 1)
@@ -584,9 +570,9 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
         )
                 .ordered()
                 .returns(4, 4, 4, 4, 4)
+                .returns(3, 3, 3, 3, 3)
+                .returns(3, 3, 3, 3, 3)
                 .returns(null, null, 3, null, 3)
-                .returns(3, 3, 3, 3, 3)
-                .returns(3, 3, 3, 3, 3)
                 .returns(2, 2, 2, 2, 2)
                 .returns(2, 2, 2, 2, null)
                 .returns(1, 1, 1, 1, 1)
@@ -602,12 +588,12 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
                 joinType
         )
                 .ordered()
-                .returns(null, null, null, 2)
                 .returns(1, 1, 1, 1)
                 .returns(2, 2, 2, 2)
-                .returns(null, null, 3, null)
                 .returns(3, 3, 3, 3)
+                .returns(null, null, 3, null)
                 .returns(4, 4, 4, 4)
+                .returns(null, null, null, 2)
                 .check();
 
         assertQuery(""
@@ -800,34 +786,59 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
         //    .check();
     }
 
-    protected QueryChecker assertQuery(String qry, JoinType joinType) {
-        return AbstractBasicIntegrationTest.assertQuery(qry.replace("select", "select "
-            + Arrays.stream(joinType.disabledRules).collect(Collectors.joining("','", "/*+ DISABLE_RULE('", "') */"))));
+    /** Check IS NOT DISTINCT execution correctness and IndexSpool presence. */
+    @ParameterizedTest(name = "join algo : {0}, index present: {1}")
+    @MethodSource("joinTypes")
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void testIsNotDistinctFrom(JoinType joinType, boolean indexScan) throws InterruptedException {
+        try {
+            sql("CREATE TABLE t11(i1 INTEGER, i2 INTEGER)");
+
+            if (indexScan) {
+                sql("CREATE INDEX t11_idx ON t11(i1)");
+            }
+
+            sql("INSERT INTO t11 VALUES (1, null), (2, 2), (null, 3), (3, null), (5, null)");
+
+            sql("CREATE TABLE t22(i3 INTEGER, i4 INTEGER)");
+
+            if (indexScan) {
+                sql("CREATE INDEX t22_idx ON t22(i3)");
+            }
+
+            sql("INSERT INTO t22 VALUES (1, 1), (2, 2), (null, 3), (4, null), (5, null)");
+
+            String sql = "SELECT i1, i4 FROM t11 JOIN t22 ON i1 IS NOT DISTINCT FROM i3";
+
+            assertQuery(sql, joinType, indexScan ? "LogicalTableScanConverterRule" : null)
+                    .matches(QueryChecker.matches("(?i).*IS NOT DISTINCT.*"))
+                    .matches(indexScan ? QueryChecker.containsIndexScan("PUBLIC", "T11") :
+                            QueryChecker.containsTableScan("PUBLIC", "T11"))
+                    .returns(1, 1)
+                    .returns(2, 2)
+                    .returns(5, null)
+                    .returns(null, 3)
+                    .check();
+
+            sql = "SELECT i1, i4 FROM t11 JOIN t22 ON i1 IS NOT DISTINCT FROM i3 AND i2 = i4";
+
+            assertQuery(sql, joinType, indexScan ? "LogicalTableScanConverterRule" : null)
+                    .matches(QueryChecker.matches("(?i).*IS NOT DISTINCT.*"))
+                    .matches(indexScan ? QueryChecker.containsIndexScan("PUBLIC", "T11") :
+                            QueryChecker.containsTableScan("PUBLIC", "T11"))
+                    .returns(2, 2)
+                    .returns(null, 3)
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS t11");
+            sql("DROP TABLE IF EXISTS t22");
+        }
     }
 
-    enum JoinType {
-        NESTED_LOOP(
-            "CorrelatedNestedLoopJoin",
-            "JoinCommuteRule",
-            "MergeJoinConverter"
-        ),
+    private static Stream<Arguments> joinTypes() {
+        Stream<Arguments> types = Arrays.stream(JoinType.values())
+                .flatMap(v -> Stream.of(Arguments.of(v, false), Arguments.of(v, true)));
 
-        MERGE(
-            "CorrelatedNestedLoopJoin",
-            "JoinCommuteRule",
-            "NestedLoopJoinConverter"
-        ),
-
-        CORRELATED(
-            "MergeJoinConverter",
-            "JoinCommuteRule",
-            "NestedLoopJoinConverter"
-        );
-
-        private final String[] disabledRules;
-
-        JoinType(String... disabledRules) {
-            this.disabledRules = disabledRules;
-        }
+        return types;
     }
 }

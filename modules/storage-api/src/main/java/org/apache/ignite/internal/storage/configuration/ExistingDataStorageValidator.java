@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,15 +18,13 @@
 package org.apache.ignite.internal.storage.configuration;
 
 import static java.util.stream.Collectors.toUnmodifiableSet;
-import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 
 import java.util.Set;
-import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import org.apache.ignite.configuration.schemas.store.ExistingDataStorage;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.schema.configuration.storage.ExistingDataStorage;
 import org.apache.ignite.internal.storage.DataStorageModule;
 
 /**
@@ -41,10 +39,9 @@ public class ExistingDataStorageValidator implements Validator<ExistingDataStora
      * @param modules Storage engine factories.
      */
     public ExistingDataStorageValidator(Iterable<DataStorageModule> modules) {
-        dataStorages = Stream.concat(
-                Stream.of(UNKNOWN_DATA_STORAGE),
-                StreamSupport.stream(modules.spliterator(), false).map(DataStorageModule::name)
-        ).collect(toUnmodifiableSet());
+        dataStorages = StreamSupport.stream(modules.spliterator(), false)
+                .map(DataStorageModule::name)
+                .collect(toUnmodifiableSet());
     }
 
     /** {@inheritDoc} */

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,12 +18,18 @@
 package org.apache.ignite.network;
 
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
  * Class, that represents the network-related resources of a node and provides entry points for working with the network members of a
  * cluster.
  */
 public interface ClusterService extends IgniteComponent {
+    /**
+     * Returns the network alias of the node.
+     */
+    String nodeName();
+
     /**
      * Returns the {@link TopologyService} for working with the cluster topology.
      *
@@ -39,11 +45,9 @@ public interface ClusterService extends IgniteComponent {
     MessagingService messagingService();
 
     /**
-     * Returns the local configuration of this node.
-     *
-     * @return Configuration of the current node.
+     * Returns the message serialization registry.
      */
-    ClusterLocalConfiguration localConfiguration();
+    MessageSerializationRegistry serializationRegistry();
 
     /** {@inheritDoc} */
     @Override
@@ -56,5 +60,12 @@ public interface ClusterService extends IgniteComponent {
      *
      * @return {@code true} if cluster service is stopped, {@code false} otherwise.
      */
-    public boolean isStopped();
+    boolean isStopped();
+
+    /**
+     * Updates metadata of this cluster node and sends update events to other members.
+     *
+     * @param metadata new metadata.
+     */
+    void updateMetadata(NodeMetadata metadata);
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,6 +27,8 @@ import java.util.BitSet;
 import java.util.Iterator;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
+import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.table.Tuple;
@@ -55,7 +57,7 @@ import org.jetbrains.annotations.Nullable;
  * @see #unmarshalRow()
  * @see #writeReplace()
  */
-public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements Serializable {
+public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements Serializable, BinaryTupleContainer {
     // Default constructor and serialVersionUID not needed because, actually,
     // this object never get serialized, it's unconditionally substituted during serialization.
 
@@ -289,12 +291,18 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
 
     /** {@inheritDoc} */
     @Override
-    public Tuple set(@NotNull String columnName, Object value) {
+    public Tuple set(@NotNull String columnName, @Nullable Object value) {
         unmarshalRow();
 
         tuple.set(columnName, value);
 
         return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable BinaryTuple binaryTuple() {
+        return row == null ? null : row.binaryTuple();
     }
 
     /**

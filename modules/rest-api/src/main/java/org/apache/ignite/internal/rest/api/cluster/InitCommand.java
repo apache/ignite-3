@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,7 +20,9 @@ package org.apache.ignite.internal.rest.api.cluster;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -30,12 +32,19 @@ import org.jetbrains.annotations.Nullable;
 /**
  * REST command for initializing a cluster.
  */
+@Schema(description = "Cluster initialization configuration.")
 public class InitCommand {
+    @Schema(description = "A list of RAFT metastorage nodes.")
     private final Collection<String> metaStorageNodes;
 
+    @Schema(description = "A list of RAFT cluster management nodes.")
     private final Collection<String> cmgNodes;
 
+    @Schema(description = "The name of the cluster.")
     private final String clusterName;
+
+    @Schema(description = "Cluster configuration in HOCON format.")
+    private final String clusterConfiguration;
 
     /**
      * Constructor.
@@ -44,13 +53,14 @@ public class InitCommand {
     public InitCommand(
             @JsonProperty("metaStorageNodes") Collection<String> metaStorageNodes,
             @JsonProperty("cmgNodes") @Nullable Collection<String> cmgNodes,
-            @JsonProperty("clusterName") String clusterName
+            @JsonProperty("clusterName") String clusterName,
+            @JsonProperty("clusterConfiguration") String clusterConfiguration
     ) {
         Objects.requireNonNull(metaStorageNodes);
         Objects.requireNonNull(clusterName);
 
         if (metaStorageNodes.isEmpty()) {
-            throw new IllegalArgumentException("Meta Storage node names list must not be empty");
+            throw new IllegalArgumentException("Meta Storage node names list must not be empty.");
         }
 
         if (metaStorageNodes.stream().anyMatch(StringUtils::nullOrBlank)) {
@@ -62,27 +72,33 @@ public class InitCommand {
         }
 
         if (clusterName.isBlank()) {
-            throw new IllegalArgumentException("Cluster name must not be empty");
+            throw new IllegalArgumentException("Cluster name must not be empty.");
         }
 
         this.metaStorageNodes = List.copyOf(metaStorageNodes);
         this.cmgNodes = cmgNodes == null ? List.of() : List.copyOf(cmgNodes);
         this.clusterName = clusterName;
+        this.clusterConfiguration = clusterConfiguration;
     }
 
-    @JsonProperty
+    @JsonGetter("metaStorageNodes")
     public Collection<String> metaStorageNodes() {
         return metaStorageNodes;
     }
 
-    @JsonProperty
+    @JsonGetter("cmgNodes")
     public Collection<String> cmgNodes() {
         return cmgNodes;
     }
 
-    @JsonProperty
+    @JsonGetter("clusterName")
     public String clusterName() {
         return clusterName;
+    }
+
+    @JsonGetter("clusterConfiguration")
+    public String clusterConfiguration() {
+        return clusterConfiguration;
     }
 
     @Override
@@ -91,6 +107,7 @@ public class InitCommand {
                 + "metaStorageNodes=" + metaStorageNodes
                 + ", cmgNodes=" + cmgNodes
                 + ", clusterName='" + clusterName + '\''
+                + ", clusterConfiguration='" + clusterConfiguration + '\''
                 + '}';
     }
 }

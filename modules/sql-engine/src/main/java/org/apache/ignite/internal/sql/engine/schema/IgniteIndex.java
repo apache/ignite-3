@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,38 +17,150 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import org.apache.calcite.rel.RelCollation;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.ignite.internal.index.ColumnCollation;
+import org.apache.ignite.internal.index.Index;
+import org.apache.ignite.internal.index.SortedIndex;
+import org.apache.ignite.internal.index.SortedIndexDescriptor;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Ignite scannable index.
+ * Schema object representing an Index.
  */
 public class IgniteIndex {
-    private final RelCollation collation;
+    /**
+     * Collation, or sorting order, of a column.
+     */
+    public enum Collation {
+        ASC_NULLS_FIRST(true, true),
+        ASC_NULLS_LAST(true, false),
+        DESC_NULLS_FIRST(false, true),
+        DESC_NULLS_LAST(false, false);
 
-    private final String idxName;
+        /** Returns collation for a given specs. */
+        public static Collation of(boolean asc, boolean nullsFirst) {
+            return asc ? nullsFirst ? ASC_NULLS_FIRST : ASC_NULLS_LAST
+                    : nullsFirst ? DESC_NULLS_FIRST : DESC_NULLS_LAST;
+        }
 
-    //    private final GridIndex<H2Row> idx;
-    private final InternalIgniteTable tbl;
+        public final boolean asc;
+
+        public final boolean nullsFirst;
+
+        Collation(boolean asc, boolean nullsFirst) {
+            this.asc = asc;
+            this.nullsFirst = nullsFirst;
+        }
+    }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Type of the index.
      */
-    public IgniteIndex(RelCollation collation, String name, InternalIgniteTable tbl) {
-        this.collation = collation;
-        idxName = name;
-        this.tbl = tbl;
+    public enum Type {
+        HASH, SORTED
     }
 
-    public RelCollation collation() {
-        return collation;
+    private final List<String> columns;
+
+    private final @Nullable List<Collation> collations;
+
+    private final Index<?> index;
+
+    private final Type type;
+
+    /**
+     * Constructs the Index object.
+     *
+     * @param index A data access object to wrap.
+     */
+    public IgniteIndex(Index<?> index) {
+        this.index = Objects.requireNonNull(index, "index");
+
+        this.columns = index.descriptor().columns();
+        this.collations = deriveCollations(index);
+        this.type = index instanceof SortedIndex ? Type.SORTED : Type.HASH;
     }
 
+    /** Returns a list of names of indexed columns. */
+    public List<String> columns() {
+        return columns;
+    }
+
+    /**
+     * Returns a list of collations.
+     *
+     * <p>The size of the collations list is guaranteed to match the size of indexed columns. The i-th
+     * collation is related to an i-th column.
+     *
+     * @return The list of collations or {@code null} if not applicable.
+     */
+    public @Nullable List<Collation> collations() {
+        return collations;
+    }
+
+    /** Returns the name of a current index. */
     public String name() {
-        return idxName;
+        return index.name();
     }
 
-    public InternalIgniteTable table() {
-        return tbl;
+    /** Returns an object providing access to a data. */
+    public Index<?> index() {
+        return index;
+    }
+
+    public Type type() {
+        return type;
+    }
+
+    //TODO: cache rowType as it can't be changed.
+
+    /** Returns index row type.
+     *
+     * <p>This is a struct type whose fields describe the names and types of indexed columns.</p>
+     *
+     * <p>The implementer must use the type factory provided. This ensures that
+     * the type is converted into a canonical form; other equal types in the same
+     * query will use the same object.</p>
+     *
+     * @param typeFactory Type factory with which to create the type
+     * @param tableDescriptor Table descriptor.
+     * @return Row type.
+     */
+    public RelDataType getRowType(IgniteTypeFactory typeFactory, TableDescriptor tableDescriptor) {
+        RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(typeFactory);
+
+        for (String colName : columns) {
+            ColumnDescriptor colDesc = tableDescriptor.columnDescriptor(colName);
+            b.add(colName, native2relationalType(typeFactory, colDesc.physicalType(), colDesc.nullable()));
+        }
+
+        return b.build();
+    }
+
+    private static @Nullable List<Collation> deriveCollations(Index<?> index) {
+        if (index.descriptor() instanceof SortedIndexDescriptor) {
+            SortedIndexDescriptor descriptor = (SortedIndexDescriptor) index.descriptor();
+
+            List<Collation> orders = new ArrayList<>(descriptor.columns().size());
+
+            for (var column : descriptor.columns()) {
+                ColumnCollation collation = descriptor.collation(column);
+
+                assert collation != null;
+
+                orders.add(Collation.of(collation.asc(), collation.nullsFirst()));
+            }
+
+            return List.copyOf(orders);
+        }
+
+        return null;
     }
 }

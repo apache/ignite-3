@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.util;
 
 import java.io.Serializable;
+import java.lang.reflect.Field;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
@@ -26,19 +27,19 @@ import org.apache.ignite.internal.configuration.tree.NamedListNode;
 public abstract class AnyNodeConfigurationVisitor<T> implements ConfigurationVisitor<T> {
     /** {@inheritDoc} */
     @Override
-    public final T visitLeafNode(String key, Serializable val) {
+    public final T visitLeafNode(Field field, String key, Serializable val) {
         return visitNode(key, val);
     }
 
     /** {@inheritDoc} */
     @Override
-    public final T visitInnerNode(String key, InnerNode node) {
+    public final T visitInnerNode(Field field, String key, InnerNode node) {
         return visitNode(key, node);
     }
 
     /** {@inheritDoc} */
     @Override
-    public final T visitNamedListNode(String key, NamedListNode<?> node) {
+    public final T visitNamedListNode(Field field, String key, NamedListNode<?> node) {
         return visitNode(key, node);
     }
 

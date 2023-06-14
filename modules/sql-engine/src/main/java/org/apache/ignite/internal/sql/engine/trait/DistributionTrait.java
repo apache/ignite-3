@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -33,9 +33,8 @@ import org.apache.calcite.plan.RelTrait;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.Mappings;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.metadata.AffinityService;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 
 /**
  * Description of the physical distribution of a relational expression.
@@ -87,8 +86,8 @@ public final class DistributionTrait implements IgniteDistribution {
      * @param keys     Distribution keys.
      * @param function Distribution function.
      */
-    DistributionTrait(ImmutableIntList keys, DistributionFunction function) {
-        this.keys = keys;
+    DistributionTrait(List<Integer> keys, DistributionFunction function) {
+        this.keys = ImmutableIntList.copyOf(keys);
         this.function = function;
     }
 
@@ -106,8 +105,8 @@ public final class DistributionTrait implements IgniteDistribution {
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ectx, AffinityService affSrvc, ColocationGroup target) {
-        return function.destination(ectx, affSrvc, target, keys);
+    public <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup target) {
+        return function.destination(hashFuncFactory, target, keys);
     }
 
     /** {@inheritDoc} */

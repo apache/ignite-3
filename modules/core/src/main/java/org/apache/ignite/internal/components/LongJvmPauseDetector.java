@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tostring.S;
@@ -39,6 +40,8 @@ import org.jetbrains.annotations.Nullable;
  * accordingly.
  */
 public class LongJvmPauseDetector implements IgniteComponent {
+    private final IgniteLogger log = Loggers.forClass(LongJvmPauseDetector.class);
+
     /** Ignite JVM pause detector threshold default value. */
     public static final int DEFAULT_JVM_PAUSE_DETECTOR_THRESHOLD = 500;
 
@@ -81,11 +84,8 @@ public class LongJvmPauseDetector implements IgniteComponent {
 
     private final String nodeName;
 
-    private final IgniteLogger log;
-
-    public LongJvmPauseDetector(String nodeName, IgniteLogger log) {
+    public LongJvmPauseDetector(String nodeName) {
         this.nodeName = nodeName;
-        this.log = log;
     }
 
     /** {@inheritDoc} */

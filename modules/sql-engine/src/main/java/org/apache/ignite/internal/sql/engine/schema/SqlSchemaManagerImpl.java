@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,53 +19,71 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.OBJECT_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_EVALUATION_ERR;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.DoubleSupplier;
+import java.util.function.LongFunction;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.causality.VersionedValue;
+import org.apache.ignite.internal.causality.CompletableVersionedValue;
+import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.causality.OutdatedTokenException;
+import org.apache.ignite.internal.index.HashIndex;
+import org.apache.ignite.internal.index.Index;
+import org.apache.ignite.internal.index.IndexDescriptor;
+import org.apache.ignite.internal.index.SortedIndexDescriptor;
+import org.apache.ignite.internal.index.SortedIndexImpl;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Holds actual schema and mutates it on schema change, requested by Ignite.
  */
 public class SqlSchemaManagerImpl implements SqlSchemaManager {
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+    private final IncrementalVersionedValue<Map<String, IgniteSchema>> schemasVv;
 
-    private final VersionedValue<Map<String, IgniteSchema>> schemasVv;
+    private final IncrementalVersionedValue<Map<Integer, IgniteTable>> tablesVv;
 
-    private final VersionedValue<Map<UUID, IgniteTable>> tablesVv;
+    private final Map<Integer, CompletableFuture<?>> pkIdxReady = new ConcurrentHashMap<>();
+
+    private final IncrementalVersionedValue<Map<Integer, IgniteIndex>> indicesVv;
 
     private final TableManager tableManager;
-
     private final SchemaManager schemaManager;
 
-    private final VersionedValue<SchemaPlus> calciteSchemaVv;
+    private final CompletableVersionedValue<SchemaPlus> calciteSchemaVv;
 
     private final Set<SchemaUpdateListener> listeners = new CopyOnWriteArraySet<>();
 
@@ -79,16 +97,18 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     public SqlSchemaManagerImpl(
             TableManager tableManager,
             SchemaManager schemaManager,
-            Consumer<Function<Long, CompletableFuture<?>>> registry,
+            Consumer<LongFunction<CompletableFuture<?>>> registry,
             IgniteSpinBusyLock busyLock
     ) {
         this.tableManager = tableManager;
         this.schemaManager = schemaManager;
-        schemasVv = new VersionedValue<>(registry, HashMap::new);
-        tablesVv = new VersionedValue<>(registry, HashMap::new);
+
+        schemasVv = new IncrementalVersionedValue<>(registry, HashMap::new);
+        tablesVv = new IncrementalVersionedValue<>(registry, HashMap::new);
+        indicesVv = new IncrementalVersionedValue<>(registry, HashMap::new);
         this.busyLock = busyLock;
 
-        calciteSchemaVv = new VersionedValue<>(null, () -> {
+        calciteSchemaVv = new CompletableVersionedValue<>(() -> {
             SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
             newCalciteSchema.add(DEFAULT_SCHEMA_NAME, new IgniteSchema(DEFAULT_SCHEMA_NAME));
             return newCalciteSchema;
@@ -104,7 +124,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 if (throwable != null) {
                     calciteSchemaVv.completeExceptionally(
                             token,
-                            new IgniteInternalException("Couldn't evaluate sql schemas for causality token: " + token, throwable)
+                            new IgniteInternalException(
+                                    SCHEMA_EVALUATION_ERR, "Couldn't evaluate sql schemas for causality token: " + token, throwable)
                     );
 
                     return;
@@ -124,6 +145,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     public SchemaPlus schema(@Nullable String schema) {
+        // stub for waiting pk indexes, more clear place is IgniteSchema
+        CompletableFuture.allOf(pkIdxReady.values().toArray(CompletableFuture[]::new)).join();
+
         SchemaPlus schemaPlus = calciteSchemaVv.latest();
 
         return schema != null ? schemaPlus.getSubSchema(schema) : schemaPlus.getSubSchema(DEFAULT_SCHEMA_NAME);
@@ -131,30 +155,53 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    @NotNull
-    public IgniteTable tableById(UUID id, int ver) {
+    public SchemaPlus schema(String name, int version) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<?> actualSchemaAsync(long ver) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+        try {
+            if (ver == IgniteSchema.INITIAL_VERSION) {
+                return completedFuture(calciteSchemaVv.latest());
+            }
+
+            CompletableFuture<SchemaPlus> lastSchemaFut;
+
+            try {
+                lastSchemaFut = calciteSchemaVv.get(ver);
+            } catch (OutdatedTokenException e) {
+                return completedFuture(null);
+            }
+
+            return lastSchemaFut;
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SchemaPlus activeSchema(@Nullable String name, long timestamp) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteTable tableById(int id) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
         try {
             IgniteTable table = tablesVv.latest().get(id);
 
-            // there is a chance that someone tries to resolve table before
-            // the distributed event of that table creation has been processed
-            // by TableManager, so we need to get in sync with the TableManager
-            if (table == null || ver > table.version()) {
-                table = awaitLatestTableSchema(id);
-            }
-
             if (table == null) {
-                throw new IgniteInternalException(
-                        IgniteStringFormatter.format("Table not found [tableId={}]", id));
-            }
-
-            if (table.version() < ver) {
-                throw new IgniteInternalException(
-                        IgniteStringFormatter.format("Table version not found [tableId={}, requiredVer={}, latestKnownVer={}]",
-                                id, ver, table.version()));
+                throw new IgniteInternalException(OBJECT_NOT_FOUND_ERR,
+                        format("Table not found [tableId={}]", id));
             }
 
             return table;
@@ -167,66 +214,63 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         listeners.add(listener);
     }
 
-    private @Nullable IgniteTable awaitLatestTableSchema(UUID tableId) {
-        try {
-            TableImpl table = tableManager.table(tableId);
-
-            if (table == null) {
-                return null;
-            }
-
-            table.schemaView().waitLatestSchema();
-
-            return convert(table);
-        } catch (NodeStoppingException e) {
-            throw new IgniteInternalException(NODE_STOPPING_ERR, e);
-        }
-    }
-
     /**
      * OnSqlTypeCreated.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public synchronized CompletableFuture<?> onTableCreated(
-            String schemaName,
-            TableImpl table,
-            long causalityToken
-    ) {
+    public CompletableFuture<?> onTableCreated(String schemaName, int tableId, long causalityToken) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
+
         try {
+            pkIdxReady.computeIfAbsent(tableId, k -> new CompletableFuture<>());
+
+            CompletableFuture<Map<Integer, IgniteTable>> updatedTables = tablesVv.update(causalityToken, (tables, e) ->
+                    inBusyLock(busyLock, () -> {
+                        if (e != null) {
+                            return failedFuture(e);
+                        }
+
+                        return tableManager.tableAsync(causalityToken, tableId)
+                                .thenCompose(table -> convert(causalityToken, table))
+                                .thenApply(igniteTable -> {
+                                    Map<Integer, IgniteTable> resTbls = new HashMap<>(tables);
+
+                                    IgniteTable oldTable = resTbls.put(igniteTable.id(), igniteTable);
+
+                                    // looks like this is UPDATE operation
+                                    if (oldTable != null) {
+                                        for (var index : oldTable.indexes().values()) {
+                                            igniteTable.addIndex(index);
+                                        }
+                                    }
+
+                                    return resTbls;
+                                });
+                    })
+            );
+
             schemasVv.update(causalityToken, (schemas, e) -> inBusyLock(busyLock, () -> {
                 if (e != null) {
                     return failedFuture(e);
                 }
 
-                Map<String, IgniteSchema> res = new HashMap<>(schemas);
+                return updatedTables.thenApply(tables -> {
+                    IgniteTable igniteTable = tables.get(tableId);
 
-                IgniteSchema schema = res.computeIfAbsent(schemaName, IgniteSchema::new);
+                    Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
-                CompletableFuture<IgniteTableImpl> igniteTableFuture = convert(causalityToken, table);
+                    IgniteSchema schema = res.compute(schemaName,
+                            (k, v) -> v == null ? new IgniteSchema(schemaName, causalityToken) : IgniteSchema.copy(v, causalityToken));
 
-                return tablesVv.update(causalityToken, (tables, ex) -> inBusyLock(busyLock, () -> {
-                    if (ex != null) {
-                        return failedFuture(ex);
-                    }
+                    schema.addTable(igniteTable);
 
-                    Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
-
-                    return igniteTableFuture.thenApply(igniteTable -> inBusyLock(busyLock, () -> {
-                        resTbls.put(igniteTable.id(), igniteTable);
-
-                        return resTbls;
-                    }));
-                })).thenCombine(igniteTableFuture, (v, igniteTable) -> inBusyLock(busyLock, () -> {
-                    schema.addTable(removeSchema(schemaName, table.name()), igniteTable);
-
-                    return null;
-                })).thenCompose(v -> inBusyLock(busyLock, () -> completedFuture(res)));
-
+                    return res;
+                });
             }));
 
+            // calciteSchemaVv depends on all other Versioned Values and is completed last.
             return calciteSchemaVv.get(causalityToken);
         } finally {
             busyLock.leaveBusy();
@@ -237,59 +281,62 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * OnSqlTypeUpdated.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public CompletableFuture<?> onTableUpdated(
-            String schemaName,
-            TableImpl table,
-            long causalityToken
-    ) {
-        return onTableCreated(schemaName, table, causalityToken);
+    public CompletableFuture<?> onTableUpdated(String schemaName, int tableId, long causalityToken) {
+        return onTableCreated(schemaName, tableId, causalityToken);
     }
 
     /**
      * OnSqlTypeDropped.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public synchronized CompletableFuture<?> onTableDropped(
-            String schemaName,
-            String tableName,
-            long causalityToken
-    ) {
+    public CompletableFuture<?> onTableDropped(String schemaName, int tableId, long causalityToken) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
+
         try {
+            CompletableFuture<IgniteTable> removedTableFuture = new CompletableFuture<>();
+
+            tablesVv.update(causalityToken, (tables, e) -> inBusyLock(busyLock, () -> {
+                if (e != null) {
+                    removedTableFuture.completeExceptionally(e);
+
+                    return failedFuture(e);
+                }
+
+                Map<Integer, IgniteTable> resTbls = new HashMap<>(tables);
+
+                IgniteTable removedTable = resTbls.remove(tableId);
+
+                removedTableFuture.complete(removedTable);
+
+                return completedFuture(resTbls);
+            }));
+
             schemasVv.update(causalityToken, (schemas, e) -> inBusyLock(busyLock, () -> {
                 if (e != null) {
                     return failedFuture(e);
                 }
 
-                Map<String, IgniteSchema> res = new HashMap<>(schemas);
+                return removedTableFuture.thenApply(table -> {
+                    if (table == null) {
+                        return schemas;
+                    }
 
-                IgniteSchema schema = res.computeIfAbsent(schemaName, IgniteSchema::new);
+                    Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
-                String calciteTableName = removeSchema(schemaName, tableName);
+                    IgniteSchema schema = res.compute(schemaName,
+                            (k, v) -> v == null ? new IgniteSchema(schemaName, causalityToken) : IgniteSchema.copy(v, causalityToken));
 
-                InternalIgniteTable table = (InternalIgniteTable) schema.getTable(calciteTableName);
+                    schema.removeTable(table.name());
 
-                if (table != null) {
-                    schema.removeTable(calciteTableName);
+                    pkIdxReady.remove(table.id());
 
-                    return tablesVv.update(causalityToken, (tables, ex) -> inBusyLock(busyLock, () -> {
-                        if (ex != null) {
-                            return failedFuture(ex);
-                        }
-
-                        Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
-
-                        resTbls.remove(table.id());
-
-                        return completedFuture(resTbls);
-                    })).thenCompose(tables -> inBusyLock(busyLock, () -> completedFuture(res)));
-                }
-
-                return completedFuture(res);
+                    return res;
+                });
             }));
 
+            // calciteSchemaVv depends on all other Versioned Values and is completed last.
             return calciteSchemaVv.get(causalityToken);
         } finally {
             busyLock.leaveBusy();
@@ -304,7 +351,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private SchemaPlus rebuild(Map<String, IgniteSchema> schemas) {
         SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
 
-        newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
+        newCalciteSchema.add(DEFAULT_SCHEMA_NAME, new IgniteSchema(DEFAULT_SCHEMA_NAME));
 
         schemas.forEach(newCalciteSchema::add);
 
@@ -313,16 +360,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private CompletableFuture<IgniteTableImpl> convert(long causalityToken, TableImpl table) {
         return schemaManager.schemaRegistry(causalityToken, table.tableId())
-            .thenApply(schemaRegistry -> inBusyLock(busyLock, () -> convert(table, schemaRegistry)));
+                .thenApply(schemaRegistry -> inBusyLock(busyLock, () -> convert(table, schemaRegistry, causalityToken)));
     }
 
-    private IgniteTableImpl convert(TableImpl table) {
-        SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(table.tableId());
-
-        return convert(table, schemaRegistry);
-    }
-
-    private IgniteTableImpl convert(TableImpl table, SchemaRegistry schemaRegistry) {
+    private IgniteTableImpl convert(TableImpl table, SchemaRegistry schemaRegistry, long schemaVersion) {
         SchemaDescriptor descriptor = schemaRegistry.schema();
 
         List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()
@@ -340,10 +381,26 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 ))
                 .collect(Collectors.toList());
 
+        IntList colocationColumns = new IntArrayList();
+
+        for (Column column : descriptor.colocationColumns()) {
+            colocationColumns.add(column.columnOrder());
+        }
+
+        // TODO Use the actual zone ID after implementing https://issues.apache.org/jira/browse/IGNITE-18426.
+        IgniteDistribution distribution = IgniteDistributions.affinity(colocationColumns, table.tableId(), table.tableId());
+
+        InternalTable internalTable = table.internalTable();
+        Supplier<ColocationGroup> colocationGroup = IgniteTableImpl.partitionedGroup(internalTable);
+        DoubleSupplier rowCount = IgniteTableImpl.rowCountStatistic(internalTable);
+
         return new IgniteTableImpl(
-                new TableDescriptorImpl(colDescriptors),
-                table.internalTable(),
-                schemaRegistry
+                new TableDescriptorImpl(colDescriptors, distribution),
+                internalTable.tableId(),
+                internalTable.name(),
+                schemaRegistry.lastSchemaVersion(),
+                colocationGroup,
+                rowCount
         );
     }
 
@@ -353,7 +410,180 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 : DefaultValueStrategy.DEFAULT_COMPUTED;
     }
 
-    private static String removeSchema(String schemaName, String canonicalName) {
-        return canonicalName.substring(schemaName.length() + 1);
+    /**
+     * Index created callback method register index in Calcite schema.
+     *
+     * @param tableId Table ID.
+     * @param indexId Index ID.
+     * @param causalityToken Causality token.
+     * @return Schema registration future.
+     */
+    public CompletableFuture<?> onIndexCreated(int tableId, int indexId, IndexDescriptor indexDescriptor, long causalityToken) {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
+        }
+
+        try {
+            CompletableFuture<Map<Integer, IgniteIndex>> updatedIndices = indicesVv.update(causalityToken, (indices, e) ->
+                    inBusyLock(busyLock, () -> {
+                        if (e != null) {
+                            return failedFuture(e);
+                        }
+
+                        return tableManager.tableAsync(causalityToken, tableId).thenApply(table -> {
+                            var igniteIndex = new IgniteIndex(newIndex(table, indexId, indexDescriptor));
+
+                            Map<Integer, IgniteIndex> resIdxs = new HashMap<>(indices);
+
+                            resIdxs.put(indexId, igniteIndex);
+
+                            return resIdxs;
+                        });
+                    }));
+
+            CompletableFuture<Map<Integer, IgniteTable>> updatedTables = tablesVv.update(causalityToken, (tables, e) ->
+                    inBusyLock(busyLock, () -> {
+                        if (e != null) {
+                            return failedFuture(e);
+                        }
+
+                        return updatedIndices.thenApply(indices -> {
+                            IgniteIndex igniteIndex = indices.get(indexId);
+
+                            Map<Integer, IgniteTable> resTbls = new HashMap<>(tables);
+
+                            IgniteTable igniteTable = resTbls.computeIfPresent(tableId,
+                                    (k, v) -> IgniteTableImpl.copyOf((IgniteTableImpl) v));
+
+                            assert igniteTable != null : "Table " + tableId + " was not found";
+
+                            igniteTable.addIndex(igniteIndex);
+
+                            return resTbls;
+                        });
+                    }));
+
+            schemasVv.update(causalityToken, (schemas, e) -> inBusyLock(busyLock, () -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
+
+                return updatedTables.thenCombine(updatedIndices, (tables, indices) -> inBusyLock(busyLock, () -> {
+                    Map<String, IgniteSchema> res = new HashMap<>(schemas);
+
+                    IgniteSchema schema = res.compute(DEFAULT_SCHEMA_NAME,
+                            (k, v) -> v == null ? new IgniteSchema(k, causalityToken) : IgniteSchema.copy(v, causalityToken));
+
+                    schema.addTable(tables.get(tableId));
+
+                    schema.addIndex(indexId, indices.get(indexId));
+
+                    return res;
+                }));
+            }));
+
+            // this stub is necessary for observing pk index creation.
+            schemasVv.whenComplete((token, stringIgniteSchemaMap, throwable) -> {
+                CompletableFuture<?> pkFut = pkIdxReady.get(tableId);
+                // this listener is called repeatedly on node stop.
+                if (pkFut != null) {
+                    pkFut.complete(null);
+                }
+            });
+
+            return calciteSchemaVv.get(causalityToken);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private static Index<?> newIndex(TableImpl table, int indexId, IndexDescriptor descriptor) {
+        if (descriptor instanceof SortedIndexDescriptor) {
+            return new SortedIndexImpl(indexId, table.internalTable(), (SortedIndexDescriptor) descriptor);
+        } else {
+            return new HashIndex(indexId, table.internalTable(), descriptor);
+        }
+    }
+
+    /**
+     * Index dropped callback method deregisters index from Calcite schema.
+     *
+     * @param schemaName Schema name.
+     * @param indexId Index id.
+     * @param causalityToken Causality token.
+     * @return Schema registration future.
+     */
+    public CompletableFuture<?> onIndexDropped(String schemaName, int tableId, int indexId, long causalityToken) {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
+        }
+
+        try {
+            CompletableFuture<IgniteIndex> removedIndexFuture = new CompletableFuture<>();
+
+            indicesVv.update(causalityToken, (indices, e) -> inBusyLock(busyLock, () -> {
+                if (e != null) {
+                    removedIndexFuture.completeExceptionally(e);
+
+                    return failedFuture(e);
+                }
+
+                Map<Integer, IgniteIndex> resIdxs = new HashMap<>(indices);
+
+                IgniteIndex rmvIdx = resIdxs.remove(indexId);
+
+                removedIndexFuture.complete(rmvIdx);
+
+                return completedFuture(resIdxs);
+            }));
+
+            CompletableFuture<Map<Integer, IgniteTable>> updatedTables = tablesVv.update(causalityToken, (tables, e) ->
+                    inBusyLock(busyLock, () -> {
+                        if (e != null) {
+                            return failedFuture(e);
+                        }
+
+                        Map<Integer, IgniteTable> resTbls = new HashMap<>(tables);
+
+                        IgniteTable table = resTbls.computeIfPresent(tableId, (k, v) -> IgniteTableImpl.copyOf((IgniteTableImpl) v));
+
+                        if (table == null) {
+                            return completedFuture(resTbls);
+                        } else {
+                            return removedIndexFuture.thenApply(rmvIndex -> {
+                                table.removeIndex(rmvIndex.name());
+
+                                return resTbls;
+                            });
+                        }
+                    }));
+
+            schemasVv.update(causalityToken, (schemas, e) -> inBusyLock(busyLock, () -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
+
+                Map<String, IgniteSchema> res = new HashMap<>(schemas);
+
+                IgniteSchema schema = res.compute(schemaName,
+                        (k, v) -> v == null ? new IgniteSchema(schemaName, causalityToken) : IgniteSchema.copy(v, causalityToken));
+
+                schema.removeIndex(indexId);
+
+                return updatedTables.thenApply(tables -> {
+                    IgniteTable table = tables.get(tableId);
+
+                    if (table != null) {
+                        schema.addTable(tables.get(tableId));
+                    }
+
+                    return res;
+                });
+            }));
+
+            return calciteSchemaVv.get(causalityToken);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 }

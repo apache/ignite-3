@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,10 +17,13 @@
 
 package org.apache.ignite.network.scalecube;
 
+import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
+
 import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
+import io.scalecube.cluster.metadata.MetadataCodec;
 import io.scalecube.net.Address;
 import java.util.List;
 import java.util.UUID;
@@ -29,14 +32,15 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.schemas.network.ClusterMembershipView;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.network.NetworkView;
-import org.apache.ignite.configuration.schemas.network.ScaleCubeView;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.configuration.ClusterMembershipView;
+import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkView;
+import org.apache.ignite.internal.network.configuration.ScaleCubeView;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
+import org.apache.ignite.internal.network.recovery.StaleIds;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationService;
@@ -44,13 +48,16 @@ import org.apache.ignite.internal.network.serialization.UserObjectSerializationC
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.AbstractClusterService;
-import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.DefaultMessagingService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.NodeFinderFactory;
+import org.apache.ignite.network.NodeMetadata;
+import org.apache.ignite.network.TopologyEventHandler;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
  * Cluster service factory that uses ScaleCube for messaging and topology services.
@@ -59,18 +66,22 @@ public class ScaleCubeClusterServiceFactory {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ScaleCubeClusterServiceFactory.class);
 
+    /** Metadata codec. */
+    private static final MetadataCodec METADATA_CODEC = MetadataCodec.INSTANCE;
+
     /**
      * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
      *
-     * @param context               Cluster context.
      * @param networkConfiguration  Network configuration.
      * @param nettyBootstrapFactory Bootstrap factory.
      * @return New cluster service.
      */
     public ClusterService createClusterService(
-            ClusterLocalConfiguration context,
+            String consistentId,
             NetworkConfiguration networkConfiguration,
-            NettyBootstrapFactory nettyBootstrapFactory
+            NettyBootstrapFactory nettyBootstrapFactory,
+            MessageSerializationRegistry serializationRegistry,
+            StaleIds staleIds
     ) {
         var messageFactory = new NetworkMessagesFactory();
 
@@ -78,9 +89,15 @@ public class ScaleCubeClusterServiceFactory {
 
         UserObjectSerializationContext userObjectSerialization = createUserObjectSerializationContext();
 
-        var messagingService = new DefaultMessagingService(messageFactory, topologyService, userObjectSerialization);
+        var messagingService = new DefaultMessagingService(
+                consistentId,
+                messageFactory,
+                topologyService,
+                userObjectSerialization.descriptorRegistry(),
+                userObjectSerialization.marshaller()
+        );
 
-        return new AbstractClusterService(context, topologyService, messagingService) {
+        return new AbstractClusterService(consistentId, topologyService, messagingService, serializationRegistry) {
 
             private volatile ClusterImpl cluster;
 
@@ -91,9 +108,7 @@ public class ScaleCubeClusterServiceFactory {
             /** {@inheritDoc} */
             @Override
             public void start() {
-                String consistentId = context.getName();
-
-                var serializationService = new SerializationService(context.getSerializationRegistry(), userObjectSerialization);
+                var serializationService = new SerializationService(serializationRegistry, userObjectSerialization);
 
                 UUID launchId = UUID.randomUUID();
 
@@ -104,20 +119,20 @@ public class ScaleCubeClusterServiceFactory {
                         serializationService,
                         launchId,
                         consistentId,
-                        nettyBootstrapFactory
+                        nettyBootstrapFactory,
+                        staleIds
                 );
 
                 connectionMgr.start();
 
                 var transport = new ScaleCubeDirectMarshallerTransport(
-                        connectionMgr.getLocalAddress(),
+                        connectionMgr.localAddress(),
                         messagingService,
                         topologyService,
                         messageFactory
                 );
 
                 NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder());
-
                 cluster = new ClusterImpl(clusterConfig(configView.membership()))
                         .handler(cl -> new ClusterMessageHandler() {
                             /** {@inheritDoc} */
@@ -126,7 +141,11 @@ public class ScaleCubeClusterServiceFactory {
                                 topologyService.onMembershipEvent(event);
                             }
                         })
-                        .config(opts -> opts.memberAlias(consistentId))
+                        .config(opts -> opts
+                                .memberId(launchId.toString())
+                                .memberAlias(consistentId)
+                                .metadataCodec(METADATA_CODEC)
+                        )
                         .transport(opts -> opts.transportFactory(transportConfig -> transport))
                         .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
 
@@ -136,11 +155,17 @@ public class ScaleCubeClusterServiceFactory {
                 topologyService.setCluster(cluster);
                 messagingService.setConnectionManager(connectionMgr);
 
+                topologyService.addEventHandler(new TopologyEventHandler() {
+                    @Override
+                    public void onDisappeared(ClusterNode member) {
+                        staleIds.markAsStale(member.id());
+                    }
+                });
+
                 cluster.startAwait();
 
                 // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
-                var localMembershipEvent = MembershipEvent.createAdded(cluster.member(), null, System.currentTimeMillis());
-
+                var localMembershipEvent = createAdded(cluster.member(), null, System.currentTimeMillis());
                 topologyService.onMembershipEvent(localMembershipEvent);
             }
 
@@ -185,6 +210,13 @@ public class ScaleCubeClusterServiceFactory {
             public boolean isStopped() {
                 return shutdownFuture.isDone();
             }
+
+            @Override
+            public void updateMetadata(NodeMetadata metadata) {
+                cluster.updateMetadata(metadata).subscribe();
+                topologyService.updateLocalMetadata(metadata);
+            }
+
         };
     }
 
@@ -222,7 +254,7 @@ public class ScaleCubeClusterServiceFactory {
         var userObjectMarshaller = new DefaultUserObjectMarshaller(userObjectDescriptorRegistry, userObjectDescriptorFactory);
 
         return new UserObjectSerializationContext(userObjectDescriptorRegistry, userObjectDescriptorFactory,
-            userObjectMarshaller);
+                userObjectMarshaller);
     }
 
     /**

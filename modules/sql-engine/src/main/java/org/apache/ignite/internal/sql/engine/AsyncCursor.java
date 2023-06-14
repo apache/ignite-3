@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 
 /**
  * Asynchronous cursor.
@@ -38,7 +37,7 @@ public interface AsyncCursor<T> {
      * @param rows Desired amount of rows.
      * @return A completion stage that will be completed with batch of size {@code rows} or less if there is no more data.
      */
-    CompletionStage<BatchedResult<T>> requestNextAsync(int rows);
+    CompletableFuture<BatchedResult<T>> requestNextAsync(int rows);
 
     /**
      * Releases resources acquired by the cursor.

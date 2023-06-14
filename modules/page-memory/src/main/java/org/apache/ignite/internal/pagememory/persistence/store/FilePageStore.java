@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -93,6 +93,9 @@ public class FilePageStore implements PageStore {
 
     /** Future with a new delta file page store. */
     private volatile @Nullable CompletableFuture<DeltaFilePageStoreIo> newDeltaFilePageStoreIoFuture;
+
+    /** Flag that the file and its delta files will be destroyed. */
+    private volatile boolean toDestroy;
 
     /**
      * Constructor.
@@ -374,5 +377,19 @@ public class FilePageStore implements PageStore {
      */
     public boolean removeDeltaFile(DeltaFilePageStoreIo deltaFilePageStoreIo) {
         return deltaFilePageStoreIos.remove(deltaFilePageStoreIo);
+    }
+
+    /**
+     * Marks that the file page store and its delta files will be destroyed.
+     */
+    public void markToDestroy() {
+        toDestroy = true;
+    }
+
+    /**
+     * Checks if the file page store and its delta files are marked for destruction.
+     */
+    public boolean isMarkedToDestroy() {
+        return toDestroy;
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,10 +20,10 @@ package org.apache.ignite.internal.schema.builder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
-import org.apache.ignite.schema.definition.index.SortOrder;
-import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder;
+import org.apache.ignite.internal.schema.testutils.definition.index.SortOrder;
+import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinition;
 import org.junit.jupiter.api.Test;
 
 /**

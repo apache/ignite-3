@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -75,6 +75,10 @@ class MessageReaderMethodResolver {
                 return resolveReadObjectArray((ArrayType) parameterType, parameterName);
             case "Collection":
                 return resolveReadCollection((DeclaredType) parameterType, parameterName);
+            case "List":
+                return resolveReadList((DeclaredType) parameterType, parameterName);
+            case "Set":
+                return resolveReadSet((DeclaredType) parameterType, parameterName);
             case "Map":
                 return resolveReadMap((DeclaredType) parameterType, parameterName);
             default:
@@ -111,6 +115,38 @@ class MessageReaderMethodResolver {
                         parameterName,
                         MessageCollectionItemType.class,
                         typeConverter.fromTypeMirror(collectionGenericType)
+                )
+                .build();
+    }
+
+    /**
+     * Creates a {@link MessageReader#readList(String, MessageCollectionItemType)} method call.
+     */
+    private CodeBlock resolveReadList(DeclaredType parameterType, String parameterName) {
+        TypeMirror listGenericType = parameterType.getTypeArguments().get(0);
+
+        return CodeBlock.builder()
+                .add(
+                        "readList($S, $T.$L)",
+                        parameterName,
+                        MessageCollectionItemType.class,
+                        typeConverter.fromTypeMirror(listGenericType)
+                )
+                .build();
+    }
+
+    /**
+     * Creates a {@link MessageReader#readSet(String, MessageCollectionItemType)} method call.
+     */
+    private CodeBlock resolveReadSet(DeclaredType parameterType, String parameterName) {
+        TypeMirror setGenericType = parameterType.getTypeArguments().get(0);
+
+        return CodeBlock.builder()
+                .add(
+                        "readSet($S, $T.$L)",
+                        parameterName,
+                        MessageCollectionItemType.class,
+                        typeConverter.fromTypeMirror(setGenericType)
                 )
                 .build();
     }

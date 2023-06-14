@@ -18,13 +18,16 @@
 namespace Apache.Ignite.Internal.Sql
 {
     using System;
+    using System.Collections.Generic;
     using System.Threading.Tasks;
     using Buffers;
     using Common;
     using Ignite.Sql;
     using Ignite.Table;
     using Ignite.Transactions;
+    using Linq;
     using Proto;
+    using Proto.BinaryTuple;
     using Transactions;
 
     /// <summary>
@@ -32,6 +35,11 @@ namespace Apache.Ignite.Internal.Sql
     /// </summary>
     internal sealed class Sql : ISql
     {
+        private static readonly RowReader<IIgniteTuple> TupleReader =
+            static (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) => ReadTuple(cols, ref reader);
+
+        private static readonly RowReaderFactory<IIgniteTuple> TupleReaderFactory = static _ => TupleReader;
+
         /** Underlying connection. */
         private readonly ClientFailoverSocket _socket;
 
@@ -45,52 +53,161 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
-        public async Task<IResultSet<IIgniteTuple>> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object[] args)
+        public async Task<IResultSet<IIgniteTuple>> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args) =>
+            await ExecuteAsyncInternal(transaction, statement, TupleReaderFactory, args).ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public async Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object?[]? args) =>
+            await ExecuteAsyncInternal(transaction, statement, static cols => GetReaderFactory<T>(cols), args)
+                .ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public async Task<IgniteDbDataReader> ExecuteReaderAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args)
+        {
+            var resultSet = await ExecuteAsyncInternal<object>(transaction, statement, _ => null!, args).ConfigureAwait(false);
+
+            if (!resultSet.HasRowSet)
+            {
+                throw new InvalidOperationException($"{nameof(ExecuteReaderAsync)} does not support queries without row set (DDL, DML).");
+            }
+
+            return new IgniteDbDataReader(resultSet);
+        }
+
+        /// <inheritdoc/>
+        public override string ToString() => IgniteToStringBuilder.Build(GetType());
+
+        /// <summary>
+        /// Reads column value.
+        /// </summary>
+        /// <param name="reader">Reader.</param>
+        /// <param name="col">Column.</param>
+        /// <param name="idx">Index.</param>
+        /// <returns>Value.</returns>
+        internal static object? ReadColumnValue(ref BinaryTupleReader reader, IColumnMetadata col, int idx)
+        {
+            if (reader.IsNull(idx))
+            {
+                return null;
+            }
+
+            return col.Type switch
+            {
+                ColumnType.Boolean => reader.GetByteAsBool(idx),
+                ColumnType.Int8 => reader.GetByte(idx),
+                ColumnType.Int16 => reader.GetShort(idx),
+                ColumnType.Int32 => reader.GetInt(idx),
+                ColumnType.Int64 => reader.GetLong(idx),
+                ColumnType.Float => reader.GetFloat(idx),
+                ColumnType.Double => reader.GetDouble(idx),
+                ColumnType.Decimal => reader.GetDecimal(idx, col.Scale),
+                ColumnType.Date => reader.GetDate(idx),
+                ColumnType.Time => reader.GetTime(idx),
+                ColumnType.Datetime => reader.GetDateTime(idx),
+                ColumnType.Timestamp => reader.GetTimestamp(idx),
+                ColumnType.Uuid => reader.GetGuid(idx),
+                ColumnType.Bitmask => reader.GetBitmask(idx),
+                ColumnType.String => reader.GetString(idx),
+                ColumnType.ByteArray => reader.GetBytes(idx),
+                ColumnType.Period => reader.GetPeriod(idx),
+                ColumnType.Duration => reader.GetDuration(idx),
+                ColumnType.Number => reader.GetNumber(idx),
+                _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type.")
+            };
+        }
+
+        /// <summary>
+        /// Executes single SQL statement and returns rows deserialized with the provided <paramref name="rowReaderFactory"/>.
+        /// </summary>
+        /// <param name="transaction">Optional transaction.</param>
+        /// <param name="statement">Statement to execute.</param>
+        /// <param name="rowReaderFactory">Row reader factory.</param>
+        /// <param name="args">Arguments for the statement.</param>
+        /// <typeparam name="T">Row type.</typeparam>
+        /// <returns>SQL result set.</returns>
+        internal async Task<ResultSet<T>> ExecuteAsyncInternal<T>(
+            ITransaction? transaction,
+            SqlStatement statement,
+            RowReaderFactory<T> rowReaderFactory,
+            ICollection<object?>? args)
         {
             IgniteArgumentCheck.NotNull(statement, nameof(statement));
 
             var tx = transaction.ToInternal();
 
             using var bufferWriter = Write();
-            var (buf, socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.SqlExec, tx, bufferWriter).ConfigureAwait(false);
 
-            // ResultSet will dispose the pooled buffer.
-            return new ResultSet(socket, buf);
-
-            PooledArrayBufferWriter Write()
+            try
             {
-                var writer = new PooledArrayBufferWriter();
-                var w = writer.GetMessageWriter();
+                var (buf, socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.SqlExec, tx, bufferWriter).ConfigureAwait(false);
+
+                // ResultSet will dispose the pooled buffer.
+                return new ResultSet<T>(socket, buf, rowReaderFactory);
+            }
+            catch (SqlException e) when (e.Code == ErrorGroups.Sql.QueryInvalid)
+            {
+                throw new SqlException(
+                    e.TraceId,
+                    ErrorGroups.Sql.QueryInvalid,
+                    "Invalid query, check inner exceptions for details: " + statement.Query,
+                    e);
+            }
+#if DEBUG
+            catch (IgniteException e)
+            {
+                // TODO IGNITE-14865 Calcite error handling rework
+                // This should not happen, all parsing errors must be wrapped in SqlException.
+                if ((e.InnerException?.Message ?? e.Message).StartsWith("org.apache.calcite.", StringComparison.Ordinal))
+                {
+                    Console.WriteLine("SQL parsing failed: " + statement.Query);
+                }
+
+                throw;
+            }
+#endif
+
+            PooledArrayBuffer Write()
+            {
+                var writer = ProtoCommon.GetMessageWriter();
+                var w = writer.MessageWriter;
 
                 w.WriteTx(tx);
                 w.Write(statement.Schema);
                 w.Write(statement.PageSize);
                 w.Write((long)statement.Timeout.TotalMilliseconds);
+                w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
 
-                w.WriteMapHeader(statement.Properties.Count);
+                w.Write(statement.Properties.Count);
+                using var propTuple = new BinaryTupleBuilder(statement.Properties.Count * 4);
 
                 foreach (var (key, val) in statement.Properties)
                 {
-                    w.Write(key);
-                    w.WriteObjectWithType(val);
+                    propTuple.AppendString(key);
+                    propTuple.AppendObjectWithType(val);
                 }
 
+                w.Write(propTuple.Build().Span);
                 w.Write(statement.Query);
-                w.Write(statement.Prepared);
+                w.WriteObjectCollectionAsBinaryTuple(args);
 
-                w.WriteObjectArrayWithTypes(args);
-
-                w.Flush();
                 return writer;
             }
         }
 
-        /// <inheritdoc/>
-        public Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object[] args)
-            where T : class
+        private static IIgniteTuple ReadTuple(IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader tupleReader)
         {
-            // TODO: IGNITE-17333 SQL ResultSet object mapping
-            throw new NotSupportedException();
+            var row = new IgniteTuple(cols.Count);
+
+            for (var i = 0; i < cols.Count; i++)
+            {
+                var col = cols[i];
+                row[col.Name] = ReadColumnValue(ref tupleReader, col, i);
+            }
+
+            return row;
         }
+
+        private static RowReader<T> GetReaderFactory<T>(IReadOnlyList<IColumnMetadata> cols) =>
+            ResultSelector.Get<T>(cols, selectorExpression: null, ResultSelectorOptions.None);
     }
 }

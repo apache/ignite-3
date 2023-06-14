@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -55,7 +55,6 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
@@ -74,12 +73,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Tests {@link PersistentPageMemory}.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-@ExtendWith(ConfigurationExtension.class)
+@ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelfTest {
     private static PageIoRegistry ioRegistry;
 
-    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+    @InjectConfiguration
     private PersistentPageMemoryDataRegionConfiguration dataRegionCfg;
 
     @BeforeAll
@@ -436,7 +434,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 filePageStoreManager == null ? new TestPageReadWriteManager() : filePageStoreManager,
                 null,
                 flushDirtyPageForReplacement,
-                checkpointManager == null ? mockCheckpointTimeoutLock(log, true) : checkpointManager.checkpointTimeoutLock(),
+                checkpointManager == null ? mockCheckpointTimeoutLock(true) : checkpointManager.checkpointTimeoutLock(),
                 PAGE_SIZE
         );
     }
@@ -487,7 +485,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     }
 
     private static FilePageStoreManager createFilePageStoreManager(Path storagePath) throws Exception {
-        return new FilePageStoreManager(log, "test", storagePath, new RandomAccessFileIoFactory(), PAGE_SIZE);
+        return new FilePageStoreManager("test", storagePath, new RandomAccessFileIoFactory(), PAGE_SIZE);
     }
 
     private static void initGroupFilePageStores(
@@ -497,17 +495,17 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         int partitions = PARTITION_ID + 1;
 
-        filePageStoreManager.initialize("Test", GRP_ID, partitions);
-
         checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
         try {
-            for (int i = 0; i < partitions; i++) {
-                FilePageStore filePageStore = filePageStoreManager.getStore(GRP_ID, i);
+            for (int partition = 0; partition < partitions; partition++) {
+                GroupPartitionId groupPartitionId = new GroupPartitionId(GRP_ID, partition);
+
+                filePageStoreManager.initialize(groupPartitionId);
+
+                FilePageStore filePageStore = filePageStoreManager.getStore(groupPartitionId);
 
                 filePageStore.ensure();
-
-                GroupPartitionId groupPartitionId = new GroupPartitionId(GRP_ID, i);
 
                 CheckpointProgress lastCheckpointProgress = checkpointManager.lastCheckpointProgress();
 

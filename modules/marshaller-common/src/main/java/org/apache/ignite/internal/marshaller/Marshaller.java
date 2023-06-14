@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -116,15 +116,6 @@ public abstract class Marshaller {
     public abstract Object readObject(MarshallerReader reader, @Nullable Object target) throws MarshallerException;
 
     /**
-     * Copies field values from one object to another.
-     *
-     * @param source Source.
-     * @param target Target.
-     * @throws MarshallerException If failed.
-     */
-    public abstract void copyObject(Object source, Object target) throws MarshallerException;
-
-    /**
      * Write an object to a row.
      *
      * @param obj    Object.
@@ -162,12 +153,6 @@ public abstract class Marshaller {
         @Override
         public Object readObject(MarshallerReader reader, Object target) {
             return fieldAccessor.read(reader);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void copyObject(Object source, Object target) throws MarshallerException {
-            throw new UnsupportedOperationException("SimpleMarshaller can't copy objects.");
         }
 
         /** {@inheritDoc} */
@@ -215,16 +200,6 @@ public abstract class Marshaller {
             }
 
             return obj;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void copyObject(Object source, Object target) throws MarshallerException {
-            for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
-                FieldAccessor fieldAccessor = fieldAccessors[fldIdx];
-                var val = fieldAccessor.get(source);
-                fieldAccessor.set(target, val);
-            }
         }
 
         /** {@inheritDoc} */

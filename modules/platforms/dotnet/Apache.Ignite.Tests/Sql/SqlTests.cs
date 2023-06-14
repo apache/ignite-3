@@ -56,7 +56,7 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestSimpleQuery()
         {
-            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(null, "select 1 as num, 'hello' as str", 1);
+            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(null, "select 1 as num, 'hello' as str");
             var rows = await resultSet.ToListAsync();
 
             Assert.AreEqual(-1, resultSet.AffectedRows);
@@ -70,8 +70,49 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual(0, resultSet.Metadata!.IndexOf("NUM"));
             Assert.AreEqual(1, resultSet.Metadata!.IndexOf("STR"));
 
+            Assert.AreEqual(
+                "ResultSetMetadata { Columns = [ " +
+                "ColumnMetadata { Name = NUM, Type = Int32, Precision = 10, Scale = 0, Nullable = False, Origin =  }, " +
+                "ColumnMetadata { Name = STR, Type = String, Precision = 5, Scale = -2147483648, Nullable = False, Origin =  } ] }",
+                resultSet.Metadata.ToString());
+
             Assert.AreEqual(1, rows.Count);
             Assert.AreEqual("IgniteTuple { NUM = 1, STR = hello }", rows[0].ToString());
+        }
+
+        [Test]
+        public async Task TestNullArgs()
+        {
+            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(
+                transaction: null,
+                statement: "select 1",
+                args: null);
+
+            var rows = await resultSet.ToListAsync();
+
+            Assert.AreEqual(1, rows.Single()[0]);
+        }
+
+        [Test]
+        public async Task TestNullArg()
+        {
+            await Client.Sql.ExecuteAsync(null, "insert into TEST (ID, VAL) VALUES (-1, NULL)");
+
+            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(
+                transaction: null,
+                statement: "select ID from TEST where VAL = ?",
+                args: new object?[] { null });
+
+            var rows = await resultSet.ToListAsync();
+
+            await using IResultSet<IIgniteTuple> resultSet2 = await Client.Sql.ExecuteAsync(
+                transaction: null,
+                statement: "select ID from TEST where VAL is null");
+
+            var rows2 = await resultSet2.ToListAsync();
+
+            CollectionAssert.IsEmpty(rows);
+            Assert.AreEqual(1, rows2.Count);
         }
 
         [Test]
@@ -84,6 +125,54 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual(10, rows.Count);
             Assert.AreEqual("IgniteTuple { ID = 0, VAL = s-0 }", rows[0].ToString());
             Assert.AreEqual("IgniteTuple { ID = 9, VAL = s-9 }", rows[9].ToString());
+        }
+
+        [Test]
+        public async Task TestToDictionary()
+        {
+            var statement = new SqlStatement("SELECT ID, VAL FROM TEST WHERE VAL IS NOT NULL ORDER BY VAL", pageSize: 2);
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
+            Dictionary<int, string> res = await resultSet.ToDictionaryAsync(x => (int)x["ID"]!, x => (string)x["VAL"]!);
+
+            Assert.AreEqual(10, res.Count);
+            Assert.AreEqual("s-3", res[3]);
+        }
+
+        [Test]
+        public async Task TestToDictionaryCustomComparer()
+        {
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT ID, VAL FROM TEST WHERE VAL IS NOT NULL ORDER BY VAL");
+            Dictionary<string, int> res = await resultSet.ToDictionaryAsync(
+                x => (string)x["VAL"]!,
+                x => (int)x["ID"]!,
+                StringComparer.OrdinalIgnoreCase);
+
+            Assert.AreEqual(10, res.Count);
+            Assert.AreEqual(3, res["s-3"]);
+            Assert.AreEqual(3, res["S-3"]);
+            Assert.IsFalse(res.ContainsKey("x-3"));
+        }
+
+        [Test]
+        public async Task TestCollect()
+        {
+            var statement = new SqlStatement("SELECT ID, VAL FROM TEST WHERE VAL IS NOT NULL ORDER BY VAL", pageSize: 2);
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
+            HashSet<int> res = await resultSet.CollectAsync(capacity => new HashSet<int>(capacity), (set, row) => set.Add((int)row["ID"]!));
+
+            Assert.AreEqual(10, res.Count);
+            Assert.IsTrue(res.Contains(1));
+            Assert.IsFalse(res.Contains(111));
+        }
+
+        [Test]
+        public async Task TestExists()
+        {
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT EXISTS (SELECT 1 FROM TEST WHERE ID > 1)");
+            var rows = await resultSet.ToListAsync();
+
+            Assert.AreEqual(1, rows.Count);
+            Assert.AreEqual(true, rows[0][0]);
         }
 
         [Test]
@@ -120,7 +209,7 @@ namespace Apache.Ignite.Tests.Sql
         public async Task TestMultipleEnumerationThrows()
         {
             // GetAll -> GetAsyncEnumerator.
-            await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT 1", 1);
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT 1");
             await resultSet.ToListAsync();
 
             var ex = Assert.Throws<IgniteClientException>(() => resultSet.GetAsyncEnumerator());
@@ -128,7 +217,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.ThrowsAsync<IgniteClientException>(async () => await resultSet.ToListAsync());
 
             // GetAsyncEnumerator -> GetAll.
-            await using var resultSet2 = await Client.Sql.ExecuteAsync(null, "SELECT 1", 1);
+            await using var resultSet2 = await Client.Sql.ExecuteAsync(null, "SELECT 1");
             _ = resultSet2.GetAsyncEnumerator();
 
             Assert.ThrowsAsync<IgniteClientException>(async () => await resultSet2.ToListAsync());
@@ -165,10 +254,10 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestPutSqlGetKv()
         {
-            var table = await Client.Tables.GetTableAsync("PUBLIC.TEST");
+            var table = await Client.Tables.GetTableAsync("TEST");
             var res = await table!.RecordBinaryView.GetAsync(null, new IgniteTuple { ["ID"] = 1 });
 
-            Assert.AreEqual("s-1", res!["VAL"]);
+            Assert.AreEqual("s-1", res.Value["VAL"]);
         }
 
         [Test]
@@ -210,15 +299,20 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("PUBLIC", columns[0].Origin!.SchemaName);
             Assert.AreEqual("TESTDDLDML", columns[0].Origin!.TableName);
             Assert.IsTrue(columns[0].Nullable);
-            Assert.AreEqual(SqlColumnType.String, columns[0].Type);
+            Assert.AreEqual(ColumnType.String, columns[0].Type);
+            Assert.AreEqual(int.MinValue, columns[0].Scale);
+            Assert.AreEqual(65536, columns[0].Precision);
 
             Assert.AreEqual("ID", columns[1].Name);
             Assert.AreEqual("ID", columns[1].Origin!.ColumnName);
             Assert.AreEqual("PUBLIC", columns[1].Origin!.SchemaName);
             Assert.AreEqual("TESTDDLDML", columns[1].Origin!.TableName);
             Assert.IsFalse(columns[1].Nullable);
+            Assert.AreEqual(0, columns[1].Scale);
+            Assert.AreEqual(10, columns[1].Precision);
 
-            Assert.AreEqual("ID + 1", columns[2].Name);
+            // TODO: Uncomment after https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken
+            // Assert.AreEqual("ID + 1", columns[2].Name);
             Assert.IsNull(columns[2].Origin);
 
             // Update data.
@@ -240,8 +334,44 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public void TestInvalidSqlThrowsException()
         {
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await Client.Sql.ExecuteAsync(null, "select x from bad"));
+            var ex = Assert.ThrowsAsync<IgniteException>(async () => await Client.Sql.ExecuteAsync(null, "select x from bad"));
             StringAssert.Contains("From line 1, column 15 to line 1, column 17: Object 'BAD' not found", ex!.Message);
+        }
+
+        [Test]
+        public void TestCreateTableExistsThrowsException()
+        {
+            var ex = Assert.ThrowsAsync<TableAlreadyExistsException>(
+                async () => await Client.Sql.ExecuteAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY)"));
+
+            Assert.AreEqual("Table already exists [name=\"PUBLIC\".\"TEST\"]", ex!.Message);
+            Assert.AreEqual("IGN-TBL-1", ex.CodeAsString);
+            Assert.AreEqual("TBL", ex.GroupName);
+            Assert.AreEqual(ErrorGroups.Table.TableAlreadyExists, ex.Code);
+        }
+
+        [Test]
+        public void TestAlterTableNotFoundThrowsException()
+        {
+            var ex = Assert.ThrowsAsync<TableNotFoundException>(
+                async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"));
+
+            Assert.AreEqual("The table does not exist [name=\"PUBLIC\".\"NOT_EXISTS_TABLE\"]", ex!.Message);
+            Assert.AreEqual("IGN-TBL-2", ex.CodeAsString);
+            Assert.AreEqual("TBL", ex.GroupName);
+            Assert.AreEqual(ErrorGroups.Table.TableNotFound, ex.Code);
+        }
+
+        [Test]
+        public void TestAlterTableColumnExistsThrowsException()
+        {
+            var ex = Assert.ThrowsAsync<ColumnAlreadyExistsException>(
+                async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE TEST ADD COLUMN ID INT"));
+
+            Assert.AreEqual("Column already exists [name=\"ID\"]", ex!.Message);
+            Assert.AreEqual("IGN-TBL-3", ex.CodeAsString);
+            Assert.AreEqual("TBL", ex.GroupName);
+            Assert.AreEqual(ErrorGroups.Table.ColumnAlreadyExists, ex.Code);
         }
 
         [Test]
@@ -255,7 +385,6 @@ namespace Apache.Ignite.Tests.Sql
                 timeout: TimeSpan.FromSeconds(123),
                 schema: "schema-1",
                 pageSize: 987,
-                prepared: true,
                 properties: new Dictionary<string, object?> { { "prop1", 10 }, { "prop-2", "xyz" } });
 
             var res = await client.Sql.ExecuteAsync(null, sqlStatement);
@@ -269,9 +398,21 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("987", props["pageSize"]);
             Assert.AreEqual("123000", props["timeoutMs"]);
             Assert.AreEqual("SELECT PROPS", props["sql"]);
-            Assert.AreEqual("True", props["prepared"]);
             Assert.AreEqual("10", props["prop1"]);
             Assert.AreEqual("xyz", props["prop-2"]);
+        }
+
+        [Test]
+        public async Task TestResultSetToString()
+        {
+            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(null, "select 1 as num, 'hello' as str");
+
+            Assert.AreEqual(
+                "ResultSet`1[IIgniteTuple] { HasRowSet = True, AffectedRows = -1, WasApplied = False, " +
+                "Metadata = ResultSetMetadata { Columns = [ " +
+                "ColumnMetadata { Name = NUM, Type = Int32, Precision = 10, Scale = 0, Nullable = False, Origin =  }, " +
+                "ColumnMetadata { Name = STR, Type = String, Precision = 5, Scale = -2147483648, Nullable = False, Origin =  } ] } }",
+                resultSet.ToString());
         }
     }
 }

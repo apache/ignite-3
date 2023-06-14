@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,21 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * CREATE TABLE statement.
  */
 public class CreateTableCommand extends AbstractTableDdlCommand {
-    /** Replicas number. */
-    private Integer replicas;
-
-    /** Number of partitions for the new table. */
-    private Integer partitions;
-
     /** Primary key columns. */
     private List<String> pkCols;
 
@@ -41,10 +33,7 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
     /** Columns. */
     private List<ColumnDefinition> cols;
 
-    private String dataStorage;
-
-    @Nullable
-    private Map<String, Object> dataStorageOptions;
+    private String zone;
 
     /**
      * Get primary key columns.
@@ -58,37 +47,6 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
      */
     public void primaryKeyColumns(List<String> pkCols) {
         this.pkCols = pkCols;
-    }
-
-    /**
-     * Get replicas count.
-     */
-    @Nullable
-    public Integer replicas() {
-        return replicas;
-    }
-
-    /**
-     * Set replicas count.
-     */
-    @Nullable
-    public void replicas(int repl) {
-        replicas = repl;
-    }
-
-    /**
-     * Get partitions count.
-     */
-    @Nullable
-    public Integer partitions() {
-        return partitions;
-    }
-
-    /**
-     * Set partitions count.
-     */
-    public void partitions(Integer parts) {
-        partitions = parts;
     }
 
     /**
@@ -129,39 +87,17 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
     }
 
     /**
-     * Returns data storage.
+     * Get zone name.
      */
-    public String dataStorage() {
-        return dataStorage;
+    @Nullable
+    public String zone() {
+        return zone;
     }
 
     /**
-     * Sets data storage.
-     *
-     * @param dataStorage Data storage.
+     * Set zone name.
      */
-    public void dataStorage(String dataStorage) {
-        this.dataStorage = dataStorage;
-    }
-
-    /**
-     * Returns data storage options.
-     */
-    public Map<String, Object> dataStorageOptions() {
-        return dataStorageOptions == null ? Map.of() : dataStorageOptions;
-    }
-
-    /**
-     * Adds data storage option.
-     *
-     * @param name Option name.
-     * @param value Option value.
-     */
-    public void addDataStorageOption(String name, Object value) {
-        if (dataStorageOptions == null) {
-            dataStorageOptions = new HashMap<>();
-        }
-
-        dataStorageOptions.put(name, value);
+    public void zone(String zoneName) {
+        this.zone = zoneName;
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -34,13 +34,16 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreaded;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.Constants.GiB;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -51,6 +54,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
@@ -80,6 +84,7 @@ import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowClosure;
+import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
@@ -89,7 +94,7 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteCursor;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteRandom;
 import org.apache.ignite.internal.util.IgniteStripedLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -110,7 +115,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
     private static final short LONG_META_IO = 30002;
 
-    protected static final int CPUS = Runtime.getRuntime().availableProcessors();
+    protected static final int CPUS = Math.min(8, Runtime.getRuntime().availableProcessors());
 
     private static final int GROUP_ID = 100500;
 
@@ -142,6 +147,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
     /** Future. */
     private volatile CompletableFuture<?> asyncRunFut;
+
+    /** Print fat logs. */
+    private boolean debugPrint = false;
 
     @BeforeEach
     protected void beforeEach(TestInfo testInfo) throws Exception {
@@ -330,11 +338,11 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         }
     }
 
-    private void checkCursor(IgniteCursor<Long> cursor, Iterator<Long> iterator) throws IgniteInternalCheckedException {
-        while (cursor.next()) {
+    private void checkCursor(Cursor<Long> cursor, Iterator<Long> iterator) {
+        while (cursor.hasNext()) {
             assertTrue(iterator.hasNext());
 
-            assertEquals(iterator.next(), cursor.get());
+            assertEquals(iterator.next(), cursor.next());
         }
 
         assertFalse(iterator.hasNext());
@@ -606,7 +614,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             assertNoLocks();
         }
 
-        println(tree.printTree());
+        if (debugPrint) {
+            println(tree.printTree());
+        }
 
         assertNoLocks();
 
@@ -629,7 +639,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
             assertNoLocks();
 
-            println(tree.printTree());
+            if (debugPrint) {
+                println(tree.printTree());
+            }
 
             assertNoLocks();
 
@@ -643,7 +655,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             assertNoLocks();
         }
 
-        assertFalse(tree.find(null, null).next());
+        assertFalse(tree.find(null, null).hasNext());
         assertEquals(0, tree.size());
         assertEquals(0, tree.rootLevel());
 
@@ -700,7 +712,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             final int rnd = BplusTree.randomInt(11);
 
             if (i % 10_000 == 0) {
-                // println(tree.printTree());
+                if (debugPrint) {
+                    println(tree.printTree());
+                }
                 println(" --> " + i + "  ++> " + x);
             }
 
@@ -984,12 +998,12 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
         tree.validateTree();
 
-        IgniteCursor<Long> c = tree.find(null, null);
+        Cursor<Long> c = tree.find(null, null);
 
         long x = 0;
 
-        while (c.next()) {
-            assertEquals(Long.valueOf(x++), c.get());
+        while (c.hasNext()) {
+            assertEquals(Long.valueOf(x++), c.next());
         }
 
         assertEquals(keys, x);
@@ -1010,7 +1024,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             boolean put = BplusTree.randomInt(2) == 0;
 
             if (i % 10_000 == 0) {
-                // println(tree.printTree());
+                if (debugPrint) {
+                    println(tree.printTree());
+                }
                 println(" --> " + (put ? "put " : "rmv ") + i + "  " + x);
             }
 
@@ -1036,10 +1052,10 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     private void assertEqualContents(IgniteTree<Long, Long> tree, Map<Long, Long> map) throws Exception {
-        IgniteCursor<Long> cursor = tree.find(null, null);
+        Cursor<Long> cursor = tree.find(null, null);
 
-        while (cursor.next()) {
-            Long x = cursor.get();
+        while (cursor.hasNext()) {
+            Long x = cursor.next();
 
             assert x != null;
 
@@ -1059,8 +1075,8 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
         TestTree tree = createTestTree(true);
 
-        assertFalse(tree.find(null, null).next());
-        assertFalse(tree.find(0L, 1L).next());
+        assertFalse(tree.find(null, null).hasNext());
+        assertFalse(tree.find(0L, 1L).hasNext());
 
         tree.put(1L);
         tree.put(2L);
@@ -1068,18 +1084,10 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
         assertEquals(3, size(tree.find(null, null)));
 
-        assertFalse(tree.find(4L, null).next());
-        assertFalse(tree.find(null, 0L).next());
+        assertFalse(tree.find(4L, null).hasNext());
+        assertFalse(tree.find(null, 0L).hasNext());
 
         assertNoLocks();
-    }
-
-    private void doTestCursor(boolean canGetRow) throws Exception {
-        TestTree tree = createTestTree(canGetRow);
-
-        for (long i = 15; i >= 0; i--) {
-            tree.put(i);
-        }
     }
 
     @Test
@@ -1107,19 +1115,19 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
         Long upperBound = 30_000L + rnd.nextInt(2 * MAX_PER_PAGE);
 
-        IgniteCursor<Long> c = tree.find(null, upperBound);
+        Cursor<Long> c = tree.find(null, upperBound);
         Iterator<Long> i = map.headMap(upperBound, true).keySet().iterator();
 
         Long last = null;
 
         for (int j = 0; j < off; j++) {
-            assertTrue(c.next());
+            assertTrue(c.hasNext());
 
             // println(" <-> " + c.get());
 
-            assertEquals(i.next(), c.get());
+            last = c.next();
 
-            last = c.get();
+            assertEquals(i.next(), last);
 
             assertNoLocks();
         }
@@ -1129,18 +1137,20 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
             c = tree.find(last, upperBound);
 
-            assertTrue(c.next());
-            assertEquals(last, c.get());
+            assertTrue(c.hasNext());
+            assertEquals(last, c.next());
 
             assertNoLocks();
         }
 
-        while (c.next()) {
+        while (c.hasNext()) {
             // println(" --> " + c.get());
 
-            assertNotNull(c.get());
-            assertEquals(i.next(), c.get());
-            assertEquals(c.get(), tree.remove(c.get()));
+            Long t = c.next();
+
+            assertNotNull(t);
+            assertEquals(i.next(), t);
+            assertEquals(t, tree.remove(t));
 
             i.remove();
 
@@ -1161,8 +1171,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     @Test
     public void testSizeForPutRmvSequential() throws Exception {
         MAX_PER_PAGE = 5;
-
-        boolean debugPrint = false;
 
         int itemCnt = (int) Math.pow(MAX_PER_PAGE, 5) + rnd.nextInt(MAX_PER_PAGE * MAX_PER_PAGE);
 
@@ -1188,7 +1196,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         for (Long row : items) {
             if (debugPrint) {
                 println(" --> put(" + row + ")");
-                print(testTree.printTree());
+                if (debugPrint) {
+                    println(testTree.printTree());
+                }
             }
 
             assertEquals(goldenMap.put(row, row), testTree.put(row));
@@ -1213,7 +1223,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         for (Long row : items) {
             if (debugPrint) {
                 println(" --> rmv(" + row + ")");
-                print(testTree.printTree());
+                if (debugPrint) {
+                    println(testTree.printTree());
+                }
             }
 
             assertEquals(row, goldenMap.remove(row));
@@ -1383,8 +1395,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
      * <p>Since in the presence of concurrent modifications the size may differ from the actual one, the test maintains sliding window of
      * records in the tree, uses a barrier between concurrent runs to limit runaway delta in the calculated size, and checks that the
      * measured size lies within certain bounds.
-     *
-     * <p>NB: This test has to be changed with the integration of IGNITE-3478.
      */
     public void doTestSizeForRandomPutRmvMultithreadedAsync(final int rmvPutSlidingWindowSize) throws Exception {
         MAX_PER_PAGE = 5;
@@ -1524,8 +1534,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
      * concurrently added to the tree until the new pages are not added anymore. Test verifies that despite livelock condition a size from a
      * valid range is returned.
      *
-     * <p>NB: This test has to be changed with the integration of IGNITE-3478.
-     *
      * @throws Exception if test failed
      */
     @Test
@@ -1533,7 +1541,8 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         MAX_PER_PAGE = 5;
         CNT = 800;
 
-        final int slidingWindowSize = 16;
+        // Sliding window size should be greater than the amount of CPU cores to avoid races between puts and removes in the tree.
+        int slidingWindowSize = CPUS * 2;
         final boolean debugPrint = false;
 
         final TestTree tree = createTestTree(false);
@@ -1763,8 +1772,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
      * concurrently, perform correctly and report correct values.
      *
      * <p>A sliding window of numbers is maintainted in the tests.
-     *
-     * <p>NB: This test has to be changed with the integration of IGNITE-3478.
      *
      * @throws Exception If failed.
      */
@@ -2337,6 +2344,171 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         }
     }
 
+    @Test
+    void testFindNext() throws Exception {
+        TestTree tree = createTestTree(true);
+
+        assertNull(tree.findNext(0L, false));
+        assertNull(tree.findNext(0L, true));
+
+        tree.put(0L);
+
+        assertNull(tree.findNext(0L, false));
+        assertEquals(0L, tree.findNext(0L, true));
+
+        tree.put(1L);
+
+        assertEquals(1L, tree.findNext(0L, false));
+        assertEquals(0L, tree.findNext(0L, true));
+
+        assertNull(tree.findNext(1L, false));
+        assertEquals(1L, tree.findNext(1L, true));
+
+        assertEquals(0L, tree.findNext(-1L, false));
+        assertEquals(0L, tree.findNext(-1L, true));
+    }
+
+    @Test
+    void testFindOneWithMapper() throws Exception {
+        TestTree tree = createTestTree(true);
+
+        tree.put(0L);
+
+        TreeRowMapClosure<Long, Long, String> treeRowClosure = new TreeRowMapClosure<>() {
+            @Override
+            public String map(Long treeRow) {
+                return "row" + treeRow;
+            }
+        };
+
+        assertEquals("row0", tree.findOne(0L, treeRowClosure, null));
+        assertEquals("rownull", tree.findOne(1L, treeRowClosure, null));
+    }
+
+    @Test
+    void testFindWithMapper() throws Exception {
+        TestTree tree = createTestTree(true);
+
+        tree.put(0L);
+        tree.put(1L);
+
+        TreeRowMapClosure<Long, Long, String> treeRowClosure = new TreeRowMapClosure<>() {
+            @Override
+            public String map(Long treeRow) {
+                return "row" + treeRow;
+            }
+        };
+
+        Cursor<String> cursor = tree.find(null, null, treeRowClosure, null);
+
+        assertTrue(cursor.hasNext());
+        assertEquals("row0", cursor.next());
+
+        assertTrue(cursor.hasNext());
+        assertEquals("row1", cursor.next());
+
+        assertFalse(cursor.hasNext());
+        assertThrows(NoSuchElementException.class, cursor::next);
+    }
+
+    @Test
+    void testInvokeClosureWithOnUpdateCallbackForPut() throws Exception {
+        TestTree tree = createTestTree(true);
+
+        // Checks insert.
+        CompletableFuture<Void> future0 = new CompletableFuture<>();
+
+        tree.invoke(0L, null, new InvokeClosure<>() {
+            @Override
+            public void call(@Nullable Long oldRow) {
+                assertNull(oldRow);
+            }
+
+            @Override
+            public @Nullable Long newRow() {
+                return 0L;
+            }
+
+            @Override
+            public OperationType operationType() {
+                return PUT;
+            }
+
+            @Override
+            public void onUpdate() {
+                future0.complete(null);
+            }
+        });
+
+        assertThat(future0, willCompleteSuccessfully());
+
+        assertEquals(0L, tree.findOne(0L));
+
+        // Checks replace.
+        CompletableFuture<Void> future1 = new CompletableFuture<>();
+
+        tree.invoke(0L, null, new InvokeClosure<>() {
+            @Override
+            public void call(@Nullable Long oldRow) {
+                assertEquals(0L, oldRow);
+            }
+
+            @Override
+            public @Nullable Long newRow() {
+                return 0L;
+            }
+
+            @Override
+            public OperationType operationType() {
+                return PUT;
+            }
+
+            @Override
+            public void onUpdate() {
+                future1.complete(null);
+            }
+        });
+
+        assertThat(future1, willCompleteSuccessfully());
+
+        assertEquals(0L, tree.findOne(0L));
+    }
+
+    @Test
+    void testInvokeClosureWithOnUpdateCallbackForRemove() throws Exception {
+        TestTree tree = createTestTree(true);
+
+        tree.put(0L);
+
+        CompletableFuture<Void> future = new CompletableFuture<>();
+
+        tree.invoke(0L, null, new InvokeClosure<>() {
+            @Override
+            public void call(@Nullable Long oldRow) {
+                assertEquals(0L, oldRow);
+            }
+
+            @Override
+            public @Nullable Long newRow() {
+                return null;
+            }
+
+            @Override
+            public OperationType operationType() {
+                return REMOVE;
+            }
+
+            @Override
+            public void onUpdate() {
+                future.complete(null);
+            }
+        });
+
+        assertThat(future, willCompleteSuccessfully());
+
+        assertNull(tree.findOne(0L));
+    }
+
     private void doTestRandomPutRemoveMultithreaded(boolean canGetRow) throws Exception {
         final TestTree tree = createTestTree(canGetRow);
 
@@ -2453,20 +2625,22 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
                 int low = DataStructure.randomInt(CNT);
                 int high = low + DataStructure.randomInt(CNT - low);
 
-                IgniteCursor<Long> c = tree.find((long) low, (long) high);
+                Cursor<Long> c = tree.find((long) low, (long) high);
 
                 Long last = null;
 
-                while (c.next()) {
+                while (c.hasNext()) {
+                    Long t = c.next();
+
                     // Correct bounds.
-                    assertTrue(c.get() >= low, low + " <= " + c.get() + " <= " + high);
-                    assertTrue(c.get() <= high, low + " <= " + c.get() + " <= " + high);
+                    assertTrue(t >= low, low + " <= " + t + " <= " + high);
+                    assertTrue(t <= high, low + " <= " + t + " <= " + high);
 
                     if (last != null) {  // No duplicates.
-                        assertTrue(c.get() > last, low + " <= " + last + " < " + c.get() + " <= " + high);
+                        assertTrue(t > last, low + " <= " + last + " < " + t + " <= " + high);
                     }
 
-                    last = c.get();
+                    last = t;
                 }
 
                 TestTreeFindFirstClosure cl = new TestTreeFindFirstClosure();
@@ -2494,10 +2668,10 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             asyncRunFut.get(getTestTimeout(), MILLISECONDS);
         }
 
-        IgniteCursor<Long> cursor = tree.find(null, null);
+        Cursor<Long> cursor = tree.find(null, null);
 
-        while (cursor.next()) {
-            Long x = cursor.get();
+        while (cursor.hasNext()) {
+            Long x = cursor.next();
 
             assert x != null;
 
@@ -2513,10 +2687,12 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         assertNoLocks();
     }
 
-    private static int size(IgniteCursor<?> c) throws Exception {
+    private static int size(Cursor<?> c) {
         int cnt = 0;
 
-        while (c.next()) {
+        while (c.hasNext()) {
+            c.next();
+
             cnt++;
         }
 
@@ -2816,7 +2992,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     /**
      * {@link TreeRowClosure} implementation for the test.
      */
-    static class TestTreeFindFilteredClosure implements TreeRowClosure<Long, Long> {
+    static class TestTreeFindFilteredClosure implements TreeRowMapClosure<Long, Long, Long> {
         private final Set<Long> vals;
 
         /**

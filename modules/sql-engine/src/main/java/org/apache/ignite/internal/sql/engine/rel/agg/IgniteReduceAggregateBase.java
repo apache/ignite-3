@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -35,7 +35,6 @@ import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -77,8 +76,9 @@ public abstract class IgniteReduceAggregateBase extends SingleRel implements Tra
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
     protected IgniteReduceAggregateBase(RelInput input) {
         this(
@@ -152,16 +152,6 @@ public abstract class IgniteReduceAggregateBase extends SingleRel implements Tra
 
     /** {@inheritDoc} */
     @Override
-    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
-            RelTraitSet nodeTraits,
-            List<RelTraitSet> inputTraits
-    ) {
-        return List.of(
-                Pair.of(nodeTraits.replace(RewindabilityTrait.ONE_WAY), List.of(inputTraits.get(0))));
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
@@ -174,16 +164,6 @@ public abstract class IgniteReduceAggregateBase extends SingleRel implements Tra
                         List.of(in.replace(IgniteDistributions.single()))
                 )
         );
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
-            RelTraitSet nodeTraits,
-            List<RelTraitSet> inTraits
-    ) {
-        return List.of(Pair.of(nodeTraits.replace(TraitUtils.correlation(inTraits.get(0))),
-                inTraits));
     }
 
     /** {@inheritDoc} */

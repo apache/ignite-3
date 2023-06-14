@@ -1,4 +1,4 @@
-/*
+ /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -27,7 +27,14 @@ namespace Apache.Ignite.Transactions
         /// <summary>
         /// Starts a new transaction.
         /// </summary>
+        /// <param name="options">Transaction options.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<ITransaction> BeginAsync();
+        Task<ITransaction> BeginAsync(TransactionOptions options);
+
+        /// <summary>
+        /// Starts a new transaction.
+        /// </summary>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+        Task<ITransaction> BeginAsync() => BeginAsync(default);
     }
 }

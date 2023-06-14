@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,10 +20,9 @@ package org.apache.ignite.lang;
 import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
 import static org.apache.ignite.lang.ErrorGroup.errorGroupByCode;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
-import static org.apache.ignite.lang.ErrorGroup.errorMessageFromCause;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.lang.reflect.Constructor;
 import java.util.Objects;
@@ -32,18 +31,18 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * General Ignite exception. This exception is used to indicate any error condition within the node.
+ * General Ignite exception. Used to indicate any error condition within a node.
  */
 public class IgniteException extends RuntimeException {
-    /** Serial version uid. */
+    /** Serial version UID. */
     private static final long serialVersionUID = 0L;
 
     /** Name of the error group. */
     private final String groupName;
 
     /**
-     * Error code which contains information about error group and code, where code is unique within the group.
-     * The structure of a code is shown in the following diagram:
+     * Error code that contains information about the error group and code,
+     * where the code is unique within the group. The code structure is as follows:
      * +------------+--------------+
      * |  16 bits   |    16 bits   |
      * +------------+--------------+
@@ -52,7 +51,7 @@ public class IgniteException extends RuntimeException {
      */
     private final int code;
 
-    /** Unique identifier of this exception that should help locating the error message in a log file. */
+    /** Unique identifier of the exception that helps locate the error message in a log file. */
     private final UUID traceId;
 
     /**
@@ -60,42 +59,42 @@ public class IgniteException extends RuntimeException {
      */
     @Deprecated
     public IgniteException() {
-        this(UNKNOWN_ERR);
+        this(INTERNAL_ERR);
     }
 
     /**
-     * Creates a new exception with the given error message.
+     * Creates an exception with the given error message.
      *
      * @param msg Error message.
      */
     @Deprecated
     public IgniteException(String msg) {
-        this(UNKNOWN_ERR, msg);
+        this(INTERNAL_ERR, msg);
     }
 
     /**
-     * Creates a new grid exception with the given throwable as a cause and source of error message.
+     * Creates a grid exception with the given throwable as a cause and source of the error message.
      *
      * @param cause Non-null throwable cause.
      */
     @Deprecated
     public IgniteException(Throwable cause) {
-        this(UNKNOWN_ERR, cause);
+        this(INTERNAL_ERR, cause);
     }
 
     /**
-     * Creates a new exception with the given error message and optional nested exception.
+     * Creates an exception with the given error message and optional nested exception.
      *
-     * @param msg   Error message.
+     * @param msg Error message.
      * @param cause Optional nested exception (can be {@code null}).
      */
     @Deprecated
     public IgniteException(String msg, @Nullable Throwable cause) {
-        this(UNKNOWN_ERR, msg, cause);
+        this(INTERNAL_ERR, msg, cause);
     }
 
     /**
-     * Creates a new exception with the given error code.
+     * Creates an exception with the given error code.
      *
      * @param code Full error code.
      */
@@ -104,38 +103,36 @@ public class IgniteException extends RuntimeException {
     }
 
     /**
-     * Creates a new exception with the given trace id and error code.
+     * Creates an exception with the given trace ID and error code.
      *
-     * @param traceId Unique identifier of this exception.
+     * @param traceId Unique identifier of the exception.
      * @param code Full error code.
      */
     public IgniteException(UUID traceId, int code) {
-        super(errorMessage(traceId, code, null));
-
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
         this.code = code;
     }
 
     /**
-     * Creates a new exception with the given error code and detail message.
+     * Creates an exception with the given error code and detailed message.
      *
      * @param code Full error code.
-     * @param message Detail message.
+     * @param message Detailed message.
      */
     public IgniteException(int code, String message) {
         this(UUID.randomUUID(), code, message);
     }
 
     /**
-     * Creates a new exception with the given trace id, error code and detail message.
+     * Creates an exception with the given trace ID, error code, and detailed message.
      *
      * @param traceId Unique identifier of this exception.
      * @param code Full error code.
-     * @param message Detail message.
+     * @param message Detailed message.
      */
     public IgniteException(UUID traceId, int code, String message) {
-        super(errorMessage(traceId, code, message));
+        super(message);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -143,7 +140,7 @@ public class IgniteException extends RuntimeException {
     }
 
     /**
-     * Creates a new exception with the given error code and cause.
+     * Creates an exception with the given error code and cause.
      *
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
@@ -153,14 +150,14 @@ public class IgniteException extends RuntimeException {
     }
 
     /**
-     * Creates a new exception with the given trace id, error code and cause.
+     * Creates an exception with the given trace ID, error code, and cause.
      *
-     * @param traceId Unique identifier of this exception.
+     * @param traceId Unique identifier of the exception.
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteException(UUID traceId, int code, Throwable cause) {
-        super(errorMessageFromCause(traceId, code, cause), cause);
+        super((cause != null) ? cause.getLocalizedMessage() : null, cause);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -168,10 +165,10 @@ public class IgniteException extends RuntimeException {
     }
 
     /**
-     * Creates a new exception with the given error code, detail message and cause.
+     * Creates an exception with the given error code, detailed message, and cause.
      *
      * @param code Full error code.
-     * @param message Detail message.
+     * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteException(int code, String message, Throwable cause) {
@@ -179,15 +176,15 @@ public class IgniteException extends RuntimeException {
     }
 
     /**
-     * Creates a new exception with the given trace id, error code, detail message and cause.
+     * Creates an exception with the given trace ID, error code, detailed message, and cause.
      *
-     * @param traceId Unique identifier of this exception.
+     * @param traceId Unique identifier of the exception.
      * @param code Full error code.
-     * @param message Detail message.
+     * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteException(UUID traceId, int code, String message, Throwable cause) {
-        super(errorMessage(traceId, code, message), cause);
+        super(message, cause);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -195,7 +192,7 @@ public class IgniteException extends RuntimeException {
     }
 
     /**
-     * Returns a group name of this error.
+     * Returns a group name of the error.
      *
      * @see #groupCode()
      * @see #code()
@@ -206,9 +203,8 @@ public class IgniteException extends RuntimeException {
     }
 
     /**
-     * Returns a full error code which includes a group of the error and code which is uniquely identifies a problem within the group.
-     * This is a combination of two most-significant bytes that represent the error group and
-     * two least-significant bytes for the error code.
+     * Returns a full error code that includes the error's group and code, which uniquely identifies the problem within the group. This is a
+     * combination of two most-significant bytes for the error group and two least-significant bytes for the error code.
      *
      * @return Full error code.
      */
@@ -217,8 +213,8 @@ public class IgniteException extends RuntimeException {
     }
 
     /**
-     * Returns a human-readable string represents a full error code.
-     * Returned string has the following format: IGN-XXX-nnn, where XXX is a group name and nnn is an unique error code within a group.
+     * Returns a human-readable string that represents a full error code. The string format is 'IGN-XXX-nnn', where 'XXX' is the group name
+     * and 'nnn' is the unique error code within the group.
      *
      * @return Full error code in a human-readable format.
      */
@@ -227,7 +223,7 @@ public class IgniteException extends RuntimeException {
     }
 
     /**
-     * Returns error group.
+     * Returns an error group.
      *
      * @see #code()
      * @return Error group.
@@ -237,7 +233,7 @@ public class IgniteException extends RuntimeException {
     }
 
     /**
-     * Returns error code that uniquely identifies a problem within a group.
+     * Returns an error code that uniquely identifies the problem within a group.
      *
      * @see #code()
      * @see #groupCode()
@@ -248,18 +244,25 @@ public class IgniteException extends RuntimeException {
     }
 
     /**
-     * Returns an unique identifier of this exception.
+     * Returns a unique identifier of the exception.
      *
-     * @return Unique identifier of this exception.
+     * @return Unique identifier of the exception.
      */
     public UUID traceId() {
         return traceId;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        String s = getClass().getName();
+        String message = errorMessage(traceId, groupName, code, getLocalizedMessage());
+        return (message != null) ? (s + ": " + message) : s;
+    }
 
     /**
-     * Wraps another exception in IgniteException, extracting {@link #traceId} and {@link #code} when the specified exception
-     * or one of its causes is an IgniteException itself.
+     * Wraps an exception in an IgniteException, extracting {@link #traceId} and {@link #code} when the specified exception or one of its
+     * causes is an IgniteException itself.
      *
      * @param e Internal exception.
      * @return Public exception.
@@ -273,6 +276,7 @@ public class IgniteException extends RuntimeException {
             IgniteException iex = (IgniteException) e;
 
             try {
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19535
                 Constructor<?> ctor = e.getClass().getDeclaredConstructor(UUID.class, int.class, String.class, Throwable.class);
 
                 return (IgniteException) ctor.newInstance(iex.traceId(), iex.code(), e.getMessage(), e);
@@ -287,6 +291,16 @@ public class IgniteException extends RuntimeException {
             return new IgniteException(iex.traceId(), iex.code(), e.getMessage(), e);
         }
 
-        return new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+        return new IgniteException(INTERNAL_ERR, e.getMessage(), e);
+    }
+
+    /**
+     * Gets the Ignite error code if the specified throwable is an {@link IgniteException}.
+     *
+     * @param t Throwable.
+     * @return Ignite error code or UNKNOWN_ERR.
+     */
+    public static int getIgniteErrorCode(Throwable t) {
+        return (t instanceof IgniteException) ? ((IgniteException) t).code() : INTERNAL_ERR;
     }
 }

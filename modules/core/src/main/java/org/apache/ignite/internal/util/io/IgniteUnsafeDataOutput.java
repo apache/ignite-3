@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.util.io;
 
-import static org.apache.ignite.internal.util.GridUnsafe.BIG_ENDIAN;
 import static org.apache.ignite.internal.util.GridUnsafe.BYTE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.CHAR_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.DOUBLE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.FLOAT_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.INT_ARR_OFF;
+import static org.apache.ignite.internal.util.GridUnsafe.IS_BIG_ENDIAN;
 import static org.apache.ignite.internal.util.GridUnsafe.LONG_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.SHORT_ARR_OFF;
 
@@ -266,7 +266,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
 
         requestFreeSize(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             long off = BYTE_ARR_OFF + this.off;
 
             for (double val : arr) {
@@ -282,7 +282,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
     }
 
     private void putInt(int val, long off) {
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             GridUnsafe.putIntLittleEndian(bytes, off, val);
         } else {
             GridUnsafe.putInt(bytes, off, val);
@@ -307,7 +307,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
 
         requestFreeSize(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             long off = BYTE_ARR_OFF + this.off;
 
             for (char val : arr) {
@@ -331,7 +331,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
 
         requestFreeSize(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             long off = BYTE_ARR_OFF + this.off;
 
             for (long val : arr) {
@@ -355,7 +355,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
 
         requestFreeSize(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             long off = BYTE_ARR_OFF + this.off;
 
             for (float val : arr) {
@@ -397,7 +397,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
 
         requestFreeSize(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             long off = BYTE_ARR_OFF + this.off;
 
             for (short val : arr) {
@@ -421,7 +421,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
 
         requestFreeSize(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             long off = BYTE_ARR_OFF + this.off;
 
             for (int val : arr) {
@@ -481,7 +481,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
     }
 
     private void putShort(short val, long off) {
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             GridUnsafe.putShortLittleEndian(bytes, off, val);
         } else {
             GridUnsafe.putShort(bytes, off, val);
@@ -497,7 +497,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
 
         long off = BYTE_ARR_OFF + this.off;
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             GridUnsafe.putCharLittleEndian(bytes, off, val);
         } else {
             GridUnsafe.putChar(bytes, off, val);
@@ -525,7 +525,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
 
         long off = BYTE_ARR_OFF + this.off;
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             GridUnsafe.putLongLittleEndian(bytes, off, v);
         } else {
             GridUnsafe.putLong(bytes, off, v);

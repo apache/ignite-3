@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to you under the Apache License, Version 2.0
+ * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,17 +17,29 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.time.DateTimeException;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.ResolverStyle;
+import java.util.UUID;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
+import org.apache.calcite.avatica.util.DateTimeUtils;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.linq4j.AbstractEnumerable;
 import org.apache.calcite.linq4j.Enumerable;
 import org.apache.calcite.linq4j.Enumerator;
 import org.apache.calcite.linq4j.Linq4j;
+import org.apache.calcite.linq4j.function.NonDeterministic;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.ScannableTable;
@@ -36,16 +48,27 @@ import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.apache.ignite.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite SQL functions.
  */
 public class IgniteSqlFunctions {
+    private static final DateTimeFormatter ISO_LOCAL_DATE_TIME_EX;
+
+    static {
+        ISO_LOCAL_DATE_TIME_EX = new DateTimeFormatterBuilder()
+                .parseCaseInsensitive()
+                .append(ISO_LOCAL_DATE)
+                .appendLiteral(' ')
+                .append(ISO_LOCAL_TIME)
+                .toFormatter();
+    }
+
     /**
      * Default constructor.
      */
@@ -61,6 +84,29 @@ public class IgniteSqlFunctions {
     /** SQL SYSTEM_RANGE(start, end, increment) table function. */
     public static ScannableTable systemRange(Object rangeStart, Object rangeEnd, Object increment) {
         return new RangeTable(rangeStart, rangeEnd, increment);
+    }
+
+    /** Just a stub. Validates Date\Time literal, still use calcite implementation for numeric representation.
+     * Otherwise need to fix {@code DateTimeUtils#unixTimestampToString} usage additionally.
+     */
+    public static long timestampStringToNumeric(String dtStr) {
+        try {
+            return timestampStringToNumeric0(dtStr);
+        } catch (DateTimeException e) {
+            throw new IgniteInternalException(QUERY_INVALID_ERR, e.getMessage());
+        }
+    }
+
+    private static long timestampStringToNumeric0(String dtStr) {
+        dtStr = dtStr.trim();
+        //"YYYY-MM-dd HH:mm:ss.ninenanos"
+        if (dtStr.length() > 29) {
+            dtStr = dtStr.substring(0, 29);
+        }
+
+        LocalDateTime.parse(dtStr, ISO_LOCAL_DATE_TIME_EX.withResolverStyle(ResolverStyle.STRICT));
+
+        return DateTimeUtils.timestampStringToUnixDate(dtStr);
     }
 
     /** CAST(DECIMAL AS VARCHAR). */
@@ -162,7 +208,43 @@ public class IgniteSqlFunctions {
     }
 
     public static int currentTime(DataContext ctx) {
-        return (int) TypeUtils.toInternal((ExecutionContext<?>) ctx, LocalTime.now(), LocalTime.class);
+        return (int) TypeUtils.toInternal(LocalTime.now(), LocalTime.class);
+    }
+
+    /** LEAST2. */
+    public static @Nullable Object least2(Object arg0, Object arg1) {
+        return leastOrGreatest(true, arg0, arg1);
+    }
+
+    /** GREATEST2. */
+    public static @Nullable Object greatest2(Object arg0, Object arg1) {
+        return leastOrGreatest(false, arg0, arg1);
+    }
+
+    /** Generates a random UUID and converts it to string. **/
+    @NonDeterministic
+    public static String genRandomUuid() {
+        return UUID.randomUUID().toString();
+    }
+
+    /** Returns the second argument and ignores the first. */
+    public static Object consumeFirstArgument(Object args0, Object args1) {
+        return args1;
+    }
+
+    private static @Nullable Object leastOrGreatest(boolean least, Object arg0, Object arg1) {
+        if (arg0 == null || arg1 == null) {
+            return null;
+        }
+
+        assert arg0 instanceof Comparable && arg1 instanceof Comparable :
+                "Unexpected class [arg0=" + arg0.getClass().getName() + ", arg1=" + arg1.getClass().getName() + ']';
+
+        if (((Comparable<Object>) arg0).compareTo(arg1) < 0) {
+            return least ? arg0 : arg1;
+        } else {
+            return least ? arg1 : arg0;
+        }
     }
 
     /**

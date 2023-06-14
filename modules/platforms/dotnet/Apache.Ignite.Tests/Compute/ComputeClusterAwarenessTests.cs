@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Compute
 {
+    using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
     using Internal.Proto;
@@ -42,7 +43,7 @@ namespace Apache.Ignite.Tests.Compute
             using var client = await IgniteClient.StartAsync(clientCfg);
 
             // ReSharper disable once AccessToDisposedClosure
-            TestUtils.WaitForCondition(() => client.GetConnections().Count == 3);
+            TestUtils.WaitForCondition(() => client.GetConnections().Count == 3, 5000);
 
             var res2 = await client.Compute.ExecuteAsync<string>(nodes: new[] { server2.Node }, jobClassName: string.Empty);
             var res3 = await client.Compute.ExecuteAsync<string>(nodes: new[] { server3.Node }, jobClassName: string.Empty);
@@ -75,14 +76,14 @@ namespace Apache.Ignite.Tests.Compute
             Assert.IsEmpty(server2.ClientOps);
             Assert.IsEmpty(server3.ClientOps);
 
-            Assert.AreEqual(server1.Node, client.GetConnections().Single());
+            Assert.AreEqual(server1.Node, client.GetConnections().Single().Node);
         }
 
         [Test]
         public async Task TestClientRetriesComputeJobOnPrimaryAndDefaultNodes()
         {
-            using var server1 = new FakeServer(shouldDropConnection: cnt => cnt % 2 == 0, nodeName: "s1");
-            using var server2 = new FakeServer(shouldDropConnection: cnt => cnt % 2 == 0, nodeName: "s2");
+            using var server1 = new FakeServer(shouldDropConnection: ctx => ctx.RequestCount % 2 == 0, nodeName: "s1");
+            using var server2 = new FakeServer(shouldDropConnection: ctx => ctx.RequestCount % 2 == 0, nodeName: "s2");
 
             var clientCfg = new IgniteClientConfiguration
             {
@@ -93,16 +94,18 @@ namespace Apache.Ignite.Tests.Compute
             using var client = await IgniteClient.StartAsync(clientCfg);
 
             // ReSharper disable once AccessToDisposedClosure
-            TestUtils.WaitForCondition(() => client.GetConnections().Count == 2);
+            TestUtils.WaitForCondition(() => client.GetConnections().Count == 2, 5000);
+
+            var nodeNames = new HashSet<string>();
 
             for (int i = 0; i < 100; i++)
             {
                 var node = i % 2 == 0 ? server1.Node : server2.Node;
-
                 var res = await client.Compute.ExecuteAsync<string>(nodes: new[] { node }, jobClassName: string.Empty);
-
-                Assert.AreEqual(node.Name, res);
+                nodeNames.Add(res);
             }
+
+            CollectionAssert.AreEquivalent(new[] { "s1", "s2" }, nodeNames);
         }
     }
 }

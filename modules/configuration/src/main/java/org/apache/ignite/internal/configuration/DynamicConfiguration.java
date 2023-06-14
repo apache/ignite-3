@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -46,9 +46,6 @@ public abstract class DynamicConfiguration<VIEWT, CHANGET extends VIEWT> extends
         implements ConfigurationTree<VIEWT, CHANGET> {
     /** Configuration members (leaves and nodes). */
     protected volatile Map<String, ConfigurationProperty<?>> members = new LinkedHashMap<>();
-
-    /** Removed from the named list. */
-    protected boolean removedFromNamedList;
 
     /**
      * Constructor.
@@ -264,19 +261,5 @@ public abstract class DynamicConfiguration<VIEWT, CHANGET extends VIEWT> extends
             P member
     ) {
         members.remove(member.key());
-    }
-
-    /**
-     * Mark that the configuration has been removed from the named list.
-     */
-    public void removedFromNamedList() {
-        removedFromNamedList = true;
-    }
-
-    /**
-     * Return {@code true} if the configuration has been removed from the named list.
-     */
-    public boolean isRemovedFromNamedList() {
-        return removedFromNamedList;
     }
 }

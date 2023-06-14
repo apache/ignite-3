@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,7 +22,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
-import java.util.Iterator;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
@@ -31,9 +30,10 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.util.IgniteObjectName;
+import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Abstract row tuple adapter.
@@ -42,7 +42,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     /**
      * Underlying row. Note: Marked transient to prevent unwanted serialization of the schema and\or other context.
      */
-    protected transient Row row;
+    protected transient @Nullable Row row;
 
     /**
      * Creates Tuple adapter for row.
@@ -76,7 +76,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public int columnIndex(@NotNull String columnName) {
         Objects.requireNonNull(columnName);
 
-        var col = row.schema().column(IgniteObjectName.parse(columnName));
+        Column col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
 
         return col == null ? -1 : col.schemaIndex();
     }
@@ -86,24 +86,24 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public <T> T valueOrDefault(@NotNull String columnName, T defaultValue) {
         Objects.requireNonNull(columnName);
 
-        final Column col = row.schema().column(IgniteObjectName.parse(columnName));
+        Column col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
 
-        return col == null ? defaultValue : (T) col.type().spec().objectValue(row, col.schemaIndex());
+        return col == null ? defaultValue : (T) row.value(col.schemaIndex());
     }
 
     /** {@inheritDoc} */
     @Override
     public <T> T value(@NotNull String columnName) {
-        final Column col = rowColumnByName(columnName);
+        Column col = rowColumnByName(columnName);
 
-        return (T) col.type().spec().objectValue(row, col.schemaIndex());
+        return (T) row.value(col.schemaIndex());
     }
 
     @Override
     public <T> T value(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return (T) col.type().spec().objectValue(row, col.schemaIndex());
+        return (T) row.value(col.schemaIndex());
     }
 
 
@@ -332,28 +332,6 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
-    @NotNull
-    @Override
-    public Iterator<Object> iterator() {
-        return new Iterator<>() {
-            /** Current column index. */
-            private int cur;
-
-            /** {@inheritDoc} */
-            @Override
-            public boolean hasNext() {
-                return cur < row.schema().length();
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public Object next() {
-                return hasNext() ? value(cur++) : null;
-            }
-        };
-    }
-
-    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         return Tuple.hashCode(this);
@@ -382,7 +360,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     protected Column rowColumnByName(@NotNull String columnName) {
         Objects.requireNonNull(columnName);
 
-        final Column col = row.schema().column(IgniteObjectName.parse(columnName));
+        Column col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
 
         if (col == null) {
             throw new IllegalArgumentException("Invalid column name: columnName=" + columnName);

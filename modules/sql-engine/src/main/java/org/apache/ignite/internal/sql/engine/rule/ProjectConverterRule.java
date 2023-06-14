@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,22 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
-import java.util.Collection;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
-import org.apache.ignite.internal.sql.engine.util.RexUtils;
 
 /**
  * ProjectConverterRule.
@@ -57,14 +52,6 @@ public class ProjectConverterRule extends AbstractIgniteConverterRule<LogicalPro
         RelTraitSet traits = cluster
                 .traitSetOf(IgniteConvention.INSTANCE)
                 .replace(IgniteDistributions.single());
-
-        Collection<CorrelationId> corrIds = RexUtils.extractCorrelationIds(rel.getProjects());
-
-        if (!corrIds.isEmpty()) {
-            traits = traits
-                    .replace(CorrelationTrait.correlations(corrIds))
-                    .replace(RewindabilityTrait.REWINDABLE);
-        }
 
         RelNode input = convert(rel.getInput(), traits);
 

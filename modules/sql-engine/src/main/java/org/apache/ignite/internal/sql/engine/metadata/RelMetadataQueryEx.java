@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,7 +27,6 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.metadata.JaninoRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 
 /**
@@ -49,11 +48,6 @@ public class RelMetadataQueryEx extends RelMetadataQuery {
         }
     }
 
-    private static final IgniteMetadata.FragmentMappingMetadata.Handler SOURCE_DISTRIBUTION_INITIAL_HANDLER =
-            initialHandler(IgniteMetadata.FragmentMappingMetadata.Handler.class);
-
-    private IgniteMetadata.FragmentMappingMetadata.Handler sourceDistributionHandler;
-
     /**
      * Factory method.
      *
@@ -74,26 +68,6 @@ public class RelMetadataQueryEx extends RelMetadataQuery {
             return new RelMetadataQueryEx();
         } finally {
             THREAD_PROVIDERS.remove();
-        }
-    }
-
-    private RelMetadataQueryEx() {
-        sourceDistributionHandler = SOURCE_DISTRIBUTION_INITIAL_HANDLER;
-    }
-
-    /**
-     * Calculates data location mapping for a query fragment the given relation node is a root of.
-     *
-     * @param rel Relational node.
-     * @return Fragment meta information.
-     */
-    public FragmentMapping fragmentMapping(RelNode rel, MappingQueryContext ctx) {
-        for (;;) {
-            try {
-                return sourceDistributionHandler.fragmentMapping(rel, this, ctx);
-            } catch (JaninoRelMetadataProvider.NoHandler e) {
-                sourceDistributionHandler = revise(e.relClass, IgniteMetadata.FragmentMappingMetadata.DEF);
-            }
         }
     }
 }

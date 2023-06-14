@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -16,6 +16,11 @@
  */
 
 package org.apache.ignite.internal.sql.engine.prepare;
+
+import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.io.PrintWriter;
 import java.io.Reader;
@@ -31,6 +36,7 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptCostFactory;
 import org.apache.calcite.plan.RelOptLattice;
+import org.apache.calcite.plan.RelOptListener;
 import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
@@ -58,7 +64,6 @@ import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
@@ -72,9 +77,15 @@ import org.apache.calcite.tools.RuleSets;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
+import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
+import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Query planer.
@@ -107,6 +118,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
 
     private final CalciteCatalogReader catalogReader;
 
+    private @Nullable SqlNode validatedSqlNode;
+
     private RelOptPlanner planner;
 
     private SqlValidator validator;
@@ -134,7 +147,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         rexExecutor = frameworkCfg.getExecutor();
         traitDefs = frameworkCfg.getTraitDefs();
 
-        rexBuilder = new RexBuilder(typeFactory);
+        rexBuilder = new IgniteRexBuilder(typeFactory);
     }
 
     /** {@inheritDoc} */
@@ -160,15 +173,27 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     /** {@inheritDoc} */
     @Override
     public SqlNode parse(Reader reader) throws SqlParseException {
-        SqlNodeList sqlNodes = Commons.parse(reader, parserCfg);
+        StatementParseResult parseResult = IgniteSqlParser.parse(reader, StatementParseResult.MODE);
+        Object[] parameters = ctx.parameters();
 
-        return sqlNodes.size() == 1 ? sqlNodes.get(0) : sqlNodes;
+        // Parse method is only used in tests.
+        if (parameters.length != parseResult.dynamicParamsCount()) {
+            String message = format(
+                    "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
+                    parameters.length, parseResult.dynamicParamsCount()
+            );
+
+            throw new SqlException(QUERY_INVALID_ERR, message);
+        }
+
+        return parseResult.statement();
     }
 
     /** {@inheritDoc} */
     @Override
     public SqlNode validate(SqlNode sqlNode) {
-        return validator().validate(sqlNode);
+        validatedSqlNode = validator().validate(sqlNode);
+        return validatedSqlNode;
     }
 
     /** {@inheritDoc} */
@@ -177,6 +202,12 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         SqlNode validatedNode = validator().validate(sqlNode);
         RelDataType type = validator().getValidatedNodeType(validatedNode);
         return Pair.of(validatedNode, type);
+    }
+
+    @Override
+    public RelDataType getParameterRowType() {
+        return requireNonNull(validator, "validator")
+                .getParameterRowType(requireNonNull(validatedSqlNode, "validatedSqlNode"));
     }
 
     /**
@@ -233,7 +264,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
             sqlNode = parser.parseQuery();
         } catch (SqlParseException e) {
             //            throw new IgniteSQLException("parse failed", IgniteQueryErrorCode.PARSING, e);
-            throw new IgniteException("parse failed", e);
+            throw new IgniteException(QUERY_INVALID_ERR, "parse failed", e);
         }
 
         CalciteCatalogReader catalogReader = this.catalogReader.withSchemaPath(schemaPath);
@@ -285,6 +316,15 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     }
 
     /**
+     * Adds a rule listener to this planner.
+     *
+     * @param newListener new listener to be notified of events
+     */
+    public void addListener(RelOptListener newListener) {
+        planner().addListener(newListener);
+    }
+
+    /**
      * Dump.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
@@ -296,7 +336,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         return w.toString();
     }
 
-    private SqlValidator validator() {
+    /** Returns the validator. **/
+    public SqlValidator validator() {
         if (validator == null) {
             validator = new IgniteSqlValidator(operatorTbl, catalogReader, typeFactory, validatorCfg, ctx.parameters());
         }
@@ -477,31 +518,23 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     }
 
     /**
-     * SetDisabledRules.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Sets names of the rules which should be excluded from query optimization pipeline.
+     *
+     * @param disabledRuleNames Names of the rules to exclude. The name can be derived from rule by
+     *     {@link Commons#shortRuleName(RelOptRule)}.
      */
     public void setDisabledRules(Set<String> disabledRuleNames) {
         ctx.rulesFilter(rulesSet -> {
             List<RelOptRule> newSet = new ArrayList<>();
 
             for (RelOptRule r : rulesSet) {
-                if (!disabledRuleNames.contains(shortRuleName(r.toString()))) {
+                if (!disabledRuleNames.contains(shortRuleName(r))) {
                     newSet.add(r);
                 }
             }
 
             return RuleSets.ofList(newSet);
         });
-    }
-
-    private static String shortRuleName(String ruleDesc) {
-        int pos = ruleDesc.indexOf('(');
-
-        if (pos == -1) {
-            return ruleDesc;
-        }
-
-        return ruleDesc.substring(0, pos);
     }
 
     private static class VolcanoPlannerExt extends VolcanoPlanner {
@@ -514,6 +547,24 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         @Override
         public RelOptCost getCost(RelNode rel, RelMetadataQuery mq) {
             return mq.getCumulativeCost(rel);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void checkCancel() {
+            PlanningContext ctx = getContext().unwrap(PlanningContext.class);
+
+            long timeout = ctx.plannerTimeout();
+
+            if (timeout > 0) {
+                long startTs = ctx.startTs();
+
+                if (FastTimestamps.coarseCurrentTimeMillis() - startTs > timeout) {
+                    cancelFlag.set(true);
+                }
+            }
+
+            super.checkCancel();
         }
     }
 }

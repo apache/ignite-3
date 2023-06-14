@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -24,82 +24,135 @@ import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.List;
 import java.util.ServiceLoader;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.LongFunction;
+import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.configuration.schemas.compute.ComputeConfiguration;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
-import org.apache.ignite.internal.cluster.management.rest.ClusterManagementRestFactory;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.component.RestAddressReporter;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
-import org.apache.ignite.internal.compute.ComputeMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
+import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.loader.JobClassLoaderFactory;
+import org.apache.ignite.internal.compute.loader.JobContextManager;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.DistributedConfigurationUpdater;
+import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
-import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
+import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
+import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
+import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
+import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
+import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
+import org.apache.ignite.internal.network.recovery.VaultStateIds;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
+import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.rest.RestFactory;
+import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
+import org.apache.ignite.internal.rest.cluster.ClusterManagementRestFactory;
+import org.apache.ignite.internal.rest.configuration.ConfigurationValidatorFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
+import org.apache.ignite.internal.rest.configuration.RestConfiguration;
+import org.apache.ignite.internal.rest.deployment.CodeDeploymentRestFactory;
+import org.apache.ignite.internal.rest.metrics.MetricRestFactory;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.security.authentication.AuthenticationManager;
+import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
-import org.apache.ignite.internal.tx.message.TxMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.DefaultMessagingService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
-import org.apache.ignite.raft.jraft.RaftMessagesSerializationRegistryInitializer;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.network.serialization.SerializationRegistryServiceLoader;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.intellij.lang.annotations.Language;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -162,11 +215,17 @@ public class IgniteImpl implements Ignite {
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
 
+    /** Distributed configuration validator. */
+    private final ConfigurationValidator distributedConfigurationValidator;
+
     /** Configuration manager that handles cluster (distributed) configuration. */
     private final ConfigurationManager clusterCfgMgr;
 
     /** Baseline manager. */
     private final BaselineManager baselineMgr;
+
+    /** Replica manager. */
+    private final ReplicaManager replicaMgr;
 
     /** Transactions manager. */
     private final TxManager txManager;
@@ -179,7 +238,11 @@ public class IgniteImpl implements Ignite {
     /** Rest module. */
     private final RestComponent restComponent;
 
+    private final ClusterStateStorage clusterStateStorage;
+
     private final ClusterManagementGroupManager cmgMgr;
+
+    private final LogicalTopologyService logicalTopologyService;
 
     /** Client handler module. */
     private final ClientHandlerModule clientHandlerModule;
@@ -202,98 +265,180 @@ public class IgniteImpl implements Ignite {
     /** Metric manager. */
     private final MetricManager metricManager;
 
+    private final IgniteDeployment deploymentManager;
+
+    private final DistributionZoneManager distributionZoneManager;
+
+    /** Creator for volatile {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} instances. */
+    private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
+
+    /** A hybrid logical clock. */
+    private final HybridClock clock;
+
+    private final OutgoingSnapshotsManager outgoingSnapshotsManager;
+
+    private final RestAddressReporter restAddressReporter;
+
+    private final DistributedConfigurationUpdater distributedConfigurationUpdater;
+    private final CatalogManager catalogManager;
+
+    private final AuthenticationManager authenticationManager;
+
     /**
      * The Constructor.
      *
      * @param name Ignite node name.
+     * @param configPath Path to node configuration in the HOCON format.
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @param serviceProviderClassLoader The class loader to be used to load provider-configuration files and provider classes, or
      *         {@code null} if the system class loader (or, failing that the bootstrap class loader) is to be used.
      */
-    IgniteImpl(String name, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
+    IgniteImpl(String name, Path configPath, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
         this.name = name;
 
-        longJvmPauseDetector = new LongJvmPauseDetector(name, Loggers.forClass(LongJvmPauseDetector.class));
+        longJvmPauseDetector = new LongJvmPauseDetector(name);
 
         lifecycleManager = new LifecycleManager(name);
 
-        vaultMgr = createVault(workDir);
+        vaultMgr = createVault(name, workDir);
 
         metricManager = new MetricManager();
 
         ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
 
-        nodeCfgMgr = new ConfigurationManager(
+        ConfigurationTreeGenerator localConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.local().rootKeys(),
-                modules.local().validators(),
-                new LocalConfigurationStorage(vaultMgr),
                 modules.local().internalSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
 
-        NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
+        LocalFileConfigurationStorage localFileConfigurationStorage = new LocalFileConfigurationStorage(
+                configPath,
+                localConfigurationGenerator
+        );
 
-        MessageSerializationRegistryImpl serializationRegistry = new MessageSerializationRegistryImpl();
+        ConfigurationValidator localConfigurationValidator =
+                ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators());
 
-        CmgMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
-        RaftMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
-        SqlQueryMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
-        TxMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
-        ComputeMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
+        nodeCfgMgr = new ConfigurationManager(
+                modules.local().rootKeys(),
+                localFileConfigurationStorage,
+                localConfigurationGenerator,
+                localConfigurationValidator
+        );
 
-        var clusterLocalConfiguration = new ClusterLocalConfiguration(name, serializationRegistry);
+        ConfigurationRegistry nodeConfigRegistry = nodeCfgMgr.configurationRegistry();
 
-        nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, clusterLocalConfiguration.getName());
+        NetworkConfiguration networkConfiguration = nodeConfigRegistry.getConfiguration(NetworkConfiguration.KEY);
+
+        MessageSerializationRegistry serializationRegistry = createSerializationRegistry(serviceProviderClassLoader);
+
+        nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
 
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
-                clusterLocalConfiguration,
+                name,
                 networkConfiguration,
-                nettyBootstrapFactory
+                nettyBootstrapFactory,
+                serializationRegistry,
+                new VaultStateIds(vaultMgr)
         );
 
-        computeComponent = new ComputeComponentImpl(
-                this,
-                clusterSvc.messagingService(),
-                nodeCfgMgr.configurationRegistry().getConfiguration(ComputeConfiguration.KEY)
+        clock = new HybridClockImpl();
+
+        RaftConfiguration raftConfiguration = nodeConfigRegistry.getConfiguration(RaftConfiguration.KEY);
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19051
+        RaftGroupEventsClientListener raftGroupEventsClientListener = new RaftGroupEventsClientListener();
+
+        raftMgr = new Loza(
+                clusterSvc,
+                raftConfiguration,
+                workDir,
+                clock,
+                raftGroupEventsClientListener
         );
 
-        raftMgr = new Loza(clusterSvc, workDir);
+        LockManager lockMgr = new HeapLockManager();
 
-        txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
+        ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), clock);
+
+        // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
+        txManager = new TxManagerImpl(replicaSvc, lockMgr, clock, new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()));
+
+        // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
+        clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH));
+
+        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+
+        ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
+                modules.distributed().rootKeys(),
+                modules.distributed().internalSchemaExtensions(),
+                modules.distributed().polymorphicSchemaExtensions()
+        );
+
+        distributedConfigurationValidator =
+                ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators());
 
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
                 clusterSvc,
                 raftMgr,
-                new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH))
+                clusterStateStorage,
+                logicalTopology,
+                nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY),
+                nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY),
+                distributedConfigurationValidator);
+
+        replicaMgr = new ReplicaManager(
+                clusterSvc,
+                cmgMgr,
+                clock,
+                Set.of(TableMessageGroup.class, TxMessageGroup.class)
         );
 
-        metaStorageMgr = new MetaStorageManager(
+        logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
+
+        metaStorageMgr = new MetaStorageManagerImpl(
                 vaultMgr,
                 clusterSvc,
                 cmgMgr,
+                logicalTopologyService,
                 raftMgr,
-                new RocksDbKeyValueStorage(workDir.resolve(METASTORAGE_DB_PATH))
+                new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH)),
+                clock
         );
 
         this.cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
 
         clusterCfgMgr = new ConfigurationManager(
                 modules.distributed().rootKeys(),
-                modules.distributed().validators(),
                 cfgStorage,
-                modules.distributed().internalSchemaExtensions(),
-                modules.distributed().polymorphicSchemaExtensions()
+                distributedConfigurationGenerator,
+                distributedConfigurationValidator
         );
 
-        RestFactory presentationsFactory = new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
-        RestFactory clusterManagementRestFactory = new ClusterManagementRestFactory(clusterSvc, cmgMgr);
-        RestFactory nodeManagementRestFactory = new NodeManagementRestFactory(lifecycleManager, () -> name);
-        RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
-        restComponent = new RestComponent(
-                List.of(presentationsFactory, clusterManagementRestFactory, nodeManagementRestFactory),
-                restConfiguration
+        distributedConfigurationUpdater = new DistributedConfigurationUpdater(
+                cmgMgr,
+                new HoconPresentation(clusterCfgMgr.configurationRegistry())
         );
+
+        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
+
+        TablesConfiguration tablesConfiguration = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
+
+        TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                clusterSvc,
+                logicalTopologyService,
+                Loza.FACTORY,
+                raftGroupEventsClientListener
+        );
+
+        DistributionZonesConfiguration zonesConfiguration = clusterConfigRegistry
+                .getConfiguration(DistributionZonesConfiguration.KEY);
+
+        metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
+
+        restAddressReporter = new RestAddressReporter(workDir);
 
         baselineMgr = new BaselineManager(
                 clusterCfgMgr,
@@ -301,76 +446,175 @@ public class IgniteImpl implements Ignite {
                 clusterSvc
         );
 
-        Consumer<Function<Long, CompletableFuture<?>>> registry =
-                c -> clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(c::apply);
+        Consumer<LongFunction<CompletableFuture<?>>> registry =
+                c -> clusterConfigRegistry.listenUpdateStorageRevision(c::apply);
 
         DataStorageModules dataStorageModules = new DataStorageModules(
                 ServiceLoader.load(DataStorageModule.class, serviceProviderClassLoader)
         );
 
+        Path storagePath = getPartitionsStorePath(workDir);
+
+        DistributionZonesConfiguration distributionZonesConfiguration =
+                clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
+
         dataStorageMgr = new DataStorageManager(
-                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
+                distributionZonesConfiguration,
                 dataStorageModules.createStorageEngines(
                         name,
-                        clusterCfgMgr.configurationRegistry(),
-                        getPartitionsStorePath(workDir),
+                        clusterConfigRegistry,
+                        storagePath,
                         longJvmPauseDetector
                 )
         );
 
-        schemaManager = new SchemaManager(
-            registry,
-            clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
+        schemaManager = new SchemaManager(registry, tablesConfiguration, metaStorageMgr);
+
+        distributionZoneManager = new DistributionZoneManager(
+                zonesConfiguration,
+                tablesConfiguration,
+                metaStorageMgr,
+                logicalTopologyService,
+                vaultMgr,
+                name
         );
 
+        volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(workDir.resolve("volatile-log-spillout"));
+
+        outgoingSnapshotsManager = new OutgoingSnapshotsManager(clusterSvc.messagingService());
+
+        catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageMgr, vaultMgr), clock);
+
         distributedTblMgr = new TableManager(
+                name,
                 registry,
-                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
+                tablesConfiguration,
+                distributionZonesConfiguration,
+                clusterSvc,
                 raftMgr,
+                replicaMgr,
+                lockMgr,
+                replicaSvc,
                 baselineMgr,
                 clusterSvc.topologyService(),
                 txManager,
                 dataStorageMgr,
+                storagePath,
                 metaStorageMgr,
-                schemaManager
+                schemaManager,
+                volatileLogStorageFactoryCreator,
+                clock,
+                outgoingSnapshotsManager,
+                topologyAwareRaftGroupServiceFactory,
+                vaultMgr,
+                cmgMgr,
+                distributionZoneManager
         );
 
-        indexManager = new IndexManager(
-                distributedTblMgr,
-                clusterCfgMgr.configurationRegistry()
-                        .getConfiguration(TablesConfiguration.KEY)
-                        .tables()
-                        .any()
-                        .indices()
-                        ::listenElements
-        );
+        indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
 
         qryEngine = new SqlQueryProcessor(
                 registry,
                 clusterSvc,
                 distributedTblMgr,
+                indexManager,
                 schemaManager,
                 dataStorageMgr,
-                () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions())
+                txManager,
+                distributionZoneManager,
+                () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
+                replicaSvc,
+                clock,
+                catalogManager
         );
 
         sql = new IgniteSqlImpl(qryEngine);
 
+        var deploymentManagerImpl = new DeploymentManagerImpl(
+                clusterSvc,
+                new DeploymentUnitStoreImpl(metaStorageMgr),
+                logicalTopologyService,
+                workDir,
+                nodeConfigRegistry.getConfiguration(DeploymentConfiguration.KEY),
+                cmgMgr
+        );
+        deploymentManager = deploymentManagerImpl;
+
+        computeComponent = new ComputeComponentImpl(
+                this,
+                clusterSvc.messagingService(),
+                nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY),
+                new JobContextManager(deploymentManagerImpl, deploymentManagerImpl.deploymentUnitAccessor(), new JobClassLoaderFactory())
+        );
+
         compute = new IgniteComputeImpl(clusterSvc.topologyService(), distributedTblMgr, computeComponent);
+
+        authenticationManager = createAuthenticationManager();
+
+        AuthenticationConfiguration authenticationConfiguration = clusterConfigRegistry.getConfiguration(SecurityConfiguration.KEY)
+                .authentication();
 
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
                 new IgniteTransactionsImpl(txManager),
-                nodeCfgMgr.configurationRegistry(),
+                nodeConfigRegistry,
                 compute,
                 clusterSvc,
                 nettyBootstrapFactory,
-                sql
+                sql,
+                () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag().clusterId()),
+                metricManager,
+                new ClientHandlerMetricSource(),
+                authenticationManager,
+                authenticationConfiguration
+                );
+
+        restComponent = createRestComponent(name);
+    }
+
+    private AuthenticationManager createAuthenticationManager() {
+        AuthenticationConfiguration authConfiguration = clusterCfgMgr.configurationRegistry()
+                .getConfiguration(SecurityConfiguration.KEY)
+                .authentication();
+
+        AuthenticationManager manager = new AuthenticationManagerImpl();
+        authConfiguration.listen(manager);
+        return manager;
+    }
+
+    private RestComponent createRestComponent(String name) {
+        Supplier<RestFactory> presentationsFactory = () -> new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
+        Supplier<RestFactory> clusterManagementRestFactory = () -> new ClusterManagementRestFactory(clusterSvc, cmgMgr);
+        Supplier<RestFactory> nodeManagementRestFactory = () -> new NodeManagementRestFactory(lifecycleManager, () -> name);
+        Supplier<RestFactory> nodeMetricRestFactory = () -> new MetricRestFactory(metricManager);
+        Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
+        Supplier<RestFactory> deploymentCodeRestFactory = () -> new CodeDeploymentRestFactory(deploymentManager);
+        Supplier<RestFactory> configurationValidatorFactory = () -> new ConfigurationValidatorFactory(distributedConfigurationValidator);
+        RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
+        return new RestComponent(
+                List.of(presentationsFactory,
+                        clusterManagementRestFactory,
+                        nodeManagementRestFactory,
+                        nodeMetricRestFactory,
+                        deploymentCodeRestFactory,
+                        authProviderFactory,
+                        configurationValidatorFactory),
+                restConfiguration
         );
     }
 
-    private static ConfigurationModules loadConfigurationModules(ClassLoader classLoader) {
+    private static MessageSerializationRegistry createSerializationRegistry(@Nullable ClassLoader classLoader) {
+        var serviceLoader = new SerializationRegistryServiceLoader(classLoader);
+
+        var serializationRegistry = new MessageSerializationRegistryImpl();
+
+        serviceLoader.registerSerializationFactories(serializationRegistry);
+
+        return serializationRegistry;
+    }
+
+    private static ConfigurationModules loadConfigurationModules(@Nullable ClassLoader classLoader) {
         var modulesProvider = new ServiceLoaderModulesProvider();
         List<ConfigurationModule> modules = modulesProvider.modules(classLoader);
 
@@ -393,8 +637,8 @@ public class IgniteImpl implements Ignite {
      * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
-     * @param cfg Optional node configuration based on
-     *         {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}. Following rules are used for applying the
+     * @param configPath Node configuration based on
+     *         {@link NetworkConfigurationSchema}. Following rules are used for applying the
      *         configuration properties:
      *
      *         <ol>
@@ -410,8 +654,12 @@ public class IgniteImpl implements Ignite {
      *         previously use default values. Please pay attention that previously specified properties are searched in the
      *         {@code workDir} specified by the user.
      */
-    public CompletableFuture<Ignite> start(@Language("HOCON") @Nullable String cfg) {
+    public CompletableFuture<Ignite> start(Path configPath) {
+        ExecutorService startupExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(name, "start", LOG));
+
         try {
+            metricManager.registerSource(new JvmMetricSource());
+
             lifecycleManager.startComponent(longJvmPauseDetector);
 
             lifecycleManager.startComponent(vaultMgr);
@@ -421,26 +669,20 @@ public class IgniteImpl implements Ignite {
             // Node configuration manager startup.
             lifecycleManager.startComponent(nodeCfgMgr);
 
-            // Node configuration manager bootstrap.
-            if (cfg != null) {
-                try {
-                    nodeCfgMgr.bootstrap(cfg);
-                } catch (Exception e) {
-                    throw new IgniteException("Unable to parse user-specific configuration", e);
-                }
-            } else {
-                nodeCfgMgr.configurationRegistry().initializeDefaults();
-            }
-
             // Start the components that are required to join the cluster.
             lifecycleManager.startComponents(
-                    metricManager,
                     nettyBootstrapFactory,
                     clusterSvc,
                     restComponent,
                     raftMgr,
+                    clusterStateStorage,
+                    distributedConfigurationUpdater,
                     cmgMgr
             );
+
+            clusterSvc.updateMetadata(new NodeMetadata(restComponent.host(), restComponent.httpPort(), restComponent.httpsPort()));
+
+            restAddressReporter.writeReport(restHttpAddress(), restHttpsAddress());
 
             LOG.info("Components started, joining the cluster");
 
@@ -454,21 +696,28 @@ public class IgniteImpl implements Ignite {
                             lifecycleManager.startComponents(
                                     metaStorageMgr,
                                     clusterCfgMgr,
+                                    metricManager,
+                                    distributionZoneManager,
                                     computeComponent,
+                                    replicaMgr,
                                     txManager,
                                     baselineMgr,
                                     dataStorageMgr,
                                     schemaManager,
+                                    volatileLogStorageFactoryCreator,
+                                    outgoingSnapshotsManager,
                                     distributedTblMgr,
+                                    catalogManager,
                                     indexManager,
                                     qryEngine,
-                                    clientHandlerModule
+                                    clientHandlerModule,
+                                    deploymentManager
                             );
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
                         }
-                    })
-                    .thenCompose(v -> {
+                    }, startupExecutor)
+                    .thenComposeAsync(v -> {
                         LOG.info("Components started, performing recovery");
 
                         // Recovery future must be created before configuration listeners are triggered.
@@ -478,7 +727,7 @@ public class IgniteImpl implements Ignite {
                         );
 
                         return notifyConfigurationListeners()
-                                .thenCompose(t -> {
+                                .thenComposeAsync(t -> {
                                     // Deploy all registered watches because all components are ready and have registered their listeners.
                                     try {
                                         metaStorageMgr.deployWatches();
@@ -487,30 +736,43 @@ public class IgniteImpl implements Ignite {
                                     }
 
                                     return recoveryFuture;
-                                });
-                    })
+                                }, startupExecutor);
+                    }, startupExecutor)
+                    .thenRunAsync(() -> {
+                        try {
+                            lifecycleManager.startComponent(distributedConfigurationUpdater);
+                        } catch (NodeStoppingException e) {
+                            throw new CompletionException(e);
+                        }
+                    }, startupExecutor)
                     // Signal that local recovery is complete and the node is ready to join the cluster.
-                    .thenCompose(v -> {
+                    .thenComposeAsync(v -> {
                         LOG.info("Recovery complete, finishing join");
 
                         return cmgMgr.onJoinReady();
-                    })
-                    .thenRun(() -> {
+                    }, startupExecutor)
+                    .thenRunAsync(() -> {
                         try {
                             // Transfer the node to the STARTED state.
                             lifecycleManager.onStartComplete();
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
                         }
-                    })
-                    .handle((v, e) -> {
+                    }, startupExecutor)
+                    .handleAsync((v, e) -> {
                         if (e != null) {
                             throw handleStartException(e);
                         }
 
-                        return this;
+                        return (Ignite) this;
+                    }, startupExecutor)
+                    // Moving to the common pool on purpose to close the startup pool and proceed user's code in the common pool.
+                    .whenCompleteAsync((res, ex) -> {
+                        startupExecutor.shutdownNow();
                     });
         } catch (Throwable e) {
+            startupExecutor.shutdownNow();
+
             throw handleStartException(e);
         }
     }
@@ -530,6 +792,7 @@ public class IgniteImpl implements Ignite {
      */
     public void stop() {
         lifecycleManager.stopNode();
+        restAddressReporter.removeReport();
     }
 
     /** {@inheritDoc} */
@@ -545,6 +808,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public IndexManager indexManager() {
         return indexManager;
+    }
+
+    @TestOnly
+    public MetaStorageManager metaStorageManager() {
+        return metaStorageMgr;
     }
 
     /** {@inheritDoc} */
@@ -612,13 +880,38 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
-     * Returns the local address of REST endpoints.
+     * Returns the local HTTP address of REST endpoints.
      *
+     * @return address or null if HTTP is not enabled.
      * @throws IgniteInternalException if the REST module is not started.
      */
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
-    public NetworkAddress restAddress() {
-        return new NetworkAddress(restComponent.host(), restComponent.port());
+    @Nullable
+    public NetworkAddress restHttpAddress() {
+        String host = restComponent.host();
+        int port = restComponent.httpPort();
+        if (port != -1) {
+            return new NetworkAddress(host, port);
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Returns the local HTTPS address of REST endpoints.
+     *
+     * @return address or null if HTTPS is not enabled.
+     * @throws IgniteInternalException if the REST module is not started.
+     */
+    // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
+    public NetworkAddress restHttpsAddress() {
+        String host = restComponent.host();
+        int port = restComponent.httpsPort();
+        if (port != -1) {
+            return new NetworkAddress(host, port);
+        } else {
+            return null;
+        }
     }
 
     /**
@@ -637,14 +930,16 @@ public class IgniteImpl implements Ignite {
      * @param metaStorageNodeNames names of nodes that will host the Meta Storage.
      * @param cmgNodeNames         names of nodes that will host the CMG.
      * @param clusterName Human-readable name of a cluster.
+     * @param clusterConfiguration cluster configuration, that will be applied after init.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     public void init(
             Collection<String> metaStorageNodeNames,
             Collection<String> cmgNodeNames,
-            String clusterName
+            String clusterName,
+            String clusterConfiguration
     ) throws NodeStoppingException {
-        cmgMgr.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName);
+        cmgMgr.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration);
     }
 
     /**
@@ -660,7 +955,7 @@ public class IgniteImpl implements Ignite {
     /**
      * Starts the Vault component.
      */
-    private static VaultManager createVault(Path workDir) {
+    private static VaultManager createVault(String nodeName, Path workDir) {
         Path vaultPath = workDir.resolve(VAULT_DB_PATH);
 
         try {
@@ -669,7 +964,7 @@ public class IgniteImpl implements Ignite {
             throw new IgniteInternalException(e);
         }
 
-        return new VaultManager(new PersistentVaultService(vaultPath));
+        return new VaultManager(new PersistentVaultService(nodeName, vaultPath));
     }
 
     /**
@@ -678,7 +973,6 @@ public class IgniteImpl implements Ignite {
      * @param workDir Ignite work directory.
      * @return Partitions store path.
      */
-    @NotNull
     private static Path getPartitionsStorePath(Path workDir) {
         Path partitionsStore = workDir.resolve(PARTITIONS_STORE_PATH);
 
@@ -692,7 +986,56 @@ public class IgniteImpl implements Ignite {
     }
 
     @TestOnly
+    public Loza raftManager() {
+        return raftMgr;
+    }
+
+    @TestOnly
     public ClusterNode node() {
         return clusterSvc.topologyService().localMember();
+    }
+
+    @TestOnly
+    public DistributionZoneManager distributionZoneManager() {
+        return distributionZoneManager;
+    }
+
+    @TestOnly
+    public LogicalTopologyService logicalTopologyService() {
+        return logicalTopologyService;
+    }
+
+    @TestOnly
+    public IgniteDeployment deployment() {
+        return deploymentManager;
+    }
+
+    // TODO: IGNITE-18493 - remove/move this
+    @TestOnly
+    public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
+        ((DefaultMessagingService) clusterSvc.messagingService()).dropMessages(predicate);
+    }
+
+    // TODO: IGNITE-18493 - remove/move this
+    @TestOnly
+    @Nullable
+    public BiPredicate<String, NetworkMessage> dropMessagesPredicate() {
+        return ((DefaultMessagingService) clusterSvc.messagingService()).dropMessagesPredicate();
+    }
+
+    // TODO: IGNITE-18493 - remove/move this
+    @TestOnly
+    public void stopDroppingMessages() {
+        ((DefaultMessagingService) clusterSvc.messagingService()).stopDroppingMessages();
+    }
+
+    /**
+     * Returns the node's hybrid clock.
+     *
+     * @return Hybrid clock.
+     */
+    @TestOnly
+    public HybridClock clock() {
+        return clock;
     }
 }

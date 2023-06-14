@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -45,6 +45,7 @@ import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -59,6 +60,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -202,29 +204,120 @@ public class ConfigurationUtilTest {
                 )
         );
 
+        NodeValue<Object> root = find(List.of(), parentNode, true);
+        assertNull(root.field());
+        assertSame(parentNode, root.value());
+
+        NodeValue<Object> elements = find(List.of("elements"), parentNode, true);
+        assertEquals("elements", elements.field().getName());
+        assertSame(NamedElementConfigurationSchema.class, elements.field().getType());
+        assertSame(parentChange.elements(), elements.value());
+
+        NodeValue<Object> elementsName = find(List.of("elements", "name"), parentNode, true);
+        assertEquals("elements", elementsName.field().getName());
+        assertSame(NamedElementConfigurationSchema.class, elementsName.field().getType());
+        assertSame(parentChange.elements().get("name"), elementsName.value());
+
+        NodeValue<Object> elementsNameChild = find(List.of("elements", "name", "child"), parentNode, true);
+        assertEquals("child", elementsNameChild.field().getName());
+        assertSame(ChildConfigurationSchema.class, elementsNameChild.field().getType());
+        assertSame(parentChange.elements().get("name").child(), elementsNameChild.value());
+
+        NodeValue<Object> elementsNameChildStr = find(List.of("elements", "name", "child", "str"), parentNode, true);
+        assertEquals("str", elementsNameChildStr.field().getName());
+        assertSame(String.class, elementsNameChildStr.field().getType());
+        assertSame(parentChange.elements().get("name").child().str(), elementsNameChildStr.value());
+    }
+
+    @Test
+    public void findSuccessfullyPolymorphicConfig() {
+        InnerNode parentNode = newNodeInstance(PolymorphicRootConfigurationSchema.class);
+        addDefaults(parentNode);
+
+        PolymorphicRootChange parentChange = (PolymorphicRootChange) parentNode;
+
+        parentChange.changePolymorphicSubCfg(sub -> {
+            sub.convert(FirstPolymorphicInstanceChange.class)
+                    .changeStrVal("str")
+                    .changeLongVal(0);
+        });
+
+        parentChange.changePolymorphicNamedCfg(named -> {
+            named.createOrUpdate("name0", sub -> {
+                sub.convert(FirstPolymorphicInstanceChange.class)
+                        .changeStrVal("substr0")
+                        .changeLongVal(-1);
+            });
+
+            named.createOrUpdate("name1", sub -> {
+                sub.convert(SecondPolymorphicInstanceChange.class)
+                        .changeIntVal(1)
+                        .changeLongVal(1);
+            });
+        });
+
+        NodeValue<Object> subCfgStrVal = find(List.of("polymorphicSubCfg", "strVal"), parentNode, true);
+        assertEquals("strVal", subCfgStrVal.field().getName());
+        assertSame(String.class, subCfgStrVal.field().getType());
         assertSame(
-                parentNode,
-                ConfigurationUtil.find(List.of(), parentNode, true)
+                ((FirstPolymorphicInstanceView) parentChange.changePolymorphicSubCfg()).strVal(),
+                subCfgStrVal.value()
         );
 
+        NodeValue<Object> subCfgLongVal = find(List.of("polymorphicSubCfg", "longVal"), parentNode, true);
+        assertEquals("longVal", subCfgLongVal.field().getName());
+        assertSame(long.class, subCfgLongVal.field().getGenericType());
         assertSame(
-                parentChange.elements(),
-                ConfigurationUtil.find(List.of("elements"), parentNode, true)
+                parentChange.changePolymorphicSubCfg().longVal(),
+                subCfgLongVal.value()
         );
 
+        NodeValue<Object> name0strVal = find(List.of("polymorphicNamedCfg", "name0", "strVal"), parentNode, true);
+        assertEquals("strVal", name0strVal.field().getName());
+        assertSame(String.class, name0strVal.field().getGenericType());
         assertSame(
-                parentChange.elements().get("name"),
-                ConfigurationUtil.find(List.of("elements", "name"), parentNode, true)
+                ((FirstPolymorphicInstanceView) parentChange.changePolymorphicNamedCfg().get("name0")).strVal(),
+                name0strVal.value()
         );
 
+        NodeValue<Object> name0longVal = find(List.of("polymorphicNamedCfg", "name0", "longVal"), parentNode, true);
+        assertEquals("longVal", name0longVal.field().getName());
+        assertSame(long.class, name0longVal.field().getGenericType());
         assertSame(
-                parentChange.elements().get("name").child(),
-                ConfigurationUtil.find(List.of("elements", "name", "child"), parentNode, true)
+                parentChange.changePolymorphicNamedCfg().get("name0").longVal(),
+                name0longVal.value()
         );
 
+        NodeValue<Object> name0someVal = find(List.of("polymorphicNamedCfg", "name0", "someVal"), parentNode, true);
+        assertEquals("someVal", name0someVal.field().getName());
+        assertSame(String.class, name0someVal.field().getGenericType());
         assertSame(
-                parentChange.elements().get("name").child().str(),
-                ConfigurationUtil.find(List.of("elements", "name", "child", "str"), parentNode, true)
+                ((FirstPolymorphicInstanceView) parentChange.changePolymorphicNamedCfg().get("name0")).someVal(),
+                name0someVal.value()
+        );
+
+        NodeValue<Object> name1intVal = find(List.of("polymorphicNamedCfg", "name1", "intVal"), parentNode, true);
+        assertEquals("intVal", name1intVal.field().getName());
+        assertSame(int.class, name1intVal.field().getGenericType());
+        assertSame(
+                ((SecondPolymorphicInstanceView) parentChange.changePolymorphicNamedCfg().get("name1")).intVal(),
+                name1intVal.value()
+        );
+
+        NodeValue<Object> name1longVal = find(List.of("polymorphicNamedCfg", "name1", "longVal"), parentNode, true);
+        assertEquals("longVal", name1longVal.field().getName());
+        assertSame(long.class, name1longVal.field().getGenericType());
+        assertSame(
+                parentChange.changePolymorphicNamedCfg().get("name1").longVal(),
+                name1longVal.value()
+        );
+
+        NodeValue<Object> name1someVal = find(List.of("polymorphicNamedCfg", "name1", "someVal"), parentNode, true);
+        assertEquals("someVal", name1someVal.field().getName());
+        assertSame(int.class, name1someVal.field().getGenericType());
+        assertSame(
+                ((SecondPolymorphicInstanceView) parentChange.changePolymorphicNamedCfg().get("name1")).someVal(),
+                name1someVal.value()
         );
     }
 
@@ -238,12 +331,12 @@ public class ConfigurationUtilTest {
 
         ParentChange parentChange = (ParentChange) parentNode;
 
-        assertNull(ConfigurationUtil.find(List.of("elements", "name"), parentNode, true));
+        assertNull(find(List.of("elements", "name"), parentNode, true).value());
 
         parentChange.changeElements(elements -> elements.createOrUpdate("name", element -> {
         }));
 
-        assertNull(ConfigurationUtil.find(List.of("elements", "name", "child", "str"), parentNode, true));
+        assertNull(find(List.of("elements", "name", "child", "str"), parentNode, true).value());
     }
 
     /**
@@ -258,7 +351,7 @@ public class ConfigurationUtilTest {
 
         assertThrows(
                 KeyNotFoundException.class,
-                () -> ConfigurationUtil.find(List.of("elements", "name", "child"), parentNode, true)
+                () -> find(List.of("elements", "name", "child"), parentNode, true)
         );
 
         parentChange.changeElements(elements -> elements.createOrUpdate("name", element -> {
@@ -266,14 +359,14 @@ public class ConfigurationUtilTest {
 
         assertThrows(
                 KeyNotFoundException.class,
-                () -> ConfigurationUtil.find(List.of("elements", "name", "child", "str0"), parentNode, true)
+                () -> find(List.of("elements", "name", "child", "str0"), parentNode, true)
         );
 
         ((NamedElementChange) parentChange.elements().get("name")).changeChild(child -> child.changeStr("value"));
 
         assertThrows(
                 KeyNotFoundException.class,
-                () -> ConfigurationUtil.find(List.of("elements", "name", "child", "str", "foo"), parentNode, true)
+                () -> find(List.of("elements", "name", "child", "str", "foo"), parentNode, true)
         );
     }
 
@@ -556,12 +649,12 @@ public class ConfigurationUtilTest {
 
         // Check that internal configuration will be found.
 
-        assertNull(find(List.of("str2"), innerNode, true));
-        assertEquals("foo", find(List.of("str3"), innerNode, true));
-        assertNotNull(find(List.of("subCfg1"), innerNode, true));
+        assertNull(find(List.of("str2"), innerNode, true).value());
+        assertEquals("foo", find(List.of("str3"), innerNode, true).value());
+        assertNotNull(find(List.of("subCfg1"), innerNode, true).value());
 
-        assertEquals("foo", find(List.of("subCfg", "str01"), innerNode, true));
-        assertEquals("foo", find(List.of("subCfg", "str02"), innerNode, true));
+        assertEquals("foo", find(List.of("subCfg", "str01"), innerNode, true).value());
+        assertEquals("foo", find(List.of("subCfg", "str02"), innerNode, true).value());
     }
 
     @Test
@@ -580,7 +673,13 @@ public class ConfigurationUtilTest {
 
         addDefaults(innerNode);
 
-        Map<String, Object> config = (Map<String, Object>) innerNode.accept(null, new ConverterToMapVisitor(false));
+        Map<String, Object> config = (Map<String, Object>) innerNode.accept(
+                null,
+                null,
+                ConverterToMapVisitor.builder()
+                        .includeInternal(false)
+                        .build()
+        );
 
         // Check that no internal configuration will be received.
 
@@ -597,7 +696,13 @@ public class ConfigurationUtilTest {
 
         // Check that no internal configuration will be received.
 
-        config = (Map<String, Object>) innerNode.accept(null, new ConverterToMapVisitor(true));
+        config = (Map<String, Object>) innerNode.accept(
+                null,
+                null,
+                ConverterToMapVisitor.builder()
+                        .includeInternal(true)
+                        .build()
+        );
 
         assertEquals(7, config.size());
         assertNull(config.get("str0"));
@@ -646,12 +751,23 @@ public class ConfigurationUtilTest {
 
         assertNotNull(find(List.of(schemaKey.key()), superRoot, true));
 
-        Map<String, Object> config =
-                (Map<String, Object>) superRoot.accept(schemaKey.key(), new ConverterToMapVisitor(false));
+        Map<String, Object> config = (Map<String, Object>) superRoot.accept(
+                        null,
+                        schemaKey.key(),
+                        ConverterToMapVisitor.builder()
+                                .includeInternal(false)
+                                .build()
+                );
 
         assertTrue(config.isEmpty());
 
-        config = (Map<String, Object>) superRoot.accept(schemaKey.key(), new ConverterToMapVisitor(true));
+        config = (Map<String, Object>) superRoot.accept(
+                null,
+                schemaKey.key(),
+                ConverterToMapVisitor.builder()
+                        .includeInternal(true)
+                        .build()
+        );
 
         assertEquals(1, config.size());
         assertNotNull(config.get(schemaKey.key()));
@@ -762,6 +878,8 @@ public class ConfigurationUtilTest {
         exp.put("rootPolymorphic.polymorphicSubCfg.strVal", null);
         exp.put("rootPolymorphic.polymorphicSubCfg.intVal", 0);
 
+        exp.put("rootPolymorphic.polymorphicSubCfg.someVal", 10);
+
         assertEquals(exp, act);
     }
 
@@ -798,6 +916,8 @@ public class ConfigurationUtilTest {
         exp.put("rootPolymorphic.polymorphicNamedCfg." + internalId + ".strVal", null);
         exp.put("rootPolymorphic.polymorphicNamedCfg." + internalId + ".intVal", 0);
 
+        exp.put("rootPolymorphic.polymorphicNamedCfg." + internalId + ".someVal", 10);
+
         assertEquals(exp, act);
     }
 
@@ -806,6 +926,26 @@ public class ConfigurationUtilTest {
         assertEquals(List.of(), removeLastKey(List.of()));
         assertEquals(List.of(), removeLastKey(List.of("0")));
         assertEquals(List.of("0"), removeLastKey(List.of("0", "1")));
+    }
+
+    /**
+     * Tests that {@link ConfigurationUtil#addDefaults} copies the tree when adding default values.
+     */
+    @Test
+    void testAddDefaultsPurity() {
+        InnerNode parentNode = newNodeInstance(ParentConfigurationSchema.class);
+
+        ParentChange parentChange = (ParentChange) parentNode;
+
+        parentChange.changeElements(elements -> elements.create("name", element -> {}));
+
+        NamedListView<?> beforeDefaults = parentChange.elements();
+
+        addDefaults(parentNode);
+
+        NamedListView<?> afterDefaults = parentChange.elements();
+
+        assertNotSame(afterDefaults, beforeDefaults);
     }
 
     /**
@@ -1027,6 +1167,9 @@ public class ConfigurationUtilTest {
         /** String value. */
         @Value(hasDefault = true)
         public String strVal = "strVal";
+
+        @Value(hasDefault = true)
+        public String someVal = "someVal";
     }
 
     /**
@@ -1037,5 +1180,8 @@ public class ConfigurationUtilTest {
         /** Integer value. */
         @Value(hasDefault = true)
         public int intVal = 0;
+
+        @Value(hasDefault = true)
+        public int someVal = 10;
     }
 }

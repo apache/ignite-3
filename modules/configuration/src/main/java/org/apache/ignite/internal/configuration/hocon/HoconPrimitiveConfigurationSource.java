@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.jo
 
 import com.typesafe.config.ConfigValue;
 import java.util.List;
+import java.util.UUID;
 import org.apache.ignite.internal.configuration.TypeUtils;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -163,6 +164,12 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
             } else if (clazz == Double.class) {
                 return clazz.cast(numberValue.doubleValue());
             }
+        } else if (clazz == UUID.class) {
+            if (hoconCfgValue.valueType() != STRING) {
+                throw wrongTypeException(clazz, path, idx);
+            }
+
+            return clazz.cast(UUID.fromString(hoconCfgValue.unwrapped().toString()));
         }
 
         throw new IllegalArgumentException("Unsupported type: " + clazz);

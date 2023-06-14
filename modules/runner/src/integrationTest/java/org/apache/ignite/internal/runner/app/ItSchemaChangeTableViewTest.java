@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -26,12 +26,10 @@ import java.util.List;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnDefinition;
-import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -92,8 +90,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
                 () -> tbl.insert(null, Tuple.create().set("key", 1L).set("valInt", -111).set("valStrNew", "str"))
         );
 
-        addColumn(grid, SchemaBuilders.column("valStrNew", ColumnType.string())
-                .asNullable(true).withDefaultValue("default").build());
+        addColumn(grid, "valStrNew VARCHAR DEFAULT 'default'");
 
         // Check old row conversion.
         Tuple keyTuple1 = Tuple.create().set("key", 1L);
@@ -155,7 +152,9 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
     /**
      * Rename column then add a new column with same name.
+     * TODO IGNITE-19486: Add similar test for KV view.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19486")
     @Test
     void testRenameThenAddColumnWithSameName() throws Exception {
         List<Ignite> grid = startGrid();
@@ -171,8 +170,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         );
 
         renameColumn(grid, "valInt", "val2");
-        addColumn(grid, SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true)
-                .withDefaultValue(-1).build());
+        addColumn(grid, "valInt INT DEFAULT -1");
 
         // Check old row conversion.
         Tuple keyTuple1 = Tuple.create().set("key", 1L);
@@ -203,10 +201,6 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        final ColumnDefinition column = SchemaBuilders.column("val", ColumnType.string()).asNullable(true)
-                .withDefaultValue("default")
-                .build();
-
         RecordView<Tuple> tbl = grid.get(0).tables().table(TABLE).recordView();
 
         tbl.insert(null, Tuple.create().set("key", 1L).set("valInt", 111));
@@ -218,7 +212,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
                 )
         );
 
-        addColumn(grid, column);
+        addColumn(grid, "val VARCHAR DEFAULT 'default'");
 
         assertNull(tbl.get(null, Tuple.create().set("key", 2L)));
 
@@ -226,7 +220,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         tbl.insert(null, Tuple.create().set("key", 3L).set("valInt", 333));
 
-        dropColumn(grid, column.name());
+        dropColumn(grid, "val");
 
         tbl.insert(null, Tuple.create().set("key", 4L).set("valInt", 444));
 
@@ -237,7 +231,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
                 )
         );
 
-        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValue("default").build());
+        addColumn(grid, "val VARCHAR DEFAULT 'default'");
 
         tbl.insert(null, Tuple.create().set("key", 5L).set("valInt", 555));
 
@@ -284,7 +278,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         tbl.insert(null, Tuple.create().set("key", 1L).set("valInt", 111));
 
         changeDefault(grid, colName, (Supplier<Object> & Serializable) () -> "newDefault");
-        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValue("newDefault").build());
+        addColumn(grid, "val VARCHAR DEFAULT 'newDefault'");
 
         tbl.insert(null, Tuple.create().set("key", 2L).set("valInt", 222));
 

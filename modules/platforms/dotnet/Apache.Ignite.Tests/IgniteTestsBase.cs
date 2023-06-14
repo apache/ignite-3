@@ -29,13 +29,32 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public class IgniteTestsBase
     {
-        protected const string TableName = "PUB.TBL1";
+        protected const string TableName = "TBL1";
+
+        protected const string TableAllColumnsName = "TBL_ALL_COLUMNS";
+        protected const string TableAllColumnsSqlName = "TBL_ALL_COLUMNS_SQL";
+
+        protected const string TableInt8Name = "TBL_INT8";
+        protected const string TableInt16Name = "TBL_INT16";
+        protected const string TableInt32Name = "TBL_INT32";
+        protected const string TableInt64Name = "TBL_INT64";
+        protected const string TableFloatName = "TBL_FLOAT";
+        protected const string TableDoubleName = "TBL_DOUBLE";
+        protected const string TableDecimalName = "TBL_DECIMAL";
+        protected const string TableStringName = "TBL_STRING";
+        protected const string TableDateName = "TBL_DATE";
+        protected const string TableDateTimeName = "TBL_DATETIME";
+        protected const string TableTimeName = "TBL_TIME";
+        protected const string TableTimestampName = "TBL_TIMESTAMP";
+        protected const string TableNumberName = "TBL_NUMBER";
+        protected const string TableBytesName = "TBL_BYTES";
+        protected const string TableBitmaskName = "TBL_BITMASK";
 
         protected const string KeyCol = "key";
 
         protected const string ValCol = "val";
 
-        protected static readonly TimeSpan ServerIdleTimeout = TimeSpan.FromMilliseconds(1000); // See PlatformTestNodeRunner.
+        protected static readonly TimeSpan ServerIdleTimeout = TimeSpan.FromMilliseconds(3000); // See PlatformTestNodeRunner.
 
         private static readonly JavaServer ServerNode;
 
@@ -58,6 +77,14 @@ namespace Apache.Ignite.Tests
 
         protected IRecordView<Poco> PocoView { get; private set; } = null!;
 
+        protected IRecordView<PocoAllColumns> PocoAllColumnsView { get; private set; } = null!;
+
+        protected IRecordView<PocoAllColumnsNullable> PocoAllColumnsNullableView { get; private set; } = null!;
+
+        protected IRecordView<PocoAllColumnsSql> PocoAllColumnsSqlView { get; private set; } = null!;
+
+        protected IRecordView<PocoAllColumnsSqlNullable> PocoAllColumnsSqlNullableView { get; private set; } = null!;
+
         [OneTimeSetUp]
         public async Task OneTimeSetUp()
         {
@@ -68,6 +95,14 @@ namespace Apache.Ignite.Tests
             Table = (await Client.Tables.GetTableAsync(TableName))!;
             TupleView = Table.RecordBinaryView;
             PocoView = Table.GetRecordView<Poco>();
+
+            var tableAllColumns = await Client.Tables.GetTableAsync(TableAllColumnsName);
+            PocoAllColumnsView = tableAllColumns!.GetRecordView<PocoAllColumns>();
+            PocoAllColumnsNullableView = tableAllColumns.GetRecordView<PocoAllColumnsNullable>();
+
+            var tableAllColumnsSql = await Client.Tables.GetTableAsync(TableAllColumnsSqlName);
+            PocoAllColumnsSqlView = tableAllColumnsSql!.GetRecordView<PocoAllColumnsSql>();
+            PocoAllColumnsSqlNullableView = tableAllColumnsSql.GetRecordView<PocoAllColumnsSqlNullable>();
         }
 
         [OneTimeTearDown]
@@ -77,25 +112,44 @@ namespace Apache.Ignite.Tests
             Client?.Dispose();
 
             Assert.Greater(_eventListener.BuffersRented, 0);
-            Assert.AreEqual(_eventListener.BuffersReturned, _eventListener.BuffersRented);
+
+            CheckPooledBufferLeak();
+
             _eventListener.Dispose();
         }
 
         [TearDown]
-        public void TearDown()
-        {
-            Assert.AreEqual(_eventListener.BuffersReturned, _eventListener.BuffersRented);
-        }
+        public void TearDown() => CheckPooledBufferLeak();
 
-        protected static IIgniteTuple GetTuple(long id, string? val = null) =>
-            new IgniteTuple { [KeyCol] = id, [ValCol] = val };
+        protected static IIgniteTuple GetTuple(long id) => new IgniteTuple { [KeyCol] = id };
+
+        protected static IIgniteTuple GetTuple(long id, string? val) => new IgniteTuple { [KeyCol] = id, [ValCol] = val };
+
+        protected static IIgniteTuple GetTuple(string? val) => new IgniteTuple { [ValCol] = val };
 
         protected static Poco GetPoco(long id, string? val = null) => new() {Key = id, Val = val};
 
+        protected static Poco GetPoco(string? val) => new() {Val = val};
+
         protected static IgniteClientConfiguration GetConfig() => new()
         {
-            Endpoints = { "127.0.0.1:" + ServerNode.Port },
+            Endpoints =
+            {
+                "127.0.0.1:" + ServerNode.Port,
+                "127.0.0.1:" + (ServerNode.Port + 1)
+            },
             Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
         };
+
+        private void CheckPooledBufferLeak()
+        {
+            // Use WaitForCondition to check rented/returned buffers equality:
+            // Buffer pools are used by everything, including testing framework, internal .NET needs, etc.
+            var listener = _eventListener;
+            TestUtils.WaitForCondition(
+                condition: () => listener.BuffersReturned == listener.BuffersRented,
+                timeoutMs: 1000,
+                messageFactory: () => $"rented = {listener.BuffersRented}, returned = {listener.BuffersReturned}");
+        }
     }
 }

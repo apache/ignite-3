@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,6 +27,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -39,44 +41,40 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests for the data colocation.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
+public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
     /** Rows count ot test. */
     private static final int ROWS = 10;
 
     /**
      * Excluded native types.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
      */
     private static final Set<NativeTypeSpec> EXCLUDED_TYPES = Stream.of(
-            NativeTypeSpec.UUID,
             NativeTypeSpec.BITMASK,
-            NativeTypeSpec.DECIMAL,
             NativeTypeSpec.NUMBER,
-            NativeTypeSpec.TIMESTAMP,
-            NativeTypeSpec.BYTES)
+            // TODO: Remove after IGNITE-19274
+            NativeTypeSpec.TIMESTAMP)
             .collect(Collectors.toSet());
 
     /**
      * Clear tables after each test.
      *
-     * @param testInfo Test information oject.
+     * @param testInfo Test information object.
      * @throws Exception If failed.
      */
     @AfterEach
@@ -91,16 +89,10 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
 
     /**
      * Check colocation by one column PK and explicit colocation key for all types.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
      */
     @ParameterizedTest(name = "type=" + ARGUMENTS_PLACEHOLDER)
-    @EnumSource(
-            value = NativeTypeSpec.class,
-            names = {"INT8", "UUID", "BITMASK", "DECIMAL", "NUMBER", "TIMESTAMP", "BYTES"},
-            mode = Mode.EXCLUDE
-    )
-    // @EnumSource(value = NativeTypeSpec.class, names = {"BYTES", "TIME", "DATETIME"}, mode = Mode.INCLUDE)
-    public void colocationOneColumn(NativeTypeSpec type) throws ExecutionException, InterruptedException {
+    @MethodSource("oneColumnParameters")
+    public void colocationOneColumn(NativeTypeSpec type) throws Exception {
         sql(String.format("create table test0(id %s primary key, v INTEGER)", sqlTypeName(type)));
         sql(String.format("create table test1(id0 integer, id1 %s, v INTEGER, primary key(id0, id1)) colocate by(id1)", sqlTypeName(type)));
 
@@ -109,9 +101,9 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
             sql("insert into test1 values(?, ?, ?)", i, generateValueByType(i, type), 0);
         }
 
-        int parts = ((TableImpl) CLUSTER_NODES.get(0).tables().table("public.test0")).internalTable().partitions();
-        TableImpl tbl0 = (TableImpl) CLUSTER_NODES.get(0).tables().table("public.test0");
-        TableImpl tbl1 = (TableImpl) CLUSTER_NODES.get(0).tables().table("public.test1");
+        int parts = ((TableImpl) CLUSTER_NODES.get(0).tables().table("test0")).internalTable().partitions();
+        TableImpl tbl0 = (TableImpl) CLUSTER_NODES.get(0).tables().table("test0");
+        TableImpl tbl1 = (TableImpl) CLUSTER_NODES.get(0).tables().table("test1");
 
         for (int i = 0; i < parts; ++i) {
             List<Tuple> r0 = getAll(tbl0, i);
@@ -119,7 +111,15 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
             Set<Object> ids0 = r0.stream().map(t -> t.value("id")).collect(Collectors.toSet());
             List<Tuple> r1 = getAll(tbl1, i);
 
-            r1.forEach(t -> assertTrue(ids0.remove(t.value("id1"))));
+            // because the byte array is not comparable, we need to check the type separately
+            if (type == NativeTypeSpec.BYTES) {
+                r1.forEach(t -> {
+                    byte[] k = t.value("id1");
+                    ids0.stream().filter(v -> Arrays.equals((byte[]) v, k)).findAny().ifPresent(ids0::remove);
+                });
+            } else {
+                r1.forEach(t -> assertTrue(ids0.remove(t.value("id1"))));
+            }
 
             assertTrue(ids0.isEmpty());
         }
@@ -127,11 +127,11 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
 
     /**
      * Check colocation by one column for all types.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17557")
     @ParameterizedTest(name = "types=" + ARGUMENTS_PLACEHOLDER)
     @MethodSource("twoColumnsParameters")
-    public void colocationTwoColumns(NativeTypeSpec t0, NativeTypeSpec t1) throws ExecutionException, InterruptedException {
+    public void colocationTwoColumns(NativeTypeSpec t0, NativeTypeSpec t1) throws Exception {
         sql(String.format("create table test0(id0 %s, id1 %s, v INTEGER, primary key(id0, id1))", sqlTypeName(t0), sqlTypeName(t1)));
 
         sql(String.format(
@@ -145,9 +145,9 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
             sql("insert into test1 values(?, ?, ?, ?)", i, generateValueByType(i, t0), generateValueByType(i, t1), 0);
         }
 
-        int parts = ((TableImpl) CLUSTER_NODES.get(0).tables().table("public.test0")).internalTable().partitions();
-        TableImpl tbl0 = (TableImpl) CLUSTER_NODES.get(0).tables().table("public.test0");
-        TableImpl tbl1 = (TableImpl) CLUSTER_NODES.get(0).tables().table("public.test1");
+        int parts = ((TableImpl) CLUSTER_NODES.get(0).tables().table("test0")).internalTable().partitions();
+        TableImpl tbl0 = (TableImpl) CLUSTER_NODES.get(0).tables().table("test0");
+        TableImpl tbl1 = (TableImpl) CLUSTER_NODES.get(0).tables().table("test1");
 
         Function<Tuple, Tuple> tupleColocationExtract = (t) -> {
             Tuple ret = Tuple.create();
@@ -177,6 +177,18 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
                 if (!EXCLUDED_TYPES.contains(t0) && !EXCLUDED_TYPES.contains(t1)) {
                     args.add(Arguments.of(t0, t1));
                 }
+            }
+        }
+
+        return args.stream();
+    }
+
+    private static Stream<Arguments> oneColumnParameters() {
+        List<Arguments> args = new ArrayList<>();
+
+        for (NativeTypeSpec t : NativeTypeSpec.values()) {
+            if (!EXCLUDED_TYPES.contains(t)) {
+                args.add(Arguments.of(t));
             }
         }
 
@@ -215,7 +227,7 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
         return res;
     }
 
-    private static Object generateValueByType(int i, NativeTypeSpec type) {
+    static Object generateValueByType(int i, NativeTypeSpec type) {
         switch (type) {
             case INT8:
                 return (byte) i;
@@ -238,20 +250,20 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
             case BYTES:
                 return new byte[]{(byte) i, (byte) (i + 1), (byte) (i + 2)};
             case BITMASK:
-                return new byte[]{(byte) i};
+                return BitSet.valueOf(new byte[]{(byte) i});
             case NUMBER:
                 return BigInteger.valueOf(i);
             case DATE:
                 return LocalDate.of(2022, 01, 01).plusDays(i);
             case TIME:
-                return LocalTime.of(0, 00, 00).plusSeconds(i);
+                return LocalTime.of(0, 00, 00).plusSeconds(i).plusNanos(i * 101L);
             case DATETIME:
                 return LocalDateTime.of(
                         (LocalDate) generateValueByType(i, NativeTypeSpec.DATE),
                         (LocalTime) generateValueByType(i, NativeTypeSpec.TIME)
                 );
             case TIMESTAMP:
-                return Instant.from((LocalDateTime) generateValueByType(i, NativeTypeSpec.DATETIME));
+                return Instant.ofEpochSecond(i * 201L, i * 101L);
             default:
                 throw new IllegalStateException("Unexpected type: " + type);
         }
@@ -290,7 +302,7 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
             case DATETIME:
                 return "timestamp";
             case TIMESTAMP:
-                return "timestamp_tz";
+                return "timestamp with local time zone";
             default:
                 throw new IllegalStateException("Unexpected type: " + type);
         }

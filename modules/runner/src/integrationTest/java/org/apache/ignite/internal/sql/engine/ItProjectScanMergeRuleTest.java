@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -23,12 +23,8 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsOn
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsProject;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import java.util.List;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -37,7 +33,7 @@ import org.junit.jupiter.api.Test;
  * with only useful columns and. For example for tables: T1(f12, f12, f13) and T2(f21, f22, f23) sql execution: SELECT t1.f11, t2.f21 FROM
  * T1 t1 INNER JOIN T2 t2 on t1.f11 = t2.f22" need to eleminate all unused coluns and take into account only: f11, f21 and f22 cols.
  */
-public class ItProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
+public class ItProjectScanMergeRuleTest extends ClusterPerClassIntegrationTest {
     public static final String IDX_CAT_ID = "IDX_CAT_ID";
 
     /**
@@ -45,29 +41,12 @@ public class ItProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
      */
     @BeforeAll
     static void initTestData() {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "PRODUCTS").columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("CATEGORY", ColumnType.string()).asNullable(true).build(),
-                        SchemaBuilders.column("CAT_ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("SUBCATEGORY", ColumnType.string()).asNullable(true).build(),
-                        SchemaBuilders.column("SUBCAT_ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build()
-                )
-                .withPrimaryKey("ID")
-                .withIndex(
-                        SchemaBuilders.sortedIndex(IDX_CAT_ID)
-                                .addIndexColumn("CAT_ID").done()
-                                .build()
-                )
-                .build();
+        sql("CREATE TABLE products (id INT PRIMARY KEY, category VARCHAR, cat_id INT NOT NULL, subcategory VARCHAR,"
+                + " subcat_id INT NOT NULL, name VARCHAR)");
 
-        Table tbl = CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        );
+        // sql("CREATE INDEX " + IDX_CAT_ID + " ON products(cat_id)");
 
-        insertData(tbl, new String[]{"ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"}, new Object[][]{
+        insertData("PUBLIC.PRODUCTS", List.of("ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"), new Object[][]{
                 {1, "prod1", 1, "cat1", 11, "noname1"},
                 {2, "prod2", 2, "cat1", 11, "noname2"},
                 {3, "prod3", 3, "cat1", 12, "noname3"},

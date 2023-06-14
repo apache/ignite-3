@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -30,7 +30,7 @@ import java.lang.annotation.Target;
  *
  * <p>To change the type of polymorphic configuration, you must use the {@code PolymorphicConfigChange#convert}.
  *
- * <p>NOTE: {@link PolymorphicId} field must go first, you should explicitly declare that, also at least one
+ * <p>NOTE: {@link PolymorphicId} field must be present, you should explicitly declare that, also at least one
  * {@link PolymorphicConfigInstance} is required.
  */
 @Target(TYPE)

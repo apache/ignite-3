@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -79,6 +79,8 @@ public final class SuperRoot extends InnerNode {
     public void addRoot(RootKey<?, ?> rootKey, InnerNode root) {
         assert !roots.containsKey(rootKey.key()) : rootKey.key() + " : " + roots;
 
+        assertMutability();
+
         roots.put(rootKey.key(), new RootInnerNode(rootKey, root));
     }
 
@@ -100,7 +102,7 @@ public final class SuperRoot extends InnerNode {
     public <T> void traverseChildren(ConfigurationVisitor<T> visitor, boolean includeInternal) {
         for (Map.Entry<String, RootInnerNode> e : roots.entrySet()) {
             if (includeInternal || !e.getValue().internal()) {
-                visitor.visitInnerNode(e.getKey(), e.getValue().node());
+                visitor.visitInnerNode(null, e.getKey(), e.getValue().node());
             }
         }
     }
@@ -117,7 +119,7 @@ public final class SuperRoot extends InnerNode {
         if (root == null || (!includeInternal && root.internal())) {
             throw new NoSuchElementException(key);
         } else {
-            return visitor.visitInnerNode(key, root.node());
+            return visitor.visitInnerNode(null, key, root.node());
         }
     }
 
@@ -128,6 +130,8 @@ public final class SuperRoot extends InnerNode {
             ConfigurationSource src,
             boolean includeInternal
     ) throws NoSuchElementException {
+        assertMutability();
+
         RootInnerNode root = roots.get(key);
 
         if (root == null) {

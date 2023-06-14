@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,30 +21,9 @@ package org.apache.ignite.internal.client.proto;
  * Ignite-specific extension type codes.
  */
 public class ClientMsgPackType {
-    /** Number. */
-    public static final byte NUMBER = 1;
-
-    /** Decimal. */
-    public static final byte DECIMAL = 2;
-
     /** UUID. */
     public static final byte UUID = 3;
 
-    /** Date. */
-    public static final byte DATE = 4;
-
-    /** Time. */
-    public static final byte TIME = 5;
-
-    /** DateTime. */
-    public static final byte DATETIME = 6;
-
-    /** DateTime. */
-    public static final byte TIMESTAMP = 7;
-
     /** Bit mask. */
     public static final byte BITMASK = 8;
-
-    /** Absent value for a column. */
-    public static final byte NO_VALUE = 10;
 }

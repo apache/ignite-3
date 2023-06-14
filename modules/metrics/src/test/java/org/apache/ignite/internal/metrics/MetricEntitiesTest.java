@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -37,8 +37,8 @@ import org.junit.jupiter.api.Test;
  */
 public class MetricEntitiesTest {
     private static final String SOURCE_NAME = "testSource";
-    private static final String SCALAR_METRIC_NAME = "testScalarMetric";
-    private static final String COMPOSITE_METRIC_NAME = "testCompositeMetric";
+    private static final String SCALAR_METRIC_NAME = "TestScalarMetric";
+    private static final String COMPOSITE_METRIC_NAME = "TestCompositeMetric";
     private static final long[] DISTRIBUTION_BOUNDS = new long[] { 10, 100, 1000 };
 
     @Test

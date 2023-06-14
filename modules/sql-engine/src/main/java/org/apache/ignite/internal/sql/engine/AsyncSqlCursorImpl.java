@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,9 +18,13 @@
 package org.apache.ignite.internal.sql.engine;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Sql query cursor.
@@ -30,6 +34,7 @@ import org.apache.ignite.sql.ResultSetMetadata;
 public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     private final SqlQueryType queryType;
     private final ResultSetMetadata meta;
+    private final @Nullable InternalTransaction implicitTx;
     private final AsyncCursor<T> dataCursor;
 
     /**
@@ -42,10 +47,12 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     public AsyncSqlCursorImpl(
             SqlQueryType queryType,
             ResultSetMetadata meta,
+            @Nullable InternalTransaction implicitTx,
             AsyncCursor<T> dataCursor
     ) {
         this.queryType = queryType;
         this.meta = meta;
+        this.implicitTx = implicitTx;
         this.dataCursor = dataCursor;
     }
 
@@ -63,10 +70,19 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<BatchedResult<T>> requestNextAsync(int rows) {
+    public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
         return dataCursor.requestNextAsync(rows).handle((batch, t) -> {
             if (t != null) {
-                throw IgniteException.wrap(t);
+                if (implicitTx != null) {
+                    implicitTx.rollback();
+                }
+
+                throw wrapIfNecessary(t);
+            }
+
+            if (implicitTx != null && !batch.hasMore()) {
+                // last batch, need to commit transaction
+                implicitTx.commit();
             }
 
             return batch;
@@ -77,5 +93,17 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     @Override
     public CompletableFuture<Void> closeAsync() {
         return dataCursor.closeAsync();
+    }
+
+    private static RuntimeException wrapIfNecessary(Throwable t) {
+        Throwable err = ExceptionUtils.unwrapCause(t);
+
+        if (err instanceof IgniteInternalException) {
+            IgniteInternalException iex = (IgniteInternalException) err;
+
+            return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
+        }
+
+        return IgniteException.wrap(t);
     }
 }

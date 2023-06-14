@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,8 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.calcite.plan.RelOptUtil;
@@ -35,11 +35,16 @@ import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.RelVisitor;
+import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.metadata.MappingService;
+import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
@@ -54,24 +59,28 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 /**
  * PlannerTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
+@DisabledOnOs(value = OS.WINDOWS, disabledReason = "https://issues.apache.org/jira/browse/IGNITE-17601")
 public class PlannerTest extends AbstractPlannerTest {
     private static List<String> NODES;
+
+    private static List<NodeWithTerm> NODES_WITH_TERM;
 
     /**
      * Init.
@@ -80,40 +89,44 @@ public class PlannerTest extends AbstractPlannerTest {
     @BeforeAll
     public static void init() {
         NODES = new ArrayList<>(4);
+        NODES_WITH_TERM = new ArrayList<>(4);
 
         for (int i = 0; i < 4; i++) {
-            NODES.add(UUID.randomUUID().toString());
+            String nodeName = Integer.toString(nextTableId());
+
+            NODES.add(nodeName);
+            NODES_WITH_TERM.add(new NodeWithTerm(nodeName, 0L));
         }
     }
 
     @Test
     public void testSplitterColocatedPartitionedPartitioned() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable developer = new TestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
                         .add("PROJECTID", f.createJavaType(Integer.class))
-                        .build()) {
+                        .build(), "DEVELOPER") {
             @Override
             public IgniteIndex getIndex(String idxName) {
-                return new IgniteIndex(null, null, null);
+                throw new AssertionError("Should not be called");
             }
 
             @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forAssignments(Arrays.asList(
-                        select(NODES, 0, 1),
-                        select(NODES, 1, 2),
-                        select(NODES, 2, 0),
-                        select(NODES, 0, 1),
-                        select(NODES, 1, 2)
+                        select(NODES_WITH_TERM, 0, 1),
+                        select(NODES_WITH_TERM, 1, 2),
+                        select(NODES_WITH_TERM, 2, 0),
+                        select(NODES_WITH_TERM, 0, 1),
+                        select(NODES_WITH_TERM, 1, 2)
                 ));
             }
 
             @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Developer", "hash");
+                return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
             }
         };
 
@@ -122,25 +135,25 @@ public class PlannerTest extends AbstractPlannerTest {
                     .add("ID", f.createJavaType(Integer.class))
                     .add("NAME", f.createJavaType(String.class))
                     .add("VER", f.createJavaType(Integer.class))
-                    .build()) {
+                    .build(), "PROJECT") {
             @Override public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forAssignments(Arrays.asList(
-                    select(NODES, 0, 1),
-                    select(NODES, 1, 2),
-                    select(NODES, 2, 0),
-                    select(NODES, 0, 1),
-                    select(NODES, 1, 2)));
+                    select(NODES_WITH_TERM, 0, 1),
+                    select(NODES_WITH_TERM, 1, 2),
+                    select(NODES_WITH_TERM, 2, 0),
+                    select(NODES_WITH_TERM, 0, 1),
+                    select(NODES_WITH_TERM, 1, 2)));
             }
 
             @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Project", "hash");
+                return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
             }
         };
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("DEVELOPER", developer);
-        publicSchema.addTable("PROJECT", project);
+        publicSchema.addTable(developer);
+        publicSchema.addTable(project);
 
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
@@ -154,7 +167,6 @@ public class PlannerTest extends AbstractPlannerTest {
         PlanningContext ctx = PlanningContext.builder()
                 .parentContext(BaseQueryContext.builder()
                         .logger(log)
-                        .parameters(2)
                         .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(schema)
                                 .build())
@@ -164,7 +176,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(ctx);
 
-        IgniteRel phys = physicalPlan(sql, ctx);
+        IgniteRel phys = physicalPlan(ctx);
 
         assertNotNull(phys);
 
@@ -172,7 +184,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertNotNull(plan);
 
@@ -181,14 +193,14 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testSplitterColocatedReplicatedReplicated() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable developer = new TestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
                         .add("PROJECTID", f.createJavaType(Integer.class))
-                        .build()) {
+                        .build(), "DEVELOPER") {
             @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forNodes(select(NODES, 0, 1, 2, 3));
@@ -205,7 +217,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
                         .add("VER", f.createJavaType(Integer.class))
-                        .build()) {
+                        .build(), "PROJECT") {
             @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forNodes(select(NODES, 0, 1, 2, 3));
@@ -218,8 +230,8 @@ public class PlannerTest extends AbstractPlannerTest {
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("DEVELOPER", developer);
-        publicSchema.addTable("PROJECT", project);
+        publicSchema.addTable(developer);
+        publicSchema.addTable(project);
 
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
@@ -242,7 +254,7 @@ public class PlannerTest extends AbstractPlannerTest {
                 .query(sql)
                 .build();
 
-        IgniteRel phys = physicalPlan(sql, ctx);
+        IgniteRel phys = physicalPlan(ctx);
 
         assertNotNull(phys);
 
@@ -250,7 +262,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertNotNull(plan);
 
@@ -259,14 +271,14 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testSplitterPartiallyColocatedReplicatedAndPartitioned() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable developer = new TestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
                         .add("PROJECTID", f.createJavaType(Integer.class))
-                        .build()) {
+                        .build(), "DEVELOPER") {
             @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forNodes(select(NODES, 0));
@@ -283,26 +295,26 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
                         .add("VER", f.createJavaType(Integer.class))
-                        .build()) {
+                        .build(), "PROJECT") {
             @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forAssignments(Arrays.asList(
-                        select(NODES, 1, 2),
-                        select(NODES, 2, 3),
-                        select(NODES, 3, 0),
-                        select(NODES, 0, 1)
+                        select(NODES_WITH_TERM, 1, 2),
+                        select(NODES_WITH_TERM, 2, 3),
+                        select(NODES_WITH_TERM, 3, 0),
+                        select(NODES_WITH_TERM, 0, 1)
                 ));
             }
 
             @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Project", "hash");
+                return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
             }
         };
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("DEVELOPER", developer);
-        publicSchema.addTable("PROJECT", project);
+        publicSchema.addTable(developer);
+        publicSchema.addTable(project);
 
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
@@ -325,7 +337,7 @@ public class PlannerTest extends AbstractPlannerTest {
                 .query(sql)
                 .build();
 
-        IgniteRel phys = physicalPlan(sql, ctx);
+        IgniteRel phys = physicalPlan(ctx);
 
         assertNotNull(phys);
 
@@ -333,21 +345,21 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertEquals(3, plan.fragments().size());
     }
 
     @Test
     public void testSplitterPartiallyColocated1() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable developer = new TestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
                         .add("PROJECTID", f.createJavaType(Integer.class))
-                        .build()) {
+                        .build(), "DEVELOPER") {
             @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forNodes(select(NODES, 1, 2, 3));
@@ -364,26 +376,26 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
                         .add("VER", f.createJavaType(Integer.class))
-                        .build()) {
+                        .build(), "PROJECT") {
             @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forAssignments(Arrays.asList(
-                        select(NODES, 0),
-                        select(NODES, 1),
-                        select(NODES, 2)
+                        select(NODES_WITH_TERM, 0),
+                        select(NODES_WITH_TERM, 1),
+                        select(NODES_WITH_TERM, 2)
                 ));
             }
 
             @Override
             public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Project", "hash");
+                return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
             }
         };
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("DEVELOPER", developer);
-        publicSchema.addTable("PROJECT", project);
+        publicSchema.addTable(developer);
+        publicSchema.addTable(project);
 
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
@@ -406,7 +418,7 @@ public class PlannerTest extends AbstractPlannerTest {
                 .query(sql)
                 .build();
 
-        IgniteRel phys = physicalPlan(sql, ctx);
+        IgniteRel phys = physicalPlan(ctx);
 
         assertNotNull(phys);
 
@@ -414,7 +426,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertNotNull(plan);
 
@@ -423,14 +435,14 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testSplitterPartiallyColocated2() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable developer = new TestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
                         .add("PROJECTID", f.createJavaType(Integer.class))
-                        .build()) {
+                        .build(), "DEVELOPER") {
             @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forNodes(select(NODES, 0));
@@ -446,26 +458,26 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
                         .add("VER", f.createJavaType(Integer.class))
-                        .build()) {
+                        .build(), "PROJECT") {
             @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forAssignments(Arrays.asList(
-                        select(NODES, 1),
-                        select(NODES, 2),
-                        select(NODES, 3)
+                        select(NODES_WITH_TERM, 1),
+                        select(NODES_WITH_TERM, 2),
+                        select(NODES_WITH_TERM, 3)
                 ));
             }
 
             @Override
             public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Project", "hash");
+                return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
             }
         };
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("DEVELOPER", developer);
-        publicSchema.addTable("PROJECT", project);
+        publicSchema.addTable(developer);
+        publicSchema.addTable(project);
 
         SchemaPlus schema = createRootSchema(false)
                   .add("PUBLIC", publicSchema);
@@ -488,7 +500,7 @@ public class PlannerTest extends AbstractPlannerTest {
                 .query(sql)
                 .build();
 
-        IgniteRel phys = physicalPlan(sql, ctx);
+        IgniteRel phys = physicalPlan(ctx);
 
         assertNotNull(phys);
 
@@ -496,21 +508,21 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertEquals(3, plan.fragments().size());
     }
 
     @Test
     public void testSplitterNonColocated() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable developer = new TestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
                         .add("PROJECTID", f.createJavaType(Integer.class))
-                        .build()) {
+                        .build(), "DEVELOPER") {
             @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forNodes(select(NODES, 2));
@@ -527,7 +539,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
                         .add("VER", f.createJavaType(Integer.class))
-                        .build()) {
+                        .build(), "PROJECT") {
             @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forNodes(select(NODES, 0, 1));
@@ -541,8 +553,8 @@ public class PlannerTest extends AbstractPlannerTest {
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("DEVELOPER", developer);
-        publicSchema.addTable("PROJECT", project);
+        publicSchema.addTable(developer);
+        publicSchema.addTable(project);
 
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
@@ -565,7 +577,7 @@ public class PlannerTest extends AbstractPlannerTest {
                 .query(sql)
                 .build();
 
-        IgniteRel phys = physicalPlan(sql, ctx);
+        IgniteRel phys = physicalPlan(ctx);
 
         assertNotNull(phys);
 
@@ -573,7 +585,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertNotNull(plan);
 
@@ -582,13 +594,13 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testMergeFilters() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable testTbl = new TestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("VAL", f.createJavaType(String.class))
-                        .build()) {
+                        .build(), "TEST") {
             @Override
             public IgniteDistribution distribution() {
                 return IgniteDistributions.single();
@@ -597,7 +609,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", testTbl);
+        publicSchema.addTable(testTbl);
 
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
@@ -638,14 +650,14 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testJoinPushExpressionRule() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable emp = new TestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
                         .add("DEPTNO", f.createJavaType(Integer.class))
-                        .build()) {
+                        .build(), "EMP") {
 
             @Override public IgniteDistribution distribution() {
                 return IgniteDistributions.broadcast();
@@ -656,7 +668,7 @@ public class PlannerTest extends AbstractPlannerTest {
                 new RelDataTypeFactory.Builder(f)
                         .add("DEPTNO", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
-                        .build()) {
+                        .build(), "DEPT") {
 
             @Override
             public IgniteDistribution distribution() {
@@ -666,8 +678,8 @@ public class PlannerTest extends AbstractPlannerTest {
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("EMP", emp);
-        publicSchema.addTable("DEPT", dept);
+        publicSchema.addTable(emp);
+        publicSchema.addTable(dept);
 
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
@@ -719,7 +731,6 @@ public class PlannerTest extends AbstractPlannerTest {
             RelTraitSet desired = rel.getCluster().traitSet()
                     .replace(IgniteConvention.INSTANCE)
                     .replace(IgniteDistributions.single())
-                    .replace(CorrelationTrait.UNCORRELATED)
                     .simplify();
 
             IgniteRel phys = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
@@ -728,7 +739,7 @@ public class PlannerTest extends AbstractPlannerTest {
             assertEquals(
                     "IgniteProject(DEPTNO=[$3], DEPTNO0=[$2])\n"
                             + "  IgniteCorrelatedNestedLoopJoin(condition=[=(CAST(+($3, $2)):INTEGER, 2)], joinType=[inner], "
-                            + "correlationVariables=[[$cor2]])\n"
+                            + "variablesSet=[[$cor2]])\n"
                             + "    IgniteTableScan(table=[[PUBLIC, EMP]])\n"
                             + "    IgniteTableScan(table=[[PUBLIC, DEPT]], filters=[=(CAST(+($t0, $cor2.DEPTNO)):INTEGER, 2)])\n",
                     RelOptUtil.toString(phys),
@@ -741,9 +752,9 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testMergeJoinIsNotAppliedForNonEquiJoin() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
-        TestTable emp = new TestTable(
+        TestTable emp = new TestTable("EMP",
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
@@ -756,9 +767,9 @@ public class PlannerTest extends AbstractPlannerTest {
             }
         };
 
-        emp.addIndex(new IgniteIndex(RelCollations.of(ImmutableIntList.of(1, 2)), "emp_idx", emp));
+        emp.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(ImmutableIntList.of(1, 2)), "emp_idx", emp)));
 
-        TestTable dept = new TestTable(
+        TestTable dept = new TestTable("DEPT",
                 new RelDataTypeFactory.Builder(f)
                         .add("DEPTNO", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
@@ -770,12 +781,12 @@ public class PlannerTest extends AbstractPlannerTest {
             }
         };
 
-        dept.addIndex(new IgniteIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "dep_idx", dept));
+        dept.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(ImmutableIntList.of(1, 0)), "dep_idx", dept)));
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("EMP", emp);
-        publicSchema.addTable("DEPT", dept);
+        publicSchema.addTable(emp);
+        publicSchema.addTable(dept);
 
         String sql = "select d.deptno, d.name, e.id, e.name from dept d join emp e "
                 + "on d.deptno = e.deptno and e.name >= d.name order by e.name, d.deptno";
@@ -783,7 +794,7 @@ public class PlannerTest extends AbstractPlannerTest {
         RelNode phys = physicalPlan(sql, publicSchema, "CorrelatedNestedLoopJoin");
 
         assertNotNull(phys);
-        assertEquals("IgniteSort(sort0=[$3], sort1=[$0], dir0=[ASC-nulls-first], dir1=[ASC-nulls-first])\n"
+        assertEquals("IgniteSort(sort0=[$3], sort1=[$0], dir0=[ASC], dir1=[ASC])\n"
                         + "  IgniteProject(DEPTNO=[$3], NAME=[$4], ID=[$0], NAME0=[$1])\n"
                         + "    IgniteNestedLoopJoin(condition=[AND(=($3, $2), >=($1, $4))], joinType=[inner])\n"
                         + "      IgniteTableScan(table=[[PUBLIC, EMP]])\n"
@@ -794,19 +805,18 @@ public class PlannerTest extends AbstractPlannerTest {
     @Test
     public void testNotStandardFunctions() throws Exception {
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         publicSchema.addTable(
-                "TEST",
                 new TestTable(
                         new RelDataTypeFactory.Builder(f)
                                 .add("ID", f.createJavaType(Integer.class))
                                 .add("VAL", f.createJavaType(String.class))
-                                .build()) {
+                                .build(), "TEST") {
 
                     @Override
                     public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, "TEST", "hash");
+                        return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
                     }
                 }
         );
@@ -828,7 +838,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void correctPlanningWithOrToUnion() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable tab0 = new TestTable(
                 new RelDataTypeFactory.Builder(f)
@@ -838,10 +848,10 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("COL2", f.createJavaType(String.class))
                         .add("COL3", f.createJavaType(Integer.class))
                         .add("COL4", f.createJavaType(Float.class))
-                        .build()) {
+                        .build(), "TAB0") {
 
             @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "tab0", "hash");
+                return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
             }
         };
 
@@ -851,10 +861,47 @@ public class PlannerTest extends AbstractPlannerTest {
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TAB0", tab0);
+        publicSchema.addTable(tab0);
 
         // just check for planning completeness for finite time.
         assertPlan(sql, publicSchema, (k) -> true);
+    }
+
+    @Test
+    public void checkTableHintsHandling() throws Exception {
+        IgniteSchema publicSchema = createSchema(
+                createTable("PERSON", IgniteDistributions.affinity(0, nextTableId(), Integer.MIN_VALUE),
+                        "PK", Integer.class, "ORG_ID", Integer.class
+                ),
+                createTable("COMPANY", IgniteDistributions.affinity(0, nextTableId(), Integer.MIN_VALUE),
+                        "PK", Integer.class, "ID", Integer.class
+                )
+        );
+
+        String sql = "SELECT * FROM person /*+ use_index(ORG_ID), extra */ t1 JOIN company /*+ use_index(ID) */ t2 ON t1.org_id = t2.id";
+
+        HintStrategyTable hintStrategies = HintStrategyTable.builder()
+                .hintStrategy("use_index", (hint, rel) -> true)
+                .hintStrategy("extra", (hint, rel) -> true)
+                .build();
+
+        Predicate<RelNode> hintCheck = nodeOrAnyChild(isInstanceOf(TableScan.class)
+                .and(t -> "PERSON".equals(Util.last(t.getTable().getQualifiedName())))
+                .and(t -> t.getHints().size() == 2)
+        ).and(nodeOrAnyChild(isInstanceOf(TableScan.class)
+                .and(t -> "COMPANY".equals(Util.last(t.getTable().getQualifiedName())))
+                .and(t -> t.getHints().size() == 1)));
+
+        assertPlan(sql, Collections.singleton(publicSchema), hintCheck, hintStrategies, List.of());
+    }
+
+    @Test
+    public void testMinusDateSerialization() throws Exception {
+        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
+
+        IgniteRel phys = physicalPlan("SELECT (DATE '2021-03-01' - DATE '2021-01-01') MONTHS", publicSchema);
+
+        checkSplitAndSerialization(phys, publicSchema);
     }
 
     /**
@@ -866,7 +913,8 @@ public class PlannerTest extends AbstractPlannerTest {
         return single ? select(NODES, 0) : select(NODES, 0, 1, 2, 3);
     }
 
-    private static MappingQueryContext mapContext(String locNodeId) {
-        return new MappingQueryContext(locNodeId);
+    private static MappingQueryContext mapContext(String locNodeName,
+            MappingService mappingService) {
+        return new MappingQueryContext(locNodeName, mappingService);
     }
 }

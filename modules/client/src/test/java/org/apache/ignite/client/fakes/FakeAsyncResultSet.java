@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -29,13 +29,12 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.client.sql.ClientSqlRow;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.SqlColumnType;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -60,6 +59,8 @@ public class FakeAsyncResultSet implements AsyncResultSet {
 
     private final List<ColumnMetadata> columns;
 
+    private final boolean hasMorePages;
+
     /**
      * Constructor.
      *
@@ -77,11 +78,13 @@ public class FakeAsyncResultSet implements AsyncResultSet {
         this.statement = statement;
         this.arguments = arguments;
 
+        hasMorePages = session.property("hasMorePages") != null;
+
         if ("SELECT PROPS".equals(statement.query())) {
             rows = new ArrayList<>();
 
             rows.add(getRow("schema", session.defaultSchema()));
-            rows.add(getRow("timeout", String.valueOf(session.defaultTimeout(TimeUnit.MILLISECONDS))));
+            rows.add(getRow("timeout", String.valueOf(session.defaultQueryTimeout(TimeUnit.MILLISECONDS))));
             rows.add(getRow("pageSize", String.valueOf(session.defaultPageSize())));
 
             var props = ((FakeSession) session).properties();
@@ -92,30 +95,30 @@ public class FakeAsyncResultSet implements AsyncResultSet {
 
             columns = new ArrayList<>();
 
-            columns.add(new FakeColumnMetadata("name", SqlColumnType.STRING));
-            columns.add(new FakeColumnMetadata("val", SqlColumnType.STRING));
+            columns.add(new FakeColumnMetadata("name", ColumnType.STRING));
+            columns.add(new FakeColumnMetadata("val", ColumnType.STRING));
         } else if ("SELECT META".equals(statement.query())) {
             columns = new ArrayList<>();
 
-            columns.add(new FakeColumnMetadata("bool", SqlColumnType.BOOLEAN));
-            columns.add(new FakeColumnMetadata("int8", SqlColumnType.INT8));
-            columns.add(new FakeColumnMetadata("int16", SqlColumnType.INT16));
-            columns.add(new FakeColumnMetadata("int32", SqlColumnType.INT32));
-            columns.add(new FakeColumnMetadata("int64", SqlColumnType.INT64));
-            columns.add(new FakeColumnMetadata("float", SqlColumnType.FLOAT));
-            columns.add(new FakeColumnMetadata("double", SqlColumnType.DOUBLE));
-            columns.add(new FakeColumnMetadata("decimal", SqlColumnType.DECIMAL, 1, 2,
+            columns.add(new FakeColumnMetadata("bool", ColumnType.BOOLEAN));
+            columns.add(new FakeColumnMetadata("int8", ColumnType.INT8));
+            columns.add(new FakeColumnMetadata("int16", ColumnType.INT16));
+            columns.add(new FakeColumnMetadata("int32", ColumnType.INT32));
+            columns.add(new FakeColumnMetadata("int64", ColumnType.INT64));
+            columns.add(new FakeColumnMetadata("float", ColumnType.FLOAT));
+            columns.add(new FakeColumnMetadata("double", ColumnType.DOUBLE));
+            columns.add(new FakeColumnMetadata("decimal", ColumnType.DECIMAL, 1, 2,
                     true, new ColumnOrigin("SCHEMA1", "TBL2", "BIG_DECIMAL")));
-            columns.add(new FakeColumnMetadata("date", SqlColumnType.DATE));
-            columns.add(new FakeColumnMetadata("time", SqlColumnType.TIME));
-            columns.add(new FakeColumnMetadata("datetime", SqlColumnType.DATETIME));
-            columns.add(new FakeColumnMetadata("timestamp", SqlColumnType.TIMESTAMP));
-            columns.add(new FakeColumnMetadata("uuid", SqlColumnType.UUID));
-            columns.add(new FakeColumnMetadata("bitmask", SqlColumnType.BITMASK));
-            columns.add(new FakeColumnMetadata("byte_array", SqlColumnType.BYTE_ARRAY));
-            columns.add(new FakeColumnMetadata("period", SqlColumnType.PERIOD));
-            columns.add(new FakeColumnMetadata("duration", SqlColumnType.DURATION));
-            columns.add(new FakeColumnMetadata("number", SqlColumnType.NUMBER));
+            columns.add(new FakeColumnMetadata("date", ColumnType.DATE));
+            columns.add(new FakeColumnMetadata("time", ColumnType.TIME));
+            columns.add(new FakeColumnMetadata("datetime", ColumnType.DATETIME));
+            columns.add(new FakeColumnMetadata("timestamp", ColumnType.TIMESTAMP));
+            columns.add(new FakeColumnMetadata("uuid", ColumnType.UUID));
+            columns.add(new FakeColumnMetadata("bitmask", ColumnType.BITMASK));
+            columns.add(new FakeColumnMetadata("byte_array", ColumnType.BYTE_ARRAY));
+            columns.add(new FakeColumnMetadata("period", ColumnType.PERIOD));
+            columns.add(new FakeColumnMetadata("duration", ColumnType.DURATION));
+            columns.add(new FakeColumnMetadata("number", ColumnType.NUMBER));
 
             var row = getRow(
                     true,
@@ -140,7 +143,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
             rows = List.of(row);
         } else {
             rows = List.of(getRow(1));
-            columns = List.of(new FakeColumnMetadata("col1", SqlColumnType.INT32));
+            columns = List.of(new FakeColumnMetadata("col1", ColumnType.INT32));
         }
     }
 
@@ -192,25 +195,25 @@ public class FakeAsyncResultSet implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<? extends AsyncResultSet> fetchNextPage() {
-        return null;
+    public CompletableFuture<? extends AsyncResultSet> fetchNextPage() {
+        return CompletableFuture.completedFuture(new FakeAsyncResultSet(session, transaction, statement, arguments));
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean hasMorePages() {
-        return false;
+        return hasMorePages;
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<Void> closeAsync() {
-        return null;
+    public CompletableFuture<Void> closeAsync() {
+        return CompletableFuture.completedFuture(null);
     }
 
     @NotNull
     private SqlRow getRow(Object... vals) {
-        return new ClientSqlRow(List.of(vals), metadata());
+        return new FakeSqlRow(List.of(vals), metadata());
     }
 
     private static class ColumnOrigin implements ColumnMetadata.ColumnOrigin {

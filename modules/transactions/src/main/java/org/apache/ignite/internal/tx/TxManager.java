@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.lang.ErrorGroups.Transactions;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -34,11 +36,22 @@ import org.jetbrains.annotations.TestOnly;
  */
 public interface TxManager extends IgniteComponent {
     /**
-     * Starts a transaction coordinated by a local node.
+     * Starts a read-write transaction coordinated by a local node.
      *
      * @return The transaction.
      */
     InternalTransaction begin();
+
+    /**
+     * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
+     *
+     * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
+     *      Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
+     * @return The started transaction.
+     * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_TOO_OLD_ERR} if transaction much older than the data available
+     *      in the tables.
+     */
+    InternalTransaction begin(boolean readOnly);
 
     /**
      * Returns a transaction state.
@@ -46,6 +59,8 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return The state or null if the state is unknown.
      */
+    // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
+    @Deprecated
     @Nullable TxState state(UUID txId);
 
     /**
@@ -56,88 +71,55 @@ public interface TxManager extends IgniteComponent {
      * @param after After state.
      * @return {@code True} if a state was changed.
      */
+    // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
+    @Deprecated
     boolean changeState(UUID txId, @Nullable TxState before, TxState after);
 
     /**
-     * Forgets the transaction state. Intended for cleanup.
+     * Returns lock manager.
      *
-     * @param txId Transaction id.
+     * @return Lock manager for the given transactions manager.
+     * @deprecated Use lockManager directly.
      */
-    void forget(UUID txId);
+    @Deprecated
+    public LockManager lockManager();
 
     /**
-     * Commits a transaction.
+     * Finishes a dependant transactions.
      *
-     * @param txId Transaction id.
-     * @return The future.
-     */
-    CompletableFuture<Void> commitAsync(UUID txId);
-
-    /**
-     * Aborts a transaction.
-     *
-     * @param txId Transaction id.
-     * @return The future.
-     */
-    CompletableFuture<Void> rollbackAsync(UUID txId);
-
-    /**
-     * Acqures a write lock.
-     *
-     * @param lockId Table ID.
-     * @param keyData The key data.
-     * @param txId Transaction id.
-     * @return The future.
-     * @throws LockException When a lock can't be taken due to possible deadlock.
-     */
-    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, UUID txId);
-
-    /**
-     * Acqures a read lock.
-     *
-     * @param lockId Lock id.
-     * @param keyData The key data.
-     * @param txId Transaction id.
-     * @return The future.
-     * @throws LockException When a lock can't be taken due to possible deadlock.
-     */
-    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, UUID txId);
-
-    /**
-     * Returns a transaction state or starts a new in the PENDING state.
-     *
-     * @param txId Transaction id.
-     * @return @{code null} if a transaction was created, or a current state.
-     */
-    @Nullable
-    TxState getOrCreateTransaction(UUID txId);
-
-    /**
-     * Finishes a dependant remote transactions.
-     *
-     * @param addr   The address.
+     * @param commitPartition Partition to store a transaction state.
+     * @param recipientNode Recipient node.
+     * @param term Raft term.
      * @param commit {@code True} if a commit requested.
-     * @param groups Enlisted partition groups.
-     * @param txId   Transaction id.
-     */
-    CompletableFuture<Void> finishRemote(NetworkAddress addr, boolean commit, Set<String> groups, UUID txId);
-
-    /**
-     * Keys that are locked by the transaction.
-     *
+     * @param groups Enlisted partition groups with raft terms.
      * @param txId Transaction id.
-     * @return Keys that are locked by the transaction.
      */
-    @TestOnly
-    Map<IgniteUuid, List<byte[]>> lockedKeys(UUID txId);
+    CompletableFuture<Void> finish(
+            TablePartitionId commitPartition,
+            ClusterNode recipientNode,
+            Long term,
+            boolean commit,
+            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+            UUID txId
+    );
 
     /**
-     * Checks if a passed address belongs to a local node.
+     * Sends cleanup request to the specified primary replica.
      *
-     * @param addr The address.
-     * @return {@code True} if a local node.
+     * @param recipientNode Primary replica to process given cleanup request.
+     * @param tablePartitionIds Table partition ids with raft terms.
+     * @param txId Transaction id.
+     * @param commit {@code True} if a commit requested.
+     * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
+     * @return Completable future of Void.
      */
-    boolean isLocal(NetworkAddress addr);
+    CompletableFuture<Void> cleanup(
+            ClusterNode recipientNode,
+            List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp
+    );
 
     /**
      * Returns a number of finished transactions.
@@ -146,4 +128,14 @@ public interface TxManager extends IgniteComponent {
      */
     @TestOnly
     int finished();
+
+    /**
+     * Updates the low watermark, the value is expected to only increase.
+     *
+     * <p>All new read-only transactions will need to be created with a read time greater than this value.
+     *
+     * @param newLowWatermark New low watermark.
+     * @return Future of all read-only transactions with read timestamp less or equals the given new low watermark.
+     */
+    CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark);
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_MAPPING_ERR;
 
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import java.util.ArrayList;
@@ -26,11 +27,10 @@ import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentMappingException;
-import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -60,14 +60,14 @@ public class QueryTemplate {
      * Map.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public ExecutionPlan map(MappingService mappingService, MappingQueryContext ctx) {
+    public ExecutionPlan map(MappingQueryContext ctx) {
         List<Fragment> fragments = Commons.transform(this.fragments, fragment -> fragment.attach(ctx.cluster()));
 
         Exception ex = null;
         RelMetadataQuery mq = first(fragments).root().getCluster().getMetadataQuery();
         for (int i = 0; i < 3; i++) {
             try {
-                return new ExecutionPlan(map(mappingService, fragments, ctx, mq));
+                return new ExecutionPlan(map(fragments, ctx, mq));
             } catch (FragmentMappingException e) {
                 if (ex == null) {
                     ex = e;
@@ -79,20 +79,20 @@ public class QueryTemplate {
             }
         }
 
-        throw new IgniteException("Failed to map query.", ex);
+        throw new SqlException(QUERY_MAPPING_ERR, "Failed to map query.", ex);
     }
 
     @NotNull
-    private List<Fragment> map(MappingService mappingService, List<Fragment> fragments, MappingQueryContext ctx, RelMetadataQuery mq) {
-        List<Fragment> frgs = new ArrayList<>();
+    private List<Fragment> map(List<Fragment> fragments, MappingQueryContext ctx, RelMetadataQuery mq) {
+        List<Fragment> frgs = new ArrayList<>(fragments.size());
 
         RelOptCluster cluster = Commons.cluster();
 
         for (Fragment fragment : fragments) {
-            frgs.add(fragment.map(mappingService, ctx, mq).attach(cluster));
+            frgs.add(fragment.map(ctx, mq).attach(cluster));
         }
 
-        return List.copyOf(frgs);
+        return frgs;
     }
 
     private List<Fragment> replace(List<Fragment> fragments, Fragment fragment, List<Fragment> replacement) {
@@ -118,7 +118,7 @@ public class QueryTemplate {
                     sender = new IgniteSender(sender.getCluster(), sender.getTraitSet(),
                             sender.getInput(), sender.exchangeId(), newTargetId, sender.distribution());
 
-                    fragment0 = new Fragment(fragment0.fragmentId(), sender, fragment0.remotes());
+                    fragment0 = new Fragment(fragment0.fragmentId(), fragment0.correlated(), sender, fragment0.remotes());
                 }
             }
 

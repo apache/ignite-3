@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,10 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
+import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_VALIDATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_SQL_OPERATION_KIND_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -35,17 +40,18 @@ import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlExplainLevel;
-import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -141,40 +147,33 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         try {
             assert single(sqlNode);
 
-            var planningContext = PlanningContext.builder()
+            SqlQueryType queryType = Commons.getQueryType(sqlNode);
+            assert queryType != null : "No query type for query: " + sqlNode;
+
+            PlanningContext planningContext = PlanningContext.builder()
                     .parentContext(ctx)
                     .build();
 
-            if (SqlKind.DDL.contains(sqlNode.getKind())) {
-                return prepareDdl(sqlNode, planningContext);
-            }
-
-            switch (sqlNode.getKind()) {
-                case SELECT:
-                case ORDER_BY:
-                case WITH:
-                case VALUES:
-                case UNION:
-                case EXCEPT:
-                case INTERSECT:
+            switch (queryType) {
+                case QUERY:
                     return prepareQuery(sqlNode, planningContext);
 
-                case INSERT:
-                case DELETE:
-                case UPDATE:
-                case MERGE:
+                case DDL:
+                    return prepareDdl(sqlNode, planningContext);
+
+                case DML:
                     return prepareDml(sqlNode, planningContext);
 
                 case EXPLAIN:
                     return prepareExplain(sqlNode, planningContext);
 
                 default:
-                    throw new IgniteInternalException("Unsupported operation ["
+                    throw new IgniteInternalException(UNSUPPORTED_SQL_OPERATION_KIND_ERR, "Unsupported operation ["
                             + "sqlNodeKind=" + sqlNode.getKind() + "; "
                             + "querySql=\"" + planningContext.query() + "\"]");
             }
         } catch (CalciteContextException e) {
-            throw new IgniteInternalException("Failed to validate query. " + e.getMessage(), e);
+            throw new IgniteInternalException(QUERY_VALIDATION_ERR, "Failed to validate query. " + e.getMessage(), e);
         }
     }
 
@@ -194,13 +193,14 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         return CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
-            SqlNode sql = ((SqlExplain) explain).getExplicandum();
-
             // Validate
-            sql = planner.validate(sql);
+            // We extract query subtree inside the validator.
+            SqlNode explainNode = planner.validate(explain);
+            // Extract validated query.
+            SqlNode validNode = ((SqlExplain) explainNode).getExplicandum();
 
             // Convert to Relational operators graph
-            IgniteRel igniteRel = optimize(sql, planner);
+            IgniteRel igniteRel = optimize(validNode, planner);
 
             String plan = RelOptUtil.toString(igniteRel, SqlExplainLevel.ALL_ATTRIBUTES);
 
@@ -213,9 +213,9 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     }
 
     private CompletableFuture<QueryPlan> prepareQuery(SqlNode sqlNode, PlanningContext ctx) {
-        var key = new CacheKey(ctx.schemaName(), sqlNode.toString());
+        CacheKey key = createCacheKey(sqlNode, ctx);
 
-        var planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             // Validate
@@ -237,9 +237,9 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     }
 
     private CompletableFuture<QueryPlan> prepareDml(SqlNode sqlNode, PlanningContext ctx) {
-        var key = new CacheKey(ctx.schemaName(), sqlNode.toString());
+        var key = createCacheKey(sqlNode, ctx);
 
-        var planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             // Validate
@@ -257,6 +257,16 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         }, planningPool));
 
         return planFut.thenApply(QueryPlan::copy);
+    }
+
+    private static CacheKey createCacheKey(SqlNode sqlNode, PlanningContext ctx) {
+        boolean distributed = distributionPresent(ctx.config().getTraitDefs());
+
+        Class[] paramTypes = ctx.parameters().length == 0
+                ? EMPTY_CLASS_ARRAY :
+                Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
+
+        return new CacheKey(ctx.schemaName(), sqlNode.toString(), distributed, paramTypes);
     }
 
     private ResultSetMetadata resultSetMetadata(

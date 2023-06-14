@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,11 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.sql.SqlColumnTypeConverter;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.function.Executable;
 
 /**
@@ -78,7 +77,7 @@ public class MetadataMatcher {
      *
      * @return This.
      */
-    public MetadataMatcher type(SqlColumnType type) {
+    public MetadataMatcher type(ColumnType type) {
         this.type = type;
 
         return this;
@@ -141,9 +140,9 @@ public class MetadataMatcher {
         }
 
         if (type != NO_CHECK) {
-            SqlColumnType type0 = (SqlColumnType) type;
+            ColumnType type0 = (ColumnType) type;
             matchers.add(() -> assertSame(type0, actualMeta.type(), "type"));
-            matchers.add(() -> assertSame(SqlColumnTypeConverter.columnTypeToClass(type0), actualMeta.valueClass(), "value class"));
+            matchers.add(() -> assertSame(ColumnType.columnTypeToClass(type0), actualMeta.valueClass(), "value class"));
         }
 
         if (precision != NO_CHECK) {

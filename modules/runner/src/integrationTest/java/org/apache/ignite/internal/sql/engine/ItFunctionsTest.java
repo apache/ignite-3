@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,22 +31,16 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.Temporal;
+import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.validate.SqlValidatorException;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test Ignite SQL functions.
  */
-public class ItFunctionsTest extends AbstractBasicIntegrationTest {
-    private static final Object[] NULL_RESULT = new Object[] { null };
+public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
+    private static final Object[] NULL_RESULT = { null };
 
     @Test
     public void testTimestampDiffWithFractionsOfSecond() {
@@ -148,26 +145,11 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testRangeWithCache() {
-        TableDefinition tblDef = SchemaBuilders.tableBuilder("PUBLIC", "TEST")
-                .columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("VAL", ColumnType.INT32).build()
-                )
-                .withPrimaryKey("ID")
-                .build();
-
-        String tblName = tblDef.canonicalName();
-
-        RecordView<Tuple> tbl = CLUSTER_NODES.get(0).tables().createTable(tblDef.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(tblDef, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        ).recordView();
+        sql("CREATE TABLE test(id INT PRIMARY KEY, val INT)");
 
         try {
-
             for (int i = 0; i < 100; i++) {
-                tbl.insert(null, Tuple.create().set("ID", i).set("VAL", i));
+                sql("INSERT INTO test VALUES (?, ?)", i, i);
             }
 
             // Correlated INNER join.
@@ -208,7 +190,7 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
                     .returns(50)
                     .check();
         } finally {
-            CLUSTER_NODES.get(0).tables().dropTable(tblName);
+            sql("DROP TABLE IF EXISTS test");
         }
     }
 
@@ -288,17 +270,55 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT TYPEOF('a'::varchar(1))").returns("VARCHAR(1)").check();
         assertQuery("SELECT TYPEOF(NULL)").returns("NULL").check();
         assertQuery("SELECT TYPEOF(NULL::VARCHAR(100))").returns("VARCHAR(100)").check();
-        try {
-            sql("SELECT TYPEOF()");
-        } catch (Throwable e) {
-            assertTrue(IgniteTestUtils.hasCause(e, SqlValidatorException.class, "Invalid number of arguments"));
-        }
+        // A compound expression
+        assertQuery("SELECT TYPEOF('abcd' || COALESCE('efg', ?))").withParams("2").returns("VARCHAR").check();
 
-        try {
-            sql("SELECT TYPEOF(1, 2)");
-        } catch (Throwable e) {
-            assertTrue(IgniteTestUtils.hasCause(e, SqlValidatorException.class, "Invalid number of arguments"));
-        }
+        // An expression that produces an error
+        IgniteException failed = assertThrows(IgniteException.class, () -> assertQuery("SELECT typeof(CAST('NONE' as INTEGER))").check());
+        assertSame(NumberFormatException.class, failed.getCause().getClass(), "cause");
+        assertThat(failed.getCause().getMessage(), containsString("For input string: \"NONE\""));
+
+        assertThrowsWithCause(() -> sql("SELECT TYPEOF()"), SqlValidatorException.class, "Invalid number of arguments");
+
+        assertThrowsWithCause(() -> sql("SELECT TYPEOF(1, 2)"), SqlValidatorException.class, "Invalid number of arguments");
+
+        assertThrowsWithCause(() -> sql("SELECT TYPEOF(SELECT 1, 2)"), CalciteContextException.class);
+    }
+
+    /**
+     * Tests for {@code SUBSTRING(str, start[, length])} function.
+     */
+    @Test
+    public void testSubstring() {
+        assertQuery("SELECT SUBSTRING('1234567', 1, 3)").returns("123").check();
+        assertQuery("SELECT SUBSTRING('1234567', 2)").returns("234567").check();
+        assertQuery("SELECT SUBSTRING('1234567', -1)").returns("1234567").check();
+        assertQuery("SELECT SUBSTRING(1000, 1, 3)").returns("100").check();
+
+        assertQuery("SELECT SUBSTRING(NULL FROM 1 FOR 2)").returns(null).check();
+        assertQuery("SELECT SUBSTRING('text' FROM 1 FOR null)").returns(null).check();
+        assertQuery("SELECT SUBSTRING('test' FROM null FOR 2)").returns(null).check();
+
+        // uncomment after https://issues.apache.org/jira/browse/IGNITE-19686 was implemented.
+        //assertQuery("select SUBSTRING(s from i for l) from (values ('abc', null, 2)) as t (s, i, l);").returns(null).check();
+
+        assertThrowsWithCause(() -> sql("SELECT SUBSTRING('abcdefg', 1, -3)"), IgniteException.class,
+                "negative substring length");
+        assertThrowsWithCause(() -> sql("SELECT SUBSTRING('abcdefg' FROM 1 FOR -1)"), IgniteException.class,
+                "negative substring length");
+    }
+
+    /**
+     * Tests for {@code SUBSTR(str, start[, length])} function.
+     */
+    @Test
+    public void testSubstr() {
+        assertQuery("SELECT SUBSTR('1234567', 1, 3)").returns("123").check();
+        assertQuery("SELECT SUBSTR('1234567', 2)").returns("234567").check();
+        assertQuery("SELECT SUBSTR('1234567', -1)").returns("1234567").check();
+        assertQuery("SELECT SUBSTR(1000, 1, 3)").returns("100").check();
+
+        assertThrowsWithCause(() -> sql("SELECT SUBSTR('1234567', 1, -3)"), IgniteException.class, "negative substring length");
     }
 
     /**

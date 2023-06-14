@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,60 +17,92 @@
 
 package org.apache.ignite.internal.configuration.notifications;
 
-import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Configuration container for {@link ConfigurationNotificationEvent}.
+ * Configuration container for {@link ConfigurationNotificationEvent}. Stores old and new nodes for the event, as well as their names.
+ * Represents a stack, where current pair of nodes is at the top, and roots pair is at the bottom.
  */
 class ConfigurationContainer {
-    /**
-     * Configuration.
-     *
-     * <p>For {@link ConfigurationNotificationEvent#config} use {@link this#specificConfig()}.
-     */
-    final DynamicConfiguration<InnerNode, ?> config;
+    /** Parent container. */
+    public final @Nullable ConfigurationContainer prev;
 
-    /** Key in named list, for {@link ConfigurationNotificationEvent#name}. */
+    /** {@link InnerNode#specificNode()} for the old value. */
     @Nullable
-    final String name;
+    private final Object oldNode;
 
-    /** Previous container. */
+    /** {@link InnerNode#specificNode()} for the new value. */
     @Nullable
-    final ConfigurationContainer prev;
+    private final Object newNode;
+
+    /** Old name, if the node is a part of named list. */
+    private final String oldName;
+
+    /** New name, if the node is a part of named list. */
+    private final String newName;
 
     /**
      * Constructor.
      *
-     * @param config Configuration.
-     * @param name Key in named list.
+     * @param prev Parent container.
+     * @param oldNode Old inner node value.
+     * @param newNode New inner node value.
+     * @param oldName Name of the old value, if part of the named list.
+     * @param newName Name of the new value, if part of the named list.
      */
     ConfigurationContainer(
-            DynamicConfiguration<InnerNode, ?> config,
-            @Nullable String name,
-            @Nullable ConfigurationContainer prev
+            @Nullable ConfigurationContainer prev,
+            @Nullable InnerNode oldNode,
+            @Nullable InnerNode newNode,
+            @Nullable String oldName,
+            @Nullable String newName
     ) {
-        this.config = config;
-        this.name = name;
         this.prev = prev;
+        this.oldNode = oldNode == null ? null : oldNode.specificNode();
+        this.newNode = newNode == null ? null : newNode.specificNode();
+        this.oldName = oldName;
+        this.newName = newName;
     }
 
     /**
-     * Returns the configuration for {@link ConfigurationNotificationEvent#config}.
+     * Finds a node value that corresponds to a given {@code View} class.
+     *
+     * @param clazz Class instance of the {@code *View} type.
+     * @param old Whether an old or a new value is asked.
      */
-    @Nullable ConfigurationProperty<InnerNode> specificConfig() {
-        return config.isRemovedFromNamedList() ? null : config.specificConfigTree();
+    public @Nullable <T> T find(Class<T> clazz, boolean old) {
+        Object specificNode = node(old);
+
+        if (clazz.isInstance(specificNode)) {
+            return (T) specificNode;
+        }
+
+        return prev == null ? null : prev.find(clazz, old);
     }
 
     /**
-     * Returns the configuration class.
+     * Finds a name of the value that corresponds to a given {@code View} class.
+     *
+     * @param clazz Class instance of the {@code *View} type.
+     * @param old Whether an old or a new value is asked.
      */
-    Class<?> configClass() {
-        Class<?> polymorphicInstanceConfigType = config.polymorphicInstanceConfigType();
+    public @Nullable String name(Class<?> clazz, boolean old) {
+        Object specificNode = node(old);
 
-        return polymorphicInstanceConfigType != null ? polymorphicInstanceConfigType : config.getClass();
+        if (clazz.isInstance(specificNode)) {
+            return name(old);
+        }
+
+        return prev == null ? null : prev.name(clazz, old);
+    }
+
+    private @Nullable String name(boolean old) {
+        return old ? oldName : newName;
+    }
+
+    private @Nullable Object node(boolean old) {
+        return old ? oldNode : newNode;
     }
 }

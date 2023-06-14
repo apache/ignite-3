@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
+
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
@@ -24,4 +26,10 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ExecutionCancelledException extends IgniteInternalCheckedException {
+    /**
+     * Constructs a new exception with null as its detail message.
+     */
+    public ExecutionCancelledException() {
+        super(EXECUTION_CANCELLED_ERR);
+    }
 }

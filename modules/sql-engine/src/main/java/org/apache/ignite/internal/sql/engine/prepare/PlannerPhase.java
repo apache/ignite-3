@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -208,13 +208,13 @@ public enum PlannerPhase {
             ValuesConverterRule.INSTANCE,
             LogicalScanConverterRule.INDEX_SCAN,
             LogicalScanConverterRule.TABLE_SCAN,
-            HashAggregateConverterRule.SINGLE,
+            HashAggregateConverterRule.COLOCATED,
             HashAggregateConverterRule.MAP_REDUCE,
-            SortAggregateConverterRule.SINGLE,
+            SortAggregateConverterRule.COLOCATED,
             SortAggregateConverterRule.MAP_REDUCE,
-            SetOpConverterRule.SINGLE_MINUS,
+            SetOpConverterRule.COLOCATED_MINUS,
             SetOpConverterRule.MAP_REDUCE_MINUS,
-            SetOpConverterRule.SINGLE_INTERSECT,
+            SetOpConverterRule.COLOCATED_INTERSECT,
             SetOpConverterRule.MAP_REDUCE_INTERSECT,
             ProjectConverterRule.INSTANCE,
             FilterConverterRule.INSTANCE,

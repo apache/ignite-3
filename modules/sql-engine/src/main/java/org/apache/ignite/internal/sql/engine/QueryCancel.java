@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.CANCEL_OPERATION_ERR;
+
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.util.Cancellable;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 
 /**
  * Holds query cancel state.
@@ -65,7 +68,7 @@ public class QueryCancel {
                 act.cancel();
             } catch (Exception e) {
                 if (ex == null) {
-                    ex = new IgniteException(e);
+                    ex = new SqlException(CANCEL_OPERATION_ERR, e);
                 } else {
                     ex.addSuppressed(e);
                 }

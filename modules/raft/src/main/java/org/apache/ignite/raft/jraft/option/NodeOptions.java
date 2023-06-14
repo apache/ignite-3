@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,8 +17,11 @@
 package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -39,6 +42,7 @@ import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.apache.ignite.raft.jraft.util.timer.Timer;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Node options.
@@ -107,7 +111,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     private StateMachine fsm;
 
     // Listener for raft group reconfiguration events.
-    private RaftGroupEventsListener raftGrpEvtsLsnr;
+    private JraftGroupEventsListener raftGrpEvtsLsnr;
 
     // Describe a specific LogStorage in format ${type}://${parameters}
     private String logUri;
@@ -231,6 +235,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      * Striped disruptor for Log manager service.
      */
     private StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
+
+    /** A hybrid clock */
+    private HybridClock clock = new HybridClockImpl();
 
     /**
      * Amount of Disruptors that will handle the RAFT server.
@@ -433,11 +440,11 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.initialConf = initialConf;
     }
 
-    public RaftGroupEventsListener getRaftGrpEvtsLsnr() {
+    public JraftGroupEventsListener getRaftGrpEvtsLsnr() {
         return raftGrpEvtsLsnr;
     }
 
-    public void setRaftGrpEvtsLsnr(@NotNull RaftGroupEventsListener raftGrpEvtsLsnr) {
+    public void setRaftGrpEvtsLsnr(@NotNull JraftGroupEventsListener raftGrpEvtsLsnr) {
         this.raftGrpEvtsLsnr = raftGrpEvtsLsnr;
     }
 
@@ -585,6 +592,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.logManagerDisruptor = logManagerDisruptor;
     }
 
+    public HybridClock getClock() {
+        return clock;
+    }
+
+    public void setClock(HybridClock clock) {
+        this.clock = clock;
+    }
+
     @Override
     public NodeOptions copy() {
         final NodeOptions nodeOptions = new NodeOptions();
@@ -619,7 +634,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setSharedPools(this.isSharedPools());
         nodeOptions.setRpcDefaultTimeout(this.getRpcDefaultTimeout());
         nodeOptions.setRpcConnectTimeoutMs(this.getRpcConnectTimeoutMs());
+        nodeOptions.setRpcInstallSnapshotTimeout(this.getRpcInstallSnapshotTimeout());
         nodeOptions.setElectionTimeoutStrategy(this.getElectionTimeoutStrategy());
+        nodeOptions.setClock(this.getClock());
 
         return nodeOptions;
     }

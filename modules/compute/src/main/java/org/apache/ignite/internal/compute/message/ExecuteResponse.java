@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,6 +22,7 @@ import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Used to implement remote job execution in {@link org.apache.ignite.compute.IgniteCompute#execute(Set, Class, Object...)}.
@@ -33,6 +34,7 @@ public interface ExecuteResponse extends NetworkMessage {
      *
      * @return result ({@code null} if the execution has failed)
      */
+    @Nullable
     @Marshallable
     Object result();
 
@@ -41,6 +43,7 @@ public interface ExecuteResponse extends NetworkMessage {
      *
      * @return {@link Throwable} that was thrown during job execution ({@code null} if the execution was successful)
      */
+    @Nullable
     @Marshallable
     Throwable throwable();
 }

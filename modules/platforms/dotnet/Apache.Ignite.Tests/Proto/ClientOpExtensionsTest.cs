@@ -29,7 +29,10 @@ namespace Apache.Ignite.Tests.Proto
         [Test]
         public void TestToPublicOperationTypeSupportsAllOps()
         {
-            var ops = typeof(ClientOp).GetEnumValues().Cast<ClientOp>().ToList();
+            var ops = typeof(ClientOp).GetEnumValues()
+                .Cast<ClientOp>()
+                .Where(x => x != default)
+                .ToList();
 
             foreach (var op in ops)
             {

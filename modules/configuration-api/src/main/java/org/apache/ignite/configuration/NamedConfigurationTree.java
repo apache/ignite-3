@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,8 @@
 
 package org.apache.ignite.configuration;
 
+import java.util.List;
+import java.util.UUID;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,6 +37,19 @@ public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEWT>, 
      * @param name Name.
      */
     @Nullable T get(String name);
+
+    /**
+     * Retrieves a named list element by its internal id.
+     *
+     * @param internalId Internal id.
+     * @return Named list element, associated with the passed internal id, or {@code null} if it doesn't exist.
+     */
+    @Nullable T get(UUID internalId);
+
+    /**
+     * Returns all internal ids of the elements from the list.
+     */
+    List<UUID> internalIds();
 
     /**
      * Add named-list-specific configuration values listener.
@@ -62,4 +77,8 @@ public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEWT>, 
      * <p>NOTE: {@link ConfigurationListenOnlyException} will be thrown when trying to get/update the configuration values.
      */
     T any();
+
+    @Override
+    @SuppressWarnings("unchecked")
+    NamedConfigurationTree<T, VIEWT, CHANGET> directProxy();
 }

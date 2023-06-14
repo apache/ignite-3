@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,6 +21,7 @@ import static org.apache.ignite.client.handler.requests.compute.ClientComputeExe
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -51,6 +52,9 @@ public class ClientComputeExecuteColocatedRequest {
         String jobClassName = in.unpackString();
         Object[] args = unpackArgs(in);
 
-        return compute.executeColocated(table.name(), keyTuple, jobClassName, args).thenAccept(out::packObjectWithType);
+        return compute.executeColocated(table.name(), keyTuple, List.of(), jobClassName, args).thenAccept(val -> {
+            out.packInt(table.schemaView().lastSchemaVersion());
+            out.packObjectAsBinaryTuple(val);
+        });
     }
 }

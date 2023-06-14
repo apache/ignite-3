@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.trait;
 
-import static org.apache.ignite.internal.sql.engine.Stubs.intFoo;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -27,9 +26,10 @@ import java.util.Objects;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.util.ImmutableIntList;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.metadata.AffinityService;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
@@ -62,21 +62,19 @@ public abstract class DistributionFunction {
         return false;
     }
 
-    public static DistributionFunction affinity(int cacheId, Object identity) {
-        return new AffinityDistribution(cacheId, identity);
+    public static DistributionFunction affinity(int tableId, Object zoneId) {
+        return new AffinityDistribution(tableId, zoneId);
     }
 
     /**
      * Creates a destination based on this function algorithm, given nodes mapping and given distribution keys.
      *
-     * @param ctx             Execution context.
-     * @param affinityService Affinity function source.
+     * @param hashFuncFactory Factory to create a hash function for the row, from which the destination nodes are calculated.
      * @param group           Target mapping.
      * @param keys            Distribution keys.
      * @return Destination function.
      */
-    abstract <RowT> Destination<RowT> destination(ExecutionContext<RowT> ctx, AffinityService affinityService,
-            ColocationGroup group, ImmutableIntList keys);
+    abstract <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup group, ImmutableIntList keys);
 
     /**
      * Get function name. This name used for equality checking and in {@link RelNode#getDigest()}.
@@ -137,15 +135,11 @@ public abstract class DistributionFunction {
         }
 
         return f0 instanceof AffinityDistribution && f1 instanceof AffinityDistribution
-                && Objects.equals(((AffinityDistribution) f0).identity(), ((AffinityDistribution) f1).identity());
+                && Objects.equals(((AffinityDistribution) f0).zoneId(), ((AffinityDistribution) f1).zoneId());
     }
 
     private static final class AnyDistribution extends DistributionFunction {
         public static final DistributionFunction INSTANCE = new AnyDistribution();
-
-        public static DistributionFunction affinity(int cacheId, Object identity) {
-            return new AffinityDistribution(cacheId, identity);
-        }
 
         /** {@inheritDoc} */
         @Override
@@ -155,8 +149,7 @@ public abstract class DistributionFunction {
 
         /** {@inheritDoc} */
         @Override
-        public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ctx, AffinityService affinityService,
-                ColocationGroup m, ImmutableIntList k) {
+        public <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup m, ImmutableIntList k) {
             throw new IllegalStateException();
         }
     }
@@ -172,11 +165,10 @@ public abstract class DistributionFunction {
 
         /** {@inheritDoc} */
         @Override
-        public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ctx, AffinityService affinityService,
-                ColocationGroup m, ImmutableIntList k) {
-            assert m != null && !nullOrEmpty(m.nodeIds());
+        public <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup m, ImmutableIntList k) {
+            assert m != null && !nullOrEmpty(m.nodeNames());
 
-            return new AllNodes<>(m.nodeIds());
+            return new AllNodes<>(m.nodeNames());
         }
     }
 
@@ -191,11 +183,10 @@ public abstract class DistributionFunction {
 
         /** {@inheritDoc} */
         @Override
-        public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ctx, AffinityService affinityService,
-                ColocationGroup m, ImmutableIntList k) {
-            assert m != null && !nullOrEmpty(m.nodeIds());
+        public <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup m, ImmutableIntList k) {
+            assert m != null && !nullOrEmpty(m.nodeNames());
 
-            return new RandomNode<>(m.nodeIds());
+            return new RandomNode<>(m.nodeNames());
         }
     }
 
@@ -210,17 +201,16 @@ public abstract class DistributionFunction {
 
         /** {@inheritDoc} */
         @Override
-        public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ctx, AffinityService affinityService,
-                ColocationGroup m, ImmutableIntList k) {
-            if (m == null || m.nodeIds() == null || m.nodeIds().size() != 1) {
+        public <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup m, ImmutableIntList k) {
+            if (m == null || m.nodeNames() == null || m.nodeNames().size() != 1) {
                 throw new IllegalStateException();
             }
 
-            return new AllNodes<>(Collections.singletonList(Objects.requireNonNull(first(m.nodeIds()))));
+            return new AllNodes<>(Collections.singletonList(Objects.requireNonNull(first(m.nodeNames()))));
         }
     }
 
-    private static final class HashDistribution extends DistributionFunction {
+    private static class HashDistribution extends DistributionFunction {
         public static final DistributionFunction INSTANCE = new HashDistribution();
 
         /** {@inheritDoc} */
@@ -231,11 +221,10 @@ public abstract class DistributionFunction {
 
         /** {@inheritDoc} */
         @Override
-        public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ctx, AffinityService affSrvc,
-                ColocationGroup m, ImmutableIntList k) {
+        public <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup m, ImmutableIntList k) {
             assert m != null && !nullOrEmpty(m.assignments()) && !k.isEmpty();
 
-            List<List<String>> assignments = m.assignments();
+            List<List<String>> assignments = Commons.transform(m.assignments(), v -> Commons.transform(v, NodeWithTerm::name));
 
             if (IgniteUtils.assertionsEnabled()) {
                 for (List<String> assignment : assignments) {
@@ -243,27 +232,31 @@ public abstract class DistributionFunction {
                 }
             }
 
-            AffinityAdapter<RowT> affinity = new AffinityAdapter<>(affSrvc.affinity(intFoo()/*CU.UNDEFINED_CACHE_ID*/), k.toIntArray(),
-                    ctx.rowHandler());
+            return destination(assignments, hashFuncFactory, k.toIntArray());
+        }
 
-            return new Partitioned<>(assignments, affinity);
+        protected <RowT> Destination<RowT> destination(List<List<String>> assignments, HashFunctionFactory<RowT> funcFactory, int[] keys) {
+            return new Partitioned<>(assignments, funcFactory.create(keys));
         }
     }
 
-    private static final class AffinityDistribution extends DistributionFunction {
-        private final int cacheId;
+    /**
+     * Affinity distribution.
+     */
+    public static final class AffinityDistribution extends HashDistribution {
+        private final int tableId;
 
-        private final Object identity;
+        private final Object zoneId;
 
         /**
          * Constructor.
          *
-         * @param cacheId  Cache ID.
-         * @param identity Affinity identity key.
+         * @param tableId Table ID.
+         * @param zoneId  Distribution zone ID.
          */
-        private AffinityDistribution(int cacheId, Object identity) {
-            this.cacheId = cacheId;
-            this.identity = identity;
+        private AffinityDistribution(int tableId, Object zoneId) {
+            this.zoneId = zoneId;
+            this.tableId = tableId;
         }
 
         /** {@inheritDoc} */
@@ -272,39 +265,23 @@ public abstract class DistributionFunction {
             return true;
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public RelDistribution.Type type() {
-            return RelDistribution.Type.HASH_DISTRIBUTED;
+        public int tableId() {
+            return tableId;
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ctx, AffinityService affSrvc,
-                ColocationGroup m, ImmutableIntList k) {
-            assert m != null && !nullOrEmpty(m.assignments()) && k.size() == 1;
-
-            List<List<String>> assignments = m.assignments();
-
-            if (IgniteUtils.assertionsEnabled()) {
-                for (List<String> assignment : assignments) {
-                    assert nullOrEmpty(assignment) || assignment.size() == 1;
-                }
-            }
-
-            AffinityAdapter<RowT> affinity = new AffinityAdapter<>(affSrvc.affinity(cacheId), k.toIntArray(), ctx.rowHandler());
-
-            return new Partitioned<>(assignments, affinity);
+        public Object zoneId() {
+            return zoneId;
         }
 
-        public Object identity() {
-            return identity;
+        @Override
+        protected <RowT> Destination<RowT> destination(List<List<String>> assignments, HashFunctionFactory<RowT> funcFactory, int[] keys) {
+            return new Partitioned<>(assignments, funcFactory.create(keys, tableId));
         }
 
         /** {@inheritDoc} */
         @Override
         protected String name0() {
-            return "affinity[identity=" + identity + ", cacheId=" + cacheId + ']';
+            return "affinity[tableId=" + tableId + ", zoneId=" + zoneId + ']';
         }
     }
 }

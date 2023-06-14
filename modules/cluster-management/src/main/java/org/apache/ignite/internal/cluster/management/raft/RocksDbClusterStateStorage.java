@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cluster.management.raft;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -29,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -85,11 +87,6 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public boolean isStarted() {
-        return db != null;
-    }
-
-    @Override
     public byte @Nullable [] get(byte[] key) {
         try {
             return db.get(key);
@@ -104,6 +101,26 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
             db.put(key, value);
         } catch (RocksDBException e) {
             throw new IgniteInternalException("Unable to put data into Rocks DB", e);
+        }
+    }
+
+    @Override
+    public void replaceAll(byte[] prefix, byte[] key, byte[] value) {
+        try (
+                var batch = new WriteBatch();
+                var options = new WriteOptions();
+        ) {
+            byte[] endKey = RocksUtils.incrementPrefix(prefix);
+
+            assert endKey != null : Arrays.toString(prefix);
+
+            batch.deleteRange(prefix, endKey);
+
+            batch.put(key, value);
+
+            db.write(options, batch);
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException("Unable to replace data in Rocks DB", e);
         }
     }
 
@@ -134,14 +151,9 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
     @Override
     public <T> Cursor<T> getWithPrefix(byte[] prefix, BiFunction<byte[], byte[], T> entryTransformer) {
-        byte[] upperBound = prefix.clone();
+        byte[] upperBound = RocksUtils.incrementPrefix(prefix);
 
-        // using 0xFF as max value since RocksDB uses unsigned byte comparison
-        assert upperBound[upperBound.length - 1] != (byte) 0xFF;
-
-        upperBound[upperBound.length - 1] += 1;
-
-        Slice upperBoundSlice = new Slice(upperBound);
+        Slice upperBoundSlice = upperBound == null ? null : new Slice(upperBound);
 
         ReadOptions readOptions = new ReadOptions().setIterateUpperBound(upperBoundSlice);
 
@@ -156,10 +168,10 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
             }
 
             @Override
-            public void close() throws Exception {
+            public void close() {
                 super.close();
 
-                IgniteUtils.closeAll(readOptions, upperBoundSlice);
+                RocksUtils.closeAll(readOptions, upperBoundSlice);
             }
         };
     }
@@ -183,7 +195,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     @Override
     public void destroy() {
         try (Options options = new Options()) {
-            close();
+            stop();
 
             RocksDB.destroyDB(dbPath.toString(), options);
         } catch (Exception e) {
@@ -192,10 +204,10 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public void close() throws Exception {
+    public void stop() {
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
-        IgniteUtils.closeAll(options, db);
+        RocksUtils.closeAll(options, db);
 
         db = null;
 

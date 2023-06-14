@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,14 +22,12 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
- * Fake {@link SqlCursor}.
+ * Fake {@link AsyncSqlCursor}.
  */
 public class FakeCursor implements AsyncSqlCursor<List<Object>> {
     private final Random random;
@@ -44,7 +42,7 @@ public class FakeCursor implements AsyncSqlCursor<List<Object>> {
     }
 
     @Override
-    public CompletionStage<BatchedResult<List<Object>>> requestNextAsync(int rows) {
+    public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
         var batch = new ArrayList<List<Object>>();
 
         for (int i = 0; i < rows; i++) {

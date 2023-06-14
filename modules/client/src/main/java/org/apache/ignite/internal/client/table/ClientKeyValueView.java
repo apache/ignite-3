@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,9 +19,9 @@ package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import java.io.Serializable;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -30,16 +30,23 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.client.RetryLimitPolicy;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
+import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
-import org.apache.ignite.table.InvokeProcessor;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -91,7 +98,9 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
+                (s, r) -> valSer.readRec(s, r, TuplePart.VAL),
+                null,
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -137,7 +146,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 ClientOp.TUPLE_GET_ALL,
                 (s, w) -> keySer.writeRecs(tx, keys, s, w, TuplePart.KEY),
                 this::readGetAllResponse,
-                Collections.emptyMap());
+                Collections.emptyMap(),
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), keys.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -154,7 +164,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_KEY,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -171,7 +182,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                r -> null);
+                r -> null,
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -192,17 +204,15 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> {
-                    w.out().packUuid(tbl.tableId());
-                    writeTx(tx, w);
-                    w.out().packInt(s.version());
+                    writeSchemaAndTx(s, w, tx);
                     w.out().packInt(pairs.size());
 
                     for (Entry<K, V> e : pairs.entrySet()) {
-                        keySer.writeRecRaw(e.getKey(), s, w.out(), TuplePart.KEY);
-                        valSer.writeRecRaw(e.getValue(), s, w.out(), TuplePart.VAL);
+                        writeKeyValueRaw(s, w, e.getKey(), e.getValue());
                     }
                 },
-                r -> null);
+                r -> null,
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), pairs.keySet().iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -220,7 +230,9 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
+                (s, r) -> valSer.readRec(s, r, TuplePart.VAL),
+                null,
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -249,7 +261,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -272,7 +285,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -283,7 +297,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -305,7 +320,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 ClientOp.TUPLE_DELETE_ALL,
                 (s, w) -> keySer.writeRecs(tx, keys, s, w, TuplePart.KEY),
                 (s, r) -> keySer.readRecs(s, r, false, TuplePart.KEY),
-                Collections.emptyList());
+                Collections.emptyList(),
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), keys.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -322,7 +338,9 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
+                (s, r) -> valSer.readRec(s, r, TuplePart.VAL),
+                null,
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -359,7 +377,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -370,13 +389,12 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
                 (s, w) -> {
-                    keySer.writeRec(tx, key, s, w, TuplePart.KEY);
-                    valSer.writeRecRaw(oldVal, s, w.out(), TuplePart.VAL);
-
-                    keySer.writeRecRaw(key, s, w.out(), TuplePart.KEY);
-                    valSer.writeRecRaw(newVal, s, w.out(), TuplePart.VAL);
+                    writeSchemaAndTx(s, w, tx);
+                    writeKeyValueRaw(s, w, key, oldVal);
+                    writeKeyValueRaw(s, w, key, newVal);
                 },
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -394,7 +412,9 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
+                (s, r) -> valSer.readRec(s, r, TuplePart.VAL),
+                null,
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -409,53 +429,30 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public <R extends Serializable> R invoke(
-            @Nullable Transaction tx,
-            @NotNull K key,
-            InvokeProcessor<K, V, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <R extends Serializable> CompletableFuture<R> invokeAsync(
-            @Nullable Transaction tx,
-            @NotNull K key,
-            InvokeProcessor<K, V, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R extends Serializable> Map<K, R> invokeAll(
-            @Nullable Transaction tx,
-            @NotNull Collection<K> keys,
-            InvokeProcessor<K, V, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <R extends Serializable> CompletableFuture<Map<K, R>> invokeAllAsync(
-            @Nullable Transaction tx,
-            @NotNull Collection<K> keys,
-            InvokeProcessor<K, V, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
     private void writeKeyValue(ClientSchema s, PayloadOutputChannel w, @Nullable Transaction tx, @NotNull K key, V val) {
-        keySer.writeRec(tx, key, s, w, TuplePart.KEY);
-        valSer.writeRecRaw(val, s, w.out(), TuplePart.VAL);
+        writeSchemaAndTx(s, w, tx);
+        writeKeyValueRaw(s, w, key, val);
+    }
+
+    private void writeKeyValueRaw(ClientSchema s, PayloadOutputChannel w, @NotNull K key, V val) {
+        var builder = new BinaryTupleBuilder(s.columns().length, true);
+        var noValueSet = new BitSet();
+        ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
+
+        try {
+            s.getMarshaller(keySer.mapper(), TuplePart.KEY).writeObject(key, writer);
+            s.getMarshaller(valSer.mapper(), TuplePart.VAL).writeObject(val, writer);
+        } catch (MarshallerException e) {
+            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
+        }
+
+        w.out().packBinaryTuple(builder, noValueSet);
+    }
+
+    private void writeSchemaAndTx(ClientSchema s, PayloadOutputChannel w, @Nullable Transaction tx) {
+        w.out().packInt(tbl.tableId());
+        writeTx(tx, w);
+        w.out().packInt(s.version());
     }
 
     private HashMap<K, V> readGetAllResponse(ClientSchema schema, ClientMessageUnpacker in) {
@@ -466,17 +463,50 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         Marshaller keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY);
         Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL);
 
-        var reader = new ClientMarshallerReader(in);
-
         try {
             for (int i = 0; i < cnt; i++) {
                 in.unpackBoolean(); // TODO: Optimize (IGNITE-16022).
+
+                var tupleReader = new BinaryTupleReader(schema.columns().length, in.readBinaryUnsafe());
+                var reader = new ClientMarshallerReader(tupleReader);
                 res.put((K) keyMarsh.readObject(reader, null), (V) valMarsh.readObject(reader, null));
             }
 
             return res;
         } catch (MarshallerException e) {
-            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> streamData(Publisher<Entry<K, V>> publisher, @Nullable DataStreamerOptions options) {
+        Objects.requireNonNull(publisher);
+
+        var provider = new KeyValuePojoStreamerPartitionAwarenessProvider<K, V>(tbl, keySer.mapper());
+        var opts = options == null ? DataStreamerOptions.DEFAULT : options;
+
+        // Partition-aware (best effort) sender with retries.
+        // The batch may go to a different node when a direct connection is not available.
+        StreamerBatchSender<Entry<K, V>, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_UPSERT_ALL,
+                (s, w) -> {
+                    writeSchemaAndTx(s, w, null);
+                    w.out().packInt(items.size());
+
+                    for (Entry<K, V> e : items) {
+                        writeKeyValueRaw(s, w, e.getKey(), e.getValue());
+                    }
+                },
+                r -> null,
+                PartitionAwarenessProvider.of(nodeId),
+                new RetryLimitPolicy().retryLimit(opts.retryLimit()));
+
+        //noinspection resource
+        IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
+        StreamerSubscriber<Entry<K, V>, String> subscriber = new StreamerSubscriber<>(batchSender, provider, opts, log);
+        publisher.subscribe(subscriber);
+
+        return subscriber.completionFuture();
     }
 }

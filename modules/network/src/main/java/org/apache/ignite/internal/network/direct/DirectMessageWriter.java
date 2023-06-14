@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,15 +20,17 @@ package org.apache.ignite.internal.network.direct;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.network.direct.state.DirectMessageState;
 import org.apache.ignite.internal.network.direct.state.DirectMessageStateItem;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStream;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStreamImplV1;
-import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageWriter;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.jetbrains.annotations.Nullable;
@@ -43,11 +45,11 @@ public class DirectMessageWriter implements MessageWriter {
     /**
      * Constructor.
      *
-     * @param serializationService  Serialization service.
-     * @param protoVer              Protocol version.
+     * @param serializationRegistry Serialization registry.
+     * @param protoVer Protocol version.
      */
-    public DirectMessageWriter(PerSessionSerializationService serializationService, byte protoVer) {
-        state = new DirectMessageState<>(StateItem.class, () -> new StateItem(serializationService, protoVer));
+    public DirectMessageWriter(MessageSerializationRegistry serializationRegistry, byte protoVer) {
+        state = new DirectMessageState<>(StateItem.class, () -> new StateItem(createStream(serializationRegistry, protoVer)));
     }
 
     /** {@inheritDoc} */
@@ -94,12 +96,30 @@ public class DirectMessageWriter implements MessageWriter {
         return stream.lastFinished();
     }
 
+    @Override
+    public boolean writeBoxedByte(String name, @Nullable Byte val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeBoxedByte(val);
+
+        return stream.lastFinished();
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean writeShort(String name, short val) {
         DirectByteBufferStream stream = state.item().stream;
 
         stream.writeShort(val);
+
+        return stream.lastFinished();
+    }
+
+    @Override
+    public boolean writeBoxedShort(String name, @Nullable Short val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeBoxedShort(val);
 
         return stream.lastFinished();
     }
@@ -114,12 +134,30 @@ public class DirectMessageWriter implements MessageWriter {
         return stream.lastFinished();
     }
 
+    @Override
+    public boolean writeBoxedInt(String name, @Nullable Integer val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeBoxedInt(val);
+
+        return stream.lastFinished();
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean writeLong(String name, long val) {
         DirectByteBufferStream stream = state.item().stream;
 
         stream.writeLong(val);
+
+        return stream.lastFinished();
+    }
+
+    @Override
+    public boolean writeBoxedLong(String name, @Nullable Long val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeBoxedLong(val);
 
         return stream.lastFinished();
     }
@@ -134,12 +172,30 @@ public class DirectMessageWriter implements MessageWriter {
         return stream.lastFinished();
     }
 
+    @Override
+    public boolean writeBoxedFloat(String name, @Nullable Float val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeBoxedFloat(val);
+
+        return stream.lastFinished();
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean writeDouble(String name, double val) {
         DirectByteBufferStream stream = state.item().stream;
 
         stream.writeDouble(val);
+
+        return stream.lastFinished();
+    }
+
+    @Override
+    public boolean writeBoxedDouble(String name, @Nullable Double val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeBoxedDouble(val);
 
         return stream.lastFinished();
     }
@@ -154,12 +210,30 @@ public class DirectMessageWriter implements MessageWriter {
         return stream.lastFinished();
     }
 
+    @Override
+    public boolean writeBoxedChar(String name, @Nullable Character val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeBoxedChar(val);
+
+        return stream.lastFinished();
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean writeBoolean(String name, boolean val) {
         DirectByteBufferStream stream = state.item().stream;
 
         stream.writeBoolean(val);
+
+        return stream.lastFinished();
+    }
+
+    @Override
+    public boolean writeBoxedBoolean(String name, @Nullable Boolean val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeBoxedBoolean(val);
 
         return stream.lastFinished();
     }
@@ -284,6 +358,15 @@ public class DirectMessageWriter implements MessageWriter {
         return stream.lastFinished();
     }
 
+    @Override
+    public boolean writeByteBuffer(String name, ByteBuffer val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeByteBuffer(val);
+
+        return stream.lastFinished();
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean writeUuid(String name, UUID val) {
@@ -330,6 +413,26 @@ public class DirectMessageWriter implements MessageWriter {
         DirectByteBufferStream stream = state.item().stream;
 
         stream.writeCollection(col, itemType, this);
+
+        return stream.lastFinished();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> boolean writeList(String name, List<T> col, MessageCollectionItemType itemType) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeCollection(col, itemType, this);
+
+        return stream.lastFinished();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> boolean writeSet(String name, Set<T> col, MessageCollectionItemType itemType) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeSet(col, itemType, this);
 
         return stream.lastFinished();
     }
@@ -388,6 +491,22 @@ public class DirectMessageWriter implements MessageWriter {
     }
 
     /**
+     * Returns a stream to write message fields recursively.
+     *
+     * @param serializationRegistry Serialization registry.
+     * @param protoVer Protocol version.
+     */
+    protected DirectByteBufferStream createStream(MessageSerializationRegistry serializationRegistry, byte protoVer) {
+        switch (protoVer) {
+            case 1:
+                return new DirectByteBufferStreamImplV1(serializationRegistry);
+
+            default:
+                throw new IllegalStateException("Invalid protocol version: " + protoVer);
+        }
+    }
+
+    /**
      * State item.
      */
     private static class StateItem implements DirectMessageStateItem {
@@ -408,19 +527,10 @@ public class DirectMessageWriter implements MessageWriter {
         /**
          * Constructor.
          *
-         * @param serializationService Serialization service.
-         * @param protoVer             Protocol version.
+         * @param stream Direct byte buffer stream.
          */
-        StateItem(PerSessionSerializationService serializationService, byte protoVer) {
-            switch (protoVer) {
-                case 1:
-                    stream = new DirectByteBufferStreamImplV1(serializationService);
-
-                    break;
-
-                default:
-                    throw new IllegalStateException("Invalid protocol version: " + protoVer);
-            }
+        StateItem(DirectByteBufferStream stream) {
+            this.stream = stream;
         }
 
         /** {@inheritDoc} */

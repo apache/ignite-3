@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -39,17 +39,21 @@ public class NettySender {
     /** Consistent id of the remote node. */
     private final String consistentId;
 
+    private final short channelId;
+
     /**
      * Constructor.
      *
-     * @param channel      Netty channel.
-     * @param launchId     Launch id of the remote node.
+     * @param channel Netty channel.
+     * @param launchId Launch id of the remote node.
      * @param consistentId Consistent id of the remote node.
+     * @param channelId channel identifier.
      */
-    public NettySender(Channel channel, String launchId, String consistentId) {
+    public NettySender(Channel channel, String launchId, String consistentId, short channelId) {
         this.channel = channel;
         this.launchId = launchId;
         this.consistentId = consistentId;
+        this.channelId = channelId;
     }
 
     /**
@@ -78,6 +82,15 @@ public class NettySender {
      */
     public String consistentId() {
         return consistentId;
+    }
+
+    /**
+     * Returns channel identifier.
+     *
+     * @return Channel identifier.
+     */
+    public short channelId() {
+        return channelId;
     }
 
     /**

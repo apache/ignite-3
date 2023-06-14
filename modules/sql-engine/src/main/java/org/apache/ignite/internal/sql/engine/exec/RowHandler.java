@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,14 +22,15 @@ import java.util.List;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Universal accessor and mutator for rows. It also has factory methods.
  */
 public interface RowHandler<RowT> {
-    Object get(int field, RowT row);
+    @Nullable Object get(int field, RowT row);
 
-    void set(int field, RowT row, Object val);
+    void set(int field, RowT row, @Nullable Object val);
 
     RowT concat(RowT left, RowT right);
 

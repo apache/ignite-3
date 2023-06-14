@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
  *
  * @see IgniteSqlOperatorTable
  */
-public class ItSqlOperatorsTest extends AbstractBasicIntegrationTest {
+public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
     /** {@inheritDoc} */
     @Override
     protected int nodes() {
@@ -98,6 +98,8 @@ public class ItSqlOperatorsTest extends AbstractBasicIntegrationTest {
         assertExpression("MAX(val)").returns(1).check();
         assertExpression("ANY_VALUE(val)").returns(1).check();
         assertExpression("COUNT(*) FILTER(WHERE val <> 1)").returns(0L).check();
+        assertExpression("EVERY(val = 1)").returns(true).check();
+        assertExpression("SOME(val = 1)").returns(true).check();
     }
 
     @Test
@@ -108,6 +110,8 @@ public class ItSqlOperatorsTest extends AbstractBasicIntegrationTest {
         assertExpression("1=1 IS NOT TRUE").returns(false).check();
         assertExpression("1=1 IS FALSE").returns(false).check();
         assertExpression("1=1 IS NOT FALSE").returns(true).check();
+        assertExpression("NULL IS DISTINCT FROM NULL").returns(false).check();
+        assertExpression("NULL IS NOT DISTINCT FROM NULL").returns(true).check();
     }
 
     @Test
@@ -177,6 +181,7 @@ public class ItSqlOperatorsTest extends AbstractBasicIntegrationTest {
         assertExpression("ABS(-1)").returns(Math.abs(-1)).check();
         assertExpression("RAND()").check();
         assertExpression("RAND_INTEGER(10)").check();
+        assertExpression("RAND_UUID()").check();
         assertExpression("ACOS(1)").returns(Math.acos(1)).check();
         assertExpression("ASIN(1)").returns(Math.asin(1)).check();
         assertExpression("ATAN(1)").returns(Math.atan(1)).check();
@@ -251,7 +256,7 @@ public class ItSqlOperatorsTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15550")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19332")
     public void testQueryAsCollections() {
         assertExpression("MAP(SELECT 'a', 1)").returns(Map.of("a", 1)).check();
         assertExpression("ARRAY(SELECT 1)").returns(List.of(1)).check();

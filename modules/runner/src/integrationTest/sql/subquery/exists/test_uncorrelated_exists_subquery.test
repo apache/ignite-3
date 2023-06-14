@@ -15,18 +15,18 @@ INSERT INTO integers VALUES (1), (2), (3), (NULL)
 query I
 SELECT * FROM integers WHERE EXISTS(SELECT 1) ORDER BY i
 ----
-NULL
 1
 2
 3
+NULL
 
 query I
 SELECT * FROM integers WHERE EXISTS(SELECT * FROM integers) ORDER BY i
 ----
-NULL
 1
 2
 3
+NULL
 
 query I
 SELECT * FROM integers WHERE NOT EXISTS(SELECT * FROM integers) ORDER BY i
@@ -35,10 +35,10 @@ SELECT * FROM integers WHERE NOT EXISTS(SELECT * FROM integers) ORDER BY i
 query I
 SELECT * FROM integers WHERE EXISTS(SELECT NULL) ORDER BY i
 ----
-NULL
 1
 2
 3
+NULL
 
 # exists in SELECT clause
 query T

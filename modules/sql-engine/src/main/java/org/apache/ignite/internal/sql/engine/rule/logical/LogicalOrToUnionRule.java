@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -38,7 +38,8 @@ import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -87,6 +88,7 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
         relBldr.push(IgniteLogicalTableScan.create(
                 scan.getCluster(),
                 trait,
+                scan.getHints(),
                 scan.getTable(),
                 scan.projects(),
                 condition,
@@ -130,14 +132,15 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
     private boolean idxCollationCheck(RelOptRuleCall call, List<RexNode> operands) {
         final IgniteLogicalTableScan scan = call.rel(0);
 
-        InternalIgniteTable tbl = scan.getTable().unwrap(InternalIgniteTable.class);
+        IgniteTable tbl = scan.getTable().unwrap(IgniteTable.class);
         IgniteTypeFactory typeFactory = Commons.typeFactory(scan.getCluster());
         int fieldCnt = tbl.getRowType(typeFactory).getFieldCount();
 
         BitSet idxsFirstFields = new BitSet(fieldCnt);
 
         for (IgniteIndex idx : tbl.indexes().values()) {
-            List<RelFieldCollation> fieldCollations = idx.collation().getFieldCollations();
+            List<RelFieldCollation> fieldCollations = TraitUtils.createCollation(idx.columns(), idx.collations(), tbl.descriptor())
+                    .getFieldCollations();
 
             if (!CollectionUtils.nullOrEmpty(fieldCollations)) {
                 idxsFirstFields.set(fieldCollations.get(0).getFieldIndex());
@@ -145,7 +148,7 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
         }
 
         Mappings.TargetMapping mapping = scan.requiredColumns() == null ? null :
-                Commons.inverseMapping(scan.requiredColumns(), fieldCnt);
+                Commons.inverseTrimmingMapping(fieldCnt, scan.requiredColumns());
 
         for (RexNode op : operands) {
             BitSet conditionFields = new BitSet(fieldCnt);

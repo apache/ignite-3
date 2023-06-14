@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,24 +18,37 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.raft.ConcurrentMapClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -52,7 +65,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for the {@link DistributedConfigurationStorage}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class ItDistributedConfigurationStorageTest {
+    @InjectConfiguration
+    private static RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static ClusterManagementConfiguration clusterManagementConfiguration;
+
+    @InjectConfiguration
+    private static NodeAttributesConfiguration nodeAttributes;
+
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
      */
@@ -75,7 +98,7 @@ public class ItDistributedConfigurationStorageTest {
         Node(TestInfo testInfo, Path workDir) {
             var addr = new NetworkAddress("localhost", 10000);
 
-            vaultManager = new VaultManager(new PersistentVaultService(workDir.resolve("vault")));
+            vaultManager = new VaultManager(new PersistentVaultService(testNodeName(testInfo, addr.port()), workDir.resolve("vault")));
 
             clusterService = ClusterServiceTestUtils.clusterService(
                     testInfo,
@@ -83,21 +106,31 @@ public class ItDistributedConfigurationStorageTest {
                     new StaticNodeFinder(List.of(addr))
             );
 
-            raftManager = new Loza(clusterService, workDir);
+            HybridClock clock = new HybridClockImpl();
+
+            raftManager = new Loza(clusterService, raftConfiguration, workDir, clock);
+
+            var clusterStateStorage = new TestClusterStateStorage();
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
                     raftManager,
-                    new ConcurrentMapClusterStateStorage()
-            );
+                    clusterStateStorage,
+                    logicalTopology,
+                    clusterManagementConfiguration,
+                    nodeAttributes,
+                    new TestConfigurationValidator());
 
-            metaStorageManager = new MetaStorageManager(
+            metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
                     clusterService,
                     cmgManager,
+                    new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                     raftManager,
-                    new SimpleInMemoryKeyValueStorage()
+                    new SimpleInMemoryKeyValueStorage(name()),
+                    clock
             );
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
@@ -109,10 +142,21 @@ public class ItDistributedConfigurationStorageTest {
         void start() throws Exception {
             vaultManager.start();
 
-            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager).forEach(IgniteComponent::start);
+            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
+                    .forEach(IgniteComponent::start);
 
             // this is needed to avoid assertion errors
-            cfgStorage.registerConfigurationListener(changedEntries -> completedFuture(null));
+            cfgStorage.registerConfigurationListener(new ConfigurationStorageListener() {
+                @Override
+                public CompletableFuture<Void> onEntriesChanged(Data changedEntries) {
+                    return completedFuture(null);
+                }
+
+                @Override
+                public CompletableFuture<Void> onRevisionUpdated(long newRevision) {
+                    return completedFuture(null);
+                }
+            });
 
             // deploy watches to propagate data from the metastore into the vault
             metaStorageManager.deployWatches();
@@ -135,7 +179,7 @@ public class ItDistributedConfigurationStorageTest {
         }
 
         String name() {
-            return clusterService.topologyService().localMember().name();
+            return clusterService.nodeName();
         }
     }
 
@@ -157,8 +201,12 @@ public class ItDistributedConfigurationStorageTest {
             node.cmgManager.initCluster(List.of(node.name()), List.of(), "cluster");
 
             assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
+            assertThat(node.cfgStorage.writeConfigurationRevision(0, 1), willCompleteSuccessfully());
 
-            waitForCondition(() -> Objects.nonNull(node.vaultManager.get(MetaStorageManager.APPLIED_REV).join()), 3000);
+            assertTrue(waitForCondition(
+                    () -> node.metaStorageManager.appliedRevision() != 0,
+                    3000
+            ));
         } finally {
             node.stop();
         }
@@ -168,7 +216,7 @@ public class ItDistributedConfigurationStorageTest {
         try {
             node2.start();
 
-            CompletableFuture<Data> storageData = node2.cfgStorage.readAll();
+            CompletableFuture<Data> storageData = node2.cfgStorage.readDataOnRecovery();
 
             assertThat(storageData.thenApply(Data::values), willBe(equalTo(data)));
         } finally {

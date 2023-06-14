@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,14 +18,16 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.List;
-import java.util.UUID;
+import java.util.Map;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.TranslatableTable;
@@ -33,8 +35,12 @@ import org.apache.calcite.schema.Wrapper;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
+import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Table representation as object in SQL schema.
@@ -45,7 +51,7 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
      *
      * @return And id of the table.
      */
-    UUID id();
+    int id();
 
     /**
      * Returns the version of the table's schema.
@@ -53,6 +59,13 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
      * @return the version of the table's schema.
      */
     int version();
+
+    /**
+     * Gets a name of the table.
+     *
+     * @return Table name.
+     */
+    String name();
 
     /**
      * Returns a descriptor of the table.
@@ -78,7 +91,7 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
     /** {@inheritDoc} */
     @Override
     default TableScan toRel(RelOptTable.ToRelContext context, RelOptTable relOptTable) {
-        return toRel(context.getCluster(), relOptTable);
+        return toRel(context.getCluster(), relOptTable, context.getTableHints());
     }
 
     /**
@@ -86,9 +99,48 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
      *
      * @param cluster   Custer.
      * @param relOptTbl Table.
+     * @param hints     Hints.
      * @return Table relational expression.
      */
-    TableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl);
+    default IgniteLogicalTableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, List<RelHint> hints) {
+        return toRel(cluster, relOptTbl, hints, null, null, null);
+    }
+
+    /**
+     * Converts table into relational expression.
+     *
+     * @param cluster   Custer.
+     * @param relOptTbl Table.
+     * @param idxName   Index name.
+     * @return Table relational expression.
+     */
+    default IgniteLogicalIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, String idxName) {
+        return toRel(cluster, relOptTbl, idxName, null, null, null);
+    }
+
+    /**
+     * Converts table into table scan relational expression.
+     */
+    IgniteLogicalTableScan toRel(
+            RelOptCluster cluster,
+            RelOptTable relOptTbl,
+            List<RelHint> hints,
+            @Nullable List<RexNode> proj,
+            @Nullable RexNode cond,
+            @Nullable ImmutableBitSet requiredColumns
+    );
+
+    /**
+     * Converts table into index scan relational expression.
+     */
+    IgniteLogicalIndexScan toRel(
+            RelOptCluster cluster,
+            RelOptTable relOptTbl,
+            String idxName,
+            List<RexNode> proj,
+            RexNode condition,
+            ImmutableBitSet requiredCols
+    );
 
     /**
      * Returns table distribution.
@@ -136,4 +188,41 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
         }
         return null;
     }
+
+    /**
+     * Returns nodes mapping.
+     *
+     * @param ctx Planning context.
+     * @return Nodes mapping.
+     */
+    ColocationGroup colocationGroup(MappingQueryContext ctx);
+
+    /**
+     * Returns all table indexes.
+     *
+     * @return Indexes for the current table.
+     */
+    Map<String, IgniteIndex> indexes();
+
+    /**
+     * Adds index to table.
+     *
+     * @param idxTbl Index table.
+     */
+    void addIndex(IgniteIndex idxTbl);
+
+    /**
+     * Returns index by its name.
+     *
+     * @param idxName Index name.
+     * @return Index.
+     */
+    IgniteIndex getIndex(String idxName);
+
+    /**
+     * Returns index name.
+     *
+     * @param idxName Index name.
+     */
+    void removeIndex(String idxName);
 }

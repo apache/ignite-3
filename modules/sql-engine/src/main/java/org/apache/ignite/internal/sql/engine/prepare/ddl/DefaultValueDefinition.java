@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import java.util.Objects;
-import org.apache.ignite.schema.definition.DefaultValueGenerators;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,7 +30,6 @@ public class DefaultValueDefinition {
      *
      * @param name Name of the function to invoke to generate the value
      * @return Default value definition.
-     * @see DefaultValueGenerators
      */
     public static DefaultValueDefinition functionCall(String name) {
         return new FunctionCall(Objects.requireNonNull(name, "name"));

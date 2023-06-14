@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,18 +17,14 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.channels.Channels;
-import java.nio.channels.WritableByteChannel;
 
 /**
  * Heap byte buffer-based row.
  */
 public class ByteBufferRow implements BinaryRow {
-    public static ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
+    public static final ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
 
     /** Row buffer. */
     private final ByteBuffer buf;
@@ -60,62 +56,26 @@ public class ByteBufferRow implements BinaryRow {
         return Short.toUnsignedInt(buf.getShort(SCHEMA_VERSION_OFFSET));
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean hasValue() {
-        short schemaVer = buf.getShort(SCHEMA_VERSION_OFFSET);
+        byte schemaVer = buf.get(HAS_VALUE_OFFSET);
 
-        return schemaVer > 0;
+        return schemaVer == 1;
     }
 
     /** {@inheritDoc} */
     @Override
-    public int hash() {
-        return buf.getInt(KEY_HASH_FIELD_OFFSET);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void writeTo(OutputStream stream) throws IOException {
-        WritableByteChannel channel = Channels.newChannel(stream);
-
-        channel.write(buf);
-
-        buf.rewind();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ByteBuffer keySlice() {
-        int off = KEY_CHUNK_OFFSET;
-        int len = buf.getInt(off);
-        int limit = buf.limit();
-
+    public ByteBuffer tupleSlice() {
         try {
-            return buf.limit(off + len).position(off).slice().order(ORDER);
+            return buf.position(TUPLE_OFFSET).slice().order(ORDER);
         } finally {
             buf.position(0); // Reset bounds.
-            buf.limit(limit);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public ByteBuffer valueSlice() {
-        int off = KEY_CHUNK_OFFSET + buf.getInt(KEY_CHUNK_OFFSET);
-        int len = hasValue() ? buf.getInt(off) : 0;
-        int limit = buf.limit();
-
-        try {
-            return buf.limit(off + len).position(off).slice().order(ORDER);
-        } finally {
-            buf.position(0); // Reset bounds.
-            buf.limit(limit);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override public byte[] bytes() {
+    public byte[] bytes() {
         // TODO IGNITE-15934 avoid copy.
         byte[] tmp = new byte[buf.limit()];
 
@@ -123,5 +83,11 @@ public class ByteBufferRow implements BinaryRow {
         buf.rewind();
 
         return tmp;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ByteBuffer byteBuffer() {
+        return buf.slice().order(ORDER);
     }
 }

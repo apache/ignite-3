@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -26,6 +26,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Partition meta information.
@@ -47,9 +48,19 @@ public class PartitionMeta {
 
     private volatile long lastAppliedIndex;
 
-    private volatile long versionChainTreeRootPageId;
+    private volatile long lastAppliedTerm;
+
+    private volatile long lastReplicationProtocolGroupConfigFirstPageId;
 
     private volatile long rowVersionFreeListRootPageId;
+
+    private volatile long indexColumnsFreeListRootPageId;
+
+    private volatile long versionChainTreeRootPageId;
+
+    private volatile long indexTreeMetaPageId;
+
+    private volatile long gcQueueMetaPageId;
 
     private volatile int pageCount;
 
@@ -58,6 +69,7 @@ public class PartitionMeta {
     /**
      * Default constructor.
      */
+    @TestOnly
     public PartitionMeta() {
         metaSnapshot = new PartitionMetaSnapshot(null, this);
     }
@@ -67,20 +79,30 @@ public class PartitionMeta {
      *
      * @param checkpointId Checkpoint ID.
      * @param lastAppliedIndex Last applied index value.
-     * @param versionChainTreeRootPageId Version chain tree root page ID.
      * @param rowVersionFreeListRootPageId Row version free list root page ID.
+     * @param versionChainTreeRootPageId Version chain tree root page ID.
      * @param pageCount Count of pages in the partition.
      */
     public PartitionMeta(
             @Nullable UUID checkpointId,
             long lastAppliedIndex,
-            long versionChainTreeRootPageId,
+            long lastAppliedTerm,
+            long lastReplicationProtocolGroupConfigFirstPageId,
             long rowVersionFreeListRootPageId,
+            long indexColumnsFreeListRootPageId,
+            long versionChainTreeRootPageId,
+            long indexTreeMetaPageId,
+            long gcQueueMetaPageId,
             int pageCount
     ) {
         this.lastAppliedIndex = lastAppliedIndex;
-        this.versionChainTreeRootPageId = versionChainTreeRootPageId;
+        this.lastAppliedTerm = lastAppliedTerm;
+        this.lastReplicationProtocolGroupConfigFirstPageId = lastReplicationProtocolGroupConfigFirstPageId;
         this.rowVersionFreeListRootPageId = rowVersionFreeListRootPageId;
+        this.indexColumnsFreeListRootPageId = indexColumnsFreeListRootPageId;
+        this.versionChainTreeRootPageId = versionChainTreeRootPageId;
+        this.indexTreeMetaPageId = indexTreeMetaPageId;
+        this.gcQueueMetaPageId = gcQueueMetaPageId;
         this.pageCount = pageCount;
 
         metaSnapshot = new PartitionMetaSnapshot(checkpointId, this);
@@ -97,8 +119,13 @@ public class PartitionMeta {
         this(
                 checkpointId,
                 metaIo.getLastAppliedIndex(pageAddr),
-                metaIo.getVersionChainTreeRootPageId(pageAddr),
+                metaIo.getLastAppliedTerm(pageAddr),
+                metaIo.getLastReplicationProtocolGroupConfigFirstPageId(pageAddr),
                 metaIo.getRowVersionFreeListRootPageId(pageAddr),
+                metaIo.getIndexColumnsFreeListRootPageId(pageAddr),
+                metaIo.getVersionChainTreeRootPageId(pageAddr),
+                metaIo.getIndexTreeMetaPageId(pageAddr),
+                metaIo.getGcQueueMetaPageId(pageAddr),
                 metaIo.getPageCount(pageAddr)
         );
     }
@@ -111,15 +138,43 @@ public class PartitionMeta {
     }
 
     /**
-     * Sets a last applied index value.
+     * Returns a last applied term value.
+     */
+    public long lastAppliedTerm() {
+        return lastAppliedTerm;
+    }
+
+    /**
+     * Sets last applied index and term.
      *
      * @param checkpointId Checkpoint ID.
      * @param lastAppliedIndex Last applied index value.
+     * @param lastAppliedTerm Last applied term value.
      */
-    public void lastAppliedIndex(@Nullable UUID checkpointId, long lastAppliedIndex) {
+    public void lastApplied(@Nullable UUID checkpointId, long lastAppliedIndex, long lastAppliedTerm) {
         updateSnapshot(checkpointId);
 
         this.lastAppliedIndex = lastAppliedIndex;
+        this.lastAppliedTerm = lastAppliedTerm;
+    }
+
+    /**
+     * Returns ID of the first page in a chain storing a blob representing last replication protocol group config.
+     */
+    public long lastReplicationProtocolGroupConfigFirstPageId() {
+        return lastReplicationProtocolGroupConfigFirstPageId;
+    }
+
+    /**
+     * Sets ID of the first page in a chain storing a blob representing last replication protocol group config.
+     *
+     * @param checkpointId Checkpoint ID.
+     * @param pageId PageId.
+     */
+    public void lastReplicationProtocolGroupConfigFirstPageId(@Nullable UUID checkpointId, long pageId) {
+        updateSnapshot(checkpointId);
+
+        this.lastReplicationProtocolGroupConfigFirstPageId = pageId;
     }
 
     /**
@@ -158,6 +213,63 @@ public class PartitionMeta {
         updateSnapshot(checkpointId);
 
         this.rowVersionFreeListRootPageId = rowVersionFreeListRootPageId;
+    }
+
+    /**
+     * Returns index columns free list root page id.
+     */
+    public long indexColumnsFreeListRootPageId() {
+        return indexColumnsFreeListRootPageId;
+    }
+
+    /**
+     * Sets an index columns free list root page id.
+     *
+     * @param checkpointId Checkpoint id.
+     * @param indexColumnsFreeListRootPageId Index columns free list root page id.
+     */
+    public void indexColumnsFreeListRootPageId(@Nullable UUID checkpointId, long indexColumnsFreeListRootPageId) {
+        updateSnapshot(checkpointId);
+
+        this.indexColumnsFreeListRootPageId = indexColumnsFreeListRootPageId;
+    }
+
+    /**
+     * Returns index meta tree meta page id.
+     */
+    public long indexTreeMetaPageId() {
+        return indexTreeMetaPageId;
+    }
+
+    /**
+     * Sets an index meta tree meta page id.
+     *
+     * @param checkpointId Checkpoint id.
+     * @param indexTreeMetaPageId Index meta tree meta page id.
+     */
+    public void indexTreeMetaPageId(@Nullable UUID checkpointId, long indexTreeMetaPageId) {
+        updateSnapshot(checkpointId);
+
+        this.indexTreeMetaPageId = indexTreeMetaPageId;
+    }
+
+    /**
+     * Returns garbage collection queue meta page id.
+     */
+    public long gcQueueMetaPageId() {
+        return gcQueueMetaPageId;
+    }
+
+    /**
+     * Sets a garbage collection queue meta page id.
+     *
+     * @param checkpointId Checkpoint id.
+     * @param gcQueueMetaPageId Garbage collection queue meta page id.
+     */
+    public void gcQueueMetaPageId(@Nullable UUID checkpointId, long gcQueueMetaPageId) {
+        updateSnapshot(checkpointId);
+
+        this.gcQueueMetaPageId = gcQueueMetaPageId;
     }
 
     /**
@@ -201,7 +313,6 @@ public class PartitionMeta {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(PartitionMeta.class, this);
@@ -215,9 +326,19 @@ public class PartitionMeta {
 
         private final long lastAppliedIndex;
 
+        private final long lastAppliedTerm;
+
+        private final long lastReplicationProtocolGroupConfigFirstPageId;
+
         private final long versionChainTreeRootPageId;
 
         private final long rowVersionFreeListRootPageId;
+
+        private final long indexColumnsFreeListRootPageId;
+
+        private final long indexTreeMetaPageId;
+
+        private final long gcQueueMetaPageId;
 
         private final int pageCount;
 
@@ -229,10 +350,15 @@ public class PartitionMeta {
          */
         private PartitionMetaSnapshot(@Nullable UUID checkpointId, PartitionMeta partitionMeta) {
             this.checkpointId = checkpointId;
-            this.lastAppliedIndex = partitionMeta.lastAppliedIndex;
-            this.versionChainTreeRootPageId = partitionMeta.versionChainTreeRootPageId;
-            this.rowVersionFreeListRootPageId = partitionMeta.rowVersionFreeListRootPageId;
-            this.pageCount = partitionMeta.pageCount;
+            lastAppliedIndex = partitionMeta.lastAppliedIndex;
+            lastAppliedTerm = partitionMeta.lastAppliedTerm;
+            lastReplicationProtocolGroupConfigFirstPageId = partitionMeta.lastReplicationProtocolGroupConfigFirstPageId;
+            versionChainTreeRootPageId = partitionMeta.versionChainTreeRootPageId;
+            rowVersionFreeListRootPageId = partitionMeta.rowVersionFreeListRootPageId;
+            indexColumnsFreeListRootPageId = partitionMeta.indexColumnsFreeListRootPageId;
+            indexTreeMetaPageId = partitionMeta.indexTreeMetaPageId;
+            gcQueueMetaPageId = partitionMeta.gcQueueMetaPageId;
+            pageCount = partitionMeta.pageCount;
         }
 
         /**
@@ -240,6 +366,20 @@ public class PartitionMeta {
          */
         public long lastAppliedIndex() {
             return lastAppliedIndex;
+        }
+
+        /**
+         * Returns a last applied term value.
+         */
+        public long lastAppliedTerm() {
+            return lastAppliedTerm;
+        }
+
+        /**
+         * Returns ID of the first page in a chain storing a blob representing last replication protocol group config.
+         */
+        public long lastReplicationProtocolGroupConfigFirstPageId() {
+            return lastReplicationProtocolGroupConfigFirstPageId;
         }
 
         /**
@@ -257,6 +397,27 @@ public class PartitionMeta {
         }
 
         /**
+         * Returns index columns free list root page ID.
+         */
+        public long indexColumnsFreeListRootPageId() {
+            return indexColumnsFreeListRootPageId;
+        }
+
+        /**
+         * Returns index meta tree meta page ID.
+         */
+        public long indexTreeMetaPageId() {
+            return indexTreeMetaPageId;
+        }
+
+        /**
+         * Returns garbage collection queue meta page id.
+         */
+        public long gcQueueMetaPageId() {
+            return gcQueueMetaPageId;
+        }
+
+        /**
          * Returns count of pages in the partition.
          */
         public int pageCount() {
@@ -271,12 +432,16 @@ public class PartitionMeta {
          */
         void writeTo(PartitionMetaIo metaIo, long pageAddr) {
             metaIo.setLastAppliedIndex(pageAddr, lastAppliedIndex);
+            metaIo.setLastAppliedTerm(pageAddr, lastAppliedTerm);
+            metaIo.setLastReplicationProtocolGroupConfigFirstPageId(pageAddr, lastReplicationProtocolGroupConfigFirstPageId);
             metaIo.setVersionChainTreeRootPageId(pageAddr, versionChainTreeRootPageId);
+            metaIo.setIndexColumnsFreeListRootPageId(pageAddr, indexColumnsFreeListRootPageId);
             metaIo.setRowVersionFreeListRootPageId(pageAddr, rowVersionFreeListRootPageId);
+            metaIo.setIndexTreeMetaPageId(pageAddr, indexTreeMetaPageId);
+            metaIo.setGcQueueMetaPageId(pageAddr, gcQueueMetaPageId);
             metaIo.setPageCount(pageAddr, pageCount);
         }
 
-        /** {@inheritDoc} */
         @Override
         public String toString() {
             return S.toString(PartitionMetaSnapshot.class, this);

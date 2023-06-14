@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -96,14 +96,12 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             this.serializationService = serializationService;
             this.msg = outObject.networkMessage();
 
-            if (!outObject.descriptors().isEmpty()) {
-                List<ClassDescriptorMessage> descriptors = outObject.descriptors();
+            List<ClassDescriptorMessage> outDescriptors = outObject.descriptors().stream()
+                    .filter(classDescriptorMessage -> !serializationService.isDescriptorSent(classDescriptorMessage.descriptorId()))
+                    .collect(Collectors.toList());
 
-                descriptors = descriptors.stream()
-                        .filter(classDescriptorMessage -> !serializationService.isDescriptorSent(classDescriptorMessage.descriptorId()))
-                        .collect(Collectors.toList());
-
-                this.descriptors = MSG_FACTORY.classDescriptorListMessage().messages(descriptors).build();
+            if (!outDescriptors.isEmpty()) {
+                this.descriptors = MSG_FACTORY.classDescriptorListMessage().messages(outDescriptors).build();
                 short groupType = this.descriptors.groupType();
                 short messageType = this.descriptors.messageType();
                 descriptorSerializer = serializationService.createMessageSerializer(groupType, messageType);
@@ -114,7 +112,7 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             }
 
             this.serializer = serializationService.createMessageSerializer(msg.groupType(), msg.messageType());
-            this.writer = new DirectMessageWriter(serializationService, ConnectionManager.DIRECT_PROTOCOL_VERSION);
+            this.writer = new DirectMessageWriter(serializationService.serializationRegistry(), ConnectionManager.DIRECT_PROTOCOL_VERSION);
         }
 
         /** {@inheritDoc} */

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -271,11 +271,11 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
     /** {@inheritDoc} */
     @Override
     @Nullable
-    public <T> T unmarshal(byte[] bytes, DescriptorRegistry mergedDescriptors) throws UnmarshalException {
+    public <T> T unmarshal(byte[] bytes, Object mergedDescriptors) throws UnmarshalException {
         var input = new IgniteUnsafeDataInput(bytes);
 
         try {
-            UnmarshallingContext context = new UnmarshallingContext(input, mergedDescriptors, classLoader);
+            UnmarshallingContext context = new UnmarshallingContext(input, (DescriptorRegistry) mergedDescriptors, classLoader);
             T result = unmarshalShared(input, context);
 
             throwIfNotDrained(input);
@@ -318,8 +318,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
 
         Object readObject = readObject(input, context, remoteDescriptor, unshared);
 
-        @SuppressWarnings("unchecked") T resolvedObject = (T) readResolver.applyReadResolveIfNeeded(readObject, remoteDescriptor);
-        return resolvedObject;
+        return (T) readResolver.applyReadResolveIfNeeded(readObject, remoteDescriptor);
     }
 
     private ClassDescriptor resolveDescriptor(IgniteDataInput input, @Nullable DeclaredType declaredType, UnmarshallingContext context)

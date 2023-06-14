@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -38,7 +38,6 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Partition meta information manager.
  */
-// TODO: IGNITE-17132 Do not forget about deleting the partition meta information
 public class PartitionMetaManager {
     private static final IgniteLogger LOG = Loggers.forClass(PartitionMetaManager.class);
 
@@ -159,5 +158,14 @@ public class PartitionMetaManager {
 
     private boolean containsPartitionMeta(FilePageStore filePageStore) throws IgniteInternalCheckedException {
         return filePageStore.deltaFileCount() > 0 || filePageStore.size() > filePageStore.headerSize();
+    }
+
+    /**
+     * Removes partition meta information.
+     *
+     * @param groupPartitionId Partition of the group.
+     */
+    public void removeMeta(GroupPartitionId groupPartitionId) {
+        metas.remove(groupPartitionId);
     }
 }

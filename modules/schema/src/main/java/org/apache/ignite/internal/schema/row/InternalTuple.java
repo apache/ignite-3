@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.row;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -35,7 +36,7 @@ public interface InternalTuple {
     /**
      * Returns a number of values in the tuple.
      */
-    int count();
+    int elementCount();
 
     /**
      * Checks whether the given column contains a null value.
@@ -145,9 +146,10 @@ public interface InternalTuple {
      * Reads value from specified column.
      *
      * @param col Column index.
+     * @param decimalScale Decimal scale.
      * @return Column value.
      */
-    BigDecimal decimalValue(int col);
+    BigDecimal decimalValue(int col, int decimalScale);
 
     /**
      * Reads value from specified column.
@@ -220,4 +222,9 @@ public interface InternalTuple {
      * @return Column value.
      */
     Instant timestampValue(int col);
+
+    /**
+     * Returns the representation of this tuple as a Byte Buffer.
+     */
+    ByteBuffer byteBuffer();
 }

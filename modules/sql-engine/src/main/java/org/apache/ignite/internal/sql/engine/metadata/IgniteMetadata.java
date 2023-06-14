@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,16 +18,9 @@
 package org.apache.ignite.internal.sql.engine.metadata;
 
 import java.util.List;
-import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.metadata.ChainedRelMetadataProvider;
 import org.apache.calcite.rel.metadata.DefaultRelMetadataProvider;
-import org.apache.calcite.rel.metadata.Metadata;
-import org.apache.calcite.rel.metadata.MetadataDef;
-import org.apache.calcite.rel.metadata.MetadataHandler;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
-import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
-import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 
 /**
  * Utility class, holding metadata related interfaces and metadata providers.
@@ -36,9 +29,6 @@ public class IgniteMetadata {
     public static final RelMetadataProvider METADATA_PROVIDER =
             ChainedRelMetadataProvider.of(
                     List.of(
-                            // Ignite specific providers
-                            IgniteMdFragmentMapping.SOURCE,
-
                             // Ignite overriden providers
                             IgniteMdDistribution.SOURCE,
                             IgniteMdPercentageOriginalRows.SOURCE,
@@ -52,20 +42,4 @@ public class IgniteMetadata {
 
                             // Basic providers
                             DefaultRelMetadataProvider.INSTANCE));
-
-    /**
-     * Describes the method signature for the methods of the {@link IgniteMdFragmentMapping}.
-     */
-    public interface FragmentMappingMetadata extends Metadata {
-        MetadataDef<FragmentMappingMetadata> DEF = MetadataDef.of(FragmentMappingMetadata.class,
-                FragmentMappingMetadata.Handler.class, IgniteMethod.FRAGMENT_MAPPING.method());
-
-        /** Determines how the rows are distributed. */
-        FragmentMapping fragmentMapping(MappingQueryContext ctx);
-
-        /** Handler API. */
-        interface Handler extends MetadataHandler<FragmentMappingMetadata> {
-            FragmentMapping fragmentMapping(RelNode r, RelMetadataQuery mq, MappingQueryContext ctx);
-        }
-    }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,6 +22,7 @@ import java.io.StringWriter;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.jdbc.JdbcConverterUtils;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
@@ -31,7 +32,6 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
-import org.apache.ignite.internal.sql.SqlColumnTypeConverter;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -159,7 +159,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
             schemaName,
             tblName,
             colName,
-            SqlColumnTypeConverter.columnTypeToClass(fldMeta.type()),
+            JdbcConverterUtils.columnTypeToJdbcClass(fldMeta.type()),
             fldMeta.precision(),
             fldMeta.scale(),
             fldMeta.nullable()

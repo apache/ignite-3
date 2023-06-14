@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,10 +22,9 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceAggregateBase;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -77,49 +76,39 @@ public class UnionPlannerTest extends AbstractPlannerTest {
      * @return Ignite schema.
      */
     private IgniteSchema prepareSchema() {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
-
-        TestTable tbl1 = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("SALARY", f.createJavaType(Double.class))
-                        .build()) {
-
-            @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Table1", "hash");
-            }
-        };
-
-        TestTable tbl2 = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("SALARY", f.createJavaType(Double.class))
-                        .build()) {
-
-            @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Table2", "hash");
-            }
-        };
-
-        TestTable tbl3 = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("SALARY", f.createJavaType(Double.class))
-                        .build()) {
-
-            @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Table3", "hash");
-            }
-        };
-
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TABLE1", tbl1);
-        publicSchema.addTable("TABLE2", tbl2);
-        publicSchema.addTable("TABLE3", tbl3);
+        IgniteTypeFactory f = Commons.typeFactory();
+
+        createTable(publicSchema,
+                "TABLE1",
+                new RelDataTypeFactory.Builder(f)
+                        .add("ID", f.createJavaType(Integer.class))
+                        .add("NAME", f.createJavaType(String.class))
+                        .add("SALARY", f.createJavaType(Double.class))
+                        .build(),
+                IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID)
+        );
+
+        createTable(publicSchema,
+                "TABLE2",
+                new RelDataTypeFactory.Builder(f)
+                        .add("ID", f.createJavaType(Integer.class))
+                        .add("NAME", f.createJavaType(String.class))
+                        .add("SALARY", f.createJavaType(Double.class))
+                        .build(),
+                IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID)
+        );
+
+        createTable(publicSchema,
+                "TABLE3",
+                new RelDataTypeFactory.Builder(f)
+                        .add("ID", f.createJavaType(Integer.class))
+                        .add("NAME", f.createJavaType(String.class))
+                        .add("SALARY", f.createJavaType(Double.class))
+                        .build(),
+                IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID)
+        );
 
         return publicSchema;
     }

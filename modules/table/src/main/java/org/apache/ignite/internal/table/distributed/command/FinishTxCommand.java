@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,60 +17,38 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.raft.client.WriteCommand;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
-/** State machine command to finish a transaction. */
-public class FinishTxCommand implements WriteCommand {
-    /** Transaction id. */
-    private final UUID txId;
-
-    /** Commit or rollback state. */
-    private final boolean finish;
-
-    /** Keys that are locked by the transaction. */
-    private Map<IgniteUuid, List<byte[]>> lockedKeys;
+/**
+ * State machine command to finish a transaction on a commit or a rollback.
+ */
+@Transferable(TableMessageGroup.Commands.FINISH_TX)
+public interface FinishTxCommand extends PartitionCommand {
+    /**
+     * Returns a commit or a rollback state.
+     */
+    boolean commit();
 
     /**
-     * The constructor.
-     *
-     * @param txId          The txId.
-     * @param finish        Commit or rollback state {@code True} to commit.
-     * @param lockedKeys    Keys that are locked by the transaction. Mapping: lockId (tableId) -> keys.
+     * Returns a transaction commit timestamp.
      */
-    public FinishTxCommand(UUID txId, boolean finish, Map<IgniteUuid, List<byte[]>> lockedKeys) {
-        this.txId = txId;
-        this.finish = finish;
-        this.lockedKeys = lockedKeys;
+    long commitTimestampLong();
+
+    /**
+     * Returns a transaction commit timestamp.
+     */
+    default @Nullable HybridTimestamp commitTimestamp() {
+        return nullableHybridTimestamp(commitTimestampLong());
     }
 
     /**
-     * Returns a timestamp.
-     *
-     * @return The timestamp.
+     * Returns an ordered replication groups ids.
      */
-    public UUID txId() {
-        return txId;
-    }
-
-    /**
-     * Returns commit or rollback state.
-     *
-     * @return Commit or rollback state.
-     */
-    public boolean finish() {
-        return finish;
-    }
-
-    /**
-     * Returns keys that are locked by the transaction.
-     *
-     * @return Keys that are locked by the transaction.
-     */
-    public Map<IgniteUuid, List<byte[]>> lockedKeys() {
-        return lockedKeys;
-    }
+    List<TablePartitionIdMessage> tablePartitionIds();
 }

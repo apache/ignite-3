@@ -1,0 +1,133 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply plugin: 'java'
+apply plugin: 'jacoco'
+apply plugin: 'checkstyle'
+apply plugin: 'pmd'
+apply plugin: 'java-library'
+apply plugin: 'com.github.andygoossens.modernizer'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+    withSourcesJar()
+}
+
+test {
+    finalizedBy(jacocoTestReport)
+}
+
+pmd {
+    ignoreFailures = false
+    consoleOutput = true
+    incrementalAnalysis = true
+
+    toolVersion = libs.versions.pmdTool.get()
+    ruleSets = ["$rootDir/check-rules/pmd-rules.xml"]
+}
+
+processResources {
+    filesMatching('**/*.properties') {
+        filter { String line ->
+            line.replace("\${project.version}", project.version)
+        }
+    }
+}
+
+pmdMain {
+    enabled = true
+}
+
+pmdTest {
+    enabled = false
+}
+
+checkstyle {
+    toolVersion = libs.versions.checkstyleTool.get()
+    ignoreFailures = false
+    showViolations = true
+    maxWarnings = 0
+    configFile = file("$rootDir/check-rules/checkstyle-rules.xml")
+    configProperties = [
+            "checkstyle.header.file" : file("$rootDir/check-rules/LICENSE.txt"),
+            "org.checkstyle.google.suppressionfilter.config" : file("$rootDir/check-rules/checkstyle-suppressions.txt")
+    ]
+}
+
+tasks.withType(Checkstyle) {
+    excludes = ["**/generated-source/**",
+                "**/generated/**",
+                "com/facebook/presto/bytecode/**/*",
+                "org/apache/ignite/raft/jraft/**/*"]
+    reports {
+        xml.required = false
+        html {
+            required = true
+            outputLocation = file("$rootDir/build/reports/checkstyle/${project.name}.html")
+        }
+
+    }
+}
+
+modernizer {
+    failOnViolations = true
+    includeTestClasses = false
+    violationsFile = "${rootDir}/check-rules/modernizer-rules.xml"
+    ignorePackages = ["org.apache.ignite.internal.sql.engine",
+                      "org.apache.ignite.internal.generated",
+                      "org.apache.ignite.rest.client"]
+}
+
+javadoc {
+    source = sourceSets.main.allJava
+    classpath = configurations.compileClasspath
+
+    def sourceDirs = sourceSets.main.java.sourceDirectories.join(":")
+    def generatedSources = "$buildDir/generated/sources/annotationProcessor/java/main"
+
+    options.addStringOption("-source-path", sourceDirs + File.pathSeparator + generatedSources)
+
+    exclude 'org/apache/ignite/internal/**'
+    exclude 'org/apache/ignite/raft/jraft/**'
+    exclude 'com/facebook/presto/**'
+
+    enabled = true
+}
+
+javadoc.dependsOn compileJava
+
+
+jacoco {
+    toolVersion = libs.versions.jacocoTool.get()
+}
+
+
+jacocoTestReport {
+    dependsOn test
+
+    reports {
+        xml.required = false
+        html.required = true
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it,
+                    exclude: ['org/apache/calcite/**/*'])
+        }))
+    }
+}

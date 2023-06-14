@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,6 +26,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
@@ -34,12 +35,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.JraftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
+import org.apache.ignite.raft.jraft.FSMCaller.LastAppliedLogIndexListener;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -54,7 +59,7 @@ import org.apache.ignite.raft.jraft.closure.SynchronizedClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
-import org.apache.ignite.raft.jraft.disruptor.GroupAware;
+import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.Ballot;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -120,6 +125,7 @@ import org.apache.ignite.raft.jraft.util.ThreadId;
 import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.LongHeldDetectingReadWriteLock;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The raft replica node implementation.
@@ -127,8 +133,12 @@ import org.apache.ignite.raft.jraft.util.concurrent.LongHeldDetectingReadWriteLo
 public class NodeImpl implements Node, RaftServerService {
     private static final IgniteLogger LOG = Loggers.forClass(NodeImpl.class);
 
+    public static final Status LEADER_STEPPED_DOWN = new Status(RaftError.EPERM, "Leader stepped down.");
+
     // Max retry times when applying tasks.
     private static final int MAX_APPLY_RETRY_TIMES = 3;
+
+    private volatile HybridClock clock;
 
     /**
      * Internal states
@@ -139,6 +149,9 @@ public class NodeImpl implements Node, RaftServerService {
         .writeLock();
     protected final Lock readLock = this.readWriteLock
         .readLock();
+
+    /** The future completes when all committed actions applied to RAFT state machine. */
+    private final CompletableFuture<Long> applyCommittedFuture;
     private volatile State state;
     private volatile CountDownLatch shutdownLatch;
     private long currTerm;
@@ -161,8 +174,6 @@ public class NodeImpl implements Node, RaftServerService {
     private RaftOptions raftOptions;
     private final PeerId serverId;
 
-    private Peer peer;
-
     /**
      * Other services
      */
@@ -176,7 +187,6 @@ public class NodeImpl implements Node, RaftServerService {
     private BallotBox ballotBox;
     private SnapshotExecutor snapshotExecutor;
     private ReplicatorGroup replicatorGroup;
-    private final List<Closure> shutdownContinuations = new ArrayList<>();
     private RaftClientService rpcClientService;
     private ReadOnlyService readOnlyService;
 
@@ -217,6 +227,9 @@ public class NodeImpl implements Node, RaftServerService {
      */
     private volatile int electionTimeoutCounter;
 
+    /** Configuration of own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor. */
+    private final @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig;
+
     private static class NodeReadWriteLock extends LongHeldDetectingReadWriteLock {
         static final long MAX_BLOCKING_MS_TO_REPORT = SystemPropertyUtil.getLong(
             "jraft.node.detecting.lock.max_blocking_ms_to_report", -1);
@@ -246,22 +259,22 @@ public class NodeImpl implements Node, RaftServerService {
     /**
      * Node service event.
      */
-    public static class LogEntryAndClosure implements GroupAware {
-        /** Raft group id. */
-        String groupId;
+    public static class LogEntryAndClosure implements NodeIdAware {
+        /** Raft node id. */
+        NodeId nodeId;
 
         LogEntry entry;
         Closure done;
         long expectedTerm;
         CountDownLatch shutdownLatch;
 
-        /** {@inheritDoc} */
-        @Override public String groupId() {
-            return groupId;
+        @Override
+        public NodeId nodeId() {
+            return nodeId;
         }
 
         public void reset() {
-            this.groupId = null;
+            this.nodeId = null;
             this.entry = null;
             this.done = null;
             this.expectedTerm = 0;
@@ -281,7 +294,7 @@ public class NodeImpl implements Node, RaftServerService {
             if (event.shutdownLatch != null) {
                 if (!this.tasks.isEmpty()) {
                     executeApplyingTasks(this.tasks);
-                    this.tasks.clear();
+                    reset();
                 }
                 event.shutdownLatch.countDown();
                 return;
@@ -290,8 +303,15 @@ public class NodeImpl implements Node, RaftServerService {
             this.tasks.add(event);
             if (this.tasks.size() >= NodeImpl.this.raftOptions.getApplyBatch() || endOfBatch) {
                 executeApplyingTasks(this.tasks);
-                this.tasks.clear();
+                reset();
             }
+        }
+
+        private void reset() {
+            for (final LogEntryAndClosure task : tasks) {
+                task.reset();
+            }
+            this.tasks.clear();
         }
     }
 
@@ -434,7 +454,8 @@ public class NodeImpl implements Node, RaftServerService {
             }
 
             // must be copied before clearing
-            final List<PeerId> resultPeerIds = new ArrayList<>(this.newPeers);
+            List<PeerId> resultPeerIds = List.copyOf(this.newPeers);
+            List<PeerId> resultLearnerIds = List.copyOf(this.newLearners);
 
             clearPeers();
             clearLearners();
@@ -447,17 +468,21 @@ public class NodeImpl implements Node, RaftServerService {
 
             if (this.done != null) {
                 Closure newDone = (Status status) -> {
-                    if (status.isOk()) {
-                        node.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(resultPeerIds);
-                    } else {
-                        node.getOptions().getRaftGrpEvtsLsnr().onReconfigurationError(status, resultPeerIds, node.getCurrentTerm());
+                    JraftGroupEventsListener listener = node.getOptions().getRaftGrpEvtsLsnr();
+
+                    if (listener != null) {
+                        if (status.isOk()) {
+                            listener.onNewPeersConfigurationApplied(resultPeerIds, resultLearnerIds);
+                        } else {
+                            listener.onReconfigurationError(status, resultPeerIds, resultLearnerIds, node.getCurrentTerm());
+                        }
                     }
+
                     oldDoneClosure.run(status);
                 };
 
                 // TODO: in case of changePeerAsync this invocation is useless as far as we have already sent OK response in done closure.
-                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), newDone, st != null ? st :
-                        new Status(RaftError.EPERM, "Leader stepped down."));
+                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), newDone, st != null ? st : LEADER_STEPPED_DOWN);
                 this.done = null;
             }
         }
@@ -530,17 +555,39 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     public NodeImpl(final String groupId, final PeerId serverId) {
-        super();
-        if (groupId != null) {
-            Utils.verifyGroupId(groupId);
+        this(groupId, serverId, null);
+    }
+
+        public NodeImpl(
+                final String groupId,
+                final PeerId serverId,
+                @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
+        ) {
+            super();
+            if (groupId != null) {
+                Utils.verifyGroupId(groupId);
+            }
+            this.groupId = groupId;
+            this.serverId = serverId != null ? serverId.copy() : null;
+            this.state = State.STATE_UNINITIALIZED;
+            this.currTerm = 0;
+            updateLastLeaderTimestamp(Utils.monotonicMs());
+            this.confCtx = new ConfigurationCtx(this);
+            this.wakingCandidate = null;
+            this.applyCommittedFuture = new CompletableFuture<>();
+            this.ownFsmCallerExecutorDisruptorConfig = ownFsmCallerExecutorDisruptorConfig;
         }
-        this.groupId = groupId;
-        this.serverId = serverId != null ? serverId.copy() : null;
-        this.state = State.STATE_UNINITIALIZED;
-        this.currTerm = 0;
-        updateLastLeaderTimestamp(Utils.monotonicMs());
-        this.confCtx = new ConfigurationCtx(this);
-        this.wakingCandidate = null;
+
+    public HybridClock clock() {
+        return clock;
+    }
+
+    public HybridTimestamp clockNow() {
+        return clock.now();
+    }
+
+    public HybridTimestamp clockUpdate(HybridTimestamp timestamp) {
+        return clock.update(timestamp);
     }
 
     private boolean initSnapshotStorage() {
@@ -554,7 +601,7 @@ public class NodeImpl implements Node, RaftServerService {
         opts.setFsmCaller(this.fsmCaller);
         opts.setNode(this);
         opts.setLogManager(this.logManager);
-        opts.setAddr(this.serverId != null ? this.serverId.getEndpoint() : null);
+        opts.setPeerId(this.serverId);
         opts.setInitTerm(this.currTerm);
         opts.setFilterBeforeCopyRemote(this.options.isFilterBeforeCopyRemote());
         // get snapshot throttle
@@ -567,7 +614,6 @@ public class NodeImpl implements Node, RaftServerService {
         this.logStorage = this.serviceFactory.createLogStorage(this.options.getLogUri(), this.raftOptions);
         this.logManager = new LogManagerImpl();
         final LogManagerOptions opts = new LogManagerOptions();
-        opts.setGroupId(groupId);
         opts.setLogEntryCodecFactory(this.serviceFactory.createLogEntryCodecFactory());
         opts.setLogStorage(this.logStorage);
         opts.setConfigurationManager(this.configManager);
@@ -803,7 +849,6 @@ public class NodeImpl implements Node, RaftServerService {
         opts.setBootstrapId(bootstrapId);
         opts.setRaftMessagesFactory(raftOptions.getRaftMessagesFactory());
         opts.setfSMCallerExecutorDisruptor(options.getfSMCallerExecutorDisruptor());
-        opts.setGroupId(groupId);
 
         return this.fsmCaller.init(opts);
     }
@@ -838,6 +883,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         this.serviceFactory = opts.getServiceFactory();
+        this.clock = opts.getNodeOptions().getClock();
         // Term is not an option since changing it is very dangerous
         final long bootstrapLogTerm = opts.getLastLogIndex() > 0 ? 1 : 0;
         final LogId bootstrapId = new LogId(opts.getLastLogIndex(), bootstrapLogTerm);
@@ -935,6 +981,7 @@ public class NodeImpl implements Node, RaftServerService {
         Requires.requireNonNull(opts.getRaftOptions(), "Null raft options");
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         this.serviceFactory = opts.getServiceFactory();
+        this.clock = opts.getClock();
         this.options = opts;
         this.raftOptions = opts.getRaftOptions();
         this.metrics = new NodeMetrics(opts.isEnableMetrics());
@@ -943,8 +990,8 @@ public class NodeImpl implements Node, RaftServerService {
         if (opts.getReplicationStateListeners() != null)
             this.replicatorStateListeners.addAll(opts.getReplicationStateListeners());
 
-        if (this.serverId.getIp().equals(Utils.IP_ANY)) {
-            LOG.error("Node can't start from IP_ANY.");
+        if (this.serverId.isEmpty()) {
+            LOG.error("Server ID is empty.");
             return false;
         }
 
@@ -958,7 +1005,7 @@ public class NodeImpl implements Node, RaftServerService {
 
         applyDisruptor = opts.getNodeApplyDisruptor();
 
-        applyQueue = applyDisruptor.subscribe(groupId, new LogEntryAndClosureHandler());
+        applyQueue = applyDisruptor.subscribe(getNodeId(), new LogEntryAndClosureHandler());
 
         if (this.metrics.getMetricRegistry() != null) {
             this.metrics.getMetricRegistry().register("jraft-node-impl-disruptor",
@@ -1032,6 +1079,29 @@ public class NodeImpl implements Node, RaftServerService {
         // Adds metric registry to RPC service.
         this.options.setMetricRegistry(this.metrics.getMetricRegistry());
 
+        // Wait committed.
+        long commitIdx = logManager.getLastLogIndex();
+
+        CompletableFuture<Long> logApplyComplition = new CompletableFuture<>();
+
+        if (commitIdx > fsmCaller.getLastAppliedIndex()) {
+            LastAppliedLogIndexListener lnsr = new LastAppliedLogIndexListener() {
+                @Override
+                public void onApplied( long lastAppliedLogIndex) {
+                    if (lastAppliedLogIndex >= commitIdx) {
+                        logApplyComplition.complete(lastAppliedLogIndex);
+                        fsmCaller.removeLastAppliedLogIndexListener(this);
+                    }
+                }
+            };
+
+            fsmCaller.addLastAppliedLogIndexListener(lnsr);
+
+            fsmCaller.onCommitted(commitIdx);
+        } else {
+            logApplyComplition.complete(fsmCaller.getLastAppliedIndex());
+        }
+
         if (!this.rpcClientService.init(this.options)) {
             LOG.error("Fail to init rpc service.");
             return false;
@@ -1040,7 +1110,6 @@ public class NodeImpl implements Node, RaftServerService {
 
         this.readOnlyService = new ReadOnlyServiceImpl();
         final ReadOnlyServiceOptions rosOpts = new ReadOnlyServiceOptions();
-        rosOpts.setGroupId(groupId);
         rosOpts.setFsmCaller(this.fsmCaller);
         rosOpts.setNode(this);
         rosOpts.setRaftOptions(this.raftOptions);
@@ -1051,38 +1120,53 @@ public class NodeImpl implements Node, RaftServerService {
             return false;
         }
 
-        // set state to follower
-        this.state = State.STATE_FOLLOWER;
+        logApplyComplition.whenComplete((committedIdx, err) -> {
+            if (err != null) {
+                LOG.error("Fail to apply committed updates.", err);
+            }
 
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Node {} init, term={}, lastLogId={}, conf={}, oldConf={}.", getNodeId(), this.currTerm,
-                this.logManager.getLastLogId(false), this.conf.getConf(), this.conf.getOldConf());
-        }
+            // set state to follower
+            this.state = State.STATE_FOLLOWER;
 
-        if (this.snapshotExecutor != null && this.options.getSnapshotIntervalSecs() > 0) {
-            LOG.debug("Node {} start snapshot timer, term={}.", getNodeId(), this.currTerm);
-            this.snapshotTimer.start();
-        }
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Node {} init, term={}, lastLogId={}, conf={}, oldConf={}.", getNodeId(), this.currTerm,
+                    this.logManager.getLastLogId(false), this.conf.getConf(), this.conf.getOldConf());
+            }
 
-        if (!this.conf.isEmpty()) {
-            stepDown(this.currTerm, false, new Status());
-        }
+            if (this.snapshotExecutor != null && this.options.getSnapshotIntervalSecs() > 0) {
+                LOG.debug("Node {} start snapshot timer, term={}.", getNodeId(), this.currTerm);
+                this.snapshotTimer.start();
+            }
 
-        // Now the raft node is started , have to acquire the writeLock to avoid race
-        // conditions
-        this.writeLock.lock();
-        if (this.conf.isStable() && this.conf.getConf().size() == 1 && this.conf.getConf().contains(this.serverId)) {
-            // The group contains only this server which must be the LEADER, trigger
-            // the timer immediately.
-            electSelf();
-        }
-        else {
-            this.writeLock.unlock();
-        }
+            if (!this.conf.isEmpty()) {
+                stepDown(this.currTerm, false, new Status());
+            }
+
+            // Now the raft node is started , have to acquire the writeLock to avoid race
+            // conditions
+            this.writeLock.lock();
+            if (this.conf.isStable() && this.conf.getConf().size() == 1 && this.conf.getConf().contains(this.serverId)) {
+                // The group contains only this server which must be the LEADER, trigger
+                // the timer immediately.
+                electSelf();
+            }
+            else {
+                this.writeLock.unlock();
+            }
+
+            applyCommittedFuture.complete(commitIdx);
+        });
 
         return true;
     }
 
+    /**
+     * Gets a future which complete when all committed update are applied to the node's state machine on start.
+     * @return Future completes when this node committed revision would be equal to the applied one.
+     */
+    public CompletableFuture<Long> getApplyCommittedFuture() {
+        return applyCommittedFuture;
+    }
     /**
      * Validates a required option if shared pools are enabled.
      *
@@ -1196,6 +1280,15 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
                 opts.getStripes()));
+        } else if (ownFsmCallerExecutorDisruptorConfig != null) {
+            opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
+                NamedThreadFactory.threadPrefix(
+                        opts.getServerName(),
+                        "JRaft-FSMCaller-Disruptor-" + ownFsmCallerExecutorDisruptorConfig.getThreadPostfix()
+                ),
+                opts.getRaftOptions().getDisruptorBufferSize(),
+                () -> new FSMCallerImpl.ApplyTask(),
+                ownFsmCallerExecutorDisruptorConfig.getStripes()));
         }
 
         if (opts.getNodeApplyDisruptor() == null) {
@@ -1271,9 +1364,9 @@ public class NodeImpl implements Node, RaftServerService {
                     continue;
                 }
 
-                rpcClientService.connectAsync(peer.getEndpoint()).thenAccept(ok -> {
+                rpcClientService.connectAsync(peer).thenAccept(ok -> {
                     if (!ok) {
-                        LOG.warn("Node {} failed to init channel, address={}.", getNodeId(), peer.getEndpoint());
+                        LOG.warn("Node {} failed to init channel, address={}.", getNodeId(), peer);
                         return ;
                     }
                     final OnRequestVoteRpcDone done = new OnRequestVoteRpcDone(peer, electSelfTerm, this);
@@ -1287,7 +1380,7 @@ public class NodeImpl implements Node, RaftServerService {
                             .lastLogIndex(lastLogId.getIndex())
                             .lastLogTerm(lastLogId.getTerm())
                             .build();
-                    this.rpcClientService.requestVote(peer.getEndpoint(), done.request, done);
+                    this.rpcClientService.requestVote(peer, done.request, done);
                 });
             }
 
@@ -1509,18 +1602,21 @@ public class NodeImpl implements Node, RaftServerService {
                         final Status st = new Status(RaftError.EPERM, "expected_term=%d doesn't match current_term=%d",
                             task.expectedTerm, this.currTerm);
                         Utils.runClosureInThread(this.getOptions().getCommonExecutor(), task.done, st);
+                        task.reset();
                     }
                     continue;
                 }
                 if (!this.ballotBox.appendPendingTask(this.conf.getConf(),
                     this.conf.isStable() ? null : this.conf.getOldConf(), task.done)) {
                     Utils.runClosureInThread(this.getOptions().getCommonExecutor(), task.done, new Status(RaftError.EINTERNAL, "Fail to append task."));
+                    task.reset();
                     continue;
                 }
                 // set task entry info before adding to list.
                 task.entry.getId().setTerm(this.currTerm);
                 task.entry.setType(EnumOutter.EntryType.ENTRY_TYPE_DATA);
                 entries.add(task.entry);
+                task.reset();
             }
             this.logManager.appendEntries(entries, new LeaderStableClosure(entries));
             // update conf.first
@@ -1665,7 +1761,7 @@ public class NodeImpl implements Node, RaftServerService {
             .entriesList(request.entriesList())
             .peerId(this.leaderId.toString())
             .build();
-        this.rpcClientService.readIndex(this.leaderId.getEndpoint(), newRequest, -1, closure);
+        this.rpcClientService.readIndex(this.leaderId, newRequest, -1, closure);
     }
 
     private void readLeader(ReadIndexRequest request, RpcResponseClosure<ReadIndexResponse> closure) {
@@ -1747,7 +1843,7 @@ public class NodeImpl implements Node, RaftServerService {
         try {
             final EventTranslator<LogEntryAndClosure> translator = (event, sequence) -> {
                 event.reset();
-                event.groupId = groupId;
+                event.nodeId = getNodeId();
                 event.done = task.getDone();
                 event.entry = entry;
                 event.expectedTerm = task.getExpectedTerm();
@@ -2060,11 +2156,16 @@ public class NodeImpl implements Node, RaftServerService {
             if (request.term() < this.currTerm) {
                 LOG.warn("Node {} ignore stale AppendEntriesRequest from {}, term={}, currTerm={}.", getNodeId(),
                     request.serverId(), request.term(), this.currTerm);
-                return raftOptions.getRaftMessagesFactory()
-                    .appendEntriesResponse()
-                    .success(false)
-                    .term(this.currTerm)
-                    .build();
+                AppendEntriesResponseBuilder rb = raftOptions.getRaftMessagesFactory()
+                        .appendEntriesResponse()
+                        .success(false)
+                        .term(this.currTerm);
+
+                if (request.timestamp() != null) {
+                    rb.timestampLong(clock.update(request.timestamp()).longValue());
+                }
+
+                return rb.build();
             }
 
             // Check term and state to step down
@@ -2076,11 +2177,16 @@ public class NodeImpl implements Node, RaftServerService {
                 // loss of split brain
                 stepDown(request.term() + 1, false, new Status(RaftError.ELEADERCONFLICT,
                     "More than one leader in the same term."));
-                return raftOptions.getRaftMessagesFactory()
-                    .appendEntriesResponse()
-                    .success(false) //
-                    .term(request.term() + 1) //
-                    .build();
+                AppendEntriesResponseBuilder rb = raftOptions.getRaftMessagesFactory()
+                        .appendEntriesResponse()
+                        .success(false) //
+                        .term(request.term() + 1);
+
+                if (request.timestamp() != null) {
+                    rb.timestampLong(clock.update(request.timestamp()).longValue());
+                }
+
+                return rb.build();
             }
 
             updateLastLeaderTimestamp(Utils.monotonicMs());
@@ -2103,12 +2209,17 @@ public class NodeImpl implements Node, RaftServerService {
                     getNodeId(), request.serverId(), request.term(), prevLogIndex, prevLogTerm, localPrevLogTerm,
                     lastLogIndex, entriesCount);
 
-                return raftOptions.getRaftMessagesFactory()
-                    .appendEntriesResponse()
-                    .success(false)
-                    .term(this.currTerm)
-                    .lastLogIndex(lastLogIndex)
-                    .build();
+                AppendEntriesResponseBuilder rb = raftOptions.getRaftMessagesFactory()
+                        .appendEntriesResponse()
+                        .success(false)
+                        .term(this.currTerm)
+                        .lastLogIndex(lastLogIndex);
+
+                if (request.timestamp() != null) {
+                    rb.timestampLong(clock.update(request.timestamp()).longValue());
+                }
+
+                return rb.build();
             }
 
             if (entriesCount == 0) {
@@ -2118,6 +2229,9 @@ public class NodeImpl implements Node, RaftServerService {
                     .success(true)
                     .term(this.currTerm)
                     .lastLogIndex(this.logManager.getLastLogIndex());
+                if (request.timestamp() != null) {
+                    respBuilder.timestampLong(clock.update(request.timestamp()).longValue());
+                }
                 doUnlock = false;
                 this.writeLock.unlock();
                 // see the comments at FollowerStableClosure#run()
@@ -2544,7 +2658,12 @@ public class NodeImpl implements Node, RaftServerService {
             Closure newDone = (Status status) -> {
                 // doOnNewPeersConfigurationApplied should be called, otherwise we could lose the callback invocation.
                 // For example, old leader failed just before an invocation of doOnNewPeersConfigurationApplied
-                this.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(newConf.getPeers());
+                JraftGroupEventsListener listener = this.getOptions().getRaftGrpEvtsLsnr();
+
+                if (listener != null) {
+                    listener.onNewPeersConfigurationApplied(newConf.getPeers(), newConf.getLearners());
+                }
+
                 done.run(status);
             };
             Utils.runClosureInThread(this.getOptions().getCommonExecutor(), newDone);
@@ -2554,12 +2673,8 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     private void afterShutdown() {
-        List<Closure> savedDoneList = null;
         this.writeLock.lock();
         try {
-            if (!this.shutdownContinuations.isEmpty()) {
-                savedDoneList = new ArrayList<>(this.shutdownContinuations);
-            }
             if (this.logStorage != null) {
                 this.logStorage.shutdown();
             }
@@ -2567,11 +2682,6 @@ public class NodeImpl implements Node, RaftServerService {
         }
         finally {
             this.writeLock.unlock();
-        }
-        if (savedDoneList != null) {
-            for (final Closure closure : savedDoneList) {
-                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), closure);
-            }
         }
     }
 
@@ -2605,11 +2715,6 @@ public class NodeImpl implements Node, RaftServerService {
         finally {
             this.readLock.unlock();
         }
-    }
-
-    @Override
-    public void shutdown() {
-        shutdown(null);
     }
 
     public void onConfigurationChangeDone(final long term) {
@@ -2851,9 +2956,9 @@ public class NodeImpl implements Node, RaftServerService {
                     continue;
                 }
 
-                rpcClientService.connectAsync(peer.getEndpoint()).thenAccept(ok -> {
+                rpcClientService.connectAsync(peer).thenAccept(ok -> {
                     if (!ok) {
-                        LOG.warn("Node {} failed to init channel, address={}.", getNodeId(), peer.getEndpoint());
+                        LOG.warn("Node {} failed to init channel, address={}.", getNodeId(), peer);
                         return;
                     }
                     final OnPreVoteRpcDone done = new OnPreVoteRpcDone(peer, preVoteTerm);
@@ -2867,7 +2972,7 @@ public class NodeImpl implements Node, RaftServerService {
                             .lastLogIndex(lastLogId.getIndex())
                             .lastLogTerm(lastLogId.getTerm())
                             .build();
-                    this.rpcClientService.preVote(peer.getEndpoint(), done.request, done);
+                    this.rpcClientService.preVote(peer, done.request, done);
                 });
             }
             this.prevVoteCtx.grant(this.serverId);
@@ -2930,7 +3035,7 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void shutdown(final Closure done) {
+    public void shutdown() {
         this.writeLock.lock();
         try {
             LOG.info("Node {} shutdown, currTerm={} state={}.", getNodeId(), this.currTerm, this.state);
@@ -2971,24 +3076,10 @@ public class NodeImpl implements Node, RaftServerService {
 
                     Utils.runInThread(this.getOptions().getCommonExecutor(),
                         () -> this.applyQueue.publishEvent((event, sequence) -> {
-                            event.groupId = groupId;
+                            event.nodeId = getNodeId();
                             event.shutdownLatch = latch;
                         }));
                 }
-            }
-
-            if (this.state != State.STATE_SHUTDOWN) {
-                if (done != null) {
-                    this.shutdownContinuations.add(done);
-                }
-                return;
-            }
-
-            // This node is down, it's ok to invoke done right now. Don't invoke this
-            // in place to avoid the dead writeLock issue when done.Run() is going to acquire
-            // a writeLock which is already held by the caller
-            if (done != null) {
-                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done);
             }
         }
         finally {
@@ -3040,7 +3131,7 @@ public class NodeImpl implements Node, RaftServerService {
                 Replicator.join(this.wakingCandidate);
             }
             this.shutdownLatch.await();
-            this.applyDisruptor.unsubscribe(groupId);
+            this.applyDisruptor.unsubscribe(getNodeId());
             this.shutdownLatch = null;
         }
         if (this.fsmCaller != null) {
@@ -3082,7 +3173,7 @@ public class NodeImpl implements Node, RaftServerService {
             ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getClientExecutor());
             opts.setClientExecutor(null);
         }
-        if (opts.getfSMCallerExecutorDisruptor() != null && !opts.isSharedPools()) {
+        if (opts.getfSMCallerExecutorDisruptor() != null && (!opts.isSharedPools() || ownFsmCallerExecutorDisruptorConfig != null)) {
             opts.getfSMCallerExecutorDisruptor().shutdown();
             opts.setfSMCallerExecutorDisruptor(null);
         }
@@ -3257,9 +3348,9 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void changePeersAsync(final Configuration newPeers, long term, Closure done) {
-        Requires.requireNonNull(newPeers, "Null new peers");
-        Requires.requireTrue(!newPeers.isEmpty(), "Empty new peers");
+    public void changePeersAsync(final Configuration newConf, long term, Closure done) {
+        Requires.requireNonNull(newConf, "Null new peers");
+        Requires.requireTrue(!newConf.isEmpty(), "Empty new peers");
         this.writeLock.lock();
         try {
             long currentTerm = getCurrentTerm();
@@ -3273,9 +3364,9 @@ public class NodeImpl implements Node, RaftServerService {
                 return;
             }
 
-            LOG.info("Node {} change peers from {} to {}.", getNodeId(), this.conf.getConf(), newPeers);
+            LOG.info("Node {} change peers from {} to {}.", getNodeId(), this.conf.getConf(), newConf);
 
-            unsafeRegisterConfChange(this.conf.getConf(), newPeers, done, true);
+            unsafeRegisterConfChange(this.conf.getConf(), newConf, done, true);
         }
         finally {
             this.writeLock.unlock();
@@ -3446,7 +3537,7 @@ public class NodeImpl implements Node, RaftServerService {
             PeerId peerId = peer.copy();
             // if peer_id is ANY_PEER(0.0.0.0:0:0), the peer with the largest
             // last_log_id will be selected.
-            if (peerId.equals(PeerId.ANY_PEER)) {
+            if (peerId.isEmpty()) {
                 LOG.info("Node {} starts to transfer leadership to any peer.", getNodeId());
                 if ((peerId = this.replicatorGroup.findTheNextCandidate(this.conf)) == null) {
                     return new Status(-1, "Candidate not found for any peer");
@@ -3705,6 +3796,11 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
+    public State getNodeState() {
+        return this.state;
+    }
+
+    @Override
     public void describe(final Printer out) {
         // node
         final String _nodeId;
@@ -3764,8 +3860,8 @@ public class NodeImpl implements Node, RaftServerService {
         this.ballotBox.describe(out);
 
         // snapshotExecutor
-        out.println("snapshotExecutor: ");
         if (this.snapshotExecutor != null) {
+            out.println("snapshotExecutor: ");
             this.snapshotExecutor.describe(out);
         }
 

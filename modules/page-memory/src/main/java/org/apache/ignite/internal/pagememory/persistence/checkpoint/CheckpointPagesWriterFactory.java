@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -23,7 +23,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
-import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -38,9 +37,6 @@ import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
  * <p>It holds all dependency which is needed for creation of checkpoint writer.
  */
 public class CheckpointPagesWriterFactory {
-    /** Logger. */
-    private final IgniteLogger log;
-
     /** Thread local with buffers for the checkpoint threads. Each buffer represent one page for durable memory. */
     private final ThreadLocal<ByteBuffer> threadBuf;
 
@@ -56,21 +52,18 @@ public class CheckpointPagesWriterFactory {
     /**
      * Constructor.
      *
-     * @param log Logger.
      * @param dirtyPageWriter Checkpoint page writer.
      * @param ioRegistry Page IO registry.
      * @param partitionMetaManager Partition meta information manager.
      * @param pageSize Page size in bytes.
      */
     CheckpointPagesWriterFactory(
-            IgniteLogger log,
             WriteDirtyPage dirtyPageWriter,
             PageIoRegistry ioRegistry,
             PartitionMetaManager partitionMetaManager,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
-        this.log = log;
         this.dirtyPageWriter = dirtyPageWriter;
         this.ioRegistry = ioRegistry;
         this.partitionMetaManager = partitionMetaManager;
@@ -106,7 +99,6 @@ public class CheckpointPagesWriterFactory {
             BooleanSupplier shutdownNow
     ) {
         return new CheckpointPagesWriter(
-                log,
                 tracker,
                 dirtyPageIdQueue,
                 updatedPartitions,

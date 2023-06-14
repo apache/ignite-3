@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -34,6 +34,7 @@ public class RetryReadPolicy extends RetryLimitPolicy {
             case TUPLE_GET_ALL:
             case TUPLE_GET:
             case TABLE_GET:
+            case CHANNEL_CONNECT:
                 return true;
 
             case TUPLE_UPSERT:
@@ -50,6 +51,8 @@ public class RetryReadPolicy extends RetryLimitPolicy {
             case TUPLE_INSERT:
             case TUPLE_GET_AND_UPSERT:
             case TUPLE_UPSERT_ALL:
+            case SQL_EXECUTE:
+            case SQL_CURSOR_NEXT_PAGE:
                 return false;
 
             default:

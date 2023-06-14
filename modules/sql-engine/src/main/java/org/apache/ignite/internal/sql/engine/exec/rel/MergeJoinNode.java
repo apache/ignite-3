@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -59,11 +59,10 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx  Execution context.
-     * @param rowType Rel data type.
      * @param comp Join expression.
      */
-    private MergeJoinNode(ExecutionContext<RowT> ctx, RelDataType rowType, Comparator<RowT> comp) {
-        super(ctx, rowType);
+    private MergeJoinNode(ExecutionContext<RowT> ctx, Comparator<RowT> comp) {
+        super(ctx);
 
         this.comp = comp;
         handler = ctx.rowHandler();
@@ -212,36 +211,36 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @NotNull
-    public static <RowT> MergeJoinNode<RowT> create(ExecutionContext<RowT> ctx, RelDataType outputRowType, RelDataType leftRowType,
+    public static <RowT> MergeJoinNode<RowT> create(ExecutionContext<RowT> ctx, RelDataType leftRowType,
             RelDataType rightRowType, JoinRelType joinType, Comparator<RowT> comp) {
         switch (joinType) {
             case INNER:
-                return new InnerJoin<>(ctx, outputRowType, comp);
+                return new InnerJoin<>(ctx, comp);
 
             case LEFT: {
                 RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightRowType);
 
-                return new LeftJoin<>(ctx, outputRowType, comp, rightRowFactory);
+                return new LeftJoin<>(ctx, comp, rightRowFactory);
             }
 
             case RIGHT: {
                 RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), leftRowType);
 
-                return new RightJoin<>(ctx, outputRowType, comp, leftRowFactory);
+                return new RightJoin<>(ctx, comp, leftRowFactory);
             }
 
             case FULL: {
                 RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), leftRowType);
                 RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightRowType);
 
-                return new FullOuterJoin<>(ctx, outputRowType, comp, leftRowFactory, rightRowFactory);
+                return new FullOuterJoin<>(ctx, comp, leftRowFactory, rightRowFactory);
             }
 
             case SEMI:
-                return new SemiJoin<>(ctx, outputRowType, comp);
+                return new SemiJoin<>(ctx, comp);
 
             case ANTI:
-                return new AntiJoin<>(ctx, outputRowType, comp);
+                return new AntiJoin<>(ctx, comp);
 
             default:
                 throw new IllegalStateException("Join type \"" + joinType + "\" is not supported yet");
@@ -264,11 +263,10 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
          * Constructor.
          *
          * @param ctx     Execution context.
-         * @param rowType Row type.
          * @param comp    Join expression comparator.
          */
-        private InnerJoin(ExecutionContext<RowT> ctx, RelDataType rowType, Comparator<RowT> comp) {
-            super(ctx, rowType, comp);
+        private InnerJoin(ExecutionContext<RowT> ctx, Comparator<RowT> comp) {
+            super(ctx, comp);
         }
 
         /** {@inheritDoc} */
@@ -422,17 +420,15 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
          * Constructor.
          *
          * @param ctx             Execution context.
-         * @param rowType         Row type.
          * @param comp            Join expression comparator.
          * @param rightRowFactory Right row factory.
          */
         private LeftJoin(
                 ExecutionContext<RowT> ctx,
-                RelDataType rowType,
                 Comparator<RowT> comp,
                 RowHandler.RowFactory<RowT> rightRowFactory
         ) {
-            super(ctx, rowType, comp);
+            super(ctx, comp);
 
             this.rightRowFactory = rightRowFactory;
         }
@@ -454,8 +450,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         protected void join() throws Exception {
             inLoop = true;
             try {
-                while (requested > 0 && (left != null || !leftInBuf.isEmpty())
-                        && !(right == null && rightInBuf.isEmpty() && rightMaterialization == null && waitingRight != NOT_WAITING)) {
+                while (requested > 0 && (left != null || !leftInBuf.isEmpty()) && (right != null || !rightInBuf.isEmpty()
+                        || rightMaterialization != null || waitingRight == NOT_WAITING)) {
                     checkState();
 
                     if (left == null) {
@@ -464,8 +460,14 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                         matched = false;
                     }
 
-                    if (right == null && !rightInBuf.isEmpty()) {
-                        right = rightInBuf.remove();
+                    if (right == null) {
+                        if (rightInBuf.isEmpty() && waitingRight != NOT_WAITING) {
+                            break;
+                        }
+
+                        if (!rightInBuf.isEmpty()) {
+                            right = rightInBuf.remove();
+                        }
                     }
 
                     if (right == null && rightMaterialization != null && !drainMaterialization) {
@@ -603,17 +605,15 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          *
          * @param ctx            Execution context.
-         * @param rowType        Row type.
          * @param comp           Join expression comparator.
          * @param leftRowFactory Left row factory.
          */
         private RightJoin(
                 ExecutionContext<RowT> ctx,
-                RelDataType rowType,
                 Comparator<RowT> comp,
                 RowHandler.RowFactory<RowT> leftRowFactory
         ) {
-            super(ctx, rowType, comp);
+            super(ctx, comp);
 
             this.leftRowFactory = leftRowFactory;
         }
@@ -806,14 +806,13 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          *
          * @param ctx             Execution context.
-         * @param rowType         Row type.
          * @param comp            Join expression comparator.
          * @param leftRowFactory  Left row factory.
          * @param rightRowFactory Right row factory.
          */
-        private FullOuterJoin(ExecutionContext<RowT> ctx, RelDataType rowType, Comparator<RowT> comp,
+        private FullOuterJoin(ExecutionContext<RowT> ctx, Comparator<RowT> comp,
                 RowHandler.RowFactory<RowT> leftRowFactory, RowHandler.RowFactory<RowT> rightRowFactory) {
-            super(ctx, rowType, comp);
+            super(ctx, comp);
 
             this.leftRowFactory = leftRowFactory;
             this.rightRowFactory = rightRowFactory;
@@ -1019,11 +1018,10 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          *
          * @param ctx     Execution context.
-         * @param rowType Row type.
          * @param comp    Join expression comparator.
          */
-        private SemiJoin(ExecutionContext<RowT> ctx, RelDataType rowType, Comparator<RowT> comp) {
-            super(ctx, rowType, comp);
+        private SemiJoin(ExecutionContext<RowT> ctx, Comparator<RowT> comp) {
+            super(ctx, comp);
         }
 
         /** {@inheritDoc} */
@@ -1099,11 +1097,10 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          *
          * @param ctx     Execution context.
-         * @param rowType Row type.
          * @param comp    Join expression comparator.
          */
-        private AntiJoin(ExecutionContext<RowT> ctx, RelDataType rowType, Comparator<RowT> comp) {
-            super(ctx, rowType, comp);
+        private AntiJoin(ExecutionContext<RowT> ctx, Comparator<RowT> comp) {
+            super(ctx, comp);
         }
 
         /** {@inheritDoc} */

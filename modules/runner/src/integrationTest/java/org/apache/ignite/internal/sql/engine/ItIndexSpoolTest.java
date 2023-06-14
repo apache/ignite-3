@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,27 +17,25 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Index spool test.
  */
-public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
-    private static final IgniteLogger LOG = Loggers.forClass(AbstractBasicIntegrationTest.class);
+public class ItIndexSpoolTest extends ClusterPerClassIntegrationTest {
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterPerClassIntegrationTest.class);
 
     /**
      * After each.
@@ -48,22 +46,34 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
             LOG.info("Start cleanUp()");
         }
 
-        CLUSTER_NODES.get(0).tables().tables().stream()
-                .map(Table::name)
-                .forEach(CLUSTER_NODES.get(0).tables()::dropTable);
+        for (Table table : CLUSTER_NODES.get(0).tables().tables()) {
+            sql("DROP TABLE " + table.name());
+            sql("DROP ZONE " + "ZONE_" + table.name().toUpperCase());
+        }
 
         if (LOG.isInfoEnabled()) {
             LOG.info("End cleanUp()");
         }
     }
 
+    private static Stream<Arguments> rowsWithPartitionsArgs() {
+        return Stream.of(
+                Arguments.of(1, 1),
+                Arguments.of(10, 1),
+                Arguments.of(IN_BUFFER_SIZE, 1),
+                Arguments.of(IN_BUFFER_SIZE + 1, 1),
+                Arguments.of(2000, 1),
+                Arguments.of(IN_BUFFER_SIZE, 2),
+                Arguments.of(IN_BUFFER_SIZE + 1, 2));
+    }
+
     /**
      * Test.
      */
-    @ParameterizedTest(name = "tableSize=" + ARGUMENTS_PLACEHOLDER)
-    @ValueSource(ints = {1, 10, 512, 513, 2000})
-    public void test(int rows) {
-        prepareDataSet(rows);
+    @ParameterizedTest(name = "tableSize={0}, partitions={1}")
+    @MethodSource("rowsWithPartitionsArgs")
+    public void test(int rows, int partitions) throws InterruptedException {
+        prepareDataSet(rows, partitions);
 
         var res = sql("SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter') */"
                         + "T0.val, T1.val FROM TEST0 as T0 "
@@ -75,27 +85,7 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
         res.forEach(r -> assertThat(r.get(0), is(r.get(1))));
     }
 
-    private Table createTable(String tableName) {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", tableName)
-                .columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("JID", ColumnType.INT32).asNullable(true).build(),
-                        SchemaBuilders.column("VAL", ColumnType.string()).asNullable(true).build()
-                )
-                .withPrimaryKey("ID")
-                .withIndex(
-                        SchemaBuilders.sortedIndex(tableName + "_JID_IDX").addIndexColumn("JID").done().build()
-                )
-                .build();
-
-        return CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(2)
-                        .changePartitions(10)
-        );
-    }
-
-    private void prepareDataSet(int rowsCount) {
+    private void prepareDataSet(int rowsCount, int parts) throws InterruptedException {
         Object[][] dataRows = new Object[rowsCount][];
 
         for (int i = 0; i < rowsCount; i++) {
@@ -103,9 +93,13 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
         }
 
         for (String name : List.of("TEST0", "TEST1")) {
-            Table tbl = createTable(name);
+            sql(String.format("CREATE ZONE %s with replicas=2, partitions=%d", "ZONE_" + name.toUpperCase(), parts));
+            sql(String.format("CREATE TABLE %s(id INT PRIMARY KEY, jid INT, val VARCHAR) WITH PRIMARY_ZONE='%s'",
+                    name, "ZONE_" + name.toUpperCase()));
 
-            insertData(tbl, new String[]{"ID", "JID", "VAL"}, dataRows);
+            sql("CREATE INDEX " + name + "_jid_idx ON " + name + "(jid)");
+
+            insertData(name, List.of("ID", "JID", "VAL"), dataRows);
         }
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -28,7 +28,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -46,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Asynchronous result set implementation.
  */
-public class AsyncResultSetImpl implements AsyncResultSet {
+public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     private static final CompletableFuture<? extends AsyncResultSet> HAS_NO_MORE_PAGE_FUTURE =
             CompletableFuture.failedFuture(new SqlException(CURSOR_NO_MORE_PAGES_ERR, "There are no more pages."));
 
@@ -68,12 +67,6 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         this.curPage = page;
         this.pageSize = pageSize;
         this.closeRun = closeRun;
-
-        assert cur.queryType() == SqlQueryType.QUERY
-                || ((cur.queryType() == SqlQueryType.DML || cur.queryType() == SqlQueryType.DDL)
-                && curPage.items().size() == 1
-                && curPage.items().get(0).size() == 1
-                && !curPage.hasMore()) : "Invalid query result: [type=" + cur.queryType() + "res=" + curPage + ']';
     }
 
     /** {@inheritDoc} */
@@ -114,13 +107,14 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public Iterable<SqlRow> currentPage() {
+    public Iterable<T> currentPage() {
         requireResultSet();
 
         final Iterator<List<Object>> it0 = curPage.items().iterator();
         final ResultSetMetadata meta0 = cur.metadata();
 
-        return () -> new TransformingIterator<>(it0, (item) -> new SqlRowImpl(item, meta0));
+        // TODO: IGNITE-18695 map rows to objects when mapper is provided.
+        return () -> new TransformingIterator<>(it0, (item) -> (T) new SqlRowImpl(item, meta0));
     }
 
     /** {@inheritDoc} */
@@ -133,11 +127,11 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<? extends AsyncResultSet> fetchNextPage() {
+    public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
         requireResultSet();
 
         if (!hasMorePages()) {
-            return HAS_NO_MORE_PAGE_FUTURE;
+            return (CompletableFuture<? extends AsyncResultSet<T>>) HAS_NO_MORE_PAGE_FUTURE;
         } else {
             return cur.requestNextAsync(pageSize)
                     .thenApply(page -> {
@@ -156,7 +150,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<Void> closeAsync() {
+    public CompletableFuture<Void> closeAsync() {
         return cur.closeAsync().thenRun(closeRun);
     }
 

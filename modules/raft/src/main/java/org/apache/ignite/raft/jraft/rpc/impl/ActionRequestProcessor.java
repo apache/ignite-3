@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,16 +19,14 @@ package org.apache.ignite.raft.jraft.rpc.impl;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.function.BiFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.raft.client.Command;
-import org.apache.ignite.raft.client.ReadCommand;
-import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.client.service.CommandClosure;
+import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.ReadCommand;
+import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -44,7 +42,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
-import org.apache.ignite.raft.jraft.util.JDKMarshaller;
+import org.apache.ignite.raft.jraft.util.Marshaller;
 
 /**
  * Process action request.
@@ -56,15 +54,18 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
     private final RaftMessagesFactory factory;
 
-    public ActionRequestProcessor(Executor executor, RaftMessagesFactory factory) {
+    private final Marshaller commandsMarshaller;
+
+    public ActionRequestProcessor(Executor executor, RaftMessagesFactory factory, Marshaller commandsMarshaller) {
         this.executor = executor;
         this.factory = factory;
+        this.commandsMarshaller = commandsMarshaller;
     }
 
     /** {@inheritDoc} */
     @Override
     public void handleRequest(RpcContext rpcCtx, ActionRequest request) {
-        Node node = rpcCtx.getNodeManager().get(request.groupId(), new PeerId(rpcCtx.getLocalAddress()));
+        Node node = rpcCtx.getNodeManager().get(request.groupId(), new PeerId(rpcCtx.getLocalConsistentId()));
 
         if (node == null) {
             rpcCtx.sendResponse(factory.errorResponse().errorCode(RaftError.UNKNOWN.getNumber()).build());
@@ -74,32 +75,13 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
         JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
 
-        // Apply a filter before commiting to STM.
-        CompletableFuture<Void> fut = fsm.getListener().onBeforeApply(request.command());
+        // Apply a filter before committing to STM.
+        fsm.getListener().onBeforeApply(request.command());
 
-        if (fut != null) {
-            fut.handle(new BiFunction<Void, Throwable, Void>() {
-                @Override
-                public Void apply(Void ignored, Throwable err) {
-                    if (err == null) {
-                        if (request.command() instanceof WriteCommand) {
-                            applyWrite(node, request, rpcCtx);
-                        } else {
-                            applyRead(node, request, rpcCtx);
-                        }
-                    } else {
-                        sendSMError(rpcCtx, err, false);
-                    }
-
-                    return null;
-                }
-            });
+        if (request.command() instanceof WriteCommand) {
+            applyWrite(node, request, rpcCtx);
         } else {
-            if (request.command() instanceof WriteCommand) {
-                applyWrite(node, request, rpcCtx);
-            } else {
-                applyRead(node, request, rpcCtx);
-            }
+            applyRead(node, request, rpcCtx);
         }
     }
 
@@ -109,8 +91,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      * @param rpcCtx  The context.
      */
     private void applyWrite(Node node, ActionRequest request, RpcContext rpcCtx) {
-        // TODO asch get rid of JDK marshaller IGNITE-14832
-        node.apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(request.command())),
+        node.apply(new Task(ByteBuffer.wrap(commandsMarshaller.marshall(request.command())),
                 new CommandClosureImpl<>(request.command()) {
                     @Override
                     public void result(Serializable res) {

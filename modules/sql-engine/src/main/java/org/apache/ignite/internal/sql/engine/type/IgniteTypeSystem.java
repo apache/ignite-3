@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,17 +21,16 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelDataTypeSystemImpl;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.schema.definition.ColumnType.TemporalColumnType;
+import org.apache.ignite.internal.schema.TemporalNativeType;
 
 /**
  * Ignite type system.
  */
 public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializable {
-    public static final RelDataTypeSystem INSTANCE = new IgniteTypeSystem();
+    public static final IgniteTypeSystem INSTANCE = new IgniteTypeSystem();
 
     /** {@inheritDoc} */
     @Override
@@ -45,6 +44,8 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
         return Short.MAX_VALUE;
     }
 
+
+
     /** {@inheritDoc} */
     @Override
     public int getMaxPrecision(SqlTypeName typeName) {
@@ -53,7 +54,7 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
             case TIME_WITH_LOCAL_TIME_ZONE:
             case TIMESTAMP:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return TemporalColumnType.MAX_TIME_PRECISION;
+                return TemporalNativeType.MAX_TIME_PRECISION;
             default:
                 return super.getMaxPrecision(typeName);
         }
@@ -65,7 +66,11 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
         switch (typeName) {
             case TIMESTAMP: // DATETIME
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE: // TIMESTAMP
-                return TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION;
+                return TemporalNativeType.DEFAULT_TIMESTAMP_PRECISION;
+            case FLOAT:
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-18556
+                // Fixes leastRestrictive(FLOAT, DOUBLE) != leastRestrictive(DOUBLE, FLOAT).
+                return super.getDefaultPrecision(typeName) - 1;
             default:
                 return super.getDefaultPrecision(typeName);
         }
@@ -142,4 +147,5 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
 
         return typeFactory.createTypeWithNullability(sumType, argumentType.isNullable());
     }
+
 }

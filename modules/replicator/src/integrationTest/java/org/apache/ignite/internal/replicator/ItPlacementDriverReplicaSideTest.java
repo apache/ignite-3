@@ -1,0 +1,460 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.replicator;
+
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.raft.PeersAndLearners.fromConsistentIds;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.io.Closeable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverActorMessage;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
+import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
+import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.TestRaftGroupListener;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.replicator.message.ReplicaMessageTestGroup;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.TestReplicaMessagesFactory;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.topology.LogicalTopologyServiceTestImpl;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.lang.IgniteTriConsumer;
+import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NetworkMessageHandler;
+import org.apache.ignite.network.StaticNodeFinder;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+/**
+ * These test are using an honest connection to test interconnection between replicas with placement driver.
+ */
+@ExtendWith(ConfigurationExtension.class)
+public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
+    public static final int BASE_PORT = 1234;
+
+    private static final TestReplicationGroupId GROUP_ID = new TestReplicationGroupId("group_1");
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    private static final TestReplicaMessagesFactory TEST_REPLICA_MESSAGES_FACTORY = new TestReplicaMessagesFactory();
+
+    @InjectConfiguration("mock {retryTimeout=2000, responseTimeout=1000}")
+    private RaftConfiguration raftConfiguration;
+
+    private HybridClock clock = new HybridClockImpl();
+
+    private Set<String> placementDriverNodeNames;
+    private Set<String> nodeNames;
+
+    /** This closure handles {@link StopLeaseProlongationMessage} to check the replica behavior. */
+    private IgniteTriConsumer<StopLeaseProlongationMessage, String, String> denyLeaseHandler;
+
+    /** Cluster service by node name. */
+    private Map<String, ClusterService> clusterServices;
+
+    private Map<String, ReplicaManager> replicaManagers = new HashMap<>();
+    private Map<String, Loza> raftManagers = new HashMap<>();
+    private Map<String, TopologyAwareRaftGroupServiceFactory> raftClientFactory = new HashMap<>();
+
+    /** List of services to have to close before the test will be completed. */
+    private List<Closeable> servicesToClose = new ArrayList<>();
+
+    @BeforeEach
+    public void beforeTest(TestInfo testInfo) {
+        placementDriverNodeNames = IntStream.range(BASE_PORT, BASE_PORT + 3).mapToObj(port -> testNodeName(testInfo, port))
+                .collect(toSet());
+        nodeNames = IntStream.range(BASE_PORT, BASE_PORT + 5).mapToObj(port -> testNodeName(testInfo, port))
+                .collect(toSet());
+
+        clusterServices = startNodes();
+
+        var cmgManager = mock(ClusterManagementGroupManager.class);
+
+        when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(placementDriverNodeNames));
+
+        for (String nodeName : nodeNames) {
+            var clusterService = clusterServices.get(nodeName);
+
+            RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
+
+            var raftManager = new Loza(
+                    clusterService,
+                    raftConfiguration,
+                    workDir.resolve(nodeName + "_loza"),
+                    clock,
+                    eventsClientListener
+            );
+
+            raftManagers.put(nodeName, raftManager);
+
+            TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                    clusterService,
+                    new LogicalTopologyServiceTestImpl(clusterService),
+                    Loza.FACTORY,
+                    eventsClientListener
+            );
+
+            raftClientFactory.put(nodeName, topologyAwareRaftGroupServiceFactory);
+
+            var replicaManager = new ReplicaManager(
+                    clusterService,
+                    cmgManager,
+                    clock,
+                    Set.of(ReplicaMessageTestGroup.class)
+            );
+
+            replicaManagers.put(nodeName, replicaManager);
+
+            clusterService.start();
+            raftManager.start();
+            replicaManager.start();
+
+            servicesToClose.add(() -> {
+                try {
+                    replicaManager.beforeNodeStop();
+                    raftManager.beforeNodeStop();
+                    clusterService.beforeNodeStop();
+
+                    replicaManager.stop();
+                    raftManager.stop();
+                    clusterService.stop();
+                } catch (Exception e) {
+                    log.info("Fail to stop services [node={}]", e, nodeName);
+                }
+            });
+        }
+    }
+
+    @AfterEach
+    public void afterTest() throws Exception {
+        for (Closeable cl : servicesToClose) {
+            cl.close();
+        }
+    }
+
+    /**
+     * Starts cluster nodes.
+     *
+     * @return Cluster services.
+     */
+    public Map<String, ClusterService> startNodes() {
+        var res = new HashMap<String, ClusterService>(nodeNames.size());
+
+        var nodeFinder = new StaticNodeFinder(IntStream.range(BASE_PORT, BASE_PORT + 5)
+                .mapToObj(p -> new NetworkAddress("localhost", p))
+                .collect(Collectors.toList()));
+
+        int port = BASE_PORT;
+
+        for (String nodeName : nodeNames) {
+            var srvc = ClusterServiceTestUtils.clusterService(nodeName, port++, nodeFinder);
+
+            srvc.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, leaseDenyMessageHandler(srvc));
+
+            res.put(nodeName, srvc);
+        }
+
+        return res;
+    }
+
+    /**
+     * Creates a network handler to intercept {@link StopLeaseProlongationMessage}.
+     *
+     * @param handlerService Cluster service to handle message.
+     * @return Network handler.
+     */
+    private NetworkMessageHandler leaseDenyMessageHandler(ClusterService handlerService) {
+        return (msg, sender, correlationId) -> {
+            if (!(msg instanceof PlacementDriverActorMessage)) {
+                return;
+            }
+
+            var handlerNode = handlerService.topologyService().localMember();
+
+            log.info("Lease is denied [replica={}, actor={}, redirect={}]", sender, handlerNode.name(),
+                    ((StopLeaseProlongationMessage) msg).redirectProposal());
+
+            if (denyLeaseHandler != null) {
+                denyLeaseHandler.accept((StopLeaseProlongationMessage) msg, sender, handlerNode.name());
+            }
+        };
+    }
+
+    @Test
+    public void testNotificationToPlacementDriverAboutChangeLeader() throws Exception {
+        Set<String> grpNodes = chooseRandomNodes(3);
+
+        log.info("Replication group is based on {}", grpNodes);
+
+        var raftClientFut = createReplicationGroup(GROUP_ID, grpNodes);
+
+        var raftClient = raftClientFut.get();
+
+        raftClient.refreshLeader().get();
+
+        var leaderNodeName = raftClient.leader().consistentId();
+
+        var newLeaderNodeName = grpNodes.stream().filter(n -> !n.equals(leaderNodeName)).findAny().get();
+
+        log.info("Leader is moving form {} to {}", leaderNodeName, newLeaderNodeName);
+
+        ConcurrentHashMap<String, String> nodesToReceivedDeclineMsg = new ConcurrentHashMap<>();
+
+        denyLeaseHandler = (msg, from, to) -> {
+            nodesToReceivedDeclineMsg.put(to, from);
+        };
+
+        raftClient.transferLeadership(new Peer(newLeaderNodeName)).get();
+
+        var anyNode = randomNode(Set.of());
+
+        log.info("Message sent from {} to {}", anyNode, leaderNodeName);
+
+        var clusterService = clusterServices.get(anyNode);
+
+        new ReplicaService(clusterService.messagingService(), clock).invoke(
+                clusterService.topologyService().getByConsistentId(leaderNodeName),
+                TEST_REPLICA_MESSAGES_FACTORY.primaryReplicaTestRequest()
+                        .groupId(GROUP_ID)
+                        .build()
+        );
+
+        assertTrue(waitForCondition(() -> nodesToReceivedDeclineMsg.size() == placementDriverNodeNames.size(), 10_000));
+
+        for (String nodeName : nodesToReceivedDeclineMsg.keySet()) {
+            assertEquals(leaderNodeName, nodesToReceivedDeclineMsg.get(nodeName));
+
+            assertTrue(placementDriverNodeNames.contains(nodeName));
+        }
+
+        stopReplicationGroup(GROUP_ID, grpNodes);
+    }
+
+    @Test
+    public void testNotificationToPlacementDriverAboutMajorityLoss() throws Exception {
+        Set<String> grpNodes = chooseRandomNodes(3);
+
+        log.info("Replication group is based on {}", grpNodes);
+
+        var raftClientFut = createReplicationGroup(GROUP_ID, grpNodes);
+
+        var raftClient = raftClientFut.get();
+
+        raftClient.refreshLeader().get();
+
+        var leaderNodeName = raftClient.leader().consistentId();
+
+        var grpNodesToStop = grpNodes.stream().filter(n -> !n.equals(leaderNodeName)).collect(toSet());
+
+        log.info(
+                "All nodes of the replication group will be unavailable except leader [leader={}, others={}]",
+                leaderNodeName,
+                grpNodesToStop
+        );
+
+        ConcurrentHashMap<String, String> nodesToReceivedDeclineMsg = new ConcurrentHashMap<>();
+
+        denyLeaseHandler = (msg, from, to) -> {
+            nodesToReceivedDeclineMsg.put(to, from);
+        };
+
+        for (String nodeToStop : grpNodesToStop) {
+            var srvc = clusterServices.get(nodeToStop);
+
+            srvc.beforeNodeStop();
+            srvc.stop();
+        }
+
+        var anyNode = randomNode(grpNodesToStop);
+
+        log.info("Message sent from {} to {}", anyNode, leaderNodeName);
+
+        var clusterService = clusterServices.get(anyNode);
+
+        new ReplicaService(clusterService.messagingService(), clock).invoke(
+                clusterService.topologyService().getByConsistentId(leaderNodeName),
+                TEST_REPLICA_MESSAGES_FACTORY.primaryReplicaTestRequest()
+                        .groupId(GROUP_ID)
+                        .build()
+        );
+
+        var restPlacementDriverNodes = placementDriverNodeNames.stream().filter(n -> !grpNodesToStop.contains(n)).collect(toSet());
+
+        log.info("Rest nodes of placement driver {}", restPlacementDriverNodes);
+
+        assertTrue(waitForCondition(() -> nodesToReceivedDeclineMsg.size() == restPlacementDriverNodes.size(), 10_000));
+
+        for (String nodeName : nodesToReceivedDeclineMsg.keySet()) {
+            assertEquals(leaderNodeName, nodesToReceivedDeclineMsg.get(nodeName));
+
+            assertTrue(placementDriverNodeNames.contains(nodeName));
+        }
+
+        stopReplicationGroup(GROUP_ID, grpNodes);
+    }
+
+    /**
+     * Gets a node name randomly.
+     *
+     * @return Node name.
+     */
+    private String randomNode(Set<String> exceptNodes) {
+        ArrayList<String> list = new ArrayList<>(nodeNames);
+
+        list.removeAll(exceptNodes);
+
+        Collections.shuffle(list);
+
+        return list.get(0);
+    }
+
+    /**
+     * Prepares a random set of nodes.
+     *
+     * @return Random node set.
+     */
+    private Set<String> chooseRandomNodes(int count) {
+        assertTrue(count <= nodeNames.size());
+
+        var list = new ArrayList<>(nodeNames);
+
+        Collections.shuffle(list);
+
+        Set<String> randNodes = new HashSet<>(list.subList(0, count));
+
+        return randNodes;
+    }
+
+    /**
+     * Stops a replication group.
+     *
+     * @param testGrpId Replication group id.
+     * @param grpNodes Participants on the replication group.
+     * @throws NodeStoppingException If failed.
+     */
+    private void stopReplicationGroup(ReplicationGroupId testGrpId, Set<String> grpNodes) throws NodeStoppingException {
+        for (String nodeName : grpNodes) {
+            var raftManager = raftManagers.get(nodeName);
+            var replicaManager = replicaManagers.get(nodeName);
+
+            assertNotNull(raftManager);
+            assertNotNull(replicaManager);
+
+            replicaManager.stopReplica(testGrpId).join();
+            raftManager.stopRaftNodes(testGrpId);
+        }
+    }
+
+    /**
+     * Creates a replication group on a specific node set.
+     *
+     * @param groupId Replication group id.
+     * @param nodes Participants on the replication group.
+     * @return Raft client for the replication group.
+     * @throws Exception If failed.
+     */
+    private CompletableFuture<TopologyAwareRaftGroupService> createReplicationGroup(
+            ReplicationGroupId groupId,
+            Set<String> nodes
+    ) throws Exception {
+        var res = new CompletableFuture<TopologyAwareRaftGroupService>();
+
+        for (String nodeName : nodes) {
+            var replicaManager = replicaManagers.get(nodeName);
+            var raftManager = raftManagers.get(nodeName);
+
+            assertNotNull(replicaManager);
+            assertNotNull(raftManager);
+
+            var peer = new Peer(nodeName);
+
+            var rftNodeId = new RaftNodeId(groupId, peer);
+
+            CompletableFuture<TopologyAwareRaftGroupService> raftClientFut = raftManager.startRaftGroupNode(
+                    rftNodeId,
+                    fromConsistentIds(nodes),
+                    new TestRaftGroupListener(),
+                    RaftGroupEventsListener.noopLsnr,
+                    RaftGroupOptions.defaults(),
+                    raftClientFactory.get(nodeName)
+            );
+
+            raftClientFut.thenAccept(raftClient -> {
+                try {
+                    if (!res.isDone()) {
+                        res.complete(raftClient);
+                    }
+
+                    replicaManager.startReplica(
+                            groupId,
+                            allOf(raftManager.raftNodeReadyFuture(groupId)),
+                            request -> {
+                                log.info("Handle request [type={}]", request.getClass().getSimpleName());
+
+                                return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().build());
+                            },
+                            raftClient,
+                            new PendingComparableValuesTracker<>(Long.MAX_VALUE));
+                } catch (NodeStoppingException e) {
+                    fail("Can not start replica [groupId=" + groupId + ']');
+                }
+            });
+        }
+
+        return res;
+    }
+}

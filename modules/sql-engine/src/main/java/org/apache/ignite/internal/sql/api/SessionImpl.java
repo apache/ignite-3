@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.INVALID_DML_RESULT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -32,14 +35,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.lang.IgniteExceptionUtils;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
-import org.apache.ignite.internal.sql.engine.QueryValidator;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.apache.ignite.internal.sql.engine.property.Property;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -49,9 +51,11 @@ import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -70,6 +74,8 @@ public class SessionImpl implements Session {
 
     private final int pageSize;
 
+    private final long sessionTimeout;
+
     private final PropertiesHolder props;
 
     /**
@@ -77,17 +83,20 @@ public class SessionImpl implements Session {
      *
      * @param qryProc Query processor.
      * @param pageSize Query fetch page size.
+     * @param sessionTimeoutMs Session timeout in milliseconds.
      * @param props Session's properties.
      */
     SessionImpl(
             SessionId sessionId,
             QueryProcessor qryProc,
             int pageSize,
+            long sessionTimeoutMs,
             PropertiesHolder props
     ) {
         this.qryProc = qryProc;
         this.sessionId = sessionId;
         this.pageSize = pageSize;
+        this.sessionTimeout = sessionTimeoutMs;
         this.props = props;
     }
 
@@ -105,8 +114,14 @@ public class SessionImpl implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public long defaultTimeout(TimeUnit timeUnit) {
-        return timeUnit.convert(props.get(QueryProperty.QUERY_TIMEOUT), TimeUnit.NANOSECONDS);
+    public long defaultQueryTimeout(TimeUnit timeUnit) {
+        return timeUnit.convert(props.get(QueryProperty.QUERY_TIMEOUT), TimeUnit.MILLISECONDS);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long idleTimeout(TimeUnit timeUnit) {
+        return timeUnit.convert(sessionTimeout, TimeUnit.MILLISECONDS);
     }
 
     /** {@inheritDoc} */
@@ -136,21 +151,30 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public SessionBuilder toBuilder() {
-        return new SessionBuilderImpl(qryProc, new HashMap<>(props.toMap()))
+        Map<String, Object> propertyMap = new HashMap<>();
+
+        for (Map.Entry<Property<?>, Object> entry : props) {
+            propertyMap.put(entry.getKey().name, entry.getValue());
+        }
+
+        return new SessionBuilderImpl(qryProc, propertyMap)
                 .defaultPageSize(pageSize);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
+    public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
+            @Nullable Transaction transaction,
+            String query,
+            @Nullable Object... arguments) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new SqlException(SESSION_NOT_FOUND_ERR, "Session is closed."));
         }
 
         try {
-            QueryContext ctx = QueryContext.of(transaction);
+            QueryContext ctx = QueryContext.create(SqlQueryType.ALL, transaction);
 
-            CompletableFuture<AsyncResultSet> result = qryProc.querySingleAsync(sessionId, ctx, query, arguments)
+            CompletableFuture<AsyncResultSet<SqlRow>> result = qryProc.querySingleAsync(sessionId, ctx, query, arguments)
                     .thenCompose(cur -> cur.requestNextAsync(pageSize)
                             .thenApply(
                                     batchRes -> new AsyncResultSetImpl(
@@ -163,7 +187,7 @@ public class SessionImpl implements Session {
             );
 
             result.whenComplete((rs, th) -> {
-                if (IgniteExceptionUtils.getIgniteErrorCode(th) == SESSION_NOT_FOUND_ERR) {
+                if (IgniteException.getIgniteErrorCode(th) == SESSION_NOT_FOUND_ERR) {
                     closeInternal();
                 }
             });
@@ -178,7 +202,7 @@ public class SessionImpl implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncResultSet> executeAsync(
+    public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
             Statement statement,
             @Nullable Object... arguments
@@ -189,22 +213,34 @@ public class SessionImpl implements Session {
 
     /** {@inheritDoc} */
     @Override
+    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(@Nullable Transaction transaction, @Nullable Mapper<T> mapper,
+            String query, @Nullable Object... arguments) {
+        // TODO: IGNITE-18695.
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
+            @Nullable Transaction transaction,
+            @Nullable Mapper<T> mapper,
+            Statement statement,
+            @Nullable Object... arguments) {
+        // TODO: IGNITE-18695.
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new SqlException(SESSION_NOT_FOUND_ERR, "Session is closed."));
         }
 
         try {
-            QueryContext ctx = QueryContext.of(
-                    transaction,
-                    (QueryValidator) plan -> {
-                        if (plan.type() != Type.DML) {
-                            throw new SqlException(QUERY_INVALID_ERR, "Invalid SQL statement type in the batch [plan=" + plan + ']');
-                        }
-                    }
-            );
+            QueryContext ctx = QueryContext.create(Set.of(SqlQueryType.DML), transaction);
 
-            final var counters = new LongArrayList(batch.size());
+            var counters = new LongArrayList(batch.size());
             CompletableFuture<Void> tail = CompletableFuture.completedFuture(null);
             ArrayList<CompletableFuture<Void>> batchFuts = new ArrayList<>(batch.size());
 
@@ -234,7 +270,7 @@ public class SessionImpl implements Session {
                         Throwable cause = ExceptionUtils.unwrapCause(ex);
 
                         throw new SqlBatchException(
-                                cause instanceof IgniteException ? ((IgniteException) cause).code() : UNKNOWN_ERR,
+                                cause instanceof IgniteException ? ((IgniteException) cause).code() : INTERNAL_ERR,
                                 counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY),
                                 ex);
                     })
@@ -322,9 +358,9 @@ public class SessionImpl implements Session {
         try {
             return stage.toCompletableFuture().get();
         } catch (ExecutionException e) {
-            throw new IgniteException(e.getCause());
+            throw new SqlException(OPERATION_INTERRUPTED_ERR, e.getCause());
         } catch (Throwable e) {
-            throw new IgniteException(e);
+            throw new SqlException(OPERATION_INTERRUPTED_ERR, e);
         }
     }
 
@@ -340,7 +376,7 @@ public class SessionImpl implements Session {
                 || page.items().size() != 1
                 || page.items().get(0).size() != 1
                 || page.hasMore()) {
-            throw new SqlException(UNKNOWN_ERR, "Invalid DML results: " + page);
+            throw new SqlException(INVALID_DML_RESULT_ERR, "Invalid DML results: " + page);
         }
     }
 }

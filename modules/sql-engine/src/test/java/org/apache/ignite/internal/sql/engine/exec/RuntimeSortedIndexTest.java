@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,11 +19,11 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -36,9 +36,12 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -66,7 +69,7 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
 
     @Test
     public void test() throws Exception {
-        IgniteTypeFactory tf = new IgniteTypeFactory();
+        IgniteTypeFactory tf = Commons.typeFactory();
 
         List<Pair<RelDataType, ImmutableIntList>> testIndexes = Arrays.stream(ROW_TYPES)
                 .map(rt -> Pair.of(TypeUtils.createRowType(tf, rt.getKey()), rt.getValue()))
@@ -83,7 +86,7 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
                     Object[] lower = generateFindRow(rowIdLow, testIdx.getKey(), notUnique, testIdx.getValue());
                     Object[] upper = generateFindRow(rowIdUp, testIdx.getKey(), notUnique, testIdx.getValue());
 
-                    Cursor<Object[]> cur = idx0.find(lower, upper);
+                    Cursor<Object[]> cur = idx0.find(lower, upper, true, true);
 
                     int rows = 0;
                     while (cur.hasNext()) {
@@ -111,7 +114,7 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
                                 .build(),
                         null,
                         UUID.randomUUID(),
-                        "fake-test-node",
+                        new ClusterNode("1", "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
                         "fake-test-node",
                         null,
                         ArrayRowHandler.INSTANCE,

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.rocksdb;
 
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
 
+import com.google.auto.service.AutoService;
 import java.nio.file.Path;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -31,14 +32,13 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation for creating {@link RocksDbStorageEngine}s.
  */
+@AutoService(DataStorageModule.class)
 public class RocksDbDataStorageModule implements DataStorageModule {
-    /** {@inheritDoc} */
     @Override
     public String name() {
         return ENGINE_NAME;
     }
 
-    /** {@inheritDoc} */
     @Override
     public StorageEngine createEngine(
             String igniteInstanceName,
@@ -50,6 +50,6 @@ public class RocksDbDataStorageModule implements DataStorageModule {
 
         assert engineConfig != null;
 
-        return new RocksDbStorageEngine(engineConfig, storagePath);
+        return new RocksDbStorageEngine(igniteInstanceName, engineConfig, storagePath);
     }
 }

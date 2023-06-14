@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -35,6 +35,9 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
     /** Sql queries. */
     private List<String> queries;
 
+    /** Flag indicating whether auto-commit mode is enabled. */
+    private boolean autoCommit;
+
     /**
      * Default constructor.
      */
@@ -46,12 +49,14 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
      *
      * @param schemaName Schema name.
      * @param queries    Queries.
+     * @param autoCommit Flag indicating whether auto-commit mode is enabled.
      */
-    public JdbcBatchExecuteRequest(String schemaName, List<String> queries) {
+    public JdbcBatchExecuteRequest(String schemaName, List<String> queries, boolean autoCommit) {
         assert !CollectionUtils.nullOrEmpty(queries);
 
         this.schemaName = schemaName;
         this.queries = queries;
+        this.autoCommit = autoCommit;
     }
 
     /**
@@ -72,9 +77,19 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         return queries;
     }
 
+    /**
+     * Get flag indicating whether auto-commit mode is enabled.
+     *
+     * @return {@code true} if auto-commit mode is enabled, {@code false} otherwise.
+     */
+    public boolean autoCommit() {
+        return autoCommit;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
+        packer.packBoolean(autoCommit);
         ClientMessageUtils.writeStringNullable(packer, schemaName);
 
         packer.packArrayHeader(queries.size());
@@ -87,6 +102,7 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
+        autoCommit = unpacker.unpackBoolean();
         schemaName = ClientMessageUtils.readStringNullable(unpacker);
 
         int n = unpacker.unpackArrayHeader();

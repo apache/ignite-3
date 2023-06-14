@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -23,12 +23,8 @@ import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
 
 import java.time.Duration;
 import java.time.Period;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -36,7 +32,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Group of tests to verify the query metadata returned alongside the query result.
  */
-public class ItMetadataTest extends AbstractBasicIntegrationTest {
+public class ItMetadataTest extends ClusterPerClassIntegrationTest {
     /**
      * Before all.
      */
@@ -51,6 +47,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken after upgrading to calcite 1.34")
     public void trimColumnNames() {
         String var300 = generate(() -> "X").limit(300).collect(joining());
         String var256 = "'" + var300.substring(0, 255);
@@ -59,6 +56,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken after upgrading to calcite 1.34")
     public void columnNames() {
         assertQuery("select (select count(*) from person), (select avg(salary) from person) from person")
                 .columnNames("EXPR$0", "EXPR$1").check();
@@ -81,12 +79,16 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
         assertQuery("select aVg(salary) from person").columnNames("AVG(SALARY)").check();
         assertQuery("select sum(salary) from person").columnNames("SUM(SALARY)").check();
 
+        assertQuery("select typeOf(salary) from person").columnNames("TYPEOF(SALARY)").check();
+        assertQuery("select typeOf(null) from person").columnNames("TYPEOF(NULL)").check();
+
         assertQuery("select salary, count(name) from person group by salary").columnNames("SALARY", "COUNT(NAME)").check();
 
         assertQuery("select 1, -1, 'some string' from person").columnNames("1", "-1", "'some string'").check();
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken after upgrading to calcite 1.34")
     public void infixTypeCast() {
         assertQuery("select id, id::tinyint as tid, id::smallint as sid, id::varchar as vid, id::interval hour, "
                 + "id::interval year from person")
@@ -96,20 +98,8 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
     public void columnOrder() {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "COLUMN_ORDER").columns(
-                SchemaBuilders.column("DOUBLE_C", ColumnType.DOUBLE).asNullable(true).build(),
-                SchemaBuilders.column("LONG_C", ColumnType.INT64).build(),
-                SchemaBuilders.column("STRING_C", ColumnType.string()).asNullable(true).build(),
-                SchemaBuilders.column("INT_C", ColumnType.INT32).asNullable(true).build()
-        ).withPrimaryKey("LONG_C").build();
-
-        CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        );
+        sql("CREATE TABLE column_order (double_c DOUBLE, long_c BIGINT PRIMARY KEY, string_c VARCHAR, int_c INT)");
 
         assertQuery("select * from column_order")
                 .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C")
@@ -139,9 +129,14 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                 // Datetime types
                 // ANSI`99 syntax "WITH TIME ZONE" is not supported,
                 // a "WITH LOCAL TIME ZONE" syntax MUST be used instead.
-                + "DATE_C DATE, " + "TIME_C TIME, " + "TIME_C2 TIME(9), " + "TIME_LTZ_C TIME WITH LOCAL TIME ZONE, "
-                + "TIME_LTZ_C2 TIME(9) WITH LOCAL TIME ZONE, " + "DATETIME_C TIMESTAMP, " + "DATETIME_C2 TIMESTAMP(9), "
-                + "TIMESTAMP_C TIMESTAMP WITH LOCAL TIME ZONE, " + "TIMESTAMP_C2 TIMESTAMP(9) WITH LOCAL TIME ZONE, "
+                + "DATE_C DATE, " + "TIME_C TIME, " + "TIME_C2 TIME(9), "
+                // TODO: IGNITE-19274 Ignite doesn't support the client's time zone yet.
+                // + "TIME_LTZ_C TIME WITH LOCAL TIME ZONE, "
+                // + "TIME_LTZ_C2 TIME(9) WITH LOCAL TIME ZONE, "
+                + "DATETIME_C TIMESTAMP, " + "DATETIME_C2 TIMESTAMP(9), "
+                // TODO: IGNITE-19274 Ignite doesn't support the client's time zone yet.
+                // + "TIMESTAMP_C TIMESTAMP WITH LOCAL TIME ZONE, "
+                // + "TIMESTAMP_C2 TIMESTAMP(9) WITH LOCAL TIME ZONE, "
 
                 // Interval types
                 // TODO: IGNITE-17373: Ignite doesn't support interval types yet.
@@ -153,8 +148,8 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                 // + "INTERVAL_SEC_C2 INTERVAL SECOND(9), "
 
                 // Custom types
-                // TODO: IGNITE-16376 support additional data types.
-                // + "UUID_C UUID, "
+                + "UUID_C UUID, "
+                // TODO: IGNITE-18431: Sql. BitSet is not supported.
                 // + "BITSET_C BITMASK, "
                 // + "BITSET_C BITMASK(8), "
 
@@ -167,48 +162,50 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                         // new MetadataMatcher().name("BOOLEAN_C"), //TODO: IGNITE-17298 Boolean type is not supported by Ignite.
 
                         // Exact numeric types
-                        new MetadataMatcher().name("TINY_C").type(SqlColumnType.INT8).precision(3).scale(0),
-                        new MetadataMatcher().name("SMALL_C").type(SqlColumnType.INT16).precision(5).scale(0),
-                        new MetadataMatcher().name("INT_C").type(SqlColumnType.INT32).precision(10).scale(0),
-                        new MetadataMatcher().name("LONG_C").type(SqlColumnType.INT64).precision(19).scale(0),
+                        new MetadataMatcher().name("TINY_C").type(ColumnType.INT8).precision(3).scale(0),
+                        new MetadataMatcher().name("SMALL_C").type(ColumnType.INT16).precision(5).scale(0),
+                        new MetadataMatcher().name("INT_C").type(ColumnType.INT32).precision(10).scale(0),
+                        new MetadataMatcher().name("LONG_C").type(ColumnType.INT64).precision(19).scale(0),
 
-                        new MetadataMatcher().name("NUMBER_C").type(SqlColumnType.DECIMAL).precision(0x7FFF).scale(0),
-                        new MetadataMatcher().name("NUMBER_C2").type(SqlColumnType.DECIMAL).precision(38).scale(0),
-                        new MetadataMatcher().name("NUMBER_C3").type(SqlColumnType.DECIMAL).precision(38).scale(37),
-                        new MetadataMatcher().name("DECIMAL_C").type(SqlColumnType.DECIMAL).precision(0x7FFF).scale(0),
-                        new MetadataMatcher().name("DECIMAL_C2").type(SqlColumnType.DECIMAL).precision(38).scale(0),
-                        new MetadataMatcher().name("DECIMAL_C3").type(SqlColumnType.DECIMAL).precision(38).scale(37),
+                        new MetadataMatcher().name("NUMBER_C").type(ColumnType.DECIMAL).precision(0x7FFF).scale(0),
+                        new MetadataMatcher().name("NUMBER_C2").type(ColumnType.DECIMAL).precision(38).scale(0),
+                        new MetadataMatcher().name("NUMBER_C3").type(ColumnType.DECIMAL).precision(38).scale(37),
+                        new MetadataMatcher().name("DECIMAL_C").type(ColumnType.DECIMAL).precision(0x7FFF).scale(0),
+                        new MetadataMatcher().name("DECIMAL_C2").type(ColumnType.DECIMAL).precision(38).scale(0),
+                        new MetadataMatcher().name("DECIMAL_C3").type(ColumnType.DECIMAL).precision(38).scale(37),
 
                         // Approximate numeric types
-                        new MetadataMatcher().name("FLOAT_C").type(SqlColumnType.FLOAT).precision(7).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("REAL_C").type(SqlColumnType.FLOAT).precision(7).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("DOUBLE_C").type(SqlColumnType.DOUBLE).precision(15).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("FLOAT_C").type(ColumnType.FLOAT).precision(7).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("REAL_C").type(ColumnType.FLOAT).precision(7).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("DOUBLE_C").type(ColumnType.DOUBLE).precision(15).scale(UNDEFINED_SCALE),
 
                         // Character string types
-                        new MetadataMatcher().name("CHAR_C").type(SqlColumnType.STRING).precision(1).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("CHAR_C2").type(SqlColumnType.STRING).precision(65536).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("VARCHAR_C").type(SqlColumnType.STRING).precision(65536).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("VARCHAR_C2").type(SqlColumnType.STRING).precision(125).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("CHAR_C").type(ColumnType.STRING).precision(1).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("CHAR_C2").type(ColumnType.STRING).precision(65536).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("VARCHAR_C").type(ColumnType.STRING).precision(65536).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("VARCHAR_C2").type(ColumnType.STRING).precision(125).scale(UNDEFINED_SCALE),
 
                         // Binary string types
-                        new MetadataMatcher().name("BINARY_C").type(SqlColumnType.BYTE_ARRAY).precision(1).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("BINARY_C2").type(SqlColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("VARBINARY_C").type(SqlColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("VARBINARY_C2").type(SqlColumnType.BYTE_ARRAY).precision(125).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("BINARY_C").type(ColumnType.BYTE_ARRAY).precision(1).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("BINARY_C2").type(ColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("VARBINARY_C").type(ColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("VARBINARY_C2").type(ColumnType.BYTE_ARRAY).precision(125).scale(UNDEFINED_SCALE),
 
                         // Datetime types
-                        new MetadataMatcher().name("DATE_C").type(SqlColumnType.DATE).precision(0).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIME_C").type(SqlColumnType.TIME).precision(0).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIME_C2").type(SqlColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIME_LTZ_C").type(SqlColumnType.TIME).precision(0).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIME_LTZ_C2").type(SqlColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("DATETIME_C").type(SqlColumnType.DATETIME).precision(6).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("DATETIME_C2").type(SqlColumnType.DATETIME).precision(9).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIMESTAMP_C").type(SqlColumnType.TIMESTAMP).precision(6).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIMESTAMP_C2").type(SqlColumnType.TIMESTAMP).precision(9).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("DATE_C").type(ColumnType.DATE).precision(0).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("TIME_C").type(ColumnType.TIME).precision(0).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("TIME_C2").type(ColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
+                        // TODO: IGNITE-19274 Ignite doesn't support the client's time zone yet.
+                        // new MetadataMatcher().name("TIME_LTZ_C").type(ColumnType.TIME).precision(0).scale(UNDEFINED_SCALE),
+                        // new MetadataMatcher().name("TIME_LTZ_C2").type(ColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("DATETIME_C").type(ColumnType.DATETIME).precision(6).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("DATETIME_C2").type(ColumnType.DATETIME).precision(9).scale(UNDEFINED_SCALE),
+                        // TODO: IGNITE-19274 Ignite doesn't support the client's time zone yet.
+                        // new MetadataMatcher().name("TIMESTAMP_C").type(ColumnType.TIMESTAMP).precision(6).scale(UNDEFINED_SCALE),
+                        // new MetadataMatcher().name("TIMESTAMP_C2").type(ColumnType.TIMESTAMP).precision(9).scale(UNDEFINED_SCALE),
 
                         // Interval types
-                        // TODO: Ignite doesn't support interval types.
+                        // TODO: IGNITE-17373: Ignite doesn't support interval types yet.
                         // new MetadataMatcher().name("INTERVAL_YEAR_C"),
                         // new MetadataMatcher().name("INTERVAL_MONTH_C"),
                         // new MetadataMatcher().name("INTERVAL_DAY_C"),
@@ -218,8 +215,8 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                         // new MetadataMatcher().name("INTERVAL_SEC_C2"),
 
                         // Custom types
-                        // TODO: IGNITE-16376 support additional data types.
-                        // new MetadataMatcher().name("UUID_C"),
+                        new MetadataMatcher().name("UUID_C"),
+                        // TODO: IGNITE-18431: Sql. BitSet is not supported.
                         // new MetadataMatcher().name("BITSET_C"),
                         // new MetadataMatcher().name("BITSET_C2"),
 

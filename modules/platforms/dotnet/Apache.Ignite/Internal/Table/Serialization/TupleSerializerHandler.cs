@@ -17,9 +17,10 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization
 {
+    using System;
     using Ignite.Table;
-    using MessagePack;
-    using Proto;
+    using Proto.BinaryTuple;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Serializer handler for <see cref="IIgniteTuple"/>.
@@ -29,7 +30,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <summary>
         /// Singleton instance.
         /// </summary>
-        public static readonly TupleSerializerHandler Instance = new();
+        public static readonly IRecordSerializerHandler<IIgniteTuple> Instance = new TupleSerializerHandler();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TupleSerializerHandler"/> class.
@@ -40,72 +41,37 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <inheritdoc/>
-        public IIgniteTuple Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
+        public IIgniteTuple Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
         {
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
             var tuple = new IgniteTuple(count);
+            var tupleReader = new BinaryTupleReader(reader.ReadBinary(), count);
 
             for (var index = 0; index < count; index++)
             {
-                if (reader.TryReadNoValue())
-                {
-                    continue;
-                }
-
                 var column = columns[index];
-                tuple[column.Name] = reader.ReadObject(column.Type);
+                tuple[column.Name] = tupleReader.GetObject(index, column.Type, column.Scale);
             }
 
             return tuple;
         }
 
         /// <inheritdoc/>
-        public IIgniteTuple ReadValuePart(ref MessagePackReader reader, Schema schema, IIgniteTuple key)
+        public void Write(ref BinaryTupleBuilder tupleBuilder, IIgniteTuple record, Schema schema, int columnCount, Span<byte> noValueSet)
         {
-            var columns = schema.Columns;
-            var tuple = new IgniteTuple(columns.Count);
-
-            for (var i = 0; i < columns.Count; i++)
+            for (var index = 0; index < columnCount; index++)
             {
-                var column = columns[i];
-
-                if (i < schema.KeyColumnCount)
-                {
-                    tuple[column.Name] = key[column.Name];
-                }
-                else
-                {
-                    if (reader.TryReadNoValue())
-                    {
-                        continue;
-                    }
-
-                    tuple[column.Name] = reader.ReadObject(column.Type);
-                }
-            }
-
-            return tuple;
-        }
-
-        /// <inheritdoc/>
-        public void Write(ref MessagePackWriter writer, Schema schema, IIgniteTuple record, bool keyOnly = false)
-        {
-            var columns = schema.Columns;
-            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
-
-            for (var index = 0; index < count; index++)
-            {
-                var col = columns[index];
+                var col = schema.Columns[index];
                 var colIdx = record.GetOrdinal(col.Name);
 
-                if (colIdx < 0)
+                if (colIdx >= 0)
                 {
-                    writer.WriteNoValue();
+                    tupleBuilder.AppendObject(record[colIdx], col.Type, col.Scale, col.Precision);
                 }
                 else
                 {
-                    writer.WriteObject(record[colIdx]);
+                    tupleBuilder.AppendNoValue(noValueSet);
                 }
             }
         }

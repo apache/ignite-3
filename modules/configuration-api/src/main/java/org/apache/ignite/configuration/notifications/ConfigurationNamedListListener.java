@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -40,14 +40,12 @@ public interface ConfigurationNamedListListener<VIEWT> extends ConfigurationList
     /**
      * Called when a named list element is renamed. Semantically equivalent to {@link #onUpdate(ConfigurationNotificationEvent)} with the
      * difference that the content of the element might have not been changed. No separate {@link #onUpdate(ConfigurationNotificationEvent)}
-     * call is performed when {@link #onRename(String, String, ConfigurationNotificationEvent)} is already invoked.
+     * call is performed when {@link #onRename(ConfigurationNotificationEvent)} is already invoked.
      *
-     * @param oldName Name, previously assigned to the element.
-     * @param newName New name of the element.
-     * @param ctx     Notification context.
+     * @param ctx Notification context.
      * @return Future that signifies the end of the listener execution.
      */
-    default CompletableFuture<?> onRename(String oldName, String newName, ConfigurationNotificationEvent<VIEWT> ctx) {
+    default CompletableFuture<?> onRename(ConfigurationNotificationEvent<VIEWT> ctx) {
         return completedFuture(null);
     }
 

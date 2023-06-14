@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -23,6 +23,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
@@ -49,6 +50,9 @@ public class SchemaDescriptor {
 
     /** Mapping 'Column name' -&gt; Column. */
     private final Map<String, Column> colMap;
+
+    /** Whether schema contains time or timestamp columns. */
+    private final boolean hasTemporalColumns;
 
     /** Column mapper. */
     private ColumnMapper colMapper = ColumnMapping.identityMapping();
@@ -82,10 +86,19 @@ public class SchemaDescriptor {
         assert this.keyCols.nullMapSize() == 0 : "Primary key cannot contain nullable column [cols=" + this.keyCols + ']';
 
         colMap = new LinkedHashMap<>(keyCols.length + valCols.length);
+        var hasTemporalColumns = new AtomicBoolean(false);
 
         Stream.concat(Arrays.stream(this.keyCols.columns()), Arrays.stream(this.valCols.columns()))
                 .sorted(Comparator.comparingInt(Column::columnOrder))
-                .forEach(c -> colMap.put(c.name(), c));
+                .forEach(c -> {
+                    if (c.type() instanceof TemporalNativeType) {
+                        hasTemporalColumns.set(true);
+                    }
+
+                    colMap.put(c.name(), c);
+                });
+
+        this.hasTemporalColumns = hasTemporalColumns.get();
 
         // Preserving key chunk column order is not actually required.
         // It is sufficient to has same column order for all nodes.
@@ -206,6 +219,15 @@ public class SchemaDescriptor {
      */
     public ColumnMapper columnMapping() {
         return colMapper;
+    }
+
+    /**
+     * Get a value indicating whether schema contains temporal columns.
+     *
+     * @return {@code true} if schema contains temporal columns (time, datetime, timestamp), {@code false} otherwise.
+     */
+    public boolean hasTemporalColumns() {
+        return hasTemporalColumns;
     }
 
     /** {@inheritDoc} */

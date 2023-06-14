@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,28 +17,37 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Month;
+import java.time.Period;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.client.proto.ClientDataType;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTuple;
-import org.apache.ignite.lang.ColumnNotFoundException;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
@@ -49,132 +58,112 @@ import org.junit.jupiter.api.Test;
  */
 public class ClientTupleTest {
     private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[]{
-            new ClientColumn("ID", ClientDataType.INT64, false, true, 0),
-            new ClientColumn("NAME", ClientDataType.STRING, false, false, 1)
+            new ClientColumn("ID", ColumnType.INT64, false, true, true, 0),
+            new ClientColumn("NAME", ColumnType.STRING, false, false, false, 1)
     });
+
+    private static final ClientSchema FULL_SCHEMA = new ClientSchema(100, new ClientColumn[]{
+            new ClientColumn("I8", ColumnType.INT8, false, false, false, 0),
+            new ClientColumn("I16", ColumnType.INT16, false, false, false, 1),
+            new ClientColumn("I32", ColumnType.INT32, false, false, false, 2),
+            new ClientColumn("I64", ColumnType.INT64, false, false, false, 3),
+            new ClientColumn("FLOAT", ColumnType.FLOAT, false, false, false, 4),
+            new ClientColumn("DOUBLE", ColumnType.DOUBLE, false, false, false, 5),
+            new ClientColumn("UUID", ColumnType.UUID, false, false, false, 6),
+            new ClientColumn("STR", ColumnType.STRING, false, false, false, 7),
+            new ClientColumn("BITS", ColumnType.BITMASK, false, false, false, 8),
+            new ClientColumn("DATE", ColumnType.DATE, false, false, false, 9),
+            new ClientColumn("TIME", ColumnType.TIME, false, false, false, 10),
+            new ClientColumn("DATETIME", ColumnType.DATETIME, false, false, false, 11),
+            new ClientColumn("TIMESTAMP", ColumnType.TIMESTAMP, false, false, false, 12),
+            new ClientColumn("BOOL", ColumnType.BOOLEAN, false, false, false, 13),
+            new ClientColumn("DECIMAL", ColumnType.DECIMAL, false, false, false, 14),
+            new ClientColumn("BYTES", ColumnType.BYTE_ARRAY, false, false, false, 15),
+            new ClientColumn("PERIOD", ColumnType.PERIOD, false, false, false, 16),
+            new ClientColumn("DURATION", ColumnType.DURATION, false, false, false, 17),
+            new ClientColumn("NUMBER", ColumnType.NUMBER, false, false, false, 18)
+    });
+
+    private static final UUID GUID = UUID.randomUUID();
+
+    private static final LocalDate DATE = LocalDate.of(1995, Month.MAY, 23);
+
+    private static final LocalTime TIME = LocalTime.of(17, 0, 1, 222_333_444);
+
+    private static final LocalDateTime DATE_TIME = LocalDateTime.of(1995, Month.MAY, 23, 17, 0, 1, 222_333_444);
+
+    private static final Instant TIMESTAMP = Instant.now();
 
     @Test
     public void testValueReturnsValueByName() {
-        assertEquals(3L, (Long) getTuple().value("id"));
-        assertEquals("Shirt", getTuple().value("name"));
+        assertEquals(3L, (Long) createTuple().value("id"));
+        assertEquals("Shirt", createTuple().value("name"));
     }
 
     @Test
     public void testValueReturnsValueByIndex() {
-        assertEquals(3L, (Long) getTuple().value(0));
-        assertEquals("Shirt", getTuple().value(1));
+        assertEquals(3L, (Long) createTuple().value(0));
+        assertEquals("Shirt", createTuple().value(1));
     }
 
     @Test
     public void testValueOrDefaultReturnsValueByName() {
-        assertEquals(3L, getTuple().valueOrDefault("id", -1L));
-        assertEquals("Shirt", getTuple().valueOrDefault("name", "y"));
+        assertEquals(3L, createTuple().valueOrDefault("id", -1L));
+        assertEquals("Shirt", createTuple().valueOrDefault("name", "y"));
     }
 
     @Test
     public void testValueOrDefaultReturnsDefaultWhenColumnIsNotPresent() {
-        assertEquals("foo", getBuilder().valueOrDefault("x", "foo"));
-    }
-
-    @Test
-    public void testValueOrDefaultReturnsDefaultWhenColumnIsPresentButNotSet() {
-        assertEquals("foo", getBuilder().valueOrDefault("name", "foo"));
+        assertEquals("foo", createTuple().valueOrDefault("x", "foo"));
     }
 
     @Test
     public void testValueOrDefaultReturnsNullWhenColumnIsSetToNull() {
-        var tuple = getBuilder().set("name", null);
+        var tuple = createTuple().set("name", null);
 
         assertNull(tuple.valueOrDefault("name", "foo"));
     }
 
     @Test
-    public void testEmptySchemaThrows() {
-        assertThrows(AssertionError.class, () -> new ClientTuple(new ClientSchema(1, new ClientColumn[0])));
-    }
-
-    @Test
-    public void testSetThrowsWhenColumnIsNotPresent() {
-        var ex = assertThrows(ColumnNotFoundException.class, () -> getBuilder().set("x", "y"));
-        assertThat(ex.getMessage(), containsString("Column 'X' does not exist"));
-    }
-
-    @Test
     public void testValueThrowsWhenColumnIsNotPresent() {
-        var ex = assertThrows(ColumnNotFoundException.class, () -> getBuilder().value("x"));
-        assertThat(ex.getMessage(), containsString("Column 'X' does not exist"));
+        var ex = assertThrows(IllegalArgumentException.class, () -> createTuple().value("x"));
+        assertThat(ex.getMessage(), containsString("Column doesn't exist [name=x]"));
 
-        var ex2 = assertThrows(IndexOutOfBoundsException.class, () -> getBuilder().value(100));
+        var ex2 = assertThrows(IndexOutOfBoundsException.class, () -> createTuple().value(100));
         assertThat(ex2.getMessage(), containsString("Index 100 out of bounds for length 2"));
     }
 
     @Test
     public void testColumnCountReturnsSchemaSize() {
-        assertEquals(SCHEMA.columns().length, getTuple().columnCount());
+        assertEquals(SCHEMA.columns().length, createTuple().columnCount());
     }
 
     @Test
     public void testColumnNameReturnsNameByIndex() {
-        assertEquals("ID", getTuple().columnName(0));
-        assertEquals("NAME", getTuple().columnName(1));
+        assertEquals("ID", createTuple().columnName(0));
+        assertEquals("NAME", createTuple().columnName(1));
     }
 
     @Test
     public void testColumnNameThrowsOnInvalidIndex() {
-        var ex = assertThrows(IndexOutOfBoundsException.class, () -> getTuple().columnName(-1));
+        var ex = assertThrows(IndexOutOfBoundsException.class, () -> createTuple().columnName(-1));
         assertEquals("Index -1 out of bounds for length 2", ex.getMessage());
     }
 
     @Test
     public void testColumnIndexReturnsIndexByName() {
-        assertEquals(0, getTuple().columnIndex("id"));
-        assertEquals(1, getTuple().columnIndex("name"));
+        assertEquals(0, createTuple().columnIndex("id"));
+        assertEquals(1, createTuple().columnIndex("name"));
     }
 
     @Test
     public void testColumnIndexForMissingColumns() {
-        assertEquals(-1, getTuple().columnIndex("foo"));
+        assertEquals(-1, createTuple().columnIndex("foo"));
     }
 
     @Test
     public void testTypedGetters() {
-        var schema = new ClientSchema(100, new ClientColumn[]{
-                new ClientColumn("I8", ClientDataType.INT8, false, false, 0),
-                new ClientColumn("I16", ClientDataType.INT16, false, false, 1),
-                new ClientColumn("I32", ClientDataType.INT32, false, false, 2),
-                new ClientColumn("I64", ClientDataType.INT64, false, false, 3),
-                new ClientColumn("FLOAT", ClientDataType.FLOAT, false, false, 4),
-                new ClientColumn("DOUBLE", ClientDataType.DOUBLE, false, false, 5),
-                new ClientColumn("UUID", ClientDataType.UUID, false, false, 6),
-                new ClientColumn("STR", ClientDataType.STRING, false, false, 7),
-                new ClientColumn("BITS", ClientDataType.BITMASK, false, false, 8),
-                new ClientColumn("TIME", ClientDataType.TIME, false, false, 9),
-                new ClientColumn("DATE", ClientDataType.DATE, false, false, 10),
-                new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, 11),
-                new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, 12)
-        });
-
-        var uuid = UUID.randomUUID();
-
-        var date = LocalDate.of(1995, Month.MAY, 23);
-        var time = LocalTime.of(17, 0, 1, 222_333_444);
-        var datetime = LocalDateTime.of(1995, Month.MAY, 23, 17, 0, 1, 222_333_444);
-        var timestamp = Instant.now();
-
-        var tuple = new ClientTuple(schema)
-                .set("i8", (byte) 1)
-                .set("i16", (short) 2)
-                .set("i32", (int) 3)
-                .set("i64", (long) 4)
-                .set("float", (float) 5.5)
-                .set("double", (double) 6.6)
-                .set("uuid", uuid)
-                .set("str", "8")
-                .set("bits", new BitSet(3))
-                .set("date", date)
-                .set("time", time)
-                .set("datetime", datetime)
-                .set("timestamp", timestamp);
+        ClientTuple tuple = createFullSchemaTuple();
 
         assertEquals(1, tuple.byteValue(0));
         assertEquals(1, tuple.byteValue("i8"));
@@ -194,8 +183,8 @@ public class ClientTupleTest {
         assertEquals(6.6, tuple.doubleValue(5));
         assertEquals(6.6, tuple.doubleValue("double"));
 
-        assertEquals(uuid, tuple.uuidValue(6));
-        assertEquals(uuid, tuple.uuidValue("uuid"));
+        assertEquals(GUID, tuple.uuidValue(6));
+        assertEquals(GUID, tuple.uuidValue("uuid"));
 
         assertEquals("8", tuple.stringValue(7));
         assertEquals("8", tuple.stringValue("str"));
@@ -203,35 +192,48 @@ public class ClientTupleTest {
         assertEquals(0, tuple.bitmaskValue(8).length());
         assertEquals(0, tuple.bitmaskValue("bits").length());
 
-        assertEquals(date, tuple.dateValue("date"));
-        assertEquals(time, tuple.timeValue("time"));
-        assertEquals(datetime, tuple.datetimeValue("datetime"));
-        assertEquals(timestamp, tuple.timestampValue("timestamp"));
+        assertEquals(DATE, tuple.dateValue("date"));
+        assertEquals(TIME, tuple.timeValue("time"));
+        assertEquals(DATE_TIME, tuple.datetimeValue("datetime"));
+        assertEquals(TIMESTAMP, tuple.timestampValue("timestamp"));
+    }
+
+    @SuppressWarnings("ThrowableNotThrown")
+    @Test
+    public void testTypedGettersWithIncorrectType() {
+        ClientTuple tuple = createFullSchemaTuple();
+
+        assertThrowsWithCause(
+                () -> tuple.byteValue(8),
+                ClassCastException.class,
+                "Column with index 8 has type BITMASK but INT8 was requested");
+
+        assertThrowsWithCause(
+                () -> tuple.floatValue("Str"),
+                ClassCastException.class,
+                "Column with name 'Str' has type STRING but FLOAT was requested");
     }
 
     @Test
     public void testBasicTupleEquality() {
-        var tuple = new ClientTuple(SCHEMA);
-        var tuple2 = new ClientTuple(SCHEMA);
+        var tuple = createTuple();
+        var tuple2 = createTuple();
 
         assertEquals(tuple, tuple);
         assertEquals(tuple, tuple2);
         assertEquals(tuple.hashCode(), tuple2.hashCode());
 
-        assertNotEquals(new ClientTuple(SCHEMA), new ClientTuple(new ClientSchema(1, new ClientColumn[]{
-                new ClientColumn("id", ClientDataType.INT64, false, true, 0)})));
+        assertEquals(createTuple().set("name", null), createTuple().set("name", null));
+        assertEquals(createTuple().set("name", null).hashCode(), createTuple().set("name", null).hashCode());
 
-        assertEquals(new ClientTuple(SCHEMA).set("name", null), new ClientTuple(SCHEMA).set("name", null));
-        assertEquals(new ClientTuple(SCHEMA).set("name", null).hashCode(), new ClientTuple(SCHEMA).set("name", null).hashCode());
+        assertEquals(createTuple().set("name", "bar"), createTuple().set("name", "bar"));
+        assertEquals(createTuple().set("name", "bar").hashCode(), createTuple().set("name", "bar").hashCode());
 
-        assertEquals(new ClientTuple(SCHEMA).set("name", "bar"), new ClientTuple(SCHEMA).set("name", "bar"));
-        assertEquals(new ClientTuple(SCHEMA).set("name", "bar").hashCode(), new ClientTuple(SCHEMA).set("name", "bar").hashCode());
+        assertNotEquals(createTuple().set("name", "foo"), createTuple().set("id", 1));
+        assertNotEquals(createTuple().set("name", "foo"), createTuple().set("name", "bar"));
 
-        assertNotEquals(new ClientTuple(SCHEMA).set("name", "foo"), new ClientTuple(SCHEMA).set("id", 1));
-        assertNotEquals(new ClientTuple(SCHEMA).set("name", "foo"), new ClientTuple(SCHEMA).set("name", "bar"));
-
-        tuple = new ClientTuple(SCHEMA);
-        tuple2 = new ClientTuple(SCHEMA);
+        tuple = createTuple();
+        tuple2 = createTuple();
 
         tuple.set("name", "bar");
 
@@ -252,48 +254,13 @@ public class ClientTupleTest {
 
     @Test
     public void testTupleEquality() {
-        var schema = new ClientSchema(100, new ClientColumn[]{
-                new ClientColumn("I8", ClientDataType.INT8, false, false, 0),
-                new ClientColumn("I16", ClientDataType.INT16, false, false, 1),
-                new ClientColumn("I32", ClientDataType.INT32, false, false, 2),
-                new ClientColumn("I64", ClientDataType.INT64, false, false, 3),
-                new ClientColumn("FLOAT", ClientDataType.FLOAT, false, false, 4),
-                new ClientColumn("DOUBLE", ClientDataType.DOUBLE, false, false, 5),
-                new ClientColumn("UUID", ClientDataType.UUID, false, false, 6),
-                new ClientColumn("STR", ClientDataType.STRING, false, false, 7),
-                new ClientColumn("BITS", ClientDataType.BITMASK, false, false, 8),
-                new ClientColumn("TIME", ClientDataType.TIME, false, false, 9),
-                new ClientColumn("DATE", ClientDataType.DATE, false, false, 10),
-                new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, 11),
-                new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, 12)
-        });
+        var tuple = createFullSchemaTuple();
 
-        var uuid = UUID.randomUUID();
-
-        var date = LocalDate.of(1995, Month.MAY, 23);
-        var time = LocalTime.of(17, 0, 1, 222_333_444);
-        var datetime = LocalDateTime.of(1995, Month.MAY, 23, 17, 0, 1, 222_333_444);
-        var timestamp = Instant.now();
-
-        var tuple = new ClientTuple(schema)
-                .set("i8", (byte) 1)
-                .set("i16", (short) 2)
-                .set("i32", (int) 3)
-                .set("i64", (long) 4)
-                .set("float", (float) 5.5)
-                .set("double", (double) 6.6)
-                .set("uuid", uuid)
-                .set("str", "8")
-                .set("bits", new BitSet(3))
-                .set("date", date)
-                .set("time", time)
-                .set("datetime", datetime)
-                .set("timestamp", timestamp);
         var randomIdx = IntStream.range(0, tuple.columnCount()).boxed().collect(Collectors.toList());
 
         Collections.shuffle(randomIdx);
 
-        var shuffledTuple = new ClientTuple(schema);
+        var shuffledTuple = createFullSchemaTuple();
 
         for (Integer i : randomIdx) {
             shuffledTuple.set(tuple.columnName(i), tuple.value(i));
@@ -305,44 +272,7 @@ public class ClientTupleTest {
 
     @Test
     public void testTupleEqualityCompatibility() {
-        var schema = new ClientSchema(100, new ClientColumn[]{
-                new ClientColumn("I8", ClientDataType.INT8, false, false, 0),
-                new ClientColumn("I16", ClientDataType.INT16, false, false, 1),
-                new ClientColumn("I32", ClientDataType.INT32, false, false, 2),
-                new ClientColumn("I64", ClientDataType.INT64, false, false, 3),
-                new ClientColumn("FLOAT", ClientDataType.FLOAT, false, false, 4),
-                new ClientColumn("DOUBLE", ClientDataType.DOUBLE, false, false, 5),
-                new ClientColumn("UUID", ClientDataType.UUID, false, false, 6),
-                new ClientColumn("STR", ClientDataType.STRING, false, false, 7),
-                new ClientColumn("BITS", ClientDataType.BITMASK, false, false, 8),
-                new ClientColumn("TIME", ClientDataType.TIME, false, false, 9),
-                new ClientColumn("DATE", ClientDataType.DATE, false, false, 10),
-                new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, 11),
-                new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, 12)
-        });
-
-        var uuid = UUID.randomUUID();
-
-        var date = LocalDate.of(1995, Month.MAY, 23);
-        var time = LocalTime.of(17, 0, 1, 222_333_444);
-        var datetime = LocalDateTime.of(1995, Month.MAY, 23, 17, 0, 1, 222_333_444);
-        var timestamp = Instant.now();
-
-        var clientTuple = new ClientTuple(schema)
-                .set("i8", (byte) 1)
-                .set("i16", (short) 2)
-                .set("i32", (int) 3)
-                .set("i64", (long) 4)
-                .set("float", (float) 5.5)
-                .set("double", (double) 6.6)
-                .set("uuid", uuid)
-                .set("str", "8")
-                .set("bits", new BitSet(3))
-                .set("date", date)
-                .set("time", time)
-                .set("datetime", datetime)
-                .set("timestamp", timestamp);
-
+        var clientTuple = createFullSchemaTuple();
         var tuple = Tuple.create();
 
         for (int i = 0; i < clientTuple.columnCount(); i++) {
@@ -353,13 +283,57 @@ public class ClientTupleTest {
         assertEquals(clientTuple.hashCode(), tuple.hashCode());
     }
 
-    private static ClientTuple getBuilder() {
-        return new ClientTuple(SCHEMA);
+    @Test
+    public void testFullSchemaHasAllTypes() {
+        Set<ColumnType> schemaTypes = Arrays.stream(FULL_SCHEMA.columns())
+                .map(ClientColumn::type)
+                .collect(Collectors.toSet());
+
+        for (ColumnType columnType : ColumnType.values()) {
+            if (columnType == ColumnType.NULL) {
+                continue;
+            }
+
+            assertTrue(schemaTypes.contains(columnType), "Schema does not contain " + columnType);
+        }
     }
 
-    private static Tuple getTuple() {
-        return new ClientTuple(SCHEMA)
-                .set("id", 3L)
-                .set("name", "Shirt");
+    private static Tuple createTuple() {
+        var binTupleBuf = new BinaryTupleBuilder(SCHEMA.columns().length, false)
+                .appendLong(3L)
+                .appendString("Shirt")
+                .build();
+
+        var binTuple = new BinaryTupleReader(SCHEMA.columns().length, binTupleBuf);
+
+        return new ClientTuple(SCHEMA, binTuple, 0, SCHEMA.columns().length);
+    }
+
+    private static ClientTuple createFullSchemaTuple() {
+        var binTupleBuf = new BinaryTupleBuilder(FULL_SCHEMA.columns().length, false)
+                .appendByte((byte) 1)
+                .appendShort((short) 2)
+                .appendInt(3)
+                .appendLong(4)
+                .appendFloat(5.5f)
+                .appendDouble(6.6)
+                .appendUuid(GUID)
+                .appendString("8")
+                .appendBitmask(new BitSet(3))
+                .appendDate(DATE)
+                .appendTime(TIME)
+                .appendDateTime(DATE_TIME)
+                .appendTimestamp(TIMESTAMP)
+                .appendByte((byte) 1)
+                .appendDecimal(BigDecimal.valueOf(1.234), 3)
+                .appendBytes(new byte[] {1, 2, 3})
+                .appendPeriod(Period.ofDays(16))
+                .appendDuration(Duration.ofDays(17))
+                .appendNumber(BigInteger.valueOf(18))
+                .build();
+
+        var binTuple = new BinaryTupleReader(FULL_SCHEMA.columns().length, binTupleBuf);
+
+        return new ClientTuple(FULL_SCHEMA, binTuple, 0, FULL_SCHEMA.columns().length);
     }
 }

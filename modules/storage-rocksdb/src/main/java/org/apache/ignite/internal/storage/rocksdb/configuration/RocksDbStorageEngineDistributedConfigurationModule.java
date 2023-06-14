@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,21 +17,21 @@
 
 package org.apache.ignite.internal.storage.rocksdb.configuration;
 
-import java.lang.annotation.Annotation;
+import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-rocksdb.
  */
+@AutoService(ConfigurationModule.class)
 public class RocksDbStorageEngineDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
@@ -53,7 +53,7 @@ public class RocksDbStorageEngineDistributedConfigurationModule implements Confi
 
     /** {@inheritDoc} */
     @Override
-    public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        return Map.of(RocksDbDataRegionName.class, Set.of(RocksDbDataRegionValidatorImpl.INSTANCE));
+    public Set<Validator<?, ?>> validators() {
+        return Set.of(RocksDbDataRegionValidatorImpl.INSTANCE);
     }
 }

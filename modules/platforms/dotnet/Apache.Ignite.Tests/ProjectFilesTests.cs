@@ -50,6 +50,7 @@ namespace Apache.Ignite.Tests
                 foreach (var type in Types)
                 {
                     StringAssert.DoesNotContain("public " + type, text, file);
+                    StringAssert.DoesNotContain("public static " + type, text, file);
                 }
             }
         }
@@ -61,6 +62,7 @@ namespace Apache.Ignite.Tests
             {
                 if (file.Contains(InternalDir, StringComparison.Ordinal) ||
                     file.Contains(".Tests", StringComparison.Ordinal) ||
+                    file.Contains(".Internal.", StringComparison.Ordinal) ||
                     file.Contains(".Benchmarks", StringComparison.Ordinal) ||
                     file.EndsWith("RetryLimitPolicy.cs", StringComparison.Ordinal) ||
                     file.EndsWith("Exception.cs", StringComparison.Ordinal))

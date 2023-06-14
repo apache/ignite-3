@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -86,6 +86,17 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @return operation status
      */
     Status removeLearners(final String groupId, final Configuration conf, final List<PeerId> learners);
+
+    /**
+     * Converts the specified learner to follower of |conf|.
+     * return OK status when success.
+     *
+     * @param groupId  the raft group id
+     * @param conf     current configuration
+     * @param learner  learner peer
+     * @return operation status
+     */
+    Status learner2Follower(final String groupId, final Configuration conf, final PeerId learner);
 
     /**
      * Update learners set in the replicating group which consists of |conf|. return OK status when success.

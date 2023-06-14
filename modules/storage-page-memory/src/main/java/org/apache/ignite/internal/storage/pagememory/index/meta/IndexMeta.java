@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,46 +18,51 @@
 package org.apache.ignite.internal.storage.pagememory.index.meta;
 
 import java.util.UUID;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Index tree meta information.
+ * Index meta information.
  */
-public class IndexMeta {
-    @IgniteToStringInclude
-    private final UUID id;
+public class IndexMeta extends IndexMetaKey {
+    @IgniteToStringExclude
+    private final long metaPageId;
 
-    private final long rootPageId;
+    private final @Nullable UUID nextRowIdUuidToBuild;
 
     /**
      * Constructor.
      *
      * @param id Index ID.
-     * @param rootPageId Index root page ID.
+     * @param metaPageId Index tree meta page ID.
+     * @param nextRowIdUuidToBuild Row ID uuid for which the index needs to be built, {@code null} means that the index building has
+     *      completed.
      */
-    public IndexMeta(UUID id, long rootPageId) {
-        this.id = id;
-        this.rootPageId = rootPageId;
+    public IndexMeta(int id, long metaPageId, @Nullable UUID nextRowIdUuidToBuild) {
+        super(id);
+
+        this.metaPageId = metaPageId;
+        this.nextRowIdUuidToBuild = nextRowIdUuidToBuild;
     }
 
     /**
-     * Returns the index ID.
+     * Returns page ID of the index tree meta page.
      */
-    public UUID id() {
-        return id;
+    public long metaPageId() {
+        return metaPageId;
     }
 
     /**
-     * Returns the index root page ID.
+     * Returns row ID uuid for which the index needs to be built, {@code null} means that the index building has completed.
      */
-    public long rootPageId() {
-        return rootPageId;
+    public @Nullable UUID nextRowIdUuidToBuild() {
+        return nextRowIdUuidToBuild;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(IndexMeta.class, this);
+        return S.toString(IndexMeta.class, this, "indexId=", indexId(), "metaPageId", IgniteUtils.hexLong(metaPageId));
     }
 }

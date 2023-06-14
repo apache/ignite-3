@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -43,8 +43,6 @@ import org.junit.jupiter.api.Test;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class NestedLoopJoinExecutionTest extends AbstractExecutionTest {
-    public static final Object[][] EMPTY = new Object[0][];
-
     @Test
     public void joinEmptyTables() {
         verifyJoin(EMPTY, EMPTY, INNER, EMPTY);
@@ -310,10 +308,10 @@ public class NestedLoopJoinExecutionTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> ctx = executionContext(true);
 
         RelDataType leftType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class);
-        ScanNode<Object[]> leftNode = new ScanNode<>(ctx, leftType, Arrays.asList(left));
+        ScanNode<Object[]> leftNode = new ScanNode<>(ctx, Arrays.asList(left));
 
         RelDataType rightType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class);
-        ScanNode<Object[]> rightNode = new ScanNode<>(ctx, rightType, Arrays.asList(right));
+        ScanNode<Object[]> rightNode = new ScanNode<>(ctx, Arrays.asList(right));
 
         RelDataType outType;
         if (setOf(SEMI, ANTI).contains(joinType)) {
@@ -328,18 +326,15 @@ public class NestedLoopJoinExecutionTest extends AbstractExecutionTest {
                 (r1, r2) -> getFieldFromBiRows(hnd, 2, r1, r2) == getFieldFromBiRows(hnd, 3, r1, r2));
         join.register(asList(leftNode, rightNode));
 
-        RelDataType rowType;
         ProjectNode<Object[]> project;
         if (setOf(SEMI, ANTI).contains(joinType)) {
-            rowType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class);
-            project = new ProjectNode<>(ctx, rowType, r -> new Object[]{r[0], r[1]});
+            project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1]});
         } else {
-            rowType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, String.class);
-            project = new ProjectNode<>(ctx, rowType, r -> new Object[]{r[0], r[1], r[4]});
+            project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1], r[4]});
         }
         project.register(join);
 
-        RootNode<Object[]> node = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> node = new RootNode<>(ctx);
         node.register(project);
 
         ArrayList<Object[]> rows = new ArrayList<>();
