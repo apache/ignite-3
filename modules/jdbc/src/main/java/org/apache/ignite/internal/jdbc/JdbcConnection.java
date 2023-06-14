@@ -924,8 +924,7 @@ public class JdbcConnection implements Connection {
      */
     private String createStrAddress(HostAndPort range) {
         String host = range.host();
-        int portFrom = range.portFrom();
-        int portTo = range.portTo();
+        int port = range.port();
 
         boolean ipV6 = host.contains(":");
 
@@ -933,7 +932,7 @@ public class JdbcConnection implements Connection {
             host = "[" + host + "]";
         }
 
-        return host + ":" + (portFrom == portTo ? portFrom : portFrom + ".." + portTo);
+        return host + ":" + port;
     }
 
     /**

@@ -33,10 +33,7 @@ public class HostAndPort implements Serializable {
     private final String host;
 
     /** Port from. */
-    private final int portFrom;
-
-    /** Port to. */
-    private final int portTo;
+    private final int port;
 
     /**
      * Parse string into host and port pair.
@@ -156,23 +153,10 @@ public class HostAndPort implements Serializable {
      * @param port Port.
      */
     public HostAndPort(String host, int port) {
-        this(host, port, port);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param host     Host.
-     * @param portFrom Port from.
-     * @param portTo   Port to.
-     */
-    public HostAndPort(String host, int portFrom, int portTo) {
         assert host != null && !host.isEmpty();
-        assert portFrom <= portTo && portFrom > 0 && portTo < 65535;
 
         this.host = host;
-        this.portFrom = portFrom;
-        this.portTo = portTo;
+        this.port = port;
     }
 
     /**
@@ -189,17 +173,8 @@ public class HostAndPort implements Serializable {
      *
      * @return Port from.
      */
-    public int portFrom() {
-        return portFrom;
-    }
-
-    /**
-     * Returns port to.
-     *
-     * @return Port to.
-     */
-    public int portTo() {
-        return portTo;
+    public int port() {
+        return port;
     }
 
     /** {@inheritDoc} */
@@ -208,7 +183,7 @@ public class HostAndPort implements Serializable {
         if (o instanceof HostAndPort) {
             HostAndPort other = (HostAndPort) o;
 
-            return host.equals(other.host) && portFrom == other.portFrom && portTo == other.portTo;
+            return host.equals(other.host) && port == other.port;
         } else {
             return false;
         }
@@ -219,8 +194,7 @@ public class HostAndPort implements Serializable {
     public int hashCode() {
         int res = host.hashCode();
 
-        res = 31 * res + portFrom;
-        res = 31 * res + portTo;
+        res = 31 * res + port;
 
         return res;
     }
@@ -228,6 +202,6 @@ public class HostAndPort implements Serializable {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return host + ":" + (portFrom == portTo ? portFrom : portFrom + ".." + portTo);
+        return host + ":" + port;
     }
 }
