@@ -28,7 +28,9 @@ dependencies {
     implementation project(':ignite-configuration')
     implementation project(':ignite-metastorage-api')
     implementation project(':ignite-vault')
+    // TODO: IGNITE-19499 Get rig of ignite-schema/gnite-distribution-zones
     implementation project(':ignite-schema')
+    implementation project(':ignite-distribution-zones')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
 

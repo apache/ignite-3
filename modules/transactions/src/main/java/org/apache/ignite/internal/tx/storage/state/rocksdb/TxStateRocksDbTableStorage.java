@@ -31,9 +31,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.IntSupplier;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -80,13 +78,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     private final Path dbPath;
 
     /** Partition storages. */
-    private volatile AtomicReferenceArray<TxStateRocksDbStorage> storages;
-
-    /** Table configuration. */
-    private final TableConfiguration tableCfg;
-
-    /** Distribution zone configuration. */
-    private final DistributionZoneConfiguration distributionZoneCfg;
+    private final AtomicReferenceArray<TxStateRocksDbStorage> storages;
 
     /** RocksDB flusher instance. */
     private volatile RocksDbFlusher flusher;
@@ -95,7 +87,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Busy lock to stop synchronously. */
-    final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final ScheduledExecutorService scheduledExecutor;
 
@@ -105,27 +97,32 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     /** Supplier for the value of delay for scheduled database flush. */
     private final IntSupplier flushDelaySupplier;
 
+    /** Table ID. */
+    final int id;
+
     /**
      * Constructor.
      *
-     * @param tableCfg Table configuration.
+     * @param id Table ID.
+     * @param partitions Count of partitions.
      * @param dbPath Database path.
      * @param scheduledExecutor Scheduled executor.
      */
     public TxStateRocksDbTableStorage(
-            TableConfiguration tableCfg,
-            DistributionZoneConfiguration distributionZoneCfg,
+            int id,
+            int partitions,
             Path dbPath,
             ScheduledExecutorService scheduledExecutor,
             ExecutorService threadPool,
             IntSupplier flushDelaySupplier
     ) {
-        this.tableCfg = tableCfg;
-        this.distributionZoneCfg = distributionZoneCfg;
+        this.id = id;
         this.dbPath = dbPath;
         this.scheduledExecutor = scheduledExecutor;
         this.threadPool = threadPool;
         this.flushDelaySupplier = flushDelaySupplier;
+
+        this.storages = new AtomicReferenceArray<>(partitions);
     }
 
     /**
@@ -137,7 +134,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
         if (partitionId < 0 || partitionId >= storages.length()) {
             throw new IllegalArgumentException(S.toString(
                 "Unable to access partition with id outside of configured range",
-                "table", tableCfg.name().value(), false,
+                "tableId", id, false,
                 "partitionId", partitionId, false,
                 "partitions", storages.length(), false
             ));
@@ -185,11 +182,6 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     }
 
     @Override
-    public TableConfiguration configuration() {
-        return tableCfg;
-    }
-
-    @Override
     public void start() {
         try {
             flusher = new RocksDbFlusher(
@@ -199,8 +191,6 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
                 flushDelaySupplier,
                 this::refreshPersistedIndexes
             );
-
-            storages = new AtomicReferenceArray<>(distributionZoneCfg.partitions().value());
 
             this.dbOptions = new DBOptions()
                     .setCreateIfMissing(true)
@@ -226,7 +216,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
 
             flusher.init(db, cfHandles);
         } catch (Exception e) {
-            throw new IgniteInternalException("Could not create transaction state storage for the table " + tableCfg.value().name(), e);
+            throw new IgniteInternalException("Could not create transaction state storage for the table: " + id, e);
         }
     }
 
@@ -258,10 +248,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
             reverse(resources);
             IgniteUtils.closeAll(resources);
         } catch (Exception e) {
-            throw new IgniteInternalException(
-                    "Failed to stop transaction state storage of the table " + tableCfg.value().name(),
-                    e
-            );
+            throw new IgniteInternalException("Failed to stop transaction state storage of the table: " + id, e);
         }
     }
 
@@ -274,10 +261,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
 
             IgniteUtils.deleteIfExists(dbPath);
         } catch (Exception e) {
-            throw new IgniteInternalException(
-                    "Failed to destroy the transaction state storage of the table " + tableCfg.value().name(),
-                    e
-            );
+            throw new IgniteInternalException("Failed to destroy the transaction state storage of the table: " + id, e);
         }
     }
 

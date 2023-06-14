@@ -22,12 +22,11 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
@@ -46,18 +45,18 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     /**
      * Constructor.
      *
-     * @param tableCfg Table configuration.
-     * @param tablesCfg Tables configuration.
+     * @param tableDescriptor Table descriptor.
+     * @param indexDescriptorSupplier Index descriptor supplier.
      * @param dataRegion Data region for the table.
+     * @param destructionExecutor Executor used to destruct partitions.
      */
-    public VolatilePageMemoryTableStorage(
-            TableConfiguration tableCfg,
-            TablesConfiguration tablesCfg,
-            DistributionZoneConfiguration distributionZoneConfiguration,
+    VolatilePageMemoryTableStorage(
+            StorageTableDescriptor tableDescriptor,
+            StorageIndexDescriptorSupplier indexDescriptorSupplier,
             VolatilePageMemoryDataRegion dataRegion,
             GradualTaskExecutor destructionExecutor
     ) {
-        super(tableCfg, tablesCfg, distributionZoneConfiguration);
+        super(tableDescriptor, indexDescriptorSupplier);
 
         this.dataRegion = dataRegion;
         this.destructionExecutor = destructionExecutor;

@@ -255,7 +255,7 @@ public class StopCalciteModuleTest {
         when(tbl.primaryReplicas()).thenReturn(List.of(new PrimaryReplica(localNode, -1L)));
 
         when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
-        when(tbl.storage().getTableDescriptor()).thenReturn(new StorageTableDescriptor(tblId, 1));
+        when(tbl.storage().getTableDescriptor()).thenReturn(new StorageTableDescriptor(tblId, 1, "none"));
 
         when(txManager.begin(anyBoolean())).thenReturn(new NoOpTransaction(localNode.name()));
 

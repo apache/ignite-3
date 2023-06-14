@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal.storage.pagememory.index;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -39,16 +41,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 class VolatilePageMemoryHashIndexStorageTest extends AbstractPageMemoryHashIndexStorageTest {
     private VolatilePageMemoryStorageEngine engine;
 
-    private VolatilePageMemoryTableStorage table;
-
     @BeforeEach
     void setUp(
             @InjectConfiguration
             VolatilePageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.tables.foo {}")
-            TablesConfiguration tablesConfig,
-            @InjectConfiguration("mock { dataStorage.name = " + VolatilePageMemoryStorageEngine.ENGINE_NAME + " }")
-            DistributionZoneConfiguration distributionZoneConfiguration
+            TablesConfiguration tablesConfig
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
@@ -58,19 +56,20 @@ class VolatilePageMemoryHashIndexStorageTest extends AbstractPageMemoryHashIndex
 
         engine.start();
 
-        TableConfiguration tableConfig = tablesConfig.tables().get("foo");
+        tableStorage = engine.createMvTable(
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
+                new StorageIndexDescriptorSupplier(tablesConfig)
+        );
 
-        table = engine.createMvTable(tableConfig, tablesConfig, distributionZoneConfiguration);
+        tableStorage.start();
 
-        table.start();
-
-        initialize(table, tableConfig, tablesConfig, engineConfig);
+        initialize(tableStorage, tablesConfig, engineConfig);
     }
 
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(
-                table == null ? null : table::stop,
+                tableStorage == null ? null : tableStorage::stop,
                 engine == null ? null : engine::stop
         );
     }

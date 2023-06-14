@@ -582,8 +582,7 @@ namespace Apache.Ignite.Internal
 
             if (_logger?.IsEnabled(LogLevel.Trace) == true)
             {
-                _logger.Trace(
-                    $"Sending request [opCode={(int)op}, remoteAddress={ConnectionContext.ClusterNode.Address}, requestId={requestId}]");
+                _logger.Trace($"Sending request [op={op}, remoteAddress={ConnectionContext.ClusterNode.Address}, requestId={requestId}]");
             }
 
             await _sendLock.WaitAsync(_disposeTokenSource.Token).ConfigureAwait(false);

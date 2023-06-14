@@ -65,6 +65,9 @@ public class ErrorGroups {
 
         /** Table is stopping. */
         public static final int TABLE_STOPPING_ERR = TABLE_ERR_GROUP.registerErrorCode(5);
+
+        /** Table definition is incorrect. */
+        public static final int TABLE_DEFINITION_ERR = TABLE_ERR_GROUP.registerErrorCode(6);
     }
 
     /** Client error group. */
@@ -387,6 +390,9 @@ public class ErrorGroups {
 
         /** Deployment unit content read error. */
         public static final int UNIT_CONTENT_READ_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(3);
+
+        /** Deployment unit is unavailable for computing. */
+        public static final int UNIT_UNAVAILABLE_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(4);
     }
 
     /**

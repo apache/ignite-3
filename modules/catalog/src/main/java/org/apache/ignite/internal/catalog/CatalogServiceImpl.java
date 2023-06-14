@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CreateZoneParams.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 
@@ -288,7 +289,19 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 throw new TableAlreadyExistsException(schemaName, params.tableName());
             }
 
-            CatalogTableDescriptor table = CatalogUtils.fromParams(catalog.objectIdGenState(), params);
+            params.columns().stream().map(ColumnParams::name).filter(Predicate.not(new HashSet<>()::add))
+                    .findAny().ifPresent(columnName -> {
+                        throw new IgniteInternalException(
+                                ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR, "Can't create table with duplicate columns: "
+                                + params.columns().stream().map(ColumnParams::name).collect(Collectors.joining(", "))
+                        );
+                    });
+
+            String zoneName = Objects.requireNonNullElse(params.zone(), CatalogService.DEFAULT_ZONE_NAME);
+
+            CatalogZoneDescriptor zone = Objects.requireNonNull(catalog.zone(zoneName), "No zone found: " + zoneName);
+
+            CatalogTableDescriptor table = CatalogUtils.fromParams(catalog.objectIdGenState(), zone.id(), params);
 
             return List.of(
                     new NewTableEntry(table),
@@ -395,8 +408,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             .ifPresent(columnName -> {
                                 throw new SqlException(
                                         Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR,
-                                        "Can't drop indexed column: columnName=" + columnName + ", indexName="
-                                                + index.name()
+                                        "Can't drop indexed column: columnName=" + columnName + ", indexName=" + index.name()
                                 );
                             }));
 
@@ -520,7 +532,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 } else if (duplicateValidator.test(columnName)) {
                     throw new IgniteInternalException(
                             ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                            "Can't create index on duplicate columns: columnName=" + columnName
+                            "Can't create index on duplicate columns: " + String.join(", ", params.columns())
                     );
                 }
             }
@@ -574,7 +586,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 } else if (duplicateValidator.test(columnName)) {
                     throw new IgniteInternalException(
                             ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                            "Can't create index on duplicate columns: columnName=" + columnName
+                            "Can't create index on duplicate columns: " + String.join(", ", params.columns())
                     );
                 }
             }
@@ -870,6 +882,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                                     : new CatalogTableDescriptor(
                                                             table.id(),
                                                             table.name(),
+                                                            table.zoneId(),
                                                             CollectionUtils.concat(table.columns(), columnDescriptors),
                                                             table.primaryKeyColumns(),
                                                             table.colocationColumns())
@@ -901,8 +914,10 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                                     : new CatalogTableDescriptor(
                                                             table.id(),
                                                             table.name(),
-                                                            table.columns().stream().filter(col -> !columns.contains(col.name()))
-                                                                    .collect(Collectors.toList()),
+                                                            table.zoneId(),
+                                                            table.columns().stream()
+                                                                    .filter(col -> !columns.contains(col.name()))
+                                                                    .collect(toList()),
                                                             table.primaryKeyColumns(),
                                                             table.colocationColumns())
                                             )
@@ -973,7 +988,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             version,
                             activationTimestamp,
                             catalog.objectIdGenState(),
-                            catalog.zones().stream().filter(z -> z.id() != zoneId).collect(Collectors.toList()),
+                            catalog.zones().stream().filter(z -> z.id() != zoneId).collect(toList()),
                             catalog.schemas()
                     );
 
@@ -990,7 +1005,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             catalog.objectIdGenState(),
                             catalog.zones().stream()
                                     .map(z -> z.id() == descriptor.id() ? descriptor : z)
-                                    .collect(Collectors.toList()),
+                                    .collect(toList()),
                             catalog.schemas()
                     );
 
@@ -1024,10 +1039,10 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                                     : new CatalogTableDescriptor(
                                                             table.id(),
                                                             table.name(),
+                                                            table.zoneId(),
                                                             table.columns().stream()
-                                                                    .map(source -> source.name().equals(target.name())
-                                                                            ? target
-                                                                            : source).collect(Collectors.toList()),
+                                                                    .map(source -> source.name().equals(target.name()) ? target : source)
+                                                                    .collect(toList()),
                                                             table.primaryKeyColumns(),
                                                             table.colocationColumns())
                                             )

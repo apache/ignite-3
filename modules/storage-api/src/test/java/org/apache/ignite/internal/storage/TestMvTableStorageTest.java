@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.storage;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
-import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -32,12 +33,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class TestMvTableStorageTest extends AbstractMvTableStorageTest {
     @BeforeEach
-    void setUp(
-            @InjectConfiguration("mock.tables.foo {}")
-            TablesConfiguration tablesConfig,
-            @InjectConfiguration("mock { partitions = 512, dataStorage.name = " + TestStorageEngine.ENGINE_NAME + " }")
-            DistributionZoneConfiguration distributionZoneConfiguration
-    ) {
-        initialize(new TestStorageEngine(), tablesConfig, distributionZoneConfiguration);
+    void setUp(@InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig) {
+        initialize(tablesConfig);
+    }
+
+    @Override
+    protected MvTableStorage createMvTableStorage() {
+        return new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT);
     }
 }
