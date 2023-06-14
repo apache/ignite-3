@@ -81,8 +81,9 @@ public class MultiClusterTest {
     @Test
     public void testReconnectToDifferentClusterFails()
             throws Exception {
+        int port = server1.port();
         Builder builder = IgniteClient.builder()
-                .addresses("127.0.0.1:" + server1.port());
+                .addresses("127.0.0.1:" + port);
 
         server2.close();
 
@@ -90,7 +91,7 @@ public class MultiClusterTest {
             client.tables().tables();
 
             server1.close();
-            server1 = new TestServer(0, new FakeIgnite(), null, null, "s1", clusterId2, null, server1.port());
+            server1 = new TestServer(0, new FakeIgnite(), null, null, "s1", clusterId2, null, port);
 
             IgniteClientConnectionException ex = (IgniteClientConnectionException) assertThrowsWithCause(
                     () -> client.tables().tables(), IgniteClientConnectionException.class, "Cluster ID mismatch");
