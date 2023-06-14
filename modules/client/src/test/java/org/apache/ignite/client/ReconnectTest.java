@@ -54,10 +54,10 @@ public class ReconnectTest {
         FakeIgnite ignite1 = new FakeIgnite();
         ((FakeIgniteTables) ignite1.tables()).createTable("t");
 
-        server = AbstractClientTest.startServer(0, ignite1);
+        server = new TestServer(0, ignite1, null, null, null, AbstractClientTest.clusterId, null, 10905);
 
         var client = IgniteClient.builder()
-                .addresses("127.0.0.1:10900..10910", "127.0.0.1:10950..10960")
+                .addresses("127.0.0.1:10905", "127.0.0.1:10950", "127.0.0.1:10960")
                 .retryPolicy(new RetryLimitPolicy().retryLimit(100))
                 .build();
 
@@ -68,7 +68,7 @@ public class ReconnectTest {
         FakeIgnite ignite2 = new FakeIgnite();
         ((FakeIgniteTables) ignite2.tables()).createTable("t2");
 
-        server2 = AbstractClientTest.startServer(0, ignite2);
+        server2 = new TestServer(0, ignite2, null, null, null, AbstractClientTest.clusterId, null, 10950);
 
         assertEquals("t2", client.tables().tables().get(0).name());
     }
