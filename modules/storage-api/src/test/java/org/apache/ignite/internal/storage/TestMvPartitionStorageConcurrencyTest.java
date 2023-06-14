@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.storage;
 
-import org.apache.ignite.internal.storage.engine.StorageEngine;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+
+import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestStorageEngine;
+import org.junit.jupiter.api.BeforeEach;
 
 /**
  * Test implementation for {@link TestStorageEngine}.
  */
 public class TestMvPartitionStorageConcurrencyTest extends AbstractMvPartitionStorageConcurrencyTest {
-    @Override
-    protected StorageEngine createEngine() {
-        return new TestStorageEngine();
+    @BeforeEach
+    void setUp() {
+        initialize(new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT));
     }
 }

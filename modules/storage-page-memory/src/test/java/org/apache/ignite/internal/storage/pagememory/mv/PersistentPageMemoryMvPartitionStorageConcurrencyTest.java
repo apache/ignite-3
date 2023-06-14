@@ -17,31 +17,68 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+
 import java.nio.file.Path;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageConcurrencyTest;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPartitionStorageConcurrencyTest {
-    @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
-    private PersistentPageMemoryStorageEngineConfiguration engineConfig;
+    private PersistentPageMemoryStorageEngine engine;
 
-    @WorkDirectory
-    private Path workDir;
+    private PersistentPageMemoryTableStorage table;
 
-    @Override
-    protected StorageEngine createEngine() {
+    @BeforeEach
+    void setUp(
+            @WorkDirectory Path workDir,
+            @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
+            PersistentPageMemoryStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock.tables.foo = {}")
+            TablesConfiguration tablesConfig
+    ) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        return new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null);
+        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null);
+
+        engine.start();
+
+        table = engine.createMvTable(
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
+                new StorageIndexDescriptorSupplier(tablesConfig)
+        );
+
+        table.start();
+
+        initialize(table);
+    }
+
+    @AfterEach
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
+
+        IgniteUtils.closeAllManually(
+                table,
+                engine == null ? null : engine::stop
+        );
     }
 }

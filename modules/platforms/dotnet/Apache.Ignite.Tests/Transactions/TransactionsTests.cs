@@ -266,9 +266,12 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestToString()
         {
-            await using var tx1 = await Client.Transactions.BeginAsync();
-            await using var tx2 = await Client.Transactions.BeginAsync(new(ReadOnly: true));
-            await using var tx3 = await Client.Transactions.BeginAsync();
+            // Single connection.
+            using var client = await IgniteClient.StartAsync(new() { Endpoints = { "127.0.0.1:" + ServerPort } });
+
+            await using var tx1 = await client.Transactions.BeginAsync();
+            await using var tx2 = await client.Transactions.BeginAsync(new(ReadOnly: true));
+            await using var tx3 = await client.Transactions.BeginAsync();
 
             await tx2.RollbackAsync();
             await tx3.CommitAsync();

@@ -26,6 +26,7 @@ dependencies {
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-core')
     implementation project(':ignite-code-deployment')
+    implementation project(':ignite-rest-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -35,7 +36,6 @@ dependencies {
     annotationProcessor libs.auto.service
 
     testImplementation project(':ignite-core')
-    testImplementation project(':ignite-rest-api')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation libs.hamcrest.core

@@ -58,8 +58,8 @@ public class LoggingTests
         StringAssert.Contains("Handshake succeeded", log);
         StringAssert.Contains("Trying to establish secondary connections - awaiting 2 tasks", log);
         StringAssert.Contains("All secondary connections established", log);
-        StringAssert.Contains("Sending request [opCode=3", log);
-        StringAssert.Contains("Sending request [opCode=50", log);
+        StringAssert.Contains("Sending request [op=TablesGet", log);
+        StringAssert.Contains("Sending request [op=SqlExec", log);
         StringAssert.Contains("Connection closed", log);
     }
 }

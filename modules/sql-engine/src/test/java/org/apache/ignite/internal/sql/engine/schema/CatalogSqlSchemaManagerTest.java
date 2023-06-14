@@ -509,6 +509,8 @@ public class CatalogSqlSchemaManagerTest {
 
         private final String name;
 
+        private final int zoneId = ID.incrementAndGet();
+
         private final Set<String> notNull = new HashSet<>();
 
         private List<String> primaryKey = Collections.emptyList();
@@ -571,7 +573,7 @@ public class CatalogSqlSchemaManagerTest {
                 columnDescriptors.add(newCol);
             }
 
-            return new CatalogTableDescriptor(id, name, columnDescriptors, primaryKey, colocationKey);
+            return new CatalogTableDescriptor(id, name, zoneId, columnDescriptors, primaryKey, colocationKey);
         }
     }
 

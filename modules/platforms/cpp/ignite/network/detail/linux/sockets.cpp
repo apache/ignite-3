@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-#include "sockets.h"
+#include "ignite/network/detail/linux/sockets.h"
+#include "ignite/network/socket_client.h"
 
 #include <cerrno>
 #include <cstring>
@@ -25,6 +26,7 @@
 #include <netdb.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
+#include <poll.h>
 
 namespace ignite::network::detail {
 
@@ -116,6 +118,42 @@ void try_set_socket_options(int socket_fd, int buf_size, bool no_delay, bool out
 
     setsockopt(
         socket_fd, IPPROTO_TCP, TCP_KEEPINTVL, reinterpret_cast<char *>(&idle_retry_opt), sizeof(idle_retry_opt));
+}
+
+int wait_on_socket(int socket, std::int32_t timeout, bool rd)
+{
+    int32_t timeout0 = timeout == 0 ? -1 : timeout;
+
+    int lastError = 0;
+    int ret;
+
+    do
+    {
+        struct pollfd fds[1];
+
+        fds[0].fd = socket;
+        fds[0].events = rd ? POLLIN : POLLOUT;
+
+        ret = poll(fds, 1, timeout0 * 1000);
+
+        if (ret == SOCKET_ERROR)
+            lastError = errno;
+
+    } while (ret == SOCKET_ERROR && lastError == EINTR);
+
+    if (ret == SOCKET_ERROR)
+        return -lastError;
+
+    socklen_t size = sizeof(lastError);
+    int res = getsockopt(socket, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&lastError), &size);
+
+    if (res != SOCKET_ERROR && lastError != 0)
+        return -lastError;
+
+    if (ret == 0)
+        return socket_client::wait_result::TIMEOUT;
+
+    return socket_client::wait_result::SUCCESS;
 }
 
 bool set_non_blocking_mode(int socket_fd, bool non_blocking) {

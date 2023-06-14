@@ -26,10 +26,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -42,22 +38,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Tx storage test for RocksDB implementation.
  */
-@ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
+@ExtendWith(WorkDirectoryExtension.class)
 public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     @WorkDirectory
-    protected Path workDir;
-
-    @InjectConfiguration
-    private TableConfiguration tableConfig;
-
-    @InjectConfiguration("mock.partitions = 3")
-    private DistributionZoneConfiguration distributionZoneConfiguration;
+    private Path workDir;
 
     @Override
     protected TxStateRocksDbTableStorage createTableStorage() {
         return new TxStateRocksDbTableStorage(
-                tableConfig,
-                distributionZoneConfiguration,
+                1,
+                3,
                 workDir,
                 new ScheduledThreadPoolExecutor(1),
                 Executors.newFixedThreadPool(1),

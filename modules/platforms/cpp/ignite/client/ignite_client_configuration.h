@@ -49,6 +49,14 @@ public:
         : m_endpoints(endpoints.begin(), endpoints.end()) {}
 
     /**
+     * Constructor.
+     *
+     * @param endpoints Endpoints list.
+     */
+    ignite_client_configuration(std::vector<std::string> endpoints) // NOLINT(google-explicit-constructor)
+        : m_endpoints(std::move(endpoints)) {}
+
+    /**
      * Get endpoints.
      *
      * @see set_endpoints() for more detailed description.
@@ -63,11 +71,8 @@ public:
      * Examples of supported formats:
      * - 192.168.1.25 - Default port is used, see DEFAULT_PORT;
      * - 192.168.1.25:780 - Custom port;
-     * - 192.168.1.25:780..787  - Custom port range - ports are checked from
-     *      lesser to greater until an open port is found;
      * - my-host.com - Default port is used, see DEFAULT_PORT;
      * - my-host.com:780 - Custom port;
-     * - my-host.com:780..787 - Custom port range.
      *
      * Default is "localhost"
      *
@@ -75,6 +80,23 @@ public:
      */
     void set_endpoints(std::initializer_list<std::string_view> endpoints) {
         ignite_client_configuration::m_endpoints.assign(endpoints.begin(), endpoints.end());
+    }
+
+    /**
+     * Set endpoints.
+     *
+     * Examples of supported formats:
+     * - 192.168.1.25 - Default port is used, see DEFAULT_PORT;
+     * - 192.168.1.25:780 - Custom port;
+     * - my-host.com - Default port is used, see DEFAULT_PORT;
+     * - my-host.com:780 - Custom port;
+     *
+     * Default is "localhost"
+     *
+     * @param endpoints Endpoints.
+     */
+    void set_endpoints(std::vector<std::string> endpoints) {
+        ignite_client_configuration::m_endpoints = std::move(endpoints);
     }
 
     /**

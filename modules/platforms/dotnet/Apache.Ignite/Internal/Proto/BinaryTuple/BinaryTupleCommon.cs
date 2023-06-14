@@ -17,7 +17,10 @@
 
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
+    using System;
     using System.Diagnostics;
+    using System.Numerics;
+    using System.Runtime.InteropServices;
     using NodaTime;
 
     /// <summary>
@@ -110,6 +113,45 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public static byte NullMask(int index)
         {
             return (byte)(1 << (index % 8));
+        }
+
+        /// <summary>
+        /// Converts decimal to unscaled BigInteger.
+        /// </summary>
+        /// <param name="value">Decimal value.</param>
+        /// <param name="scale">Column scale.</param>
+        /// <returns>Unscaled BigInteger according to column scale.</returns>
+        public static BigInteger DecimalToUnscaledBigInteger(decimal value, int scale)
+        {
+            if (value == decimal.Zero)
+            {
+                return BigInteger.Zero;
+            }
+
+            Span<int> bits = stackalloc int[4];
+            decimal.GetBits(value, bits);
+
+            var valueScale = (bits[3] & 0x00FF0000) >> 16;
+            var sign = bits[3] >> 31;
+
+            var bytes = MemoryMarshal.Cast<int, byte>(bits[..3]);
+            var unscaled = new BigInteger(bytes, true);
+
+            if (sign < 0)
+            {
+                unscaled = -unscaled;
+            }
+
+            if (scale > valueScale)
+            {
+                unscaled *= BigInteger.Pow(new BigInteger(10), scale - valueScale);
+            }
+            else if (scale < valueScale)
+            {
+                unscaled /= BigInteger.Pow(new BigInteger(10), valueScale - scale);
+            }
+
+            return unscaled;
         }
     }
 }

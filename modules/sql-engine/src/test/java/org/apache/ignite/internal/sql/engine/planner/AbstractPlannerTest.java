@@ -96,8 +96,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.Cloner;
@@ -1032,19 +1030,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         @Override
         public String name() {
             return name;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public InternalTable table() {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
-                @Nullable BitSet requiredColumns) {
-            throw new AssertionError();
         }
     }
 

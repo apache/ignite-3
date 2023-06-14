@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.call.cluster.unit;
 
 import java.nio.file.Path;
+import java.util.List;
 import org.apache.ignite.internal.cli.core.call.CallInput;
 
 /** Input for {@link DeployUnitCall}. */
@@ -29,12 +30,15 @@ public class DeployUnitCallInput implements CallInput {
 
     private final Path path;
 
+    private final List<String> nodes;
+
     private final String clusterUrl;
 
-    private DeployUnitCallInput(String id, String version, Path path, String clusterUrl) {
+    private DeployUnitCallInput(String id, String version, Path path, List<String> nodes, String clusterUrl) {
         this.id = id;
         this.version = version;
         this.path = path;
+        this.nodes = nodes;
         this.clusterUrl = clusterUrl;
     }
 
@@ -54,6 +58,10 @@ public class DeployUnitCallInput implements CallInput {
         return path;
     }
 
+    public List<String> nodes() {
+        return nodes;
+    }
+
     public String clusterUrl() {
         return clusterUrl;
     }
@@ -65,6 +73,8 @@ public class DeployUnitCallInput implements CallInput {
         private String version;
 
         private Path path;
+
+        private List<String> nodes;
 
         private String clusterUrl;
 
@@ -83,13 +93,18 @@ public class DeployUnitCallInput implements CallInput {
             return this;
         }
 
+        public DeployUnitCallBuilder nodes(List<String> nodes) {
+            this.nodes = nodes;
+            return this;
+        }
+
         public DeployUnitCallBuilder clusterUrl(String clusterUrl) {
             this.clusterUrl = clusterUrl;
             return this;
         }
 
         public DeployUnitCallInput build() {
-            return new DeployUnitCallInput(id, version, path, clusterUrl);
+            return new DeployUnitCallInput(id, version, path, nodes, clusterUrl);
         }
     }
 }

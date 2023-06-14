@@ -116,14 +116,6 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    public void testDeployFailedWithoutId() {
-        HttpClientResponseException e = assertThrows(
-                HttpClientResponseException.class,
-                () -> deploy(null, "1.1.1"));
-        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
-    }
-
-    @Test
     public void testDeployFailedWithoutContent() {
         String id = "unitId";
         String version = "1.1.1";
@@ -131,19 +123,6 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
                 HttpClientResponseException.class,
                 () -> deploy(id, version, null));
         assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
-    }
-
-    @Test
-    public void testDeployFailedWithoutVersion() {
-        String id = "testId";
-
-        HttpClientResponseException e = assertThrows(HttpClientResponseException.class, () -> deploy(id));
-        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
-
-        MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
-        List<UnitStatus> status = client.toBlocking().retrieve(get, Argument.listOf(UnitStatus.class));
-
-        assertThat(status, is(empty()));
     }
 
     @Test
@@ -206,27 +185,23 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
         assertThat(versions, containsInAnyOrder("1.0.0", "1.0.1", "1.1.1", "1.1.2", "1.2.1", "2.0.0"));
     }
 
-    private HttpResponse<Object> deploy(String id) {
-        return deploy(id, null);
-    }
-
     private HttpResponse<Object> deploy(String id, String version) {
         return deploy(id, version, dummyFile.toFile());
     }
 
     private HttpResponse<Object> deploy(String id, String version, File file) {
-        Builder builder = MultipartBody.builder()
-                .addPart("unitVersion", version);
+        MultipartBody body = null;
 
-        if (id != null) {
-            builder.addPart("unitId", id);
-        }
         if (file != null) {
+            Builder builder = MultipartBody.builder();
             builder.addPart("unitContent", file);
+            body = builder.build();
         }
 
-        MutableHttpRequest<MultipartBody> post = HttpRequest.POST("units", builder.build())
+        MutableHttpRequest<MultipartBody> post = HttpRequest
+                .POST("units/" + id + "/" + version, body)
                 .contentType(MediaType.MULTIPART_FORM_DATA);
+
         return client.toBlocking().exchange(post);
     }
 

@@ -52,6 +52,10 @@ import org.jetbrains.annotations.Nullable;
  * A collection of builders to create test objects.
  */
 public class TestBuilders {
+
+    /** Schema version. */
+    public static final int SCHEMA_VERSION = -1;
+
     /** Returns a builder of the test cluster object. */
     public static ClusterBuilder cluster() {
         return new ClusterBuilderImpl();
@@ -268,7 +272,7 @@ public class TestBuilders {
                     .map(ClusterTableBuilderImpl::build)
                     .collect(Collectors.toMap(TestTable::name, Function.identity()));
 
-            var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, null, -1));
+            var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, null, SCHEMA_VERSION));
 
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> new TestNode(name, clusterService.forNode(name), schemaManager))

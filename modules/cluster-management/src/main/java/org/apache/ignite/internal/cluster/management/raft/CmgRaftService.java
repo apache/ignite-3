@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toSet;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -226,6 +228,38 @@ public class CmgRaftService implements ManuallyCloseable {
         return peers.stream()
                 .map(Peer::consistentId)
                 .collect(toSet());
+    }
+
+    /**
+     * Returns a set of consistent IDs of the majority of the voting nodes of the CMG, including a leader.
+     *
+     * @return Set of consistent IDs of the majority of the voting nodes of the CMG, including a leader.
+     */
+    public CompletableFuture<Set<String>> majority() {
+        Peer leader = raftService.leader();
+
+        if (leader == null) {
+            return raftService.refreshLeader().thenCompose(v -> majority());
+        }
+
+        List<Peer> peers = raftService.peers();
+
+        assert peers != null;
+
+        int peersCount = peers.size();
+        String leaderId = leader.consistentId();
+
+        // Take half of the voting peers without the leader.
+        Set<String> result = peers.stream()
+                .map(Peer::consistentId)
+                .filter(consistentId -> !consistentId.equals(leaderId))
+                .limit(peersCount / 2)
+                .collect(toCollection(HashSet::new));
+
+        // Add the leader back so the resulting set is a majority of the peers and contains a leader.
+        result.add(leaderId);
+
+        return completedFuture(result);
     }
 
     private ClusterNodeMessage nodeMessage(ClusterNode node, Map<String, String> nodeAttributes) {

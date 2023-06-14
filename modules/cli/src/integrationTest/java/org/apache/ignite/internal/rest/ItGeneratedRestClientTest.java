@@ -69,6 +69,7 @@ import org.apache.ignite.rest.client.api.TopologyApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.ClusterState;
+import org.apache.ignite.rest.client.model.DeployMode;
 import org.apache.ignite.rest.client.model.InitCommand;
 import org.apache.ignite.rest.client.model.MetricSource;
 import org.apache.ignite.rest.client.model.NodeState;
@@ -393,7 +394,7 @@ public class ItGeneratedRestClientTest {
         String unitId = "test.unit.id";
         String unitVersion = "1.0.0";
 
-        new DeployUnitClient(apiClient).deployUnit(unitId, List.of(emptyFile()), unitVersion);
+        new DeployUnitClient(apiClient).deployUnit(unitId, List.of(emptyFile()), unitVersion, DeployMode.MAJORITY, List.of());
 
         UnitStatus expectedStatus = new UnitStatus().id(unitId).putVersionToStatusItem(unitVersion, DEPLOYED);
 
@@ -423,7 +424,7 @@ public class ItGeneratedRestClientTest {
 
         Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
         assertThat(problem.getStatus(), equalTo(404));
-        assertThat(problem.getDetail(), containsString("Unit test.unit.id with version 0.0.0 doesn't exist"));
+        assertThat(problem.getDetail(), containsString("Unit test.unit.id:0.0.0 not found"));
     }
 
     private static File emptyFile() {

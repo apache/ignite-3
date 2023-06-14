@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.compute.loader;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -26,15 +26,10 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.internal.deployunit.IgniteDeployment;
-import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
+import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.ErrorGroups.Compute;
@@ -47,69 +42,22 @@ public class JobClassLoaderFactory {
     private static final IgniteLogger LOG = Loggers.forClass(JobClassLoaderFactory.class);
 
     /**
-     * The deployer service.
-     */
-    private final IgniteDeployment deployment;
-
-    /**
-     * Constructor.
-     *
-     * @param deployment The deployer service.
-     */
-    public JobClassLoaderFactory(IgniteDeployment deployment) {
-        this.deployment = deployment;
-    }
-
-    /**
      * Create a class loader for the specified units.
      *
      * @param units The units of the job.
      * @return The class loader.
      */
-    public CompletableFuture<JobClassLoader> createClassLoader(List<DeploymentUnit> units) {
-        Stream<URL>[] unitUrls = new Stream[units.size()];
+    public JobClassLoader createClassLoader(List<DisposableDeploymentUnit> units) {
+        URL[] classpath = units.stream()
+                .map(DisposableDeploymentUnit::path)
+                .flatMap(JobClassLoaderFactory::collectClasspath)
+                .toArray(URL[]::new);
 
-        CompletableFuture[] futures = IntStream.range(0, units.size())
-                .mapToObj(id -> {
-                    return constructPath(units.get(id))
-                            .thenApply(JobClassLoaderFactory::collectClasspath)
-                            .thenAccept(stream -> unitUrls[id] = stream);
-                }).toArray(CompletableFuture[]::new);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Created class loader with classpath: {}", Arrays.toString(classpath));
+        }
 
-        return CompletableFuture.allOf(futures).thenApply(v -> {
-            return Stream.of(unitUrls)
-                    .flatMap(Function.identity())
-                    .toArray(URL[]::new);
-        })
-                .thenApply(it -> new JobClassLoader(it, getClass().getClassLoader()))
-                .whenComplete((cl, err) -> {
-                    if (err != null) {
-                        LOG.error("Failed to create class loader", err);
-                    } else {
-                        LOG.debug("Created class loader: {}", cl);
-                    }
-                });
-    }
-
-    private CompletableFuture<Path> constructPath(DeploymentUnit unit) {
-        return CompletableFuture.completedFuture(unit.version())
-                .thenCompose(version -> {
-                    if (version == Version.LATEST) {
-                        return lastVersion(unit.name());
-                    } else {
-                        return CompletableFuture.completedFuture(version);
-                    }
-                })
-                .thenCompose(version -> deployment.path(unit.name(), version));
-    }
-
-    private CompletableFuture<Version> lastVersion(String name) {
-        return deployment.versionsAsync(name)
-                .thenApply(versions -> {
-                    return versions.stream()
-                            .max(Version::compareTo)
-                            .orElseThrow(() -> new DeploymentUnitNotFoundException("No versions found for deployment unit: " + name));
-                });
+        return new JobClassLoader(units, classpath, getClass().getClassLoader());
     }
 
     private static Stream<URL> collectClasspath(Path unitDir) {

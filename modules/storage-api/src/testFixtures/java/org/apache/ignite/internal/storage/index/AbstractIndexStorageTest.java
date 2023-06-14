@@ -116,7 +116,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
     protected MvPartitionStorage partitionStorage;
 
-    protected TablesConfiguration tablesCfg;
+    TablesConfiguration tablesCfg;
 
     @BeforeEach
     void setUp() {
@@ -135,12 +135,12 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
      *
      * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
      */
-    protected final void initialize(MvTableStorage tableStorage, TableConfiguration tableConfig, TablesConfiguration tablesCfg) {
+    protected final void initialize(MvTableStorage tableStorage, TablesConfiguration tablesCfg) {
         this.tablesCfg = tablesCfg;
         this.tableStorage = tableStorage;
         this.partitionStorage = getOrCreateMvPartition(tableStorage, TEST_PARTITION);
 
-        createTestTable(tableConfig);
+        createTestTable(tablesCfg.tables().get("foo"));
     }
 
     /**

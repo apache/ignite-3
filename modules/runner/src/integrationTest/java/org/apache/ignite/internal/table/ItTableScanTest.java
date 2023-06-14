@@ -110,13 +110,10 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
     private InternalTable internalTable;
 
     @BeforeEach
-    public void beforeTest() throws InterruptedException {
+    public void beforeTest() {
         table = getOrCreateTable();
 
         internalTable = table.internalTable();
-
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
-        waitForIndex(SORTED_IDX);
 
         loadData(table);
     }
