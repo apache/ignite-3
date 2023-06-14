@@ -104,7 +104,7 @@ namespace Apache.Ignite.Internal
 
             throw new IgniteClientException(
                 ErrorGroups.Client.Configuration,
-                "Unrecognized format of IgniteClientConfiguration.Endpoint, failed to parse port: " + endpoint);
+                $"Unrecognized format of IgniteClientConfiguration.Endpoint, failed to parse port: '{endpoint}'");
         }
     }
 }
