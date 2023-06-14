@@ -126,7 +126,7 @@ public class ReconnectTest {
         startTwoServers();
 
         Builder builder = IgniteClient.builder()
-                .addresses("127.0.0.1:10900..10902")
+                .addresses("127.0.0.1:10900:" + server.port(), "127.0.0.1:10900:" + server2.port())
                 .reconnectInterval(50)
                 .heartbeatInterval(50);
 
