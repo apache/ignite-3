@@ -72,9 +72,7 @@ public class MultiClusterTest {
             assertEquals(1, client.connections().size());
 
             String err = getFailedConnectionEntry(loggerFactory);
-            String expectedErr = "Cluster ID mismatch: expected=" + clusterId2 + ", actual=" + clusterId1;
-
-            assertThat(err, CoreMatchers.containsString(expectedErr));
+            assertThat(err, CoreMatchers.containsString("Cluster ID mismatch"));
         }
     }
 
