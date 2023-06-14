@@ -34,6 +34,7 @@ import org.apache.ignite.internal.schema.configuration.TablesView;
  * of tables: that is, if the set of configured table IDs changes externally (in the configuration),
  * the cache will not return a stale result.
  */
+// TODO: IGNITE-19226 - remove this
 class ConfiguredTablesCache {
     private static final int NO_GENERATION = Integer.MIN_VALUE;
 
