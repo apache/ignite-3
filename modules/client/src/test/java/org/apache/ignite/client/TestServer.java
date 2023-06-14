@@ -90,6 +90,7 @@ public class TestServer implements AutoCloseable {
                 null,
                 null,
                 UUID.randomUUID(),
+                null,
                 null
         );
     }
@@ -107,7 +108,8 @@ public class TestServer implements AutoCloseable {
             @Nullable Function<Integer, Integer> responseDelay,
             @Nullable String nodeName,
             UUID clusterId,
-            @Nullable AuthenticationConfiguration authenticationConfiguration
+            @Nullable AuthenticationConfiguration authenticationConfiguration,
+            @Nullable Integer port
     ) {
         generator = new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY);
         cfg = new ConfigurationRegistry(
@@ -120,7 +122,7 @@ public class TestServer implements AutoCloseable {
         cfg.start();
 
         cfg.getConfiguration(ClientConnectorConfiguration.KEY).change(
-                local -> local.changePort(getFreePort()).changeIdleTimeout(idleTimeout)
+                local -> local.changePort(port != null ? port : getFreePort()).changeIdleTimeout(idleTimeout)
         ).join();
 
         bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkConfiguration.KEY), "TestServer-");

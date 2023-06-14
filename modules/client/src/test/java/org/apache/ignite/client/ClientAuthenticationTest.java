@@ -112,7 +112,8 @@ public class ClientAuthenticationTest {
                 null,
                 null,
                 UUID.randomUUID(),
-                authenticationConfiguration);
+                authenticationConfiguration,
+                null);
 
         if (basicAuthn) {
             authenticationConfiguration.change(change -> {

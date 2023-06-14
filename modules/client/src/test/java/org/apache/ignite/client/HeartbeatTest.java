@@ -87,7 +87,7 @@ public class HeartbeatTest {
         Function<Integer, Integer> responseDelayFunc = requestCount -> requestCount > 1 ? 500 : 0;
         var loggerFactory = new TestLoggerFactory("client");
 
-        try (var srv = new TestServer(300, new FakeIgnite(), x -> false, responseDelayFunc, null, UUID.randomUUID(), null)) {
+        try (var srv = new TestServer(300, new FakeIgnite(), x -> false, responseDelayFunc, null, UUID.randomUUID(), null, null)) {
             int srvPort = srv.port();
 
             Builder builder = IgniteClient.builder()
