@@ -288,15 +288,10 @@ public final class ReliableChannel implements AutoCloseable {
             throw new IgniteException(CONFIGURATION_ERR, "Empty addresses");
         }
 
-        Collection<HostAndPortRange> ranges = new ArrayList<>(addrs.length);
+        Collection<HostAndPort> ranges = new ArrayList<>(addrs.length);
 
         for (String a : addrs) {
-            ranges.add(HostAndPortRange.parse(
-                    a,
-                    IgniteClientConfiguration.DFLT_PORT,
-                    IgniteClientConfiguration.DFLT_PORT + IgniteClientConfiguration.DFLT_PORT_RANGE,
-                    "Failed to parse Ignite server address"
-            ));
+            ranges.add(HostAndPort.parse(a, IgniteClientConfiguration.DFLT_PORT, "Failed to parse Ignite server address"));
         }
 
         return ranges.stream()
