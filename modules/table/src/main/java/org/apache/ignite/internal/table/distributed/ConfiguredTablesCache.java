@@ -21,6 +21,7 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeSet;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.IntFunction;
@@ -46,9 +47,9 @@ class ConfiguredTablesCache {
 
     private final IntFunction<Boolean> isTableConfigured = configuredTableIds::contains;
 
-    private final IntFunction<List<Integer>> getConfiguredTableIds = unused -> new ArrayList<>(configuredTableIds);
+    private final IntFunction<List<Integer>> getConfiguredTableIds = unused -> new ArrayList<>(new TreeSet<>(configuredTableIds));
 
-    public ConfiguredTablesCache(TablesConfiguration tablesConfig, boolean getMetadataLocallyOnly) {
+    ConfiguredTablesCache(TablesConfiguration tablesConfig, boolean getMetadataLocallyOnly) {
         this.tablesConfig = tablesConfig;
         this.getMetadataLocallyOnly = getMetadataLocallyOnly;
     }
@@ -73,7 +74,7 @@ class ConfiguredTablesCache {
     }
 
     private <T> T getConsistently(int intArg, IntFunction<T> getter) {
-        int currentGeneration = tablesConfigOrDirectProxy().tablesGeneration().value();
+        int currentGeneration = getCurrentGeneration();
 
         lock.readLock().lock();
 
@@ -89,7 +90,7 @@ class ConfiguredTablesCache {
 
         try {
             // Check again.
-            currentGeneration = tablesConfigOrDirectProxy().tablesGeneration().value();
+            currentGeneration = getCurrentGeneration();
 
             if (cachedGenerationMatches(currentGeneration)) {
                 return getter.apply(intArg);
@@ -101,6 +102,10 @@ class ConfiguredTablesCache {
         } finally {
             lock.writeLock().unlock();
         }
+    }
+
+    private Integer getCurrentGeneration() {
+        return tablesConfigOrDirectProxy().tablesGeneration().value();
     }
 
     private TablesConfiguration tablesConfigOrDirectProxy() {
