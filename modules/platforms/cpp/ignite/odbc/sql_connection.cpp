@@ -19,33 +19,59 @@
 #include "ignite/odbc/config/configuration.h"
 #include "ignite/odbc/config/connection_string_parser.h"
 #include "ignite/odbc/log.h"
-#include "ignite/odbc/message.h"
 #include "ignite/odbc/sql_environment.h"
 #include "ignite/odbc/sql_statement.h"
 #include "ignite/odbc/ssl_mode.h"
 #include "ignite/odbc/utility.h"
 
 #include <ignite/network/network.h>
+#include <ignite/common/bytes.h>
 
-#include <sstream>
 #include <algorithm>
 #include <cstring>
 #include <cstddef>
+#include <random>
+#include <sstream>
 
-// Uncomment for per-byte debug.
-// TODO: Change to m_env variable
-//#define PER_BYTE_DEBUG
+constexpr const std::size_t PROTOCOL_HEADER_SIZE = 4;
 
 namespace
 {
-#pragma pack(push, 1)
-    struct odbc_protocol_header
+
+/**
+ * Get hex dump of binary data in string form.
+ * @param data Data.
+ * @param count Number of bytes.
+ * @return Hex dump string.
+ */
+std::string hex_dump(const void* data, std::size_t count)
+{
+    std::stringstream dump;
+    std::size_t cnt = 0;
+    auto bytes = (const std::uint8_t*)data;
+    for (auto *p = bytes, *e = bytes + count; p != e; ++p)
     {
-        std::int32_t len;
-    };
-#pragma pack(pop)
+        if (cnt++ % 16 == 0)
+        {
+            dump << std::endl;
+        }
+        dump << std::hex << std::setfill('0') << std::setw(2) << (int)*p << " ";
+    }
+    return dump.str();
 }
 
+}
+
+std::vector<ignite::end_point> collect_addresses(const ignite::configuration& cfg)
+{
+    std::vector<ignite::end_point> end_points = cfg.get_addresses();
+
+    std::random_device device;
+    std::mt19937 generator(device());
+    std::shuffle(end_points.begin(), end_points.end(), generator);
+
+    return end_points;
+}
 
 namespace ignite {
 
@@ -74,18 +100,17 @@ sql_result sql_connection::internal_get_info(connection_info::info_type type, vo
     return res;
 }
 
-void sql_connection::establish(const std::string& connectStr, void* parentWindow)
+void sql_connection::establish(const std::string& connect_str, void* parent_window)
 {
-    IGNITE_ODBC_API_CALL(internal_establish(connectStr, parentWindow));
+    IGNITE_ODBC_API_CALL(internal_establish(connect_str, parent_window));
 }
 
-sql_result sql_connection::internal_establish(const std::string& connectStr, void* parentWindow)
+sql_result sql_connection::internal_establish(const std::string& connect_str, void* parent_window)
 {
-    configuration config;
-    connection_string_parser parser(config);
-    parser.parse_connection_string(connectStr, &get_diagnostic_records());
+    connection_string_parser parser(m_config);
+    parser.parse_connection_string(connect_str, &get_diagnostic_records());
 
-    if (parentWindow)
+    if (parent_window)
     {
         // TODO: IGNITE-19210 Implement UI for connection
         add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Connection using UI is not supported");
@@ -103,11 +128,10 @@ void sql_connection::establish(const configuration& cfg)
     IGNITE_ODBC_API_CALL(internal_establish(cfg));
 }
 
-sql_result sql_connection::init_socket()
+void sql_connection::init_socket()
 {
-    // TODO: IGNITE-19204 Implement connection establishment.
-    add_status_record(sql_state::S08001_CANNOT_CONNECT, "Connection is not implemented");
-    return sql_result::AI_ERROR;
+    if (!m_socket)
+        m_socket = network::make_tcp_socket_client();
 }
 
 sql_result sql_connection::internal_establish(const configuration& cfg)
@@ -147,7 +171,14 @@ void sql_connection::deregister()
 
 sql_result sql_connection::internal_release()
 {
-    // TODO: IGNITE-19204 Implement connection management.
+    if (!m_socket)
+    {
+        add_status_record(sql_state::S08003_NOT_CONNECTED, "Connection is not open.");
+
+        // It is important to return SUCCESS_WITH_INFO and not ERROR here, as if we return an error, Windows
+        // Driver Manager may decide that connection is not valid anymore which results in memory leak.
+        return sql_result::AI_SUCCESS_WITH_INFO;
+    }
 
     close();
 
@@ -156,7 +187,11 @@ sql_result sql_connection::internal_release()
 
 void sql_connection::close()
 {
-    // TODO: IGNITE-19204 Implement connection management.
+    if (m_socket)
+    {
+        m_socket->close();
+        m_socket.reset();
+    }
 }
 
 sql_statement *sql_connection::create_statement()
@@ -182,49 +217,59 @@ sql_result sql_connection::internal_create_statement(sql_statement *& statement)
     return sql_result::AI_SUCCESS;
 }
 
-bool sql_connection::send(const std::int8_t* data, size_t len, std::int32_t timeout)
+bool sql_connection::send(const std::byte* data, std::size_t len, std::int32_t timeout)
 {
-    // TODO: IGNITE-19204 Implement connection management.
+    if (!m_socket)
+        throw odbc_error(sql_state::S08003_NOT_CONNECTED, "Connection is not established");
 
-    auto new_len = static_cast<std::int32_t>(len + sizeof(odbc_protocol_header));
-    std::vector<std::int8_t> msg(new_len);
-    auto *hdr = reinterpret_cast<odbc_protocol_header*>(msg.data());
+    auto new_len = len + PROTOCOL_HEADER_SIZE;
+    std::vector<std::byte> msg(new_len);
 
-    // TODO: Re-factor
-    hdr->len = static_cast<std::int32_t>(len);
-
-    memcpy(msg.data() + sizeof(odbc_protocol_header), data, len);
+    bytes::store<endian::BIG, std::int32_t>(msg.data(), std::int32_t(len));
+    memcpy(msg.data() + PROTOCOL_HEADER_SIZE, data, len);
 
     operation_result res = send_all(msg.data(), msg.size(), timeout);
-
     if (res == operation_result::TIMEOUT)
         return false;
 
     if (res == operation_result::FAIL)
         throw odbc_error(sql_state::S08S01_LINK_FAILURE, "Can not send message due to connection failure");
 
-#ifdef PER_BYTE_DEBUG
-    LOG_MSG("message sent: (" <<  msg.get_size() << " bytes)" << HexDump(msg.get_data(), msg.get_size()));
-#endif //PER_BYTE_DEBUG
+    TRACE_MSG("message sent: (" <<  msg.size() << " bytes)" << hex_dump(msg.data(), msg.size()));
 
     return true;
 }
 
-sql_connection::operation_result sql_connection::send_all(const std::int8_t* data, size_t len, std::int32_t timeout)
+sql_connection::operation_result sql_connection::send_all(const std::byte* data, std::size_t len, std::int32_t timeout)
 {
-    // TODO: IGNITE-19204 Implement connection operations.
-    return operation_result::FAIL;
+    std::int64_t sent = 0;
+    while (sent != static_cast<std::int64_t>(len))
+    {
+        int res = m_socket->send(data + sent, len - sent, timeout);
+        LOG_MSG("Send result: " << res);
+
+        if (res < 0 || res == network::socket_client::wait_result::TIMEOUT)
+        {
+            close();
+            return res < 0 ? operation_result::FAIL : operation_result::TIMEOUT;
+        }
+        sent += res;
+    }
+
+    assert(static_cast<std::size_t>(sent) == len);
+
+    return operation_result::SUCCESS;
 }
 
-bool sql_connection::receive(std::vector<std::int8_t>& msg, std::int32_t timeout)
+bool sql_connection::receive(std::vector<std::byte>& msg, std::int32_t timeout)
 {
-    // TODO: IGNITE-19204 Implement connection management.
+    if (!m_socket)
+        throw odbc_error(sql_state::S08003_NOT_CONNECTED, "Connection is not established");
 
     msg.clear();
 
-    odbc_protocol_header hdr{};
-
-    operation_result res = receive_all(reinterpret_cast<std::int8_t*>(&hdr), sizeof(hdr), timeout);
+    std::byte len_buffer[PROTOCOL_HEADER_SIZE];
+    operation_result res = receive_all(&len_buffer, sizeof(len_buffer), timeout);
 
     if (res == operation_result::TIMEOUT)
         return false;
@@ -232,38 +277,52 @@ bool sql_connection::receive(std::vector<std::int8_t>& msg, std::int32_t timeout
     if (res == operation_result::FAIL)
         throw odbc_error(sql_state::S08S01_LINK_FAILURE, "Can not receive message header");
 
-    if (hdr.len < 0)
+    static_assert(sizeof(std::int32_t) == PROTOCOL_HEADER_SIZE);
+    std::int32_t len = bytes::load<endian::BIG, std::int32_t>(len_buffer);
+    if (len < 0)
     {
         close();
-
         throw odbc_error(sql_state::SHY000_GENERAL_ERROR, "Protocol error: Message length is negative");
     }
 
-    if (hdr.len == 0)
+    if (len == 0)
         return false;
 
-    msg.resize(hdr.len);
-
-    res = receive_all(&msg[0], hdr.len, timeout);
-
+    msg.resize(len);
+    res = receive_all(&msg[0], len, timeout);
     if (res == operation_result::TIMEOUT)
         return false;
 
     if (res == operation_result::FAIL)
         throw odbc_error(sql_state::S08S01_LINK_FAILURE, "Can not receive message body");
 
-#ifdef PER_BYTE_DEBUG
-    LOG_MSG("Message received: " << HexDump(&msg[0], msg.size()));
-#endif //PER_BYTE_DEBUG
+    TRACE_MSG("Message received: " << hex_dump(&msg[0], msg.size()));
 
     return true;
 }
 
-sql_connection::operation_result sql_connection::receive_all(void* dst, size_t len, std::int32_t timeout)
+sql_connection::operation_result sql_connection::receive_all(void* dst, std::size_t len, std::int32_t timeout)
 {
-    // TODO: IGNITE-19204 Implement connection operations.
+    std::size_t remain = len;
+    auto* buffer = reinterpret_cast<std::byte*>(dst);
 
-    return operation_result::FAIL;
+    while (remain)
+    {
+        std::size_t received = len - remain;
+
+        int res = m_socket->receive(buffer + received, remain, timeout);
+        LOG_MSG("Receive res: " << res << ", remain: " << remain);
+
+        if (res < 0 || res == network::socket_client::wait_result::TIMEOUT)
+        {
+            close();
+            return res < 0 ? operation_result::FAIL : operation_result::TIMEOUT;
+        }
+
+        remain -= static_cast<std::size_t>(res);
+    }
+
+    return operation_result::SUCCESS;
 }
 
 const configuration&sql_connection::get_configuration() const
@@ -322,9 +381,7 @@ sql_result sql_connection::internal_get_attribute(int attr, void* buf, SQLINTEGE
         {
             auto *val = reinterpret_cast<SQLUINTEGER*>(buf);
 
-            // TODO: IGNITE-19204 Implement connection management.
-            *val = SQL_CD_TRUE;
-
+            *val = m_socket ? SQL_CD_FALSE : SQL_CD_TRUE;
             if (value_len)
                 *value_len = SQL_IS_INTEGER;
 
@@ -446,30 +503,86 @@ sql_result sql_connection::internal_set_attribute(int attr, void* value, SQLINTE
 
 sql_result sql_connection::make_request_handshake()
 {
-    protocol_version m_protocol_version = m_config.get_protocol_version();
-
-    if (!m_protocol_version.is_supported())
-    {
-        add_status_record(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
-            "Protocol version is not supported: " + m_protocol_version.to_string());
-
-        return sql_result::AI_ERROR;
-    }
-
-    handshake_request req(m_config);
-    handshake_response rsp;
+    static constexpr int8_t ODBC_CLIENT = 3;
+    m_protocol_version = protocol_version::get_current();
 
     try
     {
-        // Workaround for some Linux systems that report connection on non-blocking
-        // sockets as successful but fail to establish real connection.
-        bool sent = internal_sync_message(req, rsp, m_login_timeout);
+        std::vector<std::byte> message;
+        {
+            protocol::buffer_adapter buffer(message);
+            buffer.write_raw(bytes_view(protocol::MAGIC_BYTES));
 
-        if (!sent)
+            protocol::write_message_to_buffer(buffer, [&ver = m_protocol_version](protocol::writer &writer) {
+                writer.write(ver.get_major());
+                writer.write(ver.get_minor());
+                writer.write(ver.get_maintenance());
+
+                writer.write(ODBC_CLIENT);
+
+                // Features.
+                writer.write_binary_empty();
+
+                // Extensions.
+                writer.write_map_empty();
+            });
+        }
+
+        auto res = send_all(message.data(), message.size(), m_login_timeout);
+        if (res != operation_result::SUCCESS)
+        {
+            add_status_record(sql_state::S08001_CANNOT_CONNECT, "Failed to send handshake request");
+            return sql_result::AI_ERROR;
+        }
+
+        message.clear();
+        message.resize(protocol::MAGIC_BYTES.size());
+
+        res = receive_all(message.data(), message.size(), m_login_timeout);
+        if (res != operation_result::SUCCESS)
         {
             add_status_record(sql_state::S08001_CANNOT_CONNECT,
                 "Failed to get handshake response (Did you forget to enable SSL?).");
 
+            return sql_result::AI_ERROR;
+        }
+
+        if (!std::equal(message.begin(), message.end(), protocol::MAGIC_BYTES.begin(), protocol::MAGIC_BYTES.end()))
+        {
+            add_status_record(sql_state::S08001_CANNOT_CONNECT, "Failed to receive magic bytes in handshake response. "
+                "Possible reasons: wrong port number used, TLS is enabled on server but not on client.");
+            return sql_result::AI_ERROR;
+        }
+
+        bool received = receive(message, m_login_timeout);
+        if (!received)
+        {
+            add_status_record(sql_state::S08001_CANNOT_CONNECT, "Failed to get handshake response.");
+            return sql_result::AI_ERROR;
+        }
+
+        protocol::reader reader(message);
+
+        auto ver_major = reader.read_int16();
+        auto ver_minor = reader.read_int16();
+        auto ver_patch = reader.read_int16();
+
+        protocol_version ver(ver_major, ver_minor, ver_patch);
+        LOG_MSG("Server-side protocol version: " << ver.to_string());
+
+        // We now only support a single version
+        if (ver != protocol_version::get_current())
+        {
+            add_status_record(sql_state::S08004_CONNECTION_REJECTED,
+                "Unsupported server version: " + ver.to_string() + ".");
+            return sql_result::AI_ERROR;
+        }
+
+        auto err = protocol::read_error(reader);
+        if (err)
+        {
+            add_status_record(sql_state::S08004_CONNECTION_REJECTED,
+                "Server rejected handshake with error: " + err->what_str());
             return sql_result::AI_ERROR;
         }
     }
@@ -486,43 +599,60 @@ sql_result sql_connection::make_request_handshake()
         return sql_result::AI_ERROR;
     }
 
-    if (!rsp.is_accepted())
-    {
-        LOG_MSG("Handshake message has been rejected.");
-
-        std::stringstream constructor;
-
-        constructor << "Node rejected handshake message. ";
-
-        if (!rsp.get_error().empty())
-            constructor << "Additional info: " << rsp.get_error() << " ";
-
-        constructor << "Current version of the protocol, used by the server node is "
-                    << rsp.get_current_ver().to_string() << ", "
-                    << "driver protocol version introduced in version "
-                    << m_protocol_version.to_string() << ".";
-
-        add_status_record(sql_state::S08004_CONNECTION_REJECTED, constructor.str());
-
-        return sql_result::AI_ERROR;
-    }
-
     return sql_result::AI_SUCCESS;
 }
 
 void sql_connection::ensure_connected()
 {
-    // TODO: IGNITE-19204 Implement connection management.
-    bool success = try_restore_connection();
+    if (!m_socket)
+        return;
 
+    bool success = try_restore_connection();
     if (!success)
         throw odbc_error(sql_state::S08001_CANNOT_CONNECT, "Failed to establish connection with any provided hosts");
 }
 
 bool sql_connection::try_restore_connection()
 {
-    // TODO: IGNITE-19204 Implement connection management.
-    return false;
+    std::vector<end_point> addrs = collect_addresses(m_config);
+
+    if (!m_socket)
+        init_socket();
+
+    bool connected = false;
+    while (!addrs.empty())
+    {
+        const end_point& addr = addrs.back();
+
+        connected = safe_connect(addr);
+        if (connected)
+        {
+            sql_result res = make_request_handshake();
+
+            connected = res != sql_result::AI_ERROR;
+            if (connected)
+                break;
+        }
+
+        addrs.pop_back();
+    }
+
+    if (!connected)
+        close();
+
+    return connected;
+}
+
+bool sql_connection::safe_connect(const end_point &addr)
+{
+    try {
+        return m_socket->connect(addr.host.c_str(), addr.port, m_login_timeout);
+    } catch (const ignite_error& err) {
+        std::stringstream msgs;
+        msgs << "Error while trying connect to " << addr.host << ":" << addr.port <<", " << err.what_str();
+        add_status_record(sql_state::S08001_CANNOT_CONNECT, msgs.str());
+        return false;
+    }
 }
 
 std::int32_t sql_connection::retrieve_timeout(void* value)

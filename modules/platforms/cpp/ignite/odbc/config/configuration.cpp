@@ -25,7 +25,6 @@
 
 namespace ignite {
 
-const protocol_version configuration::default_value::protocol_version{protocol_version::get_current()};
 const std::string configuration::default_value::driver{"Apache Ignite"};
 const std::string configuration::default_value::address{};
 const std::int32_t configuration::default_value::page_size{1024};
@@ -66,12 +65,12 @@ void configuration::set_driver(const std::string& driver)
     m_driver.set_value(driver);
 }
 
-const std::vector<network::tcp_range>& configuration::get_addresses() const
+const std::vector<end_point>& configuration::get_addresses() const
 {
     return m_end_points.get_value();
 }
 
-void configuration::set_addresses(const std::vector<network::tcp_range>& end_points)
+void configuration::set_addresses(const std::vector<end_point>& end_points)
 {
     m_end_points.set_value(end_points);
 }
@@ -119,7 +118,7 @@ void configuration::add_to_map(argument_map& map, const std::string& key, const 
 
 template<>
 void configuration::add_to_map(argument_map& map, const std::string& key,
-    const settable_value< std::vector<network::tcp_range> >& value)
+    const settable_value< std::vector<end_point> >& value)
 {
     if (value.is_set())
         map[key] = addresses_to_string(value.get_value());

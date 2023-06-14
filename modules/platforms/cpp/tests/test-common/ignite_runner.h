@@ -17,24 +17,29 @@
 
 #pragma once
 
-#include <chrono>
-
 #include "cmd_process.h"
+#include "test_utils.h"
+
+#include <chrono>
+#include <string_view>
 
 namespace ignite {
 
 /**
- * Represents IgniteRunner process.
+ * Represents ignite_runner process.
  *
- * IgniteRunner is started from command line. It is recommended to re-use
- * the same IgniteRunner as much as possible to make tests as quick as possible.
+ * ignite_runner is started from command line. It is recommended to re-use
+ * the same ignite_runner as much as possible to make tests as quick as possible.
  */
-class IgniteRunner {
+class ignite_runner {
 public:
+    static inline std::vector<std::string> SINGLE_NODE_ADDR = {"127.0.0.1:10942"};
+    static inline std::vector<std::string> NODE_ADDRS = {"127.0.0.1:10942", "127.0.0.1:10943"};
+
     /**
      * Destructor.
      */
-    ~IgniteRunner() { stop(); }
+    ~ignite_runner() { stop(); }
 
     /**
      * Start node.
@@ -53,6 +58,26 @@ public:
      */
     void join(std::chrono::milliseconds timeout);
 
+    /**
+     * Check whether tests run in single node mode.
+     *
+     * @return @c true if tests run in single node mode.
+    */
+    static bool single_node_mode() {
+        return ignite::get_env("IGNITE_CPP_TESTS_USE_SINGLE_NODE").has_value();
+    }
+
+    /**
+     * Get node addresses to use for tests.
+     *
+     * @return Addresses.
+     */
+    static std::vector<std::string> get_node_addrs() {
+        if (single_node_mode())
+            return SINGLE_NODE_ADDR;
+
+        return NODE_ADDRS;
+    }
 private:
     /** Underlying process. */
     std::unique_ptr<CmdProcess> m_process;

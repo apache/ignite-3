@@ -27,7 +27,9 @@ log_stream::~log_stream() {
         m_logger->write_message(m_string_buf.str());
 }
 
-odbc_logger::odbc_logger(const char* path) {
+odbc_logger::odbc_logger(const char* path, bool trace_enabled)
+    : m_trace_enabled(trace_enabled)
+{
     if (path)
         m_stream.open(path);
 }
@@ -44,8 +46,9 @@ void odbc_logger::write_message(std::string const& message) {
 }
 
 odbc_logger* odbc_logger::get() {
-    const char* env_var_name = "IGNITE3_ODBC_LOG_PATH";
-    static odbc_logger logger(getenv(env_var_name));
+    const char* env_var_path = "IGNITE3_ODBC_LOG_PATH";
+    const char* env_var_trace = "IGNITE3_ODBC_LOG_TRACE_ENABLED";
+    static odbc_logger logger(getenv(env_var_path), getenv(env_var_trace) != nullptr);
     return logger.is_enabled() ? &logger : nullptr;
 }
 

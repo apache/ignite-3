@@ -15,12 +15,15 @@
  * limitations under the License.
  */
 
+#include <ignite/client/ignite_client.h>
+
+#include "ignite_runner.h"
+#include "test_utils.h"
+
 #include <filesystem>
 #include <functional>
 #include <iostream>
 #include <vector>
-
-#include "test_utils.h"
 
 namespace ignite {
 
@@ -58,14 +61,14 @@ bool looksLikeBinaryReleaseHome(const std::filesystem::path &path) {
  * Internally checks for presence of core source directory.
  * @return @c true if the path looks like binary release home directory.
  */
-bool looksLikeSourceReleaseHome(const std::filesystem::path &path) {
-    std::filesystem::path coreSourcePath =
+bool looks_like_source_release_home(const std::filesystem::path &path) {
+    std::filesystem::path core_source_path =
         path / "modules" / "core" / "src" / "main" / "java" / "org" / "apache" / "ignite";
 
-    return std::filesystem::is_directory(coreSourcePath);
+    return std::filesystem::is_directory(core_source_path);
 }
 
-std::string resolveIgniteHome(const std::string &path) {
+std::string resolve_ignite_home(const std::string &path) {
     std::error_code error;
 
     std::filesystem::path home = std::filesystem::canonical(path, error);
@@ -81,12 +84,27 @@ std::string resolveIgniteHome(const std::string &path) {
 
     home = std::filesystem::current_path();
     while (!home.empty() && home.has_relative_path()) {
-        if (looksLikeBinaryReleaseHome(home) || looksLikeSourceReleaseHome(home))
+        if (looksLikeBinaryReleaseHome(home) || looks_like_source_release_home(home))
             return home.string();
 
         home = home.parent_path();
     }
     return home.string();
+}
+
+bool check_test_node_connectable(std::chrono::seconds timeout) {
+    try {
+        ensure_node_connectable(timeout);
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+void ensure_node_connectable(std::chrono::seconds timeout) {
+    for (auto &addr : ignite_runner::get_node_addrs()) {
+        auto client = ignite_client::start({addr}, timeout);
+    }
 }
 
 } // namespace ignite

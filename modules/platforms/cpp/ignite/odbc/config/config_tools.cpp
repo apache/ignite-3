@@ -26,7 +26,7 @@
 
 namespace ignite {
 
-std::string addresses_to_string(const std::vector<network::tcp_range>& addresses)
+std::string addresses_to_string(const std::vector<end_point>& addresses)
 {
     std::stringstream stream;
 
@@ -45,12 +45,12 @@ std::string addresses_to_string(const std::vector<network::tcp_range>& addresses
     return stream.str();
 }
 
-void parse_address(const std::string& value, std::vector<network::tcp_range>& end_points,
-    diagnostic_record_storage* diag)
+std::vector<end_point> parse_address(const std::string& value, diagnostic_record_storage* diag)
 {
     std::size_t addr_num = std::count(value.begin(), value.end(), ',') + 1;
 
-    end_points.reserve(end_points.size() + addr_num);
+    std::vector<end_point> end_points;
+    end_points.reserve(addr_num);
 
     std::string parsed_addr(value);
 
@@ -70,12 +70,10 @@ void parse_address(const std::string& value, std::vector<network::tcp_range>& en
 
         if (!addr.empty())
         {
-            network::tcp_range end_point;
-
-            bool success = parse_single_address(addr, end_point, diag);
-
+            end_point ep;
+            bool success = parse_single_address(addr, ep, diag);
             if (success)
-                end_points.push_back(end_point);
+                end_points.push_back(ep);
         }
 
         if (!addr_begin_pos)
@@ -83,16 +81,18 @@ void parse_address(const std::string& value, std::vector<network::tcp_range>& en
 
         parsed_addr.erase(addr_begin_pos - 1);
     }
+
+    return end_points;
 }
 
-bool parse_single_address(const std::string& value, network::tcp_range& end_point, diagnostic_record_storage* diag)
+bool parse_single_address(const std::string& value, end_point &addr, diagnostic_record_storage* diag)
 {
     std::int64_t colon_num = std::count(value.begin(), value.end(), ':');
 
     if (colon_num == 0)
     {
-        end_point.host = value;
-        end_point.port = configuration::default_value::port;
+        addr.host = value;
+        addr.port = configuration::default_value::port;
 
         return true;
     }
@@ -111,7 +111,7 @@ bool parse_single_address(const std::string& value, network::tcp_range& end_poin
     }
 
     std::size_t colon_pos = value.find(':');
-    end_point.host = value.substr(0, colon_pos);
+    addr.host = value.substr(0, colon_pos);
 
     if (colon_pos == value.size() - 1)
     {
@@ -124,62 +124,10 @@ bool parse_single_address(const std::string& value, network::tcp_range& end_poin
         return false;
     }
 
-    std::string port_range = value.substr(colon_pos + 1);
-
-    if (!parse_port_range(port_range, end_point.port, end_point.range, diag))
+    std::string port_str = value.substr(colon_pos + 1);
+    addr.port = parse_port(port_str, diag);
+    if (!addr.port)
         return false;
-
-    return true;
-}
-
-bool parse_port_range(const std::string& value, std::uint16_t& port, std::uint16_t& range,
-    diagnostic_record_storage* diag)
-{
-    std::size_t sep_pos = value.find('.');
-    if (sep_pos == std::string::npos)
-    {
-        range = 0;
-        port = parse_port(value, diag);
-
-        if (!port)
-            return false;
-
-        return true;
-    }
-
-    if (sep_pos + 2 > value.size() || value[sep_pos + 1] != '.')
-    {
-        std::stringstream stream;
-        stream << "Unexpected number of '.' characters in the following address: '" << value << "'. Ignoring address.";
-
-        if (diag)
-            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
-
-        return false;
-    }
-
-    std::uint16_t range_begin = parse_port(value.substr(0, sep_pos), diag);
-    if (!range_begin)
-        return false;
-
-    std::uint16_t range_end = parse_port(value.substr(sep_pos + 2), diag);
-    if (!range_end)
-        return false;
-
-    if (range_end < range_begin)
-    {
-        std::stringstream stream;
-        stream << "Port range end is less than port range begin in the following address: '"
-            << value << "'. Ignoring address.";
-
-        if (diag)
-            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
-
-        return false;
-    }
-
-    port = range_begin;
-    range = range_end - range_begin;
 
     return true;
 }

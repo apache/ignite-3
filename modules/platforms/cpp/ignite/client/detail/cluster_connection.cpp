@@ -72,7 +72,7 @@ void cluster_connection::stop() {
         pool->stop();
 }
 
-void cluster_connection::on_connection_success(const network::end_point &addr, uint64_t id) {
+void cluster_connection::on_connection_success(const end_point &addr, uint64_t id) {
     m_logger->log_info("Established connection with remote host " + addr.to_string());
     m_logger->log_debug("Connection ID: " + std::to_string(id));
 
@@ -100,7 +100,7 @@ void cluster_connection::on_connection_success(const network::end_point &addr, u
     }
 }
 
-void cluster_connection::on_connection_error(const network::end_point &addr, ignite_error err) {
+void cluster_connection::on_connection_error(const end_point &addr, ignite_error err) {
     m_logger->log_warning(
         "Failed to establish connection with remote host " + addr.to_string() + ", reason: " + err.what());
 
