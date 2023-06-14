@@ -45,7 +45,7 @@ public class ClientMetricsTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void testConnectionMetrics(boolean gracefulDisconnect) throws Exception {
-        server = AbstractClientTest.startServer(10800, 10, 1000, new FakeIgnite());
+        server = AbstractClientTest.startServer(1000, new FakeIgnite());
         client = clientBuilder().build();
 
         ClientMetricSource metrics = metrics();
@@ -72,8 +72,6 @@ public class ClientMetricsTest {
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 0;
         Function<Integer, Integer> responseDelay = idx -> idx > 1 ? 500 : 0;
         server = new TestServer(
-                10800,
-                10,
                 1000,
                 new FakeIgnite(),
                 shouldDropConnection,
@@ -98,8 +96,6 @@ public class ClientMetricsTest {
         AtomicInteger counter = new AtomicInteger();
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> counter.incrementAndGet() < 3; // Fail 2 handshakes.
         server = new TestServer(
-                10800,
-                10,
                 1000,
                 new FakeIgnite(),
                 shouldDropConnection,
@@ -120,8 +116,6 @@ public class ClientMetricsTest {
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> false;
         Function<Integer, Integer> responseDelay = idx -> counter.incrementAndGet() == 1 ? 500 : 0;
         server = new TestServer(
-                10800,
-                10,
                 1000,
                 new FakeIgnite(),
                 shouldDropConnection,
@@ -144,8 +138,6 @@ public class ClientMetricsTest {
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 5;
         Function<Integer, Integer> responseDelay = idx -> idx == 4 ? 1000 : 0;
         server = new TestServer(
-                10800,
-                10,
                 1000,
                 new FakeIgnite(),
                 shouldDropConnection,
@@ -203,7 +195,7 @@ public class ClientMetricsTest {
 
     @Test
     public void testBytesSentReceived() {
-        server = AbstractClientTest.startServer(10800, 10, 1000, new FakeIgnite());
+        server = AbstractClientTest.startServer(1000, new FakeIgnite());
         client = clientBuilder().build();
 
         assertEquals(15, metrics().bytesSent());

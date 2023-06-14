@@ -50,7 +50,7 @@ public class ClientLoggingTest {
         FakeIgnite ignite1 = new FakeIgnite();
         ((FakeIgniteTables) ignite1.tables()).createTable("t");
 
-        server = startServer(10950, ignite1);
+        server = startServer(ignite1);
 
         var loggerFactory1 = new TestLoggerFactory("client1");
         var loggerFactory2 = new TestLoggerFactory("client2");
@@ -66,7 +66,7 @@ public class ClientLoggingTest {
         FakeIgnite ignite2 = new FakeIgnite();
         ((FakeIgniteTables) ignite2.tables()).createTable("t2");
 
-        server2 = startServer(10951, ignite2);
+        server2 = startServer(ignite2);
 
         assertEquals("t2", client1.tables().tables().get(0).name());
         assertEquals("t2", client2.tables().tables().get(0).name());
@@ -83,8 +83,8 @@ public class ClientLoggingTest {
         FakeIgnite ignite = new FakeIgnite();
         ((FakeIgniteTables) ignite.tables()).createTable("t");
 
-        server = startServer(10950, ignite);
-        server2 = startServer(10955, ignite);
+        server = startServer(ignite);
+        server2 = startServer(ignite);
 
         var loggerFactory = new TestLoggerFactory("c");
 
@@ -98,13 +98,8 @@ public class ClientLoggingTest {
         }
     }
 
-    private static TestServer startServer(int port, FakeIgnite ignite) {
-        return AbstractClientTest.startServer(
-                port,
-                10,
-                0,
-                ignite
-        );
+    private static TestServer startServer(FakeIgnite ignite) {
+        return AbstractClientTest.startServer(0, ignite);
     }
 
     private static IgniteClient createClient(LoggerFactory loggerFactory) {

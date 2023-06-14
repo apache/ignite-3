@@ -48,9 +48,9 @@ public class RequestBalancingTest {
     @BeforeEach
     void setUp() {
         FakeIgnite ignite = new FakeIgnite();
-        server1 = AbstractClientTest.startServer(10900, 10, 0, ignite, "s1");
-        server2 = AbstractClientTest.startServer(10900, 10, 0, ignite, "s2");
-        server3 = AbstractClientTest.startServer(10900, 10, 0, ignite, "s3");
+        server1 = AbstractClientTest.startServer(0, ignite, "s1");
+        server2 = AbstractClientTest.startServer(0, ignite, "s2");
+        server3 = AbstractClientTest.startServer(0, ignite, "s3");
     }
 
     @AfterEach
