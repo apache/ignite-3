@@ -44,6 +44,7 @@ import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterService;
@@ -258,7 +259,10 @@ public class ClientHandlerModule implements IgniteComponent {
         if (bindRes.isSuccess()) {
             ch = bindRes.channel();
         } else if (!(bindRes.cause() instanceof BindException)) {
-            throw new IgniteException(bindRes.cause());
+            throw new IgniteException(
+                    ErrorGroups.Common.INTERNAL_ERR,
+                    "Failed to start thin client connector endpoint: " + bindRes.cause().getMessage(),
+                    bindRes.cause());
         }
 
         if (ch == null) {
@@ -266,7 +270,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
             LOG.debug(msg);
 
-            throw new IgniteException(msg);
+            throw new IgniteException(ErrorGroups.Network.PORT_IN_USE, msg);
         }
 
         if (LOG.isInfoEnabled()) {
