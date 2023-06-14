@@ -32,8 +32,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.BiScalar;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.exec.exp.SingleScalar;
-import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata.FragmentMappingMetadata;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 
 /**
  * Contains methods used in metadata definitions.
@@ -72,9 +70,6 @@ public enum IgniteMethod {
     SYSTEM_RANGE3(IgniteSqlFunctions.class, "systemRange", Object.class, Object.class, Object.class),
 
     STRING_TO_TIMESTAMP(IgniteSqlFunctions.class, "timestampStringToNumeric", String.class),
-
-    /** See {@link FragmentMappingMetadata#fragmentMapping(MappingQueryContext)}. */
-    FRAGMENT_MAPPING(FragmentMappingMetadata.class, "fragmentMapping", MappingQueryContext.class),
 
     /** See {@link SqlParserUtil#intervalToMonths(String, SqlIntervalQualifier)}. */
     PARSE_INTERVAL_YEAR_MONTH(SqlParserUtil.class, "intervalToMonths", String.class, SqlIntervalQualifier.class),
