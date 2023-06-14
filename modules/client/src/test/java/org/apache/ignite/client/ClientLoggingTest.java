@@ -88,13 +88,16 @@ public class ClientLoggingTest {
 
         var loggerFactory = new TestLoggerFactory("c");
 
-        try (var client = createClient(loggerFactory)) {
+        try (var client = IgniteClient.builder()
+                .addresses("127.0.0.1:" + server.port(), "127.0.0.1:" + server2.port(), "127.0.0.1:43210")
+                .loggerFactory(loggerFactory)
+                .build()) {
             client.tables().tables();
             client.tables().table("t");
 
             loggerFactory.waitForLogContains("Connection established", 5000);
-            loggerFactory.waitForLogContains("c:Sending request [opCode=3, remoteAddress=127.0.0.1:1095", 5000);
-            loggerFactory.waitForLogContains("c:Failed to establish connection to 127.0.0.1:1095", 5000);
+            loggerFactory.waitForLogContains("c:Sending request [opCode=3, remoteAddress=127.0.0.1:", 5000);
+            loggerFactory.waitForLogContains("c:Failed to establish connection to 127.0.0.1:43210", 5000);
         }
     }
 
@@ -102,9 +105,9 @@ public class ClientLoggingTest {
         return AbstractClientTest.startServer(0, ignite);
     }
 
-    private static IgniteClient createClient(LoggerFactory loggerFactory) {
+    private IgniteClient createClient(LoggerFactory loggerFactory) {
         return IgniteClient.builder()
-                .addresses("127.0.0.1:10950..10960")
+                .addresses("127.0.0.1:" + server.port(), "127.0.0.1:" + server2.port())
                 .loggerFactory(loggerFactory)
                 .build();
     }
