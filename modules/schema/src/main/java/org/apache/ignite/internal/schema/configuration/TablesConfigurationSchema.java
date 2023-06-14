@@ -52,4 +52,8 @@ public class TablesConfigurationSchema {
     /** Low watermark configuration. */
     @ConfigValue
     public LowWatermarkConfigurationSchema lowWatermark;
+
+    /** This counter is increased each time a table is created or dropped. */
+    @Value(hasDefault = true)
+    public int tablesGeneration = 0;
 }

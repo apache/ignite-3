@@ -60,7 +60,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -84,7 +83,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
-import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -132,6 +130,7 @@ import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
+import org.apache.ignite.internal.schema.configuration.TablesChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
@@ -357,6 +356,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final IndexBuilder indexBuilder;
 
+    private final ConfiguredTablesCache configuredTablesCache;
+
     /**
      * Creates a new table manager.
      *
@@ -471,6 +472,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         lowWatermark = new LowWatermark(nodeName, tablesCfg.lowWatermark(), clock, txManager, vaultManager, mvGc);
 
         indexBuilder = new IndexBuilder(nodeName, cpus);
+
+        configuredTablesCache = new ConfiguredTablesCache(tablesCfg, getMetadataLocallyOnly);
     }
 
     @Override
@@ -1434,7 +1437,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                         }
 
                                                         try {
-                                                            changeTablesConfiguration(
+                                                            changeTablesConfigurationOnTableCreate(
                                                                     name,
                                                                     zoneId,
                                                                     tableInitChange,
@@ -1475,35 +1478,39 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tableInitChange Table changer.
      * @param tblFut Future representing pending completion of the table creation.
      */
-    private void changeTablesConfiguration(
+    private void changeTablesConfigurationOnTableCreate(
             String name,
             int zoneId,
             Consumer<TableChange> tableInitChange,
             CompletableFuture<Table> tblFut
     ) {
-        tablesCfg.change(tablesChange -> tablesChange.changeTables(tablesListChange -> {
-            if (tablesListChange.get(name) != null) {
-                throw new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name);
-            }
+        tablesCfg.change(tablesChange -> {
+            incrementTablesGeneration(tablesChange);
 
-            tablesListChange.create(name, (tableChange) -> {
-                tableInitChange.accept(tableChange);
+            tablesChange.changeTables(tablesListChange -> {
+                if (tablesListChange.get(name) != null) {
+                    throw new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name);
+                }
 
-                tableChange.changeZoneId(zoneId);
+                tablesListChange.create(name, (tableChange) -> {
+                    tableInitChange.accept(tableChange);
 
-                var extConfCh = ((ExtendedTableChange) tableChange);
+                    tableChange.changeZoneId(zoneId);
 
-                int tableId = tablesChange.globalIdCounter() + 1;
+                    var extConfCh = ((ExtendedTableChange) tableChange);
 
-                extConfCh.changeId(tableId);
+                    int tableId = tablesChange.globalIdCounter() + 1;
 
-                tablesChange.changeGlobalIdCounter(tableId);
+                    extConfCh.changeId(tableId);
 
-                extConfCh.changeSchemaId(INITIAL_SCHEMA_VERSION);
+                    tablesChange.changeGlobalIdCounter(tableId);
 
-                tableCreateFuts.put(extConfCh.id(), tblFut);
+                    extConfCh.changeSchemaId(INITIAL_SCHEMA_VERSION);
+
+                    tableCreateFuts.put(extConfCh.id(), tblFut);
+                });
             });
-        })).exceptionally(t -> {
+        }).exceptionally(t -> {
             Throwable ex = getRootCause(t);
 
             if (ex instanceof TableAlreadyExistsException) {
@@ -1518,6 +1525,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             return null;
         });
+    }
+
+    private static void incrementTablesGeneration(TablesChange tablesChange) {
+        tablesChange.changeTablesGeneration(tablesChange.tablesGeneration() + 1);
     }
 
     /**
@@ -1647,21 +1658,25 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
 
             return tablesCfg
-                    .change(chg -> chg
-                            .changeTables(tblChg -> {
-                                if (tblChg.get(name) == null) {
-                                    throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, name);
-                                }
+                    .change(chg -> {
+                        incrementTablesGeneration(chg);
 
-                                tblChg.delete(name);
-                            })
-                            .changeIndexes(idxChg -> {
-                                for (TableIndexView index : idxChg) {
-                                    if (index.tableId() == tbl.tableId()) {
-                                        idxChg.delete(index.name());
+                        chg
+                                .changeTables(tblChg -> {
+                                    if (tblChg.get(name) == null) {
+                                        throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, name);
                                     }
-                                }
-                            }))
+
+                                    tblChg.delete(name);
+                                })
+                                .changeIndexes(idxChg -> {
+                                    for (TableIndexView index : idxChg) {
+                                        if (index.tableId() == tbl.tableId()) {
+                                            idxChg.delete(index.name());
+                                        }
+                                    }
+                                });
+                    })
                     .exceptionally(t -> {
                         Throwable ex = getRootCause(t);
 
@@ -1732,18 +1747,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A list of direct table ids.
      */
     private List<Integer> directTableIds() {
-        return directProxy(tablesCfg.tables()).value().stream()
-                .map(TableView::id)
-                .collect(toList());
-    }
-
-    /**
-     * Collects a list of direct index ids.
-     *
-     * @return A list of direct index ids.
-     */
-    private List<UUID> directIndexIds() {
-        return directProxy(tablesCfg.indexes()).internalIds();
+        return configuredTablesCache.configuredTableIds();
     }
 
     /**
@@ -1964,15 +1968,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return True when the table is configured into cluster, false otherwise.
      */
     private boolean isTableConfigured(int id) {
-        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = directProxy(tablesCfg.tables());
-
-        for (TableView tableConfig : tables.value()) {
-            if (tableConfig.id() == id) {
-                return true;
-            }
-        }
-
-        return false;
+        return configuredTablesCache.isTableConfigured(id);
     }
 
     /**
