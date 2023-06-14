@@ -270,7 +270,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
             LOG.debug(msg);
 
-            throw new IgniteException(ErrorGroups.Network.PORT_IN_USE, msg);
+            throw new IgniteException(ErrorGroups.Network.PORT_IN_USE_ERR, msg);
         }
 
         if (LOG.isInfoEnabled()) {
