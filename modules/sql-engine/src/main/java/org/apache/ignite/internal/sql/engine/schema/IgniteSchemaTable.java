@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
 import org.apache.calcite.config.CalciteConnectionConfig;
@@ -35,16 +34,12 @@ import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.table.InternalTable;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -199,18 +194,6 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
         }
 
         return super.unwrap(cls);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public InternalTable table() {
-        throw new UnsupportedOperationException("Execution related methods are not available.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory, @Nullable BitSet requiredColumns) {
-        throw new UnsupportedOperationException("Execution related methods are not available.");
     }
 
     /** {@inheritDoc} */

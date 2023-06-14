@@ -245,8 +245,12 @@ public class StopCalciteModuleTest {
                 catalogManager
         );
 
-        when(tableManager.tableAsync(anyLong(), eq(tblId)))
-                .thenReturn(completedFuture(new TableImpl(tbl, schemaReg, new HeapLockManager())));
+        TableImpl tableImpl = new TableImpl(tbl, schemaReg, new HeapLockManager());
+        when(tableManager.tableAsync(anyLong(), eq(tblId))).thenReturn(completedFuture(tableImpl));
+        when(tableManager.tableAsync(eq(tblId))).thenReturn(completedFuture(tableImpl));
+
+        when(schemaManager.schemaRegistry(eq(tblId))).thenReturn(schemaReg);
+
         when(tbl.tableId()).thenReturn(tblId);
         when(tbl.primaryReplicas()).thenReturn(List.of(new PrimaryReplica(localNode, -1L)));
 

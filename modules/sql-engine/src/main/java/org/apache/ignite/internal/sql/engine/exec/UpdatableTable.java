@@ -27,7 +27,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 /**
  * The interface describe a table that could be updated by {@link ModifyNode}.
  */
-public interface UpdateableTable {
+public interface UpdatableTable {
     /** Returns descriptor of the table. */
     TableDescriptor descriptor();
 
