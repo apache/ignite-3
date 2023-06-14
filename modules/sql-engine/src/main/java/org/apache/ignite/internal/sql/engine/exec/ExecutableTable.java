@@ -35,5 +35,6 @@ public interface ExecutableTable {
     /**
      * Returns a row converter that converts rows to execution engine representation.
      */
+    //TODO: Remove this method after is https://issues.apache.org/jira/browse/IGNITE-19726
     TableRowConverter rowConverter();
 }

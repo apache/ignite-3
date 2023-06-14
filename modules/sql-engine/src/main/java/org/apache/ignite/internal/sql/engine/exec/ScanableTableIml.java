@@ -48,14 +48,14 @@ public class ScanableTableIml implements ScanableTable {
             RowFactory<RowT> rowFactory, @Nullable BitSet requiredColumns) {
 
         Publisher<BinaryRow> pub;
-        TxAttributes txAttributes1 = ctx.txAttributes();
+        TxAttributes txAttributes = ctx.txAttributes();
 
-        if (txAttributes1.readOnly()) {
-            pub = internalTable.scan(partWithTerm.partId(), txAttributes1.time(), ctx.localNode());
+        if (txAttributes.readOnly()) {
+            pub = internalTable.scan(partWithTerm.partId(), txAttributes.time(), ctx.localNode());
         } else {
             PrimaryReplica recipient = new PrimaryReplica(ctx.localNode(), partWithTerm.term());
 
-            pub = internalTable.scan(partWithTerm.partId(), txAttributes1.id(), recipient, null, null, null, 0, null);
+            pub = internalTable.scan(partWithTerm.partId(), txAttributes.id(), recipient, null, null, null, 0, null);
         }
 
         return StorageScanNode.convertPublisher(pub, (item) -> {
