@@ -164,7 +164,7 @@ public class ItDistributedConfigurationStorageTest {
          */
         void deployWatches() {
             // deploy watches to propagate data from the metastore into the vault
-            metaStorageManager.deployWatches().join();
+            assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
         }
 
         /**

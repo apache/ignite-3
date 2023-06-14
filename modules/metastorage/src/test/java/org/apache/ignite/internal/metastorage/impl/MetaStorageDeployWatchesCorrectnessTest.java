@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
@@ -110,6 +110,6 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
 
         metastore.start();
 
-        assertThat(deployWatchesFut, willSucceedFast());
+        assertThat(deployWatchesFut, willCompleteSuccessfully());
     }
 }

@@ -21,10 +21,17 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class TestMvStorageUpdateHandlerTest extends AbstractMvStorageUpdateHandlerTest {
     @BeforeEach
     void setUp() {
         initialize(new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT));
+    }
+
+    @Test
+    @Override
+    void testConcurrentExecuteBatchGc() {
+        super.testConcurrentExecuteBatchGc();
     }
 }

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -213,7 +214,7 @@ public class ItDistributedConfigurationPropertiesTest {
          */
         void deployWatches() {
             // deploy watches to propagate data from the metastore into the vault
-            metaStorageManager.deployWatches().join();
+            assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
         }
 
         /**

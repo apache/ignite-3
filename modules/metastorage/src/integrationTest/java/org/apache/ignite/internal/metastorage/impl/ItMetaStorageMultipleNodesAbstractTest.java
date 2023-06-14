@@ -170,7 +170,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
          * Deploys watches and waits for completion.
          */
         void deployWatches() {
-            metaStorageManager.deployWatches().join();
+            assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
         }
 
         String name() {

@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.OB
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -86,7 +87,7 @@ public class DeploymentUnitStoreImplTest {
         vaultManager.start();
         metaStorageManager.start();
 
-        metaStorageManager.deployWatches().join();
+        assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
     @Test
