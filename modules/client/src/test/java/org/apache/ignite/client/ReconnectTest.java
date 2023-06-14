@@ -82,7 +82,7 @@ public class ReconnectTest {
         server = AbstractClientTest.startServer(0, ignite1);
 
         var client = IgniteClient.builder()
-                .addresses("127.0.0.1:10900..10910", "127.0.0.1:10950..10960")
+                .addresses("127.0.0.1:" + server.port(), "127.0.0.1:10960")
                 .build();
 
         assertEquals("t", client.tables().tables().get(0).name());
