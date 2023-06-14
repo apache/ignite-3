@@ -474,14 +474,11 @@ namespace Apache.Ignite.Internal
             foreach (var e in Endpoint.GetEndpoints(cfg))
             {
                 var host = e.Host;
-                Debug.Assert(host != null, "host != null");  // Checked by GetEndpoints.
+                Debug.Assert(host != null, "host != null"); // Checked by GetEndpoints.
 
-                for (var port = e.Port; port <= e.PortRange + e.Port; port++)
+                foreach (var ip in GetIps(host))
                 {
-                    foreach (var ip in GetIps(host))
-                    {
-                        yield return new SocketEndpoint(new IPEndPoint(ip, port), host);
-                    }
+                    yield return new SocketEndpoint(new IPEndPoint(ip, e.Port), host);
                 }
             }
         }
