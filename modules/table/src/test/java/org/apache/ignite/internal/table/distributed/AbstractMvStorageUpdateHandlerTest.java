@@ -42,7 +42,6 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -94,7 +93,8 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
         );
     }
 
-    @Test
+    // TODO: IGNITE-19737 заменить на @Test
+    @RepeatedTest(10_000)
     void testConcurrentExecuteBatchGc() {
         assertThat(distributionZoneConfig.dataStorage().gcOnUpdateBatchSize().update(4), willSucceedFast());
 
@@ -106,7 +106,8 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
         BinaryRow row0 = binaryRow(new TestKey(0, "key0"), new TestValue(0, "value0"));
         BinaryRow row1 = binaryRow(new TestKey(0, "key0"), new TestValue(0, "value0"));
 
-        for (int i = 0; i < REPEATS; i++) {
+        // TODO: IGNITE-19737 заменить на REPEATS
+        for (int i = 0; i < 10_000; i++) {
             addWriteCommitted(partitionDataStorage, rowId0, row0, clock.now());
             addWriteCommitted(partitionDataStorage, rowId1, row1, clock.now());
 
