@@ -34,6 +34,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
@@ -81,7 +82,8 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
 
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of(mcNodeName)));
         when(clusterService.nodeName()).thenReturn(mcNodeName);
-        when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any())).thenReturn(completedFuture(null));
+        when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any())).thenReturn(completedFuture(mock(
+                RaftGroupService.class)));
 
         return Stream.of(
                 new MetaStorageManagerImpl(
@@ -104,7 +106,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
      */
     @ParameterizedTest
     @MethodSource("metaStorageProvider")
-    public void testCheckCorrectness(MetaStorageManager metastore) {
+    public void testCheckCorrectness(MetaStorageManager metastore) throws Exception {
         var deployWatchesFut = metastore.deployWatches();
 
         assertFalse(deployWatchesFut.isDone());
@@ -112,5 +114,9 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
         metastore.start();
 
         assertThat(deployWatchesFut, willCompleteSuccessfully());
+
+        metastore.beforeNodeStop();
+
+        metastore.stop();
     }
 }
