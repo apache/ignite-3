@@ -145,6 +145,15 @@ public interface MetaStorageManager extends IgniteComponent {
     void registerPrefixWatch(ByteArray key, WatchListener lsnr);
 
     /**
+     * Registers a watch listener by a key prefix.
+     *
+     * @param key Prefix to listen to.
+     * @param rev Starting Meta Storage revision.
+     * @param lsnr Listener which will be notified for each update.
+     */
+    void registerPrefixWatch(ByteArray key, long rev, WatchListener lsnr);
+
+    /**
      * Registers a watch listener for the provided key.
      *
      * @param key Meta Storage key.

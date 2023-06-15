@@ -262,6 +262,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
+    public void registerPrefixWatch(ByteArray key, long rev, WatchListener listener) {
+        storage.watchRange(key.bytes(), storage.nextKey(key.bytes()), rev, listener);
+    }
+
+    @Override
     public void registerExactWatch(ByteArray key, WatchListener listener) {
         storage.watchExact(key.bytes(), appliedRevision() + 1, listener);
     }
