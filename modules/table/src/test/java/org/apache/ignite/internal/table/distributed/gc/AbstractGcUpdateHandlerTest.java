@@ -43,7 +43,6 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -57,11 +56,7 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
 
     private static final int PARTITION_ID = 0;
 
-    private TestPartitionDataStorage partitionStorage;
-
-    private IndexUpdateHandler indexUpdateHandler;
-
-    private GcUpdateHandler gcUpdateHandler;
+    private MvTableStorage tableStorage;
 
     /**
      * Initializes the internal structures needed for tests.
@@ -69,20 +64,17 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
      * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
      */
     final void initialize(MvTableStorage tableStorage) {
-        partitionStorage = spy(new TestPartitionDataStorage(getOrCreateMvPartition(tableStorage, PARTITION_ID)));
-
-        indexUpdateHandler = spy(new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of())));
-
-        gcUpdateHandler = new GcUpdateHandler(
-                partitionStorage,
-                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0)),
-                indexUpdateHandler
-        );
+        this.tableStorage = tableStorage;
     }
 
     @ParameterizedTest(name = "strict : {0}")
     @ValueSource(booleans = {true, false})
     void testVacuum(boolean strict) {
+        TestPartitionDataStorage partitionStorage = spy(createPartitionDataStorage());
+        IndexUpdateHandler indexUpdateHandler = spy(createIndexUpdateHandler());
+
+        GcUpdateHandler gcUpdateHandler = createGcUpdateHandler(partitionStorage, indexUpdateHandler);
+
         HybridTimestamp lowWatermark = HybridTimestamp.MAX_VALUE;
 
         assertFalse(gcUpdateHandler.vacuumBatch(lowWatermark, 1, strict));
@@ -105,6 +97,11 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
     @ParameterizedTest(name = "strict : {0}")
     @ValueSource(booleans = {true, false})
     void testVacuumBatch(boolean strict) {
+        TestPartitionDataStorage partitionStorage = spy(createPartitionDataStorage());
+        IndexUpdateHandler indexUpdateHandler = spy(createIndexUpdateHandler());
+
+        GcUpdateHandler gcUpdateHandler = createGcUpdateHandler(partitionStorage, indexUpdateHandler);
+
         HybridTimestamp lowWatermark = HybridTimestamp.MAX_VALUE;
 
         RowId rowId0 = new RowId(PARTITION_ID);
@@ -129,6 +126,11 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
     // TODO: IGNITE-19737 вернуть @Test 
     @RepeatedTest(10)
     void testConcurrentVacuumBatchStrictTrue() {
+        TestPartitionDataStorage partitionStorage = createPartitionDataStorage();
+        IndexUpdateHandler indexUpdateHandler = createIndexUpdateHandler();
+
+        GcUpdateHandler gcUpdateHandler = createGcUpdateHandler(partitionStorage, indexUpdateHandler);
+
         RowId rowId0 = new RowId(PARTITION_ID);
         RowId rowId1 = new RowId(PARTITION_ID);
 
@@ -157,6 +159,11 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
     // TODO: IGNITE-19737 вернуть @Test
     @RepeatedTest(10)
     void testConcurrentVacuumBatchStrictFalse() {
+        TestPartitionDataStorage partitionStorage = createPartitionDataStorage();
+        IndexUpdateHandler indexUpdateHandler = createIndexUpdateHandler();
+
+        GcUpdateHandler gcUpdateHandler = createGcUpdateHandler(partitionStorage, indexUpdateHandler);
+
         RowId rowId0 = new RowId(PARTITION_ID);
         RowId rowId1 = new RowId(PARTITION_ID);
         RowId rowId2 = new RowId(PARTITION_ID);
@@ -185,6 +192,25 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
 
             assertNull(partitionStorage.getStorage().closestRowId(RowId.lowestRowId(PARTITION_ID)));
         }
+    }
+
+    private TestPartitionDataStorage createPartitionDataStorage() {
+        return new TestPartitionDataStorage(getOrCreateMvPartition(tableStorage, PARTITION_ID));
+    }
+
+    private static IndexUpdateHandler createIndexUpdateHandler() {
+        return new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()));
+    }
+
+    private static GcUpdateHandler createGcUpdateHandler(
+            PartitionDataStorage partitionDataStorage,
+            IndexUpdateHandler indexUpdateHandler
+    ) {
+        return new GcUpdateHandler(
+                partitionDataStorage,
+                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0)),
+                indexUpdateHandler
+        );
     }
 
     private static void addWriteCommitted(PartitionDataStorage storage, RowId rowId, @Nullable BinaryRow row, HybridTimestamp timestamp) {
