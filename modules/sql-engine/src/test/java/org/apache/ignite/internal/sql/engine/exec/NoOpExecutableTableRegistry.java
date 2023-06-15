@@ -25,7 +25,7 @@ public final class NoOpExecutableTableRegistry implements ExecutableTableRegistr
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int tableId, TableDescriptor tableDescriptor) {
+    public CompletableFuture<ExecutableTable> getTable(int tableId, TableDescriptor tableDescriptor, ExecutableTableCallback callback) {
         return CompletableFuture.completedFuture(new NoOpExecutableTable(tableId));
     }
 
@@ -39,19 +39,13 @@ public final class NoOpExecutableTableRegistry implements ExecutableTableRegistr
 
         /** {@inheritDoc} */
         @Override
-        public ScannableTable scanableTable() {
+        public ScannableTable scannableTable() {
             throw noDependency();
         }
 
         /** {@inheritDoc} */
         @Override
         public UpdatableTable updatableTable() {
-            throw noDependency();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public TableRowConverter rowConverter() {
             throw noDependency();
         }
 

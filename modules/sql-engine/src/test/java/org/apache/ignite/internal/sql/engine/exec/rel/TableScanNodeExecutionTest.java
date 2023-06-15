@@ -44,6 +44,9 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -99,7 +102,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                     return (RowT) TestInternalTableImpl.ROW;
                 }
             };
-            ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rowConverter);
+            TestTable table = new TestTable(rowType);
+            ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rowConverter, table.descriptor());
             TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scanableTable,
                     partsWithTerms, null, null, null);
 
@@ -116,6 +120,17 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
             internalTable.scanComplete.await();
             assertEquals(sizes[i++] * partsWithTerms.size(), cnt);
+        }
+    }
+
+    private static class TestTable extends AbstractPlannerTest.TestTable {
+        TestTable(RelDataType rowType) {
+            super(rowType);
+        }
+
+        @Override
+        public IgniteDistribution distribution() {
+            return IgniteDistributions.broadcast();
         }
     }
 

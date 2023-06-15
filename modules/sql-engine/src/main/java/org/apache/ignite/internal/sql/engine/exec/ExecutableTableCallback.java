@@ -17,28 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.BitSet;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 
 /**
- * Converts rows to execution engine representation.
+ * Callback that is called when {@link ExecutableTable} is loaded.
  */
-public interface TableRowConverter {
+@FunctionalInterface
+public interface ExecutableTableCallback {
 
     /**
-     * Converts a tuple to relational node row.
-     *
-     * @param ectx            Execution context.
-     * @param row             Tuple to convert.
-     * @param requiredColumns Participating columns.
-     * @return Relational node row.
+     * Called when a table is loaded.
      */
-    <RowT> RowT toRow(
-            ExecutionContext<RowT> ectx,
-            BinaryRow row,
-            RowHandler.RowFactory<RowT> factory,
-            @Nullable BitSet requiredColumns
-    );
+    ExecutableTable onTableLoaded(ExecutableTable table, String tableName, TableDescriptor descriptor);
 
 }

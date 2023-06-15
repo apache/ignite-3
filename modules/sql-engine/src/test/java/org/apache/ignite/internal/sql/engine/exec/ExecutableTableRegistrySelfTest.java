@@ -19,6 +19,10 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
@@ -47,6 +51,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class ExecutableTableRegistrySelfTest {
 
+    private static final String TABLE_NAME = "test";
+
     @Mock
     private ReplicaService replicaService;
 
@@ -65,6 +71,9 @@ public class ExecutableTableRegistrySelfTest {
     @Mock
     private SchemaRegistry schemaRegistry;
 
+    @Mock
+    private ExecutableTableCallback callback;
+
     private final HybridClock clock = new TestHybridClock(() -> 1000);
 
     /**
@@ -79,9 +88,10 @@ public class ExecutableTableRegistrySelfTest {
         CompletableFuture<ExecutableTable> f = tester.getTable(tableId);
         ExecutableTable executableTable = f.join();
 
-        assertNotNull(executableTable.scanableTable());
+        assertNotNull(executableTable.scannableTable());
         assertNotNull(executableTable.updatableTable());
-        assertNotNull(executableTable.rowConverter());
+
+        verify(callback).onTableLoaded(eq(executableTable), eq(TABLE_NAME), eq(descriptor));
     }
 
     /** Entries are removed from cache when cache capacity is reached. */
@@ -150,8 +160,12 @@ public class ExecutableTableRegistrySelfTest {
             when(tableManager.tableAsync(tableId)).thenReturn(CompletableFuture.completedFuture(table));
             when(schemaManager.schemaRegistry(tableId)).thenReturn(schemaRegistry);
             when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
+            when(internalTable.name()).thenReturn(TABLE_NAME);
 
-            return registry.getTable(tableId, descriptor);
+            when(callback.onTableLoaded(any(ExecutableTable.class), anyString(), any(TableDescriptor.class)))
+                    .thenAnswer(invocation -> invocation.getArguments()[0]);
+
+            return registry.getTable(tableId, descriptor, callback);
         }
     }
 }

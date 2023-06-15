@@ -60,6 +60,7 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolver;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolverImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
@@ -182,6 +183,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Distributed catalog manager. */
     private final CatalogManager catalogManager;
 
+    private volatile ExecutionDependencyResolver dependencyResolver;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
@@ -260,7 +263,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         );
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(tableManager, schemaManager, replicaService, clock, TABLE_CACHE_SIZE);
-        var dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
+
+        dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
 
         sqlSchemaManager.registerListener(executableTableRegistry);
 
@@ -291,6 +295,10 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.sqlSchemaManager = sqlSchemaManager;
 
         services.forEach(LifecycleAware::start);
+    }
+
+    public ExecutionDependencyResolver dependencyResolver() {
+        return dependencyResolver;
     }
 
     /** {@inheritDoc} */

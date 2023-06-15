@@ -60,9 +60,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 /**
- * Tests execution of {@link IndexScanNode}.
+ * Test {@link IndexScanNode} execution.
  */
-public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
+public class IndexScanNodeTest extends AbstractExecutionTest {
 
     /**
      * Sorted index.
@@ -98,12 +98,12 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         Tester tester = new Tester(rowType);
 
-        tester.addData(0, new Object[]{1}, new Object[]{2});
+        tester.addData(0, new Object[]{2}, new Object[]{1});
         tester.addData(2, new Object[]{0});
 
         tester.hashIndex("C1");
 
-        tester.expectResult(new Object[]{1}, new Object[]{2}, new Object[]{0});
+        tester.expectResult(new Object[]{2}, new Object[]{1}, new Object[]{0});
     }
 
     private class Tester {
@@ -236,10 +236,10 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             IgniteIndex schemaIndex = new IgniteIndex(index);
             RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
             TestTable table = new TestTable(rowType);
-            SingleRangeIterable rangeConditions = new SingleRangeIterable(new Object[]{}, null, true, false);
+            SingleRangeIterable conditions = new SingleRangeIterable(new Object[]{}, null, false, false);
 
             return new IndexScanNode<>(ctx, rowFactory, schemaIndex, scannableTable, table.descriptor(), partitions,
-                    comparator, rangeConditions, null, null, null);
+                    comparator, conditions, null, null, null);
         }
 
         private Index<?> newHashIndex() {
@@ -297,7 +297,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             return newPublisher(ctx, partWithTerm, rowFactory);
         }
 
-        private <RowT> Publisher<RowT> newPublisher(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+        private <RowT> ScanPublisher<RowT> newPublisher(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
                 RowFactory<RowT> rowFactory) {
 
             int partId = partWithTerm.partId();

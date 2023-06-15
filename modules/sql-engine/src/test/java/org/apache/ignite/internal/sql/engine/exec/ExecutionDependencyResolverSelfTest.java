@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -64,17 +65,14 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
     @Mock(name = "update1")
     private UpdatableTable update1;
 
-    @Mock(name = "rowConverter1")
-    private TableRowConverter rowConverter1;
-
     @Mock(name = "table2")
     private ScannableTable table2;
 
     @Mock(name = "update2")
     private UpdatableTable update2;
 
-    @Mock(name = "rowConverter2")
-    private TableRowConverter rowConverter2;
+    @Mock
+    private ExecutableTableCallback callback;
 
     /**
      * Table scan.
@@ -88,16 +86,22 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
                 .build();
 
         int t1Id = tester.addTable("TEST1", tableType);
-        tester.setDependencies(t1Id, table1, update1, rowConverter1);
+        tester.setDependencies(t1Id, table1, update1);
 
         int t2Id = tester.addTable("TEST2", tableType);
-        tester.setDependencies(t2Id, table2, update2, rowConverter2);
+        tester.setDependencies(t2Id, table2, update2);
 
         CompletableFuture<ResolvedDependencies> f = tester.resolveDependencies("SELECT * FROM test1 JOIN test2 ON test1.id = test2.id");
 
         ResolvedDependencies deps = f.join();
         tester.checkDependencies(deps, t1Id);
         tester.checkDependencies(deps, t2Id);
+
+        TableDescriptor td1 = tester.tableDescriptor("TEST1");
+        TableDescriptor td2 = tester.tableDescriptor("TEST2");
+
+        verify(registry, times(1)).getTable(eq(t1Id), same(td1), eq(callback));
+        verify(registry, times(1)).getTable(eq(t2Id), same(td2), eq(callback));
     }
 
     /**
@@ -112,11 +116,15 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
                 .build();
 
         int t1Id = tester.addTable("TEST1", tableType);
-        tester.setDependencies(t1Id, table1, update1, rowConverter1);
+        tester.setDependencies(t1Id, table1, update1);
         tester.addIndex("TEST1", new IgniteIndex(TestHashIndex.create(List.of("ID"), "ID_IDX")));
 
         CompletableFuture<ResolvedDependencies> f = tester.resolveDependencies("SELECT * FROM test1 WHERE id=1");
         tester.checkDependencies(f.join(), t1Id);
+
+        TableDescriptor td1 = tester.tableDescriptor("TEST1");
+
+        verify(registry, times(1)).getTable(eq(t1Id), same(td1), eq(callback));
     }
 
     /**
@@ -132,10 +140,10 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         Tester tester = new Tester();
 
         int t1Id = tester.addTable("TEST1", tableType);
-        tester.setDependencies(t1Id, table1, update1, rowConverter1);
+        tester.setDependencies(t1Id, table1, update1);
 
         int t2Id = tester.addTable("TEST2", tableType);
-        tester.setDependencies(t2Id, table2, update2, rowConverter2);
+        tester.setDependencies(t2Id, table2, update2);
 
         CompletableFuture<ResolvedDependencies> f = tester.resolveDependencies(
                 "MERGE INTO test2 dst USING test1 src ON dst.id = src.id WHEN MATCHED THEN UPDATE SET val = src.val");
@@ -143,6 +151,12 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         ResolvedDependencies deps = f.join();
         tester.checkDependencies(deps, t1Id);
         tester.checkDependencies(deps, t2Id);
+
+        TableDescriptor td1 = tester.tableDescriptor("TEST1");
+        TableDescriptor td2 = tester.tableDescriptor("TEST2");
+
+        verify(registry, times(1)).getTable(eq(t1Id), same(td1), eq(callback));
+        verify(registry, times(1)).getTable(eq(t2Id), same(td2), eq(callback));
     }
 
     /**
@@ -156,15 +170,16 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
                 .add("ID", SqlTypeName.INTEGER)
                 .build();
 
-        int t1Id = tester.addTable("TEST1", tableType);
-        tester.setDependencies(t1Id, table1, update1, rowConverter1);
+        String tableName = "TEST1";
+        int t1Id = tester.addTable(tableName, tableType);
+        tester.setDependencies(t1Id, table1, update1);
 
         CompletableFuture<ResolvedDependencies> f = tester.resolveDependencies("SELECT (SELECT id FROM test1) FROM test1");
 
         ResolvedDependencies deps = f.join();
         tester.checkDependencies(deps, t1Id);
 
-        verify(registry, times(1)).getTable(anyInt(), any(TableDescriptor.class));
+        verify(registry, times(1)).getTable(anyInt(), any(TableDescriptor.class), eq(callback));
     }
 
     /**
@@ -207,25 +222,26 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
             table.addIndex(index);
         }
 
-        void setDependencies(int tableId, ScannableTable table, UpdatableTable updates, TableRowConverter rowConverter) {
-            TestExecutableTable executableTable = new TestExecutableTable(table, updates, rowConverter);
+        void setDependencies(int tableId, ScannableTable table, UpdatableTable updates) {
+            TestExecutableTable executableTable = new TestExecutableTable(table, updates);
 
             deps.put(tableId, executableTable);
 
             CompletableFuture<ExecutableTable> f = CompletableFuture.completedFuture(executableTable);
 
-            when(registry.getTable(eq(tableId), any(TableDescriptor.class))).thenReturn(f);
+            when(registry.getTable(eq(tableId), any(TableDescriptor.class), any(ExecutableTableCallback.class))).thenReturn(f);
         }
 
         void setError(int tableId, Throwable err) {
             CompletableFuture<ExecutableTable> f = new CompletableFuture<>();
             f.completeExceptionally(err);
 
-            when(registry.getTable(eq(tableId), any(TableDescriptor.class))).thenReturn(f);
+            when(registry.getTable(eq(tableId), any(TableDescriptor.class), any(ExecutableTableCallback.class))).thenReturn(f);
         }
 
         CompletableFuture<ResolvedDependencies> resolveDependencies(String sql) {
             ExecutionDependencyResolver resolver = new ExecutionDependencyResolverImpl(registry);
+            resolver.setCallback(callback);
 
             IgniteRel rel;
             try {
@@ -240,9 +256,13 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         void checkDependencies(ResolvedDependencies dependencies, int tableId) {
             TestExecutableTable executableTable = deps.get(tableId);
 
-            assertEquals(executableTable.scanableTable(), dependencies.scanableTable(tableId));
+            assertEquals(executableTable.scannableTable(), dependencies.scannableTable(tableId));
             assertEquals(executableTable.updatableTable(), dependencies.updatableTable(tableId));
-            assertEquals(executableTable.rowConverter(), dependencies.rowConverter(tableId));
+        }
+
+        TableDescriptor tableDescriptor(String tableName) {
+            IgniteTable table = (IgniteTable) igniteSchema.getTable(tableName);
+            return table.descriptor();
         }
     }
 
@@ -252,27 +272,19 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
 
         private final UpdatableTable updates;
 
-        private final TableRowConverter rowConverter;
-
-        TestExecutableTable(ScannableTable table, UpdatableTable updates, TableRowConverter rowConverter) {
+        TestExecutableTable(ScannableTable table, UpdatableTable updates) {
             this.table = table;
             this.updates = updates;
-            this.rowConverter = rowConverter;
         }
 
         @Override
-        public ScannableTable scanableTable() {
+        public ScannableTable scannableTable() {
             return table;
         }
 
         @Override
         public UpdatableTable updatableTable() {
             return updates;
-        }
-
-        @Override
-        public TableRowConverter rowConverter() {
-            return rowConverter;
         }
     }
 }
