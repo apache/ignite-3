@@ -1081,7 +1081,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         @Language("HOCON") String cfgString = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
                 DEFAULT_NODE_PORT + 11,
-                "[\"localhost:" + DEFAULT_NODE_PORT + "\"]"
+                "[\"localhost:" + DEFAULT_NODE_PORT + "\"]",
+                DEFAULT_CLIENT_PORT + 11
         );
 
         PartialNode partialNode = startPartialNode(1, cfgString);
