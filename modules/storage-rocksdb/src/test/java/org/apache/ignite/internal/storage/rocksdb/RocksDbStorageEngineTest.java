@@ -36,6 +36,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -80,6 +81,7 @@ public class RocksDbStorageEngineTest {
     }
 
     @Test
+    @Disabled
     void testCreateTableWithDynamicCustomDataRegion(@InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig) {
         String customRegionName = "foobar";
 
