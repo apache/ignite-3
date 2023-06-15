@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <limits>
 #include <optional>
 
 namespace ignite

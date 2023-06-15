@@ -138,13 +138,13 @@ public:
     }
 
     /** Environment handle. */
-    SQLHENV m_env{INVALID_HANDLE_VALUE};
+    SQLHENV m_env{SQL_NULL_HANDLE};
 
     /** Connection handle. */
-    SQLHDBC m_conn{INVALID_HANDLE_VALUE};
+    SQLHDBC m_conn{SQL_NULL_HANDLE};
 
     /** Statement handle. */
-    SQLHSTMT m_statement{INVALID_HANDLE_VALUE};
+    SQLHSTMT m_statement{SQL_NULL_HANDLE};
 };
 
 } // namespace ignite
