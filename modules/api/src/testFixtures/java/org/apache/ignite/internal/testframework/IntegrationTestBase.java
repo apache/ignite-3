@@ -70,7 +70,7 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
 
     private static final int BASE_PORT = 3344;
 
-    private static final int BASE_CLIENT_PORT = 10900;
+    private static final int BASE_CLIENT_PORT = 10800;
 
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"

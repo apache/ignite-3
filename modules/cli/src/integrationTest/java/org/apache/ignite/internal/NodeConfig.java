@@ -62,6 +62,7 @@ public class NodeConfig {
             + "    },\n"
             + "  },\n"
             + "  clientConnector: {"
+            + "    port: {},\n"
             + "    ssl: {\n"
             + "      enabled: true,\n"
             + "      clientAuth: require,\n"
