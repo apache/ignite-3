@@ -100,7 +100,7 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
     @Test
     public void testInvalidConnectionStringFormat() {
         checkErrorState(() -> DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:1000000"),
-                CLIENT_CONNECTION_FAILED, "port range contains invalid port 1000000");
+                CLIENT_CONNECTION_FAILED, "invalid port 1000000");
     }
 
     /**

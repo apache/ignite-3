@@ -357,6 +357,9 @@ public class ErrorGroups {
 
         /** Unresolvable consistent ID. */
         public static final int UNRESOLVABLE_CONSISTENT_ID_ERR = NETWORK_ERR_GROUP.registerErrorCode(1);
+
+        /** Port is in use. */
+        public static final int PORT_IN_USE_ERR = NETWORK_ERR_GROUP.registerErrorCode(2);
     }
 
     /** Node configuration error group. */

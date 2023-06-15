@@ -155,6 +155,8 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
     /** Base port number. */
     private static final int BASE_PORT = 3344;
 
+    private static final int BASE_CLIENT_PORT = 10800;
+
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  \"network\": {\n"
@@ -162,7 +164,8 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
             + "    \"nodeFinder\":{\n"
             + "      \"netClusterNodes\": [ {} ]\n"
             + "    }\n"
-            + "  }\n"
+            + "  },\n"
+            + "  clientConnector.port: {}\n"
             + "}";
 
     /** Cluster nodes. */
@@ -319,7 +322,7 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
                 .mapToObj(i -> {
                     String nodeName = NODE_NAME_PREFIX + i;
 
-                    String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr);
+                    String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr, BASE_CLIENT_PORT + i);
 
                     return TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
                 })

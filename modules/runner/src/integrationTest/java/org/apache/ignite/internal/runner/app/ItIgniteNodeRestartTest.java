@@ -152,6 +152,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /** Default node port. */
     private static final int DEFAULT_NODE_PORT = 3344;
 
+    private static final int DEFAULT_CLIENT_PORT = 10800;
+
     /** Value producer for table data, is used to create data and check it later. */
     private static final IntFunction<String> VALUE_PRODUCER = i -> "val " + i;
 
@@ -180,7 +182,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             + "      gossipInterval: 10\n"
             + "    },\n"
             + "  },\n"
-            + "  raft: " + RAFT_CFG + "\n"
+            + "  raft: " + RAFT_CFG + ",\n"
+            + "  clientConnector.port: {}\n"
             + "}";
 
     @InjectConfiguration("mock: " + RAFT_CFG)
@@ -676,7 +679,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     private static String configurationString(int idx) {
         String connectAddr = "[\"localhost:" + DEFAULT_NODE_PORT + "\"]";
 
-        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, DEFAULT_NODE_PORT + idx, connectAddr);
+        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, DEFAULT_NODE_PORT + idx, connectAddr, DEFAULT_CLIENT_PORT + idx);
     }
 
     /**
@@ -1067,7 +1070,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         @Language("HOCON") String cfgString = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
                 DEFAULT_NODE_PORT + 11,
-                "[\"localhost:" + DEFAULT_NODE_PORT + "\"]"
+                "[\"localhost:" + DEFAULT_NODE_PORT + "\"]",
+                DEFAULT_CLIENT_PORT + 11
         );
 
         PartialNode partialNode = startPartialNode(1, cfgString);
