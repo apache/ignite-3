@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntRBTreeSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.TreeSet;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.IntFunction;
@@ -42,13 +41,13 @@ class ConfiguredTablesCache {
     private final boolean getMetadataLocallyOnly;
 
     private int cachedGeneration = NO_GENERATION;
-    private final IntSet configuredTableIds = new IntOpenHashSet();
+    private final IntSet configuredTableIds = new IntRBTreeSet();
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     private final IntFunction<Boolean> isTableConfigured = configuredTableIds::contains;
 
-    private final IntFunction<List<Integer>> getConfiguredTableIds = unused -> new ArrayList<>(new TreeSet<>(configuredTableIds));
+    private final IntFunction<List<Integer>> getConfiguredTableIds = unused -> new ArrayList<>(configuredTableIds);
 
     ConfiguredTablesCache(TablesConfiguration tablesConfig, boolean getMetadataLocallyOnly) {
         this.tablesConfig = tablesConfig;
