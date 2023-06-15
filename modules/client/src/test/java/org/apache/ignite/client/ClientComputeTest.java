@@ -164,8 +164,8 @@ public class ClientComputeTest {
 
         var clusterId = UUID.randomUUID();
 
-        server1 = new TestServer(10900, 10, 0, ignite, shouldDropConnection, null, "s1", clusterId, null);
-        server2 = new TestServer(10910, 10, 0, ignite, shouldDropConnection, null, "s2", clusterId, null);
-        server3 = new TestServer(10920, 10, 0, ignite, shouldDropConnection, null, "s3", clusterId, null);
+        server1 = new TestServer(0, ignite, shouldDropConnection, null, "s1", clusterId, null, null);
+        server2 = new TestServer(0, ignite, shouldDropConnection, null, "s2", clusterId, null, null);
+        server3 = new TestServer(0, ignite, shouldDropConnection, null, "s3", clusterId, null, null);
     }
 }

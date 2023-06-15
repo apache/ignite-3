@@ -97,7 +97,6 @@ public class TestServer {
         clientConnectorConfig().change(
                 local -> local
                         .changePort(10800)
-                        .changePortRange(10)
                         .changeIdleTimeout(idleTimeout)
         ).join();
 

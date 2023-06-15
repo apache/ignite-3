@@ -36,11 +36,6 @@ public class ClientConnectorConfigurationSchema {
     @Value(hasDefault = true)
     public final int port = 10800;
 
-    /** TCP port range. */
-    @Range(min = 0)
-    @Value(hasDefault = true)
-    public final int portRange = 100;
-
     /** Connect timeout. */
     @Range(min = 0)
     @Value(hasDefault = true)

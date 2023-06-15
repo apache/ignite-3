@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_ERR;
 
 import java.util.Collection;
@@ -277,14 +278,16 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public void deployWatches() throws NodeStoppingException {
+    public CompletableFuture<Void> deployWatches() {
         if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
+            return CompletableFuture.failedFuture(new NodeStoppingException());
         }
 
         try {
-            // Meta Storage contract states that all updated entries under a particular revision must be stored in the Vault.
-            storage.startWatches(this::onRevisionApplied);
+            return metaStorageSvcFut.thenRun(() -> inBusyLock(busyLock, () -> {
+                // Meta Storage contract states that all updated entries under a particular revision must be stored in the Vault.
+                storage.startWatches(this::onRevisionApplied);
+            }));
         } finally {
             busyLock.leaveBusy();
         }

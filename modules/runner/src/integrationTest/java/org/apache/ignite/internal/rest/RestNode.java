@@ -128,6 +128,7 @@ public class RestNode {
                 + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                 + "    }\n"
                 + "  },\n"
+                + "  clientConnector.port: " + (httpPort + 1000) + ",\n"
                 + "  rest: {\n"
                 + "    port: " + httpPort + ",\n"
                 + "    dualProtocol: " + dualProtocol + ",\n"

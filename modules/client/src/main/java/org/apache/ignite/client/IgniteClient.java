@@ -112,8 +112,7 @@ public interface IgniteClient extends Ignite {
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
-         * If port is not set then Ignite will generate multiple addresses for default port range. See {@link
-         * IgniteClientConfiguration#DFLT_PORT}, {@link IgniteClientConfiguration#DFLT_PORT_RANGE}.
+         * If port is not set then Ignite will use the default one - see {@link IgniteClientConfiguration#DFLT_PORT}.
          *
          * @param addrs Addresses.
          * @return This instance.

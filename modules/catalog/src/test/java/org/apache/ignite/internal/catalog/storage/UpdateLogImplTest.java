@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.storage;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -79,7 +80,7 @@ class UpdateLogImplTest {
         updateLog.registerUpdateHandler(update -> {/* no-op */});
         updateLog.start();
 
-        metastore.deployWatches();
+        assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 
         List<VersionedUpdate> expectedLog = List.of(
                 new VersionedUpdate(1, 1L, List.of(new TestUpdateEntry("foo"))),
@@ -138,7 +139,7 @@ class UpdateLogImplTest {
 
         long revisionBefore = metastore.appliedRevision();
 
-        metastore.deployWatches();
+        assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 
         // first update should always be successful
         assertTrue(await(updateLog.append(singleEntryUpdateOfVersion(startVersion))));
