@@ -47,7 +47,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Garbage collector for multi-versioned storages and their indexes in the background.
  *
- * @see GcUpdateHandler#vacuumBatch(HybridTimestamp, int)
+ * @see GcUpdateHandler#vacuumBatch(HybridTimestamp, int, boolean)
  */
 public class MvGc implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(MvGc.class);
@@ -242,7 +242,7 @@ public class MvGc implements ManuallyCloseable {
                 // We can only start garbage collection when the partition safe time is reached.
                 gcUpdateHandler.getSafeTimeTracker()
                         .waitFor(lowWatermark)
-                        .thenApplyAsync(unused -> gcUpdateHandler.vacuumBatch(lowWatermark, GC_BATCH_SIZE), executor)
+                        .thenApplyAsync(unused -> gcUpdateHandler.vacuumBatch(lowWatermark, GC_BATCH_SIZE, true), executor)
                         .whenComplete((isGarbageLeft, throwable) -> {
                             if (throwable != null) {
                                 if (throwable instanceof TrackerClosedException

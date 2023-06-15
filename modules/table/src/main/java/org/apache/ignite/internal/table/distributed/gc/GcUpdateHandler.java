@@ -71,7 +71,20 @@ public class GcUpdateHandler {
      * @param count Count of entries to GC.
      * @return {@code False} if there is no garbage left in the storage.
      */
-    public boolean vacuumBatch(HybridTimestamp lowWatermark, int count) {
+    // TODO: IGNITE-19737 реализовать и поправить документацию
+    public boolean vacuumBatch(HybridTimestamp lowWatermark, int count, boolean strict) {
+        return storage.runConsistently(locker -> {
+            for (int i = 0; i < count; i++) {
+                if (!internalVacuum(lowWatermark, locker)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }
+
+    public boolean vacuumBatch0(HybridTimestamp lowWatermark, int count, boolean strict) {
         return storage.runConsistently(locker -> {
             for (int i = 0; i < count; i++) {
                 if (!internalVacuum(lowWatermark, locker)) {
