@@ -426,6 +426,11 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     @Override
     public CompletableFuture<Void> streamData(Publisher<R> publisher, @Nullable DataStreamerOptions options) {
         // TODO IGNITE-19617 Server-side Basic Data Streamer.
+        // Server-side streamer implementation variants:
+        // 1. Same as client, batch items per partition, then call upsertAll via public API.
+        //    Pros: the simplest way, maximum code reuse with client
+        //    Cons: inefficient -  InternalTableImpl will perform hashing again and split rows by partition before performing the update,
+        // 2. Add enlistInTx overload which accepts partition number and row collection, and avoids re-hashing.
         throw new UnsupportedOperationException("Not supported.");
     }
 }
