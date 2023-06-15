@@ -106,14 +106,14 @@ public class GcUpdateHandler {
             int count = countHolder.get();
 
             for (int i = 0; i < count; i++) {
-                countHolder.getAndDecrement();
-
                 // It is safe for the first iteration to use a lock instead of tryLock.
                 VacuumResult vacuumResult = internalVacuum(lowWatermark, locker, i > 0);
 
                 if (vacuumResult != VacuumResult.SUCCESS) {
                     return vacuumResult;
                 }
+
+                countHolder.getAndDecrement();
             }
 
             return VacuumResult.SUCCESS;
