@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
@@ -63,20 +64,28 @@ abstract class IndexWrapper {
 
         @Override
         TableSchemaAwareIndexStorage getStorage(int partitionId) {
+            IndexStorage index = tbl.storage().getIndex(partitionId, indexId);
+
+            assert index != null : tbl.name() + " part " + partitionId;
+
             return new TableSchemaAwareIndexStorage(
                     indexId,
-                    tbl.storage().getIndex(partitionId, indexId),
+                    index,
                     indexRowResolver
             );
         }
 
         @Override
         IndexLocker getLocker(int partitionId) {
+            IndexStorage index = tbl.storage().getIndex(partitionId, indexId);
+
+            assert index != null : tbl.name() + " part " + partitionId;
+
             return new SortedIndexLocker(
                     indexId,
                     partitionId,
                     lockManager,
-                    (SortedIndexStorage) tbl.storage().getIndex(partitionId, indexId),
+                    (SortedIndexStorage) index,
                     indexRowResolver
             );
         }
@@ -94,9 +103,13 @@ abstract class IndexWrapper {
 
         @Override
         TableSchemaAwareIndexStorage getStorage(int partitionId) {
+            IndexStorage index = tbl.storage().getIndex(partitionId, indexId);
+
+            assert index != null : tbl.name() + " part " + partitionId;
+
             return new TableSchemaAwareIndexStorage(
                     indexId,
-                    tbl.storage().getIndex(partitionId, indexId),
+                    index,
                     indexRowResolver
             );
         }
