@@ -43,6 +43,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -229,7 +230,9 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                         }
                     }, executor);
                 } else {
-                    LOG.error("Could not send the subscribe message to the node [node={}, msg={}]", th, node, msg);
+                    if (!(th instanceof NodeStoppingException)) {
+                        LOG.error("Could not send the subscribe message to the node [node={}, msg={}]", th, node, msg);
+                    }
 
                     msgSendFut.completeExceptionally(th);
                 }

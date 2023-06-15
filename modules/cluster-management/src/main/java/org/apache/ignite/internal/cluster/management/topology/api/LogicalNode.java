@@ -28,7 +28,12 @@ import org.apache.ignite.network.NetworkAddress;
  * Representation of a logical node in a cluster.
  */
 public class LogicalNode extends ClusterNode {
-    /** Node's attributes. */
+    /**
+     * Node's attributes.
+     *
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/distribution-zones/tech-notes/filters.md">Filter
+     *         documentation</a>
+     */
     @IgniteToStringInclude
     private final Map<String, String> nodeAttributes;
 
