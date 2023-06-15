@@ -51,7 +51,36 @@ public class BitSetPartitionSet implements PartitionSet {
     }
 
     @Override
+    public int size() {
+        return backingSet.cardinality();
+    }
+
+    @Override
     public PartitionSet copy() {
         return new BitSetPartitionSet((BitSet) backingSet.clone());
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+
+        if (o == null) {
+            return false;
+        }
+
+        if (!(o instanceof BitSetPartitionSet)) {
+            return isEqual(o);
+        }
+
+        BitSetPartitionSet that = (BitSetPartitionSet) o;
+
+        return backingSet.equals(that.backingSet);
+    }
+
+    @Override
+    public int hashCode() {
+        return getHashCode();
     }
 }

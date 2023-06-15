@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import java.util.PrimitiveIterator.OfInt;
 import java.util.stream.IntStream;
 
 /**
- * Represents a collection of partition indices.
+ * Represents a collection of partition indexes.
  */
 public interface PartitionSet {
     PartitionSet EMPTY_SET = new PartitionSet() {
@@ -42,6 +43,21 @@ public interface PartitionSet {
         @Override
         public PartitionSet copy() {
             return this;
+        }
+
+        @Override
+        public int size() {
+            return 0;
+        }
+
+        @Override
+        public int hashCode() {
+            return getHashCode();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return isEqual(obj);
         }
     };
 
@@ -66,7 +82,57 @@ public interface PartitionSet {
     IntStream stream();
 
     /**
+     * Returns count of partitions.
+     */
+    int size();
+
+    /**
      * Returns a copy of this {@link PartitionSet}.
      */
     PartitionSet copy();
+
+    /**
+     * Returns {@code true} if this partition set is equal to the parameter, {@code false} otherwise.
+     *
+     * @param another Object to be compared for equality with this partition set.
+     */
+    default boolean isEqual(Object another) {
+        if (!(another instanceof PartitionSet)) {
+            return false;
+        }
+
+        PartitionSet anotherSet = (PartitionSet) another;
+
+        if (size() != anotherSet.size()) {
+            return false;
+        }
+
+        OfInt iterator1 = stream().iterator();
+        OfInt iterator2 = anotherSet.stream().iterator();
+
+        while (iterator1.hasNext() && iterator2.hasNext()) {
+            if (iterator1.nextInt() != iterator2.nextInt()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Returns the hash code value for this partition set.
+     */
+    default int getHashCode() {
+        int h = 0;
+
+        OfInt iter = stream().iterator();
+
+        while (iter.hasNext()) {
+            int idx = iter.nextInt();
+
+            h += idx;
+        }
+
+        return h;
+    }
 }

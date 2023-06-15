@@ -908,7 +908,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         };
 
         return localPartsByTableIdVv.update(causalityToken, (previous, throwable) -> inBusyLock(busyLock, () -> {
-            return createPartitionStorages(table, parts).thenApply(u -> {
+            return getOrCreatePartitionStorages(table, parts).thenApply(u -> {
                 var newValue = new HashMap<>(previous);
 
                 newValue.put(tableId, parts);
@@ -2160,7 +2160,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             localServicesStartFuture = localPartsByTableIdVv.get(causalityToken).thenComposeAsync(oldMap -> {
                 PartitionSet partitionSet = oldMap.get(tableId).copy();
 
-                return createPartitionStorages(tbl, partitionSet).thenApply(u -> {
+                return getOrCreatePartitionStorages(tbl, partitionSet).thenApply(u -> {
                     var newMap = new HashMap<>(oldMap);
 
                     newMap.put(tableId, partitionSet);
@@ -2425,8 +2425,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return new PartitionStorages(mvPartition, txStateStorage);
     }
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19112 Create storages only once.
-    private CompletableFuture<Void> createPartitionStorages(TableImpl table, PartitionSet partitions) {
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19739 Create storages only once.
+    private CompletableFuture<Void> getOrCreatePartitionStorages(TableImpl table, PartitionSet partitions) {
         InternalTable internalTable = table.internalTable();
 
         CompletableFuture<?>[] storageFuts = partitions.stream().mapToObj(partitionId -> {
