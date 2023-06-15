@@ -84,18 +84,6 @@ public class GcUpdateHandler {
         });
     }
 
-    public boolean vacuumBatch0(HybridTimestamp lowWatermark, int count, boolean strict) {
-        return storage.runConsistently(locker -> {
-            for (int i = 0; i < count; i++) {
-                if (!internalVacuum(lowWatermark, locker)) {
-                    return false;
-                }
-            }
-
-            return true;
-        });
-    }
-
     /**
      * Attempts to collect garbage for one {@link RowId}.
      *
