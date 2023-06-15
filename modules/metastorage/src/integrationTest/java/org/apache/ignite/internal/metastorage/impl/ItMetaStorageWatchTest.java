@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -301,33 +302,19 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             node.metaStorageManager.deployWatches();
         }
 
+        MetaStorageManager metaStorage = nodes.get(0).metaStorageManager;
+
         AtomicInteger eventCount = new AtomicInteger();
 
-        var notExistKey = new ByteArray("notExistKey");
+        byte[] value = "bar".getBytes(StandardCharsets.UTF_8);
 
-        var prefix = new ByteArray("foo");
+        CompletableFuture<Void> fut1 = metaStorage.put(new ByteArray("foo1"), value);
+        assertThat(fut1, willSucceedFast());
 
-        var key1 = new ByteArray("foo1");
+        CompletableFuture<Void> fut2 = metaStorage.put(new ByteArray("foo2"), value);
+        assertThat(fut2, willSucceedFast());
 
-        CompletableFuture<Boolean> invokeFuture1 = nodes.get(0).metaStorageManager.invoke(
-                Conditions.notExists(notExistKey),
-                Operations.put(key1, "bar".getBytes(StandardCharsets.UTF_8)),
-                Operations.noop()
-        );
-
-        assertThat(invokeFuture1, willBe(true));
-
-        var key2 = new ByteArray("foo2");
-
-        CompletableFuture<Boolean> invokeFuture2 = nodes.get(0).metaStorageManager.invoke(
-                Conditions.notExists(notExistKey),
-                Operations.put(key2, "bar".getBytes(StandardCharsets.UTF_8)),
-                Operations.noop()
-        );
-
-        assertThat(invokeFuture2, willBe(true));
-
-        assertTrue(IgniteTestUtils.waitForCondition(() -> nodes.get(0).metaStorageManager.appliedRevision() == 2, 3000));
+        assertTrue(IgniteTestUtils.waitForCondition(() -> metaStorage.appliedRevision() == 2, 3000));
 
         WatchListener listener = new WatchListener() {
             @Override
@@ -343,17 +330,12 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             }
         };
 
-        nodes.get(0).metaStorageManager.registerPrefixWatch(new ByteArray(prefix), 1, listener);
+        var prefix = new ByteArray("foo");
 
-        var key3 = new ByteArray("foo3");
+        metaStorage.registerPrefixWatch(new ByteArray(prefix), 1, listener);
 
-        CompletableFuture<Boolean> invokeFuture3 = nodes.get(0).metaStorageManager.invoke(
-                Conditions.notExists(notExistKey),
-                Operations.put(key3, "bar".getBytes(StandardCharsets.UTF_8)),
-                Operations.noop()
-        );
-
-        assertThat(invokeFuture3, willBe(true));
+        CompletableFuture<Void> fut3 = metaStorage.put(new ByteArray("foo3"), value);
+        assertThat(fut3, willSucceedFast());
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> eventCount.get() == 3, 5000),
                 "Actual value of eventCount is " + eventCount.get());
