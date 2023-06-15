@@ -29,8 +29,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -387,7 +387,7 @@ public class MvGcTest {
             CompletableFuture<Void> future,
             @Nullable HybridTimestamp exp
     ) {
-        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt(), anyBoolean())).then(invocation -> {
+        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt(), eq(true))).then(invocation -> {
             if (exp != null) {
                 try {
                     assertEquals(exp, invocation.getArgument(0));
@@ -407,7 +407,7 @@ public class MvGcTest {
     private GcUpdateHandler createWithCountDownOnVacuum(CountDownLatch latch) {
         GcUpdateHandler gcUpdateHandler = createGcUpdateHandler();
 
-        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt(), anyBoolean())).then(invocation -> {
+        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt(), eq(true))).then(invocation -> {
             latch.countDown();
 
             return latch.getCount() > 0;
@@ -419,7 +419,7 @@ public class MvGcTest {
     private GcUpdateHandler createWithWaitFinishVacuum(CompletableFuture<Void> startFuture, CompletableFuture<Void> finishFuture) {
         GcUpdateHandler gcUpdateHandler = createGcUpdateHandler();
 
-        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt(), anyBoolean())).then(invocation -> {
+        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt(), eq(true))).then(invocation -> {
             startFuture.complete(null);
 
             finishFuture.get(1, TimeUnit.SECONDS);
@@ -439,7 +439,7 @@ public class MvGcTest {
     private GcUpdateHandler createWithCountDownOnVacuumWithoutNextBatch(CountDownLatch latch) {
         GcUpdateHandler gcUpdateHandler = createGcUpdateHandler();
 
-        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt(), anyBoolean())).then(invocation -> {
+        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt(), eq(true))).then(invocation -> {
             latch.countDown();
 
             // So that there is no processing of the next batch.
