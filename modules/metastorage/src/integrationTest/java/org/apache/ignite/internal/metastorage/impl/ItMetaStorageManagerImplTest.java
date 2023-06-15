@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscr
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -61,7 +62,6 @@ import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -87,7 +87,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     private MetaStorageManagerImpl metaStorageManager;
 
     @BeforeEach
-    void setUp(TestInfo testInfo, @InjectConfiguration RaftConfiguration raftConfiguration) throws NodeStoppingException {
+    void setUp(TestInfo testInfo, @InjectConfiguration RaftConfiguration raftConfiguration) {
         var addr = new NetworkAddress("localhost", 10_000);
 
         clusterService = clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
@@ -118,7 +118,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         raftManager.start();
         metaStorageManager.start();
 
-        metaStorageManager.deployWatches();
+        assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
     @AfterEach

@@ -45,7 +45,6 @@ import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
@@ -124,7 +123,6 @@ import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -494,24 +492,15 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 fut -> new TestConfigurationCatchUpListener(cfgStorage, fut, revisionCallback0)
         );
 
-        CompletableFuture<?> notificationFuture = CompletableFuture.allOf(
+        CompletableFuture<?> startFuture = CompletableFuture.allOf(
                 nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                 clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
+        ).thenCompose(unused ->
+                // Deploy all registered watches because all components are ready and have registered their listeners.
+                CompletableFuture.allOf(metaStorageMgr.deployWatches(), configurationCatchUpFuture)
         );
 
-        CompletableFuture<?> startFuture = notificationFuture
-                .thenCompose(v -> {
-                    // Deploy all registered watches because all components are ready and have registered their listeners.
-                    try {
-                        metaStorageMgr.deployWatches();
-                    } catch (NodeStoppingException e) {
-                        throw new CompletionException(e);
-                    }
-
-                    return configurationCatchUpFuture;
-                });
-
-        assertThat(startFuture, willCompleteSuccessfully());
+        assertThat("Partial node was not started", startFuture, willCompleteSuccessfully());
 
         log.info("Completed recovery on partially started node, last revision applied: " + lastRevision.get()
                 + ", acceptableDifference: " + IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100)

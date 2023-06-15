@@ -100,7 +100,6 @@ import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
@@ -138,7 +137,7 @@ public class CatalogServiceSelfTest {
     private HybridClock clock;
 
     @BeforeEach
-    void setUp() throws NodeStoppingException {
+    void setUp() {
         vault = new VaultManager(new InMemoryVaultService());
 
         metastore = StandaloneMetaStorageManager.create(
@@ -152,7 +151,7 @@ public class CatalogServiceSelfTest {
         metastore.start();
         service.start();
 
-        metastore.deployWatches();
+        assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
     }
 
     @AfterEach
@@ -1128,7 +1127,7 @@ public class CatalogServiceSelfTest {
         metaStorageManager.start();
         service.start();
 
-        metaStorageManager.deployWatches();
+        assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
         try {
             CreateTableParams params = CreateTableParams.builder()
