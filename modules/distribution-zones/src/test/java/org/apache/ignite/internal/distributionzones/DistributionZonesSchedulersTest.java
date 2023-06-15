@@ -31,6 +31,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -46,7 +47,7 @@ public class DistributionZonesSchedulersTest {
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZonesSchedulersTest.class);
 
     private static final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(
-            Math.min(Runtime.getRuntime().availableProcessors() * 3, 20),
+            1,
             new NamedThreadFactory("test-dst-zones-scheduler", LOG),
             new ThreadPoolExecutor.DiscardPolicy()
     );
@@ -83,27 +84,109 @@ public class DistributionZonesSchedulersTest {
     }
 
     @Test
-    void testScaleUpReScheduleNotStartedTask() {
+    void testScaleUpReScheduling() {
         ZoneState state = new DistributionZoneManager.ZoneState(executor);
 
-        testReScheduleNotStartedTask(state::rescheduleScaleUp);
+        testReScheduling(state::rescheduleScaleUp);
     }
 
     @Test
-    void testScaleDownReScheduleNotStartedTask() {
+    void testScaleDownReScheduling() {
         ZoneState state = new DistributionZoneManager.ZoneState(executor);
 
-        testReScheduleNotStartedTask(state::rescheduleScaleDown);
+        testReScheduling(state::rescheduleScaleDown);
     }
 
-    private static void testReScheduleNotStartedTask(BiConsumer<Long, Runnable> fn) {
+    private static void testReScheduling(BiConsumer<Long, Runnable> fn) {
         Runnable runnable = mock(Runnable.class);
 
-        fn.accept(1L, runnable);
+        CountDownLatch latch = new CountDownLatch(1);
+
+        fn.accept(0L, () -> {
+            try {
+                assertTrue(latch.await(3, TimeUnit.SECONDS));
+
+                runnable.run();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        fn.accept(2L, runnable);
+
+        fn.accept(2L, runnable);
 
         fn.accept(0L, runnable);
 
-        verify(runnable, after(1200).times(1)).run();
+        fn.accept(0L, runnable);
+
+        fn.accept(2L, runnable);
+
+        fn.accept(2L, runnable);
+
+        fn.accept(0L, runnable);
+
+        fn.accept(0L, runnable);
+
+        latch.countDown();
+
+        verify(runnable, after(2500).times(5)).run();
+    }
+
+    @Test
+    void testScaleUpOrdering() throws InterruptedException {
+        ZoneState state = new DistributionZoneManager.ZoneState(executor);
+
+        testOrdering(state::rescheduleScaleUp);
+    }
+
+    @Test
+    void testScaleDownOrdering() throws InterruptedException {
+        ZoneState state = new DistributionZoneManager.ZoneState(executor);
+
+        testOrdering(state::rescheduleScaleDown);
+    }
+
+    private static void testOrdering(BiConsumer<Long, Runnable> fn) throws InterruptedException {
+        AtomicInteger counter = new AtomicInteger();
+
+        CountDownLatch latch = new CountDownLatch(1);
+
+        AtomicBoolean rightOrder = new AtomicBoolean(true);
+
+        fn.accept(0L, () -> {
+            try {
+                assertTrue(latch.await(3, TimeUnit.SECONDS));
+
+                counter.incrementAndGet();
+
+                if (counter.get() != 1) {
+                    rightOrder.set(false);
+                }
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        for (int i = 2; i < 11; i++) {
+            int j = i;
+
+            fn.accept(0L, () -> {
+                counter.incrementAndGet();
+
+                if (counter.get() != j) {
+                    rightOrder.set(false);
+                }
+            });
+        }
+
+        latch.countDown();
+
+        waitForCondition(() -> counter.get() == 10, 3000);
+
+        assertEquals(10, counter.get());
+
+        assertTrue(rightOrder.get());
     }
 
     @Test

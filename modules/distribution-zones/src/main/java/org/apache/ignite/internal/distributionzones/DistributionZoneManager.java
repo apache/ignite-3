@@ -21,6 +21,7 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
@@ -71,7 +72,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import org.apache.ignite.configuration.ConfigurationChangeException;
@@ -278,8 +278,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
         nodesAttributes = new ConcurrentHashMap<>();
 
+        // It must be a single thread executor to avoid concurrent executing several tasks for the same zone.
         executor = new ScheduledThreadPoolExecutor(
-                Math.min(Runtime.getRuntime().availableProcessors() * 3, 20),
+                1,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, DISTRIBUTION_ZONE_MANAGER_POOL_NAME), LOG),
                 new ThreadPoolExecutor.DiscardPolicy()
         );
@@ -357,7 +358,7 @@ public class DistributionZoneManager implements IgniteComponent {
         metaStorageManager.unregisterWatch(topologyWatchListener);
         metaStorageManager.unregisterWatch(dataNodesWatchListener);
 
-        shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(executor, 10, SECONDS);
     }
 
     /**
@@ -1658,11 +1659,11 @@ public class DistributionZoneManager implements IgniteComponent {
          * @param runnable Custom logic to run.
          */
         synchronized void rescheduleScaleUp(long delay, Runnable runnable) {
-            if (scaleUpTask != null) {
+            if (scaleUpTask != null && scaleUpTask.getDelay(SECONDS) != IMMEDIATE_TIMER_VALUE) {
                 scaleUpTask.cancel(false);
             }
 
-            scaleUpTask = executor.schedule(runnable, delay, TimeUnit.SECONDS);
+            scaleUpTask = executor.schedule(runnable, delay, SECONDS);
         }
 
         /**
@@ -1672,11 +1673,11 @@ public class DistributionZoneManager implements IgniteComponent {
          * @param runnable Custom logic to run.
          */
         synchronized void rescheduleScaleDown(long delay, Runnable runnable) {
-            if (scaleDownTask != null) {
+            if (scaleDownTask != null && scaleDownTask.getDelay(SECONDS) != IMMEDIATE_TIMER_VALUE) {
                 scaleDownTask.cancel(false);
             }
 
-            scaleDownTask = executor.schedule(runnable, delay, TimeUnit.SECONDS);
+            scaleDownTask = executor.schedule(runnable, delay, SECONDS);
         }
 
         /**
