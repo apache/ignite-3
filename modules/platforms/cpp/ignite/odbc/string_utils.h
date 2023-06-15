@@ -29,7 +29,7 @@ namespace ignite {
 * @param str String view.
 * @return String view without leading spaces.
  */
-inline std::string_view strip_leading_spaces(std::string_view str)
+inline std::string_view ltrim(std::string_view str)
 {
     while (!str.empty() && std::isspace(str.front()))
         str.remove_prefix(1);
@@ -43,7 +43,7 @@ inline std::string_view strip_leading_spaces(std::string_view str)
 * @param str String view.
 * @return String view without trailing spaces.
  */
-inline std::string_view strip_trailing_spaces(std::string_view str)
+inline std::string_view rtrim(std::string_view str)
 {
     while (!str.empty() && std::isspace(str.back()))
         str.remove_suffix(1);
@@ -57,9 +57,9 @@ inline std::string_view strip_trailing_spaces(std::string_view str)
  * @param str String view.
  * @return String view without leading and trailing spaces.
  */
-inline std::string_view strip_surrounding_whitespaces(std::string_view str)
+inline std::string_view trim(std::string_view str)
 {
-    return strip_leading_spaces(strip_trailing_spaces(str));
+    return ltrim(rtrim(str));
 }
 
 /**

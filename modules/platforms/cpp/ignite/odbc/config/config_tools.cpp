@@ -33,7 +33,7 @@ config_map::value_type parse_attribute_pair(std::string_view attribute) {
     auto res = split_once(attribute, '=');
 
     auto key = normalize_argument_string(res.first);
-    auto value = strip_surrounding_whitespaces(res.second);
+    auto value = trim(res.second);
 
     return config_map::value_type{key, value};
 }
@@ -86,7 +86,7 @@ std::vector<end_point> parse_address(std::string_view value)
     end_points.reserve(addr_num);
 
     for_every_delimited(value, ',', [&end_points](auto addr) {
-        addr = strip_surrounding_whitespaces(addr);
+        addr = trim(addr);
         if (addr.empty())
             return;
 
@@ -125,7 +125,7 @@ end_point parse_single_address(std::string_view value)
 }
 
 std::optional<std::int64_t> parse_int64(std::string_view value) {
-    auto value_str = strip_surrounding_whitespaces(value);
+    auto value_str = trim(value);
     if (!std::all_of(value_str.begin(), value_str.end(), [] (char c) { return std::isdigit(c) || c == '-'; }))
         return std::nullopt;
     return lexical_cast<std::int64_t>(value_str);
@@ -156,7 +156,7 @@ config_map parse_config_attributes(const char *str) {
 }
 
 std::string normalize_argument_string(std::string_view value) {
-    return to_lower(std::string{strip_surrounding_whitespaces(value)});
+    return to_lower(std::string{trim(value)});
 }
 
 } // namespace ignite
