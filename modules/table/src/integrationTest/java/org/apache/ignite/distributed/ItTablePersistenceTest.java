@@ -357,8 +357,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     RocksDbStorageEngine storageEngine = new RocksDbStorageEngine("test", engineConfig, path);
                     storageEngine.start();
 
-                    closeables.add(storageEngine::stop);
-
                     zoneCfg.dataStorage().change(ds -> ds.convert(storageEngine.name())).join();
 
                     MvTableStorage mvTableStorage = storageEngine.createMvTable(
@@ -368,11 +366,9 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     mvTableStorage.start();
 
                     mvTableStorages.put(index, mvTableStorage);
-                    closeables.add(mvTableStorage::close);
 
                     MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(mvTableStorage, 0);
                     mvPartitionStorages.put(index, mvPartitionStorage);
-                    closeables.add(mvPartitionStorage::close);
 
                     PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 
@@ -399,7 +395,18 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             new TestTxStateStorage(),
                             safeTime,
                             new PendingComparableValuesTracker<>(0L)
-                    );
+                    ) {
+                        @Override
+                        public void onShutdown() {
+                            super.onShutdown();
+
+                            try {
+                                closeAll(mvPartitionStorage::close, mvTableStorage::stop, storageEngine::stop);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                    };
 
                     paths.put(listener, path);
                     partListeners.put(index, listener);

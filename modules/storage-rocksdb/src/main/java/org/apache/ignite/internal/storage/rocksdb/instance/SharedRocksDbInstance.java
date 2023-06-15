@@ -138,8 +138,6 @@ public final class SharedRocksDbInstance {
 
         List<AutoCloseable> resources = new ArrayList<>();
 
-        resources.add(flusher::stop);
-
         resources.add(meta.columnFamily().handle());
         resources.add(partitionCf.handle());
         resources.add(gcQueueCf.handle());
@@ -150,6 +148,7 @@ public final class SharedRocksDbInstance {
         );
 
         resources.add(db);
+        resources.add(flusher::stop);
 
         try {
             Collections.reverse(resources);

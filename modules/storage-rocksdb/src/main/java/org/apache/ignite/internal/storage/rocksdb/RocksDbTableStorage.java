@@ -187,8 +187,6 @@ public class RocksDbTableStorage implements MvTableStorage {
                         .collect(toList())
         );
 
-        resources.add(DFLT_WRITE_OPTS);
-
         try {
             mvPartitionStorages
                     .getAllForCloseOrDestroy()
