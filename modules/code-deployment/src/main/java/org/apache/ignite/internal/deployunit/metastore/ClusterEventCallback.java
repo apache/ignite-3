@@ -17,52 +17,49 @@
 
 package org.apache.ignite.internal.deployunit.metastore;
 
-import java.util.List;
-import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 
 /**
- * Listener of deployment unit node status changes.
+ * Listener of deployment unit cluster status changes.
  */
-public abstract class NodeEventCallback {
+public interface ClusterEventCallback {
     /**
      * Change event.
      *
      * @param status Deployment unit status.
-     * @param holders Node statuses.
      */
-    public void onUpdate(UnitNodeStatus status, List<UnitNodeStatus> holders) {
+    default void onUpdate(UnitClusterStatus status) {
         switch (status.status()) {
             case UPLOADING:
-                onUploading(status.id(), status.version(), holders);
+                onUploading(status);
                 break;
             case DEPLOYED:
-                onDeploy(status.id(), status.version(), holders);
-                break;
-            case REMOVING:
-                onRemoving(status.id(), status.version(), holders);
+                onDeploy(status);
                 break;
             case OBSOLETE:
-                onObsolete(status.id(), status.version(), holders);
+                onObsolete(status);
+                break;
+            case REMOVING:
+                onRemoving(status);
                 break;
             default:
                 break;
         }
     }
 
-    protected void onUploading(String id, Version version, List<UnitNodeStatus> holders) {
+    default void onUploading(UnitClusterStatus status) {
 
     }
 
-    protected void onDeploy(String id, Version version, List<UnitNodeStatus> holders) {
+    default void onDeploy(UnitClusterStatus status) {
 
     }
 
-    protected void onObsolete(String id, Version version, List<UnitNodeStatus> holders) {
+    default void onObsolete(UnitClusterStatus status) {
 
     }
 
-    protected void onRemoving(String id, Version version, List<UnitNodeStatus> holders) {
+    default void onRemoving(UnitClusterStatus status) {
 
     }
 }

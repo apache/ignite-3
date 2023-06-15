@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.RE
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -47,7 +48,6 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -65,7 +65,7 @@ public class DeploymentUnitStoreImplTest {
 
     private final NodeEventCallback listener = new NodeEventCallback() {
         @Override
-        public void onUpdate(UnitNodeStatus status, List<String> holders) {
+        public void onUpdate(UnitNodeStatus status, List<UnitNodeStatus> holders) {
             history.add(status);
         }
     };
@@ -82,7 +82,7 @@ public class DeploymentUnitStoreImplTest {
 
         MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, storage);
         metastore = new DeploymentUnitStoreImpl(metaStorageManager);
-        metastore.registerListener(new NodeStatusWatchListener(metastore, () -> LOCAL_NODE, listener));
+        metastore.registerNodeStatusListener(new NodeStatusWatchListener(metastore, LOCAL_NODE, listener));
 
         vaultManager.start();
         metaStorageManager.start();
@@ -104,7 +104,7 @@ public class DeploymentUnitStoreImplTest {
         assertThat(metastore.getClusterStatus(id, version),
                 willBe(new UnitClusterStatus(id, version, DEPLOYED, Set.of())));
 
-        assertThat(metastore.remove(id, version), willBe(true));
+        assertThat(metastore.removeClusterStatus(id, version), willBe(true));
 
         assertThat(metastore.getClusterStatus(id, version), willBe(nullValue()));
     }
@@ -144,12 +144,12 @@ public class DeploymentUnitStoreImplTest {
                 willBe(contains((new UnitClusterStatus(id, version, DEPLOYED, Set.of(node1, node2, node3)))))
         );
 
-        assertThat(metastore.remove(id, version), willBe(true));
+        assertThat(metastore.removeNodeStatus(node1, id, version), willBe(true));
         assertThat(metastore.getNodeStatus(node1, id, version), willBe(nullValue()));
     }
 
     @Test
-    public void testNodeEventListener() throws InterruptedException {
+    public void testNodeEventListener() {
         String id = "id5";
         Version version = Version.parseVersion("1.1.1");
         String node1 = LOCAL_NODE;
@@ -159,7 +159,7 @@ public class DeploymentUnitStoreImplTest {
         assertThat(metastore.updateNodeStatus(node1, id, version, OBSOLETE), willBe(true));
         assertThat(metastore.updateNodeStatus(node1, id, version, REMOVING), willBe(true));
 
-        Awaitility.await().untilAsserted(() ->
+        await().untilAsserted(() ->
                 assertThat(history, containsInAnyOrder(
                         new UnitNodeStatus(id, version, UPLOADING, node1),
                         new UnitNodeStatus(id, version, DEPLOYED, node1),

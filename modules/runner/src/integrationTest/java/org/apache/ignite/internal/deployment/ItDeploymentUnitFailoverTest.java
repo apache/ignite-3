@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.deployment;
 
-import java.util.Arrays;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.await;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -38,42 +42,51 @@ public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest 
         files = new DeployFiles(workDir);
     }
 
-    @Override
-    protected int initialNodes() {
-        return 9;
-    }
-
-    @Override
-    protected int[] cmgMetastoreNodes() {
-        return new int[] {6, 7, 8};
-    }
-
     @Test
     public void testDeployWithNodeStop() {
-        IgniteImpl cmgNode = cluster.node(8);
+        int nodeIndex = 1;
+        IgniteImpl node = node(nodeIndex);
+        IgniteImpl cmgNode = node(0);
 
-        List<String> cmgNodes = Arrays.stream(cmgMetastoreNodes())
-                .mapToObj(i -> node(i).name())
-                .collect(Collectors.toList());
-
-        // Deploy to all CMG nodes, not only to majority
+        // Deploy to majority and additional node
         Unit big = files.deployAndVerify(
                 "id1",
                 Version.parseVersion("1.0.0"),
                 false,
                 List.of(files.bigFile()),
                 null,
-                cmgNodes,
-                cluster.node(3)
+                List.of(node.name()),
+                cmgNode
         );
 
-        stopNode(8);
+        stopNode(nodeIndex);
 
-        big.waitUnitClean(cmgNode);
-        big.waitUnitReplica(cluster.node(6));
-        big.waitUnitReplica(cluster.node(7));
-
-        cmgNode = startNode(8);
+        big.waitUnitClean(node);
         big.waitUnitReplica(cmgNode);
+
+        node = startNode(nodeIndex);
+        big.waitUnitReplica(node);
+    }
+
+    @Test
+    public void testUndeployWithNodeStop() {
+        int nodeIndex = 1;
+        String id = "id1";
+        Version version = Version.parseVersion("1.0.0");
+        Unit unit = files.deployAndVerify(
+                id, version, false,
+                List.of(files.smallFile()),
+                null, List.of(node(nodeIndex).name()),
+                node(0)
+        );
+
+        await().untilAsserted(() -> assertThat(node(nodeIndex).deployment().clusterStatusAsync(id, version), willBe(DEPLOYED)));
+
+        stopNode(nodeIndex);
+
+        assertThat(unit.undeployAsync(), willCompleteSuccessfully());
+
+        IgniteImpl cmgNode = startNode(nodeIndex);
+        unit.waitUnitClean(cmgNode);
     }
 }

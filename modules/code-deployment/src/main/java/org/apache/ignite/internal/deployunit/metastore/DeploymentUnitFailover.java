@@ -18,71 +18,116 @@
 package org.apache.ignite.internal.deployunit.metastore;
 
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.OBSOLETE;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 
 import java.util.Objects;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.internal.deployunit.FileDeployerService;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**
  * Deployment unit failover.
  */
 public class DeploymentUnitFailover {
+    private static final IgniteLogger LOG = Loggers.forClass(DeploymentUnitFailover.class);
+
     private final LogicalTopologyService logicalTopology;
 
     private final DeploymentUnitStore deploymentUnitStore;
 
-    private final ClusterService clusterService;
+    private final FileDeployerService deployer;
+
+    private final String nodeName;
 
     /**
      * Constructor.
      *
      * @param logicalTopology Logical topology service.
      * @param deploymentUnitStore Deployment units store.
-     * @param clusterService Cluster service.
+     * @param deployer Deployment unit file system service.
+     * @param nodeName Node consistent ID.
      */
-    public DeploymentUnitFailover(
-            LogicalTopologyService logicalTopology,
-            DeploymentUnitStore deploymentUnitStore,
-            ClusterService clusterService
-    ) {
+    public DeploymentUnitFailover(LogicalTopologyService logicalTopology, DeploymentUnitStore deploymentUnitStore,
+            FileDeployerService deployer, String nodeName) {
         this.logicalTopology = logicalTopology;
         this.deploymentUnitStore = deploymentUnitStore;
-        this.clusterService = clusterService;
+        this.deployer = deployer;
+        this.nodeName = nodeName;
     }
 
     /**
      * Register {@link NodeEventCallback} as topology change callback.
      *
-     * @param callback Node status callback.
+     * @param nodeEventCallback Node status callback.
+     * @param clusterEventCallback Cluster status callback.
      */
-    public void registerTopologyChangeCallback(NodeEventCallback callback) {
+    public void registerTopologyChangeCallback(NodeEventCallback nodeEventCallback, ClusterEventCallbackImpl clusterEventCallback) {
         logicalTopology.addEventListener(new LogicalTopologyEventListener() {
             @Override
             public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
                 String consistentId = joinedNode.name();
-                if (Objects.equals(consistentId, getLocalNodeId())) {
+                if (Objects.equals(consistentId, nodeName)) {
+                    LOG.info("onNodeJoined {}", consistentId);
                     deploymentUnitStore.getNodeStatuses(consistentId)
-                            .thenAccept(nodeStatuses -> nodeStatuses.forEach(nodeStatus -> {
-                                if (nodeStatus.status() == UPLOADING) {
-                                    deploymentUnitStore.getClusterStatus(nodeStatus.id(), nodeStatus.version())
-                                            .thenAccept(clusterStatus -> {
-                                                if (clusterStatus.status() == UPLOADING || clusterStatus.status() == DEPLOYED) {
-                                                    deploymentUnitStore.getAllNodes(nodeStatus.id(), nodeStatus.version())
-                                                            .thenAccept(nodes -> callback.onUploading(nodeStatus, nodes));
-                                                }
-                                            });
-                                }
+                            .thenAccept(nodeStatuses -> nodeStatuses.forEach(unitNodeStatus -> {
+                                LOG.info("nodeStatus {}", unitNodeStatus);
+                                deploymentUnitStore.getClusterStatus(unitNodeStatus.id(), unitNodeStatus.version())
+                                        .thenAccept(unitClusterStatus -> {
+                                            LOG.info("unitClusterStatus {}", unitClusterStatus);
+                                            processStatus(unitClusterStatus, unitNodeStatus, nodeEventCallback);
+                                        });
                             }));
                 }
             }
         });
     }
 
-    private String getLocalNodeId() {
-        return clusterService.topologyService().localMember().name();
+    private void processStatus(UnitClusterStatus unitClusterStatus, UnitNodeStatus unitNodeStatus, NodeEventCallback nodeEventCallback) {
+        String id = unitNodeStatus.id();
+        Version version = unitNodeStatus.version();
+        if (unitClusterStatus == null) {
+            deployer.undeploy(id, version)
+                    .thenAccept(success -> {
+                        if (success) {
+                            deploymentUnitStore.removeNodeStatus(nodeName, id, version);
+                        }
+                    });
+            return;
+        }
+        DeploymentStatus clusterStatus = unitClusterStatus.status();
+        DeploymentStatus nodeStatus = unitNodeStatus.status();
+        switch (clusterStatus) {
+            case UPLOADING: // fallthrough
+            case DEPLOYED:
+                if (nodeStatus == UPLOADING) {
+                    deploymentUnitStore.getAllNodeStatuses(id, version)
+                            .thenAccept(nodes -> nodeEventCallback.onUpdate(unitNodeStatus, nodes));
+                }
+                break;
+            case OBSOLETE:
+                if (nodeStatus == DEPLOYED || nodeStatus == OBSOLETE) {
+                    deploymentUnitStore.updateNodeStatus(nodeName, id, version, REMOVING);
+                }
+                break;
+            case REMOVING:
+                deploymentUnitStore.getAllNodeStatuses(id, version)
+                        .thenAccept(nodes -> {
+                            UnitNodeStatus status = new UnitNodeStatus(id, version, REMOVING, nodeName);
+                            nodeEventCallback.onUpdate(status, nodes);
+                        });
+                break;
+            default:
+                break;
+        }
     }
 }
