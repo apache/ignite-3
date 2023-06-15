@@ -25,7 +25,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -45,9 +44,9 @@ public class HashIndex implements Index<IndexDescriptor> {
      * @param table A table this index relates to.
      * @param descriptor A descriptor of the index.
      */
-    public HashIndex(int id, TableImpl table, IndexDescriptor descriptor) {
+    public HashIndex(int id, InternalTable table, IndexDescriptor descriptor) {
         this.id = id;
-        this.table = Objects.requireNonNull(table.internalTable(), "table");
+        this.table = Objects.requireNonNull(table, "table");
         this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
     }
 

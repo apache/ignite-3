@@ -36,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -143,9 +144,26 @@ public class FileDeployerService {
      *
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
+     * @param checkExistence If {@code true} then check that unit exists.
+     * @return Path to unit folder.
+     * @throws DeploymentUnitNotFoundException If unit doesn't exist and {@code checkExistence} is {@code true}.
+     */
+    Path unitPath(String id, Version version, boolean checkExistence) {
+        Path path = unitPath(id, version);
+        if (checkExistence && !Files.exists(path)) {
+            throw new DeploymentUnitNotFoundException(id, version);
+        }
+        return path;
+    }
+
+    /**
+     * Returns path to unit folder.
+     *
+     * @param id Deployment unit identifier.
+     * @param version Deployment unit version.
      * @return Path to unit folder.
      */
-    public Path unitPath(String id, Version version) {
+    Path unitPath(String id, Version version) {
         return unitsFolder.resolve(id).resolve(version.render());
     }
 }

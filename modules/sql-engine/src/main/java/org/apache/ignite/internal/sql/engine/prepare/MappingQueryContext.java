@@ -37,7 +37,7 @@ public class MappingQueryContext {
      * Constructor.
      *
      * @param locNodeName Local node consistent ID.
-     * @param mappingService Local node consistent ID.
+     * @param mappingService Nodes mapping service.
      */
     public MappingQueryContext(
             String locNodeName,

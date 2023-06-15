@@ -25,15 +25,13 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
+    annotationProcessor libs.auto.service
     api project(':ignite-client-common')
     implementation project(':ignite-client')
     implementation project(':ignite-api')
     implementation project(':ignite-core')
-
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
-
-    annotationProcessor libs.auto.service
 
     testImplementation libs.mockito.core
     testImplementation libs.hamcrest.core
@@ -48,7 +46,7 @@ dependencies {
 description = 'ignite-jdbc'
 
 shadowJar {
-    archiveClassifier.set('')
+    archiveClassifier.set('all')
 
     [
             'com.fasterxml',

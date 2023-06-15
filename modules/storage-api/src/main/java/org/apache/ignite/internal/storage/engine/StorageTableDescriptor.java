@@ -25,15 +25,19 @@ public class StorageTableDescriptor {
 
     private final int partitions;
 
+    private final String dataRegion;
+
     /**
      * Constructor.
      *
      * @param id Table ID.
      * @param partitions Count of partitions.
+     * @param dataRegion Data region name.
      */
-    public StorageTableDescriptor(int id, int partitions) {
+    public StorageTableDescriptor(int id, int partitions, String dataRegion) {
         this.id = id;
         this.partitions = partitions;
+        this.dataRegion = dataRegion;
     }
 
     /**
@@ -48,5 +52,12 @@ public class StorageTableDescriptor {
      */
     public int getPartitions() {
         return partitions;
+    }
+
+    /**
+     * Returns the data region name.
+     */
+    public String getDataRegion() {
+        return dataRegion;
     }
 }

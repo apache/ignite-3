@@ -37,7 +37,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -66,6 +65,8 @@ import java.util.function.LongFunction;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -74,7 +75,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -93,7 +93,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
@@ -247,7 +246,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /** Before all test scenarios. */
     @BeforeEach
-    void before() {
+    void before() throws NodeStoppingException {
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
 
         TopologyService topologyService = mock(TopologyService.class);
@@ -279,7 +278,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(distributionZoneManager.getZoneId(ZONE_NAME)).thenReturn(ZONE_ID);
         when(distributionZoneManager.zoneIdAsyncInternal(ZONE_NAME)).thenReturn(completedFuture(ZONE_ID));
 
-        when(distributionZoneManager.topologyVersionedDataNodes(anyInt(), anyLong())).thenReturn(completedFuture(emptySet()));
+        when(replicaMgr.stopReplica(any())).thenReturn(completedFuture(true));
 
         tblManagerFut = new CompletableFuture<>();
     }
@@ -387,6 +386,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         verify(mvTableStorage).destroy();
         verify(txStateTableStorage).destroy();
+        verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
 
         assertNull(tableManager.table(scmTbl.name()));
 
@@ -878,9 +878,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         ) {
 
             @Override
-            protected MvTableStorage createTableStorage(
-                    TableConfiguration tableCfg, TablesConfiguration tablesCfg, DistributionZoneConfiguration distributionZonesCfg) {
-                mvTableStorage = spy(super.createTableStorage(tableCfg, tablesCfg, distributionZonesCfg));
+            protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
+                mvTableStorage = spy(super.createTableStorage(tableDescriptor, zoneDescriptor));
 
                 tableStorageDecorator.accept(mvTableStorage);
 
@@ -889,8 +888,10 @@ public class TableManagerTest extends IgniteAbstractTest {
 
             @Override
             protected TxStateTableStorage createTxStateTableStorage(
-                    TableConfiguration tableCfg, DistributionZoneConfiguration distributionZonesCfg) {
-                txStateTableStorage = spy(super.createTxStateTableStorage(tableCfg, distributionZonesCfg));
+                    CatalogTableDescriptor tableDescriptor,
+                    CatalogZoneDescriptor zoneDescriptor
+            ) {
+                txStateTableStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
 
                 txStateTableStorageDecorator.accept(txStateTableStorage);
 

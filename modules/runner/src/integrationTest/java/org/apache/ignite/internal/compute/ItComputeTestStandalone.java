@@ -17,17 +17,22 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -37,32 +42,13 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings("resource")
 class ItComputeTestStandalone extends ItComputeBaseTest {
-    private final URL jobsResource = ItComputeTestStandalone.class.getClassLoader().getResource("units/ignite-jobs-1.0-SNAPSHOT.jar");
 
-    private final String unitId = "jobs";
-
-    private final Version unitVersion = Version.parseVersion("1.0.0");
-
-    private final List<DeploymentUnit> units = List.of(new DeploymentUnit(unitId, unitVersion));
+    private final DeploymentUnit unit = new DeploymentUnit("jobs", Version.parseVersion("1.0.0"));
+    private final List<DeploymentUnit> units = List.of(unit);
 
     @BeforeEach
     void setUp() throws IOException {
-        try (InputStream jarStream = jobsResource.openStream()) {
-            CompletableFuture<Boolean> deployAsync = node(0).deployment().deployAsync(
-                    unitId,
-                    unitVersion,
-                    () -> Map.of("ignite-jobs-1.0-SNAPSHOT.jar", jarStream)
-            );
-            assertThat(deployAsync, willCompleteSuccessfully());
-        }
-
-        cluster.runningNodes().forEach(node -> {
-            CompletableFuture<Boolean> deployAsync = node.deployment().onDemandDeploy(
-                    unitId,
-                    unitVersion
-            );
-            assertThat(deployAsync, willCompleteSuccessfully());
-        });
+        deployJar(node(0), unit.name(), unit.version(), "ignite-jobs-1.0-SNAPSHOT.jar");
     }
 
     @Override
@@ -102,5 +88,57 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     @Override
     void broadcastsFailingJob() throws Exception {
         super.broadcastsFailingJob();
+    }
+
+    @Test
+    void executesJobWithNonExistingUnit() {
+        IgniteImpl entryNode = node(0);
+
+        List<DeploymentUnit> nonExistingUnits = List.of(new DeploymentUnit("non-existing", "1.0.0"));
+        CompletableFuture<String> result = entryNode.compute()
+                .execute(Set.of(entryNode.node()), nonExistingUnits, concatJobClassName(), "a", 42);
+
+        assertThat(
+                result,
+                willThrow(
+                        ClassNotFoundException.class,
+                        "org.example.ConcatJob. Deployment unit non-existing:1.0.0 doesn’t exist"
+                )
+        );
+    }
+
+    @Test
+    void executesJobWithLatestUnitVersion() throws IOException {
+        List<DeploymentUnit> jobUnits = List.of(new DeploymentUnit("latest-unit", Version.LATEST));
+
+        IgniteImpl entryNode = node(0);
+
+        DeploymentUnit firstVersion = new DeploymentUnit("latest-unit", Version.parseVersion("1.0.0"));
+        deployJar(entryNode, firstVersion.name(), firstVersion.version(), "unit1-1.0-SNAPSHOT.jar");
+
+        CompletableFuture<Integer> result1 = entryNode.compute()
+                .execute(Set.of(entryNode.node()), jobUnits, "org.my.job.compute.unit.UnitJob");
+        assertThat(result1, willBe(1));
+
+        DeploymentUnit secondVersion = new DeploymentUnit("latest-unit", Version.parseVersion("1.0.1"));
+        deployJar(entryNode, secondVersion.name(), secondVersion.version(), "unit2-1.0-SNAPSHOT.jar");
+
+        CompletableFuture<String> result2 = entryNode.compute()
+                .execute(Set.of(entryNode.node()), jobUnits, "org.my.job.compute.unit.UnitJob");
+        assertThat(result2, willBe("Hello World!"));
+    }
+
+    private static void deployJar(IgniteImpl node, String unitId, Version unitVersion, String jarName) throws IOException {
+        try (InputStream jarStream = ItComputeTestStandalone.class.getClassLoader().getResourceAsStream("units/" + jarName)) {
+            CompletableFuture<Boolean> deployed = node.deployment().deployAsync(
+                    unitId,
+                    unitVersion,
+                    () -> Map.of(jarName, jarStream),
+                    MAJORITY
+            );
+
+            assertThat(deployed, willBe(true));
+            await().until(() -> node.deployment().clusterStatusAsync(unitId, unitVersion), willBe(DEPLOYED));
+        }
     }
 }

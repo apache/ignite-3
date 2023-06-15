@@ -32,5 +32,6 @@ public class DataStorageConfigurationSchema {
 
     /** The number of entries in the storage to be garbage collected during a storage update operation. */
     @Value(hasDefault = true)
+    // TODO: IGNITE-19718 Need to move somewhere
     public int gcOnUpdateBatchSize = 5;
 }

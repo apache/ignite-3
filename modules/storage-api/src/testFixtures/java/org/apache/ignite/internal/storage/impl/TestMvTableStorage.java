@@ -87,11 +87,25 @@ public class TestMvTableStorage implements MvTableStorage {
         }
     }
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     *
+     * @param tableId Table ID.
+     * @param partitions Count of partitions.
+     */
     public TestMvTableStorage(int tableId, int partitions) {
-        tableDescriptor = new StorageTableDescriptor(tableId, partitions);
+        this(new StorageTableDescriptor(tableId, partitions, "none"));
+    }
 
-        mvPartitionStorages = new MvPartitionStorages<>(tableId, partitions);
+    /**
+     * Constructor.
+     *
+     * @param tableDescriptor Table descriptor.
+     */
+    public TestMvTableStorage(StorageTableDescriptor tableDescriptor) {
+        this.tableDescriptor = tableDescriptor;
+
+        mvPartitionStorages = new MvPartitionStorages<>(tableDescriptor.getId(), tableDescriptor.getPartitions());
     }
 
     @Override

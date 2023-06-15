@@ -100,9 +100,7 @@ void connection_string_parser::handle_attribute_pair(const std::string &key, con
 
     if (lower_key == key::address)
     {
-        std::vector<network::tcp_range> end_points;
-
-        parse_address(value, end_points, diag);
+        std::vector<end_point> end_points = parse_address(value, diag);
 
         m_cfg.set_addresses(end_points);
     }

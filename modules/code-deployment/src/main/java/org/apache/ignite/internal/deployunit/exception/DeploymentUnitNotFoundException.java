@@ -17,19 +17,61 @@
 
 package org.apache.ignite.internal.deployunit.exception;
 
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.lang.ErrorGroups.CodeDeployment;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Throws when trying to access information about unit which doesn't exist.
  */
 public class DeploymentUnitNotFoundException extends IgniteException {
+
+    /**
+     * Unit id.
+     */
+    private final String id;
+
+    /**
+     * Unit version.
+     */
+    private final Version version;
+
     /**
      * Constructor.
      *
-     * @param message error message.
+     * @param id Unit id.
      */
-    public DeploymentUnitNotFoundException(String message) {
-        super(CodeDeployment.UNIT_NOT_FOUND_ERR, message);
+    public DeploymentUnitNotFoundException(String id) {
+        this(id, null);
+    }
+
+
+    /**
+     * Constructor.
+     *
+     * @param id Unit id.
+     * @param version Unit version.
+     */
+    public DeploymentUnitNotFoundException(String id, @Nullable Version version) {
+        super(CodeDeployment.UNIT_NOT_FOUND_ERR, message(id, version));
+        this.id = id;
+        this.version = version;
+    }
+
+    private static String message(String id, @Nullable Version version) {
+        if (version == null) {
+            return "Unit " + id + " not found";
+        } else {
+            return "Unit " + id + ":" + version + " not found";
+        }
+    }
+
+    public String id() {
+        return id;
+    }
+
+    public Version version() {
+        return version;
     }
 }

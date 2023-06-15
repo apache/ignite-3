@@ -21,10 +21,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toSortedIndexDescriptor;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findIndexView;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.GC_QUEUE_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.HASH_INDEX_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.META_CF_NAME;
@@ -49,16 +45,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesView;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
@@ -68,6 +58,8 @@ import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.ColumnFamilyType;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
@@ -100,9 +92,6 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     /** Path for the directory that stores table data. */
     private final Path tablePath;
-
-    /** Indexes configuration. */
-    private final TablesConfiguration tablesCfg;
 
     /** Data region for the table. */
     private final RocksDbDataRegion dataRegion;
@@ -146,28 +135,30 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** Table descriptor. */
     private final StorageTableDescriptor tableDescriptor;
 
+    /** Index descriptor supplier. */
+    private final StorageIndexDescriptorSupplier indexDescriptorSupplier;
+
     /**
      * Constructor.
      *
      * @param engine RocksDB storage engine instance.
      * @param tablePath Path for the directory that stores table data.
-     * @param tableCfg Table configuration.
      * @param dataRegion Data region for the table.
+     * @param tableDescriptor Table descriptor.
+     * @param indexDescriptorSupplier Index descriptor supplier.
      */
     RocksDbTableStorage(
             RocksDbStorageEngine engine,
             Path tablePath,
             RocksDbDataRegion dataRegion,
-            TableConfiguration tableCfg,
-            TablesConfiguration tablesCfg,
-            DistributionZoneConfiguration distributionZoneConfiguration
+            StorageTableDescriptor tableDescriptor,
+            StorageIndexDescriptorSupplier indexDescriptorSupplier
     ) {
         this.engine = engine;
         this.tablePath = tablePath;
         this.dataRegion = dataRegion;
-        this.tablesCfg = tablesCfg;
-
-        tableDescriptor = new StorageTableDescriptor(tableCfg.id().value(), distributionZoneConfiguration.partitions().value());
+        this.tableDescriptor = tableDescriptor;
+        this.indexDescriptorSupplier = indexDescriptorSupplier;
     }
 
     /**
@@ -222,13 +213,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                 throw new StorageException("Failed to create a directory for the table storage", e);
             }
 
-            TablesView tablesView = tablesCfg.value();
-
-            TableView tableView = findTableView(tablesView, getTableId());
-
-            assert tableView != null : getTableId();
-
-            List<ColumnFamilyDescriptor> cfDescriptors = getExistingCfDescriptors(tablesView, tableView);
+            List<ColumnFamilyDescriptor> cfDescriptors = getExistingCfDescriptors();
 
             List<ColumnFamilyHandle> cfHandles = new ArrayList<>(cfDescriptors.size());
 
@@ -287,16 +272,11 @@ public class RocksDbTableStorage implements MvTableStorage {
                 for (Entry<Integer, ColumnFamily> entry : sortedIndexColumnFamilyByIndexId.entrySet()) {
                     int indexId = entry.getKey();
 
-                    SortedIndexView indexView = (SortedIndexView) findIndexView(tablesView, indexId);
+                    StorageIndexDescriptor indexDescriptor = indexDescriptorSupplier.get(indexId);
 
-                    assert indexView != null : "tableId=" + tableView.id() + ", indexId=" + indexId;
+                    assert indexDescriptor instanceof StorageSortedIndexDescriptor : "tableId=" + getTableId() + ", indexId=" + indexId;
 
-                    var indexDescriptor = new StorageSortedIndexDescriptor(
-                            toTableDescriptor(tableView),
-                            toSortedIndexDescriptor(indexView)
-                    );
-
-                    sortedIndices.put(indexId, new SortedIndex(entry.getValue(), indexDescriptor, meta));
+                    sortedIndices.put(indexId, new SortedIndex(entry.getValue(), (StorageSortedIndexDescriptor) indexDescriptor, meta));
                 }
 
                 flusher.init(db, cfHandles);
@@ -574,16 +554,16 @@ public class RocksDbTableStorage implements MvTableStorage {
     /**
      * Returns a list of CF descriptors present in the RocksDB instance.
      */
-    private List<ColumnFamilyDescriptor> getExistingCfDescriptors(TablesView tablesView, TableView tableView) {
+    private List<ColumnFamilyDescriptor> getExistingCfDescriptors() {
         return getExistingCfNames().stream()
-                .map(cfName -> cfDescriptorFromName(tablesView, tableView, cfName))
+                .map(this::cfDescriptorFromName)
                 .collect(toList());
     }
 
     /**
      * Creates a Column Family descriptor for the given Family type (encoded in its name).
      */
-    private ColumnFamilyDescriptor cfDescriptorFromName(TablesView tablesView, TableView tableView, String cfName) {
+    private ColumnFamilyDescriptor cfDescriptorFromName(String cfName) {
         switch (ColumnFamilyType.fromCfName(cfName)) {
             case META:
             case GC_QUEUE:
@@ -607,16 +587,14 @@ public class RocksDbTableStorage implements MvTableStorage {
             case SORTED_INDEX:
                 int indexId = sortedIndexId(cfName);
 
-                SortedIndexView indexView = (SortedIndexView) findIndexView(tablesView, indexId);
+                StorageIndexDescriptor indexDescriptor = indexDescriptorSupplier.get(indexId);
 
-                assert indexView != null : "tableId=" + tableView.id() + ", indexId=" + indexId;
+                assert indexDescriptor instanceof StorageSortedIndexDescriptor : "tableId=" + getTableId() + ", indexId=" + indexId;
 
-                var indexDescriptor = new StorageSortedIndexDescriptor(toTableDescriptor(tableView), toSortedIndexDescriptor(indexView));
-
-                return sortedIndexCfDescriptor(cfName, indexDescriptor);
+                return sortedIndexCfDescriptor(cfName, (StorageSortedIndexDescriptor) indexDescriptor);
 
             default:
-                throw new StorageException("Unidentified column family: [name={}, table={}]", cfName, tableView.name());
+                throw new StorageException("Unidentified column family: [name={}, tableId={}]", cfName, getTableId());
         }
     }
 

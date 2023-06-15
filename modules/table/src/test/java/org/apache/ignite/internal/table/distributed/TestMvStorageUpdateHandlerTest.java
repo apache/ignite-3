@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.impl.TestStorageEngine;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+
+import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.junit.jupiter.api.BeforeEach;
 
 class TestMvStorageUpdateHandlerTest extends AbstractMvStorageUpdateHandlerTest {
-    @Override
-    protected StorageEngine createStorageEngine() {
-        return new TestStorageEngine();
+    @BeforeEach
+    void setUp() {
+        initialize(new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT));
     }
 }

@@ -40,10 +40,8 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
-import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -96,12 +94,6 @@ public class SqlSchemaManagerTest {
     @Mock
     private SchemaRegistryImpl schemaRegistry;
 
-    @Mock
-    private ReplicaService replicaService;
-
-    @Mock
-    private HybridClock clock;
-
     private SqlSchemaManagerImpl sqlSchemaManager;
 
     private TestRevisionRegister testRevisionRegister;
@@ -120,8 +112,6 @@ public class SqlSchemaManagerTest {
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 tableManager,
                 schemaManager,
-                replicaService,
-                clock,
                 testRevisionRegister,
                 busyLock
         );
@@ -160,7 +150,7 @@ public class SqlSchemaManagerTest {
 
         assertNotNull(schemaTable);
         IgniteTableImpl igniteTable = assertInstanceOf(IgniteTableImpl.class, schemaTable);
-        assertEquals(tableId, igniteTable.table().tableId());
+        assertEquals(tableId, igniteTable.id());
 
         sqlSchemaManager.onTableDropped("PUBLIC", tableId, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();

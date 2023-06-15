@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -32,22 +31,16 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -57,48 +50,31 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * Abstract class for testing {@link StorageUpdateHandler} using different implementations of {@link MvPartitionStorage}.
  */
-@ExtendWith(ConfigurationExtension.class)
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
     /** To be used in a loop. {@link RepeatedTest} has a smaller failure rate due to recreating the storage every time. */
     private static final int REPEATS = 100;
 
     private static final int PARTITION_ID = 0;
 
-    private StorageEngine storageEngine;
-
-    private MvTableStorage tableStorage;
-
-    private MvPartitionStorage partitionStorage;
-
     private TestPartitionDataStorage partitionDataStorage;
 
     private StorageUpdateHandler storageUpdateHandler;
 
-    @InjectConfiguration
-    private DistributionZoneConfiguration distributionZoneConfig;
-
     @Mock
     private LowWatermark lowWatermark;
 
-    @BeforeEach
-    void setUp(@InjectConfiguration("mock.tables.foo{}") TablesConfiguration tablesConfig) {
-        storageEngine = createStorageEngine();
+    @InjectConfiguration
+    private DistributionZoneConfiguration distributionZoneConfig;
 
-        storageEngine.start();
-
-        TableConfiguration tableConfig = tablesConfig.tables().get("foo");
-
-        assertThat(
-                distributionZoneConfig.dataStorage().change(dataStorageChange -> dataStorageChange.convert(storageEngine.name())),
-                willCompleteSuccessfully()
-        );
-
-        tableStorage = storageEngine.createMvTable(tableConfig, tablesConfig, distributionZoneConfig);
-
-        tableStorage.start();
-
-        partitionStorage = getOrCreateMvPartition(tableStorage, PARTITION_ID);
+    /**
+     * Initializes the internal structures needed for tests.
+     *
+     * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
+     */
+    final void initialize(MvTableStorage tableStorage) {
+        MvPartitionStorage partitionStorage = getOrCreateMvPartition(tableStorage, PARTITION_ID);
 
         partitionDataStorage = new TestPartitionDataStorage(partitionStorage);
 
@@ -117,17 +93,6 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
                 )
         );
     }
-
-    @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.closeAllManually(
-                partitionStorage,
-                tableStorage,
-                storageEngine == null ? null : storageEngine::stop
-        );
-    }
-
-    protected abstract StorageEngine createStorageEngine();
 
     @Test
     void testConcurrentExecuteBatchGc() {

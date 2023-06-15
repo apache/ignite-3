@@ -59,6 +59,8 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
+import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolverImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
@@ -113,6 +115,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Size of the cache for query plans. */
     private static final int PLAN_CACHE_SIZE = 1024;
+
+    /** Size of the table access cache. */
+    private static final int TABLE_CACHE_SIZE = 1024;
 
     /** Session expiration check period in milliseconds. */
     private static final long SESSION_EXPIRE_CHECK_PERIOD = TimeUnit.SECONDS.toMillis(1);
@@ -238,8 +243,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         SqlSchemaManagerImpl sqlSchemaManager = new SqlSchemaManagerImpl(
                 tableManager,
                 schemaManager,
-                replicaService,
-                clock,
                 registry,
                 busyLock
         );
@@ -256,6 +259,11 @@ public class SqlQueryProcessor implements QueryProcessor {
                 catalogManager
         );
 
+        var executableTableRegistry = new ExecutableTableRegistryImpl(tableManager, schemaManager, replicaService, clock, TABLE_CACHE_SIZE);
+        var dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
+
+        sqlSchemaManager.registerListener(executableTableRegistry);
+
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
                 msgSrvc,
@@ -264,7 +272,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
                 mailboxRegistry,
-                exchangeService
+                exchangeService,
+                dependencyResolver
         ));
 
         clusterSrvc.topologyService().addEventHandler(executionSrvc);

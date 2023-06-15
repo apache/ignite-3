@@ -50,7 +50,7 @@ public class ItOrToUnionRuleTest extends ClusterPerClassIntegrationTest {
      * Before all.
      */
     @BeforeAll
-    static void initTestData() throws InterruptedException {
+    static void initTestData() {
         sql("CREATE TABLE products (id INT PRIMARY KEY, category VARCHAR, cat_id INT NOT NULL,"
                 + " subcategory VARCHAR, subcat_id INT NOT NULL, name VARCHAR)");
 
@@ -58,12 +58,6 @@ public class ItOrToUnionRuleTest extends ClusterPerClassIntegrationTest {
         sql("CREATE INDEX " + IDX_CAT_ID + " ON products (cat_id)");
         sql("CREATE INDEX " + IDX_SUBCATEGORY + " ON products (subcategory)");
         sql("CREATE INDEX " + IDX_SUBCAT_ID + " ON products (subcat_id)");
-
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
-        waitForIndex(IDX_CATEGORY);
-        waitForIndex(IDX_CAT_ID);
-        waitForIndex(IDX_SUBCATEGORY);
-        waitForIndex(IDX_SUBCAT_ID);
 
         insertData("products", List.of("ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"), new Object[][]{
                 {1, "Photo", 1, "Camera Media", 11, "Media 1"},
