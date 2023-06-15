@@ -573,9 +573,6 @@ public class ItRebalanceDistributedTest {
 
         private final MetaStorageManager metaStorageManager;
 
-        /** The future have to be complete after the node start and all Meta storage watches are deployd. */
-        private final CompletableFuture<Void> deployWatchesFut;
-
         private final DistributedConfigurationStorage cfgStorage;
 
         private final DataStorageManager dataStorageMgr;
@@ -606,6 +603,9 @@ public class ItRebalanceDistributedTest {
                 = new ConcurrentHashMap<>();
 
         private final NetworkAddress networkAddress;
+
+        /** The future have to be complete after the node start and all Meta storage watches are deployd. */
+        private CompletableFuture<Void> deployWatchesFut;
 
         /**
          * Constructor that simply creates a subset of components of this node.
@@ -687,8 +687,6 @@ public class ItRebalanceDistributedTest {
                             : new SimpleInMemoryKeyValueStorage(nodeName),
                     hybridClock
             );
-
-            deployWatchesFut = metaStorageManager.deployWatches();
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
 
@@ -865,6 +863,8 @@ public class ItRebalanceDistributedTest {
                     ),
                     willSucceedIn(1, TimeUnit.MINUTES)
             );
+
+            deployWatchesFut = metaStorageManager.deployWatches();
         }
 
         /**
