@@ -221,6 +221,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         PartialNode partialNode = partialNode(
                 nodeCfgMgr,
                 clusterCfgMgr,
+                metaStorageMgr,
                 null,
                 components,
                 localConfigurationGenerator,

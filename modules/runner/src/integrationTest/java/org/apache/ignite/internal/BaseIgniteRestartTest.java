@@ -29,7 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import org.apache.ignite.IgnitionManager;
@@ -55,7 +54,6 @@ import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -68,6 +66,8 @@ import org.junit.jupiter.api.TestInfo;
 public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     /** Default node port. */
     protected static final int DEFAULT_NODE_PORT = 3344;
+
+    protected static final int DEFAULT_CLIENT_PORT = 10800;
 
     @Language("HOCON")
     protected static final String RAFT_CFG = "{\n"
@@ -88,7 +88,8 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             + "      gossipInterval: 10\n"
             + "    },\n"
             + "  },\n"
-            + "  raft: " + RAFT_CFG + "\n"
+            + "  raft: " + RAFT_CFG + ",\n"
+            + "  clientConnector.port: {}\n"
             + "}";
 
     public TestInfo testInfo;
@@ -203,11 +204,12 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      */
     protected static String configurationString(int idx) {
         int port = DEFAULT_NODE_PORT + idx;
+        int clientPort = DEFAULT_CLIENT_PORT + idx;
 
         // The address of the first node.
         @Language("HOCON") String connectAddr = "[localhost\":\"" + DEFAULT_NODE_PORT + "]";
 
-        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, port, connectAddr);
+        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, port, connectAddr, clientPort);
     }
 
     /**
@@ -227,6 +229,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     public static PartialNode partialNode(
             ConfigurationManager nodeCfgMgr,
             ConfigurationManager clusterCfgMgr,
+            MetaStorageManager metaStorageMgr,
             @Nullable Consumer<Long> revisionCallback,
             List<IgniteComponent> components,
             ConfigurationTreeGenerator localConfigurationGenerator,
@@ -249,24 +252,15 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
                 fut -> new TestConfigurationCatchUpListener(cfgStorage, fut, revisionCallback0)
         );
 
-        CompletableFuture<?> notificationFuture = CompletableFuture.allOf(
+        CompletableFuture<?> startFuture = CompletableFuture.allOf(
                 nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                 clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
+        ).thenCompose(unused ->
+                // Deploy all registered watches because all components are ready and have registered their listeners.
+                CompletableFuture.allOf(metaStorageMgr.deployWatches(), configurationCatchUpFuture)
         );
 
-        CompletableFuture<?> startFuture = notificationFuture
-                .thenCompose(v -> {
-                    // Deploy all registered watches because all components are ready and have registered their listeners.
-                    try {
-                        findComponent(components, MetaStorageManager.class).deployWatches();
-                    } catch (NodeStoppingException e) {
-                        throw new CompletionException(e);
-                    }
-
-                    return configurationCatchUpFuture;
-                });
-
-        assertThat(startFuture, willCompleteSuccessfully());
+        assertThat("Partial node was not started", startFuture, willCompleteSuccessfully());
 
         log.info("Completed recovery on partially started node, last revision applied: " + lastRevision.get()
                 + ", acceptableDifference: " + IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100)

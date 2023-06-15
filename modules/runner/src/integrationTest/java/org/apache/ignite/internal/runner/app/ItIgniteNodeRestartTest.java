@@ -405,6 +405,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         PartialNode partialNode = partialNode(
                 nodeCfgMgr,
                 clusterCfgMgr,
+                metaStorageMgr,
                 revisionCallback,
                 components,
                 localConfigurationGenerator,
