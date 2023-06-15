@@ -21,17 +21,17 @@ import java.util.PrimitiveIterator.OfInt;
 import java.util.stream.IntStream;
 
 /**
- * Represents a collection of partition indexes.
+ * Represents a collection of partition IDs.
  */
 public interface PartitionSet {
     PartitionSet EMPTY_SET = new PartitionSet() {
         @Override
-        public void set(int partitionIndex) {
+        public void set(int partitionId) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public boolean get(int partitionIndex) {
+        public boolean get(int partitionId) {
             return false;
         }
 
@@ -64,20 +64,20 @@ public interface PartitionSet {
     /**
      * Adds the partition to the partition set.
      *
-     * @param partitionIndex Partition index.
+     * @param partitionId Partition ID.
      */
-    void set(int partitionIndex);
+    void set(int partitionId);
 
     /**
-     * Returns {@code true} if partition with {@code partitionIndex} is present in this set, {@code false} otherwise.
+     * Returns {@code true} if partition with {@code partitionId} is present in this set, {@code false} otherwise.
      *
-     * @param partitionIndex Partition index.
+     * @param partitionId Partition ID.
      */
-    boolean get(int partitionIndex);
+    boolean get(int partitionId);
 
     /**
-     * Returns a stream of indices for which this set contains a bit in the set state.
-     * The indices are returned in order, from lowest to highest.
+     * Returns a stream of partition IDs in this set.
+     * The IDs are returned in order, from lowest to highest.
      */
     IntStream stream();
 

@@ -36,13 +36,13 @@ public class BitSetPartitionSet implements PartitionSet {
     }
 
     @Override
-    public void set(int bitIndex) {
-        backingSet.set(bitIndex);
+    public void set(int partitionId) {
+        backingSet.set(partitionId);
     }
 
     @Override
-    public boolean get(int partitionIndex) {
-        return backingSet.get(partitionIndex);
+    public boolean get(int partitionId) {
+        return backingSet.get(partitionId);
     }
 
     @Override
