@@ -262,15 +262,6 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     @Override
     protected boolean needToCast(SqlValidatorScope scope, SqlNode node, RelDataType toType) {
         RelDataType fromType = validator.deriveType(scope, node);
-
-        return needToCast(fromType, toType);
-    }
-
-    /**
-     * Checks whether {@code CAST} operation can be used to convert {@code fromType} to {@code toType}.
-     * This method returns {@code false} if type are the same.
-     */
-    public boolean needToCast(RelDataType fromType, RelDataType toType) {
         if (SqlTypeUtil.isInterval(toType)) {
             if (SqlTypeUtil.isInterval(fromType)) {
                 // Two different families of intervals: INTERVAL_DAY_TIME and INTERVAL_YEAR_MONTH.
@@ -284,7 +275,25 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             if (SqlTypeUtil.isIntType(fromType) && fromType.getSqlTypeName() != toType.getSqlTypeName()) {
                 return true;
             }
-        } else if (toType.getSqlTypeName() == SqlTypeName.ANY || fromType.getSqlTypeName() == SqlTypeName.ANY) {
+        }
+
+        return doNeedToCast(fromType, toType);
+    }
+
+    /**
+     * Checks whether {@code CAST} operation can be used to convert {@code fromType} to {@code toType}.
+     * This method returns {@code false} if type are the same.
+     */
+    public boolean needToCast(RelDataType fromType, RelDataType toType) {
+        if (fromType == null) {
+            return false;
+        }
+
+        return doNeedToCast(fromType, toType);
+    }
+
+    private boolean doNeedToCast(RelDataType fromType, RelDataType toType) {
+        if (toType.getSqlTypeName() == SqlTypeName.ANY || fromType.getSqlTypeName() == SqlTypeName.ANY) {
             IgniteCustomTypeCoercionRules typeCoercionRules = typeFactory.getCustomTypeCoercionRules();
 
             // IgniteCustomType: whether we need implicit cast from one type to another.
