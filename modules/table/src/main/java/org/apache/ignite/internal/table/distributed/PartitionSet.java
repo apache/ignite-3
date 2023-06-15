@@ -23,6 +23,28 @@ import java.util.stream.IntStream;
  * Represents a collection of partition indices.
  */
 public interface PartitionSet {
+    PartitionSet EMPTY_SET = new PartitionSet() {
+        @Override
+        public void set(int partitionIndex) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean get(int partitionIndex) {
+            return false;
+        }
+
+        @Override
+        public IntStream stream() {
+            return IntStream.empty();
+        }
+
+        @Override
+        public PartitionSet copy() {
+            return this;
+        }
+    };
+
     /**
      * Adds the partition to the partition set.
      *
@@ -43,5 +65,8 @@ public interface PartitionSet {
      */
     IntStream stream();
 
+    /**
+     * Returns a copy of this {@link PartitionSet}.
+     */
     PartitionSet copy();
 }

@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -653,13 +654,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(rm.raftNodeReadyFuture(any())).thenReturn(completedFuture(1L));
         when(bm.nodes()).thenReturn(Set.of(node));
 
-        distributionZonesConfiguration.distributionZones().change(zones -> {
+        assertThat(distributionZonesConfiguration.distributionZones().change(zones -> {
             zones.create(ZONE_NAME, ch -> {
                 ch.changeZoneId(ZONE_ID);
                 ch.changePartitions(1);
                 ch.changeReplicas(1);
             });
-        }).join();
+        }), willSucceedFast());
 
         var txStateStorage = mock(TxStateStorage.class);
         var mvPartitionStorage = mock(MvPartitionStorage.class);

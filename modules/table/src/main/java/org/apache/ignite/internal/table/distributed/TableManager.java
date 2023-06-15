@@ -264,8 +264,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private final IncrementalVersionedValue<Map<Integer, TableImpl>> tablesByIdVv;
 
-    /** Versioned store for partition storage by table id. */
-    private final IncrementalVersionedValue<Map<Integer, PartitionSet>> partStoragesByIdVv;
+    /** Versioned store for local partition set by table id. */
+    private final IncrementalVersionedValue<Map<Integer, PartitionSet>> localPartsByTableIdVv;
 
     /**
      * Versioned store for tracking RAFT groups initialization and starting completion.
@@ -279,9 +279,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private final Map<Integer, TableImpl> pendingTables = new ConcurrentHashMap<>();
 
-    /**
-     * Started tables.
-     */
+    /** Started tables. */
     private final Map<Integer, TableImpl> startedTables = new ConcurrentHashMap<>();
 
     /** Resolver that resolves a node consistent ID to cluster node. */
@@ -424,9 +422,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
-        partStoragesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
+        localPartsByTableIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
-        assignmentsUpdatedVv = new IncrementalVersionedValue<>(dependingOn(partStoragesByIdVv));
+        assignmentsUpdatedVv = new IncrementalVersionedValue<>(dependingOn(localPartsByTableIdVv));
 
         txStateStorageScheduledPool = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "tx-state-storage-scheduled-pool", LOG));
@@ -705,7 +703,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         String localMemberName = localNode().name();
 
         // Create new raft nodes according to new assignments.
-        Supplier<CompletableFuture<Void>>  updateAssignmentsClosure = () -> {
+        Supplier<CompletableFuture<Void>> updateAssignmentsClosure = () -> {
             for (int i = 0; i < partitions; i++) {
                 int partId = i;
 
@@ -751,14 +749,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
                 if (localMemberAssignment != null) {
-                    CompletableFuture<Boolean> fut;
+                    CompletableFuture<Boolean> shouldStartGroupFut;
 
                     // If Raft is running in in-memory mode or the PDS has been cleared, we need to remove the current node
                     // from the Raft group in order to avoid the double vote problem.
                     // <MUTED> See https://issues.apache.org/jira/browse/IGNITE-16668 for details.
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-19046 Restore "|| !hasData"
                     if (internalTbl.storage().isVolatile()) {
-                        fut = queryDataNodesCount(tblId, partId, newConfiguration.peers()).thenApply(dataNodesCount -> {
+                        shouldStartGroupFut = queryDataNodesCount(tblId, partId, newConfiguration.peers()).thenApply(dataNodesCount -> {
                             boolean fullPartitionRestart = dataNodesCount == 0;
 
                             if (fullPartitionRestart) {
@@ -780,10 +778,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             }
                         });
                     } else {
-                        fut = completedFuture(true);
+                        shouldStartGroupFut = completedFuture(true);
                     }
 
-                    startGroupFut = fut.thenAcceptAsync(startGroup -> inBusyLock(busyLock, () -> {
+                    startGroupFut = shouldStartGroupFut.thenAcceptAsync(startGroup -> inBusyLock(busyLock, () -> {
                         if (!startGroup) {
                             return;
                         }
@@ -902,7 +900,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return allOf(futures);
         };
 
-        return partStoragesByIdVv.update(causalityToken, (previous, throwable) -> inBusyLock(busyLock, () -> {
+        return localPartsByTableIdVv.update(causalityToken, (previous, throwable) -> inBusyLock(busyLock, () -> {
             return createPartitionStorages(table, parts).thenApply(u -> {
                 var newValue = new HashMap<>(previous);
 
@@ -1297,12 +1295,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 removeStorageFromGcFutures[p] = mvGc.removeStorage(replicationGroupId);
             }
 
-            partStoragesByIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
+            localPartsByTableIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
                 if (e != null) {
                     return failedFuture(e);
                 }
 
-                HashMap<Integer, PartitionSet> newMap = new HashMap<>(previousVal);
+                var newMap = new HashMap<>(previousVal);
                 newMap.remove(tblId);
 
                 return completedFuture(newMap);
@@ -1854,17 +1852,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Asynchronously gets the partitions set of a table using causality token.
+     * Asynchronously gets the local partitions set of a table using causality token.
      *
      * @param causalityToken Causality token.
      * @return Future.
      */
-    public CompletableFuture<PartitionSet> partitionSetAsync(long causalityToken, int tableId) {
+    public CompletableFuture<PartitionSet> localPartitionSetAsync(long causalityToken, int tableId) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
+
         try {
-            return partStoragesByIdVv.get(causalityToken).thenApply(partitionSetById -> partitionSetById.get(tableId));
+            return localPartsByTableIdVv.get(causalityToken).thenApply(partitionSetById -> partitionSetById.get(tableId));
         } finally {
             busyLock.leaveBusy();
         }
@@ -2138,7 +2137,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         CompletableFuture<Void> localServicesStartFuture;
 
         if (shouldStartLocalServices) {
-            localServicesStartFuture = partStoragesByIdVv.get(causalityToken).thenComposeAsync(oldMap -> {
+            localServicesStartFuture = localPartsByTableIdVv.get(causalityToken).thenComposeAsync(oldMap -> {
                 PartitionSet partitionSet = oldMap.get(tableId).copy();
 
                 return createPartitionStorages(tbl, partitionSet).thenApply(u -> {
@@ -2409,6 +2408,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return new PartitionStorages(mvPartition, txStateStorage);
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19112 Create storages only once.
     private CompletableFuture<Void> createPartitionStorages(TableImpl table, PartitionSet partitions) {
         InternalTable internalTable = table.internalTable();
 
@@ -2572,11 +2572,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Returns table instance.
+     * Returns a table instance if it exists, {@code null} otherwise.
      *
      * @param tableId Table id.
      */
-    public TableImpl getTable(int tableId) {
+    public @Nullable TableImpl getTable(int tableId) {
         return startedTables.get(tableId);
     }
 }

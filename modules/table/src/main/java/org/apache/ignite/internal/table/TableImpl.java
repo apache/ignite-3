@@ -37,13 +37,12 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
-import org.apache.ignite.internal.table.distributed.HashIndexLocker;
+import org.apache.ignite.internal.table.IndexWrapper.HashIndexWrapper;
+import org.apache.ignite.internal.table.IndexWrapper.SortedIndexWrapper;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
-import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.tx.LockManager;
@@ -73,7 +72,7 @@ public class TableImpl implements Table {
 
     private final Map<Integer, CompletableFuture<?>> indexesToWait = new ConcurrentHashMap<>();
 
-    private final Map<Integer, IndexWrapper> indexStorageAdapters = new ConcurrentHashMap<>();
+    private final Map<Integer, IndexWrapper> indexWrapperById = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -230,7 +229,7 @@ public class TableImpl implements Table {
             public Map<Integer, TableSchemaAwareIndexStorage> get() {
                 awaitIndexes();
 
-                List<IndexWrapper> factories = new ArrayList<>(indexStorageAdapters.values());
+                List<IndexWrapper> factories = new ArrayList<>(indexWrapperById.values());
 
                 Map<Integer, TableSchemaAwareIndexStorage> adapters = new HashMap<>();
 
@@ -254,7 +253,7 @@ public class TableImpl implements Table {
         return () -> {
             awaitIndexes();
 
-            List<IndexWrapper> factories = new ArrayList<>(indexStorageAdapters.values());
+            List<IndexWrapper> factories = new ArrayList<>(indexWrapperById.values());
 
             Map<Integer, IndexLocker> lockers = new HashMap<>(factories.size());
 
@@ -295,11 +294,12 @@ public class TableImpl implements Table {
     ) {
         int indexId = indexDescriptor.id();
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19112 Create storages once.
         partitions.stream().forEach(partitionId -> {
             tbl.storage().getOrCreateHashIndex(partitionId, indexDescriptor);
         });
 
-        indexStorageAdapters.put(indexId, new HashIndexWrapper(indexId, searchRowResolver, unique));
+        indexWrapperById.put(indexId, new HashIndexWrapper(tbl, lockManager, indexId, searchRowResolver, unique));
 
         completeWaitIndex(indexId);
     }
@@ -317,82 +317,14 @@ public class TableImpl implements Table {
     ) {
         int indexId = indexDescriptor.id();
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19112 Create storages once.
         partitions.stream().forEach(partitionId -> {
             tbl.storage().getOrCreateSortedIndex(partitionId, indexDescriptor);
         });
 
-        indexStorageAdapters.put(indexId, new SortedIndexWrapper(indexId, searchRowResolver));
+        indexWrapperById.put(indexId, new SortedIndexWrapper(tbl, lockManager, indexId, searchRowResolver));
 
         completeWaitIndex(indexId);
-    }
-
-    /** Class that creates index storage and locker decorators for given partition. */
-    private abstract static class IndexWrapper {
-        final int indexId;
-        final Function<BinaryRow, BinaryTuple> indexRowResolver;
-
-        private IndexWrapper(int indexId, Function<BinaryRow, BinaryTuple> indexRowResolver) {
-            this.indexId = indexId;
-            this.indexRowResolver = indexRowResolver;
-        }
-
-        abstract TableSchemaAwareIndexStorage getStorage(int partitionId);
-
-        abstract IndexLocker getLocker(int partitionId);
-    }
-
-    private class SortedIndexWrapper extends IndexWrapper {
-        SortedIndexWrapper(int indexId, Function<BinaryRow, BinaryTuple> indexRowResolver) {
-            super(indexId, indexRowResolver);
-        }
-
-        @Override
-        TableSchemaAwareIndexStorage getStorage(int partitionId) {
-            return new TableSchemaAwareIndexStorage(
-                    indexId,
-                    tbl.storage().getIndex(partitionId, indexId),
-                    indexRowResolver
-            );
-        }
-
-        @Override
-        IndexLocker getLocker(int partitionId) {
-            return new SortedIndexLocker(
-                    indexId,
-                    partitionId,
-                    lockManager,
-                    (SortedIndexStorage) tbl.storage().getIndex(partitionId, indexId),
-                    indexRowResolver
-            );
-        }
-    }
-
-    class HashIndexWrapper extends IndexWrapper {
-        private final boolean unique;
-
-        HashIndexWrapper(int indexId, Function<BinaryRow, BinaryTuple> indexRowResolver, boolean unique) {
-            super(indexId, indexRowResolver);
-            this.unique = unique;
-        }
-
-        @Override
-        TableSchemaAwareIndexStorage getStorage(int partitionId) {
-            return new TableSchemaAwareIndexStorage(
-                    indexId,
-                    tbl.storage().getIndex(partitionId, indexId),
-                    indexRowResolver
-            );
-        }
-
-        @Override
-        IndexLocker getLocker(int partitionId) {
-            return new HashIndexLocker(
-                    indexId,
-                    unique,
-                    lockManager,
-                    indexRowResolver
-            );
-        }
     }
 
     /**
@@ -401,7 +333,7 @@ public class TableImpl implements Table {
      * @param indexId An index id to unregister.
      */
     public void unregisterIndex(int indexId) {
-        indexStorageAdapters.remove(indexId);
+        indexWrapperById.remove(indexId);
 
         completeWaitIndex(indexId);
 
@@ -445,7 +377,7 @@ public class TableImpl implements Table {
                     return awaitIndexFuture;
                 }
 
-                if (indexStorageAdapters.containsKey(indexId)) {
+                if (indexWrapperById.containsKey(indexId)) {
                     // Index is already registered and created.
                     return null;
                 }
