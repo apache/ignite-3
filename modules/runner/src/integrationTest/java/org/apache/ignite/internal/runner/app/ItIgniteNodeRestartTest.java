@@ -494,10 +494,10 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         CompletableFuture<?> startFuture = CompletableFuture.allOf(
                 nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                // Deploy all registered watches because all components are ready and have registered their listeners.
-                metaStorageMgr.deployWatches(),
-                configurationCatchUpFuture
+                clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
+        ).thenCompose(unused ->
+            // Deploy all registered watches because all components are ready and have registered their listeners.
+            CompletableFuture.anyOf(metaStorageMgr.deployWatches(), configurationCatchUpFuture)
         );
 
         assertThat("Partial node was not started", startFuture, willCompleteSuccessfully());
