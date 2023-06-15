@@ -93,7 +93,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
     public TestInfo testInfo;
 
-    protected final List<String> clusterNodesNames = new ArrayList<>();
+    protected static final List<String> CLUSTER_NODES_NAMES = new ArrayList<>();
 
     /** Cluster nodes. */
     protected List<PartialNode> partialNodes;
@@ -113,7 +113,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     public void afterEachTest() throws Exception {
         var closeables = new ArrayList<AutoCloseable>();
 
-        for (String name : clusterNodesNames) {
+        for (String name : CLUSTER_NODES_NAMES) {
             if (name != null) {
                 closeables.add(() -> IgnitionManager.stop(name));
             }
@@ -126,6 +126,8 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
         }
 
         IgniteUtils.closeAll(closeables);
+
+        CLUSTER_NODES_NAMES.clear();
     }
 
     /**
@@ -199,10 +201,13 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @param idx Node index.
      * @return Configuration string.
      */
-    public static String configurationString(int idx) {
-        String connectAddr = "[\"localhost:" + DEFAULT_NODE_PORT + "\"]";
+    protected static String configurationString(int idx) {
+        int port = DEFAULT_NODE_PORT + idx;
 
-        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, DEFAULT_NODE_PORT + idx, connectAddr);
+        // The address of the first node.
+        @Language("HOCON") String connectAddr = "[localhost\":\"" + DEFAULT_NODE_PORT + "]";
+
+        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, port, connectAddr);
     }
 
     /**

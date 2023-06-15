@@ -443,12 +443,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * @return Created node instance.
      */
     private IgniteImpl startNode(int idx, @Nullable String cfg) {
-        boolean initNeeded = clusterNodesNames.isEmpty();
+        boolean initNeeded = CLUSTER_NODES_NAMES.isEmpty();
 
         CompletableFuture<Ignite> future = startNodeAsync(idx, cfg);
 
         if (initNeeded) {
-            String nodeName = clusterNodesNames.get(0);
+            String nodeName = CLUSTER_NODES_NAMES.get(0);
 
             InitParameters initParameters = InitParameters.builder()
                     .destinationNodeName(nodeName)
@@ -487,12 +487,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         String cfgString = cfg == null ? configurationString(idx) : cfg;
 
-        if (clusterNodesNames.size() == idx) {
-            clusterNodesNames.add(nodeName);
+        if (CLUSTER_NODES_NAMES.size() == idx) {
+            CLUSTER_NODES_NAMES.add(nodeName);
         } else {
-            assertNull(clusterNodesNames.get(idx));
+            assertNull(CLUSTER_NODES_NAMES.get(idx));
 
-            clusterNodesNames.set(idx, nodeName);
+            CLUSTER_NODES_NAMES.set(idx, nodeName);
         }
 
         return TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
@@ -502,14 +502,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Starts an {@code amount} number of nodes (with sequential indices starting from 0).
      */
     private List<IgniteImpl> startNodes(int amount) {
-        boolean initNeeded = clusterNodesNames.isEmpty();
+        boolean initNeeded = CLUSTER_NODES_NAMES.isEmpty();
 
         List<CompletableFuture<Ignite>> futures = IntStream.range(0, amount)
                 .mapToObj(i -> startNodeAsync(i, null))
                 .collect(Collectors.toList());
 
         if (initNeeded) {
-            String nodeName = clusterNodesNames.get(0);
+            String nodeName = CLUSTER_NODES_NAMES.get(0);
 
             InitParameters initParameters = InitParameters.builder()
                     .destinationNodeName(nodeName)
@@ -534,7 +534,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * @param idx Node index.
      */
     private void stopNode(int idx) {
-        String nodeName = clusterNodesNames.set(idx, null);
+        String nodeName = CLUSTER_NODES_NAMES.set(idx, null);
 
         if (nodeName != null) {
             IgnitionManager.stop(nodeName);

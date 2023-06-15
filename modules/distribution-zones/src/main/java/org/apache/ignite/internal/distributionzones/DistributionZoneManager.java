@@ -41,6 +41,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesDataNodesPrefix;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVault;
@@ -52,6 +53,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -334,9 +336,11 @@ public class DistributionZoneManager implements IgniteComponent {
             metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), topologyWatchListener);
             metaStorageManager.registerPrefixWatch(zonesDataNodesPrefix(), dataNodesWatchListener);
 
+            restoreGlobalStateFromVault();
+
             initDataNodesFromVaultManager();
 
-            initLogicalTopologyAndVersionInMetaStorageOnStart();
+            initLogicalTopologyAndVersionInMetaStorageOnFirstStart();
         } finally {
             busyLock.leaveBusy();
         }
@@ -949,9 +953,14 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /**
      * Initialises {@link DistributionZonesUtil#zonesLogicalTopologyKey()} and
-     * {@link DistributionZonesUtil#zonesLogicalTopologyVersionKey()} from meta storage on the start of {@link DistributionZoneManager}.
+     * {@link DistributionZonesUtil#zonesLogicalTopologyVersionKey()} from the meta storage on the first start of
+     * {@link DistributionZoneManager} with initial states. After the first start
+     * {@link DistributionZonesUtil#zonesLogicalTopologyVersionKey()} will be initialised with 0,
+     * {@link DistributionZonesUtil#zonesLogicalTopologyKey()} will be initialised with empty set. This is possible because
+     * the first call of the {@link LogicalTopologyService#logicalTopologyOnLeader()} returns {@link LogicalTopologySnapshot#INITIAL}.
+     * After that any updates of the topology will be handled by {@link DistributionZoneManager#topologyEventListener}.
      */
-    private void initLogicalTopologyAndVersionInMetaStorageOnStart() {
+    private void initLogicalTopologyAndVersionInMetaStorageOnFirstStart() {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -971,12 +980,14 @@ public class DistributionZoneManager implements IgniteComponent {
 
                     byte[] topVerFromMetaStorage = topVerEntry.value();
 
-                    if (topVerFromMetaStorage == null || bytesToLong(topVerFromMetaStorage) < topologyVersionFromCmg) {
+                    if (topVerFromMetaStorage == null) {
+                        assert topologyVersionFromCmg == 0 : "Topology version must be 0 on a very first start of a node.";
+
                         Set<LogicalNode> topologyFromCmg = snapshot.nodes();
 
-                        Condition topologyVersionCondition = topVerFromMetaStorage == null
-                                ? notExists(zonesLogicalTopologyVersionKey()) :
-                                value(zonesLogicalTopologyVersionKey()).eq(topVerFromMetaStorage);
+                        assert topologyFromCmg.isEmpty() : "Topology must be empty on a very first start of a node.";
+
+                        Condition topologyVersionCondition = notExists(zonesLogicalTopologyVersionKey());
 
                         Iif iff = iif(topologyVersionCondition,
                                 updateLogicalTopologyAndVersion(topologyFromCmg, topologyVersionFromCmg),
@@ -1022,6 +1033,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * Initialises data nodes of distribution zones in meta storage
      * from {@link DistributionZonesUtil#zonesLogicalTopologyKey()} in vault.
      */
+    // TODO: will be refactored in https://issues.apache.org/jira/browse/IGNITE-19580
     private void initDataNodesFromVaultManager() {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
@@ -1029,8 +1041,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
         try {
             long appliedRevision = metaStorageManager.appliedRevision();
-
-            restoreGlobalStateFromVault();
 
             if (!logicalTopology.isEmpty()) {
                 // init keys and data nodes for default zone
@@ -1095,7 +1105,7 @@ public class DistributionZoneManager implements IgniteComponent {
                             + evt.entryEvents().stream().map(entry -> entry.newEntry() == null ? "null" : entry.newEntry().key())
                             .collect(toList());
 
-                    byte[] newLogicalTopologyBytes = null;
+                    byte[] newLogicalTopologyBytes;
 
                     Set<NodeWithAttributes> newLogicalTopology = null;
 
@@ -1116,6 +1126,17 @@ public class DistributionZoneManager implements IgniteComponent {
                     assert newLogicalTopology != null : "The event doesn't contain logical topology";
                     assert revision > 0 : "The event doesn't contain logical topology version";
 
+                    VaultEntry revisionFromVaultBytes = vaultMgr.get(zonesGlobalStateRevision()).join();
+
+                    if (revisionFromVaultBytes != null) {
+                        // This means that we have already handled event with this revision.
+                        // It is possible when node was restarted after this listener completed,
+                        // but applied revision didn't have time to be propagated to the Vault.
+                        if (bytesToLong(revisionFromVaultBytes.value()) >= revision) {
+                            return completedFuture(null);
+                        }
+                    }
+
                     Set<NodeWithAttributes> newLogicalTopology0 = newLogicalTopology;
 
                     Set<Node> removedNodes =
@@ -1130,9 +1151,6 @@ public class DistributionZoneManager implements IgniteComponent {
                                     .map(NodeWithAttributes::node)
                                     .collect(toSet());
 
-                    updateLogicalTopologyNodeAttributesAndSaveToVault(newLogicalTopology);
-
-
                     NamedConfigurationTree<DistributionZoneConfiguration, DistributionZoneView, DistributionZoneChange> zones =
                             zonesConfiguration.distributionZones();
 
@@ -1145,6 +1163,8 @@ public class DistributionZoneManager implements IgniteComponent {
                     DistributionZoneView defaultZoneView = zonesConfiguration.value().defaultDistributionZone();
 
                     scheduleTimers(defaultZoneView, addedNodes, removedNodes, revision);
+
+                    updateLogicalTopologyNodeAttributesAndSaveToVault(newLogicalTopology, revision);
 
                     return completedFuture(null);
                 } finally {
@@ -1164,8 +1184,9 @@ public class DistributionZoneManager implements IgniteComponent {
      * After restart it could be used to restore these fields.
      *
      * @param newLogicalTopology Logical topology.
+     * @param revision Revision of the event, which triggers update.
      */
-    private void updateLogicalTopologyNodeAttributesAndSaveToVault(Set<NodeWithAttributes> newLogicalTopology) {
+    private void updateLogicalTopologyNodeAttributesAndSaveToVault(Set<NodeWithAttributes> newLogicalTopology, long revision) {
         newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
 
         logicalTopology = newLogicalTopology;
@@ -1175,6 +1196,8 @@ public class DistributionZoneManager implements IgniteComponent {
         batch.put(zonesLogicalTopologyVault(), toBytes(newLogicalTopology));
 
         batch.put(zonesNodesAttributesVault(), toBytes(nodesAttributes()));
+
+        batch.put(zonesGlobalStateRevision(), longToBytes(revision));
 
         vaultMgr.putAll(batch).join();
     }

@@ -43,10 +43,10 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -118,7 +118,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         vaultMgr = new VaultManager(new InMemoryVaultService());
         assertThat(vaultMgr.put(zonesLogicalTopologyVault(), toBytes(nodes)), willCompleteSuccessfully());
 
-        Map<String, Map<String, String>> nodesAttributes = new HashMap<>();
+        Map<String, Map<String, String>> nodesAttributes = new ConcurrentHashMap<>();
         nodes.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
         assertThat(vaultMgr.put(zonesNodesAttributesVault(), toBytes(nodesAttributes)), willCompleteSuccessfully());
 

@@ -89,11 +89,11 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
     @Test
     void testDataNodesPropagationAfterScaleUpTriggered() throws Exception {
+        startDistributionZoneManager();
+
         topology.putNode(NODE_1);
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
-
-        startDistributionZoneManager();
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes, keyValueStorage);
 
@@ -145,13 +145,13 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
     @Test
     void testDataNodesPropagationAfterScaleDownTriggered() throws Exception {
+        startDistributionZoneManager();
+
         topology.putNode(NODE_1);
 
         topology.putNode(NODE_2);
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
-
-        startDistributionZoneManager();
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes, keyValueStorage);
 
@@ -175,11 +175,11 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
     @Test
     void testDataNodesPropagationForDefaultZoneAfterScaleUpTriggered() throws Exception {
+        startDistributionZoneManager();
+
         topology.putNode(NODE_1);
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
-
-        startDistributionZoneManager();
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes, keyValueStorage);
 
@@ -210,13 +210,13 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
     @Test
     void testDataNodesPropagationForDefaultZoneAfterScaleDownTriggered() throws Exception {
+        startDistributionZoneManager();
+
         topology.putNode(NODE_1);
 
         topology.putNode(NODE_2);
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
-
-        startDistributionZoneManager();
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes, keyValueStorage);
 
@@ -247,9 +247,9 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
     @Test
     void testDropZoneDoNotPropagateDataNodesAfterScaleUp() throws Exception {
-        topology.putNode(NODE_1);
-
         startDistributionZoneManager();
+
+        topology.putNode(NODE_1);
 
         topology.putNode(NODE_2);
 
@@ -277,11 +277,11 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
     @Test
     void testDropZoneDoNotPropagateDataNodesAfterScaleDown() throws Exception {
+        startDistributionZoneManager();
+
         topology.putNode(NODE_1);
 
         topology.putNode(NODE_2);
-
-        startDistributionZoneManager();
 
         topology.removeNodes(Set.of(NODE_2));
 
@@ -660,9 +660,9 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
     @Test
     void testUpdateZoneScaleDownTriggersDataNodePropagation() throws Exception {
-        topology.putNode(NODE_1);
-
         startDistributionZoneManager();
+
+        topology.putNode(NODE_1);
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
 
@@ -750,9 +750,9 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
     @Test
     void testScaleDownSetToMaxInt() throws Exception {
-        topology.putNode(NODE_1);
-
         startDistributionZoneManager();
+
+        topology.putNode(NODE_1);
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
 
@@ -822,9 +822,9 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
     @Test
     void testScaleDownDidNotChangeDataNodesWhenTriggerKeyWasConcurrentlyChanged() throws Exception {
-        topology.putNode(NODE_1);
-
         startDistributionZoneManager();
+
+        topology.putNode(NODE_1);
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
 
@@ -836,7 +836,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(ZONE_1_ID, Set.of(NODE_1), keyValueStorage);
 
-        assertZoneScaleDownChangeTriggerKey(4L, ZONE_1_ID, keyValueStorage);
+        assertZoneScaleDownChangeTriggerKey(5L, ZONE_1_ID, keyValueStorage);
 
         doAnswer(invocation -> {
             If iif = invocation.getArgument(0);
@@ -1309,6 +1309,8 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     }
 
     private void preparePrerequisites(@Nullable String filter) throws Exception {
+        startDistributionZoneManager();
+
         LogicalNode a = new LogicalNode("1", "A", new NetworkAddress("localhost", 123));
 
         LogicalNode b = new LogicalNode("2", "B", new NetworkAddress("localhost", 123));
@@ -1320,8 +1322,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         topology.putNode(c);
 
         Set<LogicalNode> clusterNodes = Set.of(a, b, c);
-
-        startDistributionZoneManager();
 
         if (filter == null) {
             distributionZoneManager.createZone(

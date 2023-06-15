@@ -76,6 +76,9 @@ public class DistributionZonesUtil {
     /** Key value for zones' nodes' attributes in vault. */
     private static final String DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT = "vault.distributionZones.nodesAttributes";
 
+    /** Key value for zones' global state revision in vault. */
+    private static final String DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT = "vault.distributionZones.globalState.revision";
+
     /** Key prefix for zones' logical topology nodes. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "nodes";
 
@@ -96,6 +99,10 @@ public class DistributionZonesUtil {
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT}. */
     private static final ByteArray DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT_KEY = new ByteArray(DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT);
+
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT}. */
+    public static final ByteArray DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT_KEY =
+            new ByteArray(DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT);
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY =
@@ -135,7 +142,7 @@ public class DistributionZonesUtil {
      *
      * @return ByteArray representation.
      */
-    public static ByteArray zonesLogicalTopologyPrefix() {
+    static ByteArray zonesLogicalTopologyPrefix() {
         return new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX);
     }
 
@@ -168,25 +175,11 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * The key prefix needed for processing an event about zone's data node propagation on scale up.
-     */
-    public static ByteArray zoneScaleUpChangeTriggerKey() {
-        return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX);
-    }
-
-    /**
      * The key needed for processing an event about zone's data node propagation on scale down.
      * With this key we can be sure that event was triggered only once.
      */
     public static ByteArray zoneScaleDownChangeTriggerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX + zoneId);
-    }
-
-    /**
-     * The key prefix needed for processing an event about zone's data node propagation on scale down.
-     */
-    public static ByteArray zoneScaleDownChangeTriggerKey() {
-        return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX);
     }
 
     /**
@@ -217,6 +210,14 @@ public class DistributionZonesUtil {
      */
     public static ByteArray zonesNodesAttributesVault() {
         return DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT_KEY;
+    }
+
+    /**
+     * The key represents zones' global state revision in vault. This is the revision of the event that triggered saving the global state
+     * to Vault.
+     */
+    public static ByteArray zonesGlobalStateRevision() {
+        return DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT_KEY;
     }
 
     /**
