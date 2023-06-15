@@ -52,7 +52,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
     /** To be used in a loop. {@link RepeatedTest} has a smaller failure rate due to recreating the storage every time. */
-    private static final int REPEATS = 100;
+    // TODO: IGNITE-19737 вернуть 100
+    private static final int REPEATS = 1000;
 
     private static final int PARTITION_ID = 0;
 
@@ -125,7 +126,8 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId1), any());
     }
 
-    @Test
+    // TODO: IGNITE-19737 вернуть @Test 
+    @RepeatedTest(10)
     void testConcurrentVacuumBatchStrictTrue() {
         RowId rowId0 = new RowId(PARTITION_ID);
         RowId rowId1 = new RowId(PARTITION_ID);
@@ -144,16 +146,16 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
             addWriteCommitted(partitionStorage, rowId1, null, clock.now());
 
             runRace(
-                    () -> gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 4, true),
-                    () -> gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 4, true)
+                    () -> gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2, true),
+                    () -> gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2, true)
             );
 
             assertNull(partitionStorage.getStorage().closestRowId(RowId.lowestRowId(PARTITION_ID)));
         }
     }
 
-    // TODO: IGNITE-19737 возможно немного переделать
-    @Test
+    // TODO: IGNITE-19737 вернуть @Test
+    @RepeatedTest(10)
     void testConcurrentVacuumBatchStrictFalse() {
         RowId rowId0 = new RowId(PARTITION_ID);
         RowId rowId1 = new RowId(PARTITION_ID);
