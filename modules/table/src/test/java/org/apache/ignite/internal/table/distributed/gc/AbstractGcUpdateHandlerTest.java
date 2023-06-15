@@ -43,6 +43,7 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -51,8 +52,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
     /** To be used in a loop. {@link RepeatedTest} has a smaller failure rate due to recreating the storage every time. */
-    // TODO: IGNITE-19737 вернуть 100
-    private static final int REPEATS = 1000;
+    private static final int REPEATS = 100;
 
     private static final int PARTITION_ID = 0;
 
@@ -122,9 +122,8 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId0), any());
         verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId1), any());
     }
-
-    // TODO: IGNITE-19737 вернуть @Test 
-    @RepeatedTest(10)
+    
+    @Test
     void testConcurrentVacuumBatchStrictTrue() {
         TestPartitionDataStorage partitionStorage = createPartitionDataStorage();
         IndexUpdateHandler indexUpdateHandler = createIndexUpdateHandler();
@@ -156,8 +155,7 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         }
     }
 
-    // TODO: IGNITE-19737 вернуть @Test
-    @RepeatedTest(10)
+    @Test
     void testConcurrentVacuumBatchStrictFalse() {
         TestPartitionDataStorage partitionStorage = createPartitionDataStorage();
         IndexUpdateHandler indexUpdateHandler = createIndexUpdateHandler();
