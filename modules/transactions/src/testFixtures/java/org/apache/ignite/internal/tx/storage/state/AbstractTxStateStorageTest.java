@@ -521,7 +521,6 @@ public abstract class AbstractTxStateStorageTest {
             long expLastAppliedTerm
     ) {
         assertEquals(expLastAppliedIndex, storage.lastAppliedIndex());
-        assertEquals(expPersistentIndex, storage.persistedIndex());
         assertEquals(expLastAppliedTerm, storage.lastAppliedTerm());
     }
 }

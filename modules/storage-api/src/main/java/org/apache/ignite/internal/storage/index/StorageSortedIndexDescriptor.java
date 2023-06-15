@@ -64,6 +64,7 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
         }
 
         @Override
+        @Deprecated
         public String name() {
             return name;
         }

@@ -99,9 +99,8 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     <V> V runConsistently(WriteClosure<V> closure) throws StorageException;
 
     /**
-     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be
-     * completed when {@link #persistedIndex()} is higher than {@link #lastAppliedIndex()} at the moment of the method's call. This feature
-     * allows implementing a batch flush for several partitions at once.
+     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage.
+     * This feature allows implementing a batch flush for several partitions at once.
      *
      * @return Future that's completed when flushing of the data is completed.
      */
@@ -127,7 +126,11 @@ public interface MvPartitionStorage extends ManuallyCloseable {
 
     /**
      * {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
+     *
+     * @deprecated No one needs it, and it slows down the storage.
      */
+    //TODO: Delete this method.
+    @Deprecated
     long persistedIndex();
 
     /**

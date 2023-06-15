@@ -116,6 +116,7 @@ public interface TxStateStorage extends ManuallyCloseable {
     /**
      * Returns {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
      */
+    @Deprecated
     long persistedIndex();
 
     /**
@@ -145,7 +146,6 @@ public interface TxStateStorage extends ManuallyCloseable {
      *         <li>{@link TxStateStorage#put(UUID, TxMeta)};</li>
      *         <li>{@link TxStateStorage#lastAppliedIndex()};</li>
      *         <li>{@link TxStateStorage#lastAppliedTerm()}} ()};</li>
-     *         <li>{@link TxStateStorage#persistedIndex()}};</li>
      *     </ul></li>
      * </ul>
      *
@@ -201,7 +201,7 @@ public interface TxStateStorage extends ManuallyCloseable {
      *     <li>Cancels all current operations (including cursors) with storage and waits for their completion;</li>
      *     <li>Does not allow operations to be performed (exceptions will be thrown) with the storage until the cleaning is completed;</li>
      *     <li>Clears storage;</li>
-     *     <li>Sets the {@link #lastAppliedIndex()}, {@link #lastAppliedTerm()} and {@link #persistedIndex()} to {@code 0};</li>
+     *     <li>Sets the {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()} to {@code 0};</li>
      *     <li>Once the storage cleanup is complete (success or error), allows to perform all storage operations.</li>
      * </ul>
      *

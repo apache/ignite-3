@@ -17,30 +17,57 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import java.nio.charset.StandardCharsets;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
 import org.rocksdb.RocksDB;
 
 /**
  * Utilities for converting partition IDs and index names into Column Family names and vice versa.
  */
-class ColumnFamilyUtils {
+public class ColumnFamilyUtils {
     /** Name of the meta column family matches default columns family, meaning that it always exist when new table is created. */
-    static final String META_CF_NAME = new String(RocksDB.DEFAULT_COLUMN_FAMILY, StandardCharsets.UTF_8);
+    private static final String META_CF_NAME = new String(RocksDB.DEFAULT_COLUMN_FAMILY, UTF_8);
 
     /** Name of the Column Family that stores partition data. */
-    static final String PARTITION_CF_NAME = "cf-part";
+    private static final String PARTITION_CF_NAME = "cf-part";
 
     /** Name of the Column Family that stores garbage collection queue. */
-    static final String GC_QUEUE_CF_NAME = "cf-gc";
+    private static final String GC_QUEUE_CF_NAME = "cf-gc";
 
     /** Name of the Column Family that stores hash index data. */
-    static final String HASH_INDEX_CF_NAME = "cf-hash";
+    private static final String HASH_INDEX_CF_NAME = "cf-hash";
 
     /** Prefix for SQL indexes column family names. */
-    static final String SORTED_INDEX_CF_PREFIX = "cf-sorted-";
+    private static final String SORTED_INDEX_CF_PREFIX = "cf-sorted-";
+
+    /** List of column families names that should always be present in the RocksDB instance. */
+    public static final List<byte[]> DEFAULT_CF_NAMES = List.of(
+            META_CF_NAME.getBytes(UTF_8),
+            PARTITION_CF_NAME.getBytes(UTF_8),
+            GC_QUEUE_CF_NAME.getBytes(UTF_8),
+            HASH_INDEX_CF_NAME.getBytes(UTF_8)
+    );
+
+    /** Nullability flag mask for {@link #sortedIndexCfName(List)}. */
+    private static final int NULLABILITY_FLAG = 1;
+
+    /** Order flag mask for {@link #sortedIndexCfName(List)}. */
+    private static final int ASC_ORDER_FLAG = 2;
+
 
     /** Utility enum to describe a type of the column family - meta or partition. */
-    enum ColumnFamilyType {
+    public enum ColumnFamilyType {
         META, PARTITION, GC_QUEUE, HASH_INDEX, SORTED_INDEX, UNKNOWN;
 
         /**
@@ -49,7 +76,7 @@ class ColumnFamilyUtils {
          * @param cfName Column family name.
          * @return Column family type.
          */
-        static ColumnFamilyType fromCfName(String cfName) {
+        public static ColumnFamilyType fromCfName(String cfName) {
             if (META_CF_NAME.equals(cfName)) {
                 return META;
             } else if (PARTITION_CF_NAME.equals(cfName)) {
@@ -67,24 +94,139 @@ class ColumnFamilyUtils {
     }
 
     /**
-     * Creates a column family name by index ID.
+     * Generates a sorted index column family name by its columns descriptions.
+     * The resulting array has a {@link #SORTED_INDEX_CF_PREFIX} prefix as a UTF8 array, followed by a number of pairs
+     * {@code {type, flags}}, where type represents ordinal of the corresponding {@link NativeTypeSpec}, and
+     * flags store information about column's nullability and comparison order.
      *
-     * @param indexId Index ID.
-     *
-     * @see #sortedIndexId
+     * @see #comparatorFromCfName(byte[])
      */
-    static String sortedIndexCfName(int indexId) {
-        return SORTED_INDEX_CF_PREFIX + indexId;
+    static byte[] sortedIndexCfName(List<StorageSortedIndexColumnDescriptor> columns) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        try {
+            out.write(SORTED_INDEX_CF_PREFIX.getBytes(UTF_8));
+        } catch (IOException ignore) {
+            // Literally impossible.
+        }
+
+        for (StorageSortedIndexColumnDescriptor column : columns) {
+            NativeType nativeType = column.type();
+            NativeTypeSpec nativeTypeSpec = nativeType.spec();
+
+            out.write(nativeTypeSpec.ordinal());
+
+            int flags = 0;
+
+            if (column.nullable()) {
+                flags |= NULLABILITY_FLAG;
+            }
+
+            if (column.asc()) {
+                flags |= ASC_ORDER_FLAG;
+            }
+
+            out.write(flags);
+        }
+
+        return out.toByteArray();
     }
 
     /**
-     * Extracts a Sorted Index ID from the given Column Family name.
-     *
-     * @param cfName Column Family name.
-     *
-     * @see #sortedIndexCfName
+     * Creates an {@link org.rocksdb.AbstractComparator} instance to compare keys in column family with name {@code cfName}.
+     * Please refer to {@link #sortedIndexCfName(List)} for the details of the CF name encoding.
      */
-    static int sortedIndexId(String cfName) {
-        return Integer.parseInt(cfName.substring(SORTED_INDEX_CF_PREFIX.length()));
+    public static RocksDbBinaryTupleComparator comparatorFromCfName(byte[] cfName) {
+        // Length of the string is safe to use here, because it's ASCII anyway.
+        int prefixLen = SORTED_INDEX_CF_PREFIX.length();
+
+        List<StorageSortedIndexColumnDescriptor> columns = new ArrayList<>((cfName.length - prefixLen) / 2);
+
+        for (int i = prefixLen; i < cfName.length; i += 2) {
+            byte nativeTypeSpecOrdinal = cfName[i];
+            byte nativeTypeFlags = cfName[i + 1];
+
+            NativeTypeSpec nativeTypeSpec = NativeTypeSpec.fromOrdinal(nativeTypeSpecOrdinal);
+
+            assert nativeTypeSpec != null : format("Invalid sorted index CF name. [nameBytes=%s]", Arrays.toString(cfName));
+
+            NativeType nativeType;
+
+            switch (nativeTypeSpec) {
+                case INT8:
+                    nativeType = NativeTypes.INT8; //TODO Only use INT64.
+                    break;
+
+                case INT16:
+                    nativeType = NativeTypes.INT16; //TODO Only use INT64.
+                    break;
+
+                case INT32:
+                    nativeType = NativeTypes.INT32; //TODO Only use INT64.
+                    break;
+
+                case INT64:
+                    nativeType = NativeTypes.INT64;
+                    break;
+
+                case FLOAT:
+                    nativeType = NativeTypes.FLOAT; //TODO Only use DOUBLE.
+                    break;
+
+                case DOUBLE:
+                    nativeType = NativeTypes.DOUBLE;
+                    break;
+
+                case DECIMAL:
+                    nativeType = NativeTypes.decimalOf(-1, 0);
+                    break;
+
+                case UUID:
+                    nativeType = NativeTypes.UUID;
+                    break;
+
+                case STRING:
+                    nativeType = NativeTypes.stringOf(-1);
+                    break;
+
+                case BYTES:
+                    nativeType = NativeTypes.BYTES;
+                    break;
+
+                case BITMASK:
+                    nativeType = NativeTypes.bitmaskOf(1);
+                    break;
+
+                case NUMBER:
+                    nativeType = NativeTypes.numberOf(-1);
+                    break;
+
+                case DATE:
+                    nativeType = NativeTypes.DATE;
+                    break;
+
+                case TIME:
+                    nativeType = NativeTypes.time();
+                    break;
+
+                case DATETIME:
+                    nativeType = NativeTypes.datetime();
+                    break;
+
+                case TIMESTAMP:
+                    nativeType = NativeTypes.timestamp();
+                    break;
+
+                default:
+                    throw new AssertionError(format("Unexpected native type. [spec=%s]", nativeTypeSpec));
+            }
+
+            boolean nullable = (nativeTypeFlags & NULLABILITY_FLAG) != 0;
+            boolean asc = (nativeTypeFlags & ASC_ORDER_FLAG) != 0;
+
+            columns.add(new StorageSortedIndexColumnDescriptor("<unknown>", nativeType, nullable, asc));
+        }
+
+        return new RocksDbBinaryTupleComparator(columns);
     }
 }

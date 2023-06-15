@@ -34,22 +34,24 @@ import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.VAL
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.VALUE_OFFSET;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.putTimestampDesc;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.readTimestampDesc;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.partitionIdKey;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_CONF_PREFIX;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_META_PREFIX;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.createKey;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.normalize;
+import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.DFLT_WRITE_OPTS;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToUuid;
-import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.putUuidToBytes;
 import static org.apache.ignite.internal.util.GridUnsafe.getInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getShort;
 import static org.rocksdb.ReadTier.PERSISTED_TIER;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
+import java.nio.ByteOrder;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
@@ -86,7 +88,6 @@ import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteBatchWithIndex;
-import org.rocksdb.WriteOptions;
 
 /**
  * Multi-versioned partition storage implementation based on RocksDB. Stored data has the following format.
@@ -94,10 +95,10 @@ import org.rocksdb.WriteOptions;
  * <p>Key:
  * <pre>{@code
  * For write-intents
- * | partId (2 bytes, BE) | rowId (16 bytes, BE) |
+ * | tableId (4 bytes, BE) | partId (2 bytes, BE) | rowId (16 bytes, BE) |
  *
  * For committed rows
- * | partId (2 bytes, BE) | rowId (16 bytes, BE) | timestamp (12 bytes, DESC) |
+ * | tableId (4 bytes, BE) | partId (2 bytes, BE) | rowId (16 bytes, BE) | timestamp (8 bytes, DESC) |
  * }</pre>
  * Value:
  * <pre>{@code
@@ -131,6 +132,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      */
     private final int partitionId;
 
+    private final int tableId;
+
     /** RocksDb instance. */
     private final RocksDB db;
 
@@ -143,9 +146,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** Meta column family. */
     private final ColumnFamilyHandle meta;
 
-    /** Write options. */
-    private final WriteOptions writeOpts = new WriteOptions().setDisableWAL(true);
-
     /** Read options for regular reads. */
     private final ReadOptions readOpts = new ReadOptions();
 
@@ -153,10 +153,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     private final ReadOptions persistedTierReadOpts = new ReadOptions().setReadTier(PERSISTED_TIER);
 
     /** Key to store applied index value in meta. */
-    private final byte[] lastAppliedIndexKey;
-
-    /** Key to store applied term value in meta. */
-    private final byte[] lastAppliedTermKey;
+    private final byte[] lastAppliedIndexAndTermKey;
 
     /** Key to store group config in meta. */
     private final byte[] lastGroupConfigKey;
@@ -169,12 +166,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** On-heap-cached last committed group configuration. */
     private volatile byte @Nullable [] lastGroupConfig;
-
-    private volatile long pendingAppliedIndex;
-
-    private volatile long pendingAppliedTerm;
-
-    private volatile byte @Nullable [] pendingGroupConfig;
 
     /** The value of {@link #lastAppliedIndex} persisted to the device at this moment. */
     private volatile long persistedIndex;
@@ -194,18 +185,30 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     public RocksDbMvPartitionStorage(RocksDbTableStorage tableStorage, int partitionId) {
         this.tableStorage = tableStorage;
         this.partitionId = partitionId;
+        tableId = tableStorage.getTableId();
+
         db = tableStorage.db();
         meta = tableStorage.metaCfHandle();
-        helper = new PartitionDataHelper(partitionId, tableStorage.partitionCfHandle());
+
+        int tableId = tableStorage.getTableId();
+        helper = new PartitionDataHelper(tableId, partitionId, tableStorage.partitionCfHandle());
         gc = new GarbageCollector(helper, db, tableStorage.gcQueueHandle());
 
-        lastAppliedIndexKey = ("index" + partitionId).getBytes(StandardCharsets.UTF_8);
-        lastAppliedTermKey = ("term" + partitionId).getBytes(StandardCharsets.UTF_8);
-        lastGroupConfigKey = ("config" + partitionId).getBytes(StandardCharsets.UTF_8);
 
-        lastAppliedIndex = readLastAppliedIndex(readOpts);
-        lastAppliedTerm = readLastAppliedTerm(readOpts);
-        lastGroupConfig = readLastGroupConfig(readOpts);
+        lastAppliedIndexAndTermKey = createKey(PARTITION_META_PREFIX, tableId, partitionId);
+        lastGroupConfigKey = createKey(PARTITION_CONF_PREFIX, tableId, partitionId);
+
+        try {
+            byte[] indexAndTerm = db.get(meta, readOpts, lastAppliedIndexAndTermKey);
+            ByteBuffer buf = indexAndTerm == null ? null : ByteBuffer.wrap(indexAndTerm).order(ByteOrder.LITTLE_ENDIAN);
+
+            lastAppliedIndex = buf == null ? 0 : buf.getLong();
+            lastAppliedTerm = buf == null ? 0 : buf.getLong();
+
+            lastGroupConfig = db.get(meta, readOpts, lastGroupConfigKey);
+        } catch (RocksDBException e) {
+            throw new StorageException(e);
+        }
 
         persistedIndex = lastAppliedIndex;
     }
@@ -216,31 +219,42 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        ThreadLocalState state = THREAD_LOCAL_STATE.get();
+        ThreadLocalState existingState = THREAD_LOCAL_STATE.get();
 
-        if (state != null) {
-            return closure.execute(state.locker);
+        if (existingState != null) {
+            return closure.execute(existingState.locker);
         } else {
             return busy(() -> {
                 LocalLocker locker = new LocalLocker(helper.lockByRowId);
 
                 try (var writeBatch = new WriteBatchWithIndex()) {
-                    THREAD_LOCAL_STATE.set(new ThreadLocalState(writeBatch, locker));
+                    var state = new ThreadLocalState(writeBatch, locker);
+                    THREAD_LOCAL_STATE.set(state);
 
-                    pendingAppliedIndex = lastAppliedIndex;
-                    pendingAppliedTerm = lastAppliedTerm;
-                    pendingGroupConfig = lastGroupConfig;
+                    long oldAppliedIndex = lastAppliedIndex;
+                    long oldAppliedTerm = lastAppliedTerm;
+                    byte[] oldGroupConfig = lastGroupConfig;
+
+                    state.pendingAppliedIndex = lastAppliedIndex;
+                    state.pendingAppliedTerm = lastAppliedTerm;
+                    state.pendingGroupConfig = lastGroupConfig;
 
                     try {
                         V res = closure.execute(locker);
 
                         if (writeBatch.count() > 0) {
-                            db.write(writeOpts, writeBatch);
-                        }
+                            db.write(DFLT_WRITE_OPTS, writeBatch);
 
-                        lastAppliedIndex = pendingAppliedIndex;
-                        lastAppliedTerm = pendingAppliedTerm;
-                        lastGroupConfig = pendingGroupConfig;
+                            // Here we assume that no two threads would try to update these values concurrently.
+                            if (oldAppliedIndex != state.pendingAppliedIndex) {
+                                lastAppliedIndex = state.pendingAppliedIndex;
+                                lastAppliedTerm = state.pendingAppliedTerm;
+                            }
+                            //noinspection ArrayEquality
+                            if (oldGroupConfig != state.pendingGroupConfig) {
+                                lastGroupConfig = state.pendingGroupConfig;
+                            }
+                        }
 
                         return res;
                     } catch (RocksDBException e) {
@@ -269,12 +283,20 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public long lastAppliedIndex() {
-        return busy(() -> THREAD_LOCAL_STATE.get() == null ? lastAppliedIndex : pendingAppliedIndex);
+        return busy(() -> {
+            ThreadLocalState state = THREAD_LOCAL_STATE.get();
+
+            return state == null ? lastAppliedIndex : state.pendingAppliedIndex;
+        });
     }
 
     @Override
     public long lastAppliedTerm() {
-        return busy(() -> THREAD_LOCAL_STATE.get() == null ? lastAppliedTerm : pendingAppliedTerm);
+        return busy(() -> {
+            ThreadLocalState state = THREAD_LOCAL_STATE.get();
+
+            return state == null ? lastAppliedTerm : state.pendingAppliedTerm;
+        });
     }
 
     @Override
@@ -297,11 +319,24 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             long lastAppliedIndex,
             long lastAppliedTerm
     ) throws RocksDBException {
-        writeBatch.put(meta, lastAppliedIndexKey, longToBytes(lastAppliedIndex));
-        writeBatch.put(meta, lastAppliedTermKey, longToBytes(lastAppliedTerm));
+        writeBatch.put(meta, lastAppliedIndexAndTermKey, longPairToBytes(lastAppliedIndex, lastAppliedTerm));
 
-        pendingAppliedIndex = lastAppliedIndex;
-        pendingAppliedTerm = lastAppliedTerm;
+        ThreadLocalState state = THREAD_LOCAL_STATE.get();
+
+        //TODO Complicated code.
+        if (state != null) {
+            state.pendingAppliedIndex = lastAppliedIndex;
+            state.pendingAppliedTerm = lastAppliedTerm;
+        }
+    }
+
+    private static byte[] longPairToBytes(long index, long term) {
+        ByteBuffer buf = allocate(2 * Long.BYTES).order(ByteOrder.LITTLE_ENDIAN);
+
+        buf.putLong(index);
+        buf.putLong(term);
+
+        return buf.array();
     }
 
     @Override
@@ -311,7 +346,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public byte @Nullable [] committedGroupConfiguration() {
-        byte[] array = busy(() -> THREAD_LOCAL_STATE.get() == null ? lastGroupConfig : pendingGroupConfig);
+        byte[] array =  busy(() -> {
+            ThreadLocalState state = THREAD_LOCAL_STATE.get();
+
+            return state == null ? lastGroupConfig : state.pendingGroupConfig;
+        });
 
         return array == null ? null : array.clone();
     }
@@ -334,71 +373,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     private void saveGroupConfiguration(AbstractWriteBatch writeBatch, byte[] config) throws RocksDBException {
         writeBatch.put(meta, lastGroupConfigKey, config);
 
-        pendingGroupConfig = config.clone();
-    }
+        ThreadLocalState state = THREAD_LOCAL_STATE.get();
 
-    /**
-     * Reads a value of {@link #lastAppliedIndex()} from the storage, avoiding mem-table, and sets it as a new value of
-     * {@link #persistedIndex()}.
-     *
-     * @throws StorageException If failed to read index from the storage.
-     */
-    void refreshPersistedIndex() throws StorageException {
-        if (!busyLock.enterBusy()) {
-            // Don't throw the exception, there's no point in that.
-            return;
-        }
-
-        try {
-            persistedIndex = readLastAppliedIndex(persistedTierReadOpts);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Reads the value of {@link #lastAppliedIndex} from the storage.
-     *
-     * @param readOptions Read options to be used for reading.
-     * @return The value of last applied index.
-     */
-    private long readLastAppliedIndex(ReadOptions readOptions) {
-        return readLongFromMetaCf(lastAppliedIndexKey, readOptions);
-    }
-
-    /**
-     * Reads the value of {@link #lastAppliedTerm} from the storage.
-     *
-     * @param readOptions Read options to be used for reading.
-     * @return The value of last applied term.
-     */
-    private long readLastAppliedTerm(ReadOptions readOptions) {
-        return readLongFromMetaCf(lastAppliedTermKey, readOptions);
-    }
-
-    private long readLongFromMetaCf(byte[] key, ReadOptions readOptions) {
-        byte[] bytes;
-
-        try {
-            bytes = db.get(meta, readOptions, key);
-        } catch (RocksDBException e) {
-            throw new StorageException(e);
-        }
-
-        return bytes == null ? 0 : bytesToLong(bytes);
-    }
-
-    /**
-     * Reads the value of {@link #lastGroupConfig} from the storage.
-     *
-     * @param readOptions Read options to be used for reading.
-     * @return Group configuration.
-     */
-    private byte @Nullable [] readLastGroupConfig(ReadOptions readOptions) {
-        try {
-            return db.get(meta, readOptions, lastGroupConfigKey);
-        } catch (RocksDBException e) {
-            throw new StorageException(e);
+        //TODO Complicated code.
+        if (state != null) {
+            state.pendingGroupConfig = config.clone();
         }
     }
 
@@ -996,11 +975,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * Deletes partition data from the storage, using write batch to perform the operation.
      */
     void destroyData(WriteBatch writeBatch) throws RocksDBException {
-        writeBatch.delete(meta, lastAppliedIndexKey);
-        writeBatch.delete(meta, lastAppliedTermKey);
+        writeBatch.delete(meta, lastAppliedIndexAndTermKey);
         writeBatch.delete(meta, lastGroupConfigKey);
-
-        writeBatch.delete(meta, partitionIdKey(partitionId));
 
         writeBatch.deleteRange(helper.partCf, helper.partitionStartPrefix(), helper.partitionEndPrefix());
 
@@ -1042,7 +1018,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         busyLock.block();
 
-        RocksUtils.closeAll(persistedTierReadOpts, readOpts, writeOpts);
+        RocksUtils.closeAll(persistedTierReadOpts, readOpts);
 
         helper.close();
     }
@@ -1055,6 +1031,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         ByteBuffer keyBuf = HEAP_KEY_BUFFER.get().rewind();
 
+        keyBuf.putInt(tableStorage.getTableId());
         keyBuf.putShort((short) rowId.partitionId());
 
         helper.putRowId(keyBuf, rowId);
@@ -1173,7 +1150,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         //  - no one guarantees that there will only be a single cursor;
         //  - no one guarantees that returned cursor will not be used by other threads.
         // The thing is, we need this buffer to preserve its content between invocations of "hasNext" method.
-        final ByteBuffer seekKeyBuf = allocate(MAX_KEY_SIZE).order(KEY_BYTE_ORDER).putShort((short) partitionId);
+        final ByteBuffer seekKeyBuf = allocate(MAX_KEY_SIZE).order(KEY_BYTE_ORDER).putInt(tableId).putShort((short) partitionId);
 
         RowId currentRowId;
 
@@ -1491,11 +1468,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     private void clearStorage(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) throws RocksDBException {
         saveLastApplied(writeBatch, lastAppliedIndex, lastAppliedTerm);
 
-        pendingGroupConfig = null;
         lastGroupConfig = null;
 
         writeBatch.delete(meta, lastGroupConfigKey);
-        writeBatch.delete(meta, partitionIdKey(partitionId));
         writeBatch.deleteRange(helper.partCf, helper.partitionStartPrefix(), helper.partitionEndPrefix());
 
         gc.deleteQueue(writeBatch);

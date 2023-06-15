@@ -816,7 +816,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThrows(StorageClosedException.class, storage::lastAppliedIndex);
         assertThrows(StorageClosedException.class, storage::lastAppliedTerm);
-        assertThrows(StorageClosedException.class, storage::persistedIndex);
         assertThrows(StorageClosedException.class, storage::committedGroupConfiguration);
 
         RowId rowId = new RowId(partId);
@@ -1054,7 +1053,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             long expLastAppliedTerm
     ) {
         assertEquals(expLastAppliedIndex, storage.lastAppliedIndex());
-        assertEquals(expPersistentIndex, storage.persistedIndex());
         assertEquals(expLastAppliedTerm, storage.lastAppliedTerm());
     }
 

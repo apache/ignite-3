@@ -21,9 +21,11 @@ import static java.lang.ThreadLocal.withInitial;
 import static java.nio.ByteBuffer.allocateDirect;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.PARTITION_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.TABLE_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.getRowIdUuid;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.putRowIdUuid;
 
@@ -45,21 +47,18 @@ import org.rocksdb.Slice;
 import org.rocksdb.WriteBatchWithIndex;
 
 /** Helper for the partition data. */
-public class PartitionDataHelper implements ManuallyCloseable {
+public final class PartitionDataHelper implements ManuallyCloseable {
     /** Position of row id inside the key. */
-    static final int ROW_ID_OFFSET = Short.BYTES;
+    static final int ROW_ID_OFFSET = TABLE_ID_SIZE + Short.BYTES;
 
     /** Size of the key without timestamp. */
-    static final int ROW_PREFIX_SIZE = ROW_ID_OFFSET + ROW_ID_SIZE;
+    public static final int ROW_PREFIX_SIZE = ROW_ID_OFFSET + ROW_ID_SIZE;
 
     /** Maximum size of the data key. */
     static final int MAX_KEY_SIZE = ROW_PREFIX_SIZE + HYBRID_TIMESTAMP_SIZE;
 
     /** Transaction id size (part of the transaction state). */
     private static final int TX_ID_SIZE = 2 * Long.BYTES;
-
-    /** Commit table id size (part of the transaction state). */
-    private static final int TABLE_ID_SIZE = Integer.BYTES;
 
     /** Size of the value header (transaction state). */
     static final int VALUE_HEADER_SIZE = TX_ID_SIZE + TABLE_ID_SIZE + PARTITION_ID_SIZE;
@@ -84,6 +83,9 @@ public class PartitionDataHelper implements ManuallyCloseable {
     /** Thread-local write batch for {@link MvPartitionStorage#runConsistently(WriteClosure)}. */
     static final ThreadLocal<ThreadLocalState> THREAD_LOCAL_STATE = new ThreadLocal<>();
 
+    /** Table ID. */
+    private final int tableId;
+
     /** Partition id. */
     private final int partitionId;
 
@@ -101,11 +103,21 @@ public class PartitionDataHelper implements ManuallyCloseable {
 
     final LockByRowId lockByRowId = new LockByRowId();
 
-    PartitionDataHelper(int partitionId, ColumnFamilyHandle partCf) {
+    /** Prefix for finding the beginning of the partition. */
+    private final byte[] partitionStartPrefix;
+
+    /** Prefix for finding the ending of the partition. */
+    private final byte[] partitionEndPrefix;
+
+    PartitionDataHelper(int tableId, int partitionId, ColumnFamilyHandle partCf) {
+        this.tableId = tableId;
         this.partitionId = partitionId;
         this.partCf = partCf;
 
-        this.upperBound = new Slice(partitionEndPrefix());
+        this.partitionStartPrefix = compositeKey(tableId, partitionId);
+        this.partitionEndPrefix = incrementPrefix(partitionStartPrefix);;
+
+        this.upperBound = new Slice(partitionEndPrefix);
         this.upperBoundReadOpts = new ReadOptions().setIterateUpperBound(upperBound);
         this.scanReadOpts = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
     }
@@ -118,19 +130,20 @@ public class PartitionDataHelper implements ManuallyCloseable {
      * Creates a prefix of all keys in the given partition.
      */
     public byte[] partitionStartPrefix() {
-        return unsignedShortAsBytes(partitionId);
+        return partitionStartPrefix;
     }
 
     /**
      * Creates a prefix of all keys in the next partition, used as an exclusive bound.
      */
     public byte[] partitionEndPrefix() {
-        return unsignedShortAsBytes(partitionId + 1);
+        return partitionEndPrefix;
     }
 
     void putDataKey(ByteBuffer dataKeyBuffer, RowId rowId, HybridTimestamp timestamp) {
         assert rowId.partitionId() == partitionId : "rowPartitionId=" + rowId.partitionId() + ", storagePartitionId=" + partitionId;
 
+        dataKeyBuffer.putInt(tableId);
         dataKeyBuffer.putShort((short) partitionId);
         putRowIdUuid(dataKeyBuffer, rowId.uuid());
         putTimestampDesc(dataKeyBuffer, timestamp);
@@ -141,6 +154,7 @@ public class PartitionDataHelper implements ManuallyCloseable {
     void putGcKey(ByteBuffer gcKeyBuffer, RowId rowId, HybridTimestamp timestamp) {
         assert rowId.partitionId() == partitionId : "rowPartitionId=" + rowId.partitionId() + ", storagePartitionId=" + partitionId;
 
+        gcKeyBuffer.putInt(tableId);
         gcKeyBuffer.putShort((short) partitionId);
         putTimestampNatural(gcKeyBuffer, timestamp);
         putRowIdUuid(gcKeyBuffer, rowId.uuid());
@@ -155,7 +169,7 @@ public class PartitionDataHelper implements ManuallyCloseable {
     }
 
     RowId getRowId(ByteBuffer keyBuffer, int offset) {
-        assert partitionId == (keyBuffer.getShort(0) & 0xFFFF);
+        assert partitionId == (keyBuffer.getShort(TABLE_ID_SIZE) & 0xFFFF);
 
         return new RowId(partitionId, getRowIdUuid(keyBuffer, offset));
     }
@@ -183,13 +197,13 @@ public class PartitionDataHelper implements ManuallyCloseable {
     }
 
     /**
-     * Stores unsigned short (represented by int) in the byte array.
-     *
-     * @param value Unsigned short value.
-     * @return Byte array with unsigned short.
+     * Creates a byte array key, that consists of table or index ID (4 bytes), followed by a partition ID (2 bytes).
      */
-    private static byte[] unsignedShortAsBytes(int value) {
-        return new byte[] {(byte) (value >>> 8), (byte) value};
+    public static byte[] compositeKey(int tableOrIndexId, int partitionId) {
+        return ByteBuffer.allocate(ROW_ID_OFFSET).order(KEY_BYTE_ORDER)
+                .putInt(tableOrIndexId)
+                .putShort((short) partitionId)
+                .array();
     }
 
     /**
