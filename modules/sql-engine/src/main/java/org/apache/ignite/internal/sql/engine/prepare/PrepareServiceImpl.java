@@ -213,13 +213,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     }
 
     private CompletableFuture<QueryPlan> prepareQuery(SqlNode sqlNode, PlanningContext ctx) {
-        boolean distributed = distributionPresent(ctx.config().getTraitDefs());
-
-        Class[] paramTypes = ctx.parameters().length == 0
-                ? EMPTY_CLASS_ARRAY :
-                Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
-
-        var key = new CacheKey(ctx.schemaName(), sqlNode.toString(), distributed, paramTypes);
+        CacheKey key = createCacheKey(sqlNode, ctx);
 
         CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
@@ -243,7 +237,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     }
 
     private CompletableFuture<QueryPlan> prepareDml(SqlNode sqlNode, PlanningContext ctx) {
-        var key = new CacheKey(ctx.schemaName(), sqlNode.toString());
+        var key = createCacheKey(sqlNode, ctx);
 
         CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
@@ -263,6 +257,16 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         }, planningPool));
 
         return planFut.thenApply(QueryPlan::copy);
+    }
+
+    private static CacheKey createCacheKey(SqlNode sqlNode, PlanningContext ctx) {
+        boolean distributed = distributionPresent(ctx.config().getTraitDefs());
+
+        Class[] paramTypes = ctx.parameters().length == 0
+                ? EMPTY_CLASS_ARRAY :
+                Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
+
+        return new CacheKey(ctx.schemaName(), sqlNode.toString(), distributed, paramTypes);
     }
 
     private ResultSetMetadata resultSetMetadata(

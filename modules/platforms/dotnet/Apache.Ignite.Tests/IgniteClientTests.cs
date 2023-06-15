@@ -49,7 +49,8 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestToString()
         {
-            using var client = await IgniteClient.StartAsync(GetConfig());
+            var cfg = new IgniteClientConfiguration { Endpoints = { "127.0.0.1:" + ServerPort } };
+            using var client = await IgniteClient.StartAsync(cfg);
 
             // IgniteClientInternal { Connections = [ ClusterNode {
             // Id = 703cc4d7-41ef-4321-b960-70ad9df2617b,

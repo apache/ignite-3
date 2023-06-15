@@ -74,10 +74,10 @@ public:
      * @param message Message.
      * @param cause Error cause.
      */
-    explicit ignite_error(status_code statusCode, std::string message, std::exception_ptr cause) noexcept
+    explicit ignite_error(status_code statusCode, std::string message, const std::exception_ptr& cause) noexcept
         : m_status_code(statusCode)
         , m_message(std::move(message))
-        , m_cause(std::move(cause)) {} // NOLINT(bugprone-throw-keyword-missing)
+        , m_cause(cause) {} // NOLINT(bugprone-throw-keyword-missing)
 
     /**
      * Get error message.

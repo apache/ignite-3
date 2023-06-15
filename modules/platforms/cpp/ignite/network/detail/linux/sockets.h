@@ -20,7 +20,9 @@
 #include <cstdint>
 #include <string>
 
-#define SOCKET_ERROR (-1)
+#ifndef SOCKET_ERROR
+#   define SOCKET_ERROR (-1)
+#endif // SOCKET_ERROR
 
 namespace ignite::network::detail {
 
@@ -47,6 +49,17 @@ std::string get_last_socket_error_message();
  * @param keep_alive Keep alive mode.
  */
 void try_set_socket_options(int socket_fd, int buf_size, bool no_delay, bool out_of_band, bool keep_alive);
+
+/**
+ * Wait on the socket for any event for specified time.
+ * This function uses poll to achieve timeout functionality for every separate socket operation.
+ *
+ * @param socket Socket handle.
+ * @param timeout Timeout.
+ * @param rd Wait for read if @c true, or for write if @c false.
+ * @return -errno on error, wait_result::TIMEOUT on timeout and wait_result::SUCCESS on success.
+ */
+int wait_on_socket(int socket, std::int32_t timeout, bool rd);
 
 /**
  * Set non blocking mode for socket.

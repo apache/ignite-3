@@ -317,11 +317,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 try {
                     onMessage(obj);
                 } catch (Throwable e) {
-                    LOG.error("onMessage() failed while processing {} from {}", e, obj.message(), obj.consistentId());
-
-                    if (e instanceof Error) {
-                        throw e;
-                    }
+                    logAndRethrowIfError(obj, e);
                 }
             });
 
@@ -360,6 +356,19 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(message.groupType())) {
             networkMessageHandler.onReceived(message, senderConsistentId, correlationId);
+        }
+    }
+
+    private static void logAndRethrowIfError(InNetworkObject obj, Throwable e) {
+        if (e instanceof UnresolvableConsistentIdException && obj.message() instanceof InvokeRequest) {
+            LOG.info("onMessage() failed while processing {} from {} as the sender has left the topology",
+                    obj.message(), obj.consistentId());
+        } else {
+            LOG.error("onMessage() failed while processing {} from {}", e, obj.message(), obj.consistentId());
+        }
+
+        if (e instanceof Error) {
+            throw (Error) e;
         }
     }
 

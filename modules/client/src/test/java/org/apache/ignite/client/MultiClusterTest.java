@@ -48,8 +48,8 @@ public class MultiClusterTest {
 
     @BeforeEach
     void setUp() {
-        server1 = new TestServer(10900, 10, 0, new FakeIgnite(), null, null, "s1", clusterId1, null);
-        server2 = new TestServer(10900, 10, 0, new FakeIgnite(), null, null, "s2", clusterId2, null);
+        server1 = new TestServer(0, new FakeIgnite(), null, null, "s1", clusterId1, null, null);
+        server2 = new TestServer(0, new FakeIgnite(), null, null, "s2", clusterId2, null, null);
     }
 
     @AfterEach
@@ -72,17 +72,16 @@ public class MultiClusterTest {
             assertEquals(1, client.connections().size());
 
             String err = getFailedConnectionEntry(loggerFactory);
-            String expectedErr = "Cluster ID mismatch: expected=" + clusterId2 + ", actual=" + clusterId1;
-
-            assertThat(err, CoreMatchers.containsString(expectedErr));
+            assertThat(err, CoreMatchers.containsString("Cluster ID mismatch"));
         }
     }
 
     @Test
     public void testReconnectToDifferentClusterFails()
             throws Exception {
+        int port = server1.port();
         Builder builder = IgniteClient.builder()
-                .addresses("127.0.0.1:" + server1.port());
+                .addresses("127.0.0.1:" + port);
 
         server2.close();
 
@@ -90,7 +89,7 @@ public class MultiClusterTest {
             client.tables().tables();
 
             server1.close();
-            server1 = new TestServer(10900, 10, 0, new FakeIgnite(), null, null, "s1", clusterId2, null);
+            server1 = new TestServer(0, new FakeIgnite(), null, null, "s1", clusterId2, null, port);
 
             IgniteClientConnectionException ex = (IgniteClientConnectionException) assertThrowsWithCause(
                     () -> client.tables().tables(), IgniteClientConnectionException.class, "Cluster ID mismatch");

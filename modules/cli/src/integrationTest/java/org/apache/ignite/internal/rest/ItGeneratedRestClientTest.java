@@ -96,6 +96,8 @@ public class ItGeneratedRestClientTest {
     /** Start rest server port. */
     private static final int BASE_REST_PORT = 10300;
 
+    private static final int BASE_CLIENT_PORT = 10800;
+
     @WorkDirectory
     private static Path WORK_DIR;
 
@@ -134,7 +136,8 @@ public class ItGeneratedRestClientTest {
                 + "    nodeFinder: {\n"
                 + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ] \n"
                 + "    }\n"
-                + "  }\n"
+                + "  },\n"
+                + "  clientConnector.port: " + (BASE_CLIENT_PORT + nodeIdx) + "\n"
                 + "}";
     }
 

@@ -756,7 +756,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19079")
     @Test
     public void testTwoNodesRestartDirect() throws InterruptedException {
         twoNodesRestart(true);
@@ -765,7 +764,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in reverse order when they started at first.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19079")
     @Test
     public void testTwoNodesRestartReverse() throws InterruptedException {
         twoNodesRestart(false);
@@ -899,7 +897,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         @Language("HOCON") String cfgString = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
                 DEFAULT_NODE_PORT + 11,
-                "[\"localhost:" + DEFAULT_NODE_PORT + "\"]"
+                "[\"localhost:" + DEFAULT_NODE_PORT + "\"]",
+                DEFAULT_CLIENT_PORT + 11
         );
 
         PartialNode partialNode = startPartialNode(1, cfgString);
@@ -1077,15 +1076,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * @param replicas Replica factor.
      * @param partitions Partitions count.
      */
-    private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas, int partitions)
-            throws InterruptedException {
+    private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas, int partitions) {
         try (Session session = nodes.get(0).sql().createSession()) {
             session.execute(null,
                     String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
             session.execute(null, "CREATE TABLE IF NOT EXISTS " + name
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
-
-            waitForIndex(nodes, name + "_PK");
 
             for (int i = 0; i < 100; i++) {
                 session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",

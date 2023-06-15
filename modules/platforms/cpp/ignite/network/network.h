@@ -19,10 +19,16 @@
 
 #include <ignite/network/async_client_pool.h>
 #include <ignite/network/data_filter.h>
+#include <ignite/network/socket_client.h>
 
 #include <string>
 
 namespace ignite::network {
+
+/**
+ * Make basic TCP socket.
+ */
+std::unique_ptr<socket_client> make_tcp_socket_client();
 
 /**
  * Make asynchronous client pool.

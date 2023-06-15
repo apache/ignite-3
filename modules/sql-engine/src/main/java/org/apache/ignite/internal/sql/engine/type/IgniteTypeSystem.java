@@ -21,7 +21,6 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelDataTypeSystemImpl;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -31,7 +30,7 @@ import org.apache.ignite.internal.schema.TemporalNativeType;
  * Ignite type system.
  */
 public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializable {
-    public static final RelDataTypeSystem INSTANCE = new IgniteTypeSystem();
+    public static final IgniteTypeSystem INSTANCE = new IgniteTypeSystem();
 
     /** {@inheritDoc} */
     @Override
@@ -148,4 +147,5 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
 
         return typeFactory.createTypeWithNullability(sumType, argumentType.isNullable());
     }
+
 }

@@ -46,11 +46,16 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A collection of builders to create test objects.
  */
 public class TestBuilders {
+
+    /** Schema version. */
+    public static final int SCHEMA_VERSION = -1;
+
     /** Returns a builder of the test cluster object. */
     public static ClusterBuilder cluster() {
         return new ClusterBuilderImpl();
@@ -267,7 +272,7 @@ public class TestBuilders {
                     .map(ClusterTableBuilderImpl::build)
                     .collect(Collectors.toMap(TestTable::name, Function.identity()));
 
-            var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, null, -1));
+            var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, null, SCHEMA_VERSION));
 
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> new TestNode(name, clusterService.forNode(name), schemaManager))
@@ -430,6 +435,20 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
+        public ChildT addColumn(String name, NativeType type, @Nullable Object defaultValue) {
+            if (defaultValue == null) {
+                return addColumn(name, type);
+            } else {
+                ColumnDescriptorImpl desc = new ColumnDescriptorImpl(
+                        name, false, true, columns.size(), columns.size(), type, DefaultValueStrategy.DEFAULT_CONSTANT, () -> defaultValue
+                );
+                columns.add(desc);
+            }
+            return self();
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public ChildT addDataProvider(String targetNode, DataProvider<?> dataProvider) {
             this.dataProviders.put(targetNode, dataProvider);
 
@@ -463,6 +482,9 @@ public class TestBuilders {
 
         /** Adds a column to the table. */
         ChildT addColumn(String name, NativeType type);
+
+        /** Adds a column with the given default value to the table. */
+        ChildT addColumn(String name, NativeType type, @Nullable Object defaultValue);
 
         /** Adds a data provider for the given node to the table. */
         ChildT addDataProvider(String targetNode, DataProvider<?> dataProvider);
