@@ -47,7 +47,6 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests that check correctness of an invocation {@link MetaStorageManager#deployWatches()}.
  */
 public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest {
-
     /** Vault manager. */
     private static VaultManager vaultManager;
 
@@ -60,6 +59,8 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
 
     @AfterAll
     public static void deInit() {
+        vaultManager.beforeNodeStop();
+
         vaultManager.stop();
     }
 

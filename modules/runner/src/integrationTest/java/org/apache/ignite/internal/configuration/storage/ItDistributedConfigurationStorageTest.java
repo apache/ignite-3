@@ -92,6 +92,9 @@ public class ItDistributedConfigurationStorageTest {
 
         private final DistributedConfigurationStorage cfgStorage;
 
+        /** The future have to be complete after the node start and all Meta storage watches are deployd. */
+        private final CompletableFuture<Void> deployWatchesFut;
+
         /**
          * Constructor that simply creates a subset of components of this node.
          */
@@ -133,6 +136,8 @@ public class ItDistributedConfigurationStorageTest {
                     clock
             );
 
+            deployWatchesFut = metaStorageManager.deployWatches();
+
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
         }
 
@@ -160,11 +165,10 @@ public class ItDistributedConfigurationStorageTest {
         }
 
         /**
-         * Deploys watches and waits for completion.
+         * Waits for watches deployed.
          */
-        void deployWatches() {
-            // deploy watches to propagate data from the metastore into the vault
-            assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
+        void waitWatches() {
+            assertThat("Watches were not deployed", deployWatchesFut, willCompleteSuccessfully());
         }
 
         /**
@@ -205,7 +209,7 @@ public class ItDistributedConfigurationStorageTest {
 
             node.cmgManager.initCluster(List.of(node.name()), List.of(), "cluster");
 
-            node.deployWatches();
+            node.waitWatches();
 
             assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
             assertThat(node.cfgStorage.writeConfigurationRevision(0, 1), willCompleteSuccessfully());
@@ -223,7 +227,7 @@ public class ItDistributedConfigurationStorageTest {
         try {
             node2.start();
 
-            node2.deployWatches();
+            node2.waitWatches();
 
             CompletableFuture<Data> storageData = node2.cfgStorage.readDataOnRecovery();
 

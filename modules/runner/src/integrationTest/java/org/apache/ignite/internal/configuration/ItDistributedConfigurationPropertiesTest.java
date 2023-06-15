@@ -114,6 +114,9 @@ public class ItDistributedConfigurationPropertiesTest {
 
         private final ConfigurationManager distributedCfgManager;
 
+        /** The future have to be complete after the node start and all Meta storage watches are deployd. */
+        private final CompletableFuture<Void> deployWatchesFut;
+
         /** Flag that disables storage updates. */
         private volatile boolean receivesUpdates = true;
 
@@ -160,6 +163,8 @@ public class ItDistributedConfigurationPropertiesTest {
                     new SimpleInMemoryKeyValueStorage(name()),
                     clock
             );
+
+            deployWatchesFut = metaStorageManager.deployWatches();
 
             // create a custom storage implementation that is able to "lose" some storage updates
             var distributedCfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager) {
@@ -210,11 +215,10 @@ public class ItDistributedConfigurationPropertiesTest {
         }
 
         /**
-         * Deploys watches and waits for completion.
+         * Waits for watches deployed.
          */
-        void deployWatches() {
-            // deploy watches to propagate data from the metastore into the vault
-            assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
+        void waitWatches() {
+            assertThat("Watches were not deployed", deployWatchesFut, willCompleteSuccessfully());
         }
 
         /**
@@ -288,7 +292,7 @@ public class ItDistributedConfigurationPropertiesTest {
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(), "cluster");
 
-        Stream.of(firstNode, secondNode).parallel().forEach(Node::deployWatches);
+        Stream.of(firstNode, secondNode).parallel().forEach(Node::waitWatches);
     }
 
     /**

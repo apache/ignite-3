@@ -238,7 +238,7 @@ public class ItRebalanceDistributedTest {
                 willCompleteSuccessfully()
         );
 
-        nodes.stream().forEach(Node::deployWatches);
+        nodes.stream().forEach(Node::waitWatches);
     }
 
     @AfterEach
@@ -516,7 +516,7 @@ public class ItRebalanceDistributedTest {
 
         newNode.start();
 
-        newNode.deployWatches();
+        newNode.waitWatches();
 
         nodes.set(evictedNodeIndex, newNode);
 
@@ -572,6 +572,9 @@ public class ItRebalanceDistributedTest {
         private final ReplicaManager replicaManager;
 
         private final MetaStorageManager metaStorageManager;
+
+        /** The future have to be complete after the node start and all Meta storage watches are deployd. */
+        private final CompletableFuture<Void> deployWatchesFut;
 
         private final DistributedConfigurationStorage cfgStorage;
 
@@ -684,6 +687,8 @@ public class ItRebalanceDistributedTest {
                             : new SimpleInMemoryKeyValueStorage(nodeName),
                     hybridClock
             );
+
+            deployWatchesFut = metaStorageManager.deployWatches();
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
 
@@ -863,11 +868,10 @@ public class ItRebalanceDistributedTest {
         }
 
         /**
-         * Deploys watches and waits for completion.
+         * Waits for watches deployed.
          */
-        void deployWatches() {
-            // deploy watches to propagate data from the metastore into the vault
-            assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
+        void waitWatches() {
+            assertThat("Watches were not deployed", deployWatchesFut, willCompleteSuccessfully());
         }
 
         /**
