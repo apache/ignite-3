@@ -73,7 +73,7 @@ public class Cluster {
     /** Base port number. */
     private static final int BASE_PORT = 3344;
 
-    private static final int BASE_CLIENT_PORT = 10900;
+    private static final int BASE_CLIENT_PORT = 10800;
 
     private static final String CONNECT_NODE_ADDR = "\"localhost:" + BASE_PORT + '\"';
 
