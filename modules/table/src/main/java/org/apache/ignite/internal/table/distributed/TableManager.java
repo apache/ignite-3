@@ -821,9 +821,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     ),
                                     new RebalanceRaftGroupEventsListener(
                                             metaStorageMgr,
-                                            tablesCfg.tables().get(table.name()),
                                             replicaGrpId,
-                                            partId,
                                             busyLock,
                                             createPartitionMover(internalTbl, partId),
                                             this::calculateAssignments,
@@ -913,7 +911,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return createPartitionStorages(table, parts).thenApply(u -> {
                 var newValue = new HashMap<>(previous);
 
-                newValue.put(tblId, parts);
+                newValue.put(tableId, parts);
 
                 return newValue;
             });
@@ -1324,7 +1322,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 var newMap = new HashMap<>(previousVal);
-                newMap.remove(tblId);
+                newMap.remove(tableId);
 
                 return completedFuture(newMap);
             }));
