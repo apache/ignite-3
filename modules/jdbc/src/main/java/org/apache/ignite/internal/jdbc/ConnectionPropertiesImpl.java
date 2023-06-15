@@ -504,7 +504,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             try {
                 addrs[i] = HostAndPort.parse(endpoints[i],
                         IgniteClientConfiguration.DFLT_PORT,
-                        "Invalid endpoint format (should be \"host[:portRangeFrom[..portRangeTo]]\")");
+                        "Invalid endpoint format (should be \"host:port\")");
             } catch (IgniteException e) {
                 throw new SQLException(e.getMessage(), SqlStateCode.CLIENT_CONNECTION_FAILED, e);
             }
