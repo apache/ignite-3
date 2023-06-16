@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbI
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -239,7 +240,9 @@ public class RocksDbTableStorage implements MvTableStorage {
 
             rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
         } catch (RocksDBException e) {
-            //TODO Handle.
+            String message = format("Failed to destroy table data. [tableId={}]", getTableId());
+
+            throw new StorageException(message, e);
         }
 
         for (SortedIndex sortedIndex : sortedIndices.values()) {

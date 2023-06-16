@@ -114,12 +114,6 @@ public interface TxStateStorage extends ManuallyCloseable {
     void lastApplied(long lastAppliedIndex, long lastAppliedTerm);
 
     /**
-     * Returns {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
-     */
-    @Deprecated
-    long persistedIndex();
-
-    /**
      * Closes the storage.
      *
      * <p>REQUIRED: For background tasks for storage, such as rebalancing, to be completed by the time the method is called.

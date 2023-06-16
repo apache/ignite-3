@@ -48,7 +48,6 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToUuid;
 import static org.apache.ignite.internal.util.ByteUtils.putUuidToBytes;
 import static org.apache.ignite.internal.util.GridUnsafe.getInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getShort;
-import static org.rocksdb.ReadTier.PERSISTED_TIER;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -149,9 +148,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** Read options for regular reads. */
     private final ReadOptions readOpts = new ReadOptions();
 
-    /** Read options for reading persisted data. */
-    private final ReadOptions persistedTierReadOpts = new ReadOptions().setReadTier(PERSISTED_TIER);
-
     /** Key to store applied index value in meta. */
     private final byte[] lastAppliedIndexAndTermKey;
 
@@ -166,9 +162,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** On-heap-cached last committed group configuration. */
     private volatile byte @Nullable [] lastGroupConfig;
-
-    /** The value of {@link #lastAppliedIndex} persisted to the device at this moment. */
-    private volatile long persistedIndex;
 
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -209,8 +202,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         } catch (RocksDBException e) {
             throw new StorageException(e);
         }
-
-        persistedIndex = lastAppliedIndex;
     }
 
     public PartitionDataHelper helper() {
@@ -336,11 +327,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         buf.putLong(term);
 
         return buf.array();
-    }
-
-    @Override
-    public long persistedIndex() {
-        return busy(() -> persistedIndex);
     }
 
     @Override
@@ -1017,7 +1003,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         busyLock.block();
 
-        RocksUtils.closeAll(persistedTierReadOpts, readOpts);
+        RocksUtils.closeAll(readOpts);
 
         helper.close();
     }
@@ -1480,8 +1466,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
-
-        persistedIndex = lastAppliedIndex;
     }
 
     private void saveGroupConfigurationOnRebalance(WriteBatch writeBatch, byte[] config) throws RocksDBException {

@@ -183,13 +183,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public long persistedIndex() {
-        checkStorageClosed();
-
-        return lastAppliedIndex;
-    }
-
-    @Override
     public byte @Nullable [] committedGroupConfiguration() {
         checkStorageClosed();
 

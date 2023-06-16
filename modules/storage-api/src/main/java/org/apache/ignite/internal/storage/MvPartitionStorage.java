@@ -125,15 +125,6 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException;
 
     /**
-     * {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
-     *
-     * @deprecated No one needs it, and it slows down the storage.
-     */
-    //TODO IGNITE-19750 Delete this method.
-    @Deprecated
-    long persistedIndex();
-
-    /**
      * Byte representation of the committed replication protocol group configuration corresponding to the write command with the highest
      * index applied to the storage.
      * {@code null} if it was never saved.
