@@ -116,18 +116,18 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     @Test
     public void testBasicStreamingKvPojoView() {
-        KeyValueView<Long, PersonPojo> view = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(PersonPojo.class));
+        KeyValueView<Integer, PersonPojo> view = defaultTable().keyValueView(Mapper.of(Integer.class), Mapper.of(PersonPojo.class));
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Map.Entry<Long, PersonPojo>>()) {
+        try (var publisher = new SubmissionPublisher<Map.Entry<Integer, PersonPojo>>()) {
             streamerFut = view.streamData(publisher, null);
 
-            publisher.submit(Map.entry(1L, new PersonPojo(1, "foo")));
-            publisher.submit(Map.entry(2L, new PersonPojo(2, "bar")));
+            publisher.submit(Map.entry(1, new PersonPojo(1, "foo")));
+            publisher.submit(Map.entry(2, new PersonPojo(2, "bar")));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
-        assertEquals("bar", view.get(null, 2L).name);
+        assertEquals("bar", view.get(null, 2).name);
     }
 
     @Test
