@@ -47,11 +47,6 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         createTable(TABLE_NAME, 2, 10);
     }
 
-    protected Table defaultTable() {
-        //noinspection resource
-        return ignite().tables().table(TABLE_NAME);
-    }
-
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3})
     public void testBasicStreamingRecordBinaryView(int batchSize) {
@@ -74,13 +69,18 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertEquals("bar", view.get(null, tupleKey(2)).stringValue("name"));
     }
 
-    protected static Tuple tuple(int id, String name) {
+    private Table defaultTable() {
+        //noinspection resource
+        return ignite().tables().table(TABLE_NAME);
+    }
+
+    private static Tuple tuple(int id, String name) {
         return Tuple.create()
                 .set("id", id)
                 .set("name", name);
     }
 
-    protected static Tuple tupleKey(int id) {
+    private static Tuple tupleKey(int id) {
         return Tuple.create()
                 .set("id", id);
     }
