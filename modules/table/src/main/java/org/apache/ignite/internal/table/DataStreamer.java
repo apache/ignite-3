@@ -34,10 +34,10 @@ class DataStreamer {
     static <R> CompletableFuture<Void> streamData(
             Publisher<R> publisher,
             DataStreamerOptions options,
-            StreamerBatchSender<R, String> batchSender,
-            StreamerPartitionAwarenessProvider<R, String> partitionAwarenessProvider) {
+            StreamerBatchSender<R, Integer> batchSender,
+            StreamerPartitionAwarenessProvider<R, Integer> partitionAwarenessProvider) {
         StreamerOptions streamerOpts = streamerOptions(options);
-        StreamerSubscriber<R, String> subscriber = new StreamerSubscriber<>(batchSender, partitionAwarenessProvider, streamerOpts, LOG);
+        StreamerSubscriber<R, Integer> subscriber = new StreamerSubscriber<>(batchSender, partitionAwarenessProvider, streamerOpts, LOG);
 
         publisher.subscribe(subscriber);
 

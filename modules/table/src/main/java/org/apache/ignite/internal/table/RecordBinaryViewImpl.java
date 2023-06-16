@@ -366,7 +366,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         var opts = options == null ? DataStreamerOptions.DEFAULT : options;
 
         // TODO: Avoid re-hashing in upsertAllAsync.
-        StreamerBatchSender<Tuple, String> batchSender = (nodeId, items) -> upsertAllAsync(null, items);
+        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) -> upsertAllAsync(null, items);
 
         return DataStreamer.streamData(publisher, opts, batchSender, provider);
     }
