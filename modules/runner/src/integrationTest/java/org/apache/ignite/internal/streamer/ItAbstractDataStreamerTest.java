@@ -37,6 +37,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -52,6 +53,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     @BeforeAll
     public void createTable() {
         createTable(TABLE_NAME, 2, 10);
+    }
+
+    @BeforeEach
+    public void clearTable() {
+        sql("DELETE FROM " + TABLE_NAME);
     }
 
     @ParameterizedTest
