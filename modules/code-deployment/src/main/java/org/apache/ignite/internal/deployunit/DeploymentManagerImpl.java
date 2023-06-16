@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 
 import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -42,14 +41,12 @@ import org.apache.ignite.internal.deployunit.configuration.DeploymentConfigurati
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitAlreadyExistsException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
-import org.apache.ignite.internal.deployunit.exception.InvalidNodesArgumentException;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitFailover;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
 
@@ -143,37 +140,17 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             String id,
             Version version,
             boolean force,
-            DeploymentUnit deploymentUnit,
-            InitialDeployMode deployMode
+            CompletableFuture<DeploymentUnit> deploymentUnit,
+            DeployedNodes deployedNodes
     ) {
         checkId(id);
         Objects.requireNonNull(version);
         Objects.requireNonNull(deploymentUnit);
 
-        return extractNodes(deployMode)
+        return deployedNodes.extractNodes(cmgManager)
                 .thenCompose(nodesToDeploy ->
                         doDeploy(id, version, force, deploymentUnit, nodesToDeploy,
-                                undeployed -> deployAsync(id, version, deploymentUnit, deployMode)
-                        )
-                );
-    }
-
-    @Override
-    public CompletableFuture<Boolean> deployAsync(
-            String id,
-            Version version,
-            boolean force,
-            DeploymentUnit deploymentUnit,
-            List<String> nodes
-    ) {
-        checkId(id);
-        Objects.requireNonNull(version);
-        Objects.requireNonNull(deploymentUnit);
-
-        return extractNodes(nodes)
-                .thenCompose(nodesToDeploy ->
-                        doDeploy(id, version, force, deploymentUnit, nodesToDeploy,
-                                undeployed -> deployAsync(id, version, deploymentUnit, nodes)
+                                undeployed -> deployAsync(id, version, deploymentUnit, deployedNodes)
                         )
                 );
     }
@@ -182,12 +159,12 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             String id,
             Version version,
             boolean force,
-            DeploymentUnit deploymentUnit,
+            CompletableFuture<DeploymentUnit> unitFuture,
             Set<String> nodesToDeploy,
             Function<Boolean, CompletableFuture<Boolean>> retryDeploy
     ) {
         return deploymentUnitStore.createClusterStatus(id, version, nodesToDeploy)
-                .thenCompose(success -> {
+                .thenCompose(success -> unitFuture.thenCompose(deploymentUnit -> {
                     if (success) {
                         return doDeploy(id, version, deploymentUnit, nodesToDeploy);
                     } else {
@@ -201,7 +178,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                                 new DeploymentUnitAlreadyExistsException(id,
                                         "Unit " + id + ":" + version + " already exists"));
                     }
-                });
+                }));
     }
 
     private CompletableFuture<Boolean> doDeploy(String id, Version version, DeploymentUnit deploymentUnit, Set<String> nodesToDeploy) {
@@ -404,46 +381,5 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
     public DeploymentUnitAccessor deploymentUnitAccessor() {
         return deploymentUnitAccessor;
-    }
-
-    private CompletableFuture<Set<String>> extractNodes(InitialDeployMode deployMode) {
-        switch (deployMode) {
-            case ALL:
-                return cmgManager.logicalTopology()
-                        .thenApply(snapshot -> snapshot.nodes().stream()
-                                .map(ClusterNode::name)
-                                .collect(Collectors.toUnmodifiableSet()));
-            case MAJORITY:
-            default:
-                return cmgManager.majority();
-        }
-    }
-
-    /**
-     * Gets a list of nodes for initial deployment. Always contains at least a majority of CMG nodes.
-     *
-     * @param nodes List of consistent IDs of nodes to add to the majority.
-     * @return Completed future with a set of consistent IDs, or a future, completed exceptionally with
-     *         {@link InvalidNodesArgumentException} if any of the nodes are not present in the logical topology.
-     */
-    private CompletableFuture<Set<String>> extractNodes(List<String> nodes) {
-        return cmgManager.majority()
-                .thenCompose(majority -> cmgManager.logicalTopology()
-                        .thenApply(snapshot -> snapshot.nodes().stream()
-                                .map(ClusterNode::name)
-                                .collect(Collectors.toUnmodifiableSet()))
-                        .thenApply(allNodes -> {
-                            Set<String> result = new HashSet<>(majority);
-                            for (String node : nodes) {
-                                if (!allNodes.contains(node)) {
-                                    throw new InvalidNodesArgumentException(
-                                            "Node \"" + node + "\" is not present in the logical topology"
-                                    );
-                                }
-                                result.add(node);
-                            }
-                            return result;
-                        })
-                );
     }
 }

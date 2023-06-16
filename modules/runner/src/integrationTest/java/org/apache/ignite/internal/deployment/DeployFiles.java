@@ -34,11 +34,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.deployunit.DeployedNodes;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
-import org.apache.ignite.internal.deployunit.InitialDeployMode;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
-import org.jetbrains.annotations.Nullable;
 
 class DeployFiles {
     private static final int BASE_REPLICA_TIMEOUT = 30;
@@ -100,7 +99,7 @@ class DeployFiles {
     }
 
     public Unit deployAndVerify(String id, Version version, boolean force, List<DeployFile> files, IgniteImpl entryNode) {
-        return deployAndVerify(id, version, force, files, null, List.of(), entryNode);
+        return deployAndVerify(id, version, force, files, new DeployedNodes(List.of()), entryNode);
     }
 
     public Unit deployAndVerify(
@@ -108,8 +107,7 @@ class DeployFiles {
             Version version,
             boolean force,
             List<DeployFile> files,
-            @Nullable InitialDeployMode deployMode,
-            List<String> initialNodes,
+            DeployedNodes deployedNodes,
             IgniteImpl entryNode
     ) {
         List<Path> paths = files.stream()
@@ -117,13 +115,9 @@ class DeployFiles {
                 .collect(Collectors.toList());
 
         CompletableFuture<Boolean> deploy;
-        if (deployMode != null) {
-            deploy = entryNode.deployment()
-                    .deployAsync(id, version, force, fromPaths(paths), deployMode);
-        } else {
-            deploy = entryNode.deployment()
-                    .deployAsync(id, version, force, fromPaths(paths), initialNodes);
-        }
+
+        deploy = entryNode.deployment()
+                .deployAsync(id, version, force, fromPaths(paths), deployedNodes);
 
         assertThat(deploy, willBe(true));
 
@@ -160,7 +154,7 @@ class DeployFiles {
         return builder.build();
     }
 
-    private static DeploymentUnit fromPaths(List<Path> paths) {
+    private static CompletableFuture<DeploymentUnit> fromPaths(List<Path> paths) {
         Objects.requireNonNull(paths);
         Map<String, InputStream> map = new HashMap<>();
         try {
@@ -170,6 +164,6 @@ class DeployFiles {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return () -> map;
+        return CompletableFuture.completedFuture(() -> map);
     }
 }

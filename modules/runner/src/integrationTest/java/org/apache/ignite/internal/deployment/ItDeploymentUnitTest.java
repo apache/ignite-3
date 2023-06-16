@@ -35,6 +35,7 @@ import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
+import org.apache.ignite.internal.deployunit.DeployedNodes;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.InitialDeployMode;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
@@ -233,7 +234,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         Version version = Version.parseVersion("1.1.0");
         Unit smallUnit = files.deployAndVerify(
                 id, version, false, List.of(files.smallFile()),
-                null, List.of(node(1).name()),
+                new DeployedNodes(List.of(node(1).name())),
                 node(0)
         );
 
@@ -251,7 +252,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         Version version = Version.parseVersion("1.1.0");
         Unit smallUnit = files.deployAndVerify(
                 id, version, false, List.of(files.smallFile()),
-                InitialDeployMode.ALL, List.of(),
+                new DeployedNodes(InitialDeployMode.ALL),
                 node(0)
         );
 
