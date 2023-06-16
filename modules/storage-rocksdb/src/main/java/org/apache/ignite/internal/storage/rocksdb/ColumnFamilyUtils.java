@@ -29,11 +29,16 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
+import org.rocksdb.RocksDB;
 
 /**
  * Utilities for converting partition IDs and index names into Column Family names and vice versa.
  */
 public class ColumnFamilyUtils {
+    static {
+        RocksDB.loadLibrary();
+    }
+
     /** Name of the meta column family matches default columns family, meaning that it always exist when new table is created. */
     private static final String META_CF_NAME = "default";
 
