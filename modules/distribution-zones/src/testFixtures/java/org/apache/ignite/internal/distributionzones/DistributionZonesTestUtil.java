@@ -57,7 +57,6 @@ import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
 
@@ -306,24 +305,22 @@ public class DistributionZonesTestUtil {
      * TODO: IGNITE-19403 Watch listeners must be deployed after the zone manager starts.
      *
      * @param metaStorageManager Meta storage manager.
-     * @throws NodeStoppingException If node is stopping.
      * @throws InterruptedException If thread was interrupted.
      */
-    public static void deployWatchesAndUpdateMetaStorageRevision(MetaStorageManager metaStorageManager)
-            throws NodeStoppingException, InterruptedException {
+    public static void deployWatchesAndUpdateMetaStorageRevision(MetaStorageManager metaStorageManager) throws InterruptedException {
         // Watches are deployed before distributionZoneManager start in order to update Meta Storage revision before
         // distributionZoneManager's recovery.
-        metaStorageManager.deployWatches();
+        CompletableFuture<Void> deployWatchesFut = metaStorageManager.deployWatches();
 
         // Bump Meta Storage applied revision by modifying a fake key. DistributionZoneManager breaks on start if Vault is not empty, but
         // Meta Storage revision is equal to 0.
         var fakeKey = new ByteArray("foobar");
 
-        CompletableFuture<Boolean> invokeFuture = metaStorageManager.invoke(
+        CompletableFuture<Boolean> invokeFuture = deployWatchesFut.thenCompose(unused -> metaStorageManager.invoke(
                 Conditions.notExists(fakeKey),
                 Operations.put(fakeKey, fakeKey.bytes()),
                 Operations.noop()
-        );
+        ));
 
         assertThat(invokeFuture, willBe(true));
 

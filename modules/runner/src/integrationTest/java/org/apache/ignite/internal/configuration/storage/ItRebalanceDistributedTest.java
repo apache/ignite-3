@@ -237,6 +237,8 @@ public class ItRebalanceDistributedTest {
                 allOf(nodes.get(0).cmgManager.onJoinReady(), nodes.get(1).cmgManager.onJoinReady(), nodes.get(2).cmgManager.onJoinReady()),
                 willCompleteSuccessfully()
         );
+
+        nodes.stream().forEach(Node::waitWatches);
     }
 
     @AfterEach
@@ -514,6 +516,8 @@ public class ItRebalanceDistributedTest {
 
         newNode.start();
 
+        newNode.waitWatches();
+
         nodes.set(evictedNodeIndex, newNode);
 
         // Let's make sure that we will destroy the partition again.
@@ -599,6 +603,9 @@ public class ItRebalanceDistributedTest {
                 = new ConcurrentHashMap<>();
 
         private final NetworkAddress networkAddress;
+
+        /** The future have to be complete after the node start and all Meta storage watches are deployd. */
+        private CompletableFuture<Void> deployWatchesFut;
 
         /**
          * Constructor that simply creates a subset of components of this node.
@@ -828,7 +835,7 @@ public class ItRebalanceDistributedTest {
         /**
          * Starts the created components.
          */
-        void start() throws Exception {
+        void start() {
             nodeComponents = List.of(
                     vaultManager,
                     nodeCfgMgr,
@@ -857,8 +864,14 @@ public class ItRebalanceDistributedTest {
                     willSucceedIn(1, TimeUnit.MINUTES)
             );
 
-            // deploy watches to propagate data from the metastore into the vault
-            metaStorageManager.deployWatches();
+            deployWatchesFut = metaStorageManager.deployWatches();
+        }
+
+        /**
+         * Waits for watches deployed.
+         */
+        void waitWatches() {
+            assertThat("Watches were not deployed", deployWatchesFut, willCompleteSuccessfully());
         }
 
         /**

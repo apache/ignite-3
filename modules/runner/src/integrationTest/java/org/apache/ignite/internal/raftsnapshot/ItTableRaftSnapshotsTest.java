@@ -115,7 +115,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             + "      netClusterNodes: [ {} ]\n"
             + "    }\n"
             + "  },\n"
-            + "  raft.rpcInstallSnapshotTimeout: 10000"
+            + "  raft.rpcInstallSnapshotTimeout: 10000,"
+            + "  clientConnector.port: {}\n"
             + "}";
 
     /**

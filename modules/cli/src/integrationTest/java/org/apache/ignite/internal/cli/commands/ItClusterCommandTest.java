@@ -138,6 +138,7 @@ class ItClusterCommandTest extends AbstractCliTest {
         String config = Files.readString(Path.of("src/integrationTest/resources/hardcoded-ports-config.json"));
         config = config.replaceAll("<NETWORK_PORT>", String.valueOf(node.networkPort));
         config = config.replaceAll("<REST_PORT>", String.valueOf(node.restPort));
+        config = config.replaceAll("<CLIENT_PORT>", String.valueOf(node.restPort + 7000));
         config = config.replaceAll("<NET_CLUSTER_NODES>", netClusterNodes());
 
         return config;

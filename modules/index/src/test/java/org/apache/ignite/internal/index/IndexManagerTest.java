@@ -29,6 +29,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.schema.configuration.index.SortedIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -58,7 +60,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 
 /**
  * Test class to verify {@link IndexManager}.
@@ -84,10 +85,20 @@ public class IndexManagerTest {
         when(tableManagerMock.tableAsync(anyLong(), anyInt())).thenAnswer(inv -> {
             InternalTable tbl = mock(InternalTable.class);
 
-            Mockito.doReturn(inv.getArgument(1)).when(tbl).tableId();
+            doReturn(inv.getArgument(1)).when(tbl).tableId();
 
             return completedFuture(new TableImpl(tbl, new HeapLockManager()));
         });
+
+        when(tableManagerMock.getTable(anyInt())).thenAnswer(inv -> {
+            InternalTable tbl = mock(InternalTable.class);
+
+            doReturn(inv.getArgument(0)).when(tbl).tableId();
+
+            return new TableImpl(tbl, new HeapLockManager());
+        });
+
+        when(tableManagerMock.localPartitionSetAsync(anyLong(), anyInt())).thenReturn(completedFuture(PartitionSet.EMPTY_SET));
 
         SchemaManager schManager = mock(SchemaManager.class);
 

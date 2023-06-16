@@ -30,9 +30,6 @@ public interface IgniteClientConfiguration {
     /** Default port. */
     int DFLT_PORT = 10800;
 
-    /** Default port range. */
-    int DFLT_PORT_RANGE = 100;
-
     /** Default socket connect timeout, in milliseconds. */
     int DFLT_CONNECT_TIMEOUT = 5000;
 
@@ -60,8 +57,7 @@ public interface IgniteClientConfiguration {
 
     /**
      * Gets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port. If
-     * port is not set then Ignite will generate multiple addresses for default port range. See {@link IgniteClientConfiguration#DFLT_PORT},
-     * {@link IgniteClientConfiguration#DFLT_PORT_RANGE}.
+     * port is not set then Ignite will use {@link IgniteClientConfiguration#DFLT_PORT}.
      *
      * <p>Providing addresses of multiple nodes in the cluster will improve performance: Ignite will balance requests across all
      * connections, and use partition awareness to send key-based requests directly to the primary node.
@@ -128,20 +124,20 @@ public interface IgniteClientConfiguration {
     @Nullable Executor asyncContinuationExecutor();
 
     /**
-     * Gets the heartbeat message interval, in milliseconds. Default is <code>30_000</code>.
+     * Gets the heartbeat message interval, in milliseconds. Default is {@code 30_000}.
      *
      * <p>When server-side idle timeout is not zero, effective heartbeat
-     * interval is set to <code>min(heartbeatInterval, idleTimeout / 3)</code>.
+     * interval is set to {@code min(heartbeatInterval, idleTimeout / 3)}.
      *
      * <p>When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
      * to keep the connection alive and detect potential half-open state.
      *
      * @return Heartbeat interval.
      */
-    public long heartbeatInterval();
+    long heartbeatInterval();
 
     /**
-     * Gets the heartbeat message timeout, in milliseconds. Default is <code>5000</code>.
+     * Gets the heartbeat message timeout, in milliseconds. Default is {@code 5000}.
      *
      * <p>When a server does not respond to a heartbeat within the specified timeout, client will close the connection.
      *
@@ -150,7 +146,7 @@ public interface IgniteClientConfiguration {
      *
      * @return Heartbeat interval.
      */
-    public long heartbeatTimeout();
+    long heartbeatTimeout();
 
     /**
      * Returns the logger factory. This factory will be used to create a logger instance when needed.

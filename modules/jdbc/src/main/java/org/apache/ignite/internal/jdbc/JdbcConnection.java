@@ -56,7 +56,7 @@ import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.SslConfiguration;
-import org.apache.ignite.internal.client.HostAndPortRange;
+import org.apache.ignite.internal.client.HostAndPort;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
@@ -922,10 +922,9 @@ public class JdbcConnection implements Connection {
      * @param range HostAndPortRange.
      * @return Address string with host and port range.
      */
-    private String createStrAddress(HostAndPortRange range) {
+    private String createStrAddress(HostAndPort range) {
         String host = range.host();
-        int portFrom = range.portFrom();
-        int portTo = range.portTo();
+        int port = range.port();
 
         boolean ipV6 = host.contains(":");
 
@@ -933,7 +932,7 @@ public class JdbcConnection implements Connection {
             host = "[" + host + "]";
         }
 
-        return host + ":" + (portFrom == portTo ? portFrom : portFrom + ".." + portTo);
+        return host + ":" + port;
     }
 
     /**
