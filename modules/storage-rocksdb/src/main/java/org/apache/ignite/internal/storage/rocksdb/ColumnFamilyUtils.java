@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -148,21 +148,21 @@ public class ColumnFamilyUtils {
 
             NativeTypeSpec nativeTypeSpec = NativeTypeSpec.fromOrdinal(nativeTypeSpecOrdinal);
 
-            assert nativeTypeSpec != null : format("Invalid sorted index CF name. [nameBytes=%s]", Arrays.toString(cfName));
+            assert nativeTypeSpec != null : format("Invalid sorted index CF name. [nameBytes={}]", Arrays.toString(cfName));
 
             NativeType nativeType;
 
             switch (nativeTypeSpec) {
                 case INT8:
-                    nativeType = NativeTypes.INT8; //TODO Only use INT64.
+                    nativeType = NativeTypes.INT8; //TODO IGNITE-19751 Only use INT64.
                     break;
 
                 case INT16:
-                    nativeType = NativeTypes.INT16; //TODO Only use INT64.
+                    nativeType = NativeTypes.INT16; //TODO IGNITE-19751 Only use INT64.
                     break;
 
                 case INT32:
-                    nativeType = NativeTypes.INT32; //TODO Only use INT64.
+                    nativeType = NativeTypes.INT32; //TODO IGNITE-19751 Only use INT64.
                     break;
 
                 case INT64:
@@ -170,7 +170,7 @@ public class ColumnFamilyUtils {
                     break;
 
                 case FLOAT:
-                    nativeType = NativeTypes.FLOAT; //TODO Only use DOUBLE.
+                    nativeType = NativeTypes.FLOAT; //TODO IGNITE-19751 Only use DOUBLE? Maybe.
                     break;
 
                 case DOUBLE:
@@ -218,7 +218,7 @@ public class ColumnFamilyUtils {
                     break;
 
                 default:
-                    throw new AssertionError(format("Unexpected native type. [spec=%s]", nativeTypeSpec));
+                    throw new AssertionError(format("Unexpected native type. [spec={}]", nativeTypeSpec));
             }
 
             boolean nullable = (nativeTypeFlags & NULLABILITY_FLAG) != 0;

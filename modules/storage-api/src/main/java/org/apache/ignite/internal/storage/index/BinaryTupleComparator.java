@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.index;
 
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.EQUALITY_FLAG;
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FLAG;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -157,8 +158,8 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
                 return tuple1.dateTimeValue(index).compareTo(tuple2.dateTimeValue(index));
 
             default:
-                throw new IllegalArgumentException(String.format(
-                        "Unsupported column type in binary tuple comparator. Column index: %d, column type: %s",
+                throw new IllegalArgumentException(format(
+                        "Unsupported column type in binary tuple comparator. [index={}, type={}]",
                         index, columnDescriptor.type()
                 ));
         }

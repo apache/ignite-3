@@ -38,8 +38,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
@@ -70,9 +68,6 @@ import org.rocksdb.WriteBatch;
  * Table storage implementation based on {@link RocksDB} instance.
  */
 public class RocksDbTableStorage implements MvTableStorage {
-    /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(RocksDbTableStorage.class);
-
     private final SharedRocksDbInstance rocksDb;
 
     /** Partition storages. */

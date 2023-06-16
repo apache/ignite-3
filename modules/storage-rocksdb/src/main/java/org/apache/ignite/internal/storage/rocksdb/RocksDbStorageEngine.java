@@ -155,7 +155,7 @@ public class RocksDbStorageEngine implements StorageEngine {
                     storagePath.resolve("rocksdb-" + name)
             );
         } catch (Exception e) {
-            throw new StorageException(e);
+            throw new StorageException("Failed to create new RocksDB data region", e);
         }
 
         sharedInstances.put(name, instance);

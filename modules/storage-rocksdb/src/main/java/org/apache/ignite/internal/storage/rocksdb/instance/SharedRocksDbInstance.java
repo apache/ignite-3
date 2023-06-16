@@ -21,9 +21,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstanceCreator.sortedIndexCfOptions;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -248,7 +250,12 @@ public final class SharedRocksDbInstance {
 
                 db.destroyColumnFamilyHandle(columnFamilyHandle);
             } catch (RocksDBException e) {
-                throw new StorageException(e);
+                String message = format(
+                        "Failed to destroy RocksDB Column Family. [cfName={}, path={}]",
+                        Arrays.toString(cfName.bytes()),
+                        path
+                );
+                throw new StorageException(message, e);
             }
 
             return null;

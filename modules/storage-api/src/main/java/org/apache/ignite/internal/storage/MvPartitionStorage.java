@@ -129,7 +129,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      *
      * @deprecated No one needs it, and it slows down the storage.
      */
-    //TODO: Delete this method.
+    //TODO IGNITE-19750 Delete this method.
     @Deprecated
     long persistedIndex();
 
