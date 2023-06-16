@@ -166,4 +166,11 @@ public class FileDeployerService {
     Path unitPath(String id, Version version) {
         return unitsFolder.resolve(id).resolve(version.render());
     }
+
+    /**
+     * Stops the deployer service.
+     */
+    public void stop() {
+        executor.shutdown();
+    }
 }
