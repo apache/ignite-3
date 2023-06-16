@@ -1044,7 +1044,6 @@ public class InternalTableImpl implements InternalTable {
     private Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            PrimaryReplica recipient,
             String recipient,
             long enlistmentConsistencyToken,
             @Nullable Integer indexId,
