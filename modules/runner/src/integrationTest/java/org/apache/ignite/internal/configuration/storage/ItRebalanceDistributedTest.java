@@ -697,7 +697,8 @@ public class ItRebalanceDistributedTest {
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
                             TablesConfiguration.KEY,
-                            DistributionZonesConfiguration.KEY
+                            DistributionZonesConfiguration.KEY,
+                            GcConfiguration.KEY
                     ),
                     List.of(ExtendedTableConfigurationSchema.class),
                     List.of(
@@ -716,7 +717,8 @@ public class ItRebalanceDistributedTest {
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
                             TablesConfiguration.KEY,
-                            DistributionZonesConfiguration.KEY
+                            DistributionZonesConfiguration.KEY,
+                            GcConfiguration.KEY
                     ),
                     cfgStorage,
                     clusterCfgGenerator,
