@@ -17,30 +17,25 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.schema.configuration.index.IndexValidator;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexConfigurationSchema;
 
 /**
- * Tables configuration schema.
+ * Garbage collector configuration schema.
  */
-@SuppressWarnings("PMD.UnusedPrivateField")
-@ConfigurationRoot(rootName = "table", type = ConfigurationType.DISTRIBUTED)
-public class TablesConfigurationSchema {
-    /** Global integer id counter. Used as an auto-increment counter to generate integer identifiers for table. */
+@ConfigurationRoot(rootName = "gc", type = ConfigurationType.DISTRIBUTED)
+public class GcConfigurationSchema {
+    /** Number of garbage collector threads. */
     @Value(hasDefault = true)
-    public int globalIdCounter = 0;
+    public int threads = Runtime.getRuntime().availableProcessors();
 
-    /** List of configured tables. */
-    @NamedConfigValue
-    @TableValidator
-    public TableConfigurationSchema tables;
+    /** The number of entries in the storage to be garbage collected during a storage update operation. */
+    @Value(hasDefault = true)
+    public int onUpdateBatchSize = 5;
 
-    /** List of configured indexes. */
-    @NamedConfigValue
-    @IndexValidator
-    public TableIndexConfigurationSchema indexes;
+    /** Low watermark configuration. */
+    @ConfigValue
+    public LowWatermarkConfigurationSchema lowWatermark;
 }

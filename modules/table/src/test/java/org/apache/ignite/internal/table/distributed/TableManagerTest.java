@@ -91,6 +91,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -216,8 +217,13 @@ public class TableManagerTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
 
+    /** Distribution zones configuration. */
     @InjectConfiguration
     private DistributionZonesConfiguration distributionZonesConfiguration;
+
+    /** Garbage collector configuration. */
+    @InjectConfiguration
+    private GcConfiguration gcConfig;
 
     @InjectConfiguration
     private PersistentPageMemoryStorageEngineConfiguration storageEngineConfig;
@@ -856,6 +862,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 revisionUpdater,
                 tblsCfg,
                 distributionZonesConfiguration,
+                gcConfig,
                 clusterService,
                 rm,
                 replicaMgr,

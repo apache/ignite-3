@@ -69,6 +69,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
@@ -99,6 +100,7 @@ import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -355,35 +357,37 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
         );
 
-        Consumer<LongFunction<CompletableFuture<?>>> registry = (c) -> clusterCfgMgr.configurationRegistry()
-                .listenUpdateStorageRevision(c::apply);
+        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
+
+        Consumer<LongFunction<CompletableFuture<?>>> registry = (c) -> clusterConfigRegistry.listenUpdateStorageRevision(c::apply);
 
         DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));
 
         Path storagePath = getPartitionsStorePath(dir);
 
+        DistributionZonesConfiguration zonesConfig = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
+
         DataStorageManager dataStorageManager = new DataStorageManager(
-                clusterCfgMgr.configurationRegistry().getConfiguration(DistributionZonesConfiguration.KEY),
+                zonesConfig,
                 dataStorageModules.createStorageEngines(
                         name,
-                        clusterCfgMgr.configurationRegistry(),
+                        clusterConfigRegistry,
                         storagePath,
                         null
                 )
         );
 
-        TablesConfiguration tablesConfiguration = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
+        TablesConfiguration tablesConfig = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
-        DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
-                .getConfiguration(DistributionZonesConfiguration.KEY);
+        GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
-        SchemaManager schemaManager = new SchemaManager(registry, tablesConfiguration, metaStorageMgr);
+        SchemaManager schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
         LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
-                zonesConfiguration,
-                tablesConfiguration,
+                zonesConfig,
+                tablesConfig,
                 metaStorageMgr,
                 logicalTopologyService,
                 vault,
@@ -402,8 +406,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         TableManager tableManager = new TableManager(
                 name,
                 registry,
-                tablesConfiguration,
-                zonesConfiguration,
+                tablesConfig,
+                zonesConfig,
+                gcConfig,
                 clusterSvc,
                 raftMgr,
                 replicaMgr,
@@ -425,7 +430,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 null
         );
 
-        var indexManager = new IndexManager(tablesConfiguration, schemaManager, tableManager);
+        var indexManager = new IndexManager(tablesConfig, schemaManager, tableManager);
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,
@@ -497,7 +502,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         CompletableFuture<?> startFuture = CompletableFuture.allOf(
                 nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
+                clusterConfigRegistry.notifyCurrentConfigurationListeners()
         ).thenCompose(unused ->
                 // Deploy all registered watches because all components are ready and have registered their listeners.
                 CompletableFuture.allOf(metaStorageMgr.deployWatches(), configurationCatchUpFuture)
