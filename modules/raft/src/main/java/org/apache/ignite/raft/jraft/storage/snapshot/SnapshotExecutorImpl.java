@@ -250,13 +250,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         final FirstSnapshotLoadDone done = new FirstSnapshotLoadDone(reader);
         Requires.requireTrue(this.fsmCaller.onSnapshotLoad(done));
         try {
-            // TODO: IGNITE-19363 We want to avoid deadlock for now, but this is an ad-hoc decision.
-            // We don't wait for the partition's snapshot load closure to finish here.
-            if (!node.getNodeId().getGroupId().contains("part")) {
-                done.waitForRun();
-            } else {
-                done.status = Status.OK();
-            }
+            done.waitForRun();
         }
         catch (final InterruptedException e) {
             LOG.warn("Wait for FirstSnapshotLoadDone run is interrupted.");
