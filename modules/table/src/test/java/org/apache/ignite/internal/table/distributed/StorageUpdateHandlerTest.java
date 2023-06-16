@@ -33,7 +33,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
@@ -50,7 +50,7 @@ public class StorageUpdateHandlerTest {
     private static final int PARTITION_ID = 0;
 
     @InjectConfiguration
-    private DataStorageConfiguration dataStorageConfig;
+    private GcConfiguration gcConfig;
 
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
             new HybridTimestamp(1, 0)
@@ -143,7 +143,7 @@ public class StorageUpdateHandlerTest {
         return new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionStorage,
-                dataStorageConfig,
+                gcConfig,
                 lowWatermark,
                 indexUpdateHandler,
                 new GcUpdateHandler(partitionStorage, safeTimeTracker, indexUpdateHandler)

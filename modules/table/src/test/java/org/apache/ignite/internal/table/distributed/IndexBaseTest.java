@@ -34,7 +34,7 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -88,7 +88,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     GcUpdateHandler gcUpdateHandler;
 
     @BeforeEach
-    void setUp(@InjectConfiguration DataStorageConfiguration dsCfg) {
+    void setUp(@InjectConfiguration GcConfiguration gcConfig) {
         int pkIndexId = 1;
         int sortedIndexId = 2;
         int hashIndexId = 3;
@@ -144,7 +144,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         storageUpdateHandler = new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionDataStorage,
-                dsCfg,
+                gcConfig,
                 mock(LowWatermark.class),
                 indexUpdateHandler,
                 gcUpdateHandler

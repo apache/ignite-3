@@ -28,9 +28,9 @@ import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -66,7 +66,7 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
     private LowWatermark lowWatermark;
 
     @InjectConfiguration
-    private DistributionZoneConfiguration distributionZoneConfig;
+    private GcConfiguration gcConfig;
 
     /**
      * Initializes the internal structures needed for tests.
@@ -83,7 +83,7 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
         storageUpdateHandler = new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionDataStorage,
-                distributionZoneConfig.dataStorage(),
+                gcConfig,
                 lowWatermark,
                 indexUpdateHandler,
                 new GcUpdateHandler(
@@ -96,7 +96,7 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
 
     @Test
     void testConcurrentExecuteBatchGc() {
-        assertThat(distributionZoneConfig.dataStorage().gcOnUpdateBatchSize().update(4), willSucceedFast());
+        assertThat(gcConfig.onUpdateBatchSize().update(4), willSucceedFast());
 
         when(lowWatermark.getLowWatermark()).thenReturn(HybridTimestamp.MAX_VALUE);
 
