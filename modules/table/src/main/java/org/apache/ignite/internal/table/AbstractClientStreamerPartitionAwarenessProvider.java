@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.table;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 
 /**
@@ -27,38 +27,24 @@ import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
  *
  * @param <T> Item type.
  */
-abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements StreamerPartitionAwarenessProvider<T, String> {
-    private final InternalTable tbl;
-    private List<String> assignment;
-    private SchemaDescriptor schema;
+abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements StreamerPartitionAwarenessProvider<T, Integer> {
+    private static final CompletableFuture<Void> COMPLETED_FUTURE = CompletableFuture.completedFuture(null);
 
-    AbstractClientStreamerPartitionAwarenessProvider(InternalTable tbl) {
-        this.tbl = tbl;
+    private final SchemaRegistry schemaReg;
+
+    AbstractClientStreamerPartitionAwarenessProvider(SchemaRegistry schemaReg) {
+        this.schemaReg = schemaReg;
     }
 
     @Override
-    public String partition(T item) {
-        if (schema == null || assignment == null) {
-            throw new IllegalStateException("StreamerPartitionAwarenessProvider.refresh() was not called or awaited.");
-        }
-
-        if (assignment.isEmpty()) {
-            return ""; // Default channel.
-        }
-
-        int hash = colocationHash(schema, item);
-        return assignment.get(Math.abs(hash % assignment.size()));
+    public Integer partition(T item) {
+        return colocationHash(schemaReg.schema(), item);
     }
 
     abstract int colocationHash(SchemaDescriptor schema, T item);
 
     @Override
     public CompletableFuture<Void> refreshAsync() {
-        // TODO: How?
-        // var schemaFut = tbl.getLatestSchema().thenAccept(schema -> this.schema = schema);
-        // var assignmentFut = tbl.getPartitionAssignment().thenAccept(assignment -> this.assignment = assignment);
-
-        // return CompletableFuture.allOf(schemaFut, assignmentFut);
-        return CompletableFuture.completedFuture(null);
+        return COMPLETED_FUTURE;
     }
 }

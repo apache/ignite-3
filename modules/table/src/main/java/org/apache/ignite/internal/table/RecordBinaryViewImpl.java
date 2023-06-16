@@ -362,7 +362,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        var provider = new TupleStreamerPartitionAwarenessProvider(tbl);
+        var provider = new TupleStreamerPartitionAwarenessProvider(schemaReg);
         var opts = options == null ? DataStreamerOptions.DEFAULT : options;
 
         // TODO: Avoid re-hashing in upsertAllAsync.

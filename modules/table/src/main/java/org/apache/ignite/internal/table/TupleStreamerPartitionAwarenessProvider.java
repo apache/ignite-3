@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.table.Tuple;
@@ -27,8 +28,8 @@ import org.apache.ignite.table.Tuple;
  * Partition awareness provider for data streamer.
  */
 class TupleStreamerPartitionAwarenessProvider extends AbstractClientStreamerPartitionAwarenessProvider<Tuple> {
-    TupleStreamerPartitionAwarenessProvider(InternalTable tbl) {
-        super(tbl);
+    TupleStreamerPartitionAwarenessProvider(SchemaRegistry schemaReg) {
+        super(schemaReg);
     }
 
     @Override
