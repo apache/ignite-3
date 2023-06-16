@@ -20,8 +20,7 @@ package org.apache.ignite.internal.storage.rocksdb;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -102,19 +101,15 @@ public class ColumnFamilyUtils {
      * @see #comparatorFromCfName(byte[])
      */
     static byte[] sortedIndexCfName(List<StorageSortedIndexColumnDescriptor> columns) {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteBuffer buf = ByteBuffer.allocate(SORTED_INDEX_CF_PREFIX.length() + columns.size() * 2);
 
-        try {
-            out.write(SORTED_INDEX_CF_PREFIX.getBytes(UTF_8));
-        } catch (IOException ignore) {
-            // Literally impossible.
-        }
+        buf.put(SORTED_INDEX_CF_PREFIX.getBytes(UTF_8));
 
         for (StorageSortedIndexColumnDescriptor column : columns) {
             NativeType nativeType = column.type();
             NativeTypeSpec nativeTypeSpec = nativeType.spec();
 
-            out.write(nativeTypeSpec.ordinal());
+            buf.put((byte) nativeTypeSpec.ordinal());
 
             int flags = 0;
 
@@ -126,10 +121,10 @@ public class ColumnFamilyUtils {
                 flags |= ASC_ORDER_FLAG;
             }
 
-            out.write(flags);
+            buf.put((byte) flags);
         }
 
-        return out.toByteArray();
+        return buf.array();
     }
 
     /**
