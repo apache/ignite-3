@@ -106,7 +106,8 @@ public class GcUpdateHandler {
             int count = countHolder.get();
 
             for (int i = 0; i < count; i++) {
-                // It is safe for the first iteration to use a lock instead of tryLock.
+                // It is safe for the first iteration to use a lock instead of tryLock, since there will be no deadlock for the first RowId
+                // and a deadlock may happen with subsequent ones.
                 VacuumResult vacuumResult = internalVacuum(lowWatermark, locker, i > 0);
 
                 if (vacuumResult != VacuumResult.SUCCESS) {
@@ -130,12 +131,12 @@ public class GcUpdateHandler {
 
             RowId rowId = gcEntry.getRowId();
 
-            if (!useTryLock) {
-                locker.lock(rowId);
-            } else {
+            if (useTryLock) {
                 if (!locker.tryLock(rowId)) {
                     return VacuumResult.FAILED_ACQUIRE_LOCK;
                 }
+            } else {
+                locker.lock(rowId);
             }
 
             BinaryRow binaryRow = storage.vacuum(gcEntry);
