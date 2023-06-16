@@ -28,6 +28,9 @@ import org.apache.ignite.internal.streamer.StreamerSubscriber;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Client data streamer.
+ */
 class ClientDataStreamer {
     static <R> CompletableFuture<Void> streamData(
             Publisher<R> publisher,

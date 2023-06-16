@@ -504,11 +504,6 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 PartitionAwarenessProvider.of(nodeId),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
-        //noinspection resource
-        IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
-        StreamerSubscriber<Entry<K, V>, String> subscriber = new StreamerSubscriber<>(batchSender, provider, opts, log);
-        publisher.subscribe(subscriber);
-
-        return subscriber.completionFuture();
+        return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 }
