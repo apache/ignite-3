@@ -120,28 +120,15 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     @Override
     public void start() throws StorageException {
-        String regionName = DEFAULT_DATA_REGION_NAME;
-        registerDataRegion(regionName);
-
-        SharedRocksDbInstance instance;
-
-        try {
-            instance = new SharedRocksDbInstanceCreator().create(
-                    this,
-                    regions.get(regionName),
-                    storagePath.resolve("rocksdb-" + regionName)
-            );
-        } catch (Exception e) {
-            throw new StorageException(e);
-        }
-
-        sharedInstances.put(regionName, instance);
+        registerDataRegion(DEFAULT_DATA_REGION_NAME);
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
         engineConfig.regions().listenElements(new ConfigurationNamedListListener<>() {
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<RocksDbDataRegionView> ctx) {
-                return completedFuture(new UnsupportedOperationException());
+                registerDataRegion(ctx.newName(RocksDbDataRegionView.class));
+
+                return completedFuture(null);
             }
         });
     }
@@ -158,6 +145,20 @@ public class RocksDbStorageEngine implements StorageEngine {
         RocksDbDataRegion previousRegion = regions.put(dataRegionConfig.name().value(), region);
 
         assert previousRegion == null : dataRegionConfig.name().value();
+
+        SharedRocksDbInstance instance;
+
+        try {
+            instance = new SharedRocksDbInstanceCreator().create(
+                    this,
+                    region,
+                    storagePath.resolve("rocksdb-" + name)
+            );
+        } catch (Exception e) {
+            throw new StorageException(e);
+        }
+
+        sharedInstances.put(name, instance);
     }
 
     @Override
