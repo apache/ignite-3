@@ -268,6 +268,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      * @return Index Storage.
      * @throws StorageException If the given partition does not exist.
      */
+    // TODO: IGNITE-19112 Change or get rid of
     @Nullable IndexStorage getIndex(int partitionId, int indexId);
 
     /**
