@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.comparatorFromCfName;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -62,7 +63,7 @@ public class ColumnFamilyUtilsTest {
 
     @Test
     void testComparatorFromCfName() {
-        RocksDbBinaryTupleComparator comparator = ColumnFamilyUtils.comparatorFromCfName(name(3, 0, 2, 1, 1, 2, 0, 3));
+        RocksDbBinaryTupleComparator comparator = comparatorFromCfName(name(3, 0, 2, 1, 1, 2, 0, 3));
 
         // I am sorry, this is for a single test only.
         List<StorageSortedIndexColumnDescriptor> columns = getFieldValue(comparator, "comparator", "columns");
