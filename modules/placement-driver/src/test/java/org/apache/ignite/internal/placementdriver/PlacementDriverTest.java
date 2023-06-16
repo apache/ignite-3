@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -84,7 +85,7 @@ public class PlacementDriverTest {
     private LeaseTracker placementDriver;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         vault = new VaultManager(new InMemoryVaultService());
 
         metastore = StandaloneMetaStorageManager.create(vault);
@@ -98,7 +99,7 @@ public class PlacementDriverTest {
         metastore.start();
         placementDriver.startTrack();
 
-        metastore.deployWatches();
+        assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
     }
 
     @AfterEach

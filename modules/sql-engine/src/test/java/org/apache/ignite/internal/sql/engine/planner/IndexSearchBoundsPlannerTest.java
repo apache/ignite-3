@@ -433,7 +433,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                 exact("+(?0, 10)")
         );
 
-        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > SUBSTRING(?::VARCHAR, 1, 2) || '3'", List.of('1'), publicSchema,
+        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > SUBSTRING(?::VARCHAR, 1, 2) || '3'", List.of("1"), publicSchema,
                 exact(1),
                 range("||(SUBSTRING(?0, 1, 2), _UTF-8'3')", "$NULL_BOUND()", false, false)
         );

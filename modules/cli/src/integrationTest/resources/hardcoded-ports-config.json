@@ -9,5 +9,8 @@
   "rest": {
     "port": <REST_PORT>,
     "portRange": 0
+  },
+  "clientConnector": {
+    "port": <CLIENT_PORT>
   }
 }

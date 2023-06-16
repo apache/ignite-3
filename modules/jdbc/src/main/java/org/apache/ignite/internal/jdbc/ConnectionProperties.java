@@ -19,7 +19,7 @@ package org.apache.ignite.internal.jdbc;
 
 import java.sql.SQLException;
 import org.apache.ignite.client.ClientAuthenticationMode;
-import org.apache.ignite.internal.client.HostAndPortRange;
+import org.apache.ignite.internal.client.HostAndPort;
 
 /**
  * Provide access and manipulations with connection JDBC properties.
@@ -59,14 +59,14 @@ public interface ConnectionProperties {
      *
      * @return Ignite nodes addresses.
      */
-    HostAndPortRange[] getAddresses();
+    HostAndPort[] getAddresses();
 
     /**
      * Set the ignite node addresses.
      *
      * @param addrs Ignite nodes addresses.
      */
-    void setAddresses(HostAndPortRange[] addrs);
+    void setAddresses(HostAndPort[] addrs);
 
     /**
      * Note: zero value means there is no limits.

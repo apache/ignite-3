@@ -45,7 +45,6 @@ import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
@@ -124,7 +123,6 @@ import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -154,6 +152,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /** Default node port. */
     private static final int DEFAULT_NODE_PORT = 3344;
 
+    private static final int DEFAULT_CLIENT_PORT = 10800;
+
     /** Value producer for table data, is used to create data and check it later. */
     private static final IntFunction<String> VALUE_PRODUCER = i -> "val " + i;
 
@@ -182,7 +182,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             + "      gossipInterval: 10\n"
             + "    },\n"
             + "  },\n"
-            + "  raft: " + RAFT_CFG + "\n"
+            + "  raft: " + RAFT_CFG + ",\n"
+            + "  clientConnector.port: {}\n"
             + "}";
 
     @InjectConfiguration("mock: " + RAFT_CFG)
@@ -494,24 +495,15 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 fut -> new TestConfigurationCatchUpListener(cfgStorage, fut, revisionCallback0)
         );
 
-        CompletableFuture<?> notificationFuture = CompletableFuture.allOf(
+        CompletableFuture<?> startFuture = CompletableFuture.allOf(
                 nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                 clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
+        ).thenCompose(unused ->
+                // Deploy all registered watches because all components are ready and have registered their listeners.
+                CompletableFuture.allOf(metaStorageMgr.deployWatches(), configurationCatchUpFuture)
         );
 
-        CompletableFuture<?> startFuture = notificationFuture
-                .thenCompose(v -> {
-                    // Deploy all registered watches because all components are ready and have registered their listeners.
-                    try {
-                        metaStorageMgr.deployWatches();
-                    } catch (NodeStoppingException e) {
-                        throw new CompletionException(e);
-                    }
-
-                    return configurationCatchUpFuture;
-                });
-
-        assertThat(startFuture, willCompleteSuccessfully());
+        assertThat("Partial node was not started", startFuture, willCompleteSuccessfully());
 
         log.info("Completed recovery on partially started node, last revision applied: " + lastRevision.get()
                 + ", acceptableDifference: " + IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100)
@@ -687,7 +679,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     private static String configurationString(int idx) {
         String connectAddr = "[\"localhost:" + DEFAULT_NODE_PORT + "\"]";
 
-        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, DEFAULT_NODE_PORT + idx, connectAddr);
+        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, DEFAULT_NODE_PORT + idx, connectAddr, DEFAULT_CLIENT_PORT + idx);
     }
 
     /**
@@ -1078,7 +1070,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         @Language("HOCON") String cfgString = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
                 DEFAULT_NODE_PORT + 11,
-                "[\"localhost:" + DEFAULT_NODE_PORT + "\"]"
+                "[\"localhost:" + DEFAULT_NODE_PORT + "\"]",
+                DEFAULT_CLIENT_PORT + 11
         );
 
         PartialNode partialNode = startPartialNode(1, cfgString);
@@ -1256,15 +1249,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param replicas Replica factor.
      * @param partitions Partitions count.
      */
-    private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas, int partitions)
-            throws InterruptedException {
+    private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas, int partitions) {
         try (Session session = nodes.get(0).sql().createSession()) {
             session.execute(null,
                     String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
             session.execute(null, "CREATE TABLE IF NOT EXISTS " + name
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
-
-            waitForIndex(nodes, name + "_PK");
 
             for (int i = 0; i < 100; i++) {
                 session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",

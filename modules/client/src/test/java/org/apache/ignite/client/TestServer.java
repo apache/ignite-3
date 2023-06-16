@@ -22,7 +22,10 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 
+import java.io.IOError;
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.net.SocketAddress;
 import java.util.List;
 import java.util.Objects;
@@ -73,26 +76,21 @@ public class TestServer implements AutoCloseable {
     /**
      * Constructor.
      *
-     * @param port Port.
-     * @param portRange Port range.
      * @param idleTimeout Idle timeout.
      * @param ignite Ignite.
      */
     public TestServer(
-            int port,
-            int portRange,
             long idleTimeout,
             Ignite ignite
     ) {
         this(
-                port,
-                portRange,
                 idleTimeout,
                 ignite,
                 null,
                 null,
                 null,
                 UUID.randomUUID(),
+                null,
                 null
         );
     }
@@ -100,21 +98,18 @@ public class TestServer implements AutoCloseable {
     /**
      * Constructor.
      *
-     * @param port Port.
-     * @param portRange Port range.
      * @param idleTimeout Idle timeout.
      * @param ignite Ignite.
      */
     public TestServer(
-            int port,
-            int portRange,
             long idleTimeout,
             Ignite ignite,
             @Nullable Function<Integer, Boolean> shouldDropConnection,
             @Nullable Function<Integer, Integer> responseDelay,
             @Nullable String nodeName,
             UUID clusterId,
-            @Nullable AuthenticationConfiguration authenticationConfiguration
+            @Nullable AuthenticationConfiguration authenticationConfiguration,
+            @Nullable Integer port
     ) {
         generator = new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY);
         cfg = new ConfigurationRegistry(
@@ -127,7 +122,7 @@ public class TestServer implements AutoCloseable {
         cfg.start();
 
         cfg.getConfiguration(ClientConnectorConfiguration.KEY).change(
-                local -> local.changePort(port).changePortRange(portRange).changeIdleTimeout(idleTimeout)
+                local -> local.changePort(port != null ? port : getFreePort()).changeIdleTimeout(idleTimeout)
         ).join();
 
         bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkConfiguration.KEY), "TestServer-");
@@ -241,6 +236,14 @@ public class TestServer implements AutoCloseable {
 
     private static String getNodeId(String name) {
         return name + "-id";
+    }
+
+    private static int getFreePort() {
+        try (var serverSocket = new ServerSocket(0)) {
+            return serverSocket.getLocalPort();
+        } catch (IOException e) {
+            throw new IOError(e);
+        }
     }
 
     private AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) {

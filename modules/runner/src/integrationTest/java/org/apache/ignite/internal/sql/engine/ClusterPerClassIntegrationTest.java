@@ -39,7 +39,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
@@ -99,6 +98,9 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     /** Base port number. */
     private static final int BASE_PORT = 3344;
 
+    /** Base client port number. */
+    private static final int BASE_CLIENT_PORT = 10800;
+
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  \"network\": {\n"
@@ -106,7 +108,8 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             + "    \"nodeFinder\":{\n"
             + "      \"netClusterNodes\": [ {} ]\n"
             + "    }\n"
-            + "  }\n"
+            + "  },\n"
+            + "  clientConnector: { port:{} }\n"
             + "}";
 
     /** Cluster nodes. */
@@ -146,7 +149,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         for (int i = 0; i < nodes(); i++) {
             String nodeName = testNodeName(testInfo, i);
 
-            String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr);
+            String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr, BASE_CLIENT_PORT + i);
 
             futures.add(TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName)));
         }
@@ -239,7 +242,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     /**
      * Invokes after the test has finished.
      *
-     * @param testInfo Test information oject.
+     * @param testInfo Test information object.
      * @throws Exception If failed.
      */
     @AfterEach
@@ -467,20 +470,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                     assertEquals(expectedMeta.origin().tableName(), actualMeta.origin().tableName(), " origin table");
                     assertEquals(expectedMeta.origin().columnName(), actualMeta.origin().columnName(), " origin column");
                 }
-        );
-    }
-
-    /**
-     * Waits for all nodes in the cluster to have the given index in the configuration.
-     *
-     * @param indexName  An index.
-     */
-    public static void waitForIndex(String indexName) throws InterruptedException {
-        // FIXME: Wait for the index to be created on all nodes,
-        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the index.
-        assertTrue(waitForCondition(
-                () -> CLUSTER_NODES.stream().map(node -> getIndexConfiguration(node, indexName)).allMatch(Objects::nonNull),
-                10_000)
         );
     }
 
