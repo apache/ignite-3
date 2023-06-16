@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.storage;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZoneReplicas;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -54,7 +55,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -62,7 +62,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -71,6 +71,8 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
@@ -84,7 +86,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -114,7 +115,6 @@ import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
@@ -151,7 +151,6 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -239,6 +238,8 @@ public class ItRebalanceDistributedTest {
                 allOf(nodes.get(0).cmgManager.onJoinReady(), nodes.get(1).cmgManager.onJoinReady(), nodes.get(2).cmgManager.onJoinReady()),
                 willCompleteSuccessfully()
         );
+
+        nodes.stream().forEach(Node::waitWatches);
     }
 
     @AfterEach
@@ -249,7 +250,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    void testOneRebalance() throws Exception {
+    void testOneRebalance() {
         createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1).join();
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
@@ -302,7 +303,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    void testThreeQueuedRebalances() throws Exception {
+    void testThreeQueuedRebalances() {
         await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
@@ -395,7 +396,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    void testRebalanceRetryWhenCatchupFailed() throws Exception {
+    void testRebalanceRetryWhenCatchupFailed() {
         await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
@@ -516,6 +517,8 @@ public class ItRebalanceDistributedTest {
 
         newNode.start();
 
+        newNode.waitWatches();
+
         nodes.set(evictedNodeIndex, newNode);
 
         // Let's make sure that we will destroy the partition again.
@@ -543,10 +546,11 @@ public class ItRebalanceDistributedTest {
                 .getConfiguration(TablesConfiguration.KEY).tables().get("TBL1"));
 
         if (table != null) {
-            byte[] assignments = table.assignments().value();
+            Set<Assignment> assignments =
+                    partitionAssignments(nodes.get(nodeNum).metaStorageManager, table.id().value(), partNum).join();
 
             if (assignments != null) {
-                return ((List<Set<Assignment>>) ByteUtils.fromBytes(assignments)).get(partNum);
+                return assignments;
             }
         }
 
@@ -600,6 +604,9 @@ public class ItRebalanceDistributedTest {
                 = new ConcurrentHashMap<>();
 
         private final NetworkAddress networkAddress;
+
+        /** The future have to be complete after the node start and all Meta storage watches are deployd. */
+        private CompletableFuture<Void> deployWatchesFut;
 
         /**
          * Constructor that simply creates a subset of components of this node.
@@ -715,7 +722,7 @@ public class ItRebalanceDistributedTest {
                     new TestConfigurationValidator()
             );
 
-            Consumer<Function<Long, CompletableFuture<?>>> registry = (Function<Long, CompletableFuture<?>> function) ->
+            Consumer<LongFunction<CompletableFuture<?>>> registry = (LongFunction<CompletableFuture<?>> function) ->
                     clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(function::apply);
 
             TablesConfiguration tablesCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
@@ -744,7 +751,7 @@ public class ItRebalanceDistributedTest {
                     metaStorageManager,
                     clusterService);
 
-            catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageManager, vaultManager));
+            catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageManager, vaultManager), hybridClock);
 
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
@@ -764,6 +771,7 @@ public class ItRebalanceDistributedTest {
                     name
             );
 
+
             tableManager = new TableManager(
                     name,
                     registry,
@@ -771,7 +779,7 @@ public class ItRebalanceDistributedTest {
                     zonesCfg,
                     clusterService,
                     raftManager,
-                    mock(ReplicaManager.class),
+                    replicaManager,
                     mock(LockManager.class),
                     replicaSvc,
                     baselineMgr,
@@ -791,11 +799,13 @@ public class ItRebalanceDistributedTest {
                     mock(PlacementDriver.class)
             ) {
                 @Override
-                protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg,
-                        DistributionZoneConfiguration   distributionZoneCfg) {
+                protected TxStateTableStorage createTxStateTableStorage(
+                        CatalogTableDescriptor tableDescriptor,
+                        CatalogZoneDescriptor zoneDescriptor
+                ) {
                     return testInfo.getTestMethod().get().isAnnotationPresent(UseTestTxStateStorage.class)
                             ? spy(new TestTxStateTableStorage())
-                            : super.createTxStateTableStorage(tableCfg, distributionZoneCfg);
+                            : super.createTxStateTableStorage(tableDescriptor, zoneDescriptor);
                 }
 
                 @Override
@@ -827,7 +837,7 @@ public class ItRebalanceDistributedTest {
         /**
          * Starts the created components.
          */
-        void start() throws Exception {
+        void start() {
             nodeComponents = List.of(
                     vaultManager,
                     nodeCfgMgr,
@@ -849,15 +859,21 @@ public class ItRebalanceDistributedTest {
             nodeComponents.forEach(IgniteComponent::start);
 
             assertThat(
-                    CompletableFuture.allOf(
+                    allOf(
                             nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                             clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
                     ),
                     willSucceedIn(1, TimeUnit.MINUTES)
             );
 
-            // deploy watches to propagate data from the metastore into the vault
-            metaStorageManager.deployWatches();
+            deployWatchesFut = metaStorageManager.deployWatches();
+        }
+
+        /**
+         * Waits for watches deployed.
+         */
+        void waitWatches() {
+            assertThat("Watches were not deployed", deployWatchesFut, willCompleteSuccessfully());
         }
 
         /**
@@ -899,7 +915,7 @@ public class ItRebalanceDistributedTest {
             }
 
             int partitionId = extractPartitionNumber(stableAssignmentsWatchEvent.key());
-            UUID tableId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
+            int tableId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
 
             return new TablePartitionId(tableId, partitionId);
         }
@@ -1035,6 +1051,6 @@ public class ItRebalanceDistributedTest {
 
         assertThat(String.format("tableName=%s, partitionId=%s", tableName, partitionId), futures, not(empty()));
 
-        return CompletableFuture.allOf(futures.toArray(CompletableFuture<?>[]::new));
+        return allOf(futures.toArray(CompletableFuture<?>[]::new));
     }
 }

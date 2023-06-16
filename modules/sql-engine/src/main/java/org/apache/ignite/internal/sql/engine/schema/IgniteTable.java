@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -37,15 +35,11 @@ import org.apache.calcite.schema.Wrapper;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.table.InternalTable;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -57,7 +51,7 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
      *
      * @return And id of the table.
      */
-    UUID id();
+    int id();
 
     /**
      * Returns the version of the table's schema.
@@ -194,24 +188,6 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
         }
         return null;
     }
-
-    /** Returns the internal table. */
-    InternalTable table();
-
-    /**
-     * Converts a tuple to relational node row.
-     *
-     * @param ectx            Execution context.
-     * @param row             Tuple to convert.
-     * @param requiredColumns Participating columns.
-     * @return Relational node row.
-     */
-    <RowT> RowT toRow(
-            ExecutionContext<RowT> ectx,
-            BinaryRow row,
-            RowHandler.RowFactory<RowT> factory,
-            @Nullable BitSet requiredColumns
-    );
 
     /**
      * Returns nodes mapping.

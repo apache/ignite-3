@@ -22,7 +22,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Collections;
     using System.Diagnostics;
     using System.Numerics;
-    using System.Runtime.InteropServices;
     using Buffers;
     using Ignite.Sql;
     using NodaTime;
@@ -482,8 +481,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                 if (ShouldHash())
                 {
-                    _hash = HashUtils.Hash32(BinaryPrimitives.ReadInt64LittleEndian(span[..8]), _hash);
-                    _hash = HashUtils.Hash32(BinaryPrimitives.ReadInt64LittleEndian(span[8..]), _hash);
+                    var lo = BinaryPrimitives.ReadInt64LittleEndian(span[..8]);
+                    var hi = BinaryPrimitives.ReadInt64LittleEndian(span[8..]);
+
+                    _hash = HashUtils.Hash32(hi, HashUtils.Hash32(lo, _hash));
                 }
             }
             else
@@ -571,24 +572,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="value">Value.</param>
         /// <param name="scale">Decimal scale from schema.</param>
-        public void AppendDecimal(decimal value, int scale)
-        {
-            if (value != decimal.Zero)
-            {
-                var (unscaledValue, valueScale) = DeconstructDecimal(value);
-
-                PutDecimal(scale, unscaledValue, valueScale);
-            }
-            else
-            {
-                if (ShouldHash())
-                {
-                    _hash = HashUtils.Hash32(stackalloc byte[1] { 0 }, _hash);
-                }
-            }
-
-            OnWrite();
-        }
+        public void AppendDecimal(decimal value, int scale) =>
+            AppendNumber(BinaryTupleCommon.DecimalToUnscaledBigInteger(value, scale));
 
         /// <summary>
         /// Appends a decimal.
@@ -1145,50 +1130,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             _buffer.Dispose();
         }
 
-        private static (BigInteger Unscaled, int Scale) DeconstructDecimal(decimal value)
-        {
-            Span<int> bits = stackalloc int[4];
-            decimal.GetBits(value, bits);
-
-            var scale = (bits[3] & 0x00FF0000) >> 16;
-            var sign = bits[3] >> 31;
-
-            var bytes = MemoryMarshal.Cast<int, byte>(bits[..3]);
-            var unscaled = new BigInteger(bytes, true);
-
-            return (sign < 0 ? -unscaled : unscaled, scale);
-        }
-
         private static int GetDecimalScale(decimal value)
         {
             Span<int> bits = stackalloc int[4];
             decimal.GetBits(value, bits);
 
             return (bits[3] & 0x00FF0000) >> 16;
-        }
-
-        private void PutDecimal(int scale, BigInteger unscaledValue, int valueScale)
-        {
-            if (scale > valueScale)
-            {
-                unscaledValue *= BigInteger.Pow(new BigInteger(10), scale - valueScale);
-            }
-            else if (scale < valueScale)
-            {
-                unscaledValue /= BigInteger.Pow(new BigInteger(10), valueScale - scale);
-            }
-
-            var size = unscaledValue.GetByteCount();
-            var destination = GetSpan(size);
-            var success = unscaledValue.TryWriteBytes(destination, out int written, isBigEndian: true);
-
-            if (ShouldHash())
-            {
-                _hash = HashUtils.Hash32(destination[..written], _hash);
-            }
-
-            Debug.Assert(success, "success");
-            Debug.Assert(written == size, "written == size");
         }
 
         private void PutByte(sbyte value) => _buffer.WriteByte(unchecked((byte)value));
@@ -1232,13 +1179,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private (long Seconds, int Nanos) PutTimestamp(Instant value, int precision)
         {
-            // Logic taken from
-            // https://github.com/nodatime/nodatime.serialization/blob/main/src/NodaTime.Serialization.Protobuf/NodaExtensions.cs#L69
-            // (Apache License).
-            // See discussion: https://github.com/nodatime/nodatime/issues/1644#issuecomment-1260524451
-            long seconds = value.ToUnixTimeSeconds();
-            Duration remainder = value - Instant.FromUnixTimeSeconds(seconds);
-            int nanos = TemporalTypes.NormalizeNanos((int)remainder.NanosecondOfDay, precision);
+            var (seconds, nanos) = value.ToSecondsAndNanos(precision);
 
             PutLong(seconds);
 

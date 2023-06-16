@@ -235,7 +235,7 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterP
     protected static Stream<Arguments> binaryComparisonOperators() {
         return SqlKind.BINARY_COMPARISON.stream()
                 // to support IS DISTINCT FROM/IS NOT DISTINCT FROM
-                .map(o -> Arguments.of(o.sql.replace("_", " "), o.sql));
+                .map(o -> Arguments.of(o.sql.replace("_", " ")));
     }
 
     protected final void insertValues() {

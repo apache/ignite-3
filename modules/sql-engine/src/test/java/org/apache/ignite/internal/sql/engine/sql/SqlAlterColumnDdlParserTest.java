@@ -22,14 +22,16 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.pretty.SqlFormatOptions;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -44,69 +46,92 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
     /**
      * Verifies parsing of {@code ALTER TABLE ... ALTER COLUMN ... SET/DROP NOT NULL} statement.
      *
-     * <p>The parser is expected to produce a node of {@link IgniteSqlAlterColumnNotNull} class with the specified table name and the
+     * <p>The parser is expected to produce a node of {@link IgniteSqlAlterColumn} class with the specified table name and the
      * column name.
-     * For the {@code SET NOT NULL} statement, {@link IgniteSqlAlterColumnNotNull#notNull()} must return {@code true}.
-     * For the {@code DROP NOT NULL} statement, {@link IgniteSqlAlterColumnNotNull#notNull()} must return {@code false}.
+     * For the {@code SET NOT NULL} statement, {@link IgniteSqlAlterColumn#notNull()} must return {@code true}.
+     * For the {@code DROP NOT NULL} statement, {@link IgniteSqlAlterColumn#notNull()} must return {@code false}.
      */
     @Test
     public void testNotNull() {
-        Class<IgniteSqlAlterColumnNotNull> expCls = IgniteSqlAlterColumnNotNull.class;
-
-        assertThat(parseAlterColumn("SET NOT NULL", expCls).notNull(), is(true));
-        assertThat(parseAlterColumn("DROP NOT NULL", expCls).notNull(), is(false));
+        assertThat(parseAlterColumn("SET NOT NULL").notNull(), is(true));
+        assertThat(parseAlterColumn("DROP NOT NULL").notNull(), is(false));
     }
 
     /**
      * Verifies parsing of {@code ALTER TABLE ... ALTER COLUMN ... SET/DROP DEFAULT} statement.
      *
-     * <p>The parser is expected to produce a node of {@link IgniteSqlAlterColumnDefault} class with the specified table name and the
+     * <p>The parser is expected to produce a node of {@link IgniteSqlAlterColumn} class with the specified table name and the
      * column name.
-     * For {@code SET DEFAULT 'EXPRESSION'}, {@link IgniteSqlAlterColumnDefault#expression()} must return expected default expression.
-     * For {@code DROP DEFAULT}, {@link IgniteSqlAlterColumnDefault#expression()} must return {@code null}.
+     * <ul>
+     *     <li>Command {@code DROP DEFAULT} must be equivalent to {@code SET DEFAULT NULL}, and {@link IgniteSqlAlterColumn#expression()}
+     *         in this case must contain SQL literal with type NULL.</li>
+     *     <li>For {@code SET DEFAULT &lt;LITERAL&gt;} {@link IgniteSqlAlterColumn#expression()} must contain expected SQL literal.</li>
+     *     <li>For {@code SET DEFAULT &lt;ID&gt;} parser should throw an exception.</li>
+     * </ul>
      */
     @Test
     public void testDefault() {
-        Class<IgniteSqlAlterColumnDefault> expCls = IgniteSqlAlterColumnDefault.class;
+        checkDefaultIsNull(parseAlterColumn("DROP DEFAULT").expression());
+        checkDefaultIsNull(parseAlterColumn("SET DEFAULT NULL", "DROP DEFAULT").expression());
 
-        assertNull(parseAlterColumn("DROP DEFAULT", expCls).expression());
-
-        SqlNode dflt = parseAlterColumn("SET DEFAULT 10", expCls).expression();
+        SqlNode dflt = parseAlterColumn("SET DEFAULT 10").expression();
         assertThat(dflt, instanceOf(SqlLiteral.class));
         assertThat(((SqlLiteral) dflt).getValueAs(Integer.class), equalTo(10));
+
+        assertThrows(SqlException.class, () -> parse(QUERY_PREFIX + "SET DEFAULT FUNC"));
     }
 
     /**
      * Verifies parsing of {@code ALTER TABLE ... ALTER COLUMN ... SET DATA TYPE} statement.
      *
-     * <p>The parser is expected to produce a node of {@link IgniteSqlAlterColumnType} class with the specified {@link
-     * IgniteSqlAlterColumnType#name() table name}, {@link IgniteSqlAlterColumnType#columnName() column name}, column {@link
-     * IgniteSqlAlterColumnType#dataType() data type} and an optional {@link IgniteSqlAlterColumnType#expression() default expression}.
+     * <p>Parser must support the following syntax {@code SET DATA TYPE &lt;new_type&gt; [NOT NULL | NULL] [DEFAULT &lt;default value&gt;]}.
+     *
+     * <p>Parser is expected to produce a node of {@link IgniteSqlAlterColumn} class with the specified {@link
+     * IgniteSqlAlterColumn#name() table name}, {@link IgniteSqlAlterColumn#columnName() column name}, column {@link
+     * IgniteSqlAlterColumn#dataType() data type}, an optional {@link IgniteSqlAlterColumn#expression() default expression}, and an optional
+     * {@link IgniteSqlAlterColumn#notNull() notNull flag}.
      */
     @Test
     public void testSetDataType() {
-        validateDataType("SET DATA TYPE LONG", false, null, "LONG");
-        validateDataType("SET DATA TYPE LONG DEFAULT -1", false, -1L, "LONG");
-        validateDataType("SET DATA TYPE INTEGER NOT NULL", true, null, "INTEGER");
-        validateDataType("SET DATA TYPE INTEGER NOT NULL DEFAULT -1", true, -1, "INTEGER");
+        validateDataType("SET DATA TYPE INTEGER", "INTEGER", null, null);
+        validateDataType("SET DATA TYPE INTEGER NOT NULL", "INTEGER", true, null);
+        validateDataType("SET DATA TYPE INTEGER NULL", "INTEGER", false, null);
+        validateDataType("SET DATA TYPE INTEGER DEFAULT -1", "INTEGER", null, -1L);
+        validateDataType("SET DATA TYPE INTEGER DEFAULT NULL", "INTEGER", null, null);
+        validateDataType("SET DATA TYPE INTEGER NOT NULL DEFAULT -1", "INTEGER", true, -1);
+        validateDataType("SET DATA TYPE INTEGER NULL DEFAULT NULL", "INTEGER", false, null);
+
+        assertThrows(SqlException.class, () -> parse(QUERY_PREFIX + "SET DATA TYPE INTEGER DEFAULT FUNC"));
     }
 
-    private void validateDataType(String querySuffix, boolean notNull, @Nullable Object expDefault, @Nullable String typeName) {
-        IgniteSqlAlterColumnType alterColumn = parseAlterColumn(querySuffix, IgniteSqlAlterColumnType.class);
+    private void validateDataType(String querySuffix, @Nullable String typeName, @Nullable Boolean notNull, @Nullable Object expDefault) {
+        IgniteSqlAlterColumn alterColumn = parseAlterColumn(querySuffix);
 
         assertNotNull(alterColumn.dataType());
         assertThat(alterColumn.dataType().getTypeName().getSimple(), equalTo(typeName));
-        assertThat(alterColumn.dataType().getNullable(), is(!notNull));
+        assertThat(alterColumn.notNull(), equalTo(notNull));
 
         if (expDefault == null) {
-            assertNull(alterColumn.expression());
+            if (alterColumn.expression() != null) {
+                checkDefaultIsNull(alterColumn.expression());
+            }
         } else {
             assertThat(alterColumn.expression(), instanceOf(SqlLiteral.class));
             assertThat(((SqlLiteral) alterColumn.expression()).getValueAs(expDefault.getClass()), equalTo(expDefault));
         }
     }
 
-    private <T extends IgniteSqlAlterColumn> T parseAlterColumn(String querySuffix, Class<T> cls) {
+    private void checkDefaultIsNull(@Nullable SqlNode dflt) {
+        assertNotNull(dflt);
+        assertThat(dflt, instanceOf(SqlLiteral.class));
+        assertThat(((SqlLiteral) dflt).getTypeName(), equalTo(SqlTypeName.NULL));
+    }
+
+    private IgniteSqlAlterColumn parseAlterColumn(String querySuffix) {
+        return parseAlterColumn(querySuffix, null);
+    }
+
+    private IgniteSqlAlterColumn parseAlterColumn(String querySuffix, @Nullable String unparseQuerySuffix) {
         String query = QUERY_PREFIX + querySuffix;
 
         SqlNode node = parse(query);
@@ -118,11 +143,9 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
         assertThat(alterColumn.columnName().getSimple(), equalTo(COLUMN_NAME));
 
         // Validate unparsed expression.
-        assertThat(unparse(alterColumn), equalTo(query));
+        assertThat(unparse(alterColumn), equalTo(unparseQuerySuffix == null ? query : QUERY_PREFIX + unparseQuerySuffix));
 
-        assertThat(alterColumn, instanceOf(cls));
-
-        return (T) alterColumn;
+        return alterColumn;
     }
 
     private String unparse(SqlNode node) {

@@ -19,12 +19,11 @@ package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -40,9 +39,6 @@ import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
@@ -52,7 +48,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.table.InternalTable;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -64,7 +59,9 @@ public class TestTable implements IgniteTable {
     private static final String DATA_PROVIDER_NOT_CONFIGURED_MESSAGE_TEMPLATE =
             "DataProvider is not configured [table={}, node={}]";
 
-    private final UUID id = UUID.randomUUID();
+    private static final AtomicInteger ID = new AtomicInteger();
+
+    private final int id = ID.incrementAndGet();
     private final Map<String, IgniteIndex> indexes = new HashMap<>();
 
     private final String name;
@@ -122,7 +119,7 @@ public class TestTable implements IgniteTable {
 
     /** {@inheritDoc} */
     @Override
-    public UUID id() {
+    public int id() {
         return id;
     }
 
@@ -275,18 +272,5 @@ public class TestTable implements IgniteTable {
     @Override
     public String name() {
         return name;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public InternalTable table() {
-        throw new AssertionError();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
-            @Nullable BitSet requiredColumns) {
-        throw new AssertionError();
     }
 }

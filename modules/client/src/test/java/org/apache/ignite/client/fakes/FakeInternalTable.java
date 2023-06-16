@@ -43,7 +43,6 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,7 +53,7 @@ public class FakeInternalTable implements InternalTable {
     private final String tableName;
 
     /** Table ID. */
-    private final UUID tableId;
+    private final int tableId;
 
     private final Function<BinaryRow, BinaryTuple> keyExtractor;
 
@@ -71,7 +70,7 @@ public class FakeInternalTable implements InternalTable {
      * @param tableId Id.
      * @param keyExtractor Function which converts given binary row to an index key.
      */
-    public FakeInternalTable(String tableName, UUID tableId, Function<BinaryRow, BinaryTuple> keyExtractor) {
+    public FakeInternalTable(String tableName, int tableId, Function<BinaryRow, BinaryTuple> keyExtractor) {
         this.tableName = tableName;
         this.tableId = tableId;
         this.keyExtractor = keyExtractor;
@@ -89,9 +88,8 @@ public class FakeInternalTable implements InternalTable {
         return 1;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public UUID tableId() {
+    public int tableId() {
         return tableId;
     }
 
@@ -115,12 +113,11 @@ public class FakeInternalTable implements InternalTable {
         return CompletableFuture.completedFuture(data.get(keyExtractor.apply(keyRow).byteBuffer()));
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(
             BinaryRowEx keyRow,
-            @NotNull HybridTimestamp readTimestamp,
-            @NotNull ClusterNode recipientNode) {
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode) {
         return null;
     }
 
@@ -142,12 +139,11 @@ public class FakeInternalTable implements InternalTable {
         return CompletableFuture.completedFuture(res);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<BinaryRow>> getAll(
             Collection<BinaryRowEx> keyRows,
-            @NotNull HybridTimestamp readTimestamp,
-            @NotNull ClusterNode recipientNode
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode
     ) {
         return null;
     }
@@ -333,12 +329,11 @@ public class FakeInternalTable implements InternalTable {
         return CompletableFuture.completedFuture(skipped);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
             @Nullable InternalTransaction tx,
-            UUID indexId,
+            @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
@@ -347,14 +342,13 @@ public class FakeInternalTable implements InternalTable {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
-    /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
             String recipient,
             long enlistmentConsistencyToken,
-            @Nullable UUID indexId,
+            @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
@@ -363,13 +357,12 @@ public class FakeInternalTable implements InternalTable {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
-    /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
-            @NotNull HybridTimestamp readTimestamp,
-            @NotNull ClusterNode recipientNode,
-            @NotNull UUID indexId,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode,
+            @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
@@ -377,36 +370,33 @@ public class FakeInternalTable implements InternalTable {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
-    /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
-            @NotNull HybridTimestamp readTimestamp,
-            @NotNull ClusterNode recipientNode
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode
     ) {
         return null;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
             PrimaryReplica recipient,
-            UUID indexId,
+            int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
     ) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
-    /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> lookup(
             int partId,
-            @NotNull HybridTimestamp readTimestamp,
-            @NotNull ClusterNode recipientNode,
-            @NotNull UUID indexId,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode,
+            int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
     ) {

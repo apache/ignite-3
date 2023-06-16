@@ -83,12 +83,6 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
         sql("CREATE TABLE birthday (id INT PRIMARY KEY, name VARCHAR, birthday DATE)");
         sql("CREATE INDEX " + NAME_DATE_IDX + " ON birthday (name, birthday)");
 
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
-        waitForIndex(DEPID_IDX);
-        waitForIndex(NAME_CITY_IDX);
-        waitForIndex(NAME_DEPID_CITY_IDX);
-        waitForIndex(NAME_DATE_IDX);
-
         insertData("BIRTHDAY", List.of("ID", "NAME", "BIRTHDAY"), new Object[][]{
                 {1, "Mozart", LocalDate.parse("1756-01-27")},
                 {2, "Beethoven", LocalDate.parse("1756-01-27")},
@@ -129,9 +123,6 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
         sql("CREATE TABLE unwrap_pk(f1 VARCHAR, f2 BIGINT, f3 BIGINT, f4 BIGINT, primary key(f2, f1))");
         sql("CREATE INDEX " + PK_SORTED_IDX + " ON unwrap_pk(f2, f1)");
 
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
-        waitForIndex(PK_SORTED_IDX);
-
         insertData("UNWRAP_PK", List.of("F1", "F2", "F3", "F4"), new Object[][]{
                 {"Petr", 1L, 2L, 3L},
                 {"Ivan", 2L, 2L, 4L},
@@ -144,9 +135,6 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE TABLE t1 (id INT PRIMARY KEY, val INT)");
         sql("CREATE INDEX t1_idx on t1(val DESC)");
-
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
-        waitForIndex("t1_idx");
 
         insertData("T1", List.of("ID", "VAL"), new Object[][]{
                 {1, null},
@@ -948,12 +936,10 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    public void testNullsInCorrNestedLoopJoinSearchRow() throws InterruptedException {
+    public void testNullsInCorrNestedLoopJoinSearchRow() {
         try {
             sql("CREATE TABLE t(i0 INTEGER PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
             sql("CREATE INDEX t_idx ON t(i1)");
-            // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
-            waitForIndex("t_idx");
             sql("INSERT INTO t VALUES (1, 0, null), (2, 1, null), (3, 2, 2), (4, 3, null), (5, 4, null), (6, null, 5)");
 
             List<RowCountingIndex> idxs = injectRowCountingIndex("T", "T_IDX");
@@ -981,12 +967,10 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    public void testNullsInSearchRow() throws InterruptedException {
+    public void testNullsInSearchRow() {
         try {
             sql("CREATE TABLE t(i0 INTEGER PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
             sql("CREATE INDEX t_idx ON t(i1, i2)");
-            // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
-            waitForIndex("t_idx");
             sql("INSERT INTO t VALUES (1, null, 0), (2, 1, null), (3, 2, 2), (4, 3, null)");
 
             List<RowCountingIndex> idxs = injectRowCountingIndex("T", "T_IDX");
@@ -1065,7 +1049,7 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
         }
 
         @Override
-        public UUID id() {
+        public int id() {
             return delegate.id();
         }
 
@@ -1075,7 +1059,7 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
         }
 
         @Override
-        public UUID tableId() {
+        public int tableId() {
             return delegate.tableId();
         }
 

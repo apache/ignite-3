@@ -38,12 +38,11 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -69,6 +68,7 @@ import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AbstractTableDdlCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
@@ -91,6 +91,10 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
+import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.lang.DistributionZoneNotFoundException;
+import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringBuilder;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -135,6 +139,8 @@ public class DdlCommandHandler {
             return handleAlterAddColumn((AlterTableAddCommand) cmd);
         } else if (cmd instanceof AlterTableDropCommand) {
             return handleAlterDropColumn((AlterTableDropCommand) cmd);
+        } else if (cmd instanceof AlterColumnCommand) {
+            return completedFuture(true);
         } else if (cmd instanceof CreateIndexCommand) {
             return handleCreateIndex((CreateIndexCommand) cmd);
         } else if (cmd instanceof DropIndexCommand) {
@@ -234,6 +240,14 @@ public class DdlCommandHandler {
             zoneCfgBuilder.replicas(cmd.replicas());
         }
 
+        if (cmd.partitions() != null) {
+            zoneCfgBuilder.partitions(cmd.partitions());
+        }
+
+        if (cmd.nodeFilter() != null) {
+            zoneCfgBuilder.filter(cmd.nodeFilter());
+        }
+
         return distributionZoneManager.alterZone(cmd.zoneName(), zoneCfgBuilder.build())
                 .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
     }
@@ -246,6 +260,15 @@ public class DdlCommandHandler {
 
     /** Handles create table command. */
     private CompletableFuture<Boolean> handleCreateTable(CreateTableCommand cmd) {
+        cmd.columns().stream()
+                .map(ColumnDefinition::name)
+                .filter(Predicate.not(new HashSet<>()::add))
+                .findAny()
+                .ifPresent(col -> {
+                    throw new SqlException(Table.TABLE_DEFINITION_ERR, "Can't create table with duplicate columns: "
+                            + cmd.columns().stream().map(ColumnDefinition::name).collect(Collectors.joining(", ")));
+                });
+
         Consumer<TableChange> tblChanger = tableChange -> {
             tableChange.changeColumns(columnsChange -> {
                 for (var col : cmd.columns()) {
@@ -273,7 +296,7 @@ public class DdlCommandHandler {
             zoneName = DEFAULT_ZONE_NAME;
         }
 
-        return tableManager.createTableAsync(cmd.tableName(), zoneName,  tblChanger)
+        return tableManager.createTableAsync(cmd.tableName(), zoneName, tblChanger)
                 .thenApply(Objects::nonNull)
                 .handle(handleModificationResult(cmd.ifTableExists(), TableAlreadyExistsException.class));
     }
@@ -323,6 +346,14 @@ public class DdlCommandHandler {
 
     /** Handles create index command. */
     private CompletableFuture<Boolean> handleCreateIndex(CreateIndexCommand cmd) {
+        cmd.columns().stream()
+                .filter(Predicate.not(new HashSet<>()::add))
+                .findAny()
+                .ifPresent(col -> {
+                    throw new SqlException(ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                            "Can't create index on duplicate columns: " + String.join(", ", cmd.columns()));
+                });
+
         Consumer<TableIndexChange> indexChanger = tableIndexChange -> {
             switch (cmd.type()) {
                 case SORTED:
@@ -339,11 +370,11 @@ public class DdlCommandHandler {
         };
 
         return indexManager.createIndexAsync(
-                        cmd.schemaName(),
-                        cmd.indexName(),
-                        cmd.tableName(),
-                        !cmd.ifNotExists(),
-                        indexChanger);
+                cmd.schemaName(),
+                cmd.indexName(),
+                cmd.tableName(),
+                !cmd.ifNotExists(),
+                indexChanger);
     }
 
     /** Handles drop index command. */

@@ -39,7 +39,7 @@ public class ReadResult {
     private final @Nullable UUID transactionId;
 
     /** Commit table id. Not {@code null} iff this is a write-intent. */
-    private final @Nullable UUID commitTableId;
+    private final @Nullable Integer commitTableId;
 
     /** Commit table id. If this is not a write-intent it is equal to {@link #UNDEFINED_COMMIT_PARTITION_ID}. */
     private final int commitPartitionId;
@@ -61,7 +61,7 @@ public class ReadResult {
             RowId rowId,
             @Nullable BinaryRow binaryRow,
             @Nullable UUID transactionId,
-            @Nullable UUID commitTableId,
+            @Nullable Integer commitTableId,
             @Nullable HybridTimestamp commitTs,
             @Nullable HybridTimestamp newestCommitTs,
             int commitPartitionId
@@ -92,7 +92,7 @@ public class ReadResult {
         return new ReadResult(rowId, null, null, null, null, null, UNDEFINED_COMMIT_PARTITION_ID);
     }
 
-    public static ReadResult createFromWriteIntent(RowId rowId, @Nullable BinaryRow binaryRow, UUID transactionId, UUID commitTableId,
+    public static ReadResult createFromWriteIntent(RowId rowId, @Nullable BinaryRow binaryRow, UUID transactionId, int commitTableId,
             int commitPartitionId, @Nullable HybridTimestamp lastCommittedTimestamp) {
         return new ReadResult(rowId, binaryRow, transactionId, commitTableId, null, lastCommittedTimestamp, commitPartitionId);
     }
@@ -137,7 +137,7 @@ public class ReadResult {
      * @return Commit table id part of the transaction state if this is a write-intent,
      *         {@code null} otherwise.
      */
-    public @Nullable UUID commitTableId() {
+    public @Nullable Integer commitTableId() {
         return commitTableId;
     }
 

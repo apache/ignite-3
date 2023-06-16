@@ -22,9 +22,12 @@ import com.typesafe.config.ConfigFactory;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCallInput;
+import org.apache.ignite.internal.cli.call.configuration.JsonString;
+import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.ClusterConfigRegistry;
+import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link ClusterConfigRegistry}. */
 @Singleton
@@ -43,12 +46,14 @@ public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, AsyncSe
         configRef = new LazyObjectRef<>(() -> fetchConfig(sessionInfo));
     }
 
+    @Nullable
     private Config fetchConfig(SessionInfo sessionInfo) {
-        return ConfigFactory.parseString(
-                clusterConfigShowCall.execute(
-                        ClusterConfigShowCallInput.builder().clusterUrl(sessionInfo.nodeUrl()).build()
-                ).body().getValue()
-        );
+        ClusterConfigShowCallInput input = ClusterConfigShowCallInput.builder().clusterUrl(sessionInfo.nodeUrl()).build();
+        DefaultCallOutput<JsonString> output = clusterConfigShowCall.execute(input);
+        if (output.hasError()) {
+            return null;
+        }
+        return ConfigFactory.parseString(output.body().getValue());
     }
 
     @Override

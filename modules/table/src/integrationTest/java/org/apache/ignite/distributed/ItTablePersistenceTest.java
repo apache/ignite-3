@@ -18,6 +18,7 @@
 package org.apache.ignite.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.tablePartitionId;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
@@ -35,7 +36,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
@@ -60,7 +60,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
@@ -68,6 +67,8 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
@@ -174,7 +175,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         closeAll(closeables);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void beforeFollowerStop(RaftGroupService service, RaftServer server) throws Exception {
         PartitionReplicaListener partitionReplicaListener = mockPartitionReplicaListener(service);
@@ -195,7 +195,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         table = new InternalTableImpl(
                 "table",
-                UUID.randomUUID(),
+                1,
                 Int2ObjectMaps.singleton(0, service),
                 1,
                 consistentIdToNode,
@@ -237,7 +237,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                 UpdateCommand cmd = msgFactory.updateCommand()
                         .txId(req0.transactionId())
-                        .tablePartitionId(tablePartitionId(new TablePartitionId(UUID.randomUUID(), 0)))
+                        .tablePartitionId(tablePartitionId(new TablePartitionId(1, 0)))
                         .rowUuid(new RowId(0).uuid())
                         .rowBuffer(binaryRow == null ? null : binaryRow.byteBuffer())
                         .safeTimeLong(hybridClock.nowLong())
@@ -251,7 +251,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                         .txId(req0.txId())
                         .commit(req0.commit())
                         .commitTimestampLong(req0.commitTimestampLong())
-                        .tablePartitionIds(asList(tablePartitionId(new TablePartitionId(UUID.randomUUID(), 0))))
+                        .tablePartitionIds(asList(tablePartitionId(new TablePartitionId(1, 0))))
                         .safeTimeLong(hybridClock.nowLong())
                         .build();
 
@@ -274,7 +274,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         return partitionReplicaListener;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void afterFollowerStop(RaftGroupService service, RaftServer server, int stoppedNodeIndex) throws Exception {
         // Remove the first key
@@ -290,7 +289,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         paths.remove(partListeners.get(stoppedNodeIndex));
     }
 
-    /** {@inheritDoc} */
     @Override
     public void afterSnapshot(RaftGroupService service) throws Exception {
         table.upsert(SECOND_VALUE, null).get();
@@ -298,7 +296,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         assertNotNull(table.get(SECOND_VALUE, null).join());
     }
 
-    /** {@inheritDoc} */
     @Override
     public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted, boolean interactedAfterSnapshot) {
         MvPartitionStorage storage = getListener(restarted, raftGroupId()).getMvStorage();
@@ -347,13 +344,11 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         return result;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Path getListenerPersistencePath(PartitionListener listener, RaftServer server) {
         return paths.get(listener);
     }
 
-    /** {@inheritDoc} */
     @Override
     public RaftGroupListener createListener(ClusterService service, Path path, int index) {
         return paths.entrySet().stream()
@@ -361,17 +356,19 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 .map(Map.Entry::getKey)
                 .findAny()
                 .orElseGet(() -> {
-                    TableConfiguration tableCfg = tablesCfg.tables().get("foo");
-
-                    RocksDbStorageEngine storageEngine = new RocksDbStorageEngine(engineConfig, path);
+                    RocksDbStorageEngine storageEngine = new RocksDbStorageEngine("test", engineConfig, path);
                     storageEngine.start();
 
                     closeables.add(storageEngine::stop);
 
                     zoneCfg.dataStorage().change(ds -> ds.convert(storageEngine.name())).join();
 
-                    MvTableStorage mvTableStorage = storageEngine.createMvTable(tableCfg, tablesCfg, zoneCfg);
+                    MvTableStorage mvTableStorage = storageEngine.createMvTable(
+                            new StorageTableDescriptor(1, 1, DEFAULT_DATA_REGION_NAME),
+                            new StorageIndexDescriptorSupplier(tablesCfg)
+                    );
                     mvTableStorage.start();
+
                     mvTableStorages.put(index, mvTableStorage);
                     closeables.add(mvTableStorage::close);
 
@@ -413,7 +410,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 });
     }
 
-    /** {@inheritDoc} */
     @Override
     public TestReplicationGroupId raftGroupId() {
         return new TestReplicationGroupId("partitions");

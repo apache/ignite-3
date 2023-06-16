@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table;
 
 using System;
 using Ignite.Sql;
+using NodaTime;
 
 /// <summary>
 /// Temporal type utils.
@@ -51,4 +52,23 @@ internal static class TemporalTypes
             9 => nanos, // 1ns precision
             _ => throw new ArgumentException("Unsupported fractional seconds precision: " + precision)
         };
+
+    /// <summary>
+    /// Deconstructs Instant into seconds and nanoseconds.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    /// <param name="precision">Column precision.</param>
+    /// <returns>Seconds and nanos.</returns>
+    public static (long Seconds, int Nanos) ToSecondsAndNanos(this Instant value, int precision)
+    {
+        // Logic taken from
+        // https://github.com/nodatime/nodatime.serialization/blob/main/src/NodaTime.Serialization.Protobuf/NodaExtensions.cs#L69
+        // (Apache License).
+        // See discussion: https://github.com/nodatime/nodatime/issues/1644#issuecomment-1260524451
+        long seconds = value.ToUnixTimeSeconds();
+        Duration remainder = value - Instant.FromUnixTimeSeconds(seconds);
+        int nanos = NormalizeNanos((int)remainder.NanosecondOfDay, precision);
+
+        return (seconds, nanos);
+    }
 }

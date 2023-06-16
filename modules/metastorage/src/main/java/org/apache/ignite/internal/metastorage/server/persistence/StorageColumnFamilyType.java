@@ -31,7 +31,10 @@ enum StorageColumnFamilyType {
     INDEX("INDEX".getBytes(StandardCharsets.UTF_8)),
 
     /** Column family for the timestamp to revision mapping. */
-    TS_TO_REVISION("TSTOREV".getBytes(StandardCharsets.UTF_8));
+    TS_TO_REVISION("TSTOREV".getBytes(StandardCharsets.UTF_8)),
+
+    /** Column family for the revision to timestamp mapping. */
+    REVISION_TO_TS("REVTOTS".getBytes(StandardCharsets.UTF_8));
 
     /** Byte representation of the column family's name. */
     private final byte[] nameAsBytes;

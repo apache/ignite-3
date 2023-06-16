@@ -37,7 +37,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -111,7 +110,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         return testTableId(ignite) + "_part_";
     }
 
-    private UUID testTableId(IgniteImpl ignite) {
+    private int testTableId(IgniteImpl ignite) {
         TableManager tables = (TableManager) ignite.tables();
         return tables.tableImpl(TABLE_NAME).tableId();
     }

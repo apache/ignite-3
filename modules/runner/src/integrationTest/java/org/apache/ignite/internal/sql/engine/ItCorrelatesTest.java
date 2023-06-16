@@ -65,9 +65,6 @@ public class ItCorrelatesTest extends ClusterPerClassIntegrationTest {
         sql("CREATE TABLE test1 (a INTEGER PRIMARY KEY, b INTEGER)");
         sql("CREATE TABLE test2 (a INTEGER PRIMARY KEY, c INTEGER)");
 
-        waitForIndex("TEST1_PK");
-        waitForIndex("TEST2_PK");
-
         sql("INSERT INTO test1 VALUES (11, 1), (12, 2), (13, 3)");
         sql("INSERT INTO test2 VALUES (11, 1), (12, 1), (13, 4)");
 
@@ -86,9 +83,6 @@ public class ItCorrelatesTest extends ClusterPerClassIntegrationTest {
     public void testCorrelatesCollisionRight() throws InterruptedException {
         sql("CREATE TABLE test1 (a INTEGER PRIMARY KEY, b INTEGER)");
         sql("CREATE TABLE test2 (a INTEGER PRIMARY KEY, c INTEGER)");
-
-        waitForIndex("TEST1_PK");
-        waitForIndex("TEST2_PK");
 
         sql("INSERT INTO test1 VALUES (11, 1), (12, 2), (13, 3)");
         sql("INSERT INTO test2 VALUES (11, 1), (12, 1), (13, 4)");

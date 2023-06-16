@@ -43,7 +43,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.tostring.S;
 import org.intellij.lang.annotations.Language;
@@ -71,7 +70,8 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             + "  },"
             + "  nodeAttributes: {\n"
             + "    nodeAttributes: " + NODE_ATTRIBUTES
-            + "  }\n"
+            + "  },\n"
+            + "  clientConnector: { port:{} }\n"
             + "}";
 
     private final LogicalTopologyEventListener listener = new LogicalTopologyEventListener() {
@@ -98,7 +98,8 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
     @Override
     protected int initialNodes() {
-        return 1;
+        // We don't need any nodes to be started automatically.
+        return 0;
     }
 
     @Override
@@ -108,6 +109,8 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void receivesLogicalTopologyEvents() throws Exception {
+        cluster.startAndInit(1);
+
         IgniteImpl entryNode = node(0);
 
         entryNode.logicalTopologyService().addEventListener(listener);
@@ -145,6 +148,8 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void receivesLogicalTopologyEventsWithNodeAttributes() throws Exception {
+        cluster.startAndInit(1);
+
         IgniteImpl entryNode = node(0);
 
         entryNode.logicalTopologyService().addEventListener(listener);
@@ -185,6 +190,8 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void receiveLogicalTopologyFromLeaderWithAttributes() throws Exception {
+        cluster.startAndInit(1);
+
         IgniteImpl entryNode = node(0);
 
         IgniteImpl secondIgnite = startNode(1, NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES);
@@ -204,6 +211,8 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void receivesLogicalTopologyEventsCausedByNodeRestart() throws Exception {
+        cluster.startAndInit(1);
+
         IgniteImpl entryNode = node(0);
 
         Ignite secondIgnite = startNode(1);
@@ -237,6 +246,8 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void nodeReturnedToPhysicalTopologyDoesNotReturnToLogicalTopology() throws Exception {
+        cluster.startAndInit(1);
+
         IgniteImpl entryNode = node(0);
 
         IgniteImpl secondIgnite = startNode(1);
@@ -279,6 +290,8 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void nodeLeavesLogicalTopologyImmediatelyAfterBeingLostBySwim() throws Exception {
+        cluster.startAndInit(1);
+
         IgniteImpl entryNode = node(0);
 
         IgniteImpl secondNode = startNode(1);
@@ -297,6 +310,8 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void nodeThatCouldNotJoinShouldBeInvalidated(TestInfo testInfo) throws Exception {
+        cluster.startAndInit(1);
+
         IgniteImpl entryNode = node(0);
 
         entryNode.logicalTopologyService().addEventListener(listener);
@@ -310,7 +325,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             }
         });
 
-        cluster.startClusterNode(1);
+        cluster.startNodeAsync(1);
 
         try {
             Event event = events.poll(10, TimeUnit.SECONDS);
@@ -332,9 +347,9 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void nodeLeavesLogicalTopologyImmediatelyOnGracefulStop() throws Exception {
-        IgniteImpl entryNode = node(0);
+        cluster.startAndInit(1, DISABLED_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE, ignored -> {});
 
-        disableNetworkFailureDetection(entryNode);
+        IgniteImpl entryNode = node(0);
 
         IgniteImpl secondIgnite = startNode(1);
 
@@ -346,24 +361,10 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
         assertThat(events, is(empty()));
 
-        assertThat(leaveEvent, is(notNullValue()));
+        assertThat("Leave event not received in time", leaveEvent, is(notNullValue()));
 
         assertThat(leaveEvent.eventType, is(EventType.LEFT));
         assertThat(leaveEvent.node.name(), is(secondIgnite.name()));
-    }
-
-    /**
-     * Configures the given Ignite instance in a way that makes it impossible to notice (by itself) that another
-     * node has gone and is not reachable on the network anymore.
-     *
-     * @param node Ignite node to disable network failure detection at.
-     * @throws Exception If something goes wrong.
-     */
-    private static void disableNetworkFailureDetection(IgniteImpl node) throws Exception {
-        node.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY)
-                .membership()
-                .change(membershipChange -> membershipChange.changeFailurePingInterval(Integer.MAX_VALUE))
-                .get(10, TimeUnit.SECONDS);
     }
 
     private static class Event {

@@ -81,6 +81,5 @@ public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
      *
      * @return Enlistment consistency token.
      */
-    @Marshallable
     Long enlistmentConsistencyToken();
 }

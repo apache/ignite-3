@@ -36,7 +36,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -83,17 +82,17 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     /** Nodes bootstrap configuration. */
     private final List<String> nodesBootstrapCfg = List.of(
             "{\n"
-                    + "  network.port :3344,\n"
+                    + "  network.port :3344, clientConnector.port: 10800,\n"
                     + "  network.nodeFinder.netClusterNodes:[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "}",
 
             "{\n"
-                    + "  network.port :3345,\n"
+                    + "  network.port :3345, clientConnector.port: 10801,\n"
                     + "  network.nodeFinder.netClusterNodes:[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "}",
 
             "{\n"
-                    + "  network.port :3346,\n"
+                    + "  network.port :3346, clientConnector.port: 10802,\n"
                     + "  network.nodeFinder.netClusterNodes:[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "}"
     );
@@ -411,7 +410,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         Table table = createTable(clusterNodes.get(0), TABLE_NAME);
 
-        UUID tblId = ((TableImpl) table).tableId();
+        int tblId = ((TableImpl) table).tableId();
 
         CompletableFuture<Table> tableByNameFut = supplyAsync(() -> ignite1.tables().table(TABLE_NAME));
 
@@ -472,12 +471,14 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         cols.add(SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build());
         cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build());
 
-        return await(((TableManager) node.tables()).createTableAsync(
-                tableName,
-                DEFAULT_ZONE_NAME,
-                tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(
-                        cols).withPrimaryKey("key").build(), tblCh)
-        ));
+        var tmpl = "CREATE TABLE %s (key BIGINT PRIMARY KEY, valInt INT, valStr VARCHAR)";
+        var sql = String.format(tmpl, tableName);
+
+        try (Session ses = node.sql().createSession()) {
+            ses.execute(null, sql);
+        }
+
+        return node.tables().table(tableName);
     }
 
     /**
@@ -603,7 +604,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      */
     protected void addIndexIfNotExists(Ignite node, String tableName) {
         try (Session ses = node.sql().createSession()) {
-            ses.execute(null, String.format("CREATE INDEX IF NOT EXISTS testHI ON %s (CAT_ID)", tableName));
+            ses.execute(null, String.format("CREATE INDEX IF NOT EXISTS testHI ON %s (valInt)", tableName));
         }
     }
 }

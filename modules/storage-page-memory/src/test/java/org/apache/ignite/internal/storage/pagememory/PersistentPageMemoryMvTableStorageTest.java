@@ -17,18 +17,26 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import java.nio.file.Path;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,24 +46,39 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({ConfigurationExtension.class, WorkDirectoryExtension.class})
 public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStorageTest {
+    private PersistentPageMemoryStorageEngine engine;
+
     @BeforeEach
     void setUp(
-            @WorkDirectory
-            Path workDir,
-            @InjectConfiguration
-            PersistentPageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.tables.foo {}")
-            TablesConfiguration tablesConfig,
-            @InjectConfiguration("mock { partitions = 512, dataStorage.name = " + PersistentPageMemoryStorageEngine.ENGINE_NAME + " }")
-            DistributionZoneConfiguration distributionZoneConfiguration
-
+            @WorkDirectory Path workDir,
+            @InjectConfiguration PersistentPageMemoryStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig
     ) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        initialize(new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry,
-                workDir, null), tablesConfig, distributionZoneConfiguration);
+        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null);
+
+        engine.start();
+
+        initialize(tablesConfig);
+    }
+
+    @Override
+    @AfterEach
+    protected void tearDown() throws Exception {
+        super.tearDown();
+
+        IgniteUtils.closeAllManually(engine == null ? null : engine::stop);
+    }
+
+    @Override
+    protected MvTableStorage createMvTableStorage() {
+        return engine.createMvTable(
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
+                new StorageIndexDescriptorSupplier(tablesConfig)
+        );
     }
 
     @Test
@@ -64,9 +87,9 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         super.testDestroyPartition();
 
         // Let's make sure that the checkpoint doesn't fail.
-        ((PersistentPageMemoryStorageEngine) storageEngine).checkpointManager()
-                .forceCheckpoint("after-test-destroy-partition")
-                .futureFor(CheckpointState.FINISHED)
-                .get(1, TimeUnit.SECONDS);
+        assertThat(
+                engine.checkpointManager().forceCheckpoint("after-test-destroy-partition").futureFor(CheckpointState.FINISHED),
+                willCompleteSuccessfully()
+        );
     }
 }

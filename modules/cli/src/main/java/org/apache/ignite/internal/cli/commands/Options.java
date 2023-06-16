@@ -49,6 +49,7 @@ public enum Options {
 
     UNIT_PATH(Constants.UNIT_PATH_OPTION, Constants.UNIT_PATH_OPTION_SHORT, Constants.UNIT_PATH_OPTION_DESC),
     UNIT_VERSION(Constants.VERSION_OPTION, Constants.UNIT_VERSION_OPTION_SHORT, Constants.UNIT_VERSION_OPTION_DESC),
+    UNIT_NODES(Constants.UNIT_NODES_OPTION, Constants.UNIT_NODES_OPTION, Constants.UNIT_NODES_OPTION_DESC),
 
     PLAIN(Constants.PLAIN_OPTION, Constants.PLAIN_OPTION, Constants.PLAIN_OPTION_DESC),
     VERBOSE(Constants.VERBOSE_OPTION, Constants.VERBOSE_OPTION_SHORT, Constants.VERBOSE_OPTION_DESC),
@@ -99,7 +100,7 @@ public enum Options {
         public static final String NODE_URL_OPTION = "--node-url";
 
         /** Node URL option description. */
-        public static final String NODE_URL_OPTION_DESC = "URL of ignite node";
+        public static final String NODE_URL_OPTION_DESC = "URL of an Ignite node";
 
         /** Node URL or name option description. */
         public static final String NODE_URL_OR_NAME_DESC = "URL or name of an Ignite node";
@@ -231,7 +232,7 @@ public enum Options {
         /** Unit version option description. */
         public static final String UNIT_VERSION_OPTION_DESC = "Unit version (x.y.z)";
 
-        /** Path option long name. */
+        /** Unit path option long name. */
         public static final String UNIT_PATH_OPTION = "--path";
 
         /** Unit path option short name. */
@@ -239,6 +240,12 @@ public enum Options {
 
         /** Unit path option description. */
         public static final String UNIT_PATH_OPTION_DESC = "Path to deployment unit file or directory";
+
+        /** Unit nodes option long name. */
+        public static final String UNIT_NODES_OPTION = "--nodes";
+
+        /** Unit nodes option description. */
+        public static final String UNIT_NODES_OPTION_DESC = "Initial set of nodes to deploy to";
 
         public static final String CLUSTER_CONFIG_OPTION = "--cluster-config";
 

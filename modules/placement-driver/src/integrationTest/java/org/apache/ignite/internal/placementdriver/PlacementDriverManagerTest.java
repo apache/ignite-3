@@ -25,8 +25,11 @@ import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.
 import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.lang.ByteArray.fromString;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -36,11 +39,13 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -74,6 +79,7 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -131,6 +137,8 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     /** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. */
     private BiFunction<LeaseGrantedMessage, String, LeaseGrantedMessageResponse> leaseGrantHandler;
 
+    private final AtomicInteger nextTableId = new AtomicInteger();
+
     @BeforeEach
     public void beforeTest(TestInfo testInfo) throws NodeStoppingException {
         this.nodeName = testNodeName(testInfo, PORT);
@@ -143,7 +151,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         startPlacementDriverManager();
     }
 
-    private void startPlacementDriverManager() throws NodeStoppingException {
+    private void startPlacementDriverManager() {
         vaultManager = new VaultManager(new PersistentVaultService(testNodeName(testInfo, PORT), workDir.resolve("vault")));
 
         var nodeFinder = new StaticNodeFinder(Collections.singletonList(new NetworkAddress("localhost", PORT)));
@@ -215,7 +223,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         metaStorageManager.start();
         placementDriverManager.start();
 
-        metaStorageManager.deployWatches();
+        assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
     /**
@@ -239,7 +247,6 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
             if (resp == null) {
                 resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                        .groupId(((LeaseGrantedMessage) msg).groupId())
                         .accepted(true)
                         .build();
             }
@@ -470,7 +477,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     private TablePartitionId createTableAssignment() throws Exception {
-        AtomicReference<UUID> tblIdRef = new AtomicReference<>();
+        int tableId = nextTableId.incrementAndGet();
 
         List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(List.of(nodeName, anotherNodeName), 1, 2);
 
@@ -479,17 +486,29 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
             tableViewTableChangeNamedListChange.create("test-table", tableChange -> {
                 var extConfCh = ((ExtendedTableChange) tableChange);
+
+                extConfCh.changeId(tableId);
+
                 extConfCh.changeZoneId(zoneId);
-
-                tblIdRef.set(extConfCh.id());
-
-                extConfCh.changeAssignments(ByteUtils.toBytes(assignments));
             });
-        }).get();
+        }).thenCompose(v -> {
+            Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
 
-        var grpPart0 = new TablePartitionId(tblIdRef.get(), 0);
+            for (int i = 0; i < assignments.size(); i++) {
+                partitionAssignments.put(
+                        stablePartAssignmentsKey(
+                                new TablePartitionId(tableId, i)),
+                        ByteUtils.toBytes(assignments.get(i)));
 
-        log.info("Fake table created [id={}, repGrp={}]", tblIdRef.get(), grpPart0);
+            }
+
+            return metaStorageManager.putAll(partitionAssignments);
+        })
+        .get();
+
+        var grpPart0 = new TablePartitionId(tableId, 0);
+
+        log.info("Fake table created [id={}, repGrp={}]", tableId, grpPart0);
 
         return grpPart0;
     }

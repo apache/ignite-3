@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "ignite/network/tcp_range.h"
+#include "ignite/common/end_point.h"
 
 #include <string>
 #include <vector>
@@ -34,27 +34,26 @@ class diagnostic_record_storage;
  * @param addresses Addresses.
  * @return Resulting string.
  */
-std::string addresses_to_string(const std::vector<network::tcp_range>& addresses);
+std::string addresses_to_string(const std::vector<end_point>& addresses);
 
 /**
  * Parse address.
  *
  * @param value String value to parse.
- * @param end_points End points list.
  * @param diag Diagnostics collector.
+ * @return End points list.
  */
-void parse_address(const std::string& value, std::vector<network::tcp_range>& end_points,
-    diagnostic_record_storage* diag);
+std::vector<end_point> parse_address(const std::string& value, diagnostic_record_storage* diag);
 
 /**
  * Parse single address.
  *
  * @param value String value to parse.
- * @param end_point End pont.
+ * @param addr End pont.
  * @param diag Diagnostics collector.
  * @return @c true, if parsed successfully, and @c false otherwise.
  */
-bool parse_single_address(const std::string& value, network::tcp_range& end_point, diagnostic_record_storage* diag);
+bool parse_single_address(const std::string& value, end_point& addr, diagnostic_record_storage* diag);
 
 /**
  * Parse single network port.

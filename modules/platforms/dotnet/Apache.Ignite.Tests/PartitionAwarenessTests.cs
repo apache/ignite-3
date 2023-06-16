@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests;
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Table;
@@ -97,31 +98,14 @@ public class PartitionAwarenessTests
     }
 
     [Test]
-    public async Task TestClientReceivesPartitionAssignmentUpdates()
-    {
-        using var client = await GetClient();
-        var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
+    public async Task TestClientReceivesPartitionAssignmentUpdates() =>
+        await TestClientReceivesPartitionAssignmentUpdates(view => view.UpsertAsync(null, 1), ClientOp.TupleUpsert);
 
-        // Check default assignment.
-        await recordView.UpsertAsync(null, 1);
-        await AssertOpOnNode(() => recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2);
-
-        // Update assignment.
-        foreach (var server in new[] { _server1, _server2 })
-        {
-            server.ClearOps();
-            server.PartitionAssignment = server.PartitionAssignment.Reverse().ToArray();
-            server.PartitionAssignmentChanged = true;
-        }
-
-        // First request on default node receives update flag.
-        // Make two requests because balancing uses round-robin node.
-        await client.Tables.GetTablesAsync();
-        await client.Tables.GetTablesAsync();
-
-        // Second request loads and uses new assignment.
-        await AssertOpOnNode(() => recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server1, allowExtraOps: true);
-    }
+    [Test]
+    public async Task TestDataStreamerReceivesPartitionAssignmentUpdates() =>
+        await TestClientReceivesPartitionAssignmentUpdates(
+            view => view.StreamDataAsync(new[] { 1 }.ToAsyncEnumerable()),
+            ClientOp.TupleUpsertAll);
 
     [Test]
     [TestCaseSource(nameof(KeyNodeCases))]
@@ -147,6 +131,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => recordView.ReplaceAsync(null, key, key), ClientOp.TupleReplaceExact, expectedNode);
         await AssertOpOnNode(() => recordView.DeleteAsync(null, key), ClientOp.TupleDelete, expectedNode);
         await AssertOpOnNode(() => recordView.DeleteExactAsync(null, key), ClientOp.TupleDeleteExact, expectedNode);
+        await AssertOpOnNode(() => recordView.StreamDataAsync(new[] { key }.ToAsyncEnumerable()), ClientOp.TupleUpsertAll, expectedNode);
 
         // Multi-key operations use the first key for colocation.
         var keys = new[] { key, new IgniteTuple { ["ID"] = keyId - 1 }, new IgniteTuple { ["ID"] = keyId + 1 } };
@@ -180,6 +165,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => recordView.ReplaceAsync(null, key, key), ClientOp.TupleReplaceExact, expectedNode);
         await AssertOpOnNode(() => recordView.DeleteAsync(null, key), ClientOp.TupleDelete, expectedNode);
         await AssertOpOnNode(() => recordView.DeleteExactAsync(null, key), ClientOp.TupleDeleteExact, expectedNode);
+        await AssertOpOnNode(() => recordView.StreamDataAsync(new[] { key }.ToAsyncEnumerable()), ClientOp.TupleUpsertAll, expectedNode);
 
         // Multi-key operations use the first key for colocation.
         var keys = new[] { key, key - 1, key + 1 };
@@ -225,6 +211,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => kvView.PutAllAsync(null, pairs), ClientOp.TupleUpsertAll, expectedNode);
         await AssertOpOnNode(() => kvView.RemoveAllAsync(null, keys), ClientOp.TupleDeleteAll, expectedNode);
         await AssertOpOnNode(() => kvView.RemoveAllAsync(null, pairs), ClientOp.TupleDeleteAllExact, expectedNode);
+        await AssertOpOnNode(() => kvView.StreamDataAsync(pairs.ToAsyncEnumerable()), ClientOp.TupleUpsertAll, expectedNode);
     }
 
     [Test]
@@ -252,6 +239,10 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => kvView.RemoveAsync(null, key), ClientOp.TupleDelete, expectedNode);
         await AssertOpOnNode(() => kvView.RemoveAsync(null, key, val), ClientOp.TupleDeleteExact, expectedNode);
         await AssertOpOnNode(() => kvView.ContainsAsync(null, key), ClientOp.TupleContainsKey, expectedNode);
+        await AssertOpOnNode(
+            () => kvView.StreamDataAsync(new[] { new KeyValuePair<int, int>(key, val) }.ToAsyncEnumerable()),
+            ClientOp.TupleUpsertAll,
+            expectedNode);
 
         // Multi-key operations use the first key for colocation.
         var keys = new[] { key, key - 1, key + 1 };
@@ -356,6 +347,32 @@ public class PartitionAwarenessTests
         {
             CollectionAssert.IsEmpty(node2.ClientOps);
         }
+    }
+
+    private async Task TestClientReceivesPartitionAssignmentUpdates(Func<IRecordView<int>, Task> func, ClientOp op)
+    {
+        using var client = await GetClient();
+        var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
+
+        // Check default assignment.
+        await recordView.UpsertAsync(null, 1);
+        await AssertOpOnNode(() => func(recordView), op, _server2);
+
+        // Update assignment.
+        foreach (var server in new[] { _server1, _server2 })
+        {
+            server.ClearOps();
+            server.PartitionAssignment = server.PartitionAssignment.Reverse().ToArray();
+            server.PartitionAssignmentChanged = true;
+        }
+
+        // First request on default node receives update flag.
+        // Make two requests because balancing uses round-robin node.
+        await client.Tables.GetTablesAsync();
+        await client.Tables.GetTablesAsync();
+
+        // Second request loads and uses new assignment.
+        await AssertOpOnNode(() => func(recordView), op, _server1, allowExtraOps: true);
     }
 
     private async Task<IIgniteClient> GetClient()

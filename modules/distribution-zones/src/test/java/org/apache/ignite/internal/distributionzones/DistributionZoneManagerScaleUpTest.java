@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertZoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -687,7 +688,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testCleanUpAfterSchedulers() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToAddToDataNodes(Set.of(D), 1003);
         zoneState.nodesToAddToDataNodes(Set.of(E), 1004);
@@ -729,7 +730,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(ZONE_1_ID, Set.of(), keyValueStorage);
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         assertNull(zoneState.scaleUpTask());
 
@@ -761,7 +762,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(ZONE_1_ID, Set.of(NODE_1), keyValueStorage);
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         assertNull(zoneState.scaleDownTask());
 
@@ -796,10 +797,15 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
             // Emulate a situation when one of the scale up keys gets concurrently updated during a Meta Storage invoke. We then expect
             // that the invoke call will be retried.
-            byte[] key = zoneScaleUpChangeTriggerKey(ZONE_1_ID).bytes();
+            byte[] keyScaleUp = zoneScaleUpChangeTriggerKey(ZONE_1_ID).bytes();
+            byte[] keyDataNodes = zoneDataNodesKey(ZONE_1_ID).bytes();
 
-            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
-                keyValueStorage.put(key, longToBytes(100), HybridTimestamp.MIN_VALUE);
+            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(keyScaleUp, k))) {
+                keyValueStorage.putAll(
+                        List.of(keyScaleUp, keyDataNodes),
+                        List.of(longToBytes(100), keyValueStorage.get(zoneDataNodesKey(ZONE_1_ID).bytes()).value()),
+                        HybridTimestamp.MIN_VALUE
+                );
             }
 
             return invocation.callRealMethod();
@@ -837,10 +843,15 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
             // Emulate a situation when one of the scale down keys gets concurrently updated during a Meta Storage invoke. We then expect
             // that the invoke call will be retried.
-            byte[] key = zoneScaleDownChangeTriggerKey(ZONE_1_ID).bytes();
+            byte[] keyScaleDown = zoneScaleDownChangeTriggerKey(ZONE_1_ID).bytes();
+            byte[] keyDataNodes = zoneDataNodesKey(ZONE_1_ID).bytes();
 
-            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
-                keyValueStorage.put(key, longToBytes(100), HybridTimestamp.MIN_VALUE);
+            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(keyScaleDown, k))) {
+                keyValueStorage.putAll(
+                        List.of(keyScaleDown, keyDataNodes),
+                        List.of(longToBytes(100), keyValueStorage.get(zoneDataNodesKey(ZONE_1_ID).bytes()).value()),
+                        HybridTimestamp.MIN_VALUE
+                );
             }
 
             return invocation.callRealMethod();
@@ -857,7 +868,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios1_1() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToAddToDataNodes(Set.of(D), 1003);
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1007);
@@ -872,7 +883,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios1_2() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToAddToDataNodes(Set.of(D), 1003);
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1007);
@@ -887,7 +898,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios1_3() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1003);
         zoneState.nodesToAddToDataNodes(Set.of(D), 1007);
@@ -902,7 +913,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios1_4() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1003);
         zoneState.nodesToAddToDataNodes(Set.of(D), 1007);
@@ -917,7 +928,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios2_1() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToAddToDataNodes(Set.of(D), 1003);
         zoneState.nodesToRemoveFromDataNodes(Set.of(D), 1007);
@@ -933,7 +944,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios2_2() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToAddToDataNodes(Set.of(D), 1003);
         zoneState.nodesToRemoveFromDataNodes(Set.of(D), 1007);
@@ -948,7 +959,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios2_3() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1003);
         zoneState.nodesToAddToDataNodes(Set.of(C), 1007);
@@ -963,7 +974,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios2_4() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1003);
         zoneState.nodesToAddToDataNodes(Set.of(C), 1007);
@@ -978,7 +989,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios3_1() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToAddToDataNodes(Set.of(D), 1003);
         zoneState.nodesToRemoveFromDataNodes(Set.of(D), 1007);
@@ -994,7 +1005,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios3_2() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToAddToDataNodes(Set.of(D), 1003);
         zoneState.nodesToRemoveFromDataNodes(Set.of(D), 1007);
@@ -1010,7 +1021,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios3_3() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToAddToDataNodes(Set.of(D), 1003);
         zoneState.nodesToRemoveFromDataNodes(Set.of(D), 1007);
@@ -1028,7 +1039,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios3_4() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1003);
         zoneState.nodesToAddToDataNodes(Set.of(C), 1007);
@@ -1044,7 +1055,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios3_5() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1003);
         zoneState.nodesToAddToDataNodes(Set.of(C), 1007);
@@ -1060,7 +1071,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios3_6() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1003);
         zoneState.nodesToAddToDataNodes(Set.of(C), 1007);
@@ -1076,7 +1087,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios4_1() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToAddToDataNodes(Set.of(D), 1003);
         zoneState.nodesToRemoveFromDataNodes(Set.of(D), 1007);
@@ -1093,7 +1104,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios4_2() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToAddToDataNodes(Set.of(D), 1003);
         zoneState.nodesToRemoveFromDataNodes(Set.of(D), 1007);
@@ -1109,7 +1120,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios4_3() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToAddToDataNodes(Set.of(D), 1003);
         zoneState.nodesToRemoveFromDataNodes(Set.of(D), 1007);
@@ -1125,7 +1136,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios4_4() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1003);
         zoneState.nodesToAddToDataNodes(Set.of(C), 1007);
@@ -1141,7 +1152,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios4_5() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1003);
         zoneState.nodesToAddToDataNodes(Set.of(C), 1007);
@@ -1157,7 +1168,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios4_6() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1003);
         zoneState.nodesToAddToDataNodes(Set.of(C), 1007);
@@ -1173,7 +1184,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios5_1() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToAddToDataNodes(Set.of(D), 1003);
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1007);
@@ -1189,7 +1200,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios5_2() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToAddToDataNodes(Set.of(D), 1003);
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1007);
@@ -1205,7 +1216,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios5_3() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToAddToDataNodes(Set.of(D), 1003);
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1007);
@@ -1221,7 +1232,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios5_4() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1003);
         zoneState.nodesToAddToDataNodes(Set.of(D), 1007);
@@ -1237,7 +1248,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios5_5() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1003);
         zoneState.nodesToAddToDataNodes(Set.of(D), 1007);
@@ -1253,7 +1264,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testVariousScaleUpScaleDownScenarios5_6() throws Exception {
         preparePrerequisites();
 
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(ZONE_1_ID);
+        ZoneState zoneState = distributionZoneManager.zonesState().get(ZONE_1_ID);
 
         zoneState.nodesToRemoveFromDataNodes(Set.of(C), 1003);
         zoneState.nodesToAddToDataNodes(Set.of(D), 1007);
@@ -1354,7 +1365,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     private void assertThatZonesAugmentationMapContainsRevision(int zoneId, long revisionToAssert) throws InterruptedException {
         assertTrue(
                 waitForCondition(
-                        () -> distributionZoneManager.zonesTimers().get(zoneId).topologyAugmentationMap().containsKey(revisionToAssert),
+                        () -> distributionZoneManager.zonesState().get(zoneId).topologyAugmentationMap().containsKey(revisionToAssert),
                         1000
                 )
         );

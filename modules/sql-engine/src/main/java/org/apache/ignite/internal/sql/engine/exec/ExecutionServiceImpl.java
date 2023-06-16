@@ -36,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -87,6 +88,8 @@ import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -127,6 +130,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final DdlCommandHandler ddlCmdHnd;
 
+    private final ExecutionDependencyResolver dependencyResolver;
+
     private final ImplementorFactory<RowT> implementorFactory;
 
     private final Map<UUID, DistributedQueryManager> queryManagerMap = new ConcurrentHashMap<>();
@@ -153,7 +158,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
             MailboxRegistry mailboxRegistry,
-            ExchangeService exchangeSrvc
+            ExchangeService exchangeSrvc,
+            ExecutionDependencyResolver dependencyResolver
     ) {
         return new ExecutionServiceImpl<>(
                 msgSrvc,
@@ -163,12 +169,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 ddlCommandHandler,
                 taskExecutor,
                 handler,
-                ctx -> new LogicalRelImplementor<>(
+                dependencyResolver,
+                (ctx, deps) -> new LogicalRelImplementor<>(
                         ctx,
                         new HashFunctionFactoryImpl<>(sqlSchemaManager, handler),
                         mailboxRegistry,
-                        exchangeSrvc
-                )
+                        exchangeSrvc,
+                        deps)
         );
     }
 
@@ -192,6 +199,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             DdlCommandHandler ddlCmdHnd,
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
+            ExecutionDependencyResolver dependencyResolver,
             ImplementorFactory<RowT> implementorFactory
     ) {
         this.localNode = topSrvc.localMember();
@@ -202,6 +210,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         this.sqlSchemaManager = sqlSchemaManager;
         this.taskExecutor = taskExecutor;
         this.ddlCmdHnd = ddlCmdHnd;
+        this.dependencyResolver = dependencyResolver;
         this.implementorFactory = implementorFactory;
     }
 
@@ -525,10 +534,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                     NODE_LEFT_ERR, "Node left the cluster [nodeName=" + nodeName + "]")));
         }
 
-        private CompletableFuture<Void> executeFragment(IgniteRel treeRoot, ExecutionContext<RowT> ectx) {
+        private CompletableFuture<Void> executeFragment(IgniteRel treeRoot, ResolvedDependencies deps, ExecutionContext<RowT> ectx) {
             String origNodeName = ectx.originatingNodeName();
 
-            AbstractNode<RowT> node = implementorFactory.create(ectx).go(treeRoot);
+            AbstractNode<RowT> node = implementorFactory.create(ectx, deps).go(treeRoot);
 
             localFragments.add(node);
 
@@ -591,11 +600,19 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 TxAttributes txAttributes
         ) {
             CompletableFuture<?> start = new CompletableFuture<>();
+            // Because fragment execution runs on specific thread selected by taskExecutor,
+            // we should complete dependency resolution on the same thread
+            // that is going to be used for fragment execution.
+            ExecutionContext<RowT> context = createContext(initiatorNode, desc, txAttributes);
+            Executor exec = (r) -> context.execute(r::run, err -> handleError(err, initiatorNode, desc.fragmentId()));
 
             start.thenCompose(none -> {
                 IgniteRel treeRoot = relationalTreeFromJsonString(fragmentString, ctx);
+                long schemaVersion = ctx.schemaVersion();
 
-                return executeFragment(treeRoot, createContext(initiatorNode, desc, txAttributes));
+                return dependencyResolver.resolveDependencies(treeRoot, schemaVersion).thenComposeAsync(deps -> {
+                    return executeFragment(treeRoot, deps, context);
+                }, exec);
             }).exceptionally(ex -> {
                 handleError(ex, initiatorNode, desc.fragmentId());
 
@@ -686,7 +703,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                                         throw ExceptionUtils.withCauseAndCode(
                                                 IgniteInternalException::new,
-                                                Sql.INTERNAL_ERR,
+                                                Common.INTERNAL_ERR,
                                                 format("Unable to send fragment [targetNode={}, fragmentId={}, cause={}]",
                                                         nodeName, fragment.fragmentId(), t.getMessage()),
                                                 t
@@ -774,7 +791,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 @Override
                 public IgniteRel visit(IgniteTableModify rel) {
-                    UUID tableId = rel.getTable().unwrap(IgniteTable.class).id();
+                    int tableId = rel.getTable().unwrap(IgniteTable.class).id();
                     List<NodeWithTerm> assignments = fragment.mapping().updatingTableAssignments();
 
                     enlist(tableId, assignments);
@@ -782,7 +799,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     return super.visit(rel);
                 }
 
-                private void enlist(UUID tableId, List<NodeWithTerm> assignments) {
+                private void enlist(int tableId, List<NodeWithTerm> assignments) {
                     if (assignments.isEmpty()) {
                         return;
                     }
@@ -815,7 +832,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 }
 
                 private void enlist(SourceAwareIgniteRel rel) {
-                    UUID tableId = rel.getTable().unwrap(IgniteTable.class).id();
+                    int tableId = rel.getTable().unwrap(IgniteTable.class).id();
                     List<NodeWithTerm> assignments = fragment.mapping().findGroup(rel.sourceId()).assignments().stream()
                             .map(l -> l.get(0))
                             .collect(Collectors.toList());
@@ -950,6 +967,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     @FunctionalInterface
     public interface ImplementorFactory<RowT> {
         /** Creates the relational node implementor with the given context. */
-        LogicalRelImplementor<RowT> create(ExecutionContext<RowT> ctx);
+        LogicalRelImplementor<RowT> create(ExecutionContext<RowT> ctx, ResolvedDependencies resolvedDependencies);
     }
 }

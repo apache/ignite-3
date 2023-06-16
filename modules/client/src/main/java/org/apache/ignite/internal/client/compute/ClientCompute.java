@@ -21,6 +21,7 @@ import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -28,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
-import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -75,13 +76,7 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args) {
-        return execute(nodes, jobClass.getName(), args);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, String jobClassName, Object... args) {
+    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(jobClassName);
 
@@ -96,25 +91,13 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, Class<? extends ComputeJob<R>> jobClass, Object... args) {
-        return executeColocated(tableName, key, jobClass.getName(), args);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <K, R> CompletableFuture<R> executeColocated(
+    public <R> CompletableFuture<R> executeColocated(
             String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            Class<? extends ComputeJob<R>> jobClass,
+            Tuple key,
+            List<DeploymentUnit> units,
+            String jobClassName,
             Object... args
     ) {
-        return executeColocated(tableName, key, keyMapper, jobClass.getName(), args);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, String jobClassName, Object... args) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
         Objects.requireNonNull(jobClassName);
@@ -125,13 +108,20 @@ public class ClientCompute implements IgniteCompute {
                 .thenCompose(r ->
                         // If a table was dropped, try again: maybe a new table was created with the same name and new id.
                         r == MISSING_TABLE_TOKEN
-                                ? executeColocated(tableName, key, jobClassName, args)
+                                ? executeColocated(tableName, key, units, jobClassName, args)
                                 : CompletableFuture.completedFuture(r));
     }
 
     /** {@inheritDoc} */
     @Override
-    public <K, R> CompletableFuture<R> executeColocated(String tableName, K key, Mapper<K> keyMapper, String jobClassName, Object... args) {
+    public <K, R> CompletableFuture<R> executeColocated(
+            String tableName,
+            K key,
+            Mapper<K> keyMapper,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
@@ -143,20 +133,18 @@ public class ClientCompute implements IgniteCompute {
                 .thenCompose(r ->
                         // If a table was dropped, try again: maybe a new table was created with the same name and new id.
                         r == MISSING_TABLE_TOKEN
-                                ? executeColocated(tableName, key, keyMapper, jobClassName, args)
+                                ? executeColocated(tableName, key, keyMapper, units, jobClassName, args)
                                 : CompletableFuture.completedFuture(r));
     }
 
     /** {@inheritDoc} */
     @Override
-    public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass,
-            Object... args) {
-        return broadcast(nodes, jobClass.getName(), args);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, String jobClassName, Object... args) {
+    public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(
+            Set<ClusterNode> nodes,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(jobClassName);
 
@@ -181,7 +169,7 @@ public class ClientCompute implements IgniteCompute {
 
             w.out().packString(jobClassName);
             w.out().packObjectArrayAsBinaryTuple(args);
-        }, r -> (R) r.in().unpackObjectFromBinaryTuple(), node.name(), null);
+        }, r -> (R) r.in().unpackObjectFromBinaryTuple(), node.name(), null, null);
     }
 
     private static ClusterNode randomNode(Set<ClusterNode> nodes) {
@@ -210,7 +198,7 @@ public class ClientCompute implements IgniteCompute {
                 (schema, outputChannel) -> {
                     ClientMessagePacker w = outputChannel.out();
 
-                    w.packUuid(t.tableId());
+                    w.packInt(t.tableId());
                     w.packInt(schema.version());
 
                     ClientRecordSerializer.writeRecRaw(key, keyMapper, schema, w, TuplePart.KEY);
@@ -232,7 +220,7 @@ public class ClientCompute implements IgniteCompute {
                 (schema, outputChannel) -> {
                     ClientMessagePacker w = outputChannel.out();
 
-                    w.packUuid(t.tableId());
+                    w.packInt(t.tableId());
                     w.packInt(schema.version());
 
                     ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true);

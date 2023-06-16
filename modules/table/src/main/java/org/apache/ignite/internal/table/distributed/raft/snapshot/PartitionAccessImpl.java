@@ -95,8 +95,8 @@ public class PartitionAccessImpl implements PartitionAccess {
         return partitionKey.partitionId();
     }
 
-    private String tableName() {
-        return mvTableStorage.configuration().name().value();
+    private int tableId() {
+        return mvTableStorage.getTableDescriptor().getId();
     }
 
     @Override
@@ -135,7 +135,7 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId) {
+    public void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
 
         mvPartitionStorage.runConsistently(locker -> {
@@ -238,7 +238,7 @@ public class PartitionAccessImpl implements PartitionAccess {
     private MvPartitionStorage getMvPartitionStorage(int partitionId) {
         MvPartitionStorage mvPartitionStorage = mvTableStorage.getMvPartition(partitionId);
 
-        assert mvPartitionStorage != null : IgniteStringFormatter.format("table={}, partitionId={}", tableName(), partitionId);
+        assert mvPartitionStorage != null : IgniteStringFormatter.format("tableId={}, partitionId={}", tableId(), partitionId);
 
         return mvPartitionStorage;
     }
@@ -246,7 +246,7 @@ public class PartitionAccessImpl implements PartitionAccess {
     private TxStateStorage getTxStateStorage(int partitionId) {
         TxStateStorage txStateStorage = txStateTableStorage.getTxStateStorage(partitionId);
 
-        assert txStateStorage != null : IgniteStringFormatter.format("table={}, partitionId={}", tableName(), partitionId);
+        assert txStateStorage != null : IgniteStringFormatter.format("tableId={}, partitionId={}", tableId(), partitionId);
 
         return txStateStorage;
     }

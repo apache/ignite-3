@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft.client;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -228,7 +230,9 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                         }
                     }, executor);
                 } else {
-                    LOG.error("Could not send the subscribe message to the node [node={}, msg={}]", th, node, msg);
+                    if (!(th instanceof NodeStoppingException)) {
+                        LOG.error("Could not send the subscribe message to the node [node={}, msg={}]", th, node, msg);
+                    }
 
                     msgSendFut.completeExceptionally(th);
                 }
@@ -287,7 +291,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         if (notifyOnSubscription) {
             return CompletableFuture.allOf(futs).whenCompleteAsync((unused, throwable) -> {
                 if (throwable != null) {
-                    throw new IgniteException(Common.UNEXPECTED_ERR, throwable);
+                    throw new IgniteException(Common.INTERNAL_ERR, throwable);
                 }
 
                 refreshAndGetLeaderWithTerm().thenAcceptAsync(leaderWithTerm -> {
@@ -314,7 +318,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         serverEventHandler.resetLeader();
 
         var peers = peers();
-        var futs = new CompletableFuture[peers.size()];
+        List<CompletableFuture<Boolean>> futs = new ArrayList<>();
 
         for (int i = 0; i < peers.size(); i++) {
             Peer peer = peers.get(i);
@@ -322,14 +326,14 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             ClusterNode node = clusterService.topologyService().getByConsistentId(peer.consistentId());
 
             if (node != null) {
-                futs[i] = sendSubscribeMessage(node, factory.subscriptionLeaderChangeRequest()
+                futs.add(sendSubscribeMessage(node, factory.subscriptionLeaderChangeRequest()
                         .groupId(groupId())
                         .subscribe(false)
-                        .build());
+                        .build()));
             }
         }
 
-        return CompletableFuture.allOf(futs);
+        return CompletableFuture.allOf(futs.toArray(new CompletableFuture[futs.size()]));
     }
 
     @Override

@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MAX_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.table.impl.DummyInternalTableImpl.SCAN_RECIPIENT_NODE;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -41,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -57,7 +57,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -154,9 +153,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     @InjectConfiguration("mock.tables.foo {}")
     private static TablesConfiguration tablesConfig;
-
-    @InjectConfiguration
-    private static DistributionZoneConfiguration distributionZoneConfig;
 
     private static final IgniteLogger LOG = Loggers.forClass(ItTxDistributedTestSingleNode.class);
 
@@ -363,8 +359,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         final String accountsName = "accounts";
         final String customersName = "customers";
 
-        UUID accTblId = UUID.randomUUID();
-        UUID custTblId = UUID.randomUUID();
+        int accTblId = 1;
+        int custTblId = 2;
 
         accRaftClients = startTable(accTblId, ACCOUNTS_SCHEMA);
         custRaftClients = startTable(custTblId, CUSTOMERS_SCHEMA);
@@ -422,7 +418,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
      * @param schemaDescriptor Schema descriptor.
      * @return Groups map.
      */
-    private Int2ObjectOpenHashMap<RaftGroupService> startTable(UUID tblId, SchemaDescriptor schemaDescriptor) throws Exception {
+    private Int2ObjectOpenHashMap<RaftGroupService> startTable(int tblId, SchemaDescriptor schemaDescriptor) throws Exception {
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
                 1,
@@ -441,13 +437,15 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         List<CompletableFuture<Void>> partitionReadyFutures = new ArrayList<>();
 
+        int globalIndexId = 1;
+
         for (int p = 0; p < assignments.size(); p++) {
             Set<String> partAssignments = assignments.get(p);
 
             TablePartitionId grpId = grpIds.get(p);
 
             for (String assignment : partAssignments) {
-                var mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZoneConfig);
+                var mvTableStorage = new TestMvTableStorage(tblId, DEFAULT_PARTITION_COUNT);
                 var mvPartStorage = new TestMvPartitionStorage(0);
                 var txStateStorage = txStateStorages.get(assignment);
                 var txnStateResolver = new PlacementDriver(replicaServices.get(assignment), consistentIdToNode);
@@ -458,7 +456,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 int partId = p;
 
-                UUID indexId = UUID.randomUUID();
+                int indexId = globalIndexId++;
 
                 Function<BinaryRow, BinaryTuple> row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
@@ -538,6 +536,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 consistentIdToNode.apply(assignment),
                                                 mvTableStorage,
                                                 mock(IndexBuilder.class),
+                                                tablesConfig,
                                                 placementDriver
                                         ),
                                         raftSvc,
@@ -655,7 +654,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             ReplicaManager replicaMgr = replicaManagers.get(entry.getKey());
 
             for (ReplicationGroupId grp : replicaMgr.startedGroups()) {
-                replicaMgr.stopReplica(grp);
+                replicaMgr.stopReplica(grp).join();
             }
 
             for (RaftNodeId nodeId : rs.localNodes()) {

@@ -31,7 +31,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -133,7 +132,7 @@ public class RebalanceUtil {
      * @param key Key.
      * @return Table id.
      */
-    public static UUID extractTableId(byte[] key) {
+    public static int extractTableId(byte[] key) {
         return extractTableId(key, "");
     }
 
@@ -144,10 +143,10 @@ public class RebalanceUtil {
      * @param prefix Key prefix.
      * @return Table id.
      */
-    public static UUID extractTableId(byte[] key, String prefix) {
+    public static int extractTableId(byte[] key, String prefix) {
         String strKey = new String(key, StandardCharsets.UTF_8);
 
-        return UUID.fromString(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
+        return Integer.parseInt(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
     }
 
     /**
@@ -230,13 +229,12 @@ public class RebalanceUtil {
      * @param metaStorageMgr MetaStorage manager.
      * @param dataNodes Data nodes.
      * @param replicas Replicas count.
-     * @param partNum Number of the partition.
      * @param partId Partition's raft group id.
      * @param event Assignments switch reduce change event.
      * @return Completable future that signifies the completion of this operation.
      */
     public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<String> dataNodes,
-            int replicas, int partNum, TablePartitionId partId, WatchEvent event) {
+            int replicas, TablePartitionId partId, WatchEvent event) {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();
 
@@ -246,7 +244,7 @@ public class RebalanceUtil {
             return CompletableFuture.completedFuture(null);
         }
 
-        Set<Assignment> assignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partNum, replicas);
+        Set<Assignment> assignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partId.partitionId(), replicas);
 
         ByteArray pendingKey = pendingPartAssignmentsKey(partId);
 

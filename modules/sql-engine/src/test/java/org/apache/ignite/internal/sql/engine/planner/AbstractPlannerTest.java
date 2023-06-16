@@ -43,7 +43,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -94,8 +96,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.Cloner;
@@ -118,11 +118,12 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -142,6 +143,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected static final String DEFAULT_SCHEMA = "PUBLIC";
 
     protected static final int DEFAULT_ZONE_ID = 0;
+
+    private static final AtomicInteger NEXT_TABLE_ID = new AtomicInteger(2001);
 
     /** Last error message. */
     String lastErrorMsg;
@@ -178,6 +181,14 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         v.visit(n, -1, null);
 
         n.childrenAccept(new TestRelVisitor(v));
+    }
+
+    protected static IgniteDistribution someAffinity() {
+        return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
+    }
+
+    protected static int nextTableId() {
+        return NEXT_TABLE_ID.getAndIncrement();
     }
 
     /**
@@ -807,7 +818,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         private final TableDescriptor desc;
 
-        private final UUID id = UUID.randomUUID();
+        private final int id = nextTableId();
 
         /** Constructor. */
         public TestTable(RelDataType type) {
@@ -835,7 +846,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public UUID id() {
+        public int id() {
             return id;
         }
 
@@ -1019,19 +1030,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         public String name() {
             return name;
         }
-
-        /** {@inheritDoc} */
-        @Override
-        public InternalTable table() {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
-                @Nullable BitSet requiredColumns) {
-            throw new AssertionError();
-        }
     }
 
     /**
@@ -1195,9 +1193,9 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     static class TestSortedIndex implements SortedIndex {
-        private final UUID id = UUID.randomUUID();
+        private final int id = 1;
 
-        private final UUID tableId = UUID.randomUUID();
+        private final int tableId = 1;
 
         private final SortedIndexDescriptor descriptor;
 
@@ -1223,9 +1221,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             this.descriptor = descriptor;
         }
 
-        /** {@inheritDoc} */
         @Override
-        public UUID id() {
+        public int id() {
             return id;
         }
 
@@ -1237,7 +1234,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public UUID tableId() {
+        public int tableId() {
             return tableId;
         }
 
@@ -1276,14 +1273,14 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
     /** Test Hash index implementation. */
     public static class TestHashIndex implements Index<IndexDescriptor> {
-        private final UUID id = UUID.randomUUID();
+        private final int id = 1;
 
-        private UUID tableId = UUID.randomUUID();
+        private int tableId = 1;
 
         private final IndexDescriptor descriptor;
 
         /** Create index. */
-        public static TestHashIndex create(List<String> indexedColumns, String name, UUID tableId) {
+        public static TestHashIndex create(List<String> indexedColumns, String name, int tableId) {
             var descriptor = new IndexDescriptor(name, indexedColumns);
 
             TestHashIndex idx = new TestHashIndex(descriptor);
@@ -1304,9 +1301,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             this.descriptor = descriptor;
         }
 
-        /** {@inheritDoc} */
         @Override
-        public UUID id() {
+        public int id() {
             return id;
         }
 
@@ -1318,7 +1314,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public UUID tableId() {
+        public int tableId() {
             return tableId;
         }
 
@@ -1387,6 +1383,50 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         public void reset() {
             attemptedRules.clear();
+        }
+    }
+
+    /**
+     * A shorthand for {@code checkStatement().sql(statement, params)}.
+     */
+    public StatementChecker sql(String statement, Object... params) {
+        return checkStatement().sql(statement, params);
+    }
+
+    /**
+     * Creates an instance of {@link StatementChecker statement checker} to test plans.
+     * <pre>
+     *     checkStatement().sql("SELECT 1").ok()
+     * </pre>
+     */
+    public StatementChecker checkStatement() {
+        return new PlanChecker();
+    }
+
+    /**
+     * Creates an instance of {@link PlanChecker statement checker} with the given setup.
+     * A shorthand for {@code checkStatement().setup(func)}.
+     */
+    public StatementChecker checkStatement(Consumer<StatementChecker> setup) {
+        return new PlanChecker().setup(setup);
+    }
+
+    /**
+     * An implementation of {@link PlanChecker} with initialized {@link SqlPrepare} to test plans.
+     */
+    public class PlanChecker extends StatementChecker {
+
+        PlanChecker() {
+            super((schema, sql, params) -> {
+                return physicalPlan(sql, List.of(schema), HintStrategyTable.EMPTY,
+                        params, new NoopRelOptListener());
+            });
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        protected void checkRel(IgniteRel igniteRel, IgniteSchema schema) {
+            checkSplitAndSerialization(igniteRel, schema);
         }
     }
 }

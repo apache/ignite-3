@@ -22,7 +22,10 @@
 #include "ignite/odbc/diagnostic/diagnosable_adapter.h"
 #include "ignite/odbc/odbc_error.h"
 
+#include "ignite/network/socket_client.h"
 #include "ignite/network/tcp_range.h"
+#include "ignite/protocol/buffer_adapter.h"
+#include "ignite/protocol/writer.h"
 
 #include <cstdint>
 #include <vector>
@@ -123,7 +126,7 @@ public:
      * @return @c true on success, @c false on timeout.
      * @throw odbc_error on error.
      */
-    bool send(const std::int8_t* data, std::size_t len)
+    bool send(const std::byte* data, std::size_t len)
     {
         return send(data, len, m_timeout);
     }
@@ -137,7 +140,7 @@ public:
      * @return @c true on success, @c false on timeout.
      * @throw odbc_error on error.
      */
-    bool send(const std::int8_t* data, std::size_t len, std::int32_t timeout);
+    bool send(const std::byte* data, std::size_t len, std::int32_t timeout);
 
     /**
      * Receive next message.
@@ -147,7 +150,7 @@ public:
      * @return @c true on success, @c false on timeout.
      * @throw odbc_error on error.
      */
-    bool receive(std::vector<std::int8_t>& msg, std::int32_t timeout);
+    bool receive(std::vector<std::byte>& msg, std::int32_t timeout);
 
     /**
      * Get configuration.
@@ -162,74 +165,6 @@ public:
      * @return @c true if the auto commit is enabled.
      */
     [[nodiscard]] bool is_auto_commit() const;
-
-    /**
-     * Synchronously send request message and receive response.
-     * Uses provided timeout.
-     *
-     * @param req Request message.
-     * @param rsp response message.
-     * @param timeout Timeout. 0 means disabled.
-     * @return @c true on success, @c false on timeout.
-     * @throw odbc_error on error.
-     */
-    template<typename ReqT, typename RspT>
-    bool sync_message(const ReqT& req, RspT& rsp, std::int32_t timeout)
-    {
-        ensure_connected();
-
-        std::vector<std::int8_t> temp_buffer;
-
-        // TODO: IGNITE-19204 Implement encoding and decoding of messages.
-        //parser.Encode(req, temp_buffer);
-
-        bool success = send(temp_buffer.data(), temp_buffer.size(), timeout);
-
-        if (!success)
-            return false;
-
-        success = receive(temp_buffer, timeout);
-
-        if (!success)
-            return false;
-
-        // TODO: IGNITE-19204 Implement encoding and decoding of messages.
-        //parser.Decode(rsp, temp_buffer);
-
-        return true;
-    }
-
-    /**
-     * Synchronously send request message and receive response.
-     * Uses connection timeout.
-     *
-     * @param req Request message.
-     * @param rsp response message.
-     * @throw odbc_error on error.
-     */
-    template<typename ReqT, typename RspT>
-    void sync_message(const ReqT& req, RspT& rsp)
-    {
-        ensure_connected();
-
-        std::vector<std::int8_t> temp_buffer;
-
-        // TODO: IGNITE-19204 Implement encoding and decoding of messages.
-        //parser.Encode(req, temp_buffer);
-
-        bool success = send(temp_buffer.data(), temp_buffer.size(), m_timeout);
-
-        if (!success)
-            throw odbc_error(sql_state::SHYT01_CONNECTION_TIMEOUT, "Send operation timed out");
-
-        success = receive(temp_buffer, m_timeout);
-
-        if (!success)
-            throw odbc_error(sql_state::SHYT01_CONNECTION_TIMEOUT, "Receive operation timed out");
-
-        // TODO: IGNITE-19204 Implement encoding and decoding of messages.
-        //parser.Decode(rsp, temp_buffer);
-    }
 
     /**
      * Perform transaction commit.
@@ -267,42 +202,7 @@ private:
      *
      * @return Operation result.
      */
-    sql_result init_socket();
-
-    /**
-     * Synchronously send request message and receive response.
-     * Uses provided timeout. Does not try to restore connection on
-     * fail.
-     *
-     * @param req Request message.
-     * @param rsp response message.
-     * @param timeout Timeout.
-     * @return @c true on success, @c false on timeout.
-     * @throw odbc_error on error.
-     */
-    template<typename ReqT, typename RspT>
-    bool internal_sync_message(const ReqT& req, RspT& rsp, std::int32_t timeout)
-    {
-        std::vector<std::int8_t> temp_buffer;
-
-        // TODO: IGNITE-19204 Implement encoding and decoding of messages.
-        //parser.Encode(req, temp_buffer);
-
-        bool success = send(temp_buffer.data(), temp_buffer.size(), timeout);
-
-        if (!success)
-            return false;
-
-        success = receive(temp_buffer, timeout);
-
-        if (!success)
-            return false;
-
-        // TODO: IGNITE-19204 Implement encoding and decoding of messages.
-        //parser.Decode(rsp, temp_buffer);
-
-        return true;
-    }
+    void init_socket();
 
     /**
      * Establish connection to ODBC server.
@@ -414,7 +314,7 @@ private:
      * @param timeout Timeout.
      * @return Operation result.
      */
-    operation_result send_all(const std::int8_t* data, std::size_t len, std::int32_t timeout);
+    operation_result send_all(const std::byte* data, std::size_t len, std::int32_t timeout);
 
     /**
      * Perform handshake request.
@@ -447,6 +347,14 @@ private:
     std::int32_t retrieve_timeout(void* value);
 
     /**
+     * Safe connect.
+     *
+     * @param addr Address.
+     * @return @c true if connection was successful.
+     */
+    bool safe_connect(const end_point &addr);
+
+    /**
      * Constructor.
      */
     explicit sql_connection(sql_environment * env)
@@ -455,7 +363,7 @@ private:
         , m_info(m_config) {}
 
     /** Parent. */
-    sql_environment * m_env;
+    sql_environment *m_env;
 
     /** Connection timeout in seconds. */
     std::int32_t m_timeout{0};
@@ -471,6 +379,12 @@ private:
 
     /** Connection info. */
     connection_info m_info;
+
+    /** Socket client. */
+    std::unique_ptr<network::socket_client> m_socket;
+
+    /** Protocol version. */
+    protocol_version m_protocol_version;
 };
 
 } // namespace ignite

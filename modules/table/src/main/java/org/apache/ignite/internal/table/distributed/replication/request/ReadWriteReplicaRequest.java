@@ -20,14 +20,12 @@ package org.apache.ignite.internal.table.distributed.replication.request;
 import java.util.UUID;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.network.annotations.Marshallable;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Read-write replica request.
  */
 public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
-    @Nullable
     UUID transactionId();
 
     /**
@@ -35,8 +33,6 @@ public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, Timestam
      *
      * @return Enlistment consistency token.
      */
-    // TODO: IGNITE-19457 Maybe not nullable.
     @Nullable
-    @Marshallable
     Long enlistmentConsistencyToken();
 }

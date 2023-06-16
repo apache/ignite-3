@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
@@ -28,15 +30,19 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,20 +53,36 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
+    private RocksDbStorageEngine engine;
+
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
             @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16536, writeBufferSize = 16536}}")
             RocksDbStorageEngineConfiguration rocksDbEngineConfig,
-            @InjectConfiguration(
-                    "mock.tables.foo {}"
-            )
-            TablesConfiguration tablesConfig,
-            @InjectConfiguration("mock { partitions = 512, dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME + "}")
-            DistributionZoneConfiguration distributionZoneConfiguration
+            @InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig
     ) {
-        initialize(new RocksDbStorageEngine(rocksDbEngineConfig, workDir),
-                tablesConfig, distributionZoneConfiguration);
+        engine = new RocksDbStorageEngine("test", rocksDbEngineConfig, workDir);
+
+        engine.start();
+
+        initialize(tablesConfig);
+    }
+
+    @Override
+    @AfterEach
+    protected void tearDown() throws Exception {
+        super.tearDown();
+
+        IgniteUtils.closeAllManually(engine == null ? null : engine::stop);
+    }
+
+    @Override
+    protected MvTableStorage createMvTableStorage() {
+        return engine.createMvTable(
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
+                new StorageIndexDescriptorSupplier(tablesConfig)
+        );
     }
 
     /**
@@ -79,7 +101,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         partitionStorage0.runConsistently(locker -> {
             locker.lock(rowId0);
 
-            return partitionStorage0.addWrite(rowId0, testData, txId, UUID.randomUUID(), 0);
+            return partitionStorage0.addWrite(rowId0, testData, txId, COMMIT_TABLE_ID, 0);
         });
 
         MvPartitionStorage partitionStorage1 = getOrCreateMvPartition(PARTITION_ID_1);
@@ -89,7 +111,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         partitionStorage1.runConsistently(locker -> {
             locker.lock(rowId1);
 
-            return partitionStorage1.addWrite(rowId1, testData, txId, UUID.randomUUID(), 0);
+            return partitionStorage1.addWrite(rowId1, testData, txId, COMMIT_TABLE_ID, 0);
         });
 
         tableStorage.destroyPartition(PARTITION_ID_0).get(1, TimeUnit.SECONDS);
@@ -120,12 +142,12 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         partitionStorage0.runConsistently(locker -> {
             locker.lock(rowId0);
 
-            return partitionStorage0.addWrite(rowId0, testData, txId, UUID.randomUUID(), 0);
+            return partitionStorage0.addWrite(rowId0, testData, txId, COMMIT_TABLE_ID, 0);
         });
 
         tableStorage.stop();
 
-        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration(), tableStorage.distributionZoneConfiguration());
+        tableStorage = createMvTableStorage();
 
         tableStorage.start();
 

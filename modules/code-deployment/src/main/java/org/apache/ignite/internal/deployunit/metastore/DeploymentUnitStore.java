@@ -20,10 +20,11 @@ package org.apache.ignite.internal.deployunit.metastore;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.deployunit.UnitStatus;
-import org.apache.ignite.internal.deployunit.UnitStatuses;
-import org.apache.ignite.internal.deployunit.version.Version;
+import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**
@@ -31,30 +32,18 @@ import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
  */
 public interface DeploymentUnitStore {
     /**
-     * Returns cluster status of deployment unit.
+     * Register node statuses change events listener.
      *
-     * @param id Deployment unit identifier.
-     * @param version Deployment unit version.
-     * @return Cluster status of deployment unit.
+     * @param listener Node statuses update listener.
      */
-    CompletableFuture<UnitStatus> getClusterStatus(String id, Version version);
-
-    /**
-     * Returns node status of deployment unit.
-     *
-     * @param id Deployment unit identifier.
-     * @param version Deployment unit version.
-     * @param nodeId Node consistent identifier.
-     * @return Node status of deployment unit.
-     */
-    CompletableFuture<UnitStatus> getNodeStatus(String id, Version version, String nodeId);
+    void registerListener(NodeStatusWatchListener listener);
 
     /**
      * Returns cluster statuses of all existed deployment units.
      *
      * @return Cluster statuses of all existed deployment units.
      */
-    CompletableFuture<List<UnitStatuses>> getAllClusterStatuses();
+    CompletableFuture<List<UnitClusterStatus>> getClusterStatuses();
 
     /**
      * Returns cluster status of deployment unit with provided identifier.
@@ -62,7 +51,43 @@ public interface DeploymentUnitStore {
      * @param id Deployment unit identifier.
      * @return Cluster status of deployment unit with provided identifier.
      */
-    CompletableFuture<UnitStatuses> getClusterStatuses(String id);
+    CompletableFuture<List<UnitClusterStatus>> getClusterStatuses(String id);
+
+    /**
+     * Returns cluster status of deployment unit.
+     *
+     * @param id Deployment unit identifier.
+     * @param version Deployment unit version.
+     * @return Cluster status of deployment unit.
+     */
+    CompletableFuture<UnitClusterStatus> getClusterStatus(String id, Version version);
+
+    /**
+     * Returns node status of deployment unit.
+     *
+     * @param nodeId Node consistent identifier.
+     * @return Node status of deployment unit.
+     */
+    CompletableFuture<List<UnitNodeStatus>> getNodeStatuses(String nodeId);
+
+    /**
+     * Returns node status of deployment unit.
+     *
+     * @param nodeId Node consistent identifier.
+     * @param unitId Deployment unit identifier.
+     * @return Node status of deployment unit.
+     */
+    CompletableFuture<List<UnitNodeStatus>> getNodeStatuses(String nodeId, String unitId);
+
+    /**
+     * Returns node status of deployment unit.
+     *
+     * @param nodeId Node consistent identifier.
+     * @param id Deployment unit identifier.
+     * @param version Deployment unit version.
+     * @return Node status of deployment unit.
+     */
+    CompletableFuture<UnitNodeStatus> getNodeStatus(String nodeId, String id, Version version);
 
     /**
      * Create new cluster status for deployment unit.
@@ -72,32 +97,32 @@ public interface DeploymentUnitStore {
      * @return Future with {@code true} result if status created successfully
      *          or with {@code false} if status with provided {@param id} and {@param version} already existed.
      */
-    CompletableFuture<Boolean> createClusterStatus(String id, Version version);
+    CompletableFuture<Boolean> createClusterStatus(String id, Version version, Set<String> nodesToDeploy);
 
     /**
      * Create new node status for deployment unit with {@link DeploymentStatus#UPLOADING} deployment status.
      *
+     * @param nodeId Node consistent identifier.
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
-     * @param nodeId Node consistent identifier.
-     * @return Future with {@code true} result if status created successfully
-     *          or with {@code false} if status with provided {@param id} and {@param version} and {@param nodeId} already existed.
+     * @return Future with {@code true} result if status created successfully or with {@code false} if status with provided {@param id} and
+     *         {@param version} and {@param nodeId} already existed.
      */
-    default CompletableFuture<Boolean> createNodeStatus(String id, Version version, String nodeId) {
-        return createNodeStatus(id, version, nodeId, UPLOADING);
+    default CompletableFuture<Boolean> createNodeStatus(String nodeId, String id, Version version) {
+        return createNodeStatus(nodeId, id, version, UPLOADING);
     }
 
     /**
      * Create new node status for deployment unit.
      *
+     * @param nodeId Node consistent identifier.
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
-     * @param nodeId Node consistent identifier.
      * @param status Initial deployment status.
-     * @return Future with {@code true} result if status created successfully
-     *          or with {@code false} if status with provided {@param id} and {@param version} and {@param nodeId} already existed.
+     * @return Future with {@code true} result if status created successfully or with {@code false} if status with provided {@param id} and
+     *         {@param version} and {@param nodeId} already existed.
      */
-    CompletableFuture<Boolean> createNodeStatus(String id, Version version, String nodeId, DeploymentStatus status);
+    CompletableFuture<Boolean> createNodeStatus(String nodeId, String id, Version version, DeploymentStatus status);
 
     /**
      * Updates cluster status for deployment unit.
@@ -117,15 +142,16 @@ public interface DeploymentUnitStore {
      * @param status New deployment status.
      * @return Future with {@code true} result if status updated successfully.
      */
-    CompletableFuture<Boolean> updateNodeStatus(String id, Version version, String nodeId, DeploymentStatus status);
+    CompletableFuture<Boolean> updateNodeStatus(String nodeId, String id, Version version, DeploymentStatus status);
 
     /**
-     * Returns cluster statuses of all deployment units which deployed on provided node.
+     * Returns a list of nodes where unit with provided identifier and version is deployed.
      *
-     * @param nodeId Node consistent identifier.
-     * @return Cluster statuses of all deployment units which deployed on provided node.
+     * @param id Deployment unit identifier.
+     * @param version Deployment unit version.
+     * @return A list of nodes where unit with provided identifier and version is deployed or empty list.
      */
-    CompletableFuture<List<UnitStatuses>> findAllByNodeConsistentId(String nodeId);
+    CompletableFuture<List<String>> getAllNodes(String id, Version version);
 
     /**
      * Removes all data for deployment unit.

@@ -18,10 +18,18 @@
 package org.apache.ignite.internal.catalog;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.commands.DropZoneParams;
+import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
@@ -59,4 +67,68 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * @return Operation future.
      */
     CompletableFuture<Void> dropColumn(AlterTableDropColumnParams params);
+
+    /**
+     * Changes a table column.
+     *
+     * @param params Parameters.
+     * @return Operation future.
+     */
+    CompletableFuture<Void> alterColumn(AlterColumnParams params);
+
+    /**
+     * Creates new sorted index.
+     *
+     * @param params Parameters.
+     * @return Operation future.
+     */
+    CompletableFuture<Void> createIndex(CreateSortedIndexParams params);
+
+    /**
+     * Creates new hash index.
+     *
+     * @param params Parameters.
+     * @return Operation future.
+     */
+    CompletableFuture<Void> createIndex(CreateHashIndexParams params);
+
+    /**
+     * Drops index.
+     *
+     * @param params Parameters.
+     * @return Operation future.
+     */
+    CompletableFuture<Void> dropIndex(DropIndexParams params);
+
+    /**
+     * Creates new distribution zone.
+     *
+     * @param params Parameters.
+     * @return Operation future.
+     */
+    CompletableFuture<Void> createDistributionZone(CreateZoneParams params);
+
+    /**
+     * Drops distribution zone.
+     *
+     * @param params Parameters.
+     * @return Operation future.
+     */
+    CompletableFuture<Void> dropDistributionZone(DropZoneParams params);
+
+    /**
+     * Alter distribution zone.
+     *
+     * @param params Parameters.
+     * @return Operation future.
+     */
+    CompletableFuture<Void> alterDistributionZone(AlterZoneParams params);
+
+    /**
+     * Rename distribution zone.
+     *
+     * @param params Parameters.
+     * @return Operation future.
+     */
+    CompletableFuture<Void> renameDistributionZone(RenameZoneParams params);
 }

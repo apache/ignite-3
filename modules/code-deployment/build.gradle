@@ -27,6 +27,7 @@ dependencies {
     annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.auto.service
 
+    implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
     implementation project(':ignite-core')
     implementation project(':ignite-api')
@@ -40,6 +41,9 @@ dependencies {
 
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
+    testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
+    testImplementation libs.awaitility
     testImplementation project(':ignite-vault')
     testImplementation project(':ignite-metastorage')
     testImplementation testFixtures(project(':ignite-core'))

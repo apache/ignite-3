@@ -33,39 +33,39 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.DoubleSupplier;
+import java.util.function.LongFunction;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.causality.CompletableVersionedValue;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.OutdatedTokenException;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.HashIndex;
 import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.index.SortedIndexImpl;
-import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -74,16 +74,14 @@ import org.jetbrains.annotations.Nullable;
 public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private final IncrementalVersionedValue<Map<String, IgniteSchema>> schemasVv;
 
-    private final IncrementalVersionedValue<Map<UUID, IgniteTable>> tablesVv;
+    private final IncrementalVersionedValue<Map<Integer, IgniteTable>> tablesVv;
 
-    private final Map<UUID, CompletableFuture<?>> pkIdxReady = new ConcurrentHashMap<>();
+    private final Map<Integer, CompletableFuture<?>> pkIdxReady = new ConcurrentHashMap<>();
 
-    private final IncrementalVersionedValue<Map<UUID, IgniteIndex>> indicesVv;
+    private final IncrementalVersionedValue<Map<Integer, IgniteIndex>> indicesVv;
 
     private final TableManager tableManager;
     private final SchemaManager schemaManager;
-    private final ReplicaService replicaService;
-    private final HybridClock clock;
 
     private final CompletableVersionedValue<SchemaPlus> calciteSchemaVv;
 
@@ -99,15 +97,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     public SqlSchemaManagerImpl(
             TableManager tableManager,
             SchemaManager schemaManager,
-            ReplicaService replicaService,
-            HybridClock clock,
-            Consumer<Function<Long, CompletableFuture<?>>> registry,
+            Consumer<LongFunction<CompletableFuture<?>>> registry,
             IgniteSpinBusyLock busyLock
     ) {
         this.tableManager = tableManager;
         this.schemaManager = schemaManager;
-        this.replicaService = replicaService;
-        this.clock = clock;
 
         schemasVv = new IncrementalVersionedValue<>(registry, HashMap::new);
         tablesVv = new IncrementalVersionedValue<>(registry, HashMap::new);
@@ -151,12 +145,18 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     public SchemaPlus schema(@Nullable String schema) {
-        SchemaPlus schemaPlus = calciteSchemaVv.latest();
-
         // stub for waiting pk indexes, more clear place is IgniteSchema
         CompletableFuture.allOf(pkIdxReady.values().toArray(CompletableFuture[]::new)).join();
 
+        SchemaPlus schemaPlus = calciteSchemaVv.latest();
+
         return schema != null ? schemaPlus.getSubSchema(schema) : schemaPlus.getSubSchema(DEFAULT_SCHEMA_NAME);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SchemaPlus schema(String name, int version) {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -167,7 +167,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
         try {
             if (ver == IgniteSchema.INITIAL_VERSION) {
-                return completedFuture(null);
+                return completedFuture(calciteSchemaVv.latest());
             }
 
             CompletableFuture<SchemaPlus> lastSchemaFut;
@@ -186,8 +186,13 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    @NotNull
-    public IgniteTable tableById(UUID id) {
+    public SchemaPlus activeSchema(@Nullable String name, long timestamp) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteTable tableById(int id) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -213,7 +218,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * OnSqlTypeCreated.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public CompletableFuture<?> onTableCreated(String schemaName, UUID tableId, long causalityToken) {
+    public CompletableFuture<?> onTableCreated(String schemaName, int tableId, long causalityToken) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
@@ -221,7 +226,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         try {
             pkIdxReady.computeIfAbsent(tableId, k -> new CompletableFuture<>());
 
-            CompletableFuture<Map<UUID, IgniteTable>> updatedTables = tablesVv.update(causalityToken, (tables, e) ->
+            CompletableFuture<Map<Integer, IgniteTable>> updatedTables = tablesVv.update(causalityToken, (tables, e) ->
                     inBusyLock(busyLock, () -> {
                         if (e != null) {
                             return failedFuture(e);
@@ -230,7 +235,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                         return tableManager.tableAsync(causalityToken, tableId)
                                 .thenCompose(table -> convert(causalityToken, table))
                                 .thenApply(igniteTable -> {
-                                    Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
+                                    Map<Integer, IgniteTable> resTbls = new HashMap<>(tables);
 
                                     IgniteTable oldTable = resTbls.put(igniteTable.id(), igniteTable);
 
@@ -276,7 +281,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * OnSqlTypeUpdated.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public CompletableFuture<?> onTableUpdated(String schemaName, UUID tableId, long causalityToken) {
+    public CompletableFuture<?> onTableUpdated(String schemaName, int tableId, long causalityToken) {
         return onTableCreated(schemaName, tableId, causalityToken);
     }
 
@@ -284,7 +289,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * OnSqlTypeDropped.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public CompletableFuture<?> onTableDropped(String schemaName, UUID tableId, long causalityToken) {
+    public CompletableFuture<?> onTableDropped(String schemaName, int tableId, long causalityToken) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
@@ -299,7 +304,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     return failedFuture(e);
                 }
 
-                Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
+                Map<Integer, IgniteTable> resTbls = new HashMap<>(tables);
 
                 IgniteTable removedTable = resTbls.remove(tableId);
 
@@ -355,16 +360,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private CompletableFuture<IgniteTableImpl> convert(long causalityToken, TableImpl table) {
         return schemaManager.schemaRegistry(causalityToken, table.tableId())
-                .thenApply(schemaRegistry -> inBusyLock(busyLock, () -> convert(table, schemaRegistry)));
+                .thenApply(schemaRegistry -> inBusyLock(busyLock, () -> convert(table, schemaRegistry, causalityToken)));
     }
 
-    private IgniteTableImpl convert(TableImpl table) {
-        SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(table.tableId());
-
-        return convert(table, schemaRegistry);
-    }
-
-    private IgniteTableImpl convert(TableImpl table, SchemaRegistry schemaRegistry) {
+    private IgniteTableImpl convert(TableImpl table, SchemaRegistry schemaRegistry, long schemaVersion) {
         SchemaDescriptor descriptor = schemaRegistry.schema();
 
         List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()
@@ -391,12 +390,17 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         // TODO Use the actual zone ID after implementing https://issues.apache.org/jira/browse/IGNITE-18426.
         IgniteDistribution distribution = IgniteDistributions.affinity(colocationColumns, table.tableId(), table.tableId());
 
+        InternalTable internalTable = table.internalTable();
+        Supplier<ColocationGroup> colocationGroup = IgniteTableImpl.partitionedGroup(internalTable);
+        DoubleSupplier rowCount = IgniteTableImpl.rowCountStatistic(internalTable);
+
         return new IgniteTableImpl(
                 new TableDescriptorImpl(colDescriptors, distribution),
-                table.internalTable(),
-                replicaService,
-                clock,
-                schemaRegistry
+                internalTable.tableId(),
+                internalTable.name(),
+                schemaRegistry.lastSchemaVersion(),
+                colocationGroup,
+                rowCount
         );
     }
 
@@ -414,13 +418,13 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * @param causalityToken Causality token.
      * @return Schema registration future.
      */
-    public CompletableFuture<?> onIndexCreated(UUID tableId, UUID indexId, IndexDescriptor indexDescriptor, long causalityToken) {
+    public CompletableFuture<?> onIndexCreated(int tableId, int indexId, IndexDescriptor indexDescriptor, long causalityToken) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
 
         try {
-            CompletableFuture<Map<UUID, IgniteIndex>> updatedIndices = indicesVv.update(causalityToken, (indices, e) ->
+            CompletableFuture<Map<Integer, IgniteIndex>> updatedIndices = indicesVv.update(causalityToken, (indices, e) ->
                     inBusyLock(busyLock, () -> {
                         if (e != null) {
                             return failedFuture(e);
@@ -429,7 +433,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                         return tableManager.tableAsync(causalityToken, tableId).thenApply(table -> {
                             var igniteIndex = new IgniteIndex(newIndex(table, indexId, indexDescriptor));
 
-                            Map<UUID, IgniteIndex> resIdxs = new HashMap<>(indices);
+                            Map<Integer, IgniteIndex> resIdxs = new HashMap<>(indices);
 
                             resIdxs.put(indexId, igniteIndex);
 
@@ -437,7 +441,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                         });
                     }));
 
-            CompletableFuture<Map<UUID, IgniteTable>> updatedTables = tablesVv.update(causalityToken, (tables, e) ->
+            CompletableFuture<Map<Integer, IgniteTable>> updatedTables = tablesVv.update(causalityToken, (tables, e) ->
                     inBusyLock(busyLock, () -> {
                         if (e != null) {
                             return failedFuture(e);
@@ -446,7 +450,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                         return updatedIndices.thenApply(indices -> {
                             IgniteIndex igniteIndex = indices.get(indexId);
 
-                            Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
+                            Map<Integer, IgniteTable> resTbls = new HashMap<>(tables);
 
                             IgniteTable igniteTable = resTbls.computeIfPresent(tableId,
                                     (k, v) -> IgniteTableImpl.copyOf((IgniteTableImpl) v));
@@ -493,11 +497,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
     }
 
-    private static Index<?> newIndex(TableImpl table, UUID indexId, IndexDescriptor descriptor) {
+    private static Index<?> newIndex(TableImpl table, int indexId, IndexDescriptor descriptor) {
         if (descriptor instanceof SortedIndexDescriptor) {
-            return new SortedIndexImpl(indexId, table, (SortedIndexDescriptor) descriptor);
+            return new SortedIndexImpl(indexId, table.internalTable(), (SortedIndexDescriptor) descriptor);
         } else {
-            return new HashIndex(indexId, table, descriptor);
+            return new HashIndex(indexId, table.internalTable(), descriptor);
         }
     }
 
@@ -509,7 +513,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * @param causalityToken Causality token.
      * @return Schema registration future.
      */
-    public CompletableFuture<?> onIndexDropped(String schemaName, UUID tableId, UUID indexId, long causalityToken) {
+    public CompletableFuture<?> onIndexDropped(String schemaName, int tableId, int indexId, long causalityToken) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
@@ -524,7 +528,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     return failedFuture(e);
                 }
 
-                Map<UUID, IgniteIndex> resIdxs = new HashMap<>(indices);
+                Map<Integer, IgniteIndex> resIdxs = new HashMap<>(indices);
 
                 IgniteIndex rmvIdx = resIdxs.remove(indexId);
 
@@ -533,13 +537,13 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 return completedFuture(resIdxs);
             }));
 
-            CompletableFuture<Map<UUID, IgniteTable>> updatedTables = tablesVv.update(causalityToken, (tables, e) ->
+            CompletableFuture<Map<Integer, IgniteTable>> updatedTables = tablesVv.update(causalityToken, (tables, e) ->
                     inBusyLock(busyLock, () -> {
                         if (e != null) {
                             return failedFuture(e);
                         }
 
-                        Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
+                        Map<Integer, IgniteTable> resTbls = new HashMap<>(tables);
 
                         IgniteTable table = resTbls.computeIfPresent(tableId, (k, v) -> IgniteTableImpl.copyOf((IgniteTableImpl) v));
 

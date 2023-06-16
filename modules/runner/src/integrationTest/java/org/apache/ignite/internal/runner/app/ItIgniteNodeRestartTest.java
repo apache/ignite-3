@@ -45,11 +45,10 @@ import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.IntFunction;
+import java.util.function.LongFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -125,7 +124,6 @@ import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -155,6 +153,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /** Default node port. */
     private static final int DEFAULT_NODE_PORT = 3344;
 
+    private static final int DEFAULT_CLIENT_PORT = 10800;
+
     /** Value producer for table data, is used to create data and check it later. */
     private static final IntFunction<String> VALUE_PRODUCER = i -> "val " + i;
 
@@ -163,6 +163,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
     /** Test table name. */
     private static final String TABLE_NAME_2 = "Table2";
+
+    @Language("HOCON")
+    private static final String RAFT_CFG = "{\n"
+            + "  fsync: false,\n"
+            + "  retryDelay: 20\n"
+            + "}";
 
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
@@ -176,10 +182,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             + "      failurePingRequestMembers: 1,\n"
             + "      gossipInterval: 10\n"
             + "    },\n"
-            + "  }\n"
+            + "  },\n"
+            + "  raft: " + RAFT_CFG + ",\n"
+            + "  clientConnector.port: {}\n"
             + "}";
 
-    @InjectConfiguration
+    @InjectConfiguration("mock: " + RAFT_CFG)
     private static RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
@@ -348,7 +356,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
         );
 
-        Consumer<Function<Long, CompletableFuture<?>>> registry = (c) -> clusterCfgMgr.configurationRegistry()
+        Consumer<LongFunction<CompletableFuture<?>>> registry = (c) -> clusterCfgMgr.configurationRegistry()
                 .listenUpdateStorageRevision(c::apply);
 
         DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));
@@ -390,7 +398,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 new RaftGroupEventsClientListener()
         );
 
-        var catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageMgr, vault));
+        var catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageMgr, vault), hybridClock);
 
         TableManager tableManager = new TableManager(
                 name,
@@ -489,24 +497,15 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 fut -> new TestConfigurationCatchUpListener(cfgStorage, fut, revisionCallback0)
         );
 
-        CompletableFuture<?> notificationFuture = CompletableFuture.allOf(
+        CompletableFuture<?> startFuture = CompletableFuture.allOf(
                 nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                 clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
+        ).thenCompose(unused ->
+                // Deploy all registered watches because all components are ready and have registered their listeners.
+                CompletableFuture.allOf(metaStorageMgr.deployWatches(), configurationCatchUpFuture)
         );
 
-        CompletableFuture<?> startFuture = notificationFuture
-                .thenCompose(v -> {
-                    // Deploy all registered watches because all components are ready and have registered their listeners.
-                    try {
-                        metaStorageMgr.deployWatches();
-                    } catch (NodeStoppingException e) {
-                        throw new CompletionException(e);
-                    }
-
-                    return configurationCatchUpFuture;
-                });
-
-        assertThat(startFuture, willCompleteSuccessfully());
+        assertThat("Partial node was not started", startFuture, willCompleteSuccessfully());
 
         log.info("Completed recovery on partially started node, last revision applied: " + lastRevision.get()
                 + ", acceptableDifference: " + IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100)
@@ -682,7 +681,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     private static String configurationString(int idx) {
         String connectAddr = "[\"localhost:" + DEFAULT_NODE_PORT + "\"]";
 
-        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, DEFAULT_NODE_PORT + idx, connectAddr);
+        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, DEFAULT_NODE_PORT + idx, connectAddr, DEFAULT_CLIENT_PORT + idx);
     }
 
     /**
@@ -913,7 +912,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19079")
     @Test
     public void testTwoNodesRestartDirect() throws InterruptedException {
         twoNodesRestart(true);
@@ -922,7 +920,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in reverse order when they started at first.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19079")
     @Test
     public void testTwoNodesRestartReverse() throws InterruptedException {
         twoNodesRestart(false);
@@ -1012,7 +1009,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     public void testOneNodeRestartWithGap() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19408 Need to use ItIgniteNodeRestartTest.startPartialNode(int, String)
         startNode(1);
 
         createTableWithData(List.of(ignite), TABLE_NAME, 2);
@@ -1044,15 +1040,15 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     public void testRecoveryOnOneNode() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
-        PartialNode partialNode = startPartialNode(1, null);
+        IgniteImpl node = startNode(1);
 
         createTableWithData(List.of(ignite), TABLE_NAME, 2, 1);
 
-        partialNode.stop();
+        stopNode(1);
 
-        partialNode = startPartialNode(1, null);
+        node = startNode(1);
 
-        TableManager tableManager = findComponent(partialNode.startedComponents, TableManager.class);
+        TableManager tableManager = (TableManager) node.tables();
 
         assertNotNull(tableManager);
 
@@ -1076,7 +1072,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         @Language("HOCON") String cfgString = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
                 DEFAULT_NODE_PORT + 11,
-                "[\"localhost:" + DEFAULT_NODE_PORT + "\"]"
+                "[\"localhost:" + DEFAULT_NODE_PORT + "\"]",
+                DEFAULT_CLIENT_PORT + 11
         );
 
         PartialNode partialNode = startPartialNode(1, cfgString);
@@ -1254,15 +1251,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param replicas Replica factor.
      * @param partitions Partitions count.
      */
-    private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas, int partitions)
-            throws InterruptedException {
+    private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas, int partitions) {
         try (Session session = nodes.get(0).sql().createSession()) {
             session.execute(null,
                     String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
             session.execute(null, "CREATE TABLE IF NOT EXISTS " + name
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
-
-            waitForIndex(nodes, name + "_PK");
 
             for (int i = 0; i < 100; i++) {
                 session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",

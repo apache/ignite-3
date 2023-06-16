@@ -44,7 +44,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
@@ -186,6 +185,7 @@ public final class ReliableChannel implements AutoCloseable {
      *                          it will be used to handle the request; otherwise, default connection will be used.
      * @param preferredNodeId   ID of the preferred target node. When a connection to the specified node exists,
      *                          it will be used to handle the request; otherwise, default connection will be used.
+     * @param retryPolicyOverride Retry policy override.
      * @return Future for the operation.
      */
     public <T> CompletableFuture<T> serviceAsync(
@@ -193,13 +193,14 @@ public final class ReliableChannel implements AutoCloseable {
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader,
             @Nullable String preferredNodeName,
-            @Nullable String preferredNodeId
+            @Nullable String preferredNodeId,
+            @Nullable RetryPolicy retryPolicyOverride
     ) {
         return ClientFutureUtils.doWithRetryAsync(
                 () -> getChannelAsync(preferredNodeName, preferredNodeId)
                         .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, ch)),
                 null,
-                ctx -> shouldRetry(opCode, ctx));
+                ctx -> shouldRetry(opCode, ctx, retryPolicyOverride));
     }
 
     /**
@@ -216,7 +217,7 @@ public final class ReliableChannel implements AutoCloseable {
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader
     ) {
-        return serviceAsync(opCode, payloadWriter, payloadReader, null, null);
+        return serviceAsync(opCode, payloadWriter, payloadReader, null, null, null);
     }
 
     /**
@@ -228,7 +229,7 @@ public final class ReliableChannel implements AutoCloseable {
      * @return Future for the operation.
      */
     public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadReader<T> payloadReader) {
-        return serviceAsync(opCode, null, payloadReader, null, null);
+        return serviceAsync(opCode, null, payloadReader, null, null, null);
     }
 
     private <T> CompletableFuture<T> serviceAsyncInternal(
@@ -286,22 +287,14 @@ public final class ReliableChannel implements AutoCloseable {
             throw new IgniteException(CONFIGURATION_ERR, "Empty addresses");
         }
 
-        Collection<HostAndPortRange> ranges = new ArrayList<>(addrs.length);
+        Collection<HostAndPort> ranges = new ArrayList<>(addrs.length);
 
         for (String a : addrs) {
-            ranges.add(HostAndPortRange.parse(
-                    a,
-                    IgniteClientConfiguration.DFLT_PORT,
-                    IgniteClientConfiguration.DFLT_PORT + IgniteClientConfiguration.DFLT_PORT_RANGE,
-                    "Failed to parse Ignite server address"
-            ));
+            ranges.add(HostAndPort.parse(a, IgniteClientConfiguration.DFLT_PORT, "Failed to parse Ignite server address"));
         }
 
         return ranges.stream()
-                .flatMap(r -> IntStream
-                        .rangeClosed(r.portFrom(), r.portTo()).boxed()
-                        .map(p -> InetSocketAddress.createUnresolved(r.host(), p))
-                )
+                .map(p -> InetSocketAddress.createUnresolved(p.host(), p.port()))
                 .collect(Collectors.toMap(a -> a, a -> 1, Integer::sum));
     }
 
@@ -541,7 +534,7 @@ public final class ReliableChannel implements AutoCloseable {
                     return hld.getOrCreateChannelAsync();
                 },
                 Objects::nonNull,
-                ctx -> shouldRetry(ClientOperationType.CHANNEL_CONNECT, ctx));
+                ctx -> shouldRetry(ClientOperationType.CHANNEL_CONNECT, ctx, null));
     }
 
     private CompletableFuture<ClientChannel> getCurChannelAsync() {
@@ -566,10 +559,10 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /** Determines whether specified operation should be retried. */
-    private boolean shouldRetry(int opCode, ClientFutureUtils.RetryContext ctx) {
+    private boolean shouldRetry(int opCode, ClientFutureUtils.RetryContext ctx, @Nullable RetryPolicy retryPolicyOverride) {
         ClientOperationType opType = ClientUtils.opCodeToClientOperationType(opCode);
 
-        boolean res = shouldRetry(opType, ctx);
+        boolean res = shouldRetry(opType, ctx, retryPolicyOverride);
 
         if (log.isDebugEnabled()) {
             if (res) {
@@ -589,12 +582,15 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /** Determines whether specified operation should be retried. */
-    private boolean shouldRetry(@Nullable ClientOperationType opType, ClientFutureUtils.RetryContext ctx) {
+    private boolean shouldRetry(
+            @Nullable ClientOperationType opType,
+            ClientFutureUtils.RetryContext ctx,
+            @Nullable RetryPolicy retryPolicyOverride) {
         var err = ctx.lastError();
 
         if (err == null) {
             // Closed channel situation - no error, but connection should be retried.
-            return opType == ClientOperationType.CHANNEL_CONNECT;
+            return opType == ClientOperationType.CHANNEL_CONNECT && ctx.attempt < RetryLimitPolicy.DFLT_RETRY_LIMIT;
         }
 
         IgniteClientConnectionException exception = unwrapConnectionException(err);
@@ -612,7 +608,7 @@ public final class ReliableChannel implements AutoCloseable {
             return ctx.attempt < RetryLimitPolicy.DFLT_RETRY_LIMIT;
         }
 
-        RetryPolicy plc = clientCfg.retryPolicy();
+        RetryPolicy plc = retryPolicyOverride != null ? retryPolicyOverride : clientCfg.retryPolicy();
 
         if (plc == null) {
             return false;

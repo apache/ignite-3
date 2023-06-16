@@ -79,7 +79,7 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="id">Table id.</param>
         /// <param name="socket">Socket.</param>
         /// <param name="sql">SQL.</param>
-        public Table(string name, Guid id, ClientFailoverSocket socket, Sql sql)
+        public Table(string name, int id, ClientFailoverSocket socket, Sql sql)
         {
             _socket = socket;
             _sql = sql;
@@ -121,7 +121,7 @@ namespace Apache.Ignite.Internal.Table
         /// <summary>
         /// Gets the table id.
         /// </summary>
-        internal Guid Id { get; }
+        internal int Id { get; }
 
         /// <inheritdoc/>
         public IRecordView<T> GetRecordView<T>()
@@ -205,24 +205,11 @@ namespace Apache.Ignite.Internal.Table
             return PreferredNode.FromId(nodeId);
         }
 
-        private Task<Schema> GetCachedSchemaAsync(int version)
-        {
-            var task = GetOrAdd();
-
-            if (!task.IsFaulted)
-            {
-                return task;
-            }
-
-            // Do not return failed task. Remove it from the cache and try again.
-            _schemas.TryRemove(new KeyValuePair<int, Task<Schema>>(version, task));
-
-            return GetOrAdd();
-
-            Task<Schema> GetOrAdd() => _schemas.GetOrAdd(version, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
-        }
-
-        private async ValueTask<string[]?> GetPartitionAssignmentAsync()
+        /// <summary>
+        /// Gets the partition assignment.
+        /// </summary>
+        /// <returns>Partition assignment.</returns>
+        internal async ValueTask<string[]?> GetPartitionAssignmentAsync()
         {
             var socketVer = _socket.PartitionAssignmentVersion;
             var assignment = _partitionAssignment;
@@ -256,6 +243,23 @@ namespace Apache.Ignite.Internal.Table
             {
                 _partitionAssignmentSemaphore.Release();
             }
+        }
+
+        private Task<Schema> GetCachedSchemaAsync(int version)
+        {
+            var task = GetOrAdd();
+
+            if (!task.IsFaulted)
+            {
+                return task;
+            }
+
+            // Do not return failed task. Remove it from the cache and try again.
+            _schemas.TryRemove(new KeyValuePair<int, Task<Schema>>(version, task));
+
+            return GetOrAdd();
+
+            Task<Schema> GetOrAdd() => _schemas.GetOrAdd(version, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
         }
 
         /// <summary>
@@ -349,7 +353,7 @@ namespace Apache.Ignite.Internal.Table
                 }
             }
 
-            var schema = new Schema(schemaVersion, keyColumnCount, columns);
+            var schema = new Schema(schemaVersion, Id, keyColumnCount, columns);
             _schemas[schemaVersion] = Task.FromResult(schema);
 
             if (_logger?.IsEnabled(LogLevel.Debug) == true)

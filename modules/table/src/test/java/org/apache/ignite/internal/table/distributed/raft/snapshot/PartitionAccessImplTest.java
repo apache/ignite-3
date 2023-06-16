@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,12 +29,8 @@ import static org.mockito.Mockito.verify;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -44,32 +41,25 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * For {@link PartitionAccessImpl} testing.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class PartitionAccessImplTest {
+    private static final int TABLE_ID = 1;
+
     private static final int TEST_PARTITION_ID = 0;
-
-    @InjectConfiguration("mock.tables.foo {}")
-    private TablesConfiguration tablesConfig;
-
-    @InjectConfiguration
-    private DistributionZonesConfiguration distributionZonesConfiguration;
 
     @Test
     void testMinMaxLastAppliedIndex() {
-        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone());
+        TestMvTableStorage mvTableStorage = new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT);
         TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
         TxStateStorage txStateStorage = txStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION_ID);
 
         PartitionAccess partitionAccess = new PartitionAccessImpl(
-                new PartitionKey(UUID.randomUUID(), TEST_PARTITION_ID),
+                testPartitionKey(),
                 mvTableStorage,
                 txStateTableStorage,
                 mock(MvGc.class),
@@ -102,17 +92,20 @@ public class PartitionAccessImplTest {
         assertEquals(20, partitionAccess.maxLastAppliedIndex());
     }
 
+    private static PartitionKey testPartitionKey() {
+        return new PartitionKey(1, TEST_PARTITION_ID);
+    }
+
     @Test
     void testMinMaxLastAppliedTerm() {
-        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone());
+        TestMvTableStorage mvTableStorage = new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT);
         TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
         TxStateStorage txStateStorage = txStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION_ID);
 
         PartitionAccess partitionAccess = new PartitionAccessImpl(
-                new PartitionKey(UUID.randomUUID(), TEST_PARTITION_ID),
+                testPartitionKey(),
                 mvTableStorage,
                 txStateTableStorage,
                 mock(MvGc.class),
@@ -147,15 +140,14 @@ public class PartitionAccessImplTest {
 
     @Test
     void testAddWrite() {
-        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone());
+        TestMvTableStorage mvTableStorage = new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT);
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
 
         IndexUpdateHandler indexUpdateHandler = mock(IndexUpdateHandler.class);
 
         PartitionAccess partitionAccess = new PartitionAccessImpl(
-                new PartitionKey(UUID.randomUUID(), TEST_PARTITION_ID),
+                testPartitionKey(),
                 mvTableStorage,
                 new TestTxStateTableStorage(),
                 mock(MvGc.class),
@@ -166,7 +158,7 @@ public class PartitionAccessImplTest {
         RowId rowId = new RowId(TEST_PARTITION_ID);
         BinaryRow binaryRow = mock(BinaryRow.class);
         UUID txId = UUID.randomUUID();
-        UUID commitTableId = UUID.randomUUID();
+        int commitTableId = 999;
 
         partitionAccess.addWrite(rowId, binaryRow, txId, commitTableId, TEST_PARTITION_ID);
 
@@ -188,15 +180,14 @@ public class PartitionAccessImplTest {
 
     @Test
     void testAddWriteCommitted() {
-        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone());
+        TestMvTableStorage mvTableStorage = new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT);
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
 
         IndexUpdateHandler indexUpdateHandler = mock(IndexUpdateHandler.class);
 
         PartitionAccess partitionAccess = new PartitionAccessImpl(
-                new PartitionKey(UUID.randomUUID(), TEST_PARTITION_ID),
+                testPartitionKey(),
                 mvTableStorage,
                 new TestTxStateTableStorage(),
                 mock(MvGc.class),

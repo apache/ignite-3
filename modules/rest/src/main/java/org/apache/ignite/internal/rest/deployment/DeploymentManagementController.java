@@ -20,24 +20,31 @@ package org.apache.ignite.internal.rest.deployment;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.multipart.CompletedFileUpload;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
-import org.apache.ignite.internal.deployunit.version.UnitVersion;
-import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
+import org.apache.ignite.internal.rest.api.deployment.InitialDeployMode;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
+import org.jetbrains.annotations.Nullable;
 import org.reactivestreams.Publisher;
 
 /**
  * Implementation of {@link DeploymentCodeApi}.
  */
+@SuppressWarnings("OptionalContainsCollection")
 @Controller("/management/v1/deployment")
 public class DeploymentManagementController implements DeploymentCodeApi {
     private final IgniteDeployment deployment;
@@ -47,53 +54,144 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     }
 
     @Override
-    public CompletableFuture<Boolean> deploy(String unitId, String unitVersion, Publisher<CompletedFileUpload> unitContent) {
+    public CompletableFuture<Boolean> deploy(
+            String unitId,
+            String unitVersion,
+            Publisher<CompletedFileUpload> unitContent,
+            Optional<InitialDeployMode> deployMode,
+            Optional<List<String>> initialNodes
+    ) {
         CompletableFuture<DeploymentUnit> result = new CompletableFuture<>();
         unitContent.subscribe(new CompletedFileUploadSubscriber(result));
-        return result.thenCompose(deploymentUnit -> deployment.deployAsync(unitId, UnitVersion.parse(unitVersion), deploymentUnit));
+        return result.thenCompose(deploymentUnit -> {
+            if (initialNodes.isPresent()) {
+                return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit, initialNodes.get());
+            } else {
+                return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit, fromInitialDeployMode(deployMode));
+            }
+        });
     }
 
     @Override
     public CompletableFuture<Boolean> undeploy(String unitId, String unitVersion) {
-        return deployment.undeployAsync(unitId, UnitVersion.parse(unitVersion));
+        return deployment.undeployAsync(unitId, Version.parseVersion(unitVersion));
     }
 
     @Override
-    public CompletableFuture<Collection<UnitStatus>> units() {
-        return deployment.unitsAsync().thenApply(statuses -> statuses.stream().map(DeploymentManagementController::fromUnitStatus)
-                .collect(Collectors.toList()));
+    public CompletableFuture<Collection<UnitStatus>> clusterStatuses(Optional<List<DeploymentStatus>> statuses) {
+        return deployment.clusterStatusesAsync()
+                .thenApply(statusesList -> fromUnitStatuses(statusesList, statuses));
     }
 
     @Override
-    public CompletableFuture<Collection<String>> versions(String unitId) {
-        return deployment.versionsAsync(unitId)
-                .thenApply(versions -> versions.stream().map(Version::render).collect(Collectors.toList()));
+    public CompletableFuture<Collection<UnitStatus>> clusterStatuses(
+            String unitId,
+            Optional<String> version,
+            Optional<List<DeploymentStatus>> statuses
+    ) {
+        return clusterStatuses(unitId, version)
+                .thenApply(statusesList -> fromUnitStatuses(statusesList, statuses));
+    }
+
+    private CompletableFuture<List<UnitStatuses>> clusterStatuses(String unitId, Optional<String> version) {
+        if (version.isPresent()) {
+            Version parsedVersion = Version.parseVersion(version.get());
+            return deployment.clusterStatusAsync(unitId, parsedVersion)
+                    .thenApply(deploymentStatus -> {
+                        if (deploymentStatus != null) {
+                            return List.of(UnitStatuses.builder(unitId).append(parsedVersion, deploymentStatus).build());
+                        } else {
+                            return List.of();
+                        }
+                    });
+        } else {
+            return deployment.clusterStatusesAsync(unitId)
+                    .thenApply(unitStatuses -> unitStatuses != null ? List.of(unitStatuses) : List.of());
+        }
     }
 
     @Override
-    public CompletableFuture<UnitStatus> status(String unitId) {
-        return deployment.statusAsync(unitId).thenApply(DeploymentManagementController::fromUnitStatus);
+    public CompletableFuture<Collection<UnitStatus>> nodeStatuses(Optional<List<DeploymentStatus>> statuses) {
+        return deployment.nodeStatusesAsync()
+                .thenApply(statusesList -> fromUnitStatuses(statusesList, statuses));
     }
 
     @Override
-    public CompletableFuture<Collection<UnitStatus>> findByConsistentId(String consistentId) {
-        return deployment.findUnitByConsistentIdAsync(consistentId)
-                .thenApply(units -> units.stream().map(DeploymentManagementController::fromUnitStatus)
-                        .collect(Collectors.toList()));
+    public CompletableFuture<Collection<UnitStatus>> nodeStatuses(
+            String unitId,
+            Optional<String> version,
+            Optional<List<DeploymentStatus>> statuses
+    ) {
+        return nodeStatuses(unitId, version)
+                .thenApply(statusesList -> fromUnitStatuses(statusesList, statuses));
+    }
+
+    private CompletableFuture<List<UnitStatuses>> nodeStatuses(String unitId, Optional<String> version) {
+        if (version.isPresent()) {
+            Version parsedVersion = Version.parseVersion(version.get());
+            return deployment.nodeStatusAsync(unitId, parsedVersion)
+                    .thenApply(deploymentStatus -> {
+                        if (deploymentStatus != null) {
+                            return List.of(UnitStatuses.builder(unitId).append(parsedVersion, deploymentStatus).build());
+                        } else {
+                            return List.of();
+                        }
+                    });
+        } else {
+            return deployment.nodeStatusesAsync(unitId)
+                    .thenApply(unitStatuses -> unitStatuses != null ? List.of(unitStatuses) : List.of());
+        }
+    }
+
+    private static List<UnitStatus> fromUnitStatuses(List<UnitStatuses> statusesList, Optional<List<DeploymentStatus>> deploymentStatuses) {
+        return statusesList.stream()
+                .map(unitStatuses -> fromUnitStatuses(unitStatuses, createStatusFilter(deploymentStatuses)))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 
     /**
      * Mapper method.
      *
-     * @param status Unit status.
-     * @return Unit status DTO.
+     * @param statuses Unit statuses.
+     * @param statusFilter Deployment status filter.
+     * @return Unit statuses DTO.
      */
-    private static UnitStatus fromUnitStatus(UnitStatuses status) {
+    private static @Nullable UnitStatus fromUnitStatuses(UnitStatuses statuses, Predicate<DeploymentStatus> statusFilter) {
         Map<String, DeploymentStatus> versionToDeploymentStatus = new HashMap<>();
-        Set<Version> versions = status.versions();
+        Set<Version> versions = statuses.versions();
         for (Version version : versions) {
-            versionToDeploymentStatus.put(version.render(), status.status(version));
+            DeploymentStatus status = statuses.status(version);
+            if (statusFilter.test(status)) {
+                versionToDeploymentStatus.put(version.render(), status);
+            }
         }
-        return new UnitStatus(status.id(), versionToDeploymentStatus);
+        if (versionToDeploymentStatus.isEmpty()) {
+            return null;
+        }
+        return new UnitStatus(statuses.id(), versionToDeploymentStatus);
+    }
+
+    private static Predicate<DeploymentStatus> createStatusFilter(Optional<List<DeploymentStatus>> statuses) {
+        if (statuses.isEmpty() || statuses.get().isEmpty()) {
+            return status -> true;
+        } else {
+            EnumSet<DeploymentStatus> statusesSet = EnumSet.copyOf(statuses.get());
+            return statusesSet::contains;
+        }
+    }
+
+    private static org.apache.ignite.internal.deployunit.InitialDeployMode fromInitialDeployMode(Optional<InitialDeployMode> mode) {
+        if (mode.isEmpty()) {
+            return org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
+        }
+
+        switch (mode.get()) {
+            case ALL:
+                return org.apache.ignite.internal.deployunit.InitialDeployMode.ALL;
+            case MAJORITY:
+            default:
+                return org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
+        }
     }
 }

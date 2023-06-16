@@ -29,15 +29,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -61,6 +62,8 @@ public class MvGcTest {
     private static final int PARTITION_ID = 0;
 
     private MvGc gc;
+
+    private final AtomicInteger nextTableId = new AtomicInteger(1001);
 
     @BeforeEach
     void setUp(
@@ -367,7 +370,7 @@ public class MvGcTest {
     }
 
     private TablePartitionId createTablePartitionId() {
-        return new TablePartitionId(UUID.randomUUID(), PARTITION_ID);
+        return new TablePartitionId(nextTableId.getAndIncrement(), PARTITION_ID);
     }
 
     private GcUpdateHandler createWithCompleteFutureOnVacuum(CompletableFuture<Void> future, @Nullable HybridTimestamp exp) {
@@ -383,7 +386,7 @@ public class MvGcTest {
             CompletableFuture<Void> future,
             @Nullable HybridTimestamp exp
     ) {
-        when(gcUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
+        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt())).then(invocation -> {
             if (exp != null) {
                 try {
                     assertEquals(exp, invocation.getArgument(0));
@@ -403,7 +406,7 @@ public class MvGcTest {
     private GcUpdateHandler createWithCountDownOnVacuum(CountDownLatch latch) {
         GcUpdateHandler gcUpdateHandler = createGcUpdateHandler();
 
-        when(gcUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
+        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt())).then(invocation -> {
             latch.countDown();
 
             return latch.getCount() > 0;
@@ -415,7 +418,7 @@ public class MvGcTest {
     private GcUpdateHandler createWithWaitFinishVacuum(CompletableFuture<Void> startFuture, CompletableFuture<Void> finishFuture) {
         GcUpdateHandler gcUpdateHandler = createGcUpdateHandler();
 
-        when(gcUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
+        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt())).then(invocation -> {
             startFuture.complete(null);
 
             finishFuture.get(1, TimeUnit.SECONDS);
@@ -435,7 +438,7 @@ public class MvGcTest {
     private GcUpdateHandler createWithCountDownOnVacuumWithoutNextBatch(CountDownLatch latch) {
         GcUpdateHandler gcUpdateHandler = createGcUpdateHandler();
 
-        when(gcUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
+        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt())).then(invocation -> {
             latch.countDown();
 
             // So that there is no processing of the next batch.

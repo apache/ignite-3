@@ -23,7 +23,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
@@ -43,7 +42,7 @@ public class IndexUpdateHandlerTest {
     void testBuildIndex() {
         TableSchemaAwareIndexStorage indexStorage = createIndexStorage();
 
-        UUID indexId = UUID.randomUUID();
+        int indexId = 1;
 
         TableIndexStoragesSupplier indexes = mock(TableIndexStoragesSupplier.class);
 

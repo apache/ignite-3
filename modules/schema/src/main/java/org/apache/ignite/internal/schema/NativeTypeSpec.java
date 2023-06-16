@@ -24,7 +24,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
-import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
@@ -33,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Base class for storage built-in data types definition. The class contains predefined values for fixed-sized types and some of the
- * variable-sized types. Parameterized types, such as bitmask of size <code>n</code> bits or number of max n bytes are created using static
+ * variable-sized types. Parameterized types, such as bitmask of size {@code n} bits or number of max n bytes are created using static
  * methods.
  *
  * <p>An instance of native type provides necessary indirection to read any field as an instance of {@code java.lang.Object} to avoid
@@ -43,179 +42,82 @@ public enum NativeTypeSpec {
     /**
      * Native type representing a single-byte signed value.
      */
-    INT8("int8", true) {
-        /** {@inheritDoc} */
-        @Override
-        public Object objectValue(InternalTuple tup, int colIdx) {
-            return tup.byteValueBoxed(colIdx);
-        }
-    },
+    INT8("int8", true),
 
     /**
      * Native type representing a two-bytes signed value.
      */
-    INT16("int16", true) {
-        /** {@inheritDoc} */
-        @Override
-        public Object objectValue(InternalTuple tup, int colIdx) {
-            return tup.shortValueBoxed(colIdx);
-        }
-    },
+    INT16("int16", true),
 
     /**
      * Native type representing a four-bytes signed value.
      */
-    INT32("int32", true) {
-        /** {@inheritDoc} */
-        @Override
-        public Object objectValue(InternalTuple tup, int colIdx) {
-            return tup.intValueBoxed(colIdx);
-        }
-    },
+    INT32("int32", true),
 
     /**
      * Native type representing an eight-bytes signed value.
      */
-    INT64("int64", true) {
-        /** {@inheritDoc} */
-        @Override
-        public Object objectValue(InternalTuple tup, int colIdx) {
-            return tup.longValueBoxed(colIdx);
-        }
-    },
+    INT64("int64", true),
 
     /**
      * Native type representing a four-bytes floating-point value.
      */
-    FLOAT("float", true) {
-        /** {@inheritDoc} */
-        @Override
-        public Object objectValue(InternalTuple tup, int colIdx) {
-            return tup.floatValueBoxed(colIdx);
-        }
-    },
+    FLOAT("float", true),
 
     /**
      * Native type representing an eight-bytes floating-point value.
      */
-    DOUBLE("double", true) {
-        /** {@inheritDoc} */
-        @Override
-        public Object objectValue(InternalTuple tup, int colIdx) {
-            return tup.doubleValueBoxed(colIdx);
-        }
-    },
+    DOUBLE("double", true),
 
     /**
      * Native type representing a BigDecimal.
      */
-    DECIMAL("decimal", false) {
-        /** {@inheritDoc} */
-        @Override
-        public Object objectValue(InternalTuple tup, int colIdx) {
-            return tup.decimalValue(colIdx);
-        }
-    },
+    DECIMAL("decimal", false),
 
     /**
      * Native type representing a UUID.
      */
-    UUID("uuid", true) {
-        /** {@inheritDoc} */
-        @Override
-        public Object objectValue(InternalTuple tup, int colIdx) {
-            return tup.uuidValue(colIdx);
-        }
-    },
+    UUID("uuid", true),
 
     /**
      * Native type representing a string.
      */
-    STRING("string", false) {
-        /** {@inheritDoc} */
-        @Override
-        public Object objectValue(InternalTuple tup, int colIdx) {
-            return tup.stringValue(colIdx);
-        }
-    },
+    STRING("string", false),
 
     /**
      * Native type representing an arbitrary byte array.
      */
-    BYTES("blob", false) {
-        /** {@inheritDoc} */
-        @Override
-        public Object objectValue(InternalTuple tup, int colIdx) {
-            return tup.bytesValue(colIdx);
-        }
-    },
+    BYTES("blob", false),
 
     /**
      * Native type representing a bitmask.
      */
-    BITMASK("bitmask", true) {
-        /** {@inheritDoc} */
-        @Override
-        public Object objectValue(InternalTuple tup, int colIdx) {
-            return tup.bitmaskValue(colIdx);
-        }
-    },
+    BITMASK("bitmask", true),
 
     /**
      * Native type representing a BigInteger.
      */
-    NUMBER("number", false) {
-        /** {@inheritDoc} */
-        @Override
-        public Object objectValue(InternalTuple tup, int colIdx) {
-            return tup.numberValue(colIdx);
-        }
-    },
+    NUMBER("number", false),
 
     /**
      * Native type representing a timezone-free date.
      */
-    DATE("date", true) {
-        /** {@inheritDoc} */
-        @Override
-        public Object objectValue(InternalTuple tup, int colIdx) {
-            return tup.dateValue(colIdx);
-        }
-    },
+    DATE("date", true),
 
     /**
      * Native type representing a timezone-free time.
      */
-    TIME("time", true) {
-        /** {@inheritDoc} */
-        @Override
-        public Object objectValue(InternalTuple tup, int colIdx) {
-            return tup.timeValue(colIdx);
-        }
-    },
+    TIME("time", true),
 
     /**
      * Native type representing a timezone-free datetime.
      */
-    DATETIME("datetime", true) {
-        /** {@inheritDoc} */
-        @Override
-        public Object objectValue(InternalTuple tup, int colIdx) {
-            return tup.dateTimeValue(colIdx);
-        }
-    },
-
+    DATETIME("datetime", true),
 
     /**
      * Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision.
      */
-    TIMESTAMP("timestamp", true) {
-        /** {@inheritDoc} */
-        @Override
-        public Object objectValue(InternalTuple tup, int colIdx) {
-            return tup.timestampValue(colIdx);
-        }
-    };
+    TIMESTAMP("timestamp", true);
 
     /** Flag indicating whether this type specifies a fixed-length type. */
     private final boolean fixedSize;
@@ -242,70 +144,59 @@ public enum NativeTypeSpec {
     }
 
     /**
-     * Indirection method for getting an Object representation of the given type from the rows. This method does no type conversions and
-     * will throw an exception if row column type differs from this type.
-     *
-     * @param row    Row to read the value from.
-     * @param colIdx Column index to read.
-     * @return An Object representation of the value.
-     * @throws InvalidTypeException If this native type differs from the actual type of {@code colIdx}.
-     */
-    public abstract Object objectValue(InternalTuple row, int colIdx) throws InvalidTypeException;
-
-    /**
      * Maps class to native type.
      *
      * @param cls Class to map to native type.
      * @return Native type.
      */
-    public static NativeTypeSpec fromClass(Class<?> cls) {
+    public static @Nullable NativeTypeSpec fromClass(Class<?> cls) {
         assert cls != null;
 
         // Primitives.
         if (cls == byte.class) {
-            return NativeTypeSpec.INT8;
+            return INT8;
         } else if (cls == short.class) {
-            return NativeTypeSpec.INT16;
+            return INT16;
         } else if (cls == int.class) {
-            return NativeTypeSpec.INT32;
+            return INT32;
         } else if (cls == long.class) {
-            return NativeTypeSpec.INT64;
+            return INT64;
         } else if (cls == float.class) {
-            return NativeTypeSpec.FLOAT;
+            return FLOAT;
         } else if (cls == double.class) {
-            return NativeTypeSpec.DOUBLE;
+            return DOUBLE;
         } else if (cls == Byte.class) { // Boxed primitives.
-            return NativeTypeSpec.INT8;
+            return INT8;
         } else if (cls == Short.class) {
-            return NativeTypeSpec.INT16;
+            return INT16;
         } else if (cls == Integer.class) {
-            return NativeTypeSpec.INT32;
+            return INT32;
         } else if (cls == Long.class) {
-            return NativeTypeSpec.INT64;
+            return INT64;
         } else if (cls == Float.class) {
-            return NativeTypeSpec.FLOAT;
+            return FLOAT;
         } else if (cls == Double.class) {
-            return NativeTypeSpec.DOUBLE;
+            return DOUBLE;
         } else if (cls == LocalDate.class) { // Temporal types.
-            return NativeTypeSpec.DATE;
+            return DATE;
         } else if (cls == LocalTime.class) {
-            return NativeTypeSpec.TIME;
+            return TIME;
         } else if (cls == LocalDateTime.class) {
-            return NativeTypeSpec.DATETIME;
+            return DATETIME;
         } else if (cls == Instant.class) {
-            return NativeTypeSpec.TIMESTAMP;
+            return TIMESTAMP;
         } else if (cls == byte[].class) { // Other types.
-            return NativeTypeSpec.BYTES;
+            return BYTES;
         } else if (cls == String.class) {
-            return NativeTypeSpec.STRING;
+            return STRING;
         } else if (cls == java.util.UUID.class) {
-            return NativeTypeSpec.UUID;
+            return UUID;
         } else if (cls == BitSet.class) {
-            return NativeTypeSpec.BITMASK;
+            return BITMASK;
         } else if (cls == BigInteger.class) {
-            return NativeTypeSpec.NUMBER;
+            return NUMBER;
         } else if (cls == BigDecimal.class) {
-            return NativeTypeSpec.DECIMAL;
+            return DECIMAL;
         }
 
         return null;
@@ -368,7 +259,7 @@ public enum NativeTypeSpec {
         ColumnType columnType = asColumnTypeOrNull();
 
         if (columnType == null) {
-            throw new IgniteException(Common.UNEXPECTED_ERR, "Unsupported native type: " + this);
+            throw new IgniteException(Common.INTERNAL_ERR, "Unsupported native type: " + this);
         }
 
         return columnType;
@@ -441,7 +332,7 @@ public enum NativeTypeSpec {
      * @param val Object to map.
      * @return Native type.
      */
-    public static NativeTypeSpec fromObject(Object val) {
+    public static @Nullable NativeTypeSpec fromObject(Object val) {
         return val != null ? fromClass(val.getClass()) : null;
     }
 

@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.fakes.FakeSession;
 import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -44,7 +45,7 @@ public class ClientMetricsTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void testConnectionMetrics(boolean gracefulDisconnect) throws Exception {
-        server = AbstractClientTest.startServer(10800, 10, 1000, new FakeIgnite());
+        server = AbstractClientTest.startServer(1000, new FakeIgnite());
         client = clientBuilder().build();
 
         ClientMetricSource metrics = metrics();
@@ -71,14 +72,13 @@ public class ClientMetricsTest {
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 0;
         Function<Integer, Integer> responseDelay = idx -> idx > 1 ? 500 : 0;
         server = new TestServer(
-                10800,
-                10,
                 1000,
                 new FakeIgnite(),
                 shouldDropConnection,
                 responseDelay,
                 null,
                 AbstractClientTest.clusterId,
+                null,
                 null
         );
         client = clientBuilder()
@@ -97,14 +97,13 @@ public class ClientMetricsTest {
         AtomicInteger counter = new AtomicInteger();
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> counter.incrementAndGet() < 3; // Fail 2 handshakes.
         server = new TestServer(
-                10800,
-                10,
                 1000,
                 new FakeIgnite(),
                 shouldDropConnection,
                 null,
                 null,
                 AbstractClientTest.clusterId,
+                null,
                 null
         );
 
@@ -119,14 +118,13 @@ public class ClientMetricsTest {
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> false;
         Function<Integer, Integer> responseDelay = idx -> counter.incrementAndGet() == 1 ? 500 : 0;
         server = new TestServer(
-                10800,
-                10,
                 1000,
                 new FakeIgnite(),
                 shouldDropConnection,
                 responseDelay,
                 null,
                 AbstractClientTest.clusterId,
+                null,
                 null
         );
         client = clientBuilder()
@@ -143,14 +141,13 @@ public class ClientMetricsTest {
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> requestIdx == 5;
         Function<Integer, Integer> responseDelay = idx -> idx == 4 ? 1000 : 0;
         server = new TestServer(
-                10800,
-                10,
                 1000,
                 new FakeIgnite(),
                 shouldDropConnection,
                 responseDelay,
                 null,
                 AbstractClientTest.clusterId,
+                null,
                 null
         );
         client = clientBuilder().build();
@@ -169,7 +166,7 @@ public class ClientMetricsTest {
         assertEquals(1, metrics().requestsSent());
         assertEquals(0, metrics().requestsRetried());
 
-        assertThrows(IgniteException.class, () -> client.sql().createSession().execute(null, "foo bar"));
+        assertThrows(IgniteException.class, () -> client.sql().createSession().execute(null, FakeSession.FAILED_SQL));
 
         assertEquals(0, metrics().requestsActive());
         assertEquals(1, metrics().requestsFailed());
@@ -202,7 +199,7 @@ public class ClientMetricsTest {
 
     @Test
     public void testBytesSentReceived() {
-        server = AbstractClientTest.startServer(10800, 10, 1000, new FakeIgnite());
+        server = AbstractClientTest.startServer(1000, new FakeIgnite());
         client = clientBuilder().build();
 
         assertEquals(15, metrics().bytesSent());

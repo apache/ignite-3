@@ -54,10 +54,11 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "    nodeFinder: {\n"
             + "      netClusterNodes: [ {} ]\n"
             + "    }\n"
-            + "  }\n"
+            + "  },\n"
+            + "  clientConnector: { port:{} }\n"
             + "}";
 
-    /** Template for node bootstrap config with Scalecube and Logical Topology settings for fast failure detection. */
+    /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
     protected static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
             + "  network: {\n"
             + "    port: {},\n"
@@ -73,7 +74,22 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "        gossipInterval: 10\n"
             + "      },\n"
             + "    }\n"
-            + "  }\n"
+            + "  },\n"
+            + "  clientConnector: { port:{} }\n"
+            + "}";
+
+    /** Template for node bootstrap config with Scalecube settings for a disabled failure detection. */
+    protected static final String DISABLED_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder: {\n"
+            + "      netClusterNodes: [ {} ]\n"
+            + "    },\n"
+            + "    membership: {\n"
+            + "      failurePingInterval: 1000000000\n"
+            + "    }\n"
+            + "  },\n"
+            + "  clientConnector: { port:{} }\n"
             + "}";
 
     protected Cluster cluster;
@@ -94,7 +110,9 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
 
         cluster = new Cluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
 
-        cluster.startAndInit(initialNodes());
+        if (initialNodes() > 0) {
+            cluster.startAndInit(initialNodes(), cmgMetastoreNodes());
+        }
     }
 
     /**
@@ -118,6 +136,10 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
      */
     protected int initialNodes() {
         return 3;
+    }
+
+    protected int[] cmgMetastoreNodes() {
+        return new int[] { 0 };
     }
 
     /**

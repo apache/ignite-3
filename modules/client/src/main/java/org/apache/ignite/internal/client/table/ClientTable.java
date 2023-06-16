@@ -18,19 +18,18 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import org.apache.ignite.internal.client.ClientChannel;
+import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
@@ -55,7 +54,7 @@ import org.jetbrains.annotations.Nullable;
  * Client table API implementation.
  */
 public class ClientTable implements Table {
-    private final UUID id;
+    private final int id;
 
     private final String name;
 
@@ -73,9 +72,9 @@ public class ClientTable implements Table {
 
     private final Object partitionAssignmentLock = new Object();
 
-    private CompletableFuture<List<String>> partitionAssignment = null;
+    private volatile CompletableFuture<List<String>> partitionAssignment = null;
 
-    private long partitionAssignmentVersion = -1;
+    private volatile long partitionAssignmentVersion = -1;
 
     /**
      * Constructor.
@@ -84,9 +83,8 @@ public class ClientTable implements Table {
      * @param id   Table id.
      * @param name Table name.
      */
-    public ClientTable(ReliableChannel ch, UUID id, String name) {
+    public ClientTable(ReliableChannel ch, int id, String name) {
         assert ch != null;
-        assert id != null;
         assert name != null && !name.isEmpty();
 
         this.ch = ch;
@@ -100,8 +98,17 @@ public class ClientTable implements Table {
      *
      * @return Table id.
      */
-    public UUID tableId() {
+    public int tableId() {
         return id;
+    }
+
+    /**
+     * Gets the channel.
+     *
+     * @return Channel.
+     */
+    ReliableChannel channel() {
+        return ch;
     }
 
     /** {@inheritDoc} */
@@ -138,7 +145,7 @@ public class ClientTable implements Table {
         return new ClientKeyValueBinaryView(this);
     }
 
-    private CompletableFuture<ClientSchema> getLatestSchema() {
+    CompletableFuture<ClientSchema> getLatestSchema() {
         // latestSchemaVer can be -1 (unknown) or a valid version.
         // In case of unknown version, we request latest from the server and cache it with -1 key
         // to avoid duplicate requests for latest schema.
@@ -159,7 +166,7 @@ public class ClientTable implements Table {
 
     private CompletableFuture<ClientSchema> loadSchema(int ver) {
         return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
-            w.out().packUuid(id);
+            w.out().packInt(id);
 
             if (ver == UNKNOWN_SCHEMA_VERSION) {
                 w.out().packNil();
@@ -173,7 +180,7 @@ public class ClientTable implements Table {
             if (schemaCnt == 0) {
                 log.warn("Schema not found [tableId=" + id + ", schemaVersion=" + ver + "]");
 
-                throw new IgniteException(UNEXPECTED_ERR, "Schema not found: " + ver);
+                throw new IgniteException(INTERNAL_ERR, "Schema not found: " + ver);
             }
 
             ClientSchema last = null;
@@ -277,7 +284,8 @@ public class ClientTable implements Table {
                             w -> writer.accept(schema, w),
                             r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue),
                             null,
-                            preferredNodeId);
+                            preferredNodeId,
+                            null);
                 })
                 .thenCompose(t -> loadSchemaAndReadData(t, reader));
     }
@@ -297,6 +305,25 @@ public class ClientTable implements Table {
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<ClientMessageUnpacker, T> reader,
             @Nullable PartitionAwarenessProvider provider) {
+        return doSchemaOutOpAsync(opCode, writer, reader, provider, null);
+    }
+
+    /**
+     * Performs a schema-based operation.
+     *
+     * @param opCode Op code.
+     * @param writer Writer.
+     * @param reader Reader.
+     * @param provider Partition awareness provider.
+     * @param <T> Result type.
+     * @return Future representing pending completion of the operation.
+     */
+    public <T> CompletableFuture<T> doSchemaOutOpAsync(
+            int opCode,
+            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            Function<ClientMessageUnpacker, T> reader,
+            @Nullable PartitionAwarenessProvider provider,
+            @Nullable RetryPolicy retryPolicyOverride) {
 
         CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
         CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled()
@@ -316,7 +343,8 @@ public class ClientTable implements Table {
                                 return reader.apply(r.in());
                             },
                             null,
-                            preferredNodeId);
+                            preferredNodeId,
+                            retryPolicyOverride);
                 });
     }
 
@@ -380,10 +408,16 @@ public class ClientTable implements Table {
         }
     }
 
-    private synchronized CompletableFuture<List<String>> getPartitionAssignment() {
-        synchronized (partitionAssignmentLock) {
-            long currentVersion = ch.partitionAssignmentVersion();
+    synchronized CompletableFuture<List<String>> getPartitionAssignment() {
+        long currentVersion = ch.partitionAssignmentVersion();
 
+        if (partitionAssignmentVersion == currentVersion
+                && partitionAssignment != null
+                && !partitionAssignment.isCompletedExceptionally()) {
+            return partitionAssignment;
+        }
+
+        synchronized (partitionAssignmentLock) {
             if (partitionAssignmentVersion == currentVersion
                     && partitionAssignment != null
                     && !partitionAssignment.isCompletedExceptionally()) {
@@ -394,7 +428,7 @@ public class ClientTable implements Table {
 
             // Load currentVersion or newer.
             partitionAssignment = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
-                    w -> w.out().packUuid(id),
+                    w -> w.out().packInt(id),
                     r -> {
                         int cnt = r.in().unpackArrayHeader();
                         List<String> res = new ArrayList<>(cnt);
@@ -419,11 +453,10 @@ public class ClientTable implements Table {
             return null;
         }
 
-        @SuppressWarnings("resource")
-        ClientChannel ch = provider.channel();
+        String nodeId = provider.nodeId();
 
-        if (ch != null) {
-            return ch.protocolContext().clusterNode().id();
+        if (nodeId != null) {
+            return nodeId;
         }
 
         if (partitions == null || partitions.isEmpty()) {

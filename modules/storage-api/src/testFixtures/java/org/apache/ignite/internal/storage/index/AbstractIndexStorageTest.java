@@ -60,7 +60,6 @@ import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -70,7 +69,7 @@ import org.junit.jupiter.api.Test;
  * @param <S> Type of specific index implementation.
  * @param <D> Type of index descriptor for that specific implementation.
  */
-public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends IndexDescriptor> {
+public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends StorageIndexDescriptor> {
     private static final IgniteLogger log = Loggers.forClass(AbstractIndexStorageTest.class);
 
     /** Definitions of all supported column types. */
@@ -117,7 +116,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
     protected MvPartitionStorage partitionStorage;
 
-    protected TablesConfiguration tablesCfg;
+    TablesConfiguration tablesCfg;
 
     @BeforeEach
     void setUp() {
@@ -141,7 +140,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         this.tableStorage = tableStorage;
         this.partitionStorage = getOrCreateMvPartition(tableStorage, TEST_PARTITION);
 
-        createTestTable(tableStorage.configuration());
+        createTestTable(tablesCfg.tables().get("foo"));
     }
 
     /**
@@ -204,7 +203,6 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19422")
     public void testGetConcurrentPut() {
         S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.string());
         var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
@@ -230,7 +228,6 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19422")
     public void testGetConcurrentReplace() {
         S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.string());
         var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));

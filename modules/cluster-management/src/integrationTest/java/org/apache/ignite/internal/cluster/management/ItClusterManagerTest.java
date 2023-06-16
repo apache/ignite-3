@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -49,6 +51,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.awaitility.Awaitility;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -348,6 +351,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         assertThat(node.clusterManager().onJoinReady(), willCompleteSuccessfully());
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19689")
     @Test
     void testClusterConfigurationIsRemovedFromClusterStateAfterUpdating(TestInfo testInfo) throws Exception {
         // Start a cluster of 3 nodes so that the CMG leader node could be stopped later.
@@ -378,13 +382,15 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         cluster.remove(leaderNode);
 
         // Wait for a new leader to be elected.
-        Awaitility.await().until(() -> findLeaderNode(cluster).isPresent());
-
-        // Find the new CMG leader.
-        MockNode newLeaderNode = findLeaderNode(cluster).orElseThrow();
+        MockNode newLeaderNode = Awaitility.await()
+                .until(() -> findLeaderNode(cluster), Optional::isPresent)
+                .get();
 
         // Check the new leader cancels the action.
-        assertThat(newLeaderNode.clusterManager().clusterConfigurationToUpdate(), willThrow(CancellationException.class));
+        assertThat(
+                newLeaderNode.clusterManager().clusterConfigurationToUpdate(),
+                willThrow(CancellationException.class, 5, TimeUnit.SECONDS)
+        );
     }
 
     @Test
@@ -439,6 +445,22 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         LogicalTopologyImpl nonCmgTopology = nonCmgNode.clusterManager().logicalTopologyImpl();
 
         assertTrue(waitForCondition(() -> nonCmgTopology.getLogicalTopology().nodes().size() == 2, 10_000));
+    }
+
+    @Test
+    void majority(TestInfo testInfo) throws NodeStoppingException {
+        startCluster(5, testInfo);
+
+        String[] allNodes = clusterNodeNames();
+
+        initCluster(allNodes, allNodes);
+
+        MockNode leaderNode = findLeaderNode(cluster).orElseThrow();
+
+        Set<String> majority = cluster.get(0).clusterManager().majority().join();
+
+        assertThat(majority, hasSize(3));
+        assertThat(majority, hasItem(leaderNode.name()));
     }
 
     private Optional<MockNode> findLeaderNode(List<MockNode> cluster) {
