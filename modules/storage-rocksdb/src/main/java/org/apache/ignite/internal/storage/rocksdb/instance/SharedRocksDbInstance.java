@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage.rocksdb.instance;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
-import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.stringName;
+import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.toStringName;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstanceCreator.sortedIndexCfOptions;
 
 import java.nio.file.Path;
@@ -227,7 +227,7 @@ public final class SharedRocksDbInstance {
             try {
                 columnFamily = ColumnFamily.create(db, cfDescriptor);
             } catch (RocksDBException e) {
-                throw new StorageException("Failed to create new RocksDB column family: " + stringName(cfDescriptor.getName()), e);
+                throw new StorageException("Failed to create new RocksDB column family: " + toStringName(cfDescriptor.getName()), e);
             }
 
             flusher.addColumnFamily(columnFamily.handle());
@@ -249,7 +249,7 @@ public final class SharedRocksDbInstance {
             } catch (RocksDBException e) {
                 throw new StorageException(
                         "Failed to destroy RocksDB Column Family. [cfName={}, path={}]",
-                        e, stringName(cfName.bytes()), path
+                        e, toStringName(cfName.bytes()), path
                 );
             }
 

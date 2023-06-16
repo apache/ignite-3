@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.rocksdb.instance;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.toStringName;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -188,7 +189,7 @@ public class SharedRocksDbInstanceCreator {
 
     @SuppressWarnings("resource")
     private ColumnFamilyOptions createCfOptions(byte[] cfName, Path path) {
-        String utf8cfName = ColumnFamilyUtils.stringName(cfName);
+        String utf8cfName = toStringName(cfName);
 
         switch (ColumnFamilyType.fromCfName(utf8cfName)) {
             case META:

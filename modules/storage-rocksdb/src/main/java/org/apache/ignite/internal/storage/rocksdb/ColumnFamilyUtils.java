@@ -90,7 +90,10 @@ public class ColumnFamilyUtils {
         }
     }
 
-    public static String stringName(byte[] cfName) {
+    /**
+     * Converts a {@code byte[]} column family name into an UTF8 string.
+     */
+    public static String toStringName(byte[] cfName) {
         return new String(cfName, UTF_8);
     }
 
