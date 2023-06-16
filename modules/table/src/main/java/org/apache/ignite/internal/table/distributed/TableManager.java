@@ -2179,12 +2179,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
 
-                        PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
-                                partId,
-                                partitionDataStorage,
-                                tbl,
-                                safeTimeTracker
-                        );
+                PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
+                        partId,
+                        partitionDataStorage,
+                        tbl,
+                        safeTimeTracker
+                );
 
                 RaftGroupOptions groupOptions = groupOptionsForPartition(
                         internalTable.storage(),
