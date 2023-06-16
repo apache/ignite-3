@@ -19,6 +19,9 @@ package org.apache.ignite.internal.streamer;
 
 import org.apache.ignite.Ignite;
 
+/**
+ * Integration test for server-side data streamer API.
+ */
 public class ItServerDataStreamerTest extends ItAbstractDataStreamerTest {
     @Override
     Ignite ignite() {

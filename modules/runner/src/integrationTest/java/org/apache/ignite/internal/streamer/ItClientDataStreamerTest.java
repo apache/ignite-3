@@ -22,6 +22,9 @@ import org.apache.ignite.client.IgniteClient;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
+/**
+ * Integration test for client-side data streamer API.
+ */
 public class ItClientDataStreamerTest extends ItAbstractDataStreamerTest {
     private IgniteClient client;
 
