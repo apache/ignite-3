@@ -528,6 +528,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public synchronized @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
+        assert THREAD_LOCAL_LOCKER.get() != null;
+
         try {
             VersionChain versionChain = gcQueue.first();
 
@@ -543,15 +545,18 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public synchronized @Nullable BinaryRow vacuum(GcEntry entry) {
+        assert THREAD_LOCAL_LOCKER.get() != null;
+        assert THREAD_LOCAL_LOCKER.get().isLocked(entry.getRowId());
+
         checkStorageClosedOrInProcessOfRebalance();
 
-        Iterator<VersionChain> it = gcQueue.iterator();
+        VersionChain dequeuedVersionChain;
 
-        if (!it.hasNext()) {
+        try {
+            dequeuedVersionChain = gcQueue.first();
+        } catch (NoSuchElementException e) {
             return null;
         }
-
-        VersionChain dequeuedVersionChain = it.next();
 
         if (dequeuedVersionChain != entry) {
             return null;
@@ -564,7 +569,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         assert versionChainToRemove.next == null;
 
         dequeuedVersionChain.next = null;
-        it.remove();
+        gcQueue.remove(dequeuedVersionChain);
 
         // Tombstones must be deleted.
         if (dequeuedVersionChain.row == null) {

@@ -202,7 +202,7 @@ public class StorageUpdateHandler {
             return;
         }
 
-        gcUpdateHandler.vacuumBatch(lwm, gcConfig.onUpdateBatchSize().value());
+        gcUpdateHandler.vacuumBatch(lwm, gcConfig.onUpdateBatchSize().value(), false);
     }
 
     /**
