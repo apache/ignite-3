@@ -128,12 +128,12 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -231,6 +231,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Distribution zones configuration. */
     private final DistributionZonesConfiguration zonesConfig;
+
+    /** Garbage collector configuration. */
+    private final GcConfiguration gcConfig;
 
     private final ClusterService clusterService;
 
@@ -368,6 +371,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param nodeName Node name.
      * @param registry Registry for versioned values.
      * @param tablesCfg Tables configuration.
+     * @param zonesConfig Distribution zones configuration.
+     * @param gcConfig Garbage collector configuration.
      * @param raftMgr Raft manager.
      * @param replicaMgr Replica manager.
      * @param lockMgr Lock manager.
@@ -386,6 +391,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             TablesConfiguration tablesCfg,
             DistributionZonesConfiguration zonesConfig,
+            GcConfiguration gcConfig,
             ClusterService clusterService,
             RaftManager raftMgr,
             ReplicaManager replicaMgr,
@@ -408,6 +414,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     ) {
         this.tablesCfg = tablesCfg;
         this.zonesConfig = zonesConfig;
+        this.gcConfig = gcConfig;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
         this.baselineMgr = baselineMgr;
@@ -474,9 +481,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         assignmentsSwitchRebalanceListener = createAssignmentsSwitchRebalanceListener();
 
-        mvGc = new MvGc(nodeName, tablesCfg);
+        mvGc = new MvGc(nodeName, gcConfig);
 
-        lowWatermark = new LowWatermark(nodeName, tablesCfg.lowWatermark(), clock, txManager, vaultManager, mvGc);
+        lowWatermark = new LowWatermark(nodeName, gcConfig.lowWatermark(), clock, txManager, vaultManager, mvGc);
 
         indexBuilder = new IndexBuilder(nodeName, cpus);
     }
@@ -748,7 +755,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         partId,
                         partitionDataStorage,
                         table,
-                        getZoneById(zonesConfig, zoneId).dataStorage(),
                         safeTimeTracker
                 );
 
@@ -2121,8 +2127,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         PeersAndLearners pendingConfiguration = configurationFromAssignments(pendingAssignments);
 
-        CatalogTableDescriptor tableDescriptor = getTableDescriptor(tbl.tableId());
-
         int tableId = tbl.tableId();
         int partId = replicaGrpId.partitionId();
 
@@ -2179,7 +2183,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         partId,
                         partitionDataStorage,
                         tbl,
-                        getZoneById(zonesConfig, tableDescriptor.zoneId()).dataStorage(),
                         safeTimeTracker
                 );
 
@@ -2575,7 +2578,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             int partitionId,
             PartitionDataStorage partitionDataStorage,
             TableImpl table,
-            DataStorageConfiguration dsCfg,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker
     ) {
         TableIndexStoragesSupplier indexes = table.indexStorageAdapters(partitionId);
@@ -2587,7 +2589,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 partitionId,
                 partitionDataStorage,
-                dsCfg,
+                gcConfig,
                 lowWatermark,
                 indexUpdateHandler,
                 gcUpdateHandler

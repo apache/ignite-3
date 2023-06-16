@@ -80,6 +80,7 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -113,6 +114,7 @@ import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
@@ -695,7 +697,8 @@ public class ItRebalanceDistributedTest {
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
                             TablesConfiguration.KEY,
-                            DistributionZonesConfiguration.KEY
+                            DistributionZonesConfiguration.KEY,
+                            GcConfiguration.KEY
                     ),
                     List.of(ExtendedTableConfigurationSchema.class),
                     List.of(
@@ -714,20 +717,24 @@ public class ItRebalanceDistributedTest {
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
                             TablesConfiguration.KEY,
-                            DistributionZonesConfiguration.KEY
+                            DistributionZonesConfiguration.KEY,
+                            GcConfiguration.KEY
                     ),
                     cfgStorage,
                     clusterCfgGenerator,
                     new TestConfigurationValidator()
             );
 
+            ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
+
             Consumer<LongFunction<CompletableFuture<?>>> registry = (LongFunction<CompletableFuture<?>> function) ->
-                    clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(function::apply);
+                    clusterConfigRegistry.listenUpdateStorageRevision(function::apply);
 
-            TablesConfiguration tablesCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
+            TablesConfiguration tablesCfg = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
-            DistributionZonesConfiguration zonesCfg =
-                    clusterCfgMgr.configurationRegistry().getConfiguration(DistributionZonesConfiguration.KEY);
+            DistributionZonesConfiguration zonesCfg = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
+
+            GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
             DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                     new PersistentPageMemoryDataStorageModule(),
@@ -741,7 +748,7 @@ public class ItRebalanceDistributedTest {
                     zonesCfg,
                     dataStorageModules.createStorageEngines(
                             name,
-                            clusterCfgMgr.configurationRegistry(),
+                            clusterConfigRegistry,
                             dir.resolve("storage"),
                             null));
 
@@ -776,6 +783,7 @@ public class ItRebalanceDistributedTest {
                     registry,
                     tablesCfg,
                     zonesCfg,
+                    gcConfig,
                     clusterService,
                     raftManager,
                     replicaManager,
