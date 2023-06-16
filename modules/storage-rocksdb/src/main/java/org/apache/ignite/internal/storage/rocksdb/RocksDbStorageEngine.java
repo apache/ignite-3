@@ -145,20 +145,6 @@ public class RocksDbStorageEngine implements StorageEngine {
         RocksDbDataRegion previousRegion = regions.put(dataRegionConfig.name().value(), region);
 
         assert previousRegion == null : dataRegionConfig.name().value();
-
-        SharedRocksDbInstance instance;
-
-        try {
-            instance = new SharedRocksDbInstanceCreator().create(
-                    this,
-                    region,
-                    storagePath.resolve("rocksdb-" + name)
-            );
-        } catch (Exception e) {
-            throw new StorageException("Failed to create new RocksDB data region", e);
-        }
-
-        sharedInstances.put(name, instance);
     }
 
     @Override
@@ -181,7 +167,23 @@ public class RocksDbStorageEngine implements StorageEngine {
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier
     ) throws StorageException {
-        SharedRocksDbInstance sharedInstance = sharedInstances.get(tableDescriptor.getDataRegion());
+        RocksDbDataRegion dataRegion = regions.get(tableDescriptor.getDataRegion());
+
+        int tableId = tableDescriptor.getId();
+
+        assert dataRegion != null : "tableId=" + tableId + ", dataRegion=" + tableDescriptor.getDataRegion();
+
+        SharedRocksDbInstance sharedInstance = sharedInstances.computeIfAbsent(tableDescriptor.getDataRegion(), name -> {
+            try {
+                return new SharedRocksDbInstanceCreator().create(
+                        this,
+                        dataRegion,
+                        storagePath.resolve("rocksdb-" + name)
+                );
+            } catch (Exception e) {
+                throw new StorageException("Failed to create new RocksDB data region", e);
+            }
+        });
 
         return new RocksDbTableStorage(sharedInstance, tableDescriptor);
     }

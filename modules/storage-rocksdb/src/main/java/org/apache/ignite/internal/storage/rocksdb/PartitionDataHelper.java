@@ -115,7 +115,7 @@ public final class PartitionDataHelper implements ManuallyCloseable {
         this.partCf = partCf;
 
         this.partitionStartPrefix = compositeKey(tableId, partitionId);
-        this.partitionEndPrefix = incrementPrefix(partitionStartPrefix);;
+        this.partitionEndPrefix = incrementPrefix(partitionStartPrefix);
 
         this.upperBound = new Slice(partitionEndPrefix);
         this.upperBoundReadOpts = new ReadOptions().setIterateUpperBound(upperBound);

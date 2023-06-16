@@ -232,7 +232,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     THREAD_LOCAL_STATE.set(state);
 
                     long oldAppliedIndex = lastAppliedIndex;
-                    long oldAppliedTerm = lastAppliedTerm;
                     byte[] oldGroupConfig = lastGroupConfig;
 
                     state.pendingAppliedIndex = lastAppliedIndex;
