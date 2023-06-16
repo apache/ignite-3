@@ -365,15 +365,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         var provider = new TupleStreamerPartitionAwarenessProvider(tbl);
         var opts = options == null ? DataStreamerOptions.DEFAULT : options;
 
-        // Partition-aware (best effort) sender with retries.
-        // The batch may go to a different node when a direct connection is not available.
-        StreamerBatchSender<Tuple, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
-                ClientOp.TUPLE_UPSERT_ALL,
-                (s, w) -> ser.writeTuples(null, items, s, w, false),
-                r -> null,
-                PartitionAwarenessProvider.of(nodeId),
-                new RetryLimitPolicy().retryLimit(opts.retryLimit()));
+        // TODO: Avoid re-hashing in upsertAllAsync.
+        StreamerBatchSender<Tuple, String> batchSender = (nodeId, items) -> upsertAllAsync(null, items);
 
-        return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
+        return DataStreamer.streamData(publisher, opts, batchSender, provider);
     }
 }
