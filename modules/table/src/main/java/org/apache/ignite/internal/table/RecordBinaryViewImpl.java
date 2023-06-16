@@ -29,6 +29,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -359,7 +360,20 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
-        // TODO IGNITE-19617 Server-side Basic Data Streamer.
-        throw new UnsupportedOperationException("Not supported.");
+        Objects.requireNonNull(publisher);
+
+        var provider = new TupleStreamerPartitionAwarenessProvider(tbl);
+        var opts = options == null ? DataStreamerOptions.DEFAULT : options;
+
+        // Partition-aware (best effort) sender with retries.
+        // The batch may go to a different node when a direct connection is not available.
+        StreamerBatchSender<Tuple, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_UPSERT_ALL,
+                (s, w) -> ser.writeTuples(null, items, s, w, false),
+                r -> null,
+                PartitionAwarenessProvider.of(nodeId),
+                new RetryLimitPolicy().retryLimit(opts.retryLimit()));
+
+        return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 }
