@@ -56,8 +56,8 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -278,17 +278,17 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
         TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
 
-        DataStorageConfiguration dsCfg = mock(DataStorageConfiguration.class);
+        GcConfiguration gcConfig = mock(GcConfiguration.class);
         ConfigurationValue<Integer> gcBatchSizeValue = mock(ConfigurationValue.class);
         lenient().when(gcBatchSizeValue.value()).thenReturn(5);
-        lenient().when(dsCfg.gcOnUpdateBatchSize()).thenReturn(gcBatchSizeValue);
+        lenient().when(gcConfig.onUpdateBatchSize()).thenReturn(gcBatchSizeValue);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(indexes);
 
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 PART_ID,
                 partitionDataStorage,
-                dsCfg,
+                gcConfig,
                 mock(LowWatermark.class),
                 indexUpdateHandler,
                 new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)

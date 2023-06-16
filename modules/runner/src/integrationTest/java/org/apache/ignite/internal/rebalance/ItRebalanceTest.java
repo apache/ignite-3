@@ -52,6 +52,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -83,6 +84,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
      *
      * @throws Exception If failed.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19712")
     @Test
     void assignmentsChangingOnNodeLeaveNodeJoin() throws Exception {
         cluster.startAndInit(4);

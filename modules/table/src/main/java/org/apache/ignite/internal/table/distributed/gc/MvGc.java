@@ -36,7 +36,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.TrackerClosedException;
@@ -58,8 +58,8 @@ public class MvGc implements ManuallyCloseable {
     /** Node name. */
     private final String nodeName;
 
-    /** Tables configuration. */
-    private final TablesConfiguration tablesConfig;
+    /** Garbage collector configuration. */
+    private final GcConfiguration gcConfig;
 
     /** Garbage collection thread pool. */
     private volatile ExecutorService executor;
@@ -80,18 +80,18 @@ public class MvGc implements ManuallyCloseable {
      * Constructor.
      *
      * @param nodeName Node name.
-     * @param tablesConfig Tables configuration.
+     * @param gcConfig Garbage collector configuration.
      */
-    public MvGc(String nodeName, TablesConfiguration tablesConfig) {
+    public MvGc(String nodeName, GcConfiguration gcConfig) {
         this.nodeName = nodeName;
-        this.tablesConfig = tablesConfig;
+        this.gcConfig = gcConfig;
     }
 
     /**
      * Starts the garbage collector.
      */
     public void start() {
-        int threadCount = tablesConfig.gcThreads().value();
+        int threadCount = gcConfig.threads().value();
 
         executor = new ThreadPoolExecutor(
                 threadCount,
