@@ -43,4 +43,8 @@ public class TablesConfigurationSchema {
     @NamedConfigValue
     @IndexValidator
     public TableIndexConfigurationSchema indexes;
+
+    /** This counter is increased each time a table is created or dropped. */
+    @Value(hasDefault = true)
+    public int tablesGeneration = 0;
 }
