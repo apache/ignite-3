@@ -24,11 +24,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -36,6 +38,20 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Common test logic for data streamer - client and server APIs.
  */
 public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrationTest {
+    public static final String TABLE_NAME = "test_table";
+
+    abstract Ignite ignite();
+
+    @BeforeAll
+    public void createTable() {
+        createTable(TABLE_NAME, 2, 10);
+    }
+
+    protected Table defaultTable() {
+        //noinspection resource
+        return ignite().tables().table(TABLE_NAME);
+    }
+
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3})
     public void testBasicStreamingRecordBinaryView(int batchSize) {
@@ -45,16 +61,27 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         var options = DataStreamerOptions.builder().batchSize(batchSize).build();
         CompletableFuture<Void> streamerFut = view.streamData(publisher, options);
 
-        publisher.submit(tuple(1L, "foo"));
-        publisher.submit(tuple(2L, "bar"));
+        publisher.submit(tuple(1, "foo"));
+        publisher.submit(tuple(2, "bar"));
 
         publisher.close();
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
 
-        assertNotNull(view.get(null, tupleKey(1L)));
-        assertNotNull(view.get(null, tupleKey(2L)));
-        assertNull(view.get(null, tupleKey(3L)));
+        assertNotNull(view.get(null, tupleKey(1)));
+        assertNotNull(view.get(null, tupleKey(2)));
+        assertNull(view.get(null, tupleKey(3)));
 
-        assertEquals("bar", view.get(null, tupleKey(2L)).stringValue("name"));
+        assertEquals("bar", view.get(null, tupleKey(2)).stringValue("name"));
+    }
+
+    protected static Tuple tuple(int id, String name) {
+        return Tuple.create()
+                .set("id", id)
+                .set("name", name);
+    }
+
+    protected static Tuple tupleKey(int id) {
+        return Tuple.create()
+                .set("id", id);
     }
 }
