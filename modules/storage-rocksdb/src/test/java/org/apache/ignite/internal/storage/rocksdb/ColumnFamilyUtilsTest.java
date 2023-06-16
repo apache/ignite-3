@@ -37,6 +37,9 @@ import org.apache.ignite.internal.testframework.VariableSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
+/**
+ * Unit test for {@link ColumnFamilyUtils}.
+ */
 public class ColumnFamilyUtilsTest {
     @SuppressWarnings("unused")
     public static final List<NativeType> ALL_TYPES = SchemaTestUtils.ALL_TYPES;
@@ -87,8 +90,8 @@ public class ColumnFamilyUtilsTest {
     private static byte[] name(int... bytes) {
         var buf = ByteBuffer.allocate("cf-sorted-".length() + bytes.length).put("cf-sorted-".getBytes(StandardCharsets.UTF_8));
 
-        for (int aByte : bytes) {
-            buf.put((byte) aByte);
+        for (int val : bytes) {
+            buf.put((byte) val);
         }
 
         return buf.array();
