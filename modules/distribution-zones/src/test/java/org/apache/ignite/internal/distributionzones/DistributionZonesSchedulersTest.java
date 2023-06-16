@@ -152,7 +152,7 @@ public class DistributionZonesSchedulersTest {
 
         CountDownLatch latch = new CountDownLatch(1);
 
-        AtomicBoolean rightOrder = new AtomicBoolean(true);
+        AtomicBoolean sequentialOrder = new AtomicBoolean(true);
 
         fn.accept(0L, () -> {
             try {
@@ -161,7 +161,7 @@ public class DistributionZonesSchedulersTest {
                 counter.incrementAndGet();
 
                 if (counter.get() != 1) {
-                    rightOrder.set(false);
+                    sequentialOrder.set(false);
                 }
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
@@ -175,7 +175,7 @@ public class DistributionZonesSchedulersTest {
                 counter.incrementAndGet();
 
                 if (counter.get() != j) {
-                    rightOrder.set(false);
+                    sequentialOrder.set(false);
                 }
             });
         }
@@ -183,10 +183,9 @@ public class DistributionZonesSchedulersTest {
         latch.countDown();
 
         waitForCondition(() -> counter.get() == 10, 3000);
+        assertEquals(10, counter.get(), "Not all tasks were executed.");
 
-        assertEquals(10, counter.get());
-
-        assertTrue(rightOrder.get());
+        assertTrue(sequentialOrder.get(), "The order of tasks execution is not sequential.");
     }
 
     @Test

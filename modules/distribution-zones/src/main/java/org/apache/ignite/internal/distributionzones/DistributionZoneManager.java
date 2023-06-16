@@ -278,7 +278,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         nodesAttributes = new ConcurrentHashMap<>();
 
-        // It must be a single thread executor to avoid concurrent executing several tasks for the same zone.
+        // Use a single thread executor to avoid concurrent executing several tasks for the same zone.
         executor = new ScheduledThreadPoolExecutor(
                 1,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, DISTRIBUTION_ZONE_MANAGER_POOL_NAME), LOG),
@@ -1653,7 +1653,8 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         /**
-         * Reschedules existing scale up task, if it is not started yet, or schedules new one, if the current task cannot be canceled.
+         * Reschedules existing scale up task, if it is not started yet and the delay of this task is not immediate,
+         * or schedules new one, if the current task cannot be canceled.
          *
          * @param delay Delay to start runnable in seconds.
          * @param runnable Custom logic to run.
@@ -1667,7 +1668,8 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         /**
-         * Reschedules existing scale down task, if it is not started yet, or schedules new one, if the current task cannot be canceled.
+         * Reschedules existing scale down task, if it is not started yet and the delay of this task is not immediate,
+         * or schedules new one, if the current task cannot be canceled.
          *
          * @param delay Delay to start runnable in seconds.
          * @param runnable Custom logic to run.
