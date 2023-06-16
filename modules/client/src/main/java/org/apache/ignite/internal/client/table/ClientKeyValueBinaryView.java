@@ -31,6 +31,8 @@ import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.streamer.StreamerSubscriber;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.DataStreamerOptions;

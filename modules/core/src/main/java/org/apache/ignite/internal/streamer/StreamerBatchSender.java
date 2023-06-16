@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.table;
+package org.apache.ignite.internal.streamer;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -27,7 +27,7 @@ import java.util.concurrent.CompletableFuture;
  * @param <P> Partition type.
  */
 @FunctionalInterface
-interface StreamerBatchSender<T, P> {
+public interface StreamerBatchSender<T, P> {
     /**
      * Sends batch of items asynchronously.
      *

@@ -30,6 +30,8 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.streamer.StreamerSubscriber;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -374,11 +376,6 @@ public class ClientRecordView<R> implements RecordView<R> {
                 PartitionAwarenessProvider.of(nodeId),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
-        //noinspection resource
-        IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
-        StreamerSubscriber<R, String> subscriber = new StreamerSubscriber<>(batchSender, provider, opts, log);
-        publisher.subscribe(subscriber);
-
-        return subscriber.completionFuture();
+        return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 }
