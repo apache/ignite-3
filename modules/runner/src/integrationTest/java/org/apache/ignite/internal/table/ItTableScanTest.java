@@ -593,6 +593,8 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                 "expected=" + total + ", actual=" + scannedRows.size());
 
         subscription.cancel();
+
+        assertThat(scanned, willCompleteSuccessfully());
     }
 
     @ParameterizedTest
