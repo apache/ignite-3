@@ -29,14 +29,13 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
-import org.rocksdb.RocksDB;
 
 /**
  * Utilities for converting partition IDs and index names into Column Family names and vice versa.
  */
 public class ColumnFamilyUtils {
     /** Name of the meta column family matches default columns family, meaning that it always exist when new table is created. */
-    private static final String META_CF_NAME = new String(RocksDB.DEFAULT_COLUMN_FAMILY, UTF_8);
+    private static final String META_CF_NAME = "default";
 
     /** Name of the Column Family that stores partition data. */
     private static final String PARTITION_CF_NAME = "cf-part";
@@ -64,7 +63,6 @@ public class ColumnFamilyUtils {
     /** Order flag mask for {@link #sortedIndexCfName(List)}. */
     private static final int ASC_ORDER_FLAG = 2;
 
-
     /** Utility enum to describe a type of the column family - meta or partition. */
     public enum ColumnFamilyType {
         META, PARTITION, GC_QUEUE, HASH_INDEX, SORTED_INDEX, UNKNOWN;
@@ -90,6 +88,10 @@ public class ColumnFamilyUtils {
                 return UNKNOWN;
             }
         }
+    }
+
+    public static String stringName(byte[] cfName) {
+        return new String(cfName, UTF_8);
     }
 
     /**

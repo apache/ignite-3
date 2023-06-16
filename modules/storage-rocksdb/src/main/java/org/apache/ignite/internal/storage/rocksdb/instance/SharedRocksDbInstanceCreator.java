@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.rocksdb.instance;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -189,7 +188,7 @@ public class SharedRocksDbInstanceCreator {
 
     @SuppressWarnings("resource")
     private ColumnFamilyOptions createCfOptions(byte[] cfName, Path path) {
-        var utf8cfName = new String(cfName, UTF_8);
+        String utf8cfName = ColumnFamilyUtils.stringName(cfName);
 
         switch (ColumnFamilyType.fromCfName(utf8cfName)) {
             case META:

@@ -77,13 +77,6 @@ class SortedIndex implements ManuallyCloseable {
     }
 
     /**
-     * Returns the Column Family associated with this index.
-     */
-    ColumnFamily indexCf() {
-        return indexCf;
-    }
-
-    /**
      * Removes all data associated with the index.
      */
     void destroy() {

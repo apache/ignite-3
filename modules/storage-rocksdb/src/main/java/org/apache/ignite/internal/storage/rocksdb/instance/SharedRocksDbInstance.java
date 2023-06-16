@@ -17,15 +17,13 @@
 
 package org.apache.ignite.internal.storage.rocksdb.instance;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
+import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.stringName;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstanceCreator.sortedIndexCfOptions;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -53,7 +51,6 @@ import org.rocksdb.WriteOptions;
  * Shared RocksDB instance for multiple tables. Managed directly by the engine.
  */
 public final class SharedRocksDbInstance {
-
     /** Write options. */
     public static final WriteOptions DFLT_WRITE_OPTS = new WriteOptions().setDisableWAL(true);
 
@@ -69,7 +66,7 @@ public final class SharedRocksDbInstance {
     /** Rocks DB instance. */
     public final RocksDB db;
 
-    /** Meta information instance that wraps {@link ColumnFamily} instance for meta column family.. */
+    /** Meta information instance that wraps {@link ColumnFamily} instance for meta column family. */
     public final RocksDbMetaStorage meta;
 
     /** Column Family for partition data. */
@@ -230,7 +227,7 @@ public final class SharedRocksDbInstance {
             try {
                 columnFamily = ColumnFamily.create(db, cfDescriptor);
             } catch (RocksDBException e) {
-                throw new StorageException("Failed to create new RocksDB column family: " + new String(cfDescriptor.getName(), UTF_8), e);
+                throw new StorageException("Failed to create new RocksDB column family: " + stringName(cfDescriptor.getName()), e);
             }
 
             flusher.addColumnFamily(columnFamily.handle());
@@ -250,12 +247,10 @@ public final class SharedRocksDbInstance {
 
                 db.destroyColumnFamilyHandle(columnFamilyHandle);
             } catch (RocksDBException e) {
-                String message = format(
+                throw new StorageException(
                         "Failed to destroy RocksDB Column Family. [cfName={}, path={}]",
-                        Arrays.toString(cfName.bytes()),
-                        path
+                        e, stringName(cfName.bytes()), path
                 );
-                throw new StorageException(message, e);
             }
 
             return null;
