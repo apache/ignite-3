@@ -599,9 +599,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
 
                 this.filePath = newFilePath;
 
-                if (fileIo != null) {
-                    reinit(fileIo);
-                }
+                reinit(fileIo);
             }
         } finally {
             readWriteLock.writeLock().unlock();
