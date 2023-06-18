@@ -15,17 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration.storage;
-
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
-import org.apache.ignite.configuration.annotation.PolymorphicId;
+package org.apache.ignite.internal.table.distributed.gc;
 
 /**
- * Configuration schema for data storage.
+ * Non-thread-safe {@code int} holder with the ability to update the number.
  */
-@PolymorphicConfig
-public class DataStorageConfigurationSchema {
-    /** Name of data storage. */
-    @PolymorphicId(hasDefault = true)
-    public String name = "aipersist";
+class IntHolder {
+    private int value;
+
+    /**
+     * Constructor.
+     *
+     * @param value Value.
+     */
+    IntHolder(int value) {
+        this.value = value;
+    }
+
+    /**
+     * Returns the current value.
+     */
+    int get() {
+        return value;
+    }
+
+    /**
+     * Decrements the current value, equivalent to {@code value--}.
+     *
+     * @return Previous value.
+     */
+    int getAndDecrement() {
+        return value--;
+    }
 }

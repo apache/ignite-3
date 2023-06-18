@@ -15,17 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration.storage;
+package org.apache.ignite.internal.table.distributed;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
-import org.apache.ignite.configuration.annotation.PolymorphicId;
-
-/**
- * Configuration schema for data storage.
- */
-@PolymorphicConfig
-public class DataStorageConfigurationSchema {
-    /** Name of data storage. */
-    @PolymorphicId(hasDefault = true)
-    public String name = "aipersist";
+/** Tests of the {@link BitSetPartitionSet} implementation of {@link PartitionSet}. */
+class BitSetPartitionSetTest extends AbstractPartitionSetTest {
+    @Override
+    PartitionSet createSet() {
+        return new BitSetPartitionSet();
+    }
 }

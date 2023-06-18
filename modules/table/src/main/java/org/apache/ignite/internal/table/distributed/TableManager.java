@@ -60,7 +60,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -84,7 +83,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
-import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -129,12 +127,13 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
+import org.apache.ignite.internal.schema.configuration.TablesChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -233,6 +232,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Distribution zones configuration. */
     private final DistributionZonesConfiguration zonesConfig;
 
+    /** Garbage collector configuration. */
+    private final GcConfiguration gcConfig;
+
     private final ClusterService clusterService;
 
     /** Raft manager. */
@@ -275,6 +277,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private final IncrementalVersionedValue<Map<Integer, TableImpl>> tablesByIdVv;
 
+    /** Versioned store for local partition set by table id. */
+    private final IncrementalVersionedValue<Map<Integer, PartitionSet>> localPartsByTableIdVv;
+
     /**
      * Versioned store for tracking RAFT groups initialization and starting completion.
      * Only explicitly updated in {@link #createTablePartitionsLocally(long, List, int, TableImpl)}.
@@ -286,6 +291,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * can stop resources associated with the table or to clean up table resources on {@code TableManager#stop()}.
      */
     private final Map<Integer, TableImpl> pendingTables = new ConcurrentHashMap<>();
+
+    /** Started tables. */
+    private final Map<Integer, TableImpl> startedTables = new ConcurrentHashMap<>();
 
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final Function<String, ClusterNode> clusterNodeResolver;
@@ -357,12 +365,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final IndexBuilder indexBuilder;
 
+    private final ConfiguredTablesCache configuredTablesCache;
+
     /**
      * Creates a new table manager.
      *
      * @param nodeName Node name.
      * @param registry Registry for versioned values.
      * @param tablesCfg Tables configuration.
+     * @param zonesConfig Distribution zones configuration.
+     * @param gcConfig Garbage collector configuration.
      * @param raftMgr Raft manager.
      * @param replicaMgr Replica manager.
      * @param lockMgr Lock manager.
@@ -381,6 +393,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             TablesConfiguration tablesCfg,
             DistributionZonesConfiguration zonesConfig,
+            GcConfiguration gcConfig,
             ClusterService clusterService,
             RaftManager raftMgr,
             ReplicaManager replicaMgr,
@@ -403,6 +416,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     ) {
         this.tablesCfg = tablesCfg;
         this.zonesConfig = zonesConfig;
+        this.gcConfig = gcConfig;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
         this.baselineMgr = baselineMgr;
@@ -427,7 +441,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         placementDriver = new PlacementDriver(replicaSvc, clusterNodeResolver);
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
-        assignmentsUpdatedVv = new IncrementalVersionedValue<>(dependingOn(tablesByIdVv));
+
+        localPartsByTableIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
+
+        assignmentsUpdatedVv = new IncrementalVersionedValue<>(dependingOn(localPartsByTableIdVv));
 
         txStateStorageScheduledPool = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "tx-state-storage-scheduled-pool", LOG));
@@ -466,11 +483,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         assignmentsSwitchRebalanceListener = createAssignmentsSwitchRebalanceListener();
 
-        mvGc = new MvGc(nodeName, tablesCfg);
+        mvGc = new MvGc(nodeName, gcConfig);
 
-        lowWatermark = new LowWatermark(nodeName, tablesCfg.lowWatermark(), clock, txManager, vaultManager, mvGc);
+        lowWatermark = new LowWatermark(nodeName, gcConfig.lowWatermark(), clock, txManager, vaultManager, mvGc);
 
         indexBuilder = new IndexBuilder(nodeName, cpus);
+
+        configuredTablesCache = new ConfiguredTablesCache(tablesCfg, getMetadataLocallyOnly);
     }
 
     @Override
@@ -691,8 +710,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         int partitions = newAssignments.size();
 
         CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19713 Process assignments and set partitions only for assigned partitions.
+        PartitionSet parts = new BitSetPartitionSet();
+
         for (int i = 0; i < futures.length; i++) {
             futures[i] = new CompletableFuture<>();
+
+            parts.set(i);
         }
 
         String localMemberName = localNode().name();
@@ -715,121 +740,109 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
 
-                placementDriver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId).collect(toList()));
+                placementDriver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId)
+                        .collect(toList()));
 
-                PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker =
-                        new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
-                PendingComparableValuesTracker<Long, Void> storageIndexTracker =
-                        new PendingComparableValuesTracker<>(0L);
+                var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(
+                        new HybridTimestamp(1, 0)
+                );
+                var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
 
                 ((InternalTableImpl) internalTbl).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
 
-                CompletableFuture<PartitionStorages> partitionStoragesFut = getOrCreatePartitionStorages(table, partId);
+                PartitionStorages partitionStorages = getPartitionStorages(table, partId);
 
-                CompletableFuture<PartitionDataStorage> partitionDataStorageFut = partitionStoragesFut
-                        .thenApply(partitionStorages -> partitionDataStorage(partitionStorages.getMvPartitionStorage(),
-                                internalTbl, partId));
+                PartitionDataStorage partitionDataStorage = partitionDataStorage(partitionStorages.getMvPartitionStorage(),
+                        internalTbl, partId);
 
-                CompletableFuture<PartitionUpdateHandlers> partitionUpdateHandlersFut = partitionDataStorageFut
-                        .thenApply(storage -> {
-                            PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
-                                    partId,
-                                    storage,
-                                    table,
-                                    getZoneById(zonesConfig, zoneId).dataStorage(),
-                                    safeTimeTracker
-                            );
+                PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
+                        partId,
+                        partitionDataStorage,
+                        table,
+                        safeTimeTracker
+                );
 
-                            mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
-
-                            return partitionUpdateHandlers;
-                        });
+                mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
 
                 CompletableFuture<Void> startGroupFut;
 
                 // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
                 if (localMemberAssignment != null) {
-                    startGroupFut = partitionStoragesFut.thenComposeAsync(partitionStorages -> {
-                        CompletableFuture<Boolean> fut;
+                    CompletableFuture<Boolean> shouldStartGroupFut;
 
-                        // If Raft is running in in-memory mode or the PDS has been cleared, we need to remove the current node
-                        // from the Raft group in order to avoid the double vote problem.
-                        // <MUTED> See https://issues.apache.org/jira/browse/IGNITE-16668 for details.
-                        // TODO: https://issues.apache.org/jira/browse/IGNITE-19046 Restore "|| !hasData"
-                        if (internalTbl.storage().isVolatile()) {
-                            fut = queryDataNodesCount(tableId, partId, newConfiguration.peers()).thenApply(dataNodesCount -> {
-                                boolean fullPartitionRestart = dataNodesCount == 0;
+                    // If Raft is running in in-memory mode or the PDS has been cleared, we need to remove the current node
+                    // from the Raft group in order to avoid the double vote problem.
+                    // <MUTED> See https://issues.apache.org/jira/browse/IGNITE-16668 for details.
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-19046 Restore "|| !hasData"
+                    if (internalTbl.storage().isVolatile()) {
+                        shouldStartGroupFut = queryDataNodesCount(tableId, partId, newConfiguration.peers()).thenApply(dataNodesCount -> {
+                            boolean fullPartitionRestart = dataNodesCount == 0;
 
-                                if (fullPartitionRestart) {
-                                    return true;
-                                }
-
-                                boolean majorityAvailable = dataNodesCount >= (newConfiguration.peers().size() / 2) + 1;
-
-                                if (majorityAvailable) {
-                                    RebalanceUtil.startPeerRemoval(replicaGrpId, localMemberAssignment, metaStorageMgr);
-
-                                    return false;
-                                } else {
-                                    // No majority and not a full partition restart - need to restart nodes
-                                    // with current partition.
-                                    String msg = "Unable to start partition " + partId + ". Majority not available.";
-
-                                    throw new IgniteInternalException(msg);
-                                }
-                            });
-                        } else {
-                            fut = completedFuture(true);
-                        }
-
-                        return fut.thenCompose(startGroup -> inBusyLock(busyLock, () -> {
-                            if (!startGroup) {
-                                return completedFuture(null);
+                            if (fullPartitionRestart) {
+                                return true;
                             }
 
-                            return partitionDataStorageFut.thenAcceptBothAsync(partitionUpdateHandlersFut,
-                                    (partitionDataStorage, partitionUpdateHandlers) -> inBusyLock(busyLock, () -> {
-                                        TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
+                            boolean majorityAvailable = dataNodesCount >= (newConfiguration.peers().size() / 2) + 1;
 
-                                        RaftGroupOptions groupOptions = groupOptionsForPartition(
-                                                internalTbl.storage(),
-                                                internalTbl.txStateStorage(),
-                                                partitionKey(internalTbl, partId),
-                                                partitionUpdateHandlers
-                                        );
+                            if (majorityAvailable) {
+                                RebalanceUtil.startPeerRemoval(replicaGrpId, localMemberAssignment, metaStorageMgr);
 
-                                        Peer serverPeer = newConfiguration.peer(localMemberName);
+                                return false;
+                            } else {
+                                // No majority and not a full partition restart - need to restart nodes
+                                // with current partition.
+                                String msg = "Unable to start partition " + partId + ". Majority not available.";
 
-                                        var raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
+                                throw new IgniteInternalException(msg);
+                            }
+                        });
+                    } else {
+                        shouldStartGroupFut = completedFuture(true);
+                    }
 
-                                        try {
-                                            // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                                            ((Loza) raftMgr).startRaftGroupNode(
-                                                    raftNodeId,
-                                                    newConfiguration,
-                                                    new PartitionListener(
-                                                            partitionDataStorage,
-                                                            partitionUpdateHandlers.storageUpdateHandler,
-                                                            txStatePartitionStorage,
-                                                            safeTimeTracker,
-                                                            storageIndexTracker
-                                                    ),
-                                                    new RebalanceRaftGroupEventsListener(
-                                                            metaStorageMgr,
-                                                            replicaGrpId,
-                                                            busyLock,
-                                                            createPartitionMover(internalTbl, partId),
-                                                            this::calculateAssignments,
-                                                            rebalanceScheduler
-                                                    ),
-                                                    groupOptions
-                                            );
-                                        } catch (NodeStoppingException ex) {
-                                            throw new CompletionException(ex);
-                                        }
-                                    }), ioExecutor);
-                        }));
-                    }, ioExecutor);
+                    startGroupFut = shouldStartGroupFut.thenAcceptAsync(startGroup -> inBusyLock(busyLock, () -> {
+                        if (!startGroup) {
+                            return;
+                        }
+                        TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
+
+                        RaftGroupOptions groupOptions = groupOptionsForPartition(
+                                internalTbl.storage(),
+                                internalTbl.txStateStorage(),
+                                partitionKey(internalTbl, partId),
+                                partitionUpdateHandlers
+                        );
+
+                        Peer serverPeer = newConfiguration.peer(localMemberName);
+
+                        var raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
+
+                        try {
+                            // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                            ((Loza) raftMgr).startRaftGroupNode(
+                                    raftNodeId,
+                                    newConfiguration,
+                                    new PartitionListener(
+                                            partitionDataStorage,
+                                            partitionUpdateHandlers.storageUpdateHandler,
+                                            txStatePartitionStorage,
+                                            safeTimeTracker,
+                                            storageIndexTracker
+                                    ),
+                                    new RebalanceRaftGroupEventsListener(
+                                            metaStorageMgr,
+                                            replicaGrpId,
+                                            busyLock,
+                                            createPartitionMover(internalTbl, partId),
+                                            this::calculateAssignments,
+                                            rebalanceScheduler
+                                    ),
+                                    groupOptions
+                            );
+                        } catch (NodeStoppingException ex) {
+                            throw new CompletionException(ex);
+                        }
+                    }), ioExecutor);
                 } else {
                     startGroupFut = completedFuture(null);
                 }
@@ -843,55 +856,54 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 return failedFuture(ex);
                             }
                         }), ioExecutor)
-                        .thenComposeAsync(updatedRaftGroupService -> inBusyLock(busyLock, () -> {
+                        .thenAcceptAsync(updatedRaftGroupService -> inBusyLock(busyLock, () -> {
                             ((InternalTableImpl) internalTbl).updateInternalTableRaftGroupService(partId, updatedRaftGroupService);
 
                             if (localMemberAssignment == null) {
-                                return completedFuture(null);
+                                return;
                             }
 
-                            return partitionStoragesFut.thenAcceptBoth(partitionUpdateHandlersFut,
-                                    (partitionStorages, partitionUpdateHandlers) -> {
-                                        MvPartitionStorage partitionStorage = partitionStorages.getMvPartitionStorage();
-                                        TxStateStorage txStateStorage = partitionStorages.getTxStateStorage();
+                            MvPartitionStorage partitionStorage = partitionStorages.getMvPartitionStorage();
+                            TxStateStorage txStateStorage = partitionStorages.getTxStateStorage();
 
-                                        try {
-                                            replicaMgr.startReplica(
-                                                    replicaGrpId,
-                                                    allOf(
-                                                            ((Loza) raftMgr).raftNodeReadyFuture(replicaGrpId),
-                                                            table.pkIndexesReadyFuture()
-                                                    ),
-                                                    new PartitionReplicaListener(
-                                                            partitionStorage,
-                                                            updatedRaftGroupService,
-                                                            txManager,
-                                                            lockMgr,
-                                                            scanRequestExecutor,
-                                                            partId,
-                                                            tableId,
-                                                            table.indexesLockers(partId),
-                                                            new Lazy<>(() -> table.indexStorageAdapters(partId).get().get(table.pkId())),
-                                                            () -> table.indexStorageAdapters(partId).get(),
-                                                            clock,
-                                                            safeTimeTracker,
-                                                            txStateStorage,
-                                                            placementDriver,
-                                                            partitionUpdateHandlers.storageUpdateHandler,
-                                                            new NonHistoricSchemas(schemaManager),
-                                                            schemaManager.schemaRegistry(causalityToken, tableId),
-                                                            localNode(),
-                                                            table.internalTable().storage(),
-                                                            indexBuilder,
-                                                            tablesCfg
-                                                    ),
-                                                    updatedRaftGroupService,
-                                                    storageIndexTracker
-                                            );
-                                        } catch (NodeStoppingException ex) {
-                                            throw new AssertionError("Loza was stopped before Table manager", ex);
-                                        }
-                                    });
+                            try {
+                                replicaMgr.startReplica(
+                                        replicaGrpId,
+                                        allOf(
+                                                ((Loza) raftMgr).raftNodeReadyFuture(replicaGrpId),
+                                                table.pkIndexesReadyFuture()
+                                        ),
+                                        new PartitionReplicaListener(
+                                                partitionStorage,
+                                                updatedRaftGroupService,
+                                                txManager,
+                                                lockMgr,
+                                                scanRequestExecutor,
+                                                partId,
+                                                tableId,
+                                                table.indexesLockers(partId),
+                                                new Lazy<>(
+                                                        () -> table.indexStorageAdapters(partId).get().get(table.pkId())
+                                                ),
+                                                () -> table.indexStorageAdapters(partId).get(),
+                                                clock,
+                                                safeTimeTracker,
+                                                txStateStorage,
+                                                placementDriver,
+                                                partitionUpdateHandlers.storageUpdateHandler,
+                                                new NonHistoricSchemas(schemaManager),
+                                                schemaManager.schemaRegistry(causalityToken, tableId),
+                                                localNode(),
+                                                table.internalTable().storage(),
+                                                indexBuilder,
+                                                tablesCfg
+                                        ),
+                                        updatedRaftGroupService,
+                                        storageIndexTracker
+                                );
+                            } catch (NodeStoppingException ex) {
+                                throw new AssertionError("Loza was stopped before Table manager", ex);
+                            }
                         }), ioExecutor)
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
@@ -905,17 +917,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return allOf(futures);
         };
 
-        CompletableFuture<Void> updateAssignmentsFuture = tablesByIdVv.get(causalityToken).thenComposeAsync(
-                tablesById -> inBusyLock(busyLock, updateAssignmentsClosure),
-                ioExecutor
-        );
+        return localPartsByTableIdVv.update(causalityToken, (previous, throwable) -> inBusyLock(busyLock, () -> {
+            return getOrCreatePartitionStorages(table, parts).thenApply(u -> {
+                var newValue = new HashMap<>(previous);
 
-        return assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
-            if (e != null) {
-                return failedFuture(e);
-            }
+                newValue.put(tableId, parts);
 
-            return updateAssignmentsFuture;
+                return newValue;
+            });
+        })).thenCompose(unused -> {
+            CompletableFuture<Void> updateAssignmentsFuture = tablesByIdVv.get(causalityToken).thenComposeAsync(
+                    tablesById -> inBusyLock(busyLock, updateAssignmentsClosure),
+                    ioExecutor
+            );
+
+            return assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
+
+                return updateAssignmentsFuture;
+            });
         });
     }
 
@@ -1195,6 +1217,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         createTablePartitionsLocally(causalityToken, assignments, zoneDescriptor.id(), table);
 
         pendingTables.put(tableId, table);
+        startedTables.put(tableId, table);
 
         tablesById(causalityToken).thenAccept(ignored -> inBusyLock(busyLock, () -> {
             pendingTables.remove(tableId);
@@ -1303,6 +1326,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         .thenCompose((notUsed) -> mvGc.removeStorage(replicationGroupId));
             }
 
+            localPartsByTableIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
+
+                var newMap = new HashMap<>(previousVal);
+                newMap.remove(tableId);
+
+                return completedFuture(newMap);
+            }));
+
             tablesByIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
                 if (e != null) {
                     return failedFuture(e);
@@ -1333,6 +1367,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return allOf(destroyTableStoragesFuture, dropSchemaRegistryFuture)
                         .thenApply(v -> map);
             }));
+
+            startedTables.remove(tableId);
 
             fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, tableId))
                     .whenComplete((v, e) -> {
@@ -1434,7 +1470,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                         }
 
                                                         try {
-                                                            changeTablesConfiguration(
+                                                            changeTablesConfigurationOnTableCreate(
                                                                     name,
                                                                     zoneId,
                                                                     tableInitChange,
@@ -1475,35 +1511,39 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tableInitChange Table changer.
      * @param tblFut Future representing pending completion of the table creation.
      */
-    private void changeTablesConfiguration(
+    private void changeTablesConfigurationOnTableCreate(
             String name,
             int zoneId,
             Consumer<TableChange> tableInitChange,
             CompletableFuture<Table> tblFut
     ) {
-        tablesCfg.change(tablesChange -> tablesChange.changeTables(tablesListChange -> {
-            if (tablesListChange.get(name) != null) {
-                throw new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name);
-            }
+        tablesCfg.change(tablesChange -> {
+            incrementTablesGeneration(tablesChange);
 
-            tablesListChange.create(name, (tableChange) -> {
-                tableInitChange.accept(tableChange);
+            tablesChange.changeTables(tablesListChange -> {
+                if (tablesListChange.get(name) != null) {
+                    throw new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name);
+                }
 
-                tableChange.changeZoneId(zoneId);
+                tablesListChange.create(name, (tableChange) -> {
+                    tableInitChange.accept(tableChange);
 
-                var extConfCh = ((ExtendedTableChange) tableChange);
+                    tableChange.changeZoneId(zoneId);
 
-                int tableId = tablesChange.globalIdCounter() + 1;
+                    var extConfCh = ((ExtendedTableChange) tableChange);
 
-                extConfCh.changeId(tableId);
+                    int tableId = tablesChange.globalIdCounter() + 1;
 
-                tablesChange.changeGlobalIdCounter(tableId);
+                    extConfCh.changeId(tableId);
 
-                extConfCh.changeSchemaId(INITIAL_SCHEMA_VERSION);
+                    tablesChange.changeGlobalIdCounter(tableId);
 
-                tableCreateFuts.put(extConfCh.id(), tblFut);
+                    extConfCh.changeSchemaId(INITIAL_SCHEMA_VERSION);
+
+                    tableCreateFuts.put(extConfCh.id(), tblFut);
+                });
             });
-        })).exceptionally(t -> {
+        }).exceptionally(t -> {
             Throwable ex = getRootCause(t);
 
             if (ex instanceof TableAlreadyExistsException) {
@@ -1518,6 +1558,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             return null;
         });
+    }
+
+    private static void incrementTablesGeneration(TablesChange tablesChange) {
+        tablesChange.changeTablesGeneration(tablesChange.tablesGeneration() + 1);
     }
 
     /**
@@ -1647,21 +1691,25 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
 
             return tablesCfg
-                    .change(chg -> chg
-                            .changeTables(tblChg -> {
-                                if (tblChg.get(name) == null) {
-                                    throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, name);
-                                }
+                    .change(chg -> {
+                        incrementTablesGeneration(chg);
 
-                                tblChg.delete(name);
-                            })
-                            .changeIndexes(idxChg -> {
-                                for (TableIndexView index : idxChg) {
-                                    if (index.tableId() == tbl.tableId()) {
-                                        idxChg.delete(index.name());
+                        chg
+                                .changeTables(tblChg -> {
+                                    if (tblChg.get(name) == null) {
+                                        throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, name);
                                     }
-                                }
-                            }))
+
+                                    tblChg.delete(name);
+                                })
+                                .changeIndexes(idxChg -> {
+                                    for (TableIndexView index : idxChg) {
+                                        if (index.tableId() == tbl.tableId()) {
+                                            idxChg.delete(index.name());
+                                        }
+                                    }
+                                });
+                    })
                     .exceptionally(t -> {
                         Throwable ex = getRootCause(t);
 
@@ -1732,18 +1780,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A list of direct table ids.
      */
     private List<Integer> directTableIds() {
-        return directProxy(tablesCfg.tables()).value().stream()
-                .map(TableView::id)
-                .collect(toList());
-    }
-
-    /**
-     * Collects a list of direct index ids.
-     *
-     * @return A list of direct index ids.
-     */
-    private List<UUID> directIndexIds() {
-        return directProxy(tablesCfg.indexes()).internalIds();
+        return configuredTablesCache.configuredTableIds();
     }
 
     /**
@@ -1858,6 +1895,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
+    /**
+     * Asynchronously gets the local partitions set of a table using causality token.
+     *
+     * @param causalityToken Causality token.
+     * @return Future.
+     */
+    public CompletableFuture<PartitionSet> localPartitionSetAsync(long causalityToken, int tableId) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+
+        try {
+            return localPartsByTableIdVv.get(causalityToken).thenApply(partitionSetById -> partitionSetById.get(tableId));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public TableImpl tableImpl(String name) {
@@ -1964,15 +2019,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return True when the table is configured into cluster, false otherwise.
      */
     private boolean isTableConfigured(int id) {
-        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = directProxy(tablesCfg.tables());
-
-        for (TableView tableConfig : tables.value()) {
-            if (tableConfig.id() == id) {
-                return true;
-            }
-        }
-
-        return false;
+        return configuredTablesCache.isTableConfigured(id);
     }
 
     /**
@@ -2061,6 +2108,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     try {
                         return handleChangePendingAssignmentEvent(
+                                evt.revision(),
                                 replicaGrpId,
                                 tables.get(tblId),
                                 pendingAssignmentsWatchEntry,
@@ -2074,6 +2122,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(
+            long causalityToken,
             TablePartitionId replicaGrpId,
             TableImpl tbl,
             Entry pendingAssignmentsEntry,
@@ -2084,8 +2133,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         PeersAndLearners pendingConfiguration = configurationFromAssignments(pendingAssignments);
 
-        CatalogTableDescriptor tableDescriptor = getTableDescriptor(tbl.tableId());
-
+        int tableId = tbl.tableId();
         int partId = replicaGrpId.partitionId();
 
         byte[] stableAssignmentsBytes = stableAssignmentsEntry.value();
@@ -2119,97 +2167,107 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         CompletableFuture<Void> localServicesStartFuture;
 
         if (shouldStartLocalServices) {
-            ((InternalTableImpl) internalTable).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
+            localServicesStartFuture = localPartsByTableIdVv.get(causalityToken).thenComposeAsync(oldMap -> {
+                PartitionSet partitionSet = oldMap.get(tableId).copy();
 
-            localServicesStartFuture = getOrCreatePartitionStorages(tbl, partId)
-                    .thenAcceptAsync(partitionStorages -> {
-                        MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
-                        TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
+                return getOrCreatePartitionStorages(tbl, partitionSet).thenApply(u -> {
+                    var newMap = new HashMap<>(oldMap);
 
-                        PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
+                    newMap.put(tableId, partitionSet);
 
-                        PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
-                                partId,
-                                partitionDataStorage,
-                                tbl,
-                                getZoneById(zonesConfig, tableDescriptor.zoneId()).dataStorage(),
-                                safeTimeTracker
+                    return newMap;
+                });
+            }).thenComposeAsync(unused -> {
+                PartitionStorages partitionStorages = getPartitionStorages(tbl, partId);
+
+                MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
+                TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
+
+                PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
+
+                PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
+                        partId,
+                        partitionDataStorage,
+                        tbl,
+                        safeTimeTracker
+                );
+
+                RaftGroupOptions groupOptions = groupOptionsForPartition(
+                        internalTable.storage(),
+                        internalTable.txStateStorage(),
+                        partitionKey(internalTable, partId),
+                        partitionUpdateHandlers
+                );
+
+                RaftGroupListener raftGrpLsnr = new PartitionListener(
+                        partitionDataStorage,
+                        partitionUpdateHandlers.storageUpdateHandler,
+                        txStatePartitionStorage,
+                        safeTimeTracker,
+                        storageIndexTracker
+                );
+
+                RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(
+                        metaStorageMgr,
+                        replicaGrpId,
+                        busyLock,
+                        createPartitionMover(internalTable, partId),
+                        this::calculateAssignments,
+                        rebalanceScheduler
+                );
+
+                Peer serverPeer = pendingConfiguration.peer(localMember.name());
+
+                var raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
+
+                return runAsync(() -> inBusyLock(busyLock, () -> {
+                    try {
+                        // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                        ((Loza) raftMgr).startRaftGroupNode(
+                                raftNodeId,
+                                stableConfiguration,
+                                raftGrpLsnr,
+                                raftGrpEvtsLsnr,
+                                groupOptions
                         );
 
-                        RaftGroupOptions groupOptions = groupOptionsForPartition(
-                                internalTable.storage(),
-                                internalTable.txStateStorage(),
-                                partitionKey(internalTable, partId),
-                                partitionUpdateHandlers
-                        );
-
-                        RaftGroupListener raftGrpLsnr = new PartitionListener(
-                                partitionDataStorage,
-                                partitionUpdateHandlers.storageUpdateHandler,
-                                txStatePartitionStorage,
-                                safeTimeTracker,
+                        replicaMgr.startReplica(
+                                replicaGrpId,
+                                allOf(
+                                        ((Loza) raftMgr).raftNodeReadyFuture(replicaGrpId),
+                                        tbl.pkIndexesReadyFuture()
+                                ),
+                                new PartitionReplicaListener(
+                                        mvPartitionStorage,
+                                        internalTable.partitionRaftGroupService(partId),
+                                        txManager,
+                                        lockMgr,
+                                        scanRequestExecutor,
+                                        partId,
+                                        tableId,
+                                        tbl.indexesLockers(partId),
+                                        new Lazy<>(() -> tbl.indexStorageAdapters(partId).get().get(tbl.pkId())),
+                                        () -> tbl.indexStorageAdapters(partId).get(),
+                                        clock,
+                                        safeTimeTracker,
+                                        txStatePartitionStorage,
+                                        placementDriver,
+                                        partitionUpdateHandlers.storageUpdateHandler,
+                                        new NonHistoricSchemas(schemaManager),
+                                        completedFuture(schemaManager.schemaRegistry(tableId)),
+                                        localNode(),
+                                        internalTable.storage(),
+                                        indexBuilder,
+                                        tablesCfg
+                                ),
+                                (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
                                 storageIndexTracker
                         );
-
-                        RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(
-                                metaStorageMgr,
-                                replicaGrpId,
-                                busyLock,
-                                createPartitionMover(internalTable, partId),
-                                this::calculateAssignments,
-                                rebalanceScheduler
-                        );
-
-                        Peer serverPeer = pendingConfiguration.peer(localMember.name());
-
-                        var raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
-
-                        try {
-                            // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                            ((Loza) raftMgr).startRaftGroupNode(
-                                    raftNodeId,
-                                    stableConfiguration,
-                                    raftGrpLsnr,
-                                    raftGrpEvtsLsnr,
-                                    groupOptions
-                            );
-
-                            replicaMgr.startReplica(
-                                    replicaGrpId,
-                                    allOf(
-                                            ((Loza) raftMgr).raftNodeReadyFuture(replicaGrpId),
-                                            tbl.pkIndexesReadyFuture()
-                                    ),
-                                    new PartitionReplicaListener(
-                                            mvPartitionStorage,
-                                            internalTable.partitionRaftGroupService(partId),
-                                            txManager,
-                                            lockMgr,
-                                            scanRequestExecutor,
-                                            partId,
-                                            tbl.tableId(),
-                                            tbl.indexesLockers(partId),
-                                            new Lazy<>(() -> tbl.indexStorageAdapters(partId).get().get(tbl.pkId())),
-                                            () -> tbl.indexStorageAdapters(partId).get(),
-                                            clock,
-                                            safeTimeTracker,
-                                            txStatePartitionStorage,
-                                            placementDriver,
-                                            partitionUpdateHandlers.storageUpdateHandler,
-                                            new NonHistoricSchemas(schemaManager),
-                                            completedFuture(schemaManager.schemaRegistry(tbl.tableId())),
-                                            localNode(),
-                                            internalTable.storage(),
-                                            indexBuilder,
-                                            tablesCfg
-                                    ),
-                                    (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
-                                    storageIndexTracker
-                            );
-                        } catch (NodeStoppingException ignored) {
-                            // no-op
-                        }
-                    }, ioExecutor);
+                    } catch (NodeStoppingException ignored) {
+                        // No-op.
+                    }
+                }), ioExecutor);
+            });
         } else {
             localServicesStartFuture = completedFuture(null);
         }
@@ -2356,32 +2414,50 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Creates partition stores. If one of the storages has not completed the rebalance, then the storages are cleared.
+     * Gets partition stores.
      *
      * @param table Table.
      * @param partitionId Partition ID.
-     * @return Future of creating or getting partition stores.
+     * @return PartitionStorages.
      */
-    // TODO: IGNITE-18939 Create storages only once, then only get them
-    private CompletableFuture<PartitionStorages> getOrCreatePartitionStorages(TableImpl table, int partitionId) {
+    private PartitionStorages getPartitionStorages(TableImpl table, int partitionId) {
         InternalTable internalTable = table.internalTable();
 
         MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
 
-        return (mvPartition != null ? completedFuture(mvPartition) : internalTable.storage().createMvPartition(partitionId))
-                .thenComposeAsync(mvPartitionStorage -> {
-                    TxStateStorage txStateStorage = internalTable.txStateStorage().getOrCreateTxStateStorage(partitionId);
+        assert mvPartition != null;
 
-                    if (mvPartitionStorage.persistedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
-                            || txStateStorage.persistedIndex() == TxStateStorage.REBALANCE_IN_PROGRESS) {
-                        return allOf(
-                                internalTable.storage().clearPartition(partitionId),
-                                txStateStorage.clear()
-                        ).thenApply(unused -> new PartitionStorages(mvPartitionStorage, txStateStorage));
-                    } else {
-                        return completedFuture(new PartitionStorages(mvPartitionStorage, txStateStorage));
-                    }
-                }, ioExecutor);
+        TxStateStorage txStateStorage = internalTable.txStateStorage().getTxStateStorage(partitionId);
+
+        assert txStateStorage != null;
+
+        return new PartitionStorages(mvPartition, txStateStorage);
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19739 Create storages only once.
+    private CompletableFuture<Void> getOrCreatePartitionStorages(TableImpl table, PartitionSet partitions) {
+        InternalTable internalTable = table.internalTable();
+
+        CompletableFuture<?>[] storageFuts = partitions.stream().mapToObj(partitionId -> {
+            MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
+
+            return (mvPartition != null ? completedFuture(mvPartition) : internalTable.storage().createMvPartition(partitionId))
+                    .thenComposeAsync(mvPartitionStorage -> {
+                        TxStateStorage txStateStorage = internalTable.txStateStorage().getOrCreateTxStateStorage(partitionId);
+
+                        if (mvPartitionStorage.persistedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
+                                || txStateStorage.persistedIndex() == TxStateStorage.REBALANCE_IN_PROGRESS) {
+                            return allOf(
+                                    internalTable.storage().clearPartition(partitionId),
+                                    txStateStorage.clear()
+                            ).thenApply(unused -> new PartitionStorages(mvPartitionStorage, txStateStorage));
+                        } else {
+                            return completedFuture(new PartitionStorages(mvPartitionStorage, txStateStorage));
+                        }
+                    }, ioExecutor);
+        }).toArray(CompletableFuture[]::new);
+
+        return allOf(storageFuts);
     }
 
     /**
@@ -2508,7 +2584,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             int partitionId,
             PartitionDataStorage partitionDataStorage,
             TableImpl table,
-            DataStorageConfiguration dsCfg,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker
     ) {
         TableIndexStoragesSupplier indexes = table.indexStorageAdapters(partitionId);
@@ -2520,13 +2595,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 partitionId,
                 partitionDataStorage,
-                dsCfg,
+                gcConfig,
                 lowWatermark,
                 indexUpdateHandler,
                 gcUpdateHandler
         );
 
         return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);
+    }
+
+    /**
+     * Returns a table instance if it exists, {@code null} otherwise.
+     *
+     * @param tableId Table id.
+     */
+    public @Nullable TableImpl getTable(int tableId) {
+        return startedTables.get(tableId);
     }
 
     private @Nullable CatalogTableDescriptor getTableDescriptor(int id) {

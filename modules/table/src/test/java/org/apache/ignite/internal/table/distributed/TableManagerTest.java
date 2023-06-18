@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -91,6 +92,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -216,8 +218,13 @@ public class TableManagerTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
 
+    /** Distribution zones configuration. */
     @InjectConfiguration
     private DistributionZonesConfiguration distributionZonesConfiguration;
+
+    /** Garbage collector configuration. */
+    @InjectConfiguration
+    private GcConfiguration gcConfig;
 
     @InjectConfiguration
     private PersistentPageMemoryStorageEngineConfiguration storageEngineConfig;
@@ -318,7 +325,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         createDistributionZone();
 
         tblsCfg.tables().change(tablesChange -> {
-
             tablesChange.create(scmTbl.name(), tableChange -> {
                 (SchemaConfigurationConverter.convert(scmTbl, tableChange))
                         .changeZoneId(ZONE_ID);
@@ -654,19 +660,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(rm.raftNodeReadyFuture(any())).thenReturn(completedFuture(1L));
         when(bm.nodes()).thenReturn(Set.of(node));
 
-        distributionZonesConfiguration.distributionZones().change(zones -> {
+        assertThat(distributionZonesConfiguration.distributionZones().change(zones -> {
             zones.create(ZONE_NAME, ch -> {
                 ch.changeZoneId(ZONE_ID);
                 ch.changePartitions(1);
                 ch.changeReplicas(1);
             });
-        }).join();
-
-        mockMetastore();
-
-        TableManager tableManager = createTableManager(tblManagerFut);
-
-        tblManagerFut.complete(tableManager);
+        }), willSucceedFast());
 
         var txStateStorage = mock(TxStateStorage.class);
         var mvPartitionStorage = mock(MvPartitionStorage.class);
@@ -679,21 +679,19 @@ public class TableManagerTest extends IgniteAbstractTest {
             when(mvPartitionStorage.persistedIndex()).thenReturn(MvPartitionStorage.REBALANCE_IN_PROGRESS);
         }
 
+        doReturn(mock(PartitionTimestampCursor.class)).when(mvPartitionStorage).scan(any());
         when(txStateStorage.clear()).thenReturn(completedFuture(null));
 
-        // We need to mock storages inside a configuration listener because of how mocks are created in the Table Manager,
-        // see "createTableManager".
-        tblsCfg.tables().any().listen(ctx -> {
-            // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
-            doReturn(txStateStorage).when(txStateTableStorage).getOrCreateTxStateStorage(anyInt());
-            doReturn(txStateStorage).when(txStateTableStorage).getTxStateStorage(anyInt());
+        mockMetastore();
 
+        // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
+        TableManager tableManager = createTableManager(tblManagerFut, (mvTableStorage) -> {
             doReturn(completedFuture(mvPartitionStorage)).when(mvTableStorage).createMvPartition(anyInt());
             doReturn(mvPartitionStorage).when(mvTableStorage).getMvPartition(anyInt());
-            doReturn(mock(PartitionTimestampCursor.class)).when(mvPartitionStorage).scan(any());
             doReturn(completedFuture(null)).when(mvTableStorage).clearPartition(anyInt());
-
-            return completedFuture(null);
+        }, (txStateTableStorage) -> {
+            doReturn(txStateStorage).when(txStateTableStorage).getOrCreateTxStateStorage(anyInt());
+            doReturn(txStateStorage).when(txStateTableStorage).getTxStateStorage(anyInt());
         });
 
         TableDefinition scmTbl = SchemaBuilders.tableBuilder("PUBLIC", PRECONFIGURED_TABLE_NAME).columns(
@@ -839,13 +837,21 @@ public class TableManagerTest extends IgniteAbstractTest {
         return tbl2;
     }
 
+    private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut) {
+        return createTableManager(tblManagerFut, unused -> {}, unused -> {});
+    }
+
     /**
      * Creates Table manager.
      *
      * @param tblManagerFut Future to wrap Table manager.
+     * @param tableStorageDecorator Table storage spy decorator.
+     * @param txStateTableStorageDecorator Tx state table storage spy decorator.
+     *
      * @return Table manager.
      */
-    private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut) {
+    private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut, Consumer<MvTableStorage> tableStorageDecorator,
+            Consumer<TxStateTableStorage> txStateTableStorageDecorator) {
         VaultManager vaultManager = mock(VaultManager.class);
 
         when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
@@ -856,6 +862,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 revisionUpdater,
                 tblsCfg,
                 distributionZonesConfiguration,
+                gcConfig,
                 clusterService,
                 rm,
                 replicaMgr,
@@ -881,6 +888,8 @@ public class TableManagerTest extends IgniteAbstractTest {
             protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
                 mvTableStorage = spy(super.createTableStorage(tableDescriptor, zoneDescriptor));
 
+                tableStorageDecorator.accept(mvTableStorage);
+
                 return mvTableStorage;
             }
 
@@ -890,6 +899,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                     CatalogZoneDescriptor zoneDescriptor
             ) {
                 txStateTableStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
+
+                txStateTableStorageDecorator.accept(txStateTableStorage);
 
                 return txStateTableStorage;
             }
