@@ -38,6 +38,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
@@ -235,7 +236,8 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             ConfigurationTreeGenerator localConfigurationGenerator,
             LogicalTopologyImpl logicalTopology,
             DistributedConfigurationStorage cfgStorage,
-            ConfigurationTreeGenerator distributedConfigurationGenerator
+            ConfigurationTreeGenerator distributedConfigurationGenerator,
+            ConfigurationRegistry clusterConfigRegistry
     ) {
         AtomicLong lastRevision = new AtomicLong();
 
@@ -254,7 +256,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
         CompletableFuture<?> startFuture = CompletableFuture.allOf(
                 nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
+                clusterConfigRegistry.notifyCurrentConfigurationListeners()
         ).thenCompose(unused ->
                 // Deploy all registered watches because all components are ready and have registered their listeners.
                 CompletableFuture.allOf(metaStorageMgr.deployWatches(), configurationCatchUpFuture)

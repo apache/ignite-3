@@ -416,7 +416,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 localConfigurationGenerator,
                 logicalTopology,
                 cfgStorage,
-                distributedConfigurationGenerator
+                distributedConfigurationGenerator,
+                clusterConfigRegistry
         );
 
         partialNodes.add(partialNode);
