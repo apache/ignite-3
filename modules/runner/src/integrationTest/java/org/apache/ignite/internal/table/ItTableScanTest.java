@@ -149,7 +149,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         assertFalse(scanned.isDone());
 
         CompletableFuture<Void> insertFut = table.keyValueView()
-                .putAsync(tx0, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3"));
+                .putAsync(tx0, Tuple.create().set("key", 2), Tuple.create().set("valInt", 2).set("valStr", "New_2"));
 
         assertFalse(insertFut.isDone());
 

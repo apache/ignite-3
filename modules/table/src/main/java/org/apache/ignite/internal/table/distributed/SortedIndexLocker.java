@@ -100,7 +100,12 @@ public class SortedIndexLocker implements IndexLocker {
                 return null;
             }
 
-            return peekCursor.next();
+            IndexRow nextRow = peekCursor.next();
+
+            assert rowIdMatches(indexRow, nextRow) :
+                    "Next index row does not equal to locked one [txId=" + txId + ", idxId=" + indexId + ']';
+
+            return nextRow;
         });
     }
 
