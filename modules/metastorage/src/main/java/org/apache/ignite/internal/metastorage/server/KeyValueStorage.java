@@ -71,6 +71,16 @@ public interface KeyValueStorage extends ManuallyCloseable {
     Entry get(byte[] key, long revUpperBound);
 
     /**
+     * Returns an entries by the given key and bounded by the given revisions.
+     *
+     * @param key The key.
+     * @param revLowerBound The lower bound of revision.
+     * @param revUpperBound The upper bound of revision.
+     * @return Value corresponding to the given key.
+     */
+    List<Entry> get(byte[] key, long revLowerBound, long revUpperBound);
+
+    /**
      * Returns all entries corresponding to given keys.
      *
      * @param keys Keys collection.

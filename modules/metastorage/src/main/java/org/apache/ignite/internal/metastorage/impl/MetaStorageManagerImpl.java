@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_ERR;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -65,6 +66,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
@@ -262,11 +264,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public void registerPrefixWatch(ByteArray key, long rev, WatchListener listener) {
-        storage.watchRange(key.bytes(), storage.nextKey(key.bytes()), rev, listener);
-    }
-
-    @Override
     public void registerExactWatch(ByteArray key, WatchListener listener) {
         storage.watchExact(key.bytes(), appliedRevision() + 1, listener);
     }
@@ -316,6 +313,19 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         try {
             return metaStorageSvcFut.thenCompose(svc -> svc.get(key, revUpperBound));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
+    public List<Entry> get(byte[] key, long revLowerBound, long revUpperBound) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+
+        try {
+            return storage.get(key, revLowerBound, revUpperBound);
         } finally {
             busyLock.leaveBusy();
         }

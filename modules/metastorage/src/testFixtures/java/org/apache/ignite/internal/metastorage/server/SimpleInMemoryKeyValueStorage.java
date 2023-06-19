@@ -181,6 +181,12 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
+
+    @Override
+    public List<Entry> get(byte[] key, long revLowerBound, long revUpperBound) {
+        throw new UnsupportedOperationException();
+    }
+
     @Override
     public Collection<Entry> getAll(List<byte[]> keys) {
         synchronized (mux) {

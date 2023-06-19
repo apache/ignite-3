@@ -45,6 +45,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -553,6 +554,17 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         try {
             return doGet(key, revUpperBound);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public List<Entry> get(byte[] key, long revLowerBound, long revUpperBound) {
+        rwLock.readLock().lock();
+
+        try {
+            return doGet(key, revLowerBound, revUpperBound);
         } finally {
             rwLock.readLock().unlock();
         }
@@ -1199,6 +1211,31 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         return doGetValue(key, lastRev);
     }
 
+    private List<Entry> doGet(byte[] key, long revLowerBound, long revUpperBound) {
+        assert revLowerBound >= 0 : "Invalid arguments: [revLowerBound=" + revLowerBound + ']';
+        assert revUpperBound >= 0 : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
+
+        long[] revs;
+        try {
+            revs = getRevisions(key);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        }
+
+        if (revs.length == 0) {
+            return Collections.emptyList();
+        }
+
+        List<Long> revisions = revisions(revs, revLowerBound, revUpperBound);
+
+        // lastRev can be -1 if maxRevision return -1.
+        if (revisions.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return doGetValues(key, revisions);
+    }
+
     /**
      * Get a list of the revisions of the entry corresponding to the key.
      *
@@ -1236,6 +1273,20 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         return -1;
     }
 
+    private static List<Long> revisions(long[] revs, long lowerBoundRev, long upperBoundRev) {
+        List<Long> revsRange = new ArrayList<>();
+
+        for (int i = revs.length - 1; i >= 0; i--) {
+            long rev = revs[i];
+
+            if (rev >= lowerBoundRev && rev <= upperBoundRev) {
+                revsRange.add(rev);
+            }
+        }
+
+        return revsRange;
+    }
+
     /**
      * Gets the value by a key and a revision.
      *
@@ -1267,6 +1318,33 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
 
         return new EntryImpl(key, lastVal.bytes(), revision, lastVal.updateCounter());
+    }
+
+    private List<Entry> doGetValues(byte[] key, List<Long> revisions) {
+        List<Entry> entries = new ArrayList<>();
+
+        for (long rev : revisions) {
+            byte[] valueBytes;
+
+            try {
+                valueBytes = data.get(keyToRocksKey(rev, key));
+            } catch (RocksDBException e) {
+                throw new MetaStorageException(OP_EXECUTION_ERR, e);
+            }
+
+            if (valueBytes == null || valueBytes.length == 0) {
+                entries.add(EntryImpl.empty(key));
+
+                continue;
+            }
+
+            Value lastVal = bytesToValue(valueBytes);
+
+            entries.add(new EntryImpl(key, lastVal.bytes(), rev, lastVal.updateCounter()));
+        }
+
+
+        return entries;
     }
 
     /**

@@ -20,16 +20,21 @@ package org.apache.ignite.internal.metastorage.impl;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
+import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -51,6 +56,7 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -292,8 +298,19 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         assertTrue(latch.await(10, TimeUnit.SECONDS));
     }
 
+    /** Check that doGet found an expected value. */
     @Test
-    public void testWatchWithOldStartRevision() throws Exception {
+    public void testWatchWithOldStartRevision1() throws Exception {
+        testWatchWithOldStartRevision(103, 3);
+    }
+
+    /** Check that a watch listener found an expected value. */
+    @Test
+    public void testWatchWithOldStartRevision2() throws Exception {
+        testWatchWithOldStartRevision(104, 4);
+    }
+
+    private void testWatchWithOldStartRevision(int waitingValue, long waitingRevision) throws Exception {
         int numNodes = 3;
 
         startCluster(numNodes);
@@ -304,22 +321,33 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
         MetaStorageManager metaStorage = nodes.get(0).metaStorageManager;
 
-        AtomicInteger eventCount = new AtomicInteger();
+        ByteArray key1 = new ByteArray("key1");
 
-        byte[] value = "bar".getBytes(StandardCharsets.UTF_8);
-
-        CompletableFuture<Void> fut1 = metaStorage.put(new ByteArray("foo1"), value);
+        byte[] value1 = intToBytes(101);
+        CompletableFuture<Void> fut1 = metaStorage.put(key1, value1);
         assertThat(fut1, willSucceedFast());
 
-        CompletableFuture<Void> fut2 = metaStorage.put(new ByteArray("foo2"), value);
+        byte[] value2 = intToBytes(102);
+        CompletableFuture<Void> fut2 = metaStorage.put(key1, value2);
         assertThat(fut2, willSucceedFast());
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> metaStorage.appliedRevision() == 2, 3000));
+        byte[] value3 = intToBytes(103);
+        CompletableFuture<Void> fut3 = metaStorage.put(key1, value3);
+        assertThat(fut3, willSucceedFast());
 
+        assertTrue(IgniteTestUtils.waitForCondition(() -> metaStorage.appliedRevision() == 3, 3000));
+
+        CompletableFuture<Long> watchEntry = new CompletableFuture<>();
+
+        // Register watch listener to handle new events.
         WatchListener listener = new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                eventCount.getAndIncrement();
+                int eventValue = bytesToInt(event.entryEvent().newEntry().value());
+
+                if (eventValue >= waitingValue && !watchEntry.isDone()) {
+                    watchEntry.complete(event.revision());
+                }
 
                 return completedFuture(null);
             }
@@ -330,15 +358,40 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             }
         };
 
-        var prefix = new ByteArray("foo");
+        // Unregister watch listener if it received entry with expected value.
+        watchEntry.thenRun(() -> metaStorage.unregisterWatch(listener));
 
-        metaStorage.registerPrefixWatch(new ByteArray(prefix), 1, listener);
+        metaStorage.registerExactWatch(key1, listener);
 
-        CompletableFuture<Void> fut3 = metaStorage.put(new ByteArray("foo3"), value);
-        assertThat(fut3, willSucceedFast());
+        long revAfterRegister = metaStorage.appliedRevision();
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> eventCount.get() == 3, 5000),
-                "Actual value of eventCount is " + eventCount.get());
+
+        byte[] value4 = intToBytes(104);
+        CompletableFuture<Void> fut4 = metaStorage.put(key1, value4);
+        assertThat(fut4, willSucceedFast());
+
+
+
+        // Gets old entries from storage to check if the expected value was handled before watch listener was registered.
+        List<Entry> entryList = metaStorage.get(key1.bytes(), 2, revAfterRegister);
+
+        long revision = Long.MAX_VALUE;
+
+        for (Entry entry : entryList) {
+            int entryValue = bytesToInt(entry.value());
+            if (entryValue >= waitingValue && entry.revision() < revision) {
+                revision = entry.revision();
+            }
+        }
+
+        if (revision == Long.MAX_VALUE) {
+            revision = watchEntry.join();
+        } else {
+            metaStorage.unregisterWatch(listener);
+        }
+
+
+        assertEquals(waitingRevision, revision);
     }
 
     /**

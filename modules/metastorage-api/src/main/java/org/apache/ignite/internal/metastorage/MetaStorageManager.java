@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -59,6 +60,8 @@ public interface MetaStorageManager extends IgniteComponent {
      * Retrieves an entry for the given key and the revision upper bound.
      */
     CompletableFuture<Entry> get(ByteArray key, long revUpperBound);
+
+    List<Entry> get(byte[] key, long revLowerBound, long revUpperBound);
 
     /**
      * Retrieves entries for given keys.
@@ -143,15 +146,6 @@ public interface MetaStorageManager extends IgniteComponent {
      * @param lsnr Listener which will be notified for each update.
      */
     void registerPrefixWatch(ByteArray key, WatchListener lsnr);
-
-    /**
-     * Registers a watch listener by a key prefix.
-     *
-     * @param key Prefix to listen to.
-     * @param rev Starting Meta Storage revision.
-     * @param lsnr Listener which will be notified for each update.
-     */
-    void registerPrefixWatch(ByteArray key, long rev, WatchListener lsnr);
 
     /**
      * Registers a watch listener for the provided key.

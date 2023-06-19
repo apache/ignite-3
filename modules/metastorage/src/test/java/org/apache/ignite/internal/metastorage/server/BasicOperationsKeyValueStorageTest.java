@@ -41,6 +41,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +59,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
@@ -188,6 +190,42 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertTrue(key3EntryBounded5.tombstone());
         assertNull(key3EntryBounded5.value());
         assertFalse(key3EntryBounded5.empty());
+    }
+
+    @Test
+    void getWithRevisionLowerUpperBound() {
+        byte[] key1 = key(1);
+        byte[] key2 = key(2);
+        byte[] val1 = keyValue(1, 1);
+        byte[] val2 = keyValue(1, 2);
+        byte[] val3 = keyValue(1, 3);
+        byte[] val4 = keyValue(2, 4);
+        byte[] val5 = keyValue(1, 5);
+        byte[] val6 = keyValue(1, 6);
+        byte[] val7 = keyValue(1, 7);
+
+        assertEquals(0, storage.revision());
+        assertEquals(0, storage.updateCounter());
+
+        putToMs(key1, val1);
+        putToMs(key1, val2);
+        putToMs(key1, val3);
+        putToMs(key2, val4);
+        putToMs(key1, val5);
+        putToMs(key1, val6);
+        putToMs(key1, val7);
+
+        assertEquals(7, storage.revision());
+
+        List<Entry> entries = storage.get(key1, 3, 6);
+
+        assertEquals(3, entries.size());
+
+        List<byte[]> values = entries.stream().map(entry -> entry.value()).collect(Collectors.toList());
+
+        assertTrue(values.stream().anyMatch(e -> Arrays.equals(val3, e)));
+        assertTrue(values.stream().anyMatch(e -> Arrays.equals(val5, e)));
+        assertTrue(values.stream().anyMatch(e -> Arrays.equals(val6, e)));
     }
 
     @Test
