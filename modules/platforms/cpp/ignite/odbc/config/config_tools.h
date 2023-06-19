@@ -28,9 +28,6 @@
 namespace ignite
 {
 
-// Forward declaration.
-class diagnostic_record_storage;
-
 /**
  * Convert address list to string.
  *
