@@ -27,10 +27,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.verify;
 
 import java.util.Collections;
 import java.util.List;
@@ -39,6 +35,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -50,6 +47,7 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
     private static final LogicalNode NODE_2 = new LogicalNode("node2", "node2", new NetworkAddress("localhost", 123));
 
     @Test
+    @Disabled("IGNITE-18564")
     void testStaleWatchEvent() throws Exception {
         mockVaultZonesLogicalTopologyKey(Set.of(NODE_1), vaultMgr);
 
@@ -75,6 +73,7 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
 
         setLogicalTopologyInMetaStorage(nodes, 100, metaStorageManager);
 
+        // TODO: IGNITE-18564 This is incorrect to check that data nodes are the same right after logical topology is changes manually.
         assertDataNodesForZone(DEFAULT_ZONE_ID, Set.of(NODE_1), keyValueStorage);
     }
 
@@ -108,16 +107,5 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
         startDistributionZoneManager();
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, nodes, keyValueStorage);
-    }
-
-    @Test
-    void testLogicalTopologyIsNullOnZoneManagerStart1() {
-        distributionZoneManager.start();
-
-        // 1 invoke because only invoke to zones logical topology happens
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
-
-        assertNull(keyValueStorage.get(zoneDataNodesKey(DEFAULT_ZONE_ID).bytes()).value());
-        assertNull(keyValueStorage.get(zoneDataNodesKey(1).bytes()).value());
     }
 }

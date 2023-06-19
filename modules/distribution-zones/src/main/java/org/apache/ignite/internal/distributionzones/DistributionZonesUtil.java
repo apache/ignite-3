@@ -214,7 +214,7 @@ public class DistributionZonesUtil {
 
     /**
      * The key represents zones' global state revision in vault. This is the revision of the event that triggered saving the global state
-     * to Vault.
+     * of Distribution Zone Manager to Vault.
      */
     public static ByteArray zonesGlobalStateRevision() {
         return DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT_KEY;

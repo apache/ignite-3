@@ -51,19 +51,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
     }
 
     @Test
-    void testMetaStorageKeysInitializedOnStart() throws Exception {
-        assertLogicalTopologyVersion(null, keyValueStorage);
-
-        assertLogicalTopology(null, keyValueStorage);
-
-        distributionZoneManager.start();
-
-        assertLogicalTopologyVersion(0L, keyValueStorage);
-
-        assertLogicalTopology(Set.of(), keyValueStorage);
-    }
-
-    @Test
     void testMetaStorageKeysInitializedOnStartWhenTopVerEqualsToCmgTopVer() throws Exception {
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(2L), HybridTimestamp.MIN_VALUE);
 
