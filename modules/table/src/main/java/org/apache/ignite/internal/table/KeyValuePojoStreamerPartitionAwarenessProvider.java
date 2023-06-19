@@ -21,6 +21,8 @@ import java.util.Map.Entry;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.marshaller.MarshallerException;
+import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.table.Tuple;
@@ -29,20 +31,30 @@ import org.apache.ignite.table.Tuple;
  * Partition awareness provider for data streamer.
  */
 class KeyValuePojoStreamerPartitionAwarenessProvider<K, V> extends AbstractClientStreamerPartitionAwarenessProvider<Entry<K, V>> {
-    KeyValuePojoStreamerPartitionAwarenessProvider(SchemaRegistry schemaReg, int partitions) {
+    private final RecordMarshaller<K> keyMarsh;
+
+    KeyValuePojoStreamerPartitionAwarenessProvider(SchemaRegistry schemaReg, int partitions, RecordMarshaller<K> keyMarsh) {
         super(schemaReg, partitions);
+
+        assert keyMarsh != null;
+        this.keyMarsh = keyMarsh;
     }
 
     @Override
     int colocationHash(SchemaDescriptor schema, Entry<K, V> item) {
-        HashCalculator hashCalc = new HashCalculator();
+        try {
+            HashCalculator hashCalc = new HashCalculator();
 
-        for (Column c : schema.colocationColumns()) {
-            // Colocation columns are always part of the key and can't be missing; serializer will check for nulls.
-            Object val = item.getKey().valueOrDefault(c.name(), null);
-            ColocationUtils.append(hashCalc, val, c.type());
+            for (Column c : schema.colocationColumns()) {
+                // Colocation columns are always part of the key and can't be missing; serializer will check for nulls.
+                Object val = null;
+                val = keyMarsh.value(item.getKey(), c.schemaIndex());
+                ColocationUtils.append(hashCalc, val, c.type());
+            }
+
+            return hashCalc.hash();
+        } catch (MarshallerException e) {
+            throw new RuntimeException(e);
         }
-
-        return hashCalc.hash();
     }
 }
