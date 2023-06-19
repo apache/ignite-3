@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.calcite.sql.SqlNode;
+import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 
@@ -29,5 +29,5 @@ public interface PrepareService extends LifecycleAware {
     /**
      * Prepare query plan.
      */
-    CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx);
+    CompletableFuture<QueryPlan> prepareAsync(String query,  QueryContext queryContext, BaseQueryContext ctx);
 }

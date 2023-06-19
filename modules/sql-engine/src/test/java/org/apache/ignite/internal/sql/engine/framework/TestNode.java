@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
@@ -35,6 +34,8 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
+import org.apache.ignite.internal.sql.engine.QueryContext;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
@@ -58,14 +59,11 @@ import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.metadata.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
-import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
-import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -82,7 +80,7 @@ import org.apache.ignite.network.TopologyService;
 public class TestNode implements LifecycleAware {
     private final String nodeName;
     private final SchemaPlus schema;
-    private final PrepareService prepareService;
+    private final PrepareServiceImpl prepareService;
     private final ExecutionService executionService;
 
     private final List<LifecycleAware> services = new ArrayList<>();
@@ -188,12 +186,7 @@ public class TestNode implements LifecycleAware {
      * @return A plan to execute.
      */
     public QueryPlan prepare(String query) {
-        StatementParseResult parseResult = IgniteSqlParser.parse(query, StatementParseResult.MODE);
-        BaseQueryContext ctx = createContext();
-
-        assertEquals(ctx.parameters().length, parseResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
-
-        return await(prepareService.prepareAsync(parseResult.statement(), ctx));
+        return await(prepareService.prepareAsync(query, QueryContext.create(SqlQueryType.ALL), createContext()));
     }
 
     /**
@@ -206,7 +199,7 @@ public class TestNode implements LifecycleAware {
     public QueryPlan prepare(SqlNode queryAst) {
         assertThat(queryAst, not(instanceOf(SqlNodeList.class)));
 
-        return await(prepareService.prepareAsync(queryAst, createContext()));
+        return await(prepareService.prepareAsync0(queryAst, createContext()));
     }
 
     private BaseQueryContext createContext() {

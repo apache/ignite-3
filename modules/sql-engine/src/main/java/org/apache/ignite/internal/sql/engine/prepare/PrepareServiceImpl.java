@@ -18,13 +18,18 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_VALIDATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_SQL_OPERATION_KIND_ERR;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -38,15 +43,21 @@ import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlExplainLevel;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
+import org.apache.ignite.internal.sql.engine.sql.ParseResult;
+import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -55,6 +66,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -125,6 +137,59 @@ public class PrepareServiceImpl implements PrepareService {
                 .asMap();
     }
 
+    private static boolean skipCache(SqlNode sqlNode) {
+        SqlKind kind = sqlNode.getKind();
+
+        switch (kind) {
+            case SELECT:
+            case INSERT:
+                return false;
+            default:
+                return true;
+        }
+    }
+
+    /** Performs additional validation of a parsed statement. **/
+    public static void validateParsedStatement(
+            QueryContext context,
+            ParseResult parseResult,
+            SqlNode node,
+            Object[] params
+    ) {
+        Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
+        SqlQueryType queryType = Commons.getQueryType(node);
+
+        if (queryType == null) {
+            throw new IgniteInternalException(UNSUPPORTED_SQL_OPERATION_KIND_ERR, "Unsupported operation ["
+                    + "sqlNodeKind=" + node.getKind() + "; "
+                    + "querySql=\"" + node + "\"]");
+        }
+
+        if (!allowedTypes.contains(queryType)) {
+            String message = format("Invalid SQL statement type in the batch. Expected {} but got {}.", allowedTypes, queryType);
+
+            throw new QueryValidationException(message);
+        }
+
+        if (parseResult.dynamicParamsCount() != params.length) {
+            String message = format(
+                    "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
+                    params.length, parseResult.dynamicParamsCount()
+            );
+
+            throw new SqlException(QUERY_INVALID_ERR, message);
+        }
+
+        for (Object param : params) {
+            if (!TypeUtils.supportParamInstance(param)) {
+                String message = format(
+                        "Unsupported dynamic parameter defined. Provided '{}' is not supported.", param.getClass().getName());
+
+                throw new SqlException(QUERY_INVALID_ERR, message);
+            }
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public void start() {
@@ -146,9 +211,71 @@ public class PrepareServiceImpl implements PrepareService {
         planningPool.shutdownNow();
     }
 
+    /** Drop cached query plans. */
+    public void resetCache() {
+        cache.clear();
+    }
+
+    @TestOnly
+    public int cacheSize() {
+        return cache.size();
+    }
+
     /** {@inheritDoc} */
     @Override
+    public CompletableFuture<QueryPlan> prepareAsync(String query, QueryContext queryContext, BaseQueryContext ctx) {
+        CacheKey cacheKey = createCacheKey(query, ctx);
+
+        CompletableFuture<QueryPlan> opFut = new CompletableFuture<>();
+
+        CompletableFuture<QueryPlan> cached = cache.computeIfAbsent(cacheKey, key -> {
+            SqlNode sqlNode;
+
+            try {
+                StatementParseResult parseResult = IgniteSqlParser.parse(query, StatementParseResult.MODE);
+
+                sqlNode = parseResult.statement();
+
+                validateParsedStatement(queryContext, parseResult, sqlNode, ctx.parameters());
+            } catch (Exception ex) {
+                opFut.completeExceptionally(ex);
+
+                return null;
+            }
+
+            if (skipCache(sqlNode)) {
+                prepareAsync0(sqlNode, ctx)
+                        .handle((r, e) -> e != null ? opFut.completeExceptionally(e) : opFut.complete(r));
+
+                return null;
+            }
+
+            if (query.equals(sqlNode.toString())) {
+                prepareAsync0(sqlNode, ctx).handle((r, e) -> e != null ? opFut.completeExceptionally(e) : opFut.complete(r));
+            } else {
+                runAsync(() -> prepareAsync(sqlNode, ctx).handle((r, e) -> e != null ? opFut.completeExceptionally(e) : opFut.complete(r)),
+                        planningPool);
+            }
+
+            return opFut;
+        });
+
+        return cached != null ? cached : opFut;
+    }
+
+    /**
+     * Prepares and caches normalized query plan.
+     */
     public CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx) {
+        CacheKey cacheKey = createCacheKey(sqlNode.toString(), ctx.unwrap(BaseQueryContext.class));
+
+        return cache.computeIfAbsent(cacheKey, k -> prepareAsync0(sqlNode, ctx));
+    }
+
+    /**
+     * Prepares query plan bypassing cache.
+     */
+    public CompletableFuture<QueryPlan> prepareAsync0(SqlNode sqlNode, BaseQueryContext ctx) {
         try {
             assert single(sqlNode);
 
@@ -186,16 +313,6 @@ public class PrepareServiceImpl implements PrepareService {
         }
     }
 
-    /** Drop cached query plans. */
-    public void resetCache() {
-        cache.clear();
-    }
-
-    @TestOnly
-    public Map<CacheKey, CompletableFuture<QueryPlan>> cache() {
-        return cache;
-    }
-
     private CompletableFuture<QueryPlan> prepareDdl(SqlNode sqlNode, PlanningContext ctx) {
         assert sqlNode instanceof SqlDdl : sqlNode == null ? "null" : sqlNode.getClass().getName();
 
@@ -213,7 +330,7 @@ public class PrepareServiceImpl implements PrepareService {
             return cachedPlan.thenApply(plan -> new ExplainPlan(plan.explain(SqlExplainLevel.ALL_ATTRIBUTES)));
         }
 
-        return CompletableFuture.supplyAsync(() -> {
+        return supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             // Validate
@@ -233,9 +350,7 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private CompletableFuture<QueryPlan> prepareQuery(SqlNode sqlNode, PlanningContext ctx) {
-        CacheKey cacheKey = createCacheKey(sqlNode.toString(), ctx.unwrap(BaseQueryContext.class));
-
-        return cache.computeIfAbsent(cacheKey, k -> CompletableFuture.supplyAsync(() -> {
+        return supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             // Validate
@@ -252,13 +367,11 @@ public class PrepareServiceImpl implements PrepareService {
             ResultSetMetadata metadata = resultSetMetadata(validated.dataType(), validated.origins());
 
             return new MultiStepQueryPlan(template, metadata, igniteRel);
-        }, planningPool)).thenApply(QueryPlan::copy);
+        }, planningPool);
     }
 
     private CompletableFuture<QueryPlan> prepareDml(SqlNode sqlNode, PlanningContext ctx) {
-        CacheKey cacheKey = createCacheKey(sqlNode.toString(), ctx.unwrap(BaseQueryContext.class));
-
-        return cache.computeIfAbsent(cacheKey, k -> CompletableFuture.supplyAsync(() -> {
+        return supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             // Validate
@@ -273,7 +386,7 @@ public class PrepareServiceImpl implements PrepareService {
             QueryTemplate template = new QueryTemplate(fragments);
 
             return new MultiStepDmlPlan(template, igniteRel);
-        }, planningPool)).thenApply(QueryPlan::copy);
+        }, planningPool);
     }
 
     private static CacheKey createCacheKey(String query, BaseQueryContext ctx) {
