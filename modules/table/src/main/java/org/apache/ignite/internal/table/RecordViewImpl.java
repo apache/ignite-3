@@ -428,11 +428,9 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<Void> streamData(Publisher<R> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        var provider = new PojoStreamerPartitionAwarenessProvider<>(schemaReg, tbl.partitions(), marshaller(schemaReg.lastSchemaVersion()));
-        var opts = options == null ? DataStreamerOptions.DEFAULT : options;
-
+        var partitioner = new PojoStreamerPartitionAwarenessProvider<>(schemaReg, tbl.partitions(), marshaller(schemaReg.lastSchemaVersion()));
         StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshal(items), partitionId);
 
-        return DataStreamer.streamData(publisher, opts, batchSender, provider);
+        return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
 }

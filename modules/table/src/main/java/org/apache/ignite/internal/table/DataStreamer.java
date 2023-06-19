@@ -27,13 +27,14 @@ import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 import org.apache.ignite.internal.streamer.StreamerSubscriber;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 class DataStreamer {
     private static final IgniteLogger LOG = Loggers.forClass(DataStreamer.class);
 
     static <R> CompletableFuture<Void> streamData(
             Publisher<R> publisher,
-            DataStreamerOptions options,
+            @Nullable DataStreamerOptions options,
             StreamerBatchSender<R, Integer> batchSender,
             StreamerPartitionAwarenessProvider<R, Integer> partitionAwarenessProvider) {
         StreamerOptions streamerOpts = streamerOptions(options);
@@ -45,26 +46,28 @@ class DataStreamer {
     }
 
     @NotNull
-    private static StreamerOptions streamerOptions(DataStreamerOptions options) {
-        return new StreamerOptions(){
+    private static StreamerOptions streamerOptions(@Nullable DataStreamerOptions options) {
+        var options0 = options == null ? DataStreamerOptions.DEFAULT : options;
+
+        return new StreamerOptions() {
             @Override
             public int batchSize() {
-                return options.batchSize();
+                return options0.batchSize();
             }
 
             @Override
             public int perNodeParallelOperations() {
-                return options.perNodeParallelOperations();
+                return options0.perNodeParallelOperations();
             }
 
             @Override
             public int autoFlushFrequency() {
-                return options.autoFlushFrequency();
+                return options0.autoFlushFrequency();
             }
 
             @Override
             public int retryLimit() {
-                return options.retryLimit();
+                return options0.retryLimit();
             }
         };
     }
