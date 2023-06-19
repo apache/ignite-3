@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -40,6 +41,8 @@ public class DefaultNodeCallback extends NodeEventCallback {
 
     private final DeployMessagingService messaging;
 
+    private final DeploymentUnitUndeployer undeployer;
+
     private final FileDeployerService deployer;
 
     private final DownloadTracker tracker;
@@ -53,6 +56,7 @@ public class DefaultNodeCallback extends NodeEventCallback {
      *
      * @param deploymentUnitStore Deployment units store.
      * @param messaging Deployment messaging service.
+     * @param undeployer Deployment unit undeployer.
      * @param deployer Deployment unit file system service.
      * @param cmgManager Cluster management group manager.
      * @param nodeName Node consistent ID.
@@ -60,6 +64,7 @@ public class DefaultNodeCallback extends NodeEventCallback {
     public DefaultNodeCallback(
             DeploymentUnitStore deploymentUnitStore,
             DeployMessagingService messaging,
+            DeploymentUnitUndeployer undeployer,
             FileDeployerService deployer,
             DownloadTracker tracker,
             ClusterManagementGroupManager cmgManager,
@@ -67,6 +72,7 @@ public class DefaultNodeCallback extends NodeEventCallback {
     ) {
         this.deploymentUnitStore = deploymentUnitStore;
         this.messaging = messaging;
+        this.undeployer = undeployer;
         this.deployer = deployer;
         this.tracker = tracker;
         this.cmgManager = cmgManager;
@@ -102,8 +108,7 @@ public class DefaultNodeCallback extends NodeEventCallback {
 
     @Override
     public void onObsolete(String id, Version version, List<UnitNodeStatus> holders) {
-        //TODO: IGNITE-19708
-        deploymentUnitStore.updateNodeStatus(nodeName, id, version, REMOVING);
+        undeployer.undeploy(new DeploymentUnit(id, version));
     }
 
     @Override

@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -30,6 +31,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -104,6 +106,8 @@ public class DeploymentManagerImpl implements IgniteDeployment {
      */
     private final DeploymentUnitAccessor deploymentUnitAccessor;
 
+    private final DeploymentUnitUndeployer undeployer;
+
     private final String nodeName;
 
     private final NodeEventCallback nodeStatusCallback;
@@ -137,14 +141,26 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         this.configuration = configuration;
         this.cmgManager = cmgManager;
         this.workDir = workDir;
+        this.nodeName = nodeName;
         tracker = new DownloadTracker();
         deployer = new FileDeployerService();
         messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
         deploymentUnitAccessor = new DeploymentUnitAccessorImpl(deployer);
+        undeployer = new DeploymentUnitUndeployer(
+                nodeName,
+                deploymentUnitAccessor,
+                unit -> deploymentUnitStore.updateNodeStatus(nodeName, unit.name(), unit.version(), REMOVING)
+        );
 
-        this.nodeName = nodeName;
-
-        nodeStatusCallback = new DefaultNodeCallback(deploymentUnitStore, messaging, deployer, tracker, cmgManager, nodeName);
+        nodeStatusCallback = new DefaultNodeCallback(
+                deploymentUnitStore,
+                messaging,
+                undeployer,
+                deployer,
+                tracker,
+                cmgManager,
+                nodeName
+        );
         nodeStatusWatchListener = new NodeStatusWatchListener(deploymentUnitStore, nodeName, nodeStatusCallback);
 
         clusterEventCallback = new ClusterEventCallbackImpl(deploymentUnitStore, deployer, cmgManager, nodeName);
@@ -353,6 +369,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         deploymentUnitStore.registerClusterStatusListener(clusterStatusWatchListener);
         messaging.subscribe();
         failover.registerTopologyChangeCallback(nodeStatusCallback, clusterEventCallback);
+        undeployer.start(5, TimeUnit.SECONDS);
     }
 
     @Override
