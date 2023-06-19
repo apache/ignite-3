@@ -33,7 +33,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
@@ -52,7 +52,8 @@ public class StorageUpdateHandler {
     /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;
 
-    private final DataStorageConfiguration dsCfg;
+    /** Garbage collector configuration. */
+    private final GcConfiguration gcConfig;
 
     /** Low watermark. */
     private final LowWatermark lowWatermark;
@@ -68,21 +69,21 @@ public class StorageUpdateHandler {
      *
      * @param partitionId Partition id.
      * @param storage Partition data storage.
-     * @param dsCfg Data storage configuration.
+     * @param gcConfig Garbage collector configuration.
      * @param indexUpdateHandler Partition index update handler.
      * @param gcUpdateHandler Partition gc update handler.
      */
     public StorageUpdateHandler(
             int partitionId,
             PartitionDataStorage storage,
-            DataStorageConfiguration dsCfg,
+            GcConfiguration gcConfig,
             LowWatermark lowWatermark,
             IndexUpdateHandler indexUpdateHandler,
             GcUpdateHandler gcUpdateHandler
     ) {
         this.partitionId = partitionId;
         this.storage = storage;
-        this.dsCfg = dsCfg;
+        this.gcConfig = gcConfig;
         this.lowWatermark = lowWatermark;
         this.indexUpdateHandler = indexUpdateHandler;
         this.gcUpdateHandler = gcUpdateHandler;
@@ -201,7 +202,7 @@ public class StorageUpdateHandler {
             return;
         }
 
-        gcUpdateHandler.vacuumBatch(lwm, dsCfg.gcOnUpdateBatchSize().value());
+        gcUpdateHandler.vacuumBatch(lwm, gcConfig.onUpdateBatchSize().value(), false);
     }
 
     /**
