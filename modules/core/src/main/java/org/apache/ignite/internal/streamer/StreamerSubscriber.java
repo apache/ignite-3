@@ -152,29 +152,35 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
         inFlightItemCount.addAndGet(batchSize);
 
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
-        batchSender.sendAsync(partition, batch).whenComplete((res, err) -> {
-            if (err != null) {
-                // Retry is handled by RetryPolicy as usual in ReliableChannel.
-                // If we get here, then retries are exhausted and we should fail the streamer.
-                log.error("Failed to send batch to partition " + partition + ": " + err.getMessage(), err);
-                close(err);
-            } else {
-                fut.complete(null);
-                pendingFuts.remove(fut);
+        try {
+            batchSender.sendAsync(partition, batch).whenComplete((res, err) -> {
+                if (err != null) {
+                    // Retry is handled by RetryPolicy as usual in ReliableChannel.
+                    // If we get here, then retries are exhausted and we should fail the streamer.
+                    log.error("Failed to send batch to partition " + partition + ": " + err.getMessage(), err);
+                    close(err);
+                } else {
+                    fut.complete(null);
+                    pendingFuts.remove(fut);
 
-                inFlightItemCount.addAndGet(-batchSize);
-                requestMore();
+                    inFlightItemCount.addAndGet(-batchSize);
+                    requestMore();
 
-                // Refresh partition assignment asynchronously.
-                partitionAwarenessProvider.refreshAsync().exceptionally(refreshErr -> {
-                    log.error("Failed to refresh schemas and partition assignment: " + refreshErr.getMessage(), refreshErr);
-                    close(refreshErr);
-                    return null;
-                });
-            }
-        });
+                    // Refresh partition assignment asynchronously.
+                    partitionAwarenessProvider.refreshAsync().exceptionally(refreshErr -> {
+                        log.error("Failed to refresh schemas and partition assignment: " + refreshErr.getMessage(), refreshErr);
+                        close(refreshErr);
+                        return null;
+                    });
+                }
+            });
 
-        return fut;
+            return fut;
+        } catch (Exception e) {
+            log.error("Failed to send batch to partition " + partition + ": " + e.getMessage(), e);
+            close(e);
+            return CompletableFuture.failedFuture(e);
+        }
     }
 
     private void close(@Nullable Throwable throwable) {
