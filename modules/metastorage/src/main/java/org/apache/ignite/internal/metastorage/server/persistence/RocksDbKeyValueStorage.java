@@ -39,6 +39,7 @@ import static org.apache.ignite.lang.ErrorGroups.MetaStorage.COMPACTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.STARTING_STORAGE_ERR;
+import static org.rocksdb.util.SizeUnit.MB;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -86,10 +87,13 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
+import org.rocksdb.BlockBasedTableConfig;
+import org.rocksdb.BloomFilter;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.DBOptions;
+import org.rocksdb.LRUCache;
 import org.rocksdb.Options;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
@@ -239,20 +243,25 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     private static List<ColumnFamilyDescriptor> cfDescriptors() {
-        Options dataOptions = new Options().setCreateIfMissing(true)
+        Options sharedOptions = new Options()
+                .setCreateIfMissing(true)
+                .setNumLevels(4)
+                .setMaxWriteBufferNumber(4)
+                .setTableFormatConfig(new BlockBasedTableConfig()
+                        .setFilterPolicy(new BloomFilter(12))
+                        .setBlockCache(new LRUCache(64 * MB))
+                        .setPinL0FilterAndIndexBlocksInCache(true)
+                );
+
+        ColumnFamilyOptions dataFamilyOptions = new ColumnFamilyOptions(sharedOptions)
                 // The prefix is the revision of an entry, so prefix length is the size of a long
                 .useFixedLengthPrefixExtractor(Long.BYTES);
 
-        ColumnFamilyOptions dataFamilyOptions = new ColumnFamilyOptions(dataOptions);
+        ColumnFamilyOptions indexFamilyOptions = new ColumnFamilyOptions(sharedOptions);
 
-        Options indexOptions = new Options().setCreateIfMissing(true);
-        ColumnFamilyOptions indexFamilyOptions = new ColumnFamilyOptions(indexOptions);
+        ColumnFamilyOptions tsToRevFamilyOptions = new ColumnFamilyOptions(sharedOptions);
 
-        Options tsToRevOptions = new Options().setCreateIfMissing(true);
-        ColumnFamilyOptions tsToRevFamilyOptions = new ColumnFamilyOptions(tsToRevOptions);
-
-        Options revToTsOptions = new Options().setCreateIfMissing(true);
-        ColumnFamilyOptions revToTsFamilyOptions = new ColumnFamilyOptions(revToTsOptions);
+        ColumnFamilyOptions revToTsFamilyOptions = new ColumnFamilyOptions(sharedOptions);
 
         return List.of(
                 new ColumnFamilyDescriptor(DATA.nameAsBytes(), dataFamilyOptions),
@@ -427,7 +436,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @throws RocksDBException If failed.
      */
     private void fillAndWriteBatch(WriteBatch batch, long newRev, long newCntr, @Nullable HybridTimestamp ts) throws RocksDBException {
-        try (WriteOptions opts = new WriteOptions()) {
+        try (WriteOptions opts = new WriteOptions().setDisableWAL(true)) {
             byte[] revisionBytes = longToBytes(newRev);
 
             data.put(batch, UPDATE_COUNTER_KEY, longToBytes(newCntr));

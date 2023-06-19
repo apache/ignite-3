@@ -23,7 +23,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
 import java.util.Arrays;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.metastorage.server.Value;
 import org.jetbrains.annotations.Nullable;
 
@@ -185,9 +184,15 @@ class RocksStorageUtils {
         // Value must be divisible by a size of a long, because it's a list of longs
         assert (bytes.length % Long.BYTES) == 0;
 
-        return IntStream.range(0, bytes.length / Long.BYTES)
-                .mapToLong(i -> (long) LONG_ARRAY_HANDLE.get(bytes, i * Long.BYTES))
-                .toArray();
+        int size = bytes.length / Long.BYTES;
+
+        long[] res = new long[size];
+
+        for (int i = 0; i < size; i++) {
+            res[i] = (long) LONG_ARRAY_HANDLE.get(bytes, i * Long.BYTES);
+        }
+
+        return res;
     }
 
     /**
@@ -202,11 +207,8 @@ class RocksStorageUtils {
             return longToBytes(value);
         }
 
-        // Allocate a one long bigger array.
-        var result = new byte[bytes.length + Long.BYTES];
-
         // Copy the current value
-        System.arraycopy(bytes, 0, result, 0, bytes.length);
+        var result = Arrays.copyOf(bytes, bytes.length + Long.BYTES);
 
         LONG_ARRAY_HANDLE.set(result, bytes.length, value);
 
