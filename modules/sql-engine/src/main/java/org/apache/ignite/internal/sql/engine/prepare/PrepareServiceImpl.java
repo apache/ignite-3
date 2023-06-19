@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
-import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_VALIDATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_SQL_OPERATION_KIND_ERR;
@@ -33,6 +33,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -49,7 +50,6 @@ import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -59,11 +59,13 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
- * An implementation of the {@link PrepareService} that uses a Calcite-based query planner to validate and optimize a given query.
+ * An implementation of the {@link PrepareService} that uses a Calcite-based query planner to parse, validate and optimize a given query.
+ * This implementation supports caching of query plans and aware of different queries notation may lead to the same query plan.
  */
-public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener {
+public class PrepareServiceImpl implements PrepareService {
     private static final IgniteLogger LOG = Loggers.forClass(PrepareServiceImpl.class);
 
     private static final long THREAD_TIMEOUT_MS = 60_000;
@@ -75,6 +77,8 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     private final ConcurrentMap<CacheKey, CompletableFuture<QueryPlan>> cache;
 
     private final String nodeName;
+
+    private final BiFunction<SqlNode, IgnitePlanner, IgniteRel> queryOptimizer;
 
     private volatile ThreadPoolExecutor planningPool;
 
@@ -95,7 +99,8 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         return new PrepareServiceImpl(
                 nodeName,
                 cacheSize,
-                new DdlSqlToCommandConverter(dataStorageFields, dataStorageManager::defaultDataStorage)
+                new DdlSqlToCommandConverter(dataStorageFields, dataStorageManager::defaultDataStorage),
+                PlannerHelper::optimize
         );
     }
 
@@ -105,14 +110,17 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
      * @param nodeName Name of the current Ignite node. Will be used in thread factory as part of the thread name.
      * @param cacheSize Size of the cache of query plans. Should be non negative.
      * @param ddlConverter A converter of the DDL-related AST to the actual command.
+     * @param queryOptimizer Query optimizer.
      */
     public PrepareServiceImpl(
             String nodeName,
             int cacheSize,
-            DdlSqlToCommandConverter ddlConverter
+            DdlSqlToCommandConverter ddlConverter,
+            BiFunction<SqlNode, IgnitePlanner, IgniteRel> queryOptimizer
     ) {
         this.nodeName = nodeName;
         this.ddlConverter = ddlConverter;
+        this.queryOptimizer = queryOptimizer;
 
         cache = Caffeine.newBuilder()
                 .maximumSize(cacheSize)
@@ -168,19 +176,23 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                     return prepareExplain(sqlNode, planningContext);
 
                 default:
-                    throw new IgniteInternalException(UNSUPPORTED_SQL_OPERATION_KIND_ERR, "Unsupported operation ["
+                    return failedFuture(new IgniteInternalException(UNSUPPORTED_SQL_OPERATION_KIND_ERR, "Unsupported operation ["
                             + "sqlNodeKind=" + sqlNode.getKind() + "; "
-                            + "querySql=\"" + planningContext.query() + "\"]");
+                            + "querySql=\"" + planningContext.query() + "\"]"));
             }
         } catch (CalciteContextException e) {
-            throw new IgniteInternalException(QUERY_VALIDATION_ERR, "Failed to validate query. " + e.getMessage(), e);
+            return failedFuture(new IgniteInternalException(QUERY_VALIDATION_ERR, "Failed to validate query. " + e.getMessage(), e));
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void onSchemaUpdated() {
+    /** Drop cached query plans. */
+    public void resetCache() {
         cache.clear();
+    }
+
+    @TestOnly
+    public Map<CacheKey, CompletableFuture<QueryPlan>> cache() {
+        return cache;
     }
 
     private CompletableFuture<QueryPlan> prepareDdl(SqlNode sqlNode, PlanningContext ctx) {
@@ -200,7 +212,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
             SqlNode validNode = ((SqlExplain) explainNode).getExplicandum();
 
             // Convert to Relational operators graph
-            IgniteRel igniteRel = optimize(validNode, planner);
+            IgniteRel igniteRel = queryOptimizer.apply(validNode, planner);
 
             String plan = RelOptUtil.toString(igniteRel, SqlExplainLevel.ALL_ATTRIBUTES);
 
@@ -223,7 +235,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
             SqlNode validatedNode = validated.sqlNode();
 
-            IgniteRel igniteRel = optimize(validatedNode, planner);
+            IgniteRel igniteRel = queryOptimizer.apply(validatedNode, planner);
 
             // Split query plan to query fragments.
             List<Fragment> fragments = new Splitter().go(igniteRel);
@@ -246,7 +258,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
             SqlNode validatedNode = planner.validate(sqlNode);
 
             // Convert to Relational operators graph
-            IgniteRel igniteRel = optimize(validatedNode, planner);
+            IgniteRel igniteRel = queryOptimizer.apply(validatedNode, planner);
 
             // Split query plan to query fragments.
             List<Fragment> fragments = new Splitter().go(igniteRel);

@@ -247,7 +247,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 busyLock
         );
 
-        sqlSchemaManager.registerListener(prepareSvc);
+        sqlSchemaManager.registerListener(prepareSvc::resetCache);
 
         this.prepareSvc = prepareSvc;
 
@@ -613,7 +613,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     /** Performs additional validation of a parsed statement. **/
-    private static void validateParsedStatement(
+    public static void validateParsedStatement(
             QueryContext context,
             InternalTransaction outerTx,
             ParseResult parseResult,
