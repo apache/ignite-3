@@ -28,8 +28,6 @@ import org.apache.ignite.table.Tuple;
  * Partition awareness provider for data streamer.
  */
 class TupleStreamerPartitionAwarenessProvider extends AbstractClientStreamerPartitionAwarenessProvider<Tuple> {
-    private static final Object NO_VAL = new Object();
-
     TupleStreamerPartitionAwarenessProvider(SchemaRegistry schemaReg) {
         super(schemaReg);
     }
@@ -39,12 +37,8 @@ class TupleStreamerPartitionAwarenessProvider extends AbstractClientStreamerPart
         HashCalculator hashCalc = new HashCalculator();
 
         for (Column c : schema.colocationColumns()) {
-            Object val = item.valueOrDefault(c.name(), NO_VAL);
-
-            if (val == NO_VAL) {
-                throw new IllegalArgumentException("Tuple does not contain colocation column: " + c.name());
-            }
-
+            // Colocation columns are always part of the key and can't be missing; serializer will check this.
+            Object val = item.valueOrDefault(c.name(), null);
             ColocationUtils.append(hashCalc, val, c.type());
         }
 
