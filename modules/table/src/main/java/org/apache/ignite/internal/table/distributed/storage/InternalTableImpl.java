@@ -615,7 +615,7 @@ public class InternalTableImpl implements InternalTable {
         return collectMultiRowsResponses(futures);
     }
 
-    private static List<ByteBuffer> serializeBinaryRows(Collection<BinaryRow> rows) {
+    private static List<ByteBuffer> serializeBinaryRows(Collection<? extends BinaryRow> rows) {
         var result = new ArrayList<ByteBuffer>(rows.size());
 
         for (BinaryRow row : rows) {
@@ -648,16 +648,43 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
-                        .groupId(groupId)
-                        .commitPartitionId(commitPart)
-                        .binaryRowsBytes(serializeBinaryRows(keyRows0))
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RequestType.RW_UPSERT_ALL)
-                        .timestampLong(clock.nowLong())
-                        .build(),
+                this::upsertAllInternal,
                 CompletableFuture::allOf);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
+        InternalTransaction tx = txManager.begin();
+        TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
+
+        // TODO: primaryReplicaAndTerm is always null for implicit tx? Or always non-null?
+        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx.enlistedNodeAndTerm(partGroupId);
+        CompletableFuture<Void> fut;
+
+        // TODO: Extract this block to a method.
+        if (primaryReplicaAndTerm != null) {
+            TablePartitionId commitPart = tx.commitPartition();
+
+            ReplicaRequest request = upsertAllInternal(commitPart, rows, tx, partGroupId, primaryReplicaAndTerm.get2());
+
+            try {
+                fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
+            } catch (PrimaryReplicaMissException e) {
+                throw new TransactionException(e);
+            } catch (Throwable e) {
+                throw new TransactionException("Failed to invoke the replica request.");
+            }
+        } else {
+            fut = enlistWithRetry(
+                    tx,
+                    partition,
+                    (commitPart, term) -> upsertAllInternal(commitPart, rows, tx, partGroupId, term),
+                    ATTEMPTS_TO_ENLIST_PARTITION
+            );
+        }
+
+        return postEnlist(fut, true, tx);
     }
 
     /** {@inheritDoc} */
@@ -1552,5 +1579,22 @@ public class InternalTableImpl implements InternalTable {
         if (previousStorageIndexTracker != null) {
             previousStorageIndexTracker.close();
         }
+    }
+
+    private ReplicaRequest upsertAllInternal(
+            TablePartitionId commitPart,
+            Collection<? extends BinaryRow> keyRows0,
+            InternalTransaction txo,
+            ReplicationGroupId groupId,
+            Long term) {
+        return tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                .groupId(groupId)
+                .commitPartitionId(commitPart)
+                .binaryRowsBytes(serializeBinaryRows(keyRows0))
+                .transactionId(txo.id())
+                .term(term)
+                .requestType(RequestType.RW_UPSERT_ALL)
+                .timestampLong(clock.nowLong())
+                .build();
     }
 }

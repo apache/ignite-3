@@ -141,6 +141,8 @@ public interface InternalTable extends ManuallyCloseable {
      */
     CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
+    CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition);
+
     /**
      * Asynchronously inserts a row into the table or replaces if exists and return replaced previous row.
      *

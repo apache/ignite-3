@@ -38,7 +38,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -439,7 +438,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         var opts = options == null ? DataStreamerOptions.DEFAULT : options;
 
         // TODO: Avoid re-hashing in upsertAllAsync.
-        StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> upsertAllAsync(null, items);
+        StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshal(items), null);
 
         return DataStreamer.streamData(publisher, opts, batchSender, provider);
     }
