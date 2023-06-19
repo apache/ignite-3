@@ -658,31 +658,12 @@ public class InternalTableImpl implements InternalTable {
         InternalTransaction tx = txManager.begin();
         TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
-        // TODO: primaryReplicaAndTerm is always null for implicit tx? Or always non-null?
-        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx.enlistedNodeAndTerm(partGroupId);
-        CompletableFuture<Void> fut;
-
-        // TODO: Extract this block to a method.
-        if (primaryReplicaAndTerm != null) {
-            TablePartitionId commitPart = tx.commitPartition();
-
-            ReplicaRequest request = upsertAllInternal(commitPart, rows, tx, partGroupId, primaryReplicaAndTerm.get2());
-
-            try {
-                fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
-            } catch (PrimaryReplicaMissException e) {
-                throw new TransactionException(e);
-            } catch (Throwable e) {
-                throw new TransactionException("Failed to invoke the replica request.");
-            }
-        } else {
-            fut = enlistWithRetry(
-                    tx,
-                    partition,
-                    (commitPart, term) -> upsertAllInternal(commitPart, rows, tx, partGroupId, term),
-                    ATTEMPTS_TO_ENLIST_PARTITION
-            );
-        }
+        CompletableFuture<Void> fut = enlistWithRetry(
+                tx,
+                partition,
+                (commitPart, term) -> upsertAllInternal(commitPart, rows, tx, partGroupId, term),
+                ATTEMPTS_TO_ENLIST_PARTITION
+        );
 
         return postEnlist(fut, true, tx);
     }
