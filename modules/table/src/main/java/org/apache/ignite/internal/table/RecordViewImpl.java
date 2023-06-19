@@ -435,7 +435,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         // 2. Add enlistInTx overload which accepts partition number and row collection, and avoids re-hashing.
         Objects.requireNonNull(publisher);
 
-        var provider = new PojoStreamerPartitionAwarenessProvider<R>(schemaReg, marsh);
+        var provider = new PojoStreamerPartitionAwarenessProvider<R>(schemaReg, marshaller(schemaReg.lastSchemaVersion()));
         var opts = options == null ? DataStreamerOptions.DEFAULT : options;
 
         // TODO: Avoid re-hashing in upsertAllAsync.

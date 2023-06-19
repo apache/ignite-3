@@ -33,6 +33,7 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
     private final SchemaRegistry schemaReg;
 
     AbstractClientStreamerPartitionAwarenessProvider(SchemaRegistry schemaReg) {
+        assert schemaReg != null;
         this.schemaReg = schemaReg;
     }
 

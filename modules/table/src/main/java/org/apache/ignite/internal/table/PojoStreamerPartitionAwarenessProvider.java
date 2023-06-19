@@ -35,6 +35,7 @@ class PojoStreamerPartitionAwarenessProvider<R> extends AbstractClientStreamerPa
     PojoStreamerPartitionAwarenessProvider(SchemaRegistry schemaReg, RecordMarshaller<R> marsh) {
         super(schemaReg);
 
+        assert marsh != null;
         this.marsh = marsh;
     }
 
