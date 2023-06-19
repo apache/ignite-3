@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
@@ -39,14 +40,17 @@ class PojoStreamerPartitionAwarenessProvider<R> extends AbstractClientStreamerPa
 
     @Override
     int colocationHash(SchemaDescriptor schema, R item) {
-        HashCalculator hashCalc = new HashCalculator();
+        try {
+            HashCalculator hashCalc = new HashCalculator();
 
-        for (Column c : schema.colocationColumns()) {
-            // Colocation columns are always part of the key and can't be missing; serializer will check this.
-            Object val = item.valueOrDefault(c.name(), null);
-            ColocationUtils.append(hashCalc, val, c.type());
+            for (Column c : schema.colocationColumns()) {
+                Object val = marsh.value(item, c.schemaIndex());
+                ColocationUtils.append(hashCalc, val, c.type());
+            }
+
+            return hashCalc.hash();
+        } catch (MarshallerException e) {
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
-
-        return hashCalc.hash();
     }
 }

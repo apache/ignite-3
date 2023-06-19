@@ -27,6 +27,7 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.PojoMapper;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Record marshaller for given schema and mappers.
@@ -110,6 +111,12 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
         assert recClass.isInstance(o);
 
         return (R) o;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable Object value(Object obj, int fldIdx) throws MarshallerException {
+        return schema.isKeyColumn(fldIdx) ? keyMarsh.value(obj, fldIdx) : valMarsh.value(obj, fldIdx);
     }
 
     /**
