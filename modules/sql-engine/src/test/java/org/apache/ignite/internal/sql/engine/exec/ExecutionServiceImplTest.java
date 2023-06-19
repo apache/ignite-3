@@ -82,6 +82,7 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteFragmentExecutionException;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
+import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -148,7 +149,7 @@ public class ExecutionServiceImplTest {
     public void init() {
         testCluster = new TestCluster();
         executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
-        prepareService = new PrepareServiceImpl("test", 0, null);
+        prepareService = new PrepareServiceImpl("test", 0, null, PlannerHelper::optimize);
 
         prepareService.start();
     }

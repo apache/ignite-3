@@ -57,6 +57,7 @@ import org.apache.ignite.internal.sql.engine.exec.rel.ScanNode;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.metadata.MappingServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -99,7 +100,9 @@ public class TestNode implements LifecycleAware {
             SqlSchemaManager schemaManager
     ) {
         this.nodeName = nodeName;
-        this.prepareService = registerService(new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class)));
+        this.prepareService = registerService(
+                new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class), PlannerHelper::optimize)
+        );
         this.schema = schemaManager.schema("PUBLIC");
 
         TopologyService topologyService = clusterService.topologyService();
