@@ -28,8 +28,8 @@ import org.apache.ignite.table.Tuple;
 /**
  * Partition awareness provider for data streamer.
  */
-class KvTupleStreamerPartitionAwarenessProvider extends AbstractClientStreamerPartitionAwarenessProvider<Entry<Tuple, Tuple>> {
-    KvTupleStreamerPartitionAwarenessProvider(SchemaRegistry schemaReg, int partitions) {
+class KeyValueTupleStreamerPartitionAwarenessProvider extends AbstractClientStreamerPartitionAwarenessProvider<Entry<Tuple, Tuple>> {
+    KeyValueTupleStreamerPartitionAwarenessProvider(SchemaRegistry schemaReg, int partitions) {
         super(schemaReg, partitions);
     }
 

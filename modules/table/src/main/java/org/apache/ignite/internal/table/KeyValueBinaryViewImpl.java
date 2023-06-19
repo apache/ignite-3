@@ -481,7 +481,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public CompletableFuture<Void> streamData(Publisher<Entry<Tuple, Tuple>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        var partitioner = new KvTupleStreamerPartitionAwarenessProvider(schemaReg, tbl.partitions());
+        var partitioner = new KeyValueTupleStreamerPartitionAwarenessProvider(schemaReg, tbl.partitions());
         StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshal(items), partitionId);
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
