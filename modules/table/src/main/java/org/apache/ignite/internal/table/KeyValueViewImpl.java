@@ -35,6 +35,7 @@ import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -42,6 +43,7 @@ import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -367,6 +369,10 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         return this.marsh = marshallerFactory.apply(schemaReg.schema(schemaVersion));
     }
 
+    private KvMarshaller<K, V> marshaller() {
+        return marshaller(schemaReg.lastSchemaVersion());
+    }
+
     /**
      * Marshal key.
      *
@@ -553,7 +559,11 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<Entry<K, V>> publisher, @Nullable DataStreamerOptions options) {
-        // TODO IGNITE-19617 Server-side Basic Data Streamer.
-        throw new UnsupportedOperationException("Not supported.");
+        Objects.requireNonNull(publisher);
+
+        var partitioner = new KeyValuePojoStreamerPartitionAwarenessProvider<>(schemaReg, tbl.partitions(), marshaller());
+        StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshal(items), partitionId);
+
+        return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
 }

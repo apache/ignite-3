@@ -21,6 +21,7 @@ import java.util.Map.Entry;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.util.ColocationUtils;
@@ -31,13 +32,13 @@ import org.apache.ignite.table.Tuple;
  * Partition awareness provider for data streamer.
  */
 class KeyValuePojoStreamerPartitionAwarenessProvider<K, V> extends AbstractClientStreamerPartitionAwarenessProvider<Entry<K, V>> {
-    private final RecordMarshaller<K> keyMarsh;
+    private final KvMarshaller<K, V> marsh;
 
-    KeyValuePojoStreamerPartitionAwarenessProvider(SchemaRegistry schemaReg, int partitions, RecordMarshaller<K> keyMarsh) {
+    KeyValuePojoStreamerPartitionAwarenessProvider(SchemaRegistry schemaReg, int partitions, KvMarshaller<K, V> marsh) {
         super(schemaReg, partitions);
 
-        assert keyMarsh != null;
-        this.keyMarsh = keyMarsh;
+        assert marsh != null;
+        this.marsh = marsh;
     }
 
     @Override
@@ -48,7 +49,7 @@ class KeyValuePojoStreamerPartitionAwarenessProvider<K, V> extends AbstractClien
             for (Column c : schema.colocationColumns()) {
                 // Colocation columns are always part of the key and can't be missing; serializer will check for nulls.
                 Object val = null;
-                val = keyMarsh.value(item.getKey(), c.schemaIndex());
+                val = marsh.value(item.getKey(), c.schemaIndex());
                 ColocationUtils.append(hashCalc, val, c.type());
             }
 
