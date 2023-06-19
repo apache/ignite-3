@@ -368,6 +368,11 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         return this.marsh = marshallerFactory.apply(schemaReg.schema(schemaVersion));
     }
 
+    /**
+     * Returns marshaller for the latest schema.
+     *
+     * @return Marshaller.
+     */
     private KvMarshaller<K, V> marshaller() {
         return marshaller(schemaReg.lastSchemaVersion());
     }
@@ -379,7 +384,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @return Binary row.
      */
     private BinaryRowEx marshal(@NotNull K key) {
-        final KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+        final KvMarshaller<K, V> marsh = marshaller();
 
         try {
             return marsh.marshal(key);
@@ -396,7 +401,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @return Binary row.
      */
     private BinaryRowEx marshal(@NotNull K key, V val) {
-        final KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+        final KvMarshaller<K, V> marsh = marshaller();
 
         try {
             return marsh.marshal(key, val);
@@ -416,7 +421,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
             return Collections.emptyList();
         }
 
-        KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+        KvMarshaller<K, V> marsh = marshaller();
 
         List<BinaryRowEx> keyRows = new ArrayList<>(keys.size());
 
@@ -442,7 +447,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
             return Collections.emptyList();
         }
 
-        KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+        KvMarshaller<K, V> marsh = marshaller();
 
         List<BinaryRowEx> rows = new ArrayList<>(pairs.size());
 
@@ -468,7 +473,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
             return Collections.emptyList();
         }
 
-        KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+        KvMarshaller<K, V> marsh = marshaller();
 
         List<K> keys = new ArrayList<>(rows.size());
 
@@ -518,7 +523,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
             return Collections.emptyMap();
         }
 
-        KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+        KvMarshaller<K, V> marsh = marshaller();
 
         Map<K, V> pairs = IgniteUtils.newHashMap(rows.size());
 
