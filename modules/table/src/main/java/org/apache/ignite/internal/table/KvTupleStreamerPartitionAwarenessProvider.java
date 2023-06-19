@@ -38,7 +38,7 @@ class KvTupleStreamerPartitionAwarenessProvider extends AbstractClientStreamerPa
         HashCalculator hashCalc = new HashCalculator();
 
         for (Column c : schema.colocationColumns()) {
-            // Colocation columns are always part of the key and can't be missing; serializer will check this.
+            // Colocation columns are always part of the key and can't be missing; serializer will check for nulls.
             Object val = item.getKey().valueOrDefault(c.name(), null);
             ColocationUtils.append(hashCalc, val, c.type());
         }
