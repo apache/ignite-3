@@ -22,10 +22,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
@@ -168,7 +170,9 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         publisher.submit(tuple);
         publisher.close();
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
+        assertEquals("Missed key column: ID", ex.getCause().getMessage());
     }
 
     private Table defaultTable() {
