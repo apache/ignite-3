@@ -24,7 +24,6 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
-import org.apache.ignite.table.Tuple;
 
 /**
  * Partition awareness provider for data streamer.
