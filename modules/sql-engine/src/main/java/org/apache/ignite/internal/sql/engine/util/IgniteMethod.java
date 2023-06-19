@@ -27,6 +27,7 @@ import org.apache.calcite.linq4j.tree.Types;
 import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.parser.SqlParserUtil;
+import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.BiScalar;
@@ -97,6 +98,8 @@ public enum IgniteMethod {
 
     /** See {@link UUID#randomUUID()}. */
     RAND_UUID(UUID.class, "randomUUID"),
+
+    LENGTH(IgniteSqlFunctions.class, "length", Object.class),
 
     /** See {@link IgniteSqlFunctions#genRandomUuid()}. */
     // TODO This function should removed when https://issues.apache.org/jira/browse/IGNITE-19103 is complete.

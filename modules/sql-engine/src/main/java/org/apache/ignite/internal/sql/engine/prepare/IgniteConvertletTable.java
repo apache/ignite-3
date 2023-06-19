@@ -47,8 +47,6 @@ public class IgniteConvertletTable extends ReflectiveConvertletTable {
     private IgniteConvertletTable() {
         // Replace Calcite's convertlet with our own.
         registerOp(SqlStdOperatorTable.TIMESTAMP_DIFF, new TimestampDiffConvertlet());
-
-        addAlias(IgniteSqlOperatorTable.LENGTH, SqlStdOperatorTable.CHAR_LENGTH);
     }
 
     /** {@inheritDoc} */
