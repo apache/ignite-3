@@ -108,8 +108,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         try (var publisher = new SubmissionPublisher<Map.Entry<Tuple, Tuple>>()) {
             streamerFut = view.streamData(publisher, null);
 
-            publisher.submit(Map.entry(tupleKey(1), tuple(1, "foo")));
-            publisher.submit(Map.entry(tupleKey(2), tuple(2, "bar")));
+            publisher.submit(Map.entry(tupleKey(1), Tuple.create().set("name", "foo")));
+            publisher.submit(Map.entry(tupleKey(2), Tuple.create().set("name", "bar")));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();

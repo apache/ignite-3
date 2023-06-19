@@ -39,7 +39,7 @@ class KvTupleStreamerPartitionAwarenessProvider extends AbstractClientStreamerPa
 
         for (Column c : schema.colocationColumns()) {
             // Colocation columns are always part of the key and can't be missing; serializer will check this.
-            Object val = item.valueOrDefault(c.name(), null);
+            Object val = item.getKey().valueOrDefault(c.name(), null);
             ColocationUtils.append(hashCalc, val, c.type());
         }
 
