@@ -182,6 +182,33 @@ public class PrepareServiceSelfTest extends AbstractPlannerTest {
     }
 
     @Test
+    public void explainUsesCachedPlans() {
+        String query = "SELECT * FROM tbl WHERE id > 0";
+        String explainQuery = "EXPLAIN PLAN FOR SELECT * FROM tbl WHERE id > 0";
+        String explainQuery2 = "EXPLAIN PLAN FOR SELECT * /* comment */ FROM tbl WHERE id > 0";
+
+        // Ensure explain don't cache anything.
+        assertThat(service.prepareAsync(parse(explainQuery), createContext()), willBe(notNullValue()));
+        assertThat(service.cache(), Matchers.anEmptyMap());
+        Mockito.verify(queryPlannerSpy, Mockito.times(1)).apply(Mockito.any(), Mockito.any());
+
+        // Cache query plan.
+        assertThat(service.prepareAsync(parse(query), createContext()), willBe(notNullValue()));
+        assertThat(service.cache(), Matchers.aMapWithSize(1));
+        Mockito.verify(queryPlannerSpy, Mockito.times(2)).apply(Mockito.any(), Mockito.any());
+
+        // Check explain gets plan from cache.
+        assertThat(service.prepareAsync(parse(explainQuery), createContext()), willBe(notNullValue()));
+        assertThat(service.cache(), Matchers.aMapWithSize(1));
+        Mockito.verify(queryPlannerSpy, Mockito.times(2)).apply(Mockito.any(), Mockito.any());
+
+        // Check explain gets plan from cache for similar query.
+        assertThat(service.prepareAsync(parse(explainQuery2), createContext()), willBe(notNullValue()));
+        assertThat(service.cache(), Matchers.aMapWithSize(1));
+        Mockito.verify(queryPlannerSpy, Mockito.times(2)).apply(Mockito.any(), Mockito.any());
+    }
+
+    @Test
     public void resetCache() {
         assertThat(service.cache(), Matchers.anEmptyMap());
 

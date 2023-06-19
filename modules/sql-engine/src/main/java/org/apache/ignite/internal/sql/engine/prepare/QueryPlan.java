@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * QueryPlan interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Query plan interface.
  */
 public interface QueryPlan {
     /**
@@ -40,4 +42,11 @@ public interface QueryPlan {
      * Clones this plan.
      */
     QueryPlan copy();
+
+    /**
+     * Gets explanation for query plan.
+     */
+    default String explain(SqlExplainLevel explainLevel) {
+        throw new SqlException(Sql.QUERY_INVALID_ERR, "EXPLAIN PLAN is not supported for queryType=" + type());
+    }
 }
