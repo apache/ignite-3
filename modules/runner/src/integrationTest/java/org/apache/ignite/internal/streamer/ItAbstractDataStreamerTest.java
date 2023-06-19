@@ -154,6 +154,23 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertFalse(waitForCondition(() -> view.get(null, tupleKey(1)) != null, 1000));
     }
 
+    @Test
+    public void testMissingKeyColumn() {
+        RecordView<Tuple> view = this.defaultTable().recordView();
+
+        var publisher = new SubmissionPublisher<Tuple>();
+        var options = DataStreamerOptions.builder().build();
+        CompletableFuture<Void> streamerFut = view.streamData(publisher, options);
+
+        var tuple = Tuple.create()
+                .set("id1", 1)
+                .set("name1", "x");
+
+        publisher.submit(tuple);
+        publisher.close();
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+    }
+
     private Table defaultTable() {
         //noinspection resource
         return ignite().tables().table(TABLE_NAME);
