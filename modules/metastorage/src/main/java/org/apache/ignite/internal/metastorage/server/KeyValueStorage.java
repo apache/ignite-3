@@ -272,4 +272,12 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * present in the storage.
      */
     byte @Nullable [] nextKey(byte[] key);
+
+    /**
+     * Looks up a timestamp by a revision.
+     *
+     * @param revision Revision by which to do a lookup.
+     * @return Timestamp corresponding to the revision.
+     */
+    HybridTimestamp timestampByRevision(long revision);
 }

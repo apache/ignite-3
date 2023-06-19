@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Objects;
 import java.util.OptionalLong;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -398,6 +399,13 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     @Override
     public byte @Nullable [] nextKey(byte[] key) {
         return incrementPrefix(key);
+    }
+
+    @Override
+    public HybridTimestamp timestampByRevision(long revision) {
+        synchronized (mux) {
+            return Objects.requireNonNull(revToTsMap.get(revision), "Revision " + revision + " not found");
+        }
     }
 
     @Override
