@@ -33,7 +33,7 @@ TEST_F(config_tools_test, parse_address_basic)
         auto res = parse_address(in);
         ASSERT_EQ(exp.size(), res.size());
 
-        for (int i = 0; i < exp.size(); ++i) {
+        for (size_t i = 0; i < exp.size(); ++i) {
             EXPECT_EQ(exp[i],res[i]) << "Vectors differ at index " << i;
         }
     };
