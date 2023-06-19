@@ -90,7 +90,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
 
         dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
 
-        binaryTupleComparator = new BinaryTupleComparator(indexDescriptor);
+        binaryTupleComparator = new BinaryTupleComparator(indexDescriptor.columns());
 
         initTree(initNew);
 

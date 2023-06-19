@@ -165,11 +165,6 @@ public class TestTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public long persistedIndex() {
-        return lastAppliedIndex;
-    }
-
-    @Override
     public void close() {
         assert rebalanceFutureReference.get() == null;
 
