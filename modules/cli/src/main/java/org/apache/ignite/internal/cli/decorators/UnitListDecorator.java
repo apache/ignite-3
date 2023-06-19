@@ -20,7 +20,10 @@ package org.apache.ignite.internal.cli.decorators;
 import com.jakewharton.fliptables.FlipTable;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.stream.Stream;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cli.call.unit.UnitStatusRecord;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
@@ -51,11 +54,20 @@ public class UnitListDecorator implements Decorator<List<UnitStatusRecord>, Term
     }
 
     private static Stream<String[]> unfoldRecordWithVersions(UnitStatusRecord record) {
-        Map<String, DeploymentStatus> map = record.versionToStatus();
-        return map.entrySet().stream().map(entry -> new String[]{
-                record.id(),
-                entry.getKey(),
-                entry.getValue().getValue()
+        Map<Version, DeploymentStatus> map = record.versionToStatus();
+        Entry<Version, DeploymentStatus> max = map.entrySet().stream().max(Entry.comparingByKey()).orElse(null);
+        if (max == null) {
+            return Stream.empty();
+        }
+        return map.entrySet().stream().map(entry -> {
+            Version key = entry.getKey();
+            String version = Objects.equals(key, max.getKey()) ? "*" + key.render() : key.render();
+
+            return new String[]{
+                    record.id(),
+                    version,
+                    entry.getValue().getValue()
+            };
         });
     }
 }

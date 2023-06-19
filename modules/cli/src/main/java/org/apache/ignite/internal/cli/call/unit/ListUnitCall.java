@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.cli.call.unit;
 
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -51,7 +53,8 @@ public abstract class ListUnitCall implements Call<ListUnitCallInput, List<UnitS
     private static UnitStatusRecord toRecord(UnitStatus unitStatus) {
         return new UnitStatusRecord(
                 unitStatus.getId(),
-                unitStatus.getVersionToStatus()
+                unitStatus.getVersionToStatus().entrySet().stream()
+                        .collect(Collectors.toMap(e -> Version.parseVersion(e.getKey()), Entry::getValue))
         );
     }
 }

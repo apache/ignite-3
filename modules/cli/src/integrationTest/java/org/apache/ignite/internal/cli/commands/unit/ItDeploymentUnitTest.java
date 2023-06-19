@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -134,7 +135,7 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
             resetOutput();
             execute("cluster", "unit", "list", "--plain", id);
 
-            assertDeployed(id);
+            assertDeployed(id, "1.0.0", true);
         });
     }
 
@@ -172,19 +173,19 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
             execute("cluster", "unit", "list", "--plain", id);
 
             // Unit is deployed on all requested nodes
-            assertDeployed(id);
+            assertDeployed(id, "1.0.0", true);
 
             resetOutput();
             execute("node", "unit", "list", "--plain", "--node-url", "http://localhost:10300", id);
 
             // Unit is deployed on the CMG node
-            assertDeployed(id);
+            assertDeployed(id, "1.0.0", true);
 
             resetOutput();
             execute("node", "unit", "list", "--plain", "--node-url", "http://localhost:10301", id);
 
             // Unit is deployed on the requested node
-            assertDeployed(id);
+            assertDeployed(id, "1.0.0", true);
 
             resetOutput();
             execute("node", "unit", "list", "--plain", "--node-url", "http://localhost:10302", id);
@@ -217,7 +218,7 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
             execute("cluster", "unit", "list", "--plain", id);
 
             // Unit is deployed on all requested nodes
-            assertDeployed(id);
+            assertDeployed(id, "1.0.0", true);
 
             for (int i = 0; i < CLUSTER_NODES.size(); i++) {
                 resetOutput();
@@ -226,7 +227,7 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
                 execute("node", "unit", "list", "--plain", "--node-url", nodeUrl, id);
 
                 // Unit is deployed on the node
-                assertDeployed(id);
+                assertDeployed(id, "1.0.0", true);
             }
         });
     }
@@ -259,25 +260,59 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
             resetOutput();
             execute("cluster", "unit", "list", "--plain", "test-unit");
 
-            assertDeployed("test-unit");
+            assertDeployed("test-unit", "1.0.0", true);
         });
 
         resetOutput();
         execute("node", "unit", "list", "--plain", "test-unit");
 
-        assertDeployed("test-unit");
+        assertDeployed("test-unit", "1.0.0", true);
     }
 
-    private void assertDeployed(String id) {
-        assertDeployed(id, "1.0.0");
+    @Test
+    @DisplayName("Should display * marker for latest version in list command")
+    void deployTwoVersionsAndCheckLatestMark() {
+        execute("cluster", "unit", "deploy", "test-unit", "--version", "1.0.0", "--path", testFile);
+
+        await().untilAsserted(() -> {
+            resetOutput();
+            execute("cluster", "unit", "list", "--plain", "test-unit");
+
+            assertDeployed("test-unit", "1.0.0", true);
+        });
+
+        execute("cluster", "unit", "deploy", "test-unit", "--version", "2.0.0", "--path", testFile);
+
+        await().untilAsserted(() -> {
+            resetOutput();
+            execute("cluster", "unit", "list", "--plain", "test-unit");
+
+            assertDeployed(List.of("test-unit", "test-unit"), List.of("1.0.0", "2.0.0"), List.of(false, true));
+        });
     }
 
-    private void assertDeployed(String id, String version) {
+    private void assertDeployed(String id, String version, boolean latest) {
+        assertDeployed(List.of(id), List.of(version), List.of(latest));
+    }
+
+    private void assertDeployed(List<String> ids, List<String> versions, List<Boolean> latests) {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputIs("id\tversion\tstatus" + System.lineSeparator()
-                        + id + "\t" + version + "\tDEPLOYED" + System.lineSeparator())
+                        + build(ids, versions, latests))
         );
+    }
+
+    private static String build(List<String> ids, List<String> versions, List<Boolean> latests) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0, idsSize = ids.size(); i < idsSize; i++) {
+            String id = ids.get(i);
+            String version = versions.get(i);
+            boolean latest = latests.get(i);
+
+            sb.append(id + "\t" + (latest ? "*" : "") + version + "\tDEPLOYED" + System.lineSeparator());
+        }
+        return sb.toString();
     }
 }

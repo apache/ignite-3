@@ -29,6 +29,7 @@ import jakarta.inject.Inject;
 import java.io.FileNotFoundException;
 import java.nio.file.Path;
 import java.util.List;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cli.call.CallInitializedIntegrationTestBase;
 import org.apache.ignite.internal.cli.call.cluster.unit.ClusterListUnitCall;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallFactory;
@@ -106,7 +107,7 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
             // And list is not empty
             List<UnitStatusRecord> unitsStatuses = listUnitCall.execute(listAllInput()).body();
             assertThat(unitsStatuses.size()).isEqualTo(1);
-            Assertions.assertThat(unitsStatuses.get(0).versionToStatus()).containsExactly(entry("1.0.0", DEPLOYED));
+            Assertions.assertThat(unitsStatuses.get(0).versionToStatus()).containsExactly(entry(Version.parseVersion("1.0.0"), DEPLOYED));
         });
 
         // When undeploy unit
@@ -218,7 +219,7 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
             // And list is not empty
             List<UnitStatusRecord> unisStatuses = listUnitCall.execute(listAllInput()).body();
             assertThat(unisStatuses.size()).isEqualTo(1);
-            Assertions.assertThat(unisStatuses.get(0).versionToStatus()).containsExactly(entry("1.1.0", DEPLOYED));
+            Assertions.assertThat(unisStatuses.get(0).versionToStatus()).containsExactly(entry(Version.parseVersion("1.1.0"), DEPLOYED));
         });
     }
 }

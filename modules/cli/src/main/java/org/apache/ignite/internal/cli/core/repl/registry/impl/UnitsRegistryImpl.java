@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cli.call.cluster.unit.ClusterListUnitCall;
 import org.apache.ignite.internal.cli.call.unit.ListUnitCallInput;
 import org.apache.ignite.internal.cli.call.unit.UnitStatusRecord;
@@ -63,7 +64,8 @@ public class UnitsRegistryImpl implements UnitsRegistry, AsyncSessionEventListen
                 return output.body().stream()
                         .collect(Collectors.toMap(
                                 UnitStatusRecord::id,
-                                record -> record.versionToStatus().keySet())
+                                record -> record.versionToStatus().keySet()
+                                        .stream().map(Version::render).collect(Collectors.toSet()))
                         );
             } else {
                 return null;
