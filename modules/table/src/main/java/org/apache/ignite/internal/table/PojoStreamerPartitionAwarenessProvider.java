@@ -32,8 +32,8 @@ import org.apache.ignite.table.Tuple;
 class PojoStreamerPartitionAwarenessProvider<R> extends AbstractClientStreamerPartitionAwarenessProvider<R> {
     private final RecordMarshaller<R> marsh;
 
-    PojoStreamerPartitionAwarenessProvider(SchemaRegistry schemaReg, RecordMarshaller<R> marsh) {
-        super(schemaReg);
+    PojoStreamerPartitionAwarenessProvider(SchemaRegistry schemaReg, int partitions, RecordMarshaller<R> marsh) {
+        super(schemaReg, partitions);
 
         assert marsh != null;
         this.marsh = marsh;

@@ -426,15 +426,9 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<R> publisher, @Nullable DataStreamerOptions options) {
-        // TODO IGNITE-19617 Server-side Basic Data Streamer.
-        // Server-side streamer implementation variants:
-        // 1. Same as client, batch items per partition, then call upsertAll via public API.
-        //    Pros: the simplest way, maximum code reuse with client
-        //    Cons: inefficient -  InternalTableImpl will perform hashing again and split rows by partition before performing the update,
-        // 2. Add enlistInTx overload which accepts partition number and row collection, and avoids re-hashing.
         Objects.requireNonNull(publisher);
 
-        var provider = new PojoStreamerPartitionAwarenessProvider<R>(schemaReg, marshaller(schemaReg.lastSchemaVersion()));
+        var provider = new PojoStreamerPartitionAwarenessProvider<>(schemaReg, tbl.partitions(), marshaller(schemaReg.lastSchemaVersion()));
         var opts = options == null ? DataStreamerOptions.DEFAULT : options;
 
         StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshal(items), partitionId);

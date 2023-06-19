@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
+import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Partition awareness provider for data streamer.
@@ -32,14 +33,18 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
 
     private final SchemaRegistry schemaReg;
 
-    AbstractClientStreamerPartitionAwarenessProvider(SchemaRegistry schemaReg) {
+    private final int partitions;
+
+    AbstractClientStreamerPartitionAwarenessProvider(SchemaRegistry schemaReg, int partitions) {
         assert schemaReg != null;
         this.schemaReg = schemaReg;
+        this.partitions = partitions;
     }
 
     @Override
     public Integer partition(T item) {
-        return colocationHash(schemaReg.schema(), item);
+        var colocationHash = colocationHash(schemaReg.schema(), item);
+        return IgniteUtils.safeAbs(colocationHash) % partitions;
     }
 
     abstract int colocationHash(SchemaDescriptor schema, T item);
