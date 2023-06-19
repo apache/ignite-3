@@ -437,8 +437,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         var provider = new PojoStreamerPartitionAwarenessProvider<R>(schemaReg, marshaller(schemaReg.lastSchemaVersion()));
         var opts = options == null ? DataStreamerOptions.DEFAULT : options;
 
-        // TODO: Avoid re-hashing in upsertAllAsync.
-        StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshal(items), null);
+        StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshal(items), partitionId);
 
         return DataStreamer.streamData(publisher, opts, batchSender, provider);
     }

@@ -365,8 +365,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         var provider = new TupleStreamerPartitionAwarenessProvider(schemaReg);
         var opts = options == null ? DataStreamerOptions.DEFAULT : options;
 
-        // TODO: Avoid re-hashing in upsertAllAsync.
-        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) -> upsertAllAsync(null, items);
+        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(mapToBinary(items, false), partitionId);
 
         return DataStreamer.streamData(publisher, opts, batchSender, provider);
     }
