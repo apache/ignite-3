@@ -18,14 +18,11 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
-import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_VALIDATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_SQL_OPERATION_KIND_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -208,7 +205,7 @@ public class PrepareServiceImpl implements PrepareService {
     private CompletableFuture<QueryPlan> prepareExplain(SqlNode sqlNode, PlanningContext ctx) {
         assert !(sqlNode instanceof SqlExplain) : "unwrap explain";
 
-        CacheKey cacheKey = createCacheKey(sqlNode, ctx);
+        CacheKey cacheKey = createCacheKey(sqlNode.toString(), ctx.unwrap(BaseQueryContext.class));
 
         CompletableFuture<QueryPlan> cachedPlan = cache.get(cacheKey);
 
@@ -236,9 +233,9 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private CompletableFuture<QueryPlan> prepareQuery(SqlNode sqlNode, PlanningContext ctx) {
-        CacheKey key = createCacheKey(sqlNode, ctx);
+        CacheKey cacheKey = createCacheKey(sqlNode.toString(), ctx.unwrap(BaseQueryContext.class));
 
-        CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
+        return cache.computeIfAbsent(cacheKey, k -> CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             // Validate
@@ -255,15 +252,13 @@ public class PrepareServiceImpl implements PrepareService {
             ResultSetMetadata metadata = resultSetMetadata(validated.dataType(), validated.origins());
 
             return new MultiStepQueryPlan(template, metadata, igniteRel);
-        }, planningPool));
-
-        return planFut.thenApply(QueryPlan::copy);
+        }, planningPool)).thenApply(QueryPlan::copy);
     }
 
     private CompletableFuture<QueryPlan> prepareDml(SqlNode sqlNode, PlanningContext ctx) {
-        var key = createCacheKey(sqlNode, ctx);
+        CacheKey cacheKey = createCacheKey(sqlNode.toString(), ctx.unwrap(BaseQueryContext.class));
 
-        CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
+        return cache.computeIfAbsent(cacheKey, k -> CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             // Validate
@@ -278,19 +273,13 @@ public class PrepareServiceImpl implements PrepareService {
             QueryTemplate template = new QueryTemplate(fragments);
 
             return new MultiStepDmlPlan(template, igniteRel);
-        }, planningPool));
-
-        return planFut.thenApply(QueryPlan::copy);
+        }, planningPool)).thenApply(QueryPlan::copy);
     }
 
-    private static CacheKey createCacheKey(SqlNode sqlNode, PlanningContext ctx) {
-        boolean distributed = distributionPresent(ctx.config().getTraitDefs());
+    private static CacheKey createCacheKey(String query, BaseQueryContext ctx) {
+        long catalogVersion = ctx.schemaVersion();
 
-        Class[] paramTypes = ctx.parameters().length == 0
-                ? EMPTY_CLASS_ARRAY :
-                Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
-
-        return new CacheKey(ctx.schemaName(), sqlNode.toString(), distributed, paramTypes);
+        return new CacheKey(catalogVersion, ctx.schemaName(), query, ctx.parameters());
     }
 
     private ResultSetMetadata resultSetMetadata(

@@ -18,48 +18,40 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.Arrays;
-import java.util.Objects;
 
 /**
  * CacheKey.
- * The class uses to distinguish different query plans which could be various for the same query text but different context. As example such
- * context could be schema name, dynamic parameters, and so on...
+ * The class uses to distinguish different query plans which could be various for the same query text but different context. For
+ * example, the context could contains a catalog version, a default schema id, dynamic parameters, and so on.
  */
 public class CacheKey {
-    public static final Class[] EMPTY_CLASS_ARRAY = {};
+    private static final Class<?>[] EMPTY_CLASS_ARRAY = {};
+
+    private final long catalogVersion;
 
     private final String schemaName;
 
     private final String query;
 
-    private final Object contextKey;
-
-    private final Class[] paramTypes;
+    private final Class<?>[] paramTypes;
 
     /**
      * Constructor.
      *
+     * @param catalogVersion Catalog version.
      * @param schemaName Schema name.
-     * @param query      Query string.
-     * @param contextKey Optional context key to differ queries with and without/different flags, having an impact on result plan (like
-     *                   LOCAL flag)
-     * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
+     * @param query Query string.
+     * @param params Dynamic parameters.
      */
-    public CacheKey(String schemaName, String query, Object contextKey, Class[] paramTypes) {
+    CacheKey(long catalogVersion, String schemaName, String query, Object[] params) {
+        // TODO IGNITE-19497 use 'int' catalogVersion instead of 'long' causalityToken
+        this.catalogVersion = catalogVersion;
+        //TODO: IGNITE-19497 use schema id instead of name.
         this.schemaName = schemaName;
         this.query = query;
-        this.contextKey = contextKey;
-        this.paramTypes = paramTypes;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param schemaName Schema name.
-     * @param query      Query string.
-     */
-    public CacheKey(String schemaName, String query) {
-        this(schemaName, query, null, EMPTY_CLASS_ARRAY);
+        this.paramTypes = params.length == 0
+                ? EMPTY_CLASS_ARRAY
+                : Arrays.stream(params).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
     }
 
     /** {@inheritDoc} */
@@ -74,25 +66,25 @@ public class CacheKey {
 
         CacheKey cacheKey = (CacheKey) o;
 
-        if (!schemaName.equals(cacheKey.schemaName)) {
+        if (catalogVersion != cacheKey.catalogVersion) {
             return false;
         }
         if (!query.equals(cacheKey.query)) {
             return false;
         }
-        if (!Objects.equals(contextKey, cacheKey.contextKey)) {
+        if (!schemaName.equals(cacheKey.schemaName)) {
             return false;
         }
 
-        return Arrays.deepEquals(paramTypes, cacheKey.paramTypes);
+        return Arrays.equals(paramTypes, cacheKey.paramTypes);
     }
 
     @Override
     public int hashCode() {
-        int result = schemaName.hashCode();
+        int result = Long.hashCode(catalogVersion);
+        result = 32 * result + schemaName.hashCode();
         result = 31 * result + query.hashCode();
-        result = 31 * result + (contextKey != null ? contextKey.hashCode() : 0);
-        result = 31 * result + Arrays.deepHashCode(paramTypes);
+        result = 31 * result + Arrays.hashCode(paramTypes);
         return result;
     }
 }
