@@ -79,6 +79,9 @@ import org.apache.ignite.network.TopologyService;
  * <p>Provides convenient access to the methods for optimization and execution of the queries.
  */
 public class TestNode implements LifecycleAware {
+    /** Timeout in ms for SQL planning phase. */
+    public static final long PLANNING_TIMEOUT_IN_MS = 15_000;
+
     private final String nodeName;
     private final SchemaPlus schema;
     private final PrepareService prepareService;
@@ -190,7 +193,7 @@ public class TestNode implements LifecycleAware {
 
         assertEquals(ctx.parameters().length, parseResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
 
-        return await(prepareService.prepareAsync(parseResult.statement(), ctx));
+        return await(prepareService.prepareAsync(parseResult.statement(), ctx, PLANNING_TIMEOUT_IN_MS));
     }
 
     /**
@@ -203,7 +206,7 @@ public class TestNode implements LifecycleAware {
     public QueryPlan prepare(SqlNode queryAst) {
         assertThat(queryAst, not(instanceOf(SqlNodeList.class)));
 
-        return await(prepareService.prepareAsync(queryAst, createContext()));
+        return await(prepareService.prepareAsync(queryAst, createContext(), PLANNING_TIMEOUT_IN_MS));
     }
 
     private BaseQueryContext createContext() {

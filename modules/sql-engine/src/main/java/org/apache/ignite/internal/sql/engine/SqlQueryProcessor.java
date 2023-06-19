@@ -449,10 +449,9 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .logger(LOG)
                             .cancel(queryCancel)
                             .parameters(params)
-                            .plannerTimeout(PLANNER_TIMEOUT)
                             .build();
 
-                    return prepareSvc.prepareAsync(sqlNode, ctx)
+                    return prepareSvc.prepareAsync(sqlNode, ctx, PLANNER_TIMEOUT)
                             .thenApply(plan -> {
                                 var dataCursor = executionSrvc.executePlan(tx.get(), plan, ctx);
 

@@ -122,6 +122,9 @@ public class ExecutionServiceImplTest {
     /** Timeout in ms for async operations. */
     private static final long TIMEOUT_IN_MS = 2_000;
 
+    /** Timeout in ms for SQL planning phase. */
+    public static final long PLANNING_TIMEOUT_IN_MS = 5_000;
+
     private static final int SCHEMA_VERSION = -1;
 
     private final List<String> nodeNames = List.of("node_1", "node_2", "node_3");
@@ -541,7 +544,7 @@ public class ExecutionServiceImplTest {
 
         assertEquals(ctx.parameters().length, parseResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
 
-        return await(prepareService.prepareAsync(parseResult.statement(), ctx));
+        return await(prepareService.prepareAsync(parseResult.statement(), ctx, PLANNING_TIMEOUT_IN_MS));
     }
 
     static class TestCluster {

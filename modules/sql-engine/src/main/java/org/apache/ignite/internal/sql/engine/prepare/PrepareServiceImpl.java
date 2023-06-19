@@ -143,7 +143,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx) {
+    public CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx, long plannerTimeout) {
         try {
             assert single(sqlNode);
 
@@ -152,6 +152,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
             PlanningContext planningContext = PlanningContext.builder()
                     .parentContext(ctx)
+                    .plannerTimeout(plannerTimeout)
                     .build();
 
             switch (queryType) {
