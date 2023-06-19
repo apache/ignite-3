@@ -33,10 +33,12 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -431,6 +433,14 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         //    Pros: the simplest way, maximum code reuse with client
         //    Cons: inefficient -  InternalTableImpl will perform hashing again and split rows by partition before performing the update,
         // 2. Add enlistInTx overload which accepts partition number and row collection, and avoids re-hashing.
-        throw new UnsupportedOperationException("Not supported.");
+        Objects.requireNonNull(publisher);
+
+        var provider = new PojoStreamerPartitionAwarenessProvider<R>(schemaReg, marsh);
+        var opts = options == null ? DataStreamerOptions.DEFAULT : options;
+
+        // TODO: Avoid re-hashing in upsertAllAsync.
+        StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> upsertAllAsync(null, items);
+
+        return DataStreamer.streamData(publisher, opts, batchSender, provider);
     }
 }
