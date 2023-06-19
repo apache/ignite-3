@@ -673,10 +673,10 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         if (isTxStorageUnderRebalance) {
             // Emulate a situation when TX state storage was stopped in a middle of rebalance.
-            when(txStateStorage.persistedIndex()).thenReturn(TxStateStorage.REBALANCE_IN_PROGRESS);
+            when(txStateStorage.lastAppliedIndex()).thenReturn(TxStateStorage.REBALANCE_IN_PROGRESS);
         } else {
             // Emulate a situation when partition storage was stopped in a middle of rebalance.
-            when(mvPartitionStorage.persistedIndex()).thenReturn(MvPartitionStorage.REBALANCE_IN_PROGRESS);
+            when(mvPartitionStorage.lastAppliedIndex()).thenReturn(MvPartitionStorage.REBALANCE_IN_PROGRESS);
         }
 
         doReturn(mock(PartitionTimestampCursor.class)).when(mvPartitionStorage).scan(any());
