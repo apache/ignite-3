@@ -133,7 +133,7 @@ public interface InternalTable extends ManuallyCloseable {
     CompletableFuture<Void> upsert(BinaryRowEx row, @Nullable InternalTransaction tx);
 
     /**
-     * Asynchronously inserts a row into the table if does not exist or replaces the existed one.
+     * Asynchronously inserts records into a table, if they do not exist, or replaces the existing ones.
      *
      * @param rows Rows to insert into the table.
      * @param tx   The transaction.
@@ -141,6 +141,13 @@ public interface InternalTable extends ManuallyCloseable {
      */
     CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
+    /**
+     * Asynchronously inserts records into a table, if they do not exist, or replaces the existing ones.
+     *
+     * @param rows Rows to insert into the table.
+     * @param partition Partition that the rows belong to.
+     * @return Future representing pending completion of the operation.
+     */
     CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition);
 
     /**
