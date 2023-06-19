@@ -128,7 +128,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Map<K, V>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<K> keys) {
-        Collection<BinaryRowEx> rows = marshalKeys(Objects.requireNonNull(keys));
+        Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(keys));
 
         return tbl.getAll(rows, (InternalTransaction) tx).thenApply(this::unmarshalPairs);
     }
@@ -170,7 +170,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<K, V> pairs) {
-        Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(pairs).entrySet());
+        Collection<BinaryRowEx> rows = marshalPairs(Objects.requireNonNull(pairs).entrySet());
 
         return tbl.upsertAll(rows, (InternalTransaction) tx);
     }
@@ -256,7 +256,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, @NotNull Collection<K> keys) {
-        Collection<BinaryRowEx> rows = marshalKeys(Objects.requireNonNull(keys));
+        Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(keys));
 
         return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(this::unmarshalKeys);
     }
@@ -416,7 +416,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param keys Key objects.
      * @return Binary rows.
      */
-    private Collection<BinaryRowEx> marshalKeys(Collection<K> keys) {
+    private Collection<BinaryRowEx> marshal(Collection<K> keys) {
         if (keys.isEmpty()) {
             return Collections.emptyList();
         }
@@ -442,7 +442,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param pairs Key-value map.
      * @return Binary rows.
      */
-    private List<BinaryRowEx> marshal(Collection<Entry<K, V>> pairs) {
+    private List<BinaryRowEx> marshalPairs(Collection<Entry<K, V>> pairs) {
         if (pairs.isEmpty()) {
             return Collections.emptyList();
         }
@@ -566,7 +566,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         Objects.requireNonNull(publisher);
 
         var partitioner = new KeyValuePojoStreamerPartitionAwarenessProvider<>(schemaReg, tbl.partitions(), marshaller());
-        StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshal(items), partitionId);
+        StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshalPairs(items), partitionId);
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }

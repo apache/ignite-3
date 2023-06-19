@@ -170,7 +170,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<@NotNull Tuple, @NotNull Tuple> pairs) {
         Objects.requireNonNull(pairs);
 
-        return tbl.upsertAll(marshal(pairs.entrySet()), (InternalTransaction) tx);
+        return tbl.upsertAll(marshalPairs(pairs.entrySet()), (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -482,12 +482,12 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Objects.requireNonNull(publisher);
 
         var partitioner = new KeyValueTupleStreamerPartitionAwarenessProvider(schemaReg, tbl.partitions());
-        StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshal(items), partitionId);
+        StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshalPairs(items), partitionId);
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
 
-    private List<BinaryRowEx> marshal(Collection<Entry<Tuple, Tuple>> pairs) {
+    private List<BinaryRowEx> marshalPairs(Collection<Entry<Tuple, Tuple>> pairs) {
         List<BinaryRowEx> rows = new ArrayList<>(pairs.size());
 
         for (Entry<Tuple, Tuple> pair : pairs) {
