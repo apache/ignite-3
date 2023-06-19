@@ -180,7 +180,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
+        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null, phys);
 
         assertNotNull(plan);
 
@@ -258,7 +258,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
+        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null, phys);
 
         assertNotNull(plan);
 
@@ -341,7 +341,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
+        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null, phys);
 
         assertNotNull(plan);
 
@@ -422,7 +422,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
+        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null, phys);
 
         assertNotNull(plan);
 
@@ -504,7 +504,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
+        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null, phys);
 
         assertNotNull(plan);
 
@@ -581,7 +581,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
+        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null, phys);
 
         assertNotNull(plan);
 

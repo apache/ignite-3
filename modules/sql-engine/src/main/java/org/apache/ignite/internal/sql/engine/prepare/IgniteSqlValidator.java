@@ -38,7 +38,6 @@ import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
-import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlJoin;
@@ -123,21 +122,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public SqlNode validate(SqlNode topNode) {
-        SqlNode result;
-
-        // Calcite fails to validate a query when its top node is EXPLAIN PLAN FOR
-        // java.lang.NullPointerException: namespace for <query>
-        // at org.apache.calcite.sql.validate.SqlValidatorImpl.getNamespaceOrThrow(SqlValidatorImpl.java:1280)
-        if (topNode instanceof SqlExplain) {
-            SqlExplain explainNode = (SqlExplain) topNode;
-            SqlNode topNodeToValidate = explainNode.getExplicandum();
-
-            SqlNode validatedNode = super.validate(topNodeToValidate);
-            explainNode.setOperand(0, validatedNode);
-            result = explainNode;
-        } else {
-            result = super.validate(topNode);
-        }
+        SqlNode result = super.validate(topNode);
 
         validateInferredDynamicParameters();
 

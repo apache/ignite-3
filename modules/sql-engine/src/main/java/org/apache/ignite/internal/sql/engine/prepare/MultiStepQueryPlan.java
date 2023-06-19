@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
@@ -26,12 +27,13 @@ import org.apache.ignite.sql.ResultSetMetadata;
 public class MultiStepQueryPlan extends AbstractMultiStepPlan {
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
+     * @param queryTemplate Query execution plan template.
      * @param meta Fields metadata.
+     * @param physPlan Physical plan, which is used for explain.
      */
-    public MultiStepQueryPlan(QueryTemplate queryTemplate, ResultSetMetadata meta) {
-        super(queryTemplate, meta);
+    public MultiStepQueryPlan(QueryTemplate queryTemplate, ResultSetMetadata meta, IgniteRel physPlan) {
+        super(queryTemplate, meta, physPlan);
     }
 
     /** {@inheritDoc} */
@@ -41,6 +43,6 @@ public class MultiStepQueryPlan extends AbstractMultiStepPlan {
 
     /** {@inheritDoc} */
     @Override public QueryPlan copy() {
-        return new MultiStepQueryPlan(queryTemplate, meta);
+        return new MultiStepQueryPlan(queryTemplate, meta, physPlan);
     }
 }

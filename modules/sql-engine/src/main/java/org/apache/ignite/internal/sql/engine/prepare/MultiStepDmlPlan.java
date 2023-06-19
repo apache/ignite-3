@@ -21,6 +21,7 @@ import java.util.List;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -36,10 +37,12 @@ public class MultiStepDmlPlan extends AbstractMultiStepPlan {
 
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @param queryTemplate Query execution plan template.
+     * @param physPlan Physical plan, which is used for explain.
      */
-    public MultiStepDmlPlan(QueryTemplate queryTemplate) {
-        super(queryTemplate, DML_METADATA);
+    public MultiStepDmlPlan(QueryTemplate queryTemplate, IgniteRel physPlan) {
+        super(queryTemplate, DML_METADATA, physPlan);
     }
 
     /** {@inheritDoc} */
@@ -49,6 +52,6 @@ public class MultiStepDmlPlan extends AbstractMultiStepPlan {
 
     /** {@inheritDoc} */
     @Override public QueryPlan copy() {
-        return new MultiStepDmlPlan(queryTemplate);
+        return new MultiStepDmlPlan(queryTemplate, physPlan);
     }
 }

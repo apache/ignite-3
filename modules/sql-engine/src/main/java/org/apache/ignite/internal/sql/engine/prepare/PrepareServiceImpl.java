@@ -172,8 +172,12 @@ public class PrepareServiceImpl implements PrepareService {
                 case DML:
                     return prepareDml(sqlNode, planningContext);
 
-                case EXPLAIN:
-                    return prepareExplain(sqlNode, planningContext);
+                case EXPLAIN: {
+                    // Extract validated query.
+                    SqlNode queryNode = ((SqlExplain) sqlNode).getExplicandum();
+
+                    return prepareExplain(queryNode, planningContext);
+                }
 
                 default:
                     return failedFuture(new IgniteInternalException(UNSUPPORTED_SQL_OPERATION_KIND_ERR, "Unsupported operation ["
@@ -201,15 +205,22 @@ public class PrepareServiceImpl implements PrepareService {
         return CompletableFuture.completedFuture(new DdlPlan(ddlConverter.convert((SqlDdl) sqlNode, ctx)));
     }
 
-    private CompletableFuture<QueryPlan> prepareExplain(SqlNode explain, PlanningContext ctx) {
+    private CompletableFuture<QueryPlan> prepareExplain(SqlNode sqlNode, PlanningContext ctx) {
+        assert !(sqlNode instanceof SqlExplain) : "unwrap explain";
+
+        CacheKey cacheKey = createCacheKey(sqlNode, ctx);
+
+        CompletableFuture<QueryPlan> cachedPlan = cache.get(cacheKey);
+
+        if (cachedPlan != null) {
+            return cachedPlan.thenApply(plan -> new ExplainPlan(plan.explain(SqlExplainLevel.ALL_ATTRIBUTES)));
+        }
+
         return CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             // Validate
-            // We extract query subtree inside the validator.
-            SqlNode explainNode = planner.validate(explain);
-            // Extract validated query.
-            SqlNode validNode = ((SqlExplain) explainNode).getExplicandum();
+            SqlNode validNode = planner.validate(sqlNode);
 
             // Convert to Relational operators graph
             IgniteRel igniteRel = queryOptimizer.apply(validNode, planner);
@@ -241,8 +252,9 @@ public class PrepareServiceImpl implements PrepareService {
             List<Fragment> fragments = new Splitter().go(igniteRel);
 
             QueryTemplate template = new QueryTemplate(fragments);
+            ResultSetMetadata metadata = resultSetMetadata(validated.dataType(), validated.origins());
 
-            return new MultiStepQueryPlan(template, resultSetMetadata(validated.dataType(), validated.origins()));
+            return new MultiStepQueryPlan(template, metadata, igniteRel);
         }, planningPool));
 
         return planFut.thenApply(QueryPlan::copy);
@@ -265,7 +277,7 @@ public class PrepareServiceImpl implements PrepareService {
 
             QueryTemplate template = new QueryTemplate(fragments);
 
-            return new MultiStepDmlPlan(template);
+            return new MultiStepDmlPlan(template, igniteRel);
         }, planningPool));
 
         return planFut.thenApply(QueryPlan::copy);

@@ -23,26 +23,31 @@ import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.List;
 import java.util.Objects;
+import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
- * AbstractMultiStepPlan.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Base class for distributed query plans.
  */
 public abstract class AbstractMultiStepPlan implements MultiStepPlan {
     protected final ResultSetMetadata meta;
 
     protected final QueryTemplate queryTemplate;
 
+    protected final IgniteRel physPlan;
+
     protected ExecutionPlan executionPlan;
 
-    protected AbstractMultiStepPlan(QueryTemplate queryTemplate, ResultSetMetadata meta) {
+    protected AbstractMultiStepPlan(QueryTemplate queryTemplate, ResultSetMetadata meta, IgniteRel physPlan) {
         this.queryTemplate = queryTemplate;
         this.meta = meta;
+        this.physPlan = physPlan;
     }
 
     /** {@inheritDoc} */
@@ -105,5 +110,11 @@ public abstract class AbstractMultiStepPlan implements MultiStepPlan {
     @Override
     public void init(MappingQueryContext ctx) {
         executionPlan = queryTemplate.map(ctx);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String explain(SqlExplainLevel explainLevel) {
+        return RelOptUtil.toString(physPlan, explainLevel);
     }
 }
