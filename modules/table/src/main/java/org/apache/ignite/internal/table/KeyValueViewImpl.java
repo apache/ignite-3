@@ -43,7 +43,6 @@ import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -129,7 +128,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Map<K, V>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<K> keys) {
-        Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(keys));
+        Collection<BinaryRowEx> rows = marshalKeys(Objects.requireNonNull(keys));
 
         return tbl.getAll(rows, (InternalTransaction) tx).thenApply(this::unmarshalPairs);
     }
@@ -171,7 +170,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<K, V> pairs) {
-        Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(pairs));
+        Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(pairs).entrySet());
 
         return tbl.upsertAll(rows, (InternalTransaction) tx);
     }
@@ -257,7 +256,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, @NotNull Collection<K> keys) {
-        Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(keys));
+        Collection<BinaryRowEx> rows = marshalKeys(Objects.requireNonNull(keys));
 
         return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(this::unmarshalKeys);
     }
@@ -412,7 +411,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param keys Key objects.
      * @return Binary rows.
      */
-    private Collection<BinaryRowEx> marshal(Collection<K> keys) {
+    private Collection<BinaryRowEx> marshalKeys(Collection<K> keys) {
         if (keys.isEmpty()) {
             return Collections.emptyList();
         }
@@ -438,7 +437,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param pairs Key-value map.
      * @return Binary rows.
      */
-    private List<BinaryRowEx> marshal(Map<K, V> pairs) {
+    private List<BinaryRowEx> marshal(Collection<Entry<K, V>> pairs) {
         if (pairs.isEmpty()) {
             return Collections.emptyList();
         }
@@ -448,7 +447,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         List<BinaryRowEx> rows = new ArrayList<>(pairs.size());
 
         try {
-            for (Map.Entry<K, V> pair : pairs.entrySet()) {
+            for (Map.Entry<K, V> pair : pairs) {
                 rows.add(marsh.marshal(Objects.requireNonNull(pair.getKey()), pair.getValue()));
             }
         } catch (MarshallerException e) {
