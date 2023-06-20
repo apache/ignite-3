@@ -19,7 +19,6 @@ package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.util.Collections.reverse;
 import static java.util.stream.Collectors.toList;
-import static org.rocksdb.ReadTier.PERSISTED_TIER;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -70,9 +69,6 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
 
     /** Read options for regular reads. */
     private final ReadOptions readOptions = new ReadOptions();
-
-    /** Read options for reading persisted data. */
-    private final ReadOptions persistedTierReadOptions = new ReadOptions().setReadTier(PERSISTED_TIER);
 
     /** Database path. */
     private final Path dbPath;
@@ -152,7 +148,6 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
                 db,
                 writeOptions,
                 readOptions,
-                persistedTierReadOptions,
                 partitionId,
                 this
             );
@@ -185,11 +180,11 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     public void start() {
         try {
             flusher = new RocksDbFlusher(
-                busyLock,
-                scheduledExecutor,
-                threadPool,
-                flushDelaySupplier,
-                this::refreshPersistedIndexes
+                    busyLock,
+                    scheduledExecutor,
+                    threadPool,
+                    flushDelaySupplier,
+                    () -> {} // No-op.
             );
 
             this.dbOptions = new DBOptions()
@@ -231,7 +226,6 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
         try {
             List<AutoCloseable> resources = new ArrayList<>();
 
-            resources.add(persistedTierReadOptions);
             resources.add(readOptions);
             resources.add(writeOptions);
             resources.add(dbOptions);
@@ -262,27 +256,6 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
             IgniteUtils.deleteIfExists(dbPath);
         } catch (Exception e) {
             throw new IgniteInternalException("Failed to destroy the transaction state storage of the table: " + id, e);
-        }
-    }
-
-    /**
-     * Refresh persisted indexes in storages.
-     */
-    private void refreshPersistedIndexes() {
-        if (!busyLock.enterBusy()) {
-            return;
-        }
-
-        try {
-            for (int i = 0; i < storages.length(); i++) {
-                TxStateRocksDbStorage storage = storages.get(i);
-
-                if (storage != null) {
-                    storage.refreshPersistedIndex();
-                }
-            }
-        } finally {
-            busyLock.leaveBusy();
         }
     }
 
