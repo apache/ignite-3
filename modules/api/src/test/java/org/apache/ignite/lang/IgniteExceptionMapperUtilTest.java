@@ -41,7 +41,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests mapping internal exceptions to public ones.
  */
 public class IgniteExceptionMapperUtilTest {
-    /** */
+    /** Internal collection of mappers for tests. */
     private Map<Class<? extends Exception>, IgniteExceptionMapper<? extends Exception, ? extends Exception>> mappers = new HashMap<>();
 
     /**
@@ -62,6 +62,7 @@ public class IgniteExceptionMapperUtilTest {
 
     /**
      * Tests that is not possible to register a mapping for java standard exceptions.
+     *
      * @param clazz Class of standard exception.
      */
     @ParameterizedTest
@@ -169,6 +170,7 @@ public class IgniteExceptionMapperUtilTest {
 
     /**
      * Returns a list of classes that cannot be used for mapping.
+     *
      * @return List of classes that cannot be used for mapping.
      */
     private static Stream<Class<? extends Exception>> predefinedExceptionClasses() {
