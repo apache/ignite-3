@@ -71,6 +71,13 @@ public class IgniteSqlCreateTable extends SqlCreate {
 
     /** {@inheritDoc} */
     @Override
+    public SqlNode clone(SqlParserPos pos) {
+        //TODO: add clone for all DDL nodes.
+        return new IgniteSqlCreateTable(pos, ifNotExists, name, columnList, colocationColumns, createOptionList);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword("CREATE");
         writer.keyword("TABLE");
