@@ -19,8 +19,8 @@ package org.apache.ignite.internal.deployunit.metastore.status;
 
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.compute.version.VersionParseException;
+import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.UnitStatus;
-import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**
  * Deployment unit node status.

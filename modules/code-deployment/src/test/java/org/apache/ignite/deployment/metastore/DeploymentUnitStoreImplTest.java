@@ -17,10 +17,10 @@
 
 package org.apache.ignite.deployment.metastore;
 
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.OBSOLETE;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;

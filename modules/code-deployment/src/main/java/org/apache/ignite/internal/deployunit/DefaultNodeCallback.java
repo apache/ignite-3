@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 
 import java.util.ArrayList;
 import java.util.List;
