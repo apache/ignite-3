@@ -184,7 +184,7 @@ public interface DeploymentUnitStore {
     CompletableFuture<List<UnitNodeStatus>> getAllNodeStatuses(String id, Version version);
 
     /**
-     * Removes all data for deployment unit.
+     * Removes cluster status.
      *
      * @param id Deployment unit identifier.
      * @param version Deployment version identifier.
@@ -192,5 +192,12 @@ public interface DeploymentUnitStore {
      */
     CompletableFuture<Boolean> removeClusterStatus(String id, Version version);
 
+    /**
+     * Removes node status.
+     *
+     * @param id Deployment unit identifier.
+     * @param version Deployment version identifier.
+     * @return Future with {@code true} result if removed successfully.
+     */
     CompletableFuture<Boolean> removeNodeStatus(String nodeId, String id, Version version);
 }

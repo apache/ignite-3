@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -35,16 +34,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.metastore.accumulator.ClusterStatusAccumulator;
-import org.apache.ignite.internal.deployunit.metastore.accumulator.KeyAccumulator;
 import org.apache.ignite.internal.deployunit.metastore.accumulator.NodeStatusAccumulator;
 import org.apache.ignite.internal.deployunit.metastore.status.ClusterStatusKey;
 import org.apache.ignite.internal.deployunit.metastore.status.NodeStatusKey;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.dsl.Condition;
-import org.apache.ignite.internal.metastorage.dsl.Conditions;
-import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.lang.ByteArray;
@@ -213,28 +208,7 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     public CompletableFuture<Boolean> removeNodeStatus(String nodeId, String id, Version version) {
         ByteArray key = NodeStatusKey.builder().id(id).version(version).nodeId(nodeId).build().toByteArray();
 
-        CompletableFuture<List<byte[]>> nodesFuture = new CompletableFuture<>();
-        metaStorage.prefix(key).subscribe(new KeyAccumulator().toSubscriber(nodesFuture));
-
-        return nodesFuture.thenCompose(nodes -> {
-            if (nodes.isEmpty()) {
-                return completedFuture(true);
-            }
-            List<ByteArray> keys = nodes.stream().map(ByteArray::new).collect(Collectors.toList());
-            return metaStorage.invoke(existsAll(keys), removeAll(keys), List.of());
-        });
-    }
-
-    private static Condition existsAll(List<ByteArray> nodeKeys) {
-        Condition result = exists(nodeKeys.get(0));
-        for (int i = 1; i < nodeKeys.size(); i++) {
-            result = Conditions.and(result, exists(nodeKeys.get(i)));
-        }
-        return result;
-    }
-
-    private static Collection<Operation> removeAll(List<ByteArray> keys) {
-        return keys.stream().map(Operations::remove).collect(Collectors.toList());
+        return metaStorage.invoke(exists(key), Operations.remove(key), noop());
     }
 
     /**

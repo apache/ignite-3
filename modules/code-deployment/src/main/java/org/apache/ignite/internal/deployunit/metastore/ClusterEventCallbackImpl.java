@@ -30,8 +30,11 @@ import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 /** Listener of deployment unit cluster status changes. */
 public class ClusterEventCallbackImpl extends ClusterEventCallback {
     private final DeploymentUnitStore deploymentUnitStore;
+
     private final FileDeployerService deployerService;
+
     private final ClusterManagementGroupManager cmgManager;
+
     private final String nodeName;
 
     /**
