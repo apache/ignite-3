@@ -19,8 +19,8 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toIndexDescriptor;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DROP;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
@@ -33,8 +33,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
@@ -46,6 +44,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -61,7 +61,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
@@ -130,9 +129,17 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             LOG.debug("Index manager is about to start");
         }
 
-        // TODO: IGNITE-19500 добавить логирования что индекс успешно создался
+        catalogManager.listen(INDEX_CREATE, (parameters, exception) -> {
+            assert exception == null;
 
-        tablesCfg.indexes().listenElements(new ConfigurationListener());
+            return onIndexCreate((CreateIndexEventParameters) parameters);
+        });
+
+        catalogManager.listen(INDEX_DROP, (parameters, exception) -> {
+            assert exception == null;
+
+            return onIndexDrop((DropIndexEventParameters) parameters);
+        });
 
         if (LOG.isInfoEnabled()) {
             LOG.info("Index manager started");
@@ -302,24 +309,15 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
     }
 
-    /**
-     * Callback method is called when index configuration changed and an index was dropped.
-     *
-     * @param evt Index configuration event.
-     * @return A future.
-     */
-    private CompletableFuture<?> onIndexDrop(ConfigurationNotificationEvent<TableIndexView> evt) {
-        TableIndexView tableIndexView = evt.oldValue();
+    private CompletableFuture<Boolean> onIndexDrop(DropIndexEventParameters parameters) {
+        int indexId = parameters.indexId();
+        int tableId = parameters.tableId();
 
-        int idxId = tableIndexView.id();
-
-        int tableId = tableIndexView.tableId();
-
-        long causalityToken = evt.storageRevision();
+        long causalityToken = parameters.causalityToken();
 
         if (!busyLock.enterBusy()) {
             fireEvent(IndexEvent.DROP,
-                    new IndexEventParameters(causalityToken, tableId, idxId),
+                    new IndexEventParameters(causalityToken, tableId, indexId),
                     new NodeStoppingException()
             );
 
@@ -327,37 +325,32 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
-            CompletableFuture<?> fireEventFuture = fireEvent(IndexEvent.DROP, new IndexEventParameters(causalityToken, tableId, idxId));
+            CompletableFuture<?> fireEventFuture = fireEvent(IndexEvent.DROP, new IndexEventParameters(causalityToken, tableId, indexId));
 
             CompletableFuture<?> dropIndexFuture = tableManager.tableAsync(causalityToken, tableId)
                     .thenAccept(table -> {
                         if (table != null) { // in case of DROP TABLE the table will be removed first
-                            table.unregisterIndex(idxId);
+                            table.unregisterIndex(indexId);
                         }
                     });
 
-            return allOf(fireEventFuture, dropIndexFuture);
+            return allOf(fireEventFuture, dropIndexFuture)
+                    .thenApply(unused -> false);
+        } catch (Throwable t) {
+            return failedFuture(t);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    /**
-     * Callback method triggers when index configuration changed and a new index was added.
-     *
-     * @param evt Index configuration changed event.
-     * @return A future.
-     */
-    private CompletableFuture<?> onIndexCreate(ConfigurationNotificationEvent<TableIndexView> evt) {
-        TableIndexView indexConfig = evt.newValue();
+    private CompletableFuture<Boolean> onIndexCreate(CreateIndexEventParameters parameters) {
+        CatalogIndexDescriptor indexDescriptor = parameters.indexDescriptor();
 
-        int tableId = indexConfig.tableId();
+        long causalityToken = parameters.causalityToken();
 
         if (!busyLock.enterBusy()) {
-            int idxId = indexConfig.id();
-
             fireEvent(IndexEvent.CREATE,
-                    new IndexEventParameters(evt.storageRevision(), tableId, idxId),
+                    new IndexEventParameters(causalityToken, indexDescriptor.tableId(), indexDescriptor.id()),
                     new NodeStoppingException()
             );
 
@@ -365,22 +358,18 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
-            TablesView tablesView = evt.newValue(TablesView.class);
+            CatalogTableDescriptor tableDescriptor = catalogManager.table(indexDescriptor.tableId(), causalityToken);
 
-            TableView tableView = findTableView(tablesView.tables(), tableId);
-
-            assert tableView != null : "tableId=" + tableId + ", indexId=" + indexConfig.id();
-
-            CatalogTableDescriptor tableDescriptor = toTableDescriptor(tableView);
-            CatalogIndexDescriptor indexDescriptor = toIndexDescriptor(indexConfig);
-
-            return createIndexLocally(evt.storageRevision(), tableDescriptor, indexDescriptor);
+            return createIndexLocally(causalityToken, tableDescriptor, indexDescriptor)
+                    .thenApply(unused -> false);
+        } catch (Throwable t) {
+            return failedFuture(t);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    private CompletableFuture<?> createIndexLocally(
+    private CompletableFuture<Void> createIndexLocally(
             long causalityToken,
             CatalogTableDescriptor tableDescriptor,
             CatalogIndexDescriptor indexDescriptor
@@ -388,8 +377,12 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         int tableId = tableDescriptor.id();
         int indexId = indexDescriptor.id();
 
-        LOG.trace("Creating local index: name={}, id={}, tableId={}, token={}",
-                indexDescriptor.name(), indexId, tableId, causalityToken);
+        if (LOG.isInfoEnabled()) {
+            LOG.info(
+                    "Creating local index: name={}, id={}, tableId={}, token={}",
+                    indexDescriptor.name(), indexId, tableId, causalityToken
+            );
+        }
 
         IndexDescriptor eventIndexDescriptor = toEventIndexDescriptor(indexDescriptor);
 
@@ -519,28 +512,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             public BinaryTuple convert(BinaryRow binaryRow) {
                 return delegate.apply(binaryRow);
             }
-        }
-    }
-
-    private class ConfigurationListener implements ConfigurationNamedListListener<TableIndexView> {
-        @Override
-        public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableIndexView> ctx) {
-            return onIndexCreate(ctx);
-        }
-
-        @Override
-        public CompletableFuture<?> onRename(ConfigurationNotificationEvent<TableIndexView> ctx) {
-            return failedFuture(new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-16196"));
-        }
-
-        @Override
-        public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<TableIndexView> ctx) {
-            return onIndexDrop(ctx);
-        }
-
-        @Override
-        public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<TableIndexView> ctx) {
-            return failedFuture(new IllegalStateException("Should not be called"));
         }
     }
 

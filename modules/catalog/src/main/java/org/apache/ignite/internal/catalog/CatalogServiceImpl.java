@@ -192,10 +192,14 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         return catalogAt(timestamp).schema(CatalogService.DEFAULT_SCHEMA_NAME).table(tableName);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CatalogTableDescriptor table(int tableId, long timestamp) {
         return catalogAt(timestamp).table(tableId);
+    }
+
+    @Override
+    public CatalogTableDescriptor table(int tableId, int version) {
+        return catalog(version).table(tableId);
     }
 
     /** {@inheritDoc} */
@@ -348,7 +352,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             Arrays.stream(schema.indexes())
                     .filter(index -> index.tableId() == table.id())
-                    .forEach(index -> updateEntries.add(new DropIndexEntry(index.id())));
+                    .forEach(index -> updateEntries.add(new DropIndexEntry(index.id(), index.tableId())));
 
             updateEntries.add(new DropTableEntry(table.id()));
 
@@ -564,22 +568,19 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> dropIndex(DropIndexParams params) {
         return saveUpdate(catalog -> {
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.DEFAULT_SCHEMA_NAME);
-
-            CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             CatalogIndexDescriptor index = schema.index(params.indexName());
 
             if (index == null) {
-                throw new IndexNotFoundException(schemaName, params.indexName());
+                throw new IndexNotFoundException(schema.name(), params.indexName());
             }
 
             return List.of(
-                    new DropIndexEntry(index.id())
+                    new DropIndexEntry(index.id(), index.tableId())
             );
         });
     }
@@ -914,6 +915,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                     ));
                 } else if (entry instanceof DropIndexEntry) {
                     int indexId = ((DropIndexEntry) entry).indexId();
+                    int tableId = ((DropIndexEntry) entry).tableId();
 
                     catalog = new Catalog(
                             version,
@@ -930,7 +932,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     eventFutures.add(fireEvent(
                             CatalogEvent.INDEX_DROP,
-                            new DropIndexEventParameters(version, indexId)
+                            new DropIndexEventParameters(version, indexId, tableId)
                     ));
                 } else if (entry instanceof NewZoneEntry) {
                     catalog = new Catalog(

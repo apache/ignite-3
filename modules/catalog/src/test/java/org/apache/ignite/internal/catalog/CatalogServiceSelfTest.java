@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DROP;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -34,8 +35,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -1303,7 +1306,7 @@ public class CatalogServiceSelfTest {
         when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
 
         service.listen(CatalogEvent.INDEX_CREATE, eventListener);
-        service.listen(CatalogEvent.INDEX_DROP, eventListener);
+        service.listen(INDEX_DROP, eventListener);
 
         // Try to create index without table.
         assertThat(service.createIndex(createIndexParams), willThrow(TableNotFoundException.class));
@@ -1637,6 +1640,84 @@ public class CatalogServiceSelfTest {
         assertThat(service.dropColumn(dropColumnParams), willThrow(ColumnNotFoundException.class));
 
         verifyNoMoreInteractions(eventListener);
+    }
+
+    @Test
+    void testGetTableByIdAndVersion() {
+        CreateTableParams params = CreateTableParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .zone(ZONE_NAME)
+                .columns(List.of(ColumnParams.builder().name("key1").type(ColumnType.INT32).build()))
+                .primaryKeyColumns(List.of("key1"))
+                .colocationColumns(List.of("key1"))
+                .build();
+
+        assertThat(service.createTable(params), willCompleteSuccessfully());
+
+        assertNull(service.table(2, 0));
+
+        assertNotNull(service.table(2, 1));
+        assertSame(service.table(2, 1), service.schema(1).table(TABLE_NAME));
+    }
+
+    @Test
+    void testGetTableIdOnDropIndexEvent() {
+        // Let's create a table and an index.
+        CreateTableParams params = CreateTableParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .zone(ZONE_NAME)
+                .columns(List.of(ColumnParams.builder().name("key1").type(ColumnType.INT32).build()))
+                .primaryKeyColumns(List.of("key1"))
+                .colocationColumns(List.of("key1"))
+                .build();
+
+        assertThat(service.createTable(params), willCompleteSuccessfully());
+
+        assertThat(
+                service.createIndex(CreateHashIndexParams.builder()
+                        .schemaName(SCHEMA_NAME)
+                        .tableName(TABLE_NAME)
+                        .indexName(INDEX_NAME)
+                        .columns(List.of("key1"))
+                        .build()
+                ),
+                willCompleteSuccessfully()
+        );
+
+        // Add an index deletion listener.
+        EventListener<CatalogEventParameters> closure = mock(EventListener.class);
+
+        ArgumentCaptor<DropIndexEventParameters> parametersArgumentCaptor = ArgumentCaptor.forClass(DropIndexEventParameters.class);
+
+        doReturn(completedFuture(false)).when(closure).notify(parametersArgumentCaptor.capture(), nullable(Throwable.class));
+
+        service.listen(INDEX_DROP, closure);
+
+        // Let's remove the index.
+        assertThat(
+                service.dropIndex(DropIndexParams.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                willCompleteSuccessfully()
+        );
+
+        DropIndexEventParameters dropIndexEventParameters = parametersArgumentCaptor.getValue();
+
+        assertEquals(3, dropIndexEventParameters.causalityToken());
+        assertEquals(4, dropIndexEventParameters.indexId());
+        assertEquals(2, dropIndexEventParameters.tableId());
+
+        // Let's destroy the table with the pk index.
+        assertThat(
+                service.dropTable(DropTableParams.builder().schemaName(SCHEMA_NAME).tableName(TABLE_NAME).build()),
+                willCompleteSuccessfully()
+        );
+
+        dropIndexEventParameters = parametersArgumentCaptor.getValue();
+
+        assertEquals(4, dropIndexEventParameters.causalityToken());
+        assertEquals(3, dropIndexEventParameters.indexId());
+        assertEquals(2, dropIndexEventParameters.tableId());
     }
 
     private CompletableFuture<Void> changeColumn(

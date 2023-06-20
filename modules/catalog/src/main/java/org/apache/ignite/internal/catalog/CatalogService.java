@@ -44,6 +44,8 @@ public interface CatalogService {
 
     CatalogTableDescriptor table(int tableId, long timestamp);
 
+    CatalogTableDescriptor table(int tableId, int version);
+
     CatalogIndexDescriptor index(String indexName, long timestamp);
 
     CatalogIndexDescriptor index(int indexId, long timestamp);
