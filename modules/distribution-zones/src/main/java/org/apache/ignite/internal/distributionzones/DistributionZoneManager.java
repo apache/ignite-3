@@ -279,6 +279,7 @@ public class DistributionZoneManager implements IgniteComponent {
         nodesAttributes = new ConcurrentHashMap<>();
 
         // Use a single thread executor to avoid concurrent executing several tasks for the same zone.
+        // TODO: IGNITE-19783 Need to use a striped executor.
         executor = new ScheduledThreadPoolExecutor(
                 1,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, DISTRIBUTION_ZONE_MANAGER_POOL_NAME), LOG),
