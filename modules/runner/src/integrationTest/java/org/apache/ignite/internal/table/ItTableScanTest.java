@@ -148,21 +148,28 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         assertFalse(scanned.isDone());
 
-        CompletableFuture<Void> insertFut = table.keyValueView()
+        CompletableFuture<Void> updateKey2Fut = table.keyValueView()
                 .putAsync(tx0, Tuple.create().set("key", 2), Tuple.create().set("valInt", 2).set("valStr", "New_2"));
 
-        assertFalse(insertFut.isDone());
+        assertFalse(updateKey2Fut.isDone());
 
         subscription.request(1_000); // Request so much entries here to close the publisher.
 
-        IgniteTestUtils.await(scanned);
+        assertThat(scanned, willCompleteSuccessfully());
+
+        CompletableFuture<Void> insertKey99Fut = table.keyValueView()
+                .putAsync(tx0, Tuple.create().set("key", 99), Tuple.create().set("valInt", 99).set("valStr", "New_99"));
+
+        assertFalse(insertKey99Fut.isDone());
 
         log.info("Result: " + scannedRows.stream().map(ItTableScanTest::rowToString).collect(Collectors.joining(", ")));
 
         assertEquals(ROW_IDS.size(), scannedRows.size());
 
         tx1.commit();
-        IgniteTestUtils.await(insertFut);
+
+        assertThat(updateKey2Fut, willCompleteSuccessfully());
+        assertThat(insertKey99Fut, willCompleteSuccessfully());
 
         tx0.commit();
     }
