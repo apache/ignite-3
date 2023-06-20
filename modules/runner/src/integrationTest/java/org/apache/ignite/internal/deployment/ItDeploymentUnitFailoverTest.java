@@ -80,7 +80,7 @@ public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest 
                 node(0)
         );
 
-        await().untilAsserted(() -> assertThat(node(nodeIndex).deployment().clusterStatusAsync(id, version), willBe(DEPLOYED)));
+        await().until(() -> node(nodeIndex).deployment().clusterStatusAsync(id, version), willBe(DEPLOYED));
 
         stopNode(nodeIndex);
 
