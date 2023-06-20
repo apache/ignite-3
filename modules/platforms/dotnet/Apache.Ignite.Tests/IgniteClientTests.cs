@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests
 {
+    using System.Linq;
     using System.Threading.Tasks;
     using NUnit.Framework;
 
@@ -49,16 +50,17 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestToString()
         {
-            var cfg = new IgniteClientConfiguration { Endpoints = { "127.0.0.1:" + ServerPort } };
+            var address = "127.0.0.1:" + ServerPort;
+            var cfg = new IgniteClientConfiguration { Endpoints = { address } };
             using var client = await IgniteClient.StartAsync(cfg);
+            var id = client.GetConnections().Single().Node.Id;
 
-            // IgniteClientInternal { Connections = [ ClusterNode {
-            // Id = 703cc4d7-41ef-4321-b960-70ad9df2617b,
-            // Name = org.apache.ignite.internal.runner.app.PlatformTestNodeRunner,
-            // Address = 127.0.0.1:10942 } ] }
-            StringAssert.StartsWith("IgniteClientInternal { Connections = [ ClusterNode { Id = ", client.ToString());
-            StringAssert.Contains("Name = org.apache.ignite.internal.runner.app.PlatformTestNodeRunner", client.ToString());
-            StringAssert.Contains("Address = 127.0.0.1:10942", client.ToString());
+            var expected = $"IgniteClientInternal {{ Connections = [ ClusterNode {{ " +
+                           $"Id = {id}, " +
+                           $"Name = org.apache.ignite.internal.runner.app.PlatformTestNodeRunner, " +
+                           $"Address = {address} }} ] }}";
+
+            Assert.AreEqual(expected, client.ToString());
         }
     }
 }
