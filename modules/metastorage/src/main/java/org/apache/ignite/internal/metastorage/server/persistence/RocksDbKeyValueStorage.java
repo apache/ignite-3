@@ -243,25 +243,30 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     private static List<ColumnFamilyDescriptor> cfDescriptors() {
-        Options sharedOptions = new Options()
+        Options baseOptions = new Options()
                 .setCreateIfMissing(true)
+                // Lowering the desired number of levels will, on average, lead to less lookups in files, making reads faster.
                 .setNumLevels(4)
+                // Protect ourselves from slower flushes during the peak write load.
                 .setMaxWriteBufferNumber(4)
                 .setTableFormatConfig(new BlockBasedTableConfig()
-                        .setFilterPolicy(new BloomFilter(12))
-                        .setBlockCache(new LRUCache(64 * MB))
+                        // Speed-up key lookup in levels by adding a bloom filter and always caching it for level 0.
+                        // This improves the access time to the from lower levels.
                         .setPinL0FilterAndIndexBlocksInCache(true)
+                        .setFilterPolicy(new BloomFilter(12))
+                        // Often helps to avoid reading data from the storage device, making reads faster.
+                        .setBlockCache(new LRUCache(64 * MB))
                 );
 
-        ColumnFamilyOptions dataFamilyOptions = new ColumnFamilyOptions(sharedOptions)
+        ColumnFamilyOptions dataFamilyOptions = new ColumnFamilyOptions(baseOptions)
                 // The prefix is the revision of an entry, so prefix length is the size of a long
                 .useFixedLengthPrefixExtractor(Long.BYTES);
 
-        ColumnFamilyOptions indexFamilyOptions = new ColumnFamilyOptions(sharedOptions);
+        ColumnFamilyOptions indexFamilyOptions = new ColumnFamilyOptions(baseOptions);
 
-        ColumnFamilyOptions tsToRevFamilyOptions = new ColumnFamilyOptions(sharedOptions);
+        ColumnFamilyOptions tsToRevFamilyOptions = new ColumnFamilyOptions(baseOptions);
 
-        ColumnFamilyOptions revToTsFamilyOptions = new ColumnFamilyOptions(sharedOptions);
+        ColumnFamilyOptions revToTsFamilyOptions = new ColumnFamilyOptions(baseOptions);
 
         return List.of(
                 new ColumnFamilyDescriptor(DATA.nameAsBytes(), dataFamilyOptions),
@@ -436,6 +441,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @throws RocksDBException If failed.
      */
     private void fillAndWriteBatch(WriteBatch batch, long newRev, long newCntr, @Nullable HybridTimestamp ts) throws RocksDBException {
+        // Meta-storage recovery is based on the snapshot & external log. WAL is never used for recovery, and can be safely disabled.
         try (WriteOptions opts = new WriteOptions().setDisableWAL(true)) {
             byte[] revisionBytes = longToBytes(newRev);
 
