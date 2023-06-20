@@ -337,7 +337,7 @@ public class DistributionZonesTestUtil {
      * @param nodes Logical topology
      * @param vaultMgr Vault manager
      */
-    public static void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes, VaultManager vaultMgr) {
+    public static void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes, VaultManager vaultMgr, long appliedRevision) {
         Set<NodeWithAttributes> nodesWithAttributes = nodes.stream()
                 .map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes()))
                 .collect(Collectors.toSet());

@@ -49,7 +49,7 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
     @Test
     @Disabled("IGNITE-18564")
     void testStaleWatchEvent() throws Exception {
-        mockVaultZonesLogicalTopologyKey(Set.of(NODE_1), vaultMgr);
+        mockVaultZonesLogicalTopologyKey(Set.of(NODE_1), vaultMgr, metaStorageManager.appliedRevision());
 
         startDistributionZoneManager();
 
@@ -88,7 +88,7 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
                 new LogicalNode(new ClusterNode("node2", "node2", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap())
         );
 
-        mockVaultZonesLogicalTopologyKey(nodes, vaultMgr);
+        mockVaultZonesLogicalTopologyKey(nodes, vaultMgr, metaStorageManager.appliedRevision());
 
         startDistributionZoneManager();
 
@@ -102,7 +102,7 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
                 new LogicalNode(new ClusterNode("node2", "node2", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap())
         );
 
-        mockVaultZonesLogicalTopologyKey(nodes, vaultMgr);
+        mockVaultZonesLogicalTopologyKey(nodes, vaultMgr, metaStorageManager.appliedRevision());
 
         startDistributionZoneManager();
 
