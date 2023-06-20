@@ -26,6 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.typesafe.config.parser.ConfigDocument;
+import com.typesafe.config.parser.ConfigDocumentFactory;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -173,7 +175,7 @@ public class Cluster {
      *     with this call.
      * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
      */
-    public void startAndInit(
+    private void startAndInit(
             int nodeCount,
             int[] cmgNodes,
             String nodeBootstrapConfigTemplate,
@@ -196,6 +198,8 @@ public class Cluster {
 
         initParametersConfigurator.accept(builder);
 
+        applyTestDefaultsToClusterConfig(builder);
+
         IgnitionManager.init(builder.build());
 
         for (CompletableFuture<IgniteImpl> future : futures) {
@@ -203,6 +207,24 @@ public class Cluster {
         }
 
         started = true;
+    }
+
+    private static void applyTestDefaultsToClusterConfig(InitParametersBuilder builder) {
+        InitParameters intermediateConfig = builder.build();
+
+        if (intermediateConfig.clusterConfiguration() == null) {
+            builder.clusterConfiguration("{ schemaSync.delayDuration: 0 }");
+        } else {
+            ConfigDocument configDocument = ConfigDocumentFactory.parseString(intermediateConfig.clusterConfiguration());
+
+            String delayDurationPath = "schemaSync.delayDuration";
+
+            if (!configDocument.hasPath(delayDurationPath)) {
+                ConfigDocument updatedDocument = configDocument.withValueText(delayDurationPath, "0");
+
+                builder.clusterConfiguration(updatedDocument.render());
+            }
+        }
     }
 
     /**
