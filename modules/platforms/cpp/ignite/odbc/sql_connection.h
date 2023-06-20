@@ -20,6 +20,7 @@
 #include "ignite/odbc/config/configuration.h"
 #include "ignite/odbc/config/connection_info.h"
 #include "ignite/odbc/diagnostic/diagnosable_adapter.h"
+#include "ignite/odbc/protocol_version.h"
 #include "ignite/odbc/odbc_error.h"
 
 #include "ignite/network/socket_client.h"

@@ -23,8 +23,10 @@ import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.
 import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.lang.ByteArray.fromString;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -230,12 +232,11 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
      * @param services Cluster services.
      * @param logicalTopManagers The list to update in the method. The list might be used for driving of the logical topology.
      * @return List of closures to stop the services.
-     * @throws Exception If something goes wrong.
      */
     public List<Closeable> startPlacementDriver(
             Map<String, ClusterService> services,
             List<LogicalTopologyServiceTestImpl> logicalTopManagers
-    ) throws Exception {
+    ) {
         var res = new ArrayList<Closeable>(placementDriverNodeNames.size());
 
         for (String nodeName : placementDriverNodeNames) {
@@ -305,7 +306,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
             metaStorageManager.start();
             placementDriverManager.start();
 
-            metaStorageManager.deployWatches();
+            assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
             res.add(() -> {
                         try {

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
@@ -282,7 +283,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         for (Node node : nodes) {
             registerWatchAction.accept(node, latch);
 
-            node.metaStorageManager.deployWatches();
+            assertThat("Watches were not deployed", node.metaStorageManager.deployWatches(), willCompleteSuccessfully());
         }
 
         var key = new ByteArray("foo");
@@ -469,13 +470,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
         assertThat(invokeFuture, willBe(true));
 
-        nodes.forEach(node -> {
-            try {
-                node.metaStorageManager.deployWatches();
-            } catch (NodeStoppingException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        nodes.forEach(node -> assertThat("Watches were not deployed", node.metaStorageManager.deployWatches(), willCompleteSuccessfully()));
 
         assertTrue(exactLatch.await(10, TimeUnit.SECONDS));
         assertTrue(prefixLatch.await(10, TimeUnit.SECONDS));

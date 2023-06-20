@@ -117,11 +117,11 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
     private void preparePrerequisites() throws Exception {
         String filter = "$[?(@.storage == 'SSD' || @.region == 'US')]";
 
+        startDistributionZoneManager();
+
         topology.putNode(A);
         topology.putNode(B);
         topology.putNode(C);
-
-        startDistributionZoneManager();
 
         distributionZoneManager.createZone(
                 new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)

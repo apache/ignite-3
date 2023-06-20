@@ -37,7 +37,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.gc.GcRowVersion;
  * <p>Defines a following data layout:
  * <ul>
  *     <li>Row ID (16 bytes);</li>
- *     <li>Row timestamp (12 bytes);</li>
+ *     <li>Row timestamp (8 bytes);</li>
  *     <li>Row link (6 bytes).</li>
  * </ul>
  */
@@ -48,7 +48,7 @@ public interface GcIo {
     /** Offset of rowId's least significant bits, 8 bytes. */
     int ROW_ID_LSB_OFFSET = ROW_ID_MSB_OFFSET + Long.BYTES;
 
-    /** Offset of row timestamp, 12 bytes. */
+    /** Offset of row timestamp, 8 bytes. */
     int ROW_TIMESTAMP_OFFSET = ROW_ID_LSB_OFFSET + Long.BYTES;
 
     /** Offset of row link, 6 bytes. */

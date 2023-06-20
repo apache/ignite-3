@@ -67,9 +67,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /** Read options for regular reads. */
     private final ReadOptions readOptions;
 
-    /** Read options for reading persisted data. */
-    private final ReadOptions persistedTierReadOptions;
-
     /** Partition id. */
     private final int partitionId;
 
@@ -91,16 +88,15 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /** On-heap-cached last applied term value. */
     private volatile long lastAppliedTerm;
 
-    /** The value of {@link #lastAppliedIndex} persisted to the device at this moment. */
-    private volatile long persistedIndex;
-
     /** Current state of the storage. */
     private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /**
      * The constructor.
      *
-     * @param db Database..
+     * @param db Database.
+     * @param writeOptions Default write options.
+     * @param readOptions Default read options.
      * @param partitionId Partition id.
      * @param tableStorage Table storage.
      */
@@ -108,14 +104,12 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             RocksDB db,
             WriteOptions writeOptions,
             ReadOptions readOptions,
-            ReadOptions persistedTierReadOptions,
             int partitionId,
             TxStateRocksDbTableStorage tableStorage
     ) {
         this.db = db;
         this.writeOptions = writeOptions;
         this.readOptions = readOptions;
-        this.persistedTierReadOptions = persistedTierReadOptions;
         this.partitionId = partitionId;
         this.tableStorage = tableStorage;
         this.lastAppliedIndexAndTermKey = ByteBuffer.allocate(Short.BYTES).order(ByteOrder.BIG_ENDIAN)
@@ -135,8 +129,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             if (indexAndTermBytes != null) {
                 lastAppliedIndex = bytesToLong(indexAndTermBytes);
                 lastAppliedTerm = bytesToLong(indexAndTermBytes, Long.BYTES);
-
-                persistedIndex = lastAppliedIndex;
             }
 
             return null;
@@ -356,23 +348,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         return bytes;
     }
 
-    @Override
-    public long persistedIndex() {
-        return persistedIndex;
-    }
-
-    void refreshPersistedIndex() {
-        if (!busyLock.enterBusy()) {
-            return;
-        }
-
-        try {
-            persistedIndex = readLastAppliedIndex(persistedTierReadOptions);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
     /**
      * Reads the value of {@link #lastAppliedIndex} from the storage.
      *
@@ -465,7 +440,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         try (WriteBatch writeBatch = new WriteBatch()) {
             clearStorageData(writeBatch);
 
-            updateLastAppliedAndPersistedIndex(writeBatch, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+            updateLastApplied(writeBatch, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 
             db.write(writeOptions, writeBatch);
 
@@ -496,7 +471,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             lastAppliedIndex = 0;
             lastAppliedTerm = 0;
-            persistedIndex = 0;
 
             state.set(StorageState.RUNNABLE);
         } catch (Exception e) {
@@ -520,7 +494,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         }
 
         try (WriteBatch writeBatch = new WriteBatch()) {
-            updateLastAppliedAndPersistedIndex(writeBatch, lastAppliedIndex, lastAppliedTerm);
+            updateLastApplied(writeBatch, lastAppliedIndex, lastAppliedTerm);
 
             db.write(writeOptions, writeBatch);
 
@@ -548,7 +522,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         try (WriteBatch writeBatch = new WriteBatch()) {
             clearStorageData(writeBatch);
 
-            updateLastAppliedAndPersistedIndex(writeBatch, 0, 0);
+            updateLastApplied(writeBatch, 0, 0);
 
             db.write(writeOptions, writeBatch);
 
@@ -575,16 +549,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
-    }
-
-    private void updateLastAppliedAndPersistedIndex(
-            WriteBatch writeBatch,
-            long lastAppliedIndex,
-            long lastAppliedTerm
-    ) throws RocksDBException {
-        updateLastApplied(writeBatch, lastAppliedIndex, lastAppliedTerm);
-
-        persistedIndex = lastAppliedIndex;
     }
 
     /**

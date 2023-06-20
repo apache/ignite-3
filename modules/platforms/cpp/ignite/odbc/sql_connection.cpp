@@ -16,16 +16,16 @@
  */
 
 #include "ignite/odbc/sql_connection.h"
+#include "ignite/odbc/config/config_tools.h"
 #include "ignite/odbc/config/configuration.h"
-#include "ignite/odbc/config/connection_string_parser.h"
 #include "ignite/odbc/log.h"
 #include "ignite/odbc/sql_environment.h"
 #include "ignite/odbc/sql_statement.h"
 #include "ignite/odbc/ssl_mode.h"
 #include "ignite/odbc/utility.h"
 
-#include <ignite/network/network.h>
 #include <ignite/common/bytes.h>
+#include <ignite/network/network.h>
 
 #include <algorithm>
 #include <cstring>
@@ -64,7 +64,7 @@ std::string hex_dump(const void* data, std::size_t count)
 
 std::vector<ignite::end_point> collect_addresses(const ignite::configuration& cfg)
 {
-    std::vector<ignite::end_point> end_points = cfg.get_addresses();
+    std::vector<ignite::end_point> end_points = cfg.get_address().get_value();
 
     std::random_device device;
     std::mt19937 generator(device());
@@ -107,14 +107,17 @@ void sql_connection::establish(const std::string& connect_str, void* parent_wind
 
 sql_result sql_connection::internal_establish(const std::string& connect_str, void* parent_window)
 {
-    connection_string_parser parser(m_config);
-    parser.parse_connection_string(connect_str, &get_diagnostic_records());
+    try {
+        auto config_params = parse_connection_string(connect_str);
+        m_config.from_config_map(config_params);
+    } catch (const odbc_error& err) {
+        add_status_record(err);
+        return sql_result::AI_ERROR;
+    }
 
-    if (parent_window)
-    {
+    if (parent_window) {
         // TODO: IGNITE-19210 Implement UI for connection
         add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Connection using UI is not supported");
-
         return sql_result::AI_ERROR;
     }
 
@@ -138,7 +141,7 @@ sql_result sql_connection::internal_establish(const configuration& cfg)
 {
     m_config = cfg;
 
-    if (!m_config.is_addresses_set() || m_config.get_addresses().empty())
+    if (!m_config.get_address().is_set() || m_config.get_address().get_value().empty())
     {
         add_status_record("No valid address to connect.");
 

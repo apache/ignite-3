@@ -115,6 +115,9 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
         private final MetaStorageManagerImpl metaStorageManager;
 
+        /** The future have to be complete after the node start and all Meta storage watches are deployd. */
+        private final CompletableFuture<Void> deployWatchesFut;
+
         Node(ClusterService clusterService, Path dataPath) {
             this.clusterService = clusterService;
 
@@ -151,6 +154,8 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     createStorage(name(), basePath),
                     clock
             );
+
+            deployWatchesFut = metaStorageManager.deployWatches();
         }
 
         void start() throws NodeStoppingException {
@@ -164,8 +169,13 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
             );
 
             components.forEach(IgniteComponent::start);
+        }
 
-            metaStorageManager.deployWatches();
+        /**
+         * Waits for watches deployed.
+         */
+        void waitWatches() {
+            assertThat("Watches were not deployed", deployWatchesFut, willCompleteSuccessfully());
         }
 
         String name() {
@@ -228,6 +238,8 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
 
+        firstNode.waitWatches();
+
         var key = new ByteArray("foo");
         byte[] value = "bar".getBytes(StandardCharsets.UTF_8);
 
@@ -236,6 +248,8 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         assertThat(invokeFuture, willBe(true));
 
         Node secondNode = startNode(testInfo);
+
+        secondNode.waitWatches();
 
         // Check that reading remote data works correctly.
         assertThat(secondNode.metaStorageManager.get(key).thenApply(Entry::value), willBe(value));
@@ -288,6 +302,9 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
 
+        firstNode.waitWatches();
+        secondNode.waitWatches();
+
         // Try reading some data to make sure that Raft has been configured correctly.
         assertThat(secondNode.metaStorageManager.get(new ByteArray("test")).thenApply(Entry::value), willBe(nullValue()));
 
@@ -313,6 +330,9 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
 
         assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
+
+        firstNode.waitWatches();
+        secondNode.waitWatches();
 
         CompletableFuture<Set<String>> logicalTopologyNodes = firstNode.cmgManager
                 .logicalTopology()
@@ -356,6 +376,9 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         ClusterTimeImpl secondNodeTime = (ClusterTimeImpl) secondNode.metaStorageManager.clusterTime();
 
         assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
+
+        firstNode.waitWatches();
+        secondNode.waitWatches();
 
         CompletableFuture<Void> watchCompletedFuture = new CompletableFuture<>();
         CountDownLatch watchCalledLatch = new CountDownLatch(1);
@@ -437,6 +460,9 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         ClusterTimeImpl secondNodeTime = (ClusterTimeImpl) secondNode.metaStorageManager.clusterTime();
 
         assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
+
+        firstNode.waitWatches();
+        secondNode.waitWatches();
 
         assertThat(
                 firstNode.metaStorageManager.put(ByteArray.fromString("test-key"), new byte[]{0, 1, 2, 3}),

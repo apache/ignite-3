@@ -112,6 +112,7 @@ import org.apache.ignite.internal.rest.deployment.CodeDeploymentRestFactory;
 import org.apache.ignite.internal.rest.metrics.MetricRestFactory;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
@@ -424,7 +425,7 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
-        TablesConfiguration tablesConfiguration = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
+        TablesConfiguration tablesConfig = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
         TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                 clusterSvc,
@@ -455,11 +456,12 @@ public class IgniteImpl implements Ignite {
 
         Path storagePath = getPartitionsStorePath(workDir);
 
-        DistributionZonesConfiguration distributionZonesConfiguration =
-                clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
+        DistributionZonesConfiguration zonesConfig = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
+
+        GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
         dataStorageMgr = new DataStorageManager(
-                distributionZonesConfiguration,
+                zonesConfig,
                 dataStorageModules.createStorageEngines(
                         name,
                         clusterConfigRegistry,
@@ -468,11 +470,11 @@ public class IgniteImpl implements Ignite {
                 )
         );
 
-        schemaManager = new SchemaManager(registry, tablesConfiguration, metaStorageMgr);
+        schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
-                tablesConfiguration,
+                tablesConfig,
                 metaStorageMgr,
                 logicalTopologyService,
                 vaultMgr,
@@ -488,8 +490,9 @@ public class IgniteImpl implements Ignite {
         distributedTblMgr = new TableManager(
                 name,
                 registry,
-                tablesConfiguration,
-                distributionZonesConfiguration,
+                tablesConfig,
+                zonesConfig,
+                gcConfig,
                 clusterSvc,
                 raftMgr,
                 replicaMgr,
@@ -511,7 +514,7 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager
         );
 
-        indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
+        indexManager = new IndexManager(tablesConfig, schemaManager, distributedTblMgr);
 
         qryEngine = new SqlQueryProcessor(
                 registry,
@@ -729,13 +732,7 @@ public class IgniteImpl implements Ignite {
                         return notifyConfigurationListeners()
                                 .thenComposeAsync(t -> {
                                     // Deploy all registered watches because all components are ready and have registered their listeners.
-                                    try {
-                                        metaStorageMgr.deployWatches();
-                                    } catch (NodeStoppingException e) {
-                                        throw new CompletionException(e);
-                                    }
-
-                                    return recoveryFuture;
+                                    return metaStorageMgr.deployWatches().thenCompose(unused -> recoveryFuture);
                                 }, startupExecutor);
                     }, startupExecutor)
                     .thenRunAsync(() -> {

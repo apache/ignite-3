@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed;
+package org.apache.ignite.internal.table.distributed.gc;
 
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
@@ -40,7 +40,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-class PersistentPageMemoryMvStorageUpdateHandlerTest extends AbstractMvStorageUpdateHandlerTest {
+class PersistentPageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
     @WorkDirectory
     private Path workDir;
 

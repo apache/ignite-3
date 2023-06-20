@@ -53,9 +53,9 @@ import org.rocksdb.WriteBatchWithIndex;
  * Abstract index storage base on RocksDB.
  */
 abstract class AbstractRocksDbIndexStorage implements IndexStorage {
-    private final int indexId;
+    protected final int indexId;
 
-    final PartitionDataHelper helper;
+    protected final PartitionDataHelper helper;
 
     private final RocksDbMetaStorage indexMetaStorage;
 
