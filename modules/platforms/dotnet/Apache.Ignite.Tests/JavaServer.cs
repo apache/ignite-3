@@ -93,7 +93,7 @@ namespace Apache.Ignite.Tests
 
                 if (line.StartsWith("THIN_CLIENT_PORTS", StringComparison.Ordinal))
                 {
-                    ports = line.Split('=').Last().Split(',').Select(int.Parse).ToArray();
+                    ports = line.Split('=').Last().Split(',').Select(int.Parse).OrderBy(x => x).ToArray();
                     evt.Set();
                 }
             };

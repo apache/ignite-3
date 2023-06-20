@@ -57,9 +57,8 @@ namespace Apache.Ignite.Tests
             // Name = org.apache.ignite.internal.runner.app.PlatformTestNodeRunner,
             // Address = 127.0.0.1:10942 } ] }
             StringAssert.StartsWith("IgniteClientInternal { Connections = [ ClusterNode { Id = ", client.ToString());
-            StringAssert.Contains(
-                "Name = org.apache.ignite.internal.runner.app.PlatformTestNodeRunner, Address = 127.0.0.1:109",
-                client.ToString());
+            StringAssert.Contains("Name = org.apache.ignite.internal.runner.app.PlatformTestNodeRunner", client.ToString());
+            StringAssert.Contains("Address = 127.0.0.1:10942", client.ToString());
         }
     }
 }
