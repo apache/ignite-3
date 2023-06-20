@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.rpc;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -246,5 +247,21 @@ public final class RpcRequests {
         long index();
 
         boolean success();
+    }
+
+    @Transferable(RaftMessageGroup.RpcRequestsMessageGroup.GET_LEADER_WITH_METADATA_REQUEST)
+    public interface GetLeaderWithMetaRequest extends Message {
+        String groupId();
+
+        String peerId();
+    }
+
+    @Transferable(RaftMessageGroup.RpcRequestsMessageGroup.GET_LEADER_WITH_METADATA_RESPONSE)
+    public interface GetLeaderWithMetaResponse extends Message {
+        String leaderId();
+
+        long currentTerm();
+
+        long index();
     }
 }

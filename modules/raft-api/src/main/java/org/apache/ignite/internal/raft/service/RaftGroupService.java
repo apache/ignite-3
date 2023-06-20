@@ -241,6 +241,13 @@ public interface RaftGroupService {
     CompletableFuture<Long> readIndex();
 
     /**
+     * Reads a metadata from leader.
+     *
+     * @return Future contains a leader metadata.
+     */
+    CompletableFuture<LeaderMetadata> readLeaderMetadata();
+
+    /**
      * Returns a cluster service.
      *
      * @return Cluster service.

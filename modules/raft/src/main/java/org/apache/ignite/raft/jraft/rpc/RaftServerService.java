@@ -17,6 +17,8 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetLeaderWithMetaRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetLeaderWithMetaResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexResponse;
@@ -78,4 +80,12 @@ public interface RaftServerService {
      * @param done callback
      */
     void handleReadIndexRequest(ReadIndexRequest request, RpcResponseClosure<ReadIndexResponse> done);
+
+    /**
+     * Handles an index request on leader.
+     *
+     * @param request Index request.
+     * @param done Callback.
+     */
+    void handleReadLeaderIndexRequest(GetLeaderWithMetaRequest request, RpcResponseClosure<GetLeaderWithMetaResponse> done);
 }

@@ -95,6 +95,8 @@ import org.apache.ignite.raft.jraft.rpc.ReadIndexResponseBuilder;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetLeaderWithMetaRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetLeaderWithMetaResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexResponse;
@@ -1736,6 +1738,61 @@ public class NodeImpl implements Node, RaftServerService {
             this.readLock.unlock();
             this.metrics.recordLatency("handle-read-index", Utils.monotonicMs() - startMs);
             this.metrics.recordSize("handle-read-index-entries", Utils.size(request.entriesList()));
+        }
+    }
+
+    @Override
+    public void handleReadLeaderIndexRequest(
+            GetLeaderWithMetaRequest request,
+            RpcResponseClosure<GetLeaderWithMetaResponse> done
+    ) {
+        long startMs = Utils.monotonicMs();
+
+        this.readLock.lock();
+
+        try {
+            switch (this.state) {
+                case STATE_LEADER:
+                    readLeader(
+                            raftOptions.getRaftMessagesFactory().readIndexRequest()
+                                    .peerId(request.peerId())
+                                    .groupId(request.groupId())
+                                    .entriesList(new ArrayList<>())
+                                    .build(),
+                            new RpcResponseClosureAdapter<>() {
+                                @Override
+                                public void run(Status status) {
+                                    if (getResponse() != null) {
+                                        done.setResponse(raftOptions.getRaftMessagesFactory().getLeaderWithMetaResponse()
+                                                .leaderId(leaderId.toString())
+                                                .currentTerm(currTerm)
+                                                .index(getResponse().index())
+                                                .build());
+                                    } else {
+                                        done.run(status);
+                                    }
+                                }
+                            }
+                    );
+                    break;
+
+                case STATE_FOLLOWER:
+                    done.run(new Status(RaftError.EINTERNAL, "Is not leader."));
+                    break;
+
+                case STATE_TRANSFERRING:
+                    done.run(new Status(RaftError.EBUSY, "Is transferring leadership."));
+                    break;
+
+                default:
+                    done.run(new Status(RaftError.EPERM, "Invalid state for readIndex: %s.", this.state));
+                    break;
+            }
+        }
+        finally {
+            this.readLock.unlock();
+            this.metrics.recordLatency("handle-read-index", Utils.monotonicMs() - startMs);
+            this.metrics.recordSize("handle-read-index-entries", 0);
         }
     }
 

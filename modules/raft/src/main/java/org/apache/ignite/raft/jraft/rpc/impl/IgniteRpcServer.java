@@ -54,6 +54,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.cli.SnapshotRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.TransferLeaderRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.GetFileRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.core.GetLeaderWithMetadataProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.InstallSnapshotRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.ReadIndexRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.RequestVoteRequestProcessor;
@@ -106,6 +107,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new PingRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new TimeoutNowRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ReadIndexRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new GetLeaderWithMetadataProcessor(rpcExecutor, raftMessagesFactory));
         // raft native cli service
         registerProcessor(new AddPeerRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new RemovePeerRequestProcessor(rpcExecutor, raftMessagesFactory));

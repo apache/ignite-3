@@ -171,6 +171,12 @@ public class RaftMessageGroup {
 
         /** */
         public static final short SM_ERROR_RESPONSE = 3014;
+
+        /** */
+        public static final short GET_LEADER_WITH_METADATA_REQUEST = 3015;
+
+        /** */
+        public static final short GET_LEADER_WITH_METADATA_RESPONSE = 3016;
     }
 
     /**
