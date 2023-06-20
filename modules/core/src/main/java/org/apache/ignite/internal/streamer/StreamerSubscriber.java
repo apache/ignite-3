@@ -155,7 +155,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
         try {
             batchSender.sendAsync(partition, batch).whenComplete((res, err) -> {
                 if (err != null) {
-                    // Retry is handled by RetryPolicy as usual in ReliableChannel.
+                    // Retry is handled by the sender (RetryPolicy in ReliableChannel on the client, sendWithRetry on the server).
                     // If we get here, then retries are exhausted and we should fail the streamer.
                     log.error("Failed to send batch to partition " + partition + ": " + err.getMessage(), err);
                     close(err);
