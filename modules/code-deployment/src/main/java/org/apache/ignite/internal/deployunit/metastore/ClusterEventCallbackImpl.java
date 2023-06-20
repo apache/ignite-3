@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.deployunit.metastore;
 
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 
 import java.util.Set;
 import java.util.stream.Collectors;
