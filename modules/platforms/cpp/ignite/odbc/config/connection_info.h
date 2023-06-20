@@ -35,12 +35,19 @@ public:
     typedef unsigned short info_type;
 
     /**
+     * Get formatted project version in a format XX.XX.XXXX (major.minor.patch).
+     *
+     * @return Formatted string version.
+     */
+    [[nodiscard]] static std::string get_formatted_project_version();
+
+    /**
      * Convert type to string containing its name.
      * Debug function.
      * @param type Info type.
      * @return Null-terminated string containing types name.
      */
-    [[nodiscard]] static const char* info_type_to_string(info_type type);
+    [[nodiscard]] static const char *info_type_to_string(info_type type);
 
     /**
      * Constructor.
@@ -49,10 +56,8 @@ public:
      */
     explicit connection_info(const configuration& config);
 
-    /**
-     * Destructor.
-     */
-    ~connection_info();
+    // Default
+    ~connection_info() = default;
 
     connection_info(connection_info &&) = delete;
     connection_info(const connection_info &) = delete;
@@ -61,6 +66,7 @@ public:
 
     /**
      * Get info of any type.
+     *
      * @param type Info type.
      * @param buf Result buffer pointer.
      * @param buffer_len Result buffer length.

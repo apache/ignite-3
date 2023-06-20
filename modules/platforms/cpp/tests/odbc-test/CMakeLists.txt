@@ -22,6 +22,7 @@ set(TARGET ${PROJECT_NAME})
 find_package(ODBC REQUIRED)
 
 set(SOURCES
+    api_robustness_test.cpp
     connection_test.cpp
     main.cpp
 )
