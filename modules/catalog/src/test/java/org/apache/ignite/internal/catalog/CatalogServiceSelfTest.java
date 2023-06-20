@@ -1169,7 +1169,7 @@ public class CatalogServiceSelfTest {
                     List.of(new ObjectIdGenUpdateEntry(1))
             );
 
-            updateHandlerCapture.getValue().handle(update);
+            updateHandlerCapture.getValue().handle(update, 0);
 
             return completedFuture(false);
         });

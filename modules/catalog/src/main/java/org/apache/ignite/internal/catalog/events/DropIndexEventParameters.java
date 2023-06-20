@@ -30,11 +30,12 @@ public class DropIndexEventParameters extends CatalogEventParameters {
      * Constructor.
      *
      * @param causalityToken Causality token.
+     * @param version Catalog version.
      * @param indexId ID of dropped index.
      * @param tableId ID of the table for which the index is dropped.
      */
-    public DropIndexEventParameters(long causalityToken, int indexId, int tableId) {
-        super(causalityToken);
+    public DropIndexEventParameters(long causalityToken, int version, int indexId, int tableId) {
+        super(causalityToken, version);
 
         this.indexId = indexId;
         this.tableId = tableId;

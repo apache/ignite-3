@@ -777,7 +777,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     class OnUpdateHandlerImpl implements OnUpdateHandler {
         @Override
-        public void handle(VersionedUpdate update) {
+        public void handle(VersionedUpdate update, long storageRevision) {
             int version = update.version();
             long activationTimestamp = update.activationTimestamp();
             Catalog catalog = catalogByVer.get(version - 1);
@@ -806,7 +806,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     eventFutures.add(fireEvent(
                             CatalogEvent.TABLE_CREATE,
-                            new CreateTableEventParameters(version, ((NewTableEntry) entry).descriptor())
+                            new CreateTableEventParameters(storageRevision, version, ((NewTableEntry) entry).descriptor())
                     ));
 
                 } else if (entry instanceof DropTableEntry) {
@@ -827,7 +827,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     eventFutures.add(fireEvent(
                             CatalogEvent.TABLE_DROP,
-                            new DropTableEventParameters(version, tableId)
+                            new DropTableEventParameters(storageRevision, version, tableId)
                     ));
                 } else if (entry instanceof NewColumnsEntry) {
                     int tableId = ((NewColumnsEntry) entry).tableId();
@@ -859,7 +859,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     eventFutures.add(fireEvent(
                             CatalogEvent.TABLE_ALTER,
-                            new AddColumnEventParameters(version, tableId, columnDescriptors)
+                            new AddColumnEventParameters(storageRevision, version, tableId, columnDescriptors)
                     ));
                 } else if (entry instanceof DropColumnsEntry) {
                     int tableId = ((DropColumnsEntry) entry).tableId();
@@ -893,7 +893,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     eventFutures.add(fireEvent(
                             CatalogEvent.TABLE_ALTER,
-                            new DropColumnEventParameters(version, tableId, columns)
+                            new DropColumnEventParameters(storageRevision, version, tableId, columns)
                     ));
                 } else if (entry instanceof NewIndexEntry) {
                     catalog = new Catalog(
@@ -911,7 +911,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     eventFutures.add(fireEvent(
                             CatalogEvent.INDEX_CREATE,
-                            new CreateIndexEventParameters(version, ((NewIndexEntry) entry).descriptor())
+                            new CreateIndexEventParameters(storageRevision, version, ((NewIndexEntry) entry).descriptor())
                     ));
                 } else if (entry instanceof DropIndexEntry) {
                     int indexId = ((DropIndexEntry) entry).indexId();
@@ -932,7 +932,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     eventFutures.add(fireEvent(
                             CatalogEvent.INDEX_DROP,
-                            new DropIndexEventParameters(version, indexId, tableId)
+                            new DropIndexEventParameters(storageRevision, version, indexId, tableId)
                     ));
                 } else if (entry instanceof NewZoneEntry) {
                     catalog = new Catalog(
@@ -945,7 +945,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     eventFutures.add(fireEvent(
                             CatalogEvent.ZONE_CREATE,
-                            new CreateZoneEventParameters(version, ((NewZoneEntry) entry).descriptor())
+                            new CreateZoneEventParameters(storageRevision, version, ((NewZoneEntry) entry).descriptor())
                     ));
                 } else if (entry instanceof DropZoneEntry) {
                     int zoneId = ((DropZoneEntry) entry).zoneId();
@@ -960,7 +960,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     eventFutures.add(fireEvent(
                             CatalogEvent.ZONE_DROP,
-                            new DropZoneEventParameters(version, zoneId)
+                            new DropZoneEventParameters(storageRevision, version, zoneId)
                     ));
                 } else if (entry instanceof AlterZoneEntry) {
                     CatalogZoneDescriptor descriptor = ((AlterZoneEntry) entry).descriptor();
@@ -977,7 +977,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     eventFutures.add(fireEvent(
                             CatalogEvent.ZONE_ALTER,
-                            new AlterZoneEventParameters(version, descriptor)
+                            new AlterZoneEventParameters(storageRevision, version, descriptor)
                     ));
                 } else if (entry instanceof ObjectIdGenUpdateEntry) {
                     catalog = new Catalog(
@@ -1019,7 +1019,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     eventFutures.add(fireEvent(
                             CatalogEvent.TABLE_ALTER,
-                            new AlterColumnEventParameters(version, tableId, target)
+                            new AlterColumnEventParameters(storageRevision, version, tableId, target)
                     ));
                 } else {
                     assert false : entry;

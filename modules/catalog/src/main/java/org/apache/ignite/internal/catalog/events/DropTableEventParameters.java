@@ -28,10 +28,11 @@ public class DropTableEventParameters extends CatalogEventParameters {
      * Constructor.
      *
      * @param causalityToken Causality token.
-     * @param tableId An id of dropped table.
+     * @param version Catalog version.
+     * @param tableId ID of dropped table.
      */
-    public DropTableEventParameters(long causalityToken, int tableId) {
-        super(causalityToken);
+    public DropTableEventParameters(long causalityToken, int version, int tableId) {
+        super(causalityToken, version);
 
         this.tableId = tableId;
     }
