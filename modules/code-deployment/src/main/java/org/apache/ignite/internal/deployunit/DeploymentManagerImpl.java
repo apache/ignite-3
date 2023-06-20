@@ -250,7 +250,6 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         return deployer.deploy(id, version, unitContent)
                 .thenCompose(deployed -> {
                     if (deployed) {
-                        LOG.info("deployToLocalNode success");
                         return deploymentUnitStore.createNodeStatus(nodeName, id, version, DEPLOYED);
                     }
                     return completedFuture(false);
