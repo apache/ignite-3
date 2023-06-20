@@ -35,6 +35,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.deployunit.metastore.ClusterEventCallback;
+import org.apache.ignite.internal.deployunit.metastore.ClusterStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
@@ -61,12 +63,21 @@ public class DeploymentUnitStoreImplTest {
 
     private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
 
-    private final List<UnitNodeStatus> history = Collections.synchronizedList(new ArrayList<>());
+    private final List<UnitNodeStatus> nodeHistory = Collections.synchronizedList(new ArrayList<>());
 
-    private final NodeEventCallback listener = new NodeEventCallback() {
+    private final NodeEventCallback nodeEventCallback = new NodeEventCallback() {
         @Override
         public void onUpdate(UnitNodeStatus status, List<UnitNodeStatus> holders) {
-            history.add(status);
+            nodeHistory.add(status);
+        }
+    };
+
+    private final List<UnitClusterStatus> clusterHistory = Collections.synchronizedList(new ArrayList<>());
+
+    private final ClusterEventCallback clusterEventCallback = new ClusterEventCallback() {
+        @Override
+        public void onUpdate(UnitClusterStatus status) {
+            clusterHistory.add(status);
         }
     };
 
@@ -77,12 +88,14 @@ public class DeploymentUnitStoreImplTest {
 
     @BeforeEach
     public void setup() {
-        history.clear();
+        nodeHistory.clear();
+        clusterHistory.clear();
         KeyValueStorage storage = new RocksDbKeyValueStorage("test", workDir);
 
         MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, storage);
         metastore = new DeploymentUnitStoreImpl(metaStorageManager);
-        metastore.registerNodeStatusListener(new NodeStatusWatchListener(metastore, LOCAL_NODE, listener));
+        metastore.registerNodeStatusListener(new NodeStatusWatchListener(metastore, LOCAL_NODE, nodeEventCallback));
+        metastore.registerClusterStatusListener(new ClusterStatusWatchListener(clusterEventCallback));
 
         vaultManager.start();
         metaStorageManager.start();
@@ -160,11 +173,30 @@ public class DeploymentUnitStoreImplTest {
         assertThat(metastore.updateNodeStatus(node1, id, version, REMOVING), willBe(true));
 
         await().untilAsserted(() ->
-                assertThat(history, containsInAnyOrder(
+                assertThat(nodeHistory, containsInAnyOrder(
                         new UnitNodeStatus(id, version, UPLOADING, node1),
                         new UnitNodeStatus(id, version, DEPLOYED, node1),
                         new UnitNodeStatus(id, version, OBSOLETE, node1),
                         new UnitNodeStatus(id, version, REMOVING, node1)
+                )));
+    }
+
+    @Test
+    public void testClusterEventListener() {
+        String id = "id6";
+        Version version = Version.parseVersion("1.1.1");
+
+        assertThat(metastore.createClusterStatus(id, version, Set.of()), willBe(true));
+        assertThat(metastore.updateClusterStatus(id, version, DEPLOYED), willBe(true));
+        assertThat(metastore.updateClusterStatus(id, version, OBSOLETE), willBe(true));
+        assertThat(metastore.updateClusterStatus(id, version, REMOVING), willBe(true));
+
+        await().untilAsserted(() ->
+                assertThat(clusterHistory, containsInAnyOrder(
+                        new UnitClusterStatus(id, version, UPLOADING, Set.of()),
+                        new UnitClusterStatus(id, version, DEPLOYED, Set.of()),
+                        new UnitClusterStatus(id, version, OBSOLETE, Set.of()),
+                        new UnitClusterStatus(id, version, REMOVING, Set.of())
                 )));
     }
 }

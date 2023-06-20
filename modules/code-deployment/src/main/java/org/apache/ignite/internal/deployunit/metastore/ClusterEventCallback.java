@@ -22,13 +22,13 @@ import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 /**
  * Listener of deployment unit cluster status changes.
  */
-public interface ClusterEventCallback {
+public abstract class ClusterEventCallback {
     /**
      * Change event.
      *
      * @param status Deployment unit status.
      */
-    default void onUpdate(UnitClusterStatus status) {
+    public void onUpdate(UnitClusterStatus status) {
         switch (status.status()) {
             case UPLOADING:
                 onUploading(status);
@@ -47,19 +47,19 @@ public interface ClusterEventCallback {
         }
     }
 
-    default void onUploading(UnitClusterStatus status) {
+    protected void onUploading(UnitClusterStatus status) {
 
     }
 
-    default void onDeploy(UnitClusterStatus status) {
+    protected void onDeploy(UnitClusterStatus status) {
 
     }
 
-    default void onObsolete(UnitClusterStatus status) {
+    protected void onObsolete(UnitClusterStatus status) {
 
     }
 
-    default void onRemoving(UnitClusterStatus status) {
+    protected void onRemoving(UnitClusterStatus status) {
 
     }
 }
