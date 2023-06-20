@@ -140,12 +140,13 @@ public class CatalogServiceSelfTest {
     void setUp() {
         vault = new VaultManager(new InMemoryVaultService());
 
+        SimpleInMemoryKeyValueStorage keyValueStorage = new SimpleInMemoryKeyValueStorage("test");
         metastore = StandaloneMetaStorageManager.create(
-                vault, new SimpleInMemoryKeyValueStorage("test")
+                vault, keyValueStorage
         );
 
         clock = new HybridClockImpl();
-        service = new CatalogServiceImpl(new UpdateLogImpl(metastore, vault), clock, 0L);
+        service = new CatalogServiceImpl(new UpdateLogImpl(metastore, keyValueStorage::timestampByRevision, vault), clock, 0L);
 
         vault.start();
         metastore.start();
@@ -1096,11 +1097,11 @@ public class CatalogServiceSelfTest {
 
             VersionedUpdate update = new VersionedUpdate(
                     updateFromInvocation.version(),
-                    updateFromInvocation.activationTimestamp(),
+                    updateFromInvocation.delayDuration(),
                     List.of(new ObjectIdGenUpdateEntry(1))
             );
 
-            updateHandlerCapture.getValue().handle(update);
+            updateHandlerCapture.getValue().handle(update, clock.now());
 
             return completedFuture(false);
         });
@@ -1120,7 +1121,7 @@ public class CatalogServiceSelfTest {
         InMemoryVaultService vaultService = new InMemoryVaultService();
         VaultManager vault = new VaultManager(vaultService);
         StandaloneMetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(vault);
-        UpdateLog updateLogMock = Mockito.spy(new UpdateLogImpl(metaStorageManager, vault));
+        UpdateLog updateLogMock = Mockito.spy(new UpdateLogImpl(metaStorageManager, rev -> clock.now(), vault));
         CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clock, delayDuration);
 
         vault.start();

@@ -29,6 +29,8 @@ import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.LongFunction;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -56,6 +58,7 @@ public class UpdateLogImpl implements UpdateLog {
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     private final MetaStorageManager metastore;
+    private final LongFunction<HybridTimestamp> metastoreRevisionToTs;
     private final VaultManager vault;
 
     private volatile OnUpdateHandler onUpdateHandler;
@@ -65,13 +68,16 @@ public class UpdateLogImpl implements UpdateLog {
      * Creates the object.
      *
      * @param metastore A metastore is used to store and distribute updates across the cluster.
+     * @param metastoreRevisionToTs Converts metastore revision to metastore timestamp.
      * @param vault A vault is used to recover state and replay updates on start.
      */
     public UpdateLogImpl(
             MetaStorageManager metastore,
+            LongFunction<HybridTimestamp> metastoreRevisionToTs,
             VaultManager vault
     ) {
         this.vault = vault;
+        this.metastoreRevisionToTs = metastoreRevisionToTs;
         this.metastore = metastore;
     }
 
@@ -94,7 +100,7 @@ public class UpdateLogImpl implements UpdateLog {
 
             restoreStateFromVault(handler);
 
-            UpdateListener listener = new UpdateListener(handler);
+            UpdateListener listener = new UpdateListener();
             this.listener = listener;
 
             metastore.registerPrefixWatch(CatalogKey.updatePrefix(), listener);
@@ -156,6 +162,8 @@ public class UpdateLogImpl implements UpdateLog {
     }
 
     private void restoreStateFromVault(OnUpdateHandler handler) {
+        HybridTimestamp appliedRevTimestamp = null;
+
         int ver = 1;
 
         while (true) {
@@ -165,9 +173,13 @@ public class UpdateLogImpl implements UpdateLog {
                 break;
             }
 
+            if (appliedRevTimestamp == null) {
+                appliedRevTimestamp = metastoreRevisionToTs.apply(metastore.appliedRevision());
+            }
+
             VersionedUpdate update = fromBytes(entry.value());
 
-            handler.handle(update);
+            handler.handle(update, appliedRevTimestamp);
         }
     }
 
@@ -189,14 +201,7 @@ public class UpdateLogImpl implements UpdateLog {
         }
     }
 
-    private static class UpdateListener implements WatchListener {
-        private final OnUpdateHandler onUpdateHandler;
-
-        UpdateListener(OnUpdateHandler onUpdateHandler) {
-            this.onUpdateHandler = onUpdateHandler;
-        }
-
-        /** {@inheritDoc} */
+    private class UpdateListener implements WatchListener {
         @Override
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
             for (EntryEvent eventEntry : event.entryEvents()) {
@@ -209,13 +214,14 @@ public class UpdateLogImpl implements UpdateLog {
 
                 VersionedUpdate update = fromBytes(payload);
 
-                onUpdateHandler.handle(update);
+                HybridTimestamp entryTimestamp = metastoreRevisionToTs.apply(eventEntry.newEntry().revision());
+
+                onUpdateHandler.handle(update, entryTimestamp);
             }
 
             return CompletableFuture.completedFuture(null);
         }
 
-        /** {@inheritDoc} */
         @Override
         public void onError(Throwable e) {
             assert false;

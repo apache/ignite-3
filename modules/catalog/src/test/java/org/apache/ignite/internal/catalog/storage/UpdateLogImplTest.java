@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -48,6 +49,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 @SuppressWarnings("ConstantConditions")
 class UpdateLogImplTest {
 
+    private KeyValueStorage keyValueStorage;
+
     private MetaStorageManager metastore;
 
     private VaultManager vault;
@@ -56,9 +59,9 @@ class UpdateLogImplTest {
     void setUp() {
         vault = new VaultManager(new InMemoryVaultService());
 
-        metastore = StandaloneMetaStorageManager.create(
-                vault, new SimpleInMemoryKeyValueStorage("test")
-        );
+        keyValueStorage = new SimpleInMemoryKeyValueStorage("test");
+
+        metastore = StandaloneMetaStorageManager.create(vault, keyValueStorage);
 
         vault.start();
         metastore.start();
@@ -73,11 +76,11 @@ class UpdateLogImplTest {
     @Test
     public void logReplayedOnStart() throws Exception {
         // first, let's append a few entries to the log
-        UpdateLogImpl updateLog = new UpdateLogImpl(metastore, vault);
+        UpdateLogImpl updateLog = createUpdateLogImpl();
 
         long revisionBefore = metastore.appliedRevision();
 
-        updateLog.registerUpdateHandler(update -> {/* no-op */});
+        updateLog.registerUpdateHandler((update, ts) -> {/* no-op */});
         updateLog.start();
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
@@ -103,18 +106,22 @@ class UpdateLogImplTest {
 
         // now let's create new component over a stuffed vault/metastore
         // and check if log is replayed on start
-        updateLog = new UpdateLogImpl(metastore, vault);
+        updateLog = createUpdateLogImpl();
 
         List<VersionedUpdate> actualLog = new ArrayList<>();
-        updateLog.registerUpdateHandler(actualLog::add);
+        updateLog.registerUpdateHandler((update, ts) -> actualLog.add(update));
         updateLog.start();
 
         assertEquals(expectedLog, actualLog);
     }
 
+    private UpdateLogImpl createUpdateLogImpl() {
+        return new UpdateLogImpl(metastore, keyValueStorage::timestampByRevision, vault);
+    }
+
     @Test
     public void exceptionIsThrownOnStartIfHandlerHasNotBeenRegistered() {
-        UpdateLogImpl updateLog = new UpdateLogImpl(metastore, vault);
+        UpdateLogImpl updateLog = createUpdateLogImpl();
 
         IgniteInternalException ex = assertThrows(
                 IgniteInternalException.class,
@@ -130,10 +137,10 @@ class UpdateLogImplTest {
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 4, 8})
     public void appendAcceptsUpdatesInOrder(int startVersion) throws Exception {
-        UpdateLogImpl updateLog = new UpdateLogImpl(metastore, vault);
+        UpdateLogImpl updateLog = createUpdateLogImpl();
 
         List<Integer> appliedVersions = new ArrayList<>();
-        updateLog.registerUpdateHandler(update -> appliedVersions.add(update.version()));
+        updateLog.registerUpdateHandler((update, ts) -> appliedVersions.add(update.version()));
 
         updateLog.start();
 
@@ -173,7 +180,7 @@ class UpdateLogImplTest {
     }
 
     private static VersionedUpdate singleEntryUpdateOfVersion(int version) {
-        return new VersionedUpdate(version, version, List.of(new TestUpdateEntry("foo_" + version)));
+        return new VersionedUpdate(version, 1, List.of(new TestUpdateEntry("foo_" + version)));
     }
 
     static class TestUpdateEntry implements UpdateEntry {

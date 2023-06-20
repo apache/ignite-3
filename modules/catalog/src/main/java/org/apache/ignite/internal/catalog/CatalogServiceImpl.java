@@ -84,6 +84,7 @@ import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.Producer;
@@ -807,10 +808,8 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         }
 
         int newVersion = catalog.version() + 1;
-        //TODO https://issues.apache.org/jira/browse/IGNITE-19209 Make activation time in the MS entry strictly equal to MS entry ts+DD
-        long activationTimestamp = activationTimestamp();
 
-        return updateLog.append(new VersionedUpdate(newVersion, activationTimestamp, updates))
+        return updateLog.append(new VersionedUpdate(newVersion, delayDurationMs, updates))
                 .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
                 .thenCompose(result -> {
                     if (result) {
@@ -823,9 +822,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     class OnUpdateHandlerImpl implements OnUpdateHandler {
         @Override
-        public void handle(VersionedUpdate update) {
+        public void handle(VersionedUpdate update, HybridTimestamp metastoreTimestamp) {
             int version = update.version();
-            long activationTimestamp = update.activationTimestamp();
+            long activationTimestamp = metastoreTimestamp.addPhysicalTime(update.delayDuration()).longValue();
             Catalog catalog = catalogByVer.get(version - 1);
 
             assert catalog != null;
@@ -1083,13 +1082,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                         versionTracker.update(version, null);
                     });
         }
-    }
-
-    /**
-     * Calculate catalog activation timestamp.
-     */
-    private long activationTimestamp() {
-        return clock.now().addPhysicalTime(delayDurationMs).longValue();
     }
 
     private static void throwUnsupportedDdl(String msg, Object... params) {

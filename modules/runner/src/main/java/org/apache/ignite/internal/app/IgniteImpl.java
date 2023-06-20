@@ -400,13 +400,14 @@ public class IgniteImpl implements Ignite {
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
 
+        RocksDbKeyValueStorage metaStorageKvStorage = new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH));
         metaStorageMgr = new MetaStorageManagerImpl(
                 vaultMgr,
                 clusterSvc,
                 cmgMgr,
                 logicalTopologyService,
                 raftMgr,
-                new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH)),
+                metaStorageKvStorage,
                 clock
         );
 
@@ -491,7 +492,7 @@ public class IgniteImpl implements Ignite {
         );
 
         catalogManager = new CatalogServiceImpl(
-                new UpdateLogImpl(metaStorageMgr, vaultMgr),
+                new UpdateLogImpl(metaStorageMgr, metaStorageKvStorage::timestampByRevision, vaultMgr),
                 clock,
                 () -> schemaSyncConfig.delayDuration().value()
         );

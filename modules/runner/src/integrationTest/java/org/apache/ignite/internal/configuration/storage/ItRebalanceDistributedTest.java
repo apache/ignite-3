@@ -96,6 +96,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -678,15 +679,16 @@ public class ItRebalanceDistributedTest {
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
+            KeyValueStorage keyValueStorage = testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
+                    ? new RocksDbKeyValueStorage(nodeName, resolveDir(dir, "metaStorage"))
+                    : new SimpleInMemoryKeyValueStorage(nodeName);
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
-                    testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
-                            ? new RocksDbKeyValueStorage(nodeName, resolveDir(dir, "metaStorage"))
-                            : new SimpleInMemoryKeyValueStorage(nodeName),
+                    keyValueStorage,
                     hybridClock
             );
 
@@ -757,7 +759,10 @@ public class ItRebalanceDistributedTest {
                     metaStorageManager,
                     clusterService);
 
-            catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageManager, vaultManager), hybridClock);
+            catalogManager = new CatalogServiceImpl(
+                    new UpdateLogImpl(metaStorageManager, keyValueStorage::timestampByRevision, vaultManager),
+                    hybridClock
+            );
 
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
