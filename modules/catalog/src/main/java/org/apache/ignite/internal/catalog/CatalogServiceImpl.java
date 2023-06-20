@@ -34,6 +34,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
@@ -132,7 +133,8 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     private final HybridClock clock;
 
-    private final long delayDurationMs;
+    private final LongSupplier delayDurationMsSupplier;
+    private volatile long delayDurationMs;
 
     /**
      * Constructor.
@@ -144,15 +146,24 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /**
      * Constructor.
      */
-    public CatalogServiceImpl(UpdateLog updateLog, HybridClock clock, long delayDurationMs) {
+    CatalogServiceImpl(UpdateLog updateLog, HybridClock clock, long delayDurationMs) {
+        this(updateLog, clock, () -> delayDurationMs);
+    }
+
+    /**
+     * Constructor.
+     */
+    public CatalogServiceImpl(UpdateLog updateLog, HybridClock clock, LongSupplier delayDurationMsSupplier) {
         this.updateLog = updateLog;
         this.clock = clock;
-        this.delayDurationMs = delayDurationMs;
+        this.delayDurationMsSupplier = delayDurationMsSupplier;
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
+        delayDurationMs = delayDurationMsSupplier.getAsLong();
+
         int objectIdGen = 0;
 
         // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
