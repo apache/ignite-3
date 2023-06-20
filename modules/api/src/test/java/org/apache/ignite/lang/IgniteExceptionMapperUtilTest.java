@@ -33,8 +33,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -173,10 +175,10 @@ public class IgniteExceptionMapperUtilTest {
      *
      * @return List of classes that cannot be used for mapping.
      */
-    private static Stream<Class<? extends Exception>> predefinedExceptionClasses() {
+    private static Stream<Arguments> predefinedExceptionClasses() {
         return Stream.of(
-                NullPointerException.class,
-                IllegalArgumentException.class
+                Arguments.of(Named.of("NullPointer", NullPointerException.class)),
+                Arguments.of(Named.of("IllegalArgument", IllegalArgumentException.class))
         );
     }
 
