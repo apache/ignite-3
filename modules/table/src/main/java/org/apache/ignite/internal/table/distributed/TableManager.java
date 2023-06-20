@@ -2358,9 +2358,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                     assert tableDescriptor != null : replicaGrpId;
 
-                                    Integer zoneId = tblCfg.zoneId().value();
-
-                                    return distributionZoneManager.dataNodes(evt.revision(), zoneId)
+                                    return distributionZoneManager.dataNodes(evt.revision(), tableDescriptor.zoneId())
                                             .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
                                                     metaStorageMgr,
                                                     dataNodes,
