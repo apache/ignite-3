@@ -40,6 +40,9 @@ public class ColumnFamily {
     /** Column family name. */
     private final String cfName;
 
+    /** Column family name as a byte array. */
+    private final byte[] cfNameBytes;
+
     /** Column family handle. */
     private final ColumnFamilyHandle cfHandle;
 
@@ -52,7 +55,8 @@ public class ColumnFamily {
     private ColumnFamily(RocksDB db, ColumnFamilyHandle handle) throws RocksDBException {
         this.db = db;
         this.cfHandle = handle;
-        this.cfName = new String(cfHandle.getName(), StandardCharsets.UTF_8);
+        cfNameBytes = cfHandle.getName();
+        this.cfName = new String(cfNameBytes, StandardCharsets.UTF_8);
     }
 
     /**
@@ -212,6 +216,13 @@ public class ColumnFamily {
      */
     public String name() {
         return cfName;
+    }
+
+    /**
+     * Returns the name of the column family, represented as a byte array.
+     */
+    public byte[] nameBytes() {
+        return cfNameBytes;
     }
 
     /**

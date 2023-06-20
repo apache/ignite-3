@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed;
+package org.apache.ignite.internal.table.distributed.gc;
 
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.junit.jupiter.api.BeforeEach;
 
-class TestMvStorageUpdateHandlerTest extends AbstractMvStorageUpdateHandlerTest {
+class TestGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
     @BeforeEach
     void setUp() {
         initialize(new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT));

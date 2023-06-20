@@ -72,7 +72,7 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -181,7 +181,7 @@ public class PartitionCommandListenerTest {
      * Initializes a table listener before tests.
      */
     @BeforeEach
-    public void before(@InjectConfiguration DataStorageConfiguration dsCfg) {
+    public void before(@InjectConfiguration GcConfiguration gcConfig) {
         NetworkAddress addr = new NetworkAddress("127.0.0.1", 5003);
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
@@ -197,7 +197,7 @@ public class PartitionCommandListenerTest {
         storageUpdateHandler = spy(new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionDataStorage,
-                dsCfg,
+                gcConfig,
                 mock(LowWatermark.class),
                 indexUpdateHandler,
                 new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler)
@@ -287,7 +287,7 @@ public class PartitionCommandListenerTest {
      * the maximal last applied index among storages to all storages.
      */
     @Test
-    public void testOnSnapshotSavePropagateLastAppliedIndexAndTerm(@InjectConfiguration DataStorageConfiguration dsCfg) {
+    public void testOnSnapshotSavePropagateLastAppliedIndexAndTerm(@InjectConfiguration GcConfiguration gcConfig) {
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 
         IndexUpdateHandler indexUpdateHandler1 = new IndexUpdateHandler(
@@ -297,7 +297,7 @@ public class PartitionCommandListenerTest {
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionDataStorage,
-                dsCfg,
+                gcConfig,
                 mock(LowWatermark.class),
                 indexUpdateHandler1,
                 new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler1)

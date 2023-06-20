@@ -41,6 +41,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.fileio.FileIo;
+import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.junit.jupiter.api.Test;
@@ -194,16 +195,16 @@ public class DeltaFilePageStoreIoTest extends AbstractFilePageStoreIoTest {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    DeltaFilePageStoreIo createFilePageStoreIo(Path filePath) {
-        return createFilePageStoreIo(
+    DeltaFilePageStoreIo createFilePageStoreIo(Path filePath, FileIoFactory ioFactory) {
+        return new DeltaFilePageStoreIo(
+                ioFactory,
                 filePath,
                 new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(0, 1, 2, 3, 5, 6, 7, 8, 9))
         );
     }
 
-    private DeltaFilePageStoreIo createFilePageStoreIo(Path filePath, DeltaFilePageStoreIoHeader header) {
+    private static DeltaFilePageStoreIo createFilePageStoreIo(Path filePath, DeltaFilePageStoreIoHeader header) {
         return new DeltaFilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header);
     }
 }

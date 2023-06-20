@@ -66,6 +66,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -465,11 +466,16 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         CompletableFuture<?> fireEventFuture =
                 fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, tableId, indexId, eventIndexDescriptor));
 
-        CompletableFuture<TableImpl> tableFuture = tableManager.tableAsync(causalityToken, tableId);
+        TableImpl table = tableManager.getTable(tableId);
+
+        assert table != null : tableId;
 
         CompletableFuture<SchemaRegistry> schemaRegistryFuture = schemaManager.schemaRegistry(causalityToken, tableId);
 
-        CompletableFuture<?> createIndexFuture = tableFuture.thenAcceptBoth(schemaRegistryFuture, (table, schemaRegistry) -> {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19712 Listen to assignment changes and start new index storages.
+        CompletableFuture<PartitionSet> tablePartitionFuture = tableManager.localPartitionSetAsync(causalityToken, tableId);
+
+        CompletableFuture<?> createIndexFuture = tablePartitionFuture.thenAcceptBoth(schemaRegistryFuture, (partitions, schemaRegistry) -> {
             TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
                     schemaRegistry,
                     eventIndexDescriptor.columns().toArray(STRING_EMPTY_ARRAY)
@@ -478,7 +484,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             if (eventIndexDescriptor instanceof SortedIndexDescriptor) {
                 table.registerSortedIndex(
                         (StorageSortedIndexDescriptor) storageIndexDescriptor,
-                        tableRowConverter::convert
+                        tableRowConverter::convert,
+                        partitions
                 );
             } else {
                 boolean unique = indexDescriptor.unique();
@@ -486,7 +493,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 table.registerHashIndex(
                         (StorageHashIndexDescriptor) storageIndexDescriptor,
                         unique,
-                        tableRowConverter::convert
+                        tableRowConverter::convert,
+                        partitions
                 );
 
                 if (unique) {

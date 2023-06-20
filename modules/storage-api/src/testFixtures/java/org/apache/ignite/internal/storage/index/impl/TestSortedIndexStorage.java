@@ -58,7 +58,7 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
     public TestSortedIndexStorage(int partitionId, StorageSortedIndexDescriptor descriptor) {
         super(partitionId);
 
-        BinaryTupleComparator binaryTupleComparator = new BinaryTupleComparator(descriptor);
+        BinaryTupleComparator binaryTupleComparator = new BinaryTupleComparator(descriptor.columns());
 
         this.partitionId = partitionId;
         this.descriptor = descriptor;
