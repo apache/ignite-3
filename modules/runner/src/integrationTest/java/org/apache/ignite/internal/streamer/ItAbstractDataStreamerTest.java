@@ -200,6 +200,26 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertEquals("Missed key column: ID", ex.getCause().getMessage());
     }
 
+    @Test
+    public void testManyItems() {
+        RecordView<Tuple> view = defaultTable().recordView();
+
+        var publisher = new SubmissionPublisher<Tuple>();
+        var options = DataStreamerOptions.builder().batchSize(33).build();
+        CompletableFuture<Void> streamerFut = view.streamData(publisher, options);
+
+        for (int i = 0; i < 10_000; i++) {
+            publisher.submit(tuple(i, "x-" + i));
+        }
+
+        publisher.close();
+        streamerFut.orTimeout(30, TimeUnit.SECONDS).join();
+
+        assertNotNull(view.get(null, tupleKey(1)));
+        assertNotNull(view.get(null, tupleKey(9999)));
+        assertNull(view.get(null, tupleKey(10_000)));
+    }
+
     private Table defaultTable() {
         //noinspection resource
         return ignite().tables().table(TABLE_NAME);
