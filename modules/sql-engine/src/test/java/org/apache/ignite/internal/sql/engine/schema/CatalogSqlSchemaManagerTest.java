@@ -199,7 +199,7 @@ public class CatalogSqlSchemaManagerTest {
             SchemaPlus schemaPlus = sqlSchemaManager.activeSchema(testSchema.name, testSchema.timestamp);
             IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
 
-            assertEquals(CatalogManager.PUBLIC, schema.getName());
+            assertEquals(CatalogManager.DEFAULT_SCHEMA_NAME, schema.getName());
             assertEquals(testSchema.version, schema.version());
         }
 
@@ -207,7 +207,7 @@ public class CatalogSqlSchemaManagerTest {
             SchemaPlus schemaPlus = sqlSchemaManager.activeSchema(null, testSchema.timestamp);
             IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
 
-            assertEquals(CatalogManager.PUBLIC, schema.getName());
+            assertEquals(CatalogManager.DEFAULT_SCHEMA_NAME, schema.getName());
             assertEquals(testSchema.version, schema.version());
         }
     }
@@ -455,7 +455,7 @@ public class CatalogSqlSchemaManagerTest {
         final Set<TestIndex> indexes = new LinkedHashSet<>();
 
         TestSchema() {
-            this(CatalogManager.PUBLIC);
+            this(CatalogManager.DEFAULT_SCHEMA_NAME);
         }
 
         TestSchema(String name) {
@@ -469,7 +469,7 @@ public class CatalogSqlSchemaManagerTest {
         void init(CatalogManager catalogManager) {
             CatalogSchemaDescriptor schemaDescriptor = newSchemaDescriptor(version);
             when(catalogManager.activeCatalogVersion(timestamp)).thenReturn(version);
-            when(catalogManager.schema(name != null ? name : CatalogManager.PUBLIC, version)).thenReturn(schemaDescriptor);
+            when(catalogManager.schema(name != null ? name : CatalogManager.DEFAULT_SCHEMA_NAME, version)).thenReturn(schemaDescriptor);
         }
 
         CatalogSchemaDescriptor newSchemaDescriptor(int version) {

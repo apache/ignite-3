@@ -20,6 +20,7 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toIndexDescriptor;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
@@ -30,12 +31,18 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
+import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
@@ -58,9 +65,6 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesView;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
@@ -72,12 +76,10 @@ import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups;
-import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.lang.TableNotFoundException;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
@@ -88,6 +90,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
     /** Common tables and indexes configuration. */
+    // TODO: IGNITE-19500 избавиться, наверное
     private final TablesConfiguration tablesCfg;
 
     /** Schema manager. */
@@ -95,6 +98,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
     /** Table manager. */
     private final TableManager tableManager;
+
+    /** Catalog manager. */
+    private final CatalogManager catalogManager;
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -108,21 +114,27 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @param tablesCfg Tables and indexes configuration.
      * @param schemaManager Schema manager.
      * @param tableManager Table manager.
+     * @param catalogManager Catalog manager.
      */
     public IndexManager(
             TablesConfiguration tablesCfg,
             SchemaManager schemaManager,
-            TableManager tableManager
+            TableManager tableManager,
+            CatalogManager catalogManager
     ) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
         this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
         this.tableManager = tableManager;
+        this.catalogManager = catalogManager;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() {
-        LOG.debug("Index manager is about to start");
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Index manager is about to start");
+        }
+
+        // TODO: IGNITE-19500 добавить логирования что индекс успешно создался
 
         tablesCfg.indexes().listenElements(new ConfigurationListener());
 
@@ -141,193 +153,151 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                                 .map(Column::name)
                                 .toArray(String[]::new);
 
-                        String pkName = table.name() + "_PK";
-
-                        return createIndexAsync("PUBLIC", pkName, table.name(), false,
-                                change -> change.changeUniq(true).convert(HashIndexChange.class)
-                                        .changeColumnNames(pkColumns)
+                        return createIndexAsync(
+                                CreateHashIndexParams.builder()
+                                        .schemaName(DEFAULT_SCHEMA_NAME)
+                                        .tableName(table.name())
+                                        .indexName(table.name() + "_PK")
+                                        .columns(List.of(pkColumns))
+                                        .build(),
+                                false
                         );
                     })
                     .whenComplete((v, e) -> {
                         if (e != null) {
-                            LOG.error("Error when creating index: " + e);
+                            LOG.error("Error when creating index: ", e);
                         }
                     });
 
             return completedFuture(false);
         });
 
-        LOG.info("Index manager started");
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Index manager started");
+        }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
-        LOG.debug("Index manager is about to stop");
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Index manager is about to stop");
+        }
 
         if (!stopGuard.compareAndSet(false, true)) {
-            LOG.debug("Index manager already stopped");
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Index manager already stopped");
+            }
 
             return;
         }
 
         busyLock.block();
 
-        LOG.info("Index manager stopped");
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Index manager stopped");
+        }
     }
 
     /**
-     * Creates index from provided configuration changer.
+     * Creates the index.
      *
-     * @param schemaName A name of the schema to create index in.
-     * @param indexName A name of the index to create.
-     * @param tableName A name of the table to create index for.
+     * @param createIndexCommandParams Parameters for the index creation command.
      * @param failIfExists Flag indicates whether exception be thrown if index exists or not.
-     * @param indexChange A consumer that suppose to change the configuration in order to provide description of an index.
-     * @return A future represented the result of creation.
+     * @return Future represented the result of creation, {@code true} if the index was created successfully.
      */
     public CompletableFuture<Boolean> createIndexAsync(
-            String schemaName,
-            String indexName,
-            String tableName,
-            boolean failIfExists,
-            Consumer<TableIndexChange> indexChange
+            AbstractIndexCommandParams createIndexCommandParams,
+            boolean failIfExists
     ) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
+        return inBusyLock(() -> {
+            String schemaName = createIndexCommandParams.schemaName();
+            String indexName = createIndexCommandParams.indexName();
+            String tableName = createIndexCommandParams.tableName();
 
-        LOG.debug("Going to create index [schema={}, table={}, index={}]", schemaName, tableName, indexName);
-
-        try {
             validateName(indexName);
 
-            CompletableFuture<Boolean> future = new CompletableFuture<>();
+            CompletableFuture<Void> createIndexFuture;
 
-            // Check index existence flag, avoid usage of hasCause + IndexAlreadyExistsException.
-            AtomicBoolean idxExist = new AtomicBoolean(false);
+            if (createIndexCommandParams instanceof CreateHashIndexParams) {
+                createIndexFuture = catalogManager.createIndex((CreateHashIndexParams) createIndexCommandParams);
+            } else if (createIndexCommandParams instanceof CreateSortedIndexParams) {
+                createIndexFuture = catalogManager.createIndex(((CreateSortedIndexParams) createIndexCommandParams));
+            } else {
+                throw new IgniteInternalException(
+                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                        "Unknown index type: [schema={}, table={}, index={}, params={}]",
+                        schemaName, tableName, indexName, createIndexCommandParams
+                );
+            }
 
-            tablesCfg.change(tablesChange -> tablesChange.changeIndexes(indexListChange -> {
-                idxExist.set(false);
+            return createIndexFuture
+                    .handle((unused, throwable) -> {
+                        if (throwable != null) {
+                            if (LOG.isDebugEnabled()) {
+                                LOG.debug(
+                                        "Error creating index: [schema={}, table={}, index={}]",
+                                        throwable,
+                                        schemaName, tableName, indexName
+                                );
+                            }
 
-                if (indexListChange.get(indexName) != null) {
-                    idxExist.set(true);
+                            if (!failIfExists && throwable instanceof IndexAlreadyExistsException) {
+                                return false;
+                            }
 
-                    throw new IndexAlreadyExistsException(schemaName, indexName);
-                }
+                            throw new CompletionException(throwable);
+                        }
 
-                TableView tableCfg = tablesChange.tables().get(tableName);
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug(
+                                    "Index has been created: [schema={}, table={}, index={}]",
+                                    schemaName, tableName, indexName
+                            );
+                        }
 
-                if (tableCfg == null) {
-                    throw new TableNotFoundException(schemaName, tableName);
-                }
-
-                int tableId = tableCfg.id();
-
-                int indexId = tablesChange.globalIdCounter() + 1;
-
-                tablesChange.changeGlobalIdCounter(indexId);
-
-                Consumer<TableIndexChange> chg = indexChange.andThen(c -> c.changeTableId(tableId).changeId(indexId));
-
-                indexListChange.create(indexName, chg);
-            })).whenComplete((index, th) -> {
-                if (th != null) {
-                    LOG.debug("Unable to create index [schema={}, table={}, index={}]",
-                            th, schemaName, tableName, indexName);
-
-                    if (!failIfExists && idxExist.get()) {
-                        future.complete(false);
-                    } else {
-                        future.completeExceptionally(th);
-                    }
-                } else {
-                    TableIndexConfiguration idxCfg = tablesCfg.indexes().get(indexName);
-
-                    if (idxCfg != null && idxCfg.value() != null) {
-                        LOG.info("Index created [schema={}, table={}, index={}, indexId={}]",
-                                schemaName, tableName, indexName, idxCfg.id().value());
-
-                        future.complete(true);
-                    } else {
-                        var exception = new IgniteInternalException(
-                                Common.INTERNAL_ERR, "Looks like the index was concurrently deleted");
-
-                        LOG.info("Unable to create index [schema={}, table={}, index={}]",
-                                exception, schemaName, tableName, indexName);
-
-                        future.completeExceptionally(exception);
-                    }
-                }
-            });
-
-            return future;
-        } catch (Exception ex) {
-            return failedFuture(ex);
-        } finally {
-            busyLock.leaveBusy();
-        }
+                        return true;
+                    });
+        });
     }
 
     /**
-     * Drops the index with a given name asynchronously.
+     * Drops the index.
      *
-     * @param schemaName A name of the schema the index belong to.
-     * @param indexName A name of the index to drop.
+     * @param dropIndexCommandParams Parameters for the destroy index command.
      * @param failIfNotExists Flag, which force failure, when {@code trues} if index doen't not exists.
-     * @return A future representing the result of the operation.
+     * @return Future representing the result of the operation.
      */
     public CompletableFuture<Boolean> dropIndexAsync(
-            String schemaName,
-            String indexName,
+            DropIndexParams dropIndexCommandParams,
             boolean failIfNotExists
     ) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
+        return inBusyLock(() -> {
+            String schemaName = dropIndexCommandParams.schemaName();
+            String indexName = dropIndexCommandParams.indexName();
 
-        LOG.debug("Going to drop index [schema={}, index={}]", schemaName, indexName);
-
-        try {
             validateName(indexName);
 
-            final CompletableFuture<Boolean> future = new CompletableFuture<>();
+            return catalogManager.dropIndex(dropIndexCommandParams)
+                    .handle((unused, throwable) -> {
+                        if (throwable != null) {
+                            if (LOG.isDebugEnabled()) {
+                                LOG.debug("Error while deleting index: [schema={}, index={}]", throwable, schemaName, indexName);
+                            }
 
-            // Check index existence flag, avoid usage of hasCause + IndexAlreadyExistsException.
-            AtomicBoolean idxOrTblNotExist = new AtomicBoolean(false);
+                            if (!failIfNotExists && throwable instanceof IndexNotFoundException) {
+                                return false;
+                            }
 
-            tablesCfg.indexes().change(indexListChange -> {
-                idxOrTblNotExist.set(false);
+                            throw new CompletionException(throwable);
+                        }
 
-                TableIndexView idxView = indexListChange.get(indexName);
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("index has been deleted: [schema={}, index={}]", schemaName, indexName);
+                        }
 
-                if (idxView == null) {
-                    idxOrTblNotExist.set(true);
-
-                    throw new IndexNotFoundException(schemaName, indexName);
-                }
-
-                indexListChange.delete(indexName);
-            }).whenComplete((ignored, th) -> {
-                if (th != null) {
-                    LOG.info("Unable to drop index [schema={}, index={}]", th, schemaName, indexName);
-
-                    if (!failIfNotExists && idxOrTblNotExist.get()) {
-                        future.complete(false);
-                    } else {
-                        future.completeExceptionally(th);
-                    }
-                } else {
-                    LOG.info("Index dropped [schema={}, index={}]", schemaName, indexName);
-
-                    future.complete(true);
-                }
-            });
-
-            return future;
-        } finally {
-            busyLock.leaveBusy();
-        }
+                        return true;
+                    });
+        });
     }
 
     /**
@@ -361,7 +331,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         return res;
     }
 
-    private void validateName(String indexName) {
+    private static void validateName(String indexName) {
         if (StringUtils.nullOrEmpty(indexName)) {
             throw new IgniteInternalException(
                     ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
@@ -658,5 +628,19 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
     private static ColumnCollation toEventCollation(CatalogColumnCollation collation) {
         return ColumnCollation.get(collation.asc(), collation.nullsFirst());
+    }
+
+    private <T> CompletableFuture<T> inBusyLock(Supplier<CompletableFuture<T>> supplier) {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return supplier.get();
+        } catch (Throwable t) {
+            return failedFuture(t);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 }

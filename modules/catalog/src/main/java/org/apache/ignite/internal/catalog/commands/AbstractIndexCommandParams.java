@@ -27,6 +27,9 @@ public abstract class AbstractIndexCommandParams implements DdlCommandParams {
     /** Schema name where this new index will be created. */
     protected String schema;
 
+    /** Table name. */
+    protected String tableName;
+
     /**
      * Returns index simple name.
      */
@@ -39,6 +42,13 @@ public abstract class AbstractIndexCommandParams implements DdlCommandParams {
      */
     public String schemaName() {
         return schema;
+    }
+
+    /**
+     * Returns table name.
+     */
+    public String tableName() {
+        return tableName;
     }
 
     /**
@@ -70,6 +80,18 @@ public abstract class AbstractIndexCommandParams implements DdlCommandParams {
          */
         public BuilderT indexName(String indexName) {
             params.indexName = indexName;
+            return (BuilderT) this;
+        }
+
+        /**
+         * Set table name.
+         *
+         * @param tableName Table name.
+         * @return {@code this}.
+         */
+        public BuilderT tableName(String tableName) {
+            params.tableName = tableName;
+
             return (BuilderT) this;
         }
 

@@ -60,12 +60,9 @@ import org.apache.ignite.internal.schema.configuration.ValueSerializationHelper;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultChange;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultChange;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultChange;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
 import org.apache.ignite.internal.schema.configuration.index.IndexColumnView;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AbstractTableDdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
@@ -83,11 +80,9 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
@@ -354,59 +349,15 @@ public class DdlCommandHandler {
                             "Can't create index on duplicate columns: " + String.join(", ", cmd.columns()));
                 });
 
-        Consumer<TableIndexChange> indexChanger = tableIndexChange -> {
-            switch (cmd.type()) {
-                case SORTED:
-                    createSortedIndexInternal(cmd, tableIndexChange.convert(SortedIndexChange.class));
-
-                    break;
-                case HASH:
-                    createHashIndexInternal(cmd, tableIndexChange.convert(HashIndexChange.class));
-
-                    break;
-                default:
-                    throw new AssertionError("Unknown index type [type=" + cmd.type() + "]");
-            }
-        };
-
         return indexManager.createIndexAsync(
-                cmd.schemaName(),
-                cmd.indexName(),
-                cmd.tableName(),
-                !cmd.ifNotExists(),
-                indexChanger);
+                DdlToCatalogCommandConverter.convert(cmd),
+                !cmd.ifNotExists()
+        );
     }
 
     /** Handles drop index command. */
     private CompletableFuture<Boolean> handleDropIndex(DropIndexCommand cmd) {
-        return indexManager.dropIndexAsync(cmd.schemaName(), cmd.indexName(), !cmd.ifNotExists());
-    }
-
-    /**
-     * Creates sorted index.
-     *
-     * @param cmd Create index command.
-     * @param indexChange Index configuration changer.
-     */
-    private void createSortedIndexInternal(CreateIndexCommand cmd, SortedIndexChange indexChange) {
-        indexChange.changeColumns(colsInit -> {
-            for (int i = 0; i < cmd.columns().size(); i++) {
-                String columnName = cmd.columns().get(i);
-                Collation collation = cmd.collations().get(i);
-                //TODO: https://issues.apache.org/jira/browse/IGNITE-17563 Pass null ordering for columns.
-                colsInit.create(columnName, colInit -> colInit.changeAsc(collation.asc));
-            }
-        });
-    }
-
-    /**
-     * Creates hash index.
-     *
-     * @param cmd Create index command.
-     * @param indexChange Index configuration changer.
-     */
-    private void createHashIndexInternal(CreateIndexCommand cmd, HashIndexChange indexChange) {
-        indexChange.changeColumnNames(cmd.columns().toArray(ArrayUtils.STRING_EMPTY_ARRAY));
+        return indexManager.dropIndexAsync(DdlToCatalogCommandConverter.convert(cmd), !cmd.ifNotExists());
     }
 
     /**

@@ -188,7 +188,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /** {@inheritDoc} */
     @Override
     public CatalogTableDescriptor table(String tableName, long timestamp) {
-        return catalogAt(timestamp).schema(CatalogService.PUBLIC).table(tableName);
+        return catalogAt(timestamp).schema(CatalogService.DEFAULT_SCHEMA_NAME).table(tableName);
     }
 
     /** {@inheritDoc} */
@@ -200,7 +200,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /** {@inheritDoc} */
     @Override
     public CatalogIndexDescriptor index(String indexName, long timestamp) {
-        return catalogAt(timestamp).schema(CatalogService.PUBLIC).index(indexName);
+        return catalogAt(timestamp).schema(CatalogService.DEFAULT_SCHEMA_NAME).index(indexName);
     }
 
     /** {@inheritDoc} */
@@ -218,7 +218,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             return null;
         }
 
-        return catalog.schema(CatalogService.PUBLIC);
+        return catalog.schema(CatalogService.DEFAULT_SCHEMA_NAME);
     }
 
     /** {@inheritDoc} */
@@ -230,7 +230,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             return null;
         }
 
-        return catalog.schema(schemaName == null ? CatalogService.PUBLIC : schemaName);
+        return catalog.schema(schemaName == null ? CatalogService.DEFAULT_SCHEMA_NAME : schemaName);
     }
 
     /** {@inheritDoc} */
@@ -248,13 +248,13 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /** {@inheritDoc} */
     @Override
     public @Nullable CatalogSchemaDescriptor activeSchema(long timestamp) {
-        return catalogAt(timestamp).schema(CatalogService.PUBLIC);
+        return catalogAt(timestamp).schema(CatalogService.DEFAULT_SCHEMA_NAME);
     }
 
     /** {@inheritDoc} */
     @Override
     public @Nullable CatalogSchemaDescriptor activeSchema(String schemaName, long timestamp) {
-        return catalogAt(timestamp).schema(schemaName == null ? CatalogService.PUBLIC : schemaName);
+        return catalogAt(timestamp).schema(schemaName == null ? CatalogService.DEFAULT_SCHEMA_NAME : schemaName);
     }
 
     /** {@inheritDoc} */
@@ -281,7 +281,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public CompletableFuture<Void> createTable(CreateTableParams params) {
         return saveUpdate(catalog -> {
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.DEFAULT_SCHEMA_NAME);
 
             CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
@@ -314,7 +314,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public CompletableFuture<Void> dropTable(DropTableParams params) {
         return saveUpdate(catalog -> {
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.DEFAULT_SCHEMA_NAME);
 
             CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
@@ -344,7 +344,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         }
 
         return saveUpdate(catalog -> {
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.DEFAULT_SCHEMA_NAME);
 
             CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
@@ -378,7 +378,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         }
 
         return saveUpdate(catalog -> {
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.DEFAULT_SCHEMA_NAME);
 
             CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
@@ -422,7 +422,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public CompletableFuture<Void> alterColumn(AlterColumnParams params) {
         return saveUpdate(catalog -> {
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.DEFAULT_SCHEMA_NAME);
 
             CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
@@ -501,7 +501,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public CompletableFuture<Void> createIndex(CreateHashIndexParams params) {
         return saveUpdate(catalog -> {
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.DEFAULT_SCHEMA_NAME);
 
             CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
@@ -550,7 +550,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public CompletableFuture<Void> createIndex(CreateSortedIndexParams params) {
         return saveUpdate(catalog -> {
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.DEFAULT_SCHEMA_NAME);
 
             CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
@@ -604,7 +604,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public CompletableFuture<Void> dropIndex(DropIndexParams params) {
         return saveUpdate(catalog -> {
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.DEFAULT_SCHEMA_NAME);
 
             CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
@@ -822,7 +822,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             List<CompletableFuture<?>> eventFutures = new ArrayList<>(update.entries().size());
 
             for (UpdateEntry entry : update.entries()) {
-                String schemaName = CatalogService.PUBLIC;
+                String schemaName = CatalogService.DEFAULT_SCHEMA_NAME;
                 CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
                 if (entry instanceof NewTableEntry) {

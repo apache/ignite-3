@@ -106,6 +106,7 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
                             .handle(handleModificationResult(((AlterColumnCommand) cmd).ifTableExists(), TableNotFoundException.class))
                     );
         } else if (cmd instanceof CreateIndexCommand) {
+            // TODO: IGNITE-19500 удалить это
             return ddlCommandFuture
                     .thenCompose(res -> {
                         AbstractIndexCommandParams params = DdlToCatalogCommandConverter.convert((CreateIndexCommand) cmd);
@@ -116,6 +117,7 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
                         }
                     }).handle(handleModificationResult(((CreateIndexCommand) cmd).ifNotExists(), IndexAlreadyExistsException.class));
         } else if (cmd instanceof DropIndexCommand) {
+            // TODO: IGNITE-19500 удалить это
             return ddlCommandFuture
                     .thenCompose(res -> catalogManager.dropIndex(DdlToCatalogCommandConverter.convert((DropIndexCommand) cmd))
                             .handle(handleModificationResult(((DropIndexCommand) cmd).ifNotExists(), IndexNotFoundException.class))

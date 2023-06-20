@@ -430,7 +430,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 null
         );
 
-        var indexManager = new IndexManager(tablesConfig, schemaManager, tableManager);
+        var indexManager = new IndexManager(tablesConfig, schemaManager, tableManager, catalogManager);
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,

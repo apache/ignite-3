@@ -17,18 +17,22 @@
 
 package org.apache.ignite.internal.index;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.notNullValue;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -40,7 +44,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
-    /** {@inheritDoc} */
     @Override
     protected int nodes() {
         return 1;
@@ -58,7 +61,9 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
         TableImpl table = (TableImpl) ignite.tables().table("tname");
 
         {
-            IndexEventParameters parameters = await(pkCreatedFuture);
+            assertThat(pkCreatedFuture, willCompleteSuccessfully());
+
+            IndexEventParameters parameters = pkCreatedFuture.join();
 
             assertThat(parameters, notNullValue());
             assertThat(parameters.tableId(), equalTo(table.tableId()));
@@ -68,17 +73,24 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<IndexEventParameters> indexCreatedFuture = registerListener(indexManager, IndexEvent.CREATE);
 
-        await(indexManager.createIndexAsync(
-                "PUBLIC",
-                "INAME",
-                "TNAME",
-                true,
-                tableIndexChange -> tableIndexChange.convert(HashIndexChange.class).changeColumnNames("C3", "C2")
-                ));
+        assertThat(
+                indexManager.createIndexAsync(
+                        CreateHashIndexParams.builder()
+                                .schemaName(DEFAULT_SCHEMA_NAME)
+                                .indexName("INAME")
+                                .tableName("TNAME")
+                                .columns(List.of("C3", "C2"))
+                                .build(),
+                        true
+                ),
+                willBe(true)
+        );
 
         int createdIndexId;
         {
-            IndexEventParameters parameters = await(indexCreatedFuture);
+            assertThat(indexCreatedFuture, willCompleteSuccessfully());
+
+            IndexEventParameters parameters = indexCreatedFuture.join();
 
             assertThat(parameters, notNullValue());
             assertThat(parameters.tableId(), equalTo(table.tableId()));
@@ -90,17 +102,22 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<IndexEventParameters> indexDroppedFuture = registerListener(indexManager, IndexEvent.DROP);
 
-        await(indexManager.dropIndexAsync("PUBLIC", "INAME", true));
+        assertThat(
+                indexManager.dropIndexAsync(DropIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName("INAME").build(), true),
+                willBe(true)
+        );
 
         {
-            IndexEventParameters params = await(indexDroppedFuture);
+            assertThat(indexDroppedFuture, willCompleteSuccessfully());
+
+            IndexEventParameters params = indexDroppedFuture.join();
 
             assertThat(params, notNullValue());
             assertThat(params.indexId(), equalTo(createdIndexId));
         }
     }
 
-    private CompletableFuture<IndexEventParameters> registerListener(IndexManager indexManager, IndexEvent event) {
+    private static CompletableFuture<IndexEventParameters> registerListener(IndexManager indexManager, IndexEvent event) {
         CompletableFuture<IndexEventParameters> paramFuture = new CompletableFuture<>();
 
         indexManager.listen(event, (param, th) -> {
