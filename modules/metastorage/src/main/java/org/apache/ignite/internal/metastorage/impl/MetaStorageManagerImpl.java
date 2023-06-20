@@ -322,13 +322,13 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public List<Entry> get(byte[] key, long revLowerBound, long revUpperBound) {
+    public List<Entry> getEntriesLocally(byte[] key, long revLowerBound, long revUpperBound) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
 
         try {
-            return storage.get(key, revLowerBound, revUpperBound);
+            return storage.getEntries(key, revLowerBound, revUpperBound);
         } finally {
             busyLock.leaveBusy();
         }

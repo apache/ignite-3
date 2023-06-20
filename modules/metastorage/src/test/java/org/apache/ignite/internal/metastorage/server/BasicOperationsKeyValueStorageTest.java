@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -59,7 +60,6 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
-import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
@@ -193,39 +193,64 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
     }
 
     @Test
-    void getWithRevisionLowerUpperBound() {
+    void getEntriesWithRevisionLowerUpperBound() {
         byte[] key1 = key(1);
         byte[] key2 = key(2);
+
         byte[] val1 = keyValue(1, 1);
         byte[] val2 = keyValue(1, 2);
-        byte[] val3 = keyValue(1, 3);
-        byte[] val4 = keyValue(2, 4);
+        byte[] val3 = keyValue(2, 3);
+        byte[] val4 = keyValue(1, 4);
         byte[] val5 = keyValue(1, 5);
-        byte[] val6 = keyValue(1, 6);
-        byte[] val7 = keyValue(1, 7);
+        byte[] val6 = keyValue(2, 6);
+        byte[] val7 = keyValue(2, 7);
+        byte[] val8 = keyValue(1, 8);
+        byte[] val9 = keyValue(1, 9);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
 
         putToMs(key1, val1);
         putToMs(key1, val2);
-        putToMs(key1, val3);
-        putToMs(key2, val4);
+        putToMs(key2, val3);
+        putToMs(key1, val4);
         putToMs(key1, val5);
-        putToMs(key1, val6);
-        putToMs(key1, val7);
+        putToMs(key2, val6);
+        putToMs(key2, val7);
+        putToMs(key1, val8);
+        putToMs(key1, val9);
 
-        assertEquals(7, storage.revision());
+        assertEquals(9, storage.revision());
+        assertEquals(9, storage.updateCounter());
 
-        List<Entry> entries = storage.get(key1, 3, 6);
+        List<Entry> entries1 = storage.getEntries(key1, 2, 5);
+        List<byte[]> values1 = entries1.stream().map(entry -> entry.value()).collect(Collectors.toList());
 
-        assertEquals(3, entries.size());
+        assertEquals(3, entries1.size());
+        assertTrue(values1.stream().anyMatch(e -> Arrays.equals(val2, e)));
+        assertTrue(values1.stream().anyMatch(e -> Arrays.equals(val4, e)));
+        assertTrue(values1.stream().anyMatch(e -> Arrays.equals(val5, e)));
 
-        List<byte[]> values = entries.stream().map(entry -> entry.value()).collect(Collectors.toList());
+        List<Entry> entries2 = storage.getEntries(key1, 3, 6);
+        List<byte[]> values2 = entries2.stream().map(entry -> entry.value()).collect(Collectors.toList());
 
-        assertTrue(values.stream().anyMatch(e -> Arrays.equals(val3, e)));
-        assertTrue(values.stream().anyMatch(e -> Arrays.equals(val5, e)));
-        assertTrue(values.stream().anyMatch(e -> Arrays.equals(val6, e)));
+        assertEquals(2, entries2.size());
+        assertTrue(values2.stream().anyMatch(e -> Arrays.equals(val4, e)));
+        assertTrue(values2.stream().anyMatch(e -> Arrays.equals(val5, e)));
+
+        List<Entry> entries3 = storage.getEntries(key1, 8, 8);
+        List<byte[]> values3 = entries3.stream().map(entry -> entry.value()).collect(Collectors.toList());
+
+        assertEquals(1, entries3.size());
+        assertTrue(values3.stream().anyMatch(e -> Arrays.equals(val8, e)));
+
+        List<Entry> entries4 = storage.getEntries(key1, 6, 7);
+
+        assertEquals(0, entries4.size());
+
+        assertThrows(AssertionError.class, () -> storage.getEntries(key1, -1, 1));
+        assertThrows(AssertionError.class, () -> storage.getEntries(key1, 1, -1));
+        assertThrows(AssertionError.class, () -> storage.getEntries(key1, 2, 1));
     }
 
     @Test

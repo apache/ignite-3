@@ -576,11 +576,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public List<Entry> get(byte[] key, long revLowerBound, long revUpperBound) {
+    public List<Entry> getEntries(byte[] key, long revLowerBound, long revUpperBound) {
         rwLock.readLock().lock();
 
         try {
-            return doGet(key, revLowerBound, revUpperBound);
+            return doGetEntries(key, revLowerBound, revUpperBound);
         } finally {
             rwLock.readLock().unlock();
         }
@@ -1227,11 +1227,23 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         return doGetValue(key, lastRev);
     }
 
-    private List<Entry> doGet(byte[] key, long revLowerBound, long revUpperBound) {
+    /**
+     * Gets the value by key and revisions.
+     *
+     * @param key            Target key.
+     * @param revLowerBound  Target lower bound of revision.
+     * @param revUpperBound  Target upper bound of revision.
+     * @return Value.
+     */
+    private List<Entry> doGetEntries(byte[] key, long revLowerBound, long revUpperBound) {
         assert revLowerBound >= 0 : "Invalid arguments: [revLowerBound=" + revLowerBound + ']';
         assert revUpperBound >= 0 : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
+        assert revUpperBound >= revLowerBound
+                : "Invalid arguments: [revLowerBound=" + revLowerBound + ", revUpperBound=" + revUpperBound + ']';
+        // TODO: IGNITE-19782 assert that revLowerBound is not compacted.
 
         long[] revs;
+
         try {
             revs = getRevisions(key);
         } catch (RocksDBException e) {
@@ -1242,14 +1254,25 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             return Collections.emptyList();
         }
 
-        List<Long> revisions = revisions(revs, revLowerBound, revUpperBound);
+        long firstRev = minRevision(revs, revLowerBound);
+        long lastRev = maxRevision(revs, revUpperBound);
 
-        // lastRev can be -1 if maxRevision return -1.
-        if (revisions.isEmpty()) {
+        // firstRev can be -1 if minRevision return -1. lastRev can be -1 if maxRevision return -1.
+        if (firstRev == -1 || lastRev == -1) {
             return Collections.emptyList();
         }
 
-        return doGetValues(key, revisions);
+        List<Entry> entries = new ArrayList<>();
+
+        for (int i = 0; i < revs.length; i++) {
+            long rev = revs[i];
+
+            if (rev >= firstRev && rev <= lastRev) {
+                entries.add(doGetValue(key, rev));
+            }
+        }
+
+        return entries;
     }
 
     /**
@@ -1289,18 +1312,24 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         return -1;
     }
 
-    private static List<Long> revisions(long[] revs, long lowerBoundRev, long upperBoundRev) {
-        List<Long> revsRange = new ArrayList<>();
-
-        for (int i = revs.length - 1; i >= 0; i--) {
+    /**
+     * Returns minimum revision which must be greater or equal to {@code lowerBoundRev}.
+     * If there is no such revision then {@code -1} will be returned.
+     *
+     * @param revs          Revisions list.
+     * @param lowerBoundRev Revision lower bound.
+     * @return Minimum revision or {@code -1} if there is no such revision.
+     */
+    private static long minRevision(long[] revs, long lowerBoundRev) {
+        for (int i = 0; i < revs.length; i++) {
             long rev = revs[i];
 
-            if (rev >= lowerBoundRev && rev <= upperBoundRev) {
-                revsRange.add(rev);
+            if (rev >= lowerBoundRev) {
+                return rev;
             }
         }
 
-        return revsRange;
+        return -1;
     }
 
     /**
@@ -1334,33 +1363,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
 
         return new EntryImpl(key, lastVal.bytes(), revision, lastVal.updateCounter());
-    }
-
-    private List<Entry> doGetValues(byte[] key, List<Long> revisions) {
-        List<Entry> entries = new ArrayList<>();
-
-        for (long rev : revisions) {
-            byte[] valueBytes;
-
-            try {
-                valueBytes = data.get(keyToRocksKey(rev, key));
-            } catch (RocksDBException e) {
-                throw new MetaStorageException(OP_EXECUTION_ERR, e);
-            }
-
-            if (valueBytes == null || valueBytes.length == 0) {
-                entries.add(EntryImpl.empty(key));
-
-                continue;
-            }
-
-            Value lastVal = bytesToValue(valueBytes);
-
-            entries.add(new EntryImpl(key, lastVal.bytes(), rev, lastVal.updateCounter()));
-        }
-
-
-        return entries;
     }
 
     /**
