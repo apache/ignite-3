@@ -145,7 +145,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             try {
                 return view.get(null, tupleKey(1)) != null;
             } catch (Exception e) {
-                // Ignore tx conflicts caused by deadlock detection mechanism issues (TODO ticket).
+                // Ignore tx conflicts caused by deadlock detection mechanism issues.
                 // noinspection CallToPrintStackTrace
                 e.printStackTrace();
                 return false;
