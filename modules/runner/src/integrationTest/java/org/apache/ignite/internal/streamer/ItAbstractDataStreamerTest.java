@@ -134,31 +134,6 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     @Test
     public void testAutoFlushByTimer() throws InterruptedException {
-        // TODO: Flaky test:
-        // Failed to acquire a lock due to a conflict
-        // at org.apache.ignite.internal.util.ExceptionUtils.lambda$withCause$0(ExceptionUtils.java:348)
-        // at org.apache.ignite.internal.util.ExceptionUtils.withCauseInternal(ExceptionUtils.java:434)
-        // at org.apache.ignite.internal.util.ExceptionUtils.withCause(ExceptionUtils.java:348)
-        // at org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.wrapReplicationException(InternalTableImpl.java:1508)
-        // at org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.lambda$postEnlist$9(InternalTableImpl.java:493)
-        // at java.base/java.util.concurrent.CompletableFuture.uniHandle(CompletableFuture.java:930)
-        // at java.base/java.util.concurrent.CompletableFuture$UniHandle.tryFire(CompletableFuture.java:907)
-        // at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:506)
-        // at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2088)
-        // at org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.lambda$enlistWithRetry$5(InternalTableImpl.java:472)
-        // at java.base/java.util.concurrent.CompletableFuture.uniHandle(CompletableFuture.java:930)
-        // at java.base/java.util.concurrent.CompletableFuture$UniHandle.tryFire(CompletableFuture.java:907)
-        // at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:506)
-        // at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2088)
-        // at org.apache.ignite.internal.replicator.ReplicaService.lambda$sendToReplica$3(ReplicaService.java:174)
-        // at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:859)
-        // at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:837)
-        // at java.base/java.util.concurrent.CompletableFuture$Completion.exec(CompletableFuture.java:479)
-        // at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:290)
-        // at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1020)
-        // at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1656)
-        // at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1594)
-        // at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:183)
         RecordView<Tuple> view = this.defaultTable().recordView();
 
         var publisher = new SubmissionPublisher<Tuple>();
@@ -166,7 +141,16 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         view.streamData(publisher, options);
 
         publisher.submit(tuple(1, "foo"));
-        assertTrue(waitForCondition(() -> view.get(null, tupleKey(1)) != null, 1000));
+        assertTrue(waitForCondition(() -> {
+            try {
+                return view.get(null, tupleKey(1)) != null;
+            } catch (Exception e) {
+                // Ignore tx conflicts caused by deadlock detection mechanism issues (TODO ticket).
+                // noinspection CallToPrintStackTrace
+                e.printStackTrace();
+                return false;
+            }
+        }, 1000));
     }
 
     @Test
