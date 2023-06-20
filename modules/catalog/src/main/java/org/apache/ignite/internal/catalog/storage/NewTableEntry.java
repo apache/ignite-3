@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -26,19 +26,19 @@ import org.apache.ignite.internal.tostring.S;
 public class NewTableEntry implements UpdateEntry {
     private static final long serialVersionUID = 2970125889493580121L;
 
-    private final TableDescriptor descriptor;
+    private final CatalogTableDescriptor descriptor;
 
     /**
      * Constructs the object.
      *
      * @param descriptor A descriptor of a table to add.
      */
-    public NewTableEntry(TableDescriptor descriptor) {
+    public NewTableEntry(CatalogTableDescriptor descriptor) {
         this.descriptor = descriptor;
     }
 
     /** Returns descriptor of a table to add. */
-    public TableDescriptor descriptor() {
+    public CatalogTableDescriptor descriptor() {
         return descriptor;
     }
 

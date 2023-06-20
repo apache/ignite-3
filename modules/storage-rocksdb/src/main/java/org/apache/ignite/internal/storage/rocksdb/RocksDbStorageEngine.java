@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -29,19 +28,20 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionView;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
+import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstanceCreator;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.RocksDB;
@@ -53,9 +53,6 @@ public class RocksDbStorageEngine implements StorageEngine {
     /** Engine name. */
     public static final String ENGINE_NAME = "rocksdb";
 
-    /** Prefix for table directories. */
-    private static final String TABLE_DIR_PREFIX = "table-";
-
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbStorageEngine.class);
 
     static {
@@ -66,26 +63,38 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     private final Path storagePath;
 
-    private final ExecutorService threadPool = Executors.newFixedThreadPool(
-            Runtime.getRuntime().availableProcessors(),
-            new NamedThreadFactory("rocksdb-storage-engine-pool", LOG)
-    );
+    private final ExecutorService threadPool;
 
-    private final ScheduledExecutorService scheduledPool = Executors.newSingleThreadScheduledExecutor(
-            new NamedThreadFactory("rocksdb-storage-engine-scheduled-pool", LOG)
-    );
+    private final ScheduledExecutorService scheduledPool;
 
     private final Map<String, RocksDbDataRegion> regions = new ConcurrentHashMap<>();
 
     /**
+     * Mapping from the data region name to the shared RocksDB instance. Map is filled lazily.
+     * Most likely, the association of shared instances with regions will be removed/revisited in the future.
+     */
+    //TODO IGNITE-19762 Think of proper way to use regions and storages.
+    private final Map<String, SharedRocksDbInstance> sharedInstances = new ConcurrentHashMap<>();
+
+    /**
      * Constructor.
      *
+     * @param nodeName Node name.
      * @param engineConfig RocksDB storage engine configuration.
      * @param storagePath Storage path.
      */
-    public RocksDbStorageEngine(RocksDbStorageEngineConfiguration engineConfig, Path storagePath) {
+    public RocksDbStorageEngine(String nodeName, RocksDbStorageEngineConfiguration engineConfig, Path storagePath) {
         this.engineConfig = engineConfig;
         this.storagePath = storagePath;
+
+        threadPool = Executors.newFixedThreadPool(
+                Runtime.getRuntime().availableProcessors(),
+                NamedThreadFactory.create(nodeName, "rocksdb-storage-engine-pool", LOG)
+        );
+
+        scheduledPool = Executors.newSingleThreadScheduledExecutor(
+                NamedThreadFactory.create(nodeName, "rocksdb-storage-engine-scheduled-pool", LOG)
+        );
     }
 
     /**
@@ -114,7 +123,6 @@ public class RocksDbStorageEngine implements StorageEngine {
         return ENGINE_NAME;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
         registerDataRegion(DEFAULT_DATA_REGION_NAME);
@@ -125,7 +133,7 @@ public class RocksDbStorageEngine implements StorageEngine {
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<RocksDbDataRegionView> ctx) {
                 registerDataRegion(ctx.newName(RocksDbDataRegionView.class));
 
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
         });
     }
@@ -144,40 +152,44 @@ public class RocksDbStorageEngine implements StorageEngine {
         assert previousRegion == null : dataRegionConfig.name().value();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
-        IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
-
-        IgniteUtils.shutdownAndAwaitTermination(scheduledPool, 10, TimeUnit.SECONDS);
-
         try {
-            IgniteUtils.closeAll(regions.values().stream().map(region -> region::stop));
+            IgniteUtils.closeAll(Stream.concat(
+                    regions.values().stream().map(region -> region::stop),
+                    sharedInstances.values().stream().map(instance -> instance::stop)
+            ));
         } catch (Exception e) {
-            throw new StorageException("Error when stopping regions", e);
+            throw new StorageException("Error when stopping the rocksdb engine", e);
         }
+
+        IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(scheduledPool, 10, TimeUnit.SECONDS);
     }
 
-    /** {@inheritDoc} */
     @Override
     public RocksDbTableStorage createMvTable(
-            TableConfiguration tableCfg, TablesConfiguration tablesCfg, DistributionZoneConfiguration distributionZoneCfg)
-            throws StorageException {
-        RocksDbDataStorageView dataStorageView =
-                (RocksDbDataStorageView) distributionZoneCfg.dataStorage().value();
+            StorageTableDescriptor tableDescriptor,
+            StorageIndexDescriptorSupplier indexDescriptorSupplier
+    ) throws StorageException {
+        RocksDbDataRegion dataRegion = regions.get(tableDescriptor.getDataRegion());
 
-        assert dataStorageView.name().equals(ENGINE_NAME) : dataStorageView.name();
+        int tableId = tableDescriptor.getId();
 
-        RocksDbDataRegion dataRegion = regions.get(dataStorageView.dataRegion());
+        assert dataRegion != null : "tableId=" + tableId + ", dataRegion=" + tableDescriptor.getDataRegion();
 
-        Path tablePath = storagePath.resolve(TABLE_DIR_PREFIX + tableCfg.id().value());
+        SharedRocksDbInstance sharedInstance = sharedInstances.computeIfAbsent(tableDescriptor.getDataRegion(), name -> {
+            try {
+                return new SharedRocksDbInstanceCreator().create(
+                        this,
+                        dataRegion,
+                        storagePath.resolve("rocksdb-" + name)
+                );
+            } catch (Exception e) {
+                throw new StorageException("Failed to create new RocksDB data region", e);
+            }
+        });
 
-        try {
-            Files.createDirectories(tablePath);
-        } catch (IOException e) {
-            throw new StorageException("Failed to create table store directory for " + tableCfg.name().value(), e);
-        }
-
-        return new RocksDbTableStorage(this, tablePath, dataRegion, tableCfg, tablesCfg, distributionZoneCfg);
+        return new RocksDbTableStorage(sharedInstance, tableDescriptor);
     }
 }

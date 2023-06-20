@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.storage;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -79,11 +80,11 @@ class UpdateLogImplTest {
         updateLog.registerUpdateHandler(update -> {/* no-op */});
         updateLog.start();
 
-        metastore.deployWatches();
+        assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 
         List<VersionedUpdate> expectedLog = List.of(
-                new VersionedUpdate(1, List.of(new TestUpdateEntry("foo"))),
-                new VersionedUpdate(2, List.of(new TestUpdateEntry("bar")))
+                new VersionedUpdate(1, 1L, List.of(new TestUpdateEntry("foo"))),
+                new VersionedUpdate(2, 2L, List.of(new TestUpdateEntry("bar")))
         );
 
         for (VersionedUpdate update : expectedLog) {
@@ -138,7 +139,7 @@ class UpdateLogImplTest {
 
         long revisionBefore = metastore.appliedRevision();
 
-        metastore.deployWatches();
+        assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 
         // first update should always be successful
         assertTrue(await(updateLog.append(singleEntryUpdateOfVersion(startVersion))));
@@ -172,7 +173,7 @@ class UpdateLogImplTest {
     }
 
     private static VersionedUpdate singleEntryUpdateOfVersion(int version) {
-        return new VersionedUpdate(version, List.of(new TestUpdateEntry("foo_" + version)));
+        return new VersionedUpdate(version, version, List.of(new TestUpdateEntry("foo_" + version)));
     }
 
     static class TestUpdateEntry implements UpdateEntry {

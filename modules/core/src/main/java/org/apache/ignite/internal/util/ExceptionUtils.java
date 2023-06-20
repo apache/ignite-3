@@ -79,6 +79,7 @@ public final class ExceptionUtils {
      * @param throwable The exception to examine.
      * @return The wrapped exception, or {@code null} if not found.
      */
+    @Nullable
     private static Throwable getCauseUsingWellKnownTypes(Throwable throwable) {
         if (throwable instanceof SQLException) {
             return ((SQLException) throwable).getNextException();
@@ -216,7 +217,8 @@ public final class ExceptionUtils {
      * @param mtdNames  The method names, null treated as default set.
      * @return The cause of the {@code Throwable}, {@code null} if none found or null throwable input.
      */
-    public static Throwable getCause(Throwable throwable, String[] mtdNames) {
+    @Nullable
+    public static Throwable getCause(@Nullable Throwable throwable, String[] mtdNames) {
         if (throwable == null) {
             return null;
         }

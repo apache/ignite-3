@@ -18,8 +18,9 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toIndexDescriptor;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
-import static org.apache.ignite.internal.storage.index.IndexDescriptor.createIndexDescriptor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -38,7 +39,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
@@ -48,18 +48,23 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -93,6 +98,9 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     /** Base port number. */
     private static final int BASE_PORT = 3344;
 
+    /** Base client port number. */
+    private static final int BASE_CLIENT_PORT = 10800;
+
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  \"network\": {\n"
@@ -100,7 +108,8 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             + "    \"nodeFinder\":{\n"
             + "      \"netClusterNodes\": [ {} ]\n"
             + "    }\n"
-            + "  }\n"
+            + "  },\n"
+            + "  clientConnector: { port:{} }\n"
             + "}";
 
     /** Cluster nodes. */
@@ -140,7 +149,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         for (int i = 0; i < nodes(); i++) {
             String nodeName = testNodeName(testInfo, i);
 
-            String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr);
+            String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr, BASE_CLIENT_PORT + i);
 
             futures.add(TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName)));
         }
@@ -233,7 +242,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     /**
      * Invokes after the test has finished.
      *
-     * @param testInfo Test information oject.
+     * @param testInfo Test information object.
      * @throws Exception If failed.
      */
     @AfterEach
@@ -465,20 +474,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
-     * Waits for all nodes in the cluster to have the given index in the configuration.
-     *
-     * @param indexName  An index.
-     */
-    public static void waitForIndex(String indexName) throws InterruptedException {
-        // FIXME: Wait for the index to be created on all nodes,
-        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the index.
-        assertTrue(waitForCondition(
-                () -> CLUSTER_NODES.stream().map(node -> getIndexConfiguration(node, indexName)).allMatch(Objects::nonNull),
-                10_000)
-        );
-    }
-
-    /**
      * Waits for the index to be built on all nodes.
      *
      * @param tableName Table name.
@@ -512,11 +507,16 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                     continue;
                 }
 
-                TablesView tablesView = getTablesConfiguration(clusterNode).value();
+                TableView tableView = getTableConfiguration(clusterNode, tableName).value();
+                TableIndexView indexView = getIndexConfiguration(clusterNode, indexName).value();
 
-                int indexId = tablesView.indexes().get(indexName.toUpperCase()).id();
+                CatalogTableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
+                CatalogIndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
 
-                IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, createIndexDescriptor(tablesView, indexId));
+                IndexStorage index = internalTable.storage().getOrCreateIndex(
+                        partitionId,
+                        StorageIndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor)
+                );
 
                 assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));
 
@@ -573,5 +573,16 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         TableIndexConfiguration indexConfig = getIndexConfiguration(node, indexName);
 
         return indexConfig == null ? null : indexConfig.id().value();
+    }
+
+    /**
+     * Returns table configuration of the given table at the given node, or {@code null} if no such table exists.
+     *
+     * @param node Node.
+     * @param tableName Table name.
+     * @return Table configuration.
+     */
+    private static @Nullable TableConfiguration getTableConfiguration(Ignite node, String tableName) {
+        return getTablesConfiguration(node).tables().get(tableName.toUpperCase());
     }
 }

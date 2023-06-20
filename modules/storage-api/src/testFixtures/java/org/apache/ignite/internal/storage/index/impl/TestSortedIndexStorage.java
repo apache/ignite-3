@@ -37,8 +37,8 @@ import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
 
@@ -50,15 +50,15 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
 
     private final NavigableSet<IndexRow> index;
 
-    private final SortedIndexDescriptor descriptor;
+    private final StorageSortedIndexDescriptor descriptor;
 
     /**
      * Constructor.
      */
-    public TestSortedIndexStorage(int partitionId, SortedIndexDescriptor descriptor) {
+    public TestSortedIndexStorage(int partitionId, StorageSortedIndexDescriptor descriptor) {
         super(partitionId);
 
-        BinaryTupleComparator binaryTupleComparator = new BinaryTupleComparator(descriptor);
+        BinaryTupleComparator binaryTupleComparator = new BinaryTupleComparator(descriptor.columns());
 
         this.partitionId = partitionId;
         this.descriptor = descriptor;
@@ -69,7 +69,7 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
     }
 
     @Override
-    public SortedIndexDescriptor indexDescriptor() {
+    public StorageSortedIndexDescriptor indexDescriptor() {
         return descriptor;
     }
 
@@ -143,7 +143,7 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
     }
 
     private IndexRowImpl prefixToIndexRow(BinaryTuplePrefix prefix, RowId rowId) {
-        var binaryTuple = new BinaryTuple(descriptor.binaryTupleSchema(), prefix.byteBuffer());
+        var binaryTuple = new BinaryTuple(descriptor.binaryTupleSchema().elementCount(), prefix.byteBuffer());
 
         return new IndexRowImpl(binaryTuple, rowId);
     }

@@ -118,11 +118,11 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
 
     protocol::reader reader(msg);
 
-    auto verMajor = reader.read_int16();
-    auto verMinor = reader.read_int16();
-    auto verPatch = reader.read_int16();
+    auto ver_major = reader.read_int16();
+    auto ver_minor = reader.read_int16();
+    auto ver_patch = reader.read_int16();
 
-    protocol_version ver(verMajor, verMinor, verPatch);
+    protocol_version ver(ver_major, ver_minor, ver_patch);
     m_logger->log_debug("Server-side protocol version: " + ver.to_string());
 
     // We now only support a single version

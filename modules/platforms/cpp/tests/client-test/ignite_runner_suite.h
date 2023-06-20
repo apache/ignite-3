@@ -21,6 +21,7 @@
 #include "ignite/client/ignite_client_configuration.h"
 
 #include "gtest_logger.h"
+#include "ignite_runner.h"
 #include "test_utils.h"
 
 #include <gtest/gtest.h>
@@ -37,9 +38,6 @@ using namespace std::string_view_literals;
  */
 class ignite_runner_suite : public ::testing::Test {
 public:
-    static constexpr std::initializer_list<std::string_view> SINGLE_NODE_ADDR = {"127.0.0.1:10942"sv};
-    static constexpr std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942"sv, "127.0.0.1:10943"sv};
-
     static constexpr std::string_view TABLE_1 = "tbl1"sv;
     static constexpr std::string_view TABLE_NAME_ALL_COLUMNS = "tbl_all_columns"sv;
     static constexpr std::string_view TABLE_NAME_ALL_COLUMNS_SQL = "tbl_all_columns_sql"sv;
@@ -59,18 +57,6 @@ public:
 
     static constexpr const char *KEY_COLUMN = "key";
     static constexpr const char *VAL_COLUMN = "val";
-
-    /**
-     * Get node addresses to use for tests.
-     *
-     * @return Addresses.
-     */
-    static std::initializer_list<std::string_view> get_node_addrs() {
-        if (single_node_mode())
-            return SINGLE_NODE_ADDR;
-
-        return NODE_ADDRS;
-    }
 
     /**
      * Get logger.
@@ -105,6 +91,15 @@ public:
      * @return Ignite tuple instance.
      */
     static ignite_tuple get_tuple(std::string val) { return {{VAL_COLUMN, std::move(val)}}; }
+
+    /**
+     * Get node addresses to use for tests.
+     *
+     * @return Addresses.
+     */
+    static std::vector<std::string> get_node_addrs() {
+        return ignite_runner::get_node_addrs();
+    }
 
     /**
      * Clear table @c TABLE_1.

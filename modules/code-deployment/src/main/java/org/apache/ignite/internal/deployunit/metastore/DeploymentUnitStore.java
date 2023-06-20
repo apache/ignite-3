@@ -31,8 +31,6 @@ import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
  * Metastore for deployment units.
  */
 public interface DeploymentUnitStore {
-
-
     /**
      * Register node statuses change events listener.
      *

@@ -120,7 +120,8 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     @DisplayName("Should display correct status after deploy")
     void deployAndStatusCheck() {
         // When deploy with version
-        execute("cluster", "unit", "deploy", "test.unit.id.5", "--version", "1.0.0", "--path", testFile);
+        String id = "test.unit.id.5";
+        execute("cluster", "unit", "deploy", id, "--version", "1.0.0", "--path", testFile);
 
         // Then
         assertAll(
@@ -131,14 +132,9 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
 
         await().untilAsserted(() -> {
             resetOutput();
-            execute("cluster", "unit", "list", "test.unit.id.5");
+            execute("cluster", "unit", "list", "--plain", id);
 
-            assertAll(
-                    this::assertExitCodeIsZero,
-                    this::assertErrOutputIsEmpty,
-                    () -> assertOutputContains("1.0.0"),
-                    () -> assertOutputContains("DEPLOYED")
-            );
+            assertDeployed(id);
         });
     }
 
@@ -154,6 +150,85 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Done")
         );
+    }
+
+    @Test
+    @DisplayName("Should display correct status after deploy to the specified nodes")
+    void deployToNodesAndStatusCheck() {
+        // When deploy with version
+        String node = allNodeNames().get(1);
+        String id = "test.unit.id.7";
+        execute("cluster", "unit", "deploy", id, "--version", "1.0.0", "--path", testFile, "--nodes", node);
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Done")
+        );
+
+        await().untilAsserted(() -> {
+            resetOutput();
+            execute("cluster", "unit", "list", "--plain", id);
+
+            // Unit is deployed on all requested nodes
+            assertDeployed(id);
+
+            resetOutput();
+            execute("node", "unit", "list", "--plain", "--node-url", "http://localhost:10300", id);
+
+            // Unit is deployed on the CMG node
+            assertDeployed(id);
+
+            resetOutput();
+            execute("node", "unit", "list", "--plain", "--node-url", "http://localhost:10301", id);
+
+            // Unit is deployed on the requested node
+            assertDeployed(id);
+
+            resetOutput();
+            execute("node", "unit", "list", "--plain", "--node-url", "http://localhost:10302", id);
+
+            // Unit is not deployed on the other node
+            assertAll(
+                    this::assertExitCodeIsZero,
+                    this::assertErrOutputIsEmpty,
+                    this::assertOutputIsEmpty
+            );
+        });
+    }
+
+    @Test
+    @DisplayName("Should display correct status on after deploy to all nodes")
+    void deployToAllAndStatusCheck() {
+        // When deploy with version
+        String id = "test.unit.id.8";
+        execute("cluster", "unit", "deploy", id, "--version", "1.0.0", "--path", testFile, "--nodes", "ALL");
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Done")
+        );
+
+        await().untilAsserted(() -> {
+            resetOutput();
+            execute("cluster", "unit", "list", "--plain", id);
+
+            // Unit is deployed on all requested nodes
+            assertDeployed(id);
+
+            for (int i = 0; i < CLUSTER_NODES.size(); i++) {
+                resetOutput();
+
+                String nodeUrl = "http://localhost:" + (10300 + i);
+                execute("node", "unit", "list", "--plain", "--node-url", nodeUrl, id);
+
+                // Unit is deployed on the node
+                assertDeployed(id);
+            }
+        });
     }
 
     @Test
@@ -184,22 +259,25 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
             resetOutput();
             execute("cluster", "unit", "list", "--plain", "test-unit");
 
-            assertAll(
-                    this::assertExitCodeIsZero,
-                    this::assertErrOutputIsEmpty,
-                    () -> assertOutputIs("id\tversion\tstatus" + System.lineSeparator()
-                            + "test-unit\t1.0.0\tDEPLOYED" + System.lineSeparator())
-            );
+            assertDeployed("test-unit");
         });
 
         resetOutput();
         execute("node", "unit", "list", "--plain", "test-unit");
 
+        assertDeployed("test-unit");
+    }
+
+    private void assertDeployed(String id) {
+        assertDeployed(id, "1.0.0");
+    }
+
+    private void assertDeployed(String id, String version) {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputIs("id\tversion\tstatus" + System.lineSeparator()
-                        + "test-unit\t1.0.0\tDEPLOYED" + System.lineSeparator())
+                        + id + "\t" + version + "\tDEPLOYED" + System.lineSeparator())
         );
     }
 }

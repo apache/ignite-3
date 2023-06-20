@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collection;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.network.annotations.Marshallable;
 
@@ -27,8 +30,22 @@ import org.apache.ignite.network.annotations.Marshallable;
  * Multiple row replica request.
  */
 public interface MultipleRowReplicaRequest extends ReplicaRequest {
-    @Marshallable
-    Collection<BinaryRow> binaryRows();
+    Collection<ByteBuffer> binaryRowsBytes();
+
+    /**
+     * Deserializes binary row byte buffers into binary rows.
+     */
+    default Collection<BinaryRow> binaryRows() {
+        Collection<ByteBuffer> binaryRowsBytes = binaryRowsBytes();
+
+        var result = new ArrayList<BinaryRow>(binaryRowsBytes.size());
+
+        for (ByteBuffer buffer : binaryRowsBytes) {
+            result.add(new ByteBufferRow(buffer));
+        }
+
+        return result;
+    }
 
     @Marshallable
     RequestType requestType();

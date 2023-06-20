@@ -173,7 +173,7 @@ public class SslTests : IgniteTestsBase
         cfg.SslStreamFactory = new NullSslStreamFactory();
 
         using var client = await IgniteClient.StartAsync(cfg);
-        Assert.IsNull(client.GetConnections().Single().SslInfo);
+        Assert.IsNull(client.GetConnections().First().SslInfo);
     }
 
     [Test]

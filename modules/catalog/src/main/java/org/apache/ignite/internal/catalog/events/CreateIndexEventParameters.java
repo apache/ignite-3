@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 
 /**
  * Create index event parameters that contains a newly created index descriptor.
  */
 public class CreateIndexEventParameters extends CatalogEventParameters {
 
-    private final IndexDescriptor indexDescriptor;
+    private final CatalogIndexDescriptor indexDescriptor;
 
     /**
      * Constructor.
@@ -32,7 +32,7 @@ public class CreateIndexEventParameters extends CatalogEventParameters {
      * @param causalityToken Causality token.
      * @param indexDescriptor Newly created index descriptor.
      */
-    public CreateIndexEventParameters(long causalityToken, IndexDescriptor indexDescriptor) {
+    public CreateIndexEventParameters(long causalityToken, CatalogIndexDescriptor indexDescriptor) {
         super(causalityToken);
 
         this.indexDescriptor = indexDescriptor;
@@ -41,7 +41,7 @@ public class CreateIndexEventParameters extends CatalogEventParameters {
     /**
      * Gets index descriptor for a newly created index.
      */
-    public IndexDescriptor indexDescriptor() {
+    public CatalogIndexDescriptor indexDescriptor() {
         return indexDescriptor;
     }
 }

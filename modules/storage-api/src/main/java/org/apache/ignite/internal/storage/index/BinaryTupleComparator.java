@@ -19,17 +19,18 @@ package org.apache.ignite.internal.storage.index;
 
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.EQUALITY_FLAG;
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FLAG;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.row.InternalTuple;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 
 /**
  * Comparator implementation for comparing {@link BinaryTuple}s on a per-column basis.
@@ -39,13 +40,13 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedInde
  * Otherwise comparison result is determined by the first non-matching column.
  */
 public class BinaryTupleComparator implements Comparator<ByteBuffer> {
-    private final SortedIndexDescriptor descriptor;
+    private final List<StorageSortedIndexColumnDescriptor> columns;
 
     /**
-     * Creates a comparator for a Sorted Index identified by the given descriptor.
+     * Creates a comparator for a Sorted Index identified by the given columns descriptors.
      */
-    public BinaryTupleComparator(SortedIndexDescriptor descriptor) {
-        this.descriptor = descriptor;
+    public BinaryTupleComparator(List<StorageSortedIndexColumnDescriptor> columns) {
+        this.columns = columns;
     }
 
     @Override
@@ -56,17 +57,17 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
         boolean isBuffer1Prefix = isFlagSet(buffer1, PREFIX_FLAG);
         boolean isBuffer2Prefix = isFlagSet(buffer2, PREFIX_FLAG);
 
-        BinaryTupleSchema schema = descriptor.binaryTupleSchema();
+        int numElements = columns.size();
 
-        InternalTuple tuple1 = isBuffer1Prefix ? new BinaryTuplePrefix(schema, buffer1) : new BinaryTuple(schema, buffer1);
-        InternalTuple tuple2 = isBuffer2Prefix ? new BinaryTuplePrefix(schema, buffer2) : new BinaryTuple(schema, buffer2);
+        BinaryTupleReader tuple1 = isBuffer1Prefix ? new BinaryTuplePrefix(numElements, buffer1) : new BinaryTuple(numElements, buffer1);
+        BinaryTupleReader tuple2 = isBuffer2Prefix ? new BinaryTuplePrefix(numElements, buffer2) : new BinaryTuple(numElements, buffer2);
 
-        int columnsToCompare = Math.min(tuple1.count(), tuple2.count());
+        int columnsToCompare = Math.min(tuple1.elementCount(), tuple2.elementCount());
 
-        assert columnsToCompare <= descriptor.columns().size();
+        assert columnsToCompare <= columns.size();
 
         for (int i = 0; i < columnsToCompare; i++) {
-            SortedIndexColumnDescriptor columnDescriptor = descriptor.columns().get(i);
+            StorageSortedIndexColumnDescriptor columnDescriptor = columns.get(i);
 
             int compare = compareField(tuple1, tuple2, i);
 
@@ -90,7 +91,7 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
     /**
      * Compares individual fields of two tuples.
      */
-    private int compareField(InternalTuple tuple1, InternalTuple tuple2, int index) {
+    private int compareField(BinaryTupleReader tuple1, BinaryTupleReader tuple2, int index) {
         boolean tuple1HasNull = tuple1.hasNullValue(index);
         boolean tuple2HasNull = tuple2.hasNullValue(index);
 
@@ -103,7 +104,7 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
             return -1;
         }
 
-        SortedIndexColumnDescriptor columnDescriptor = descriptor.columns().get(index);
+        StorageSortedIndexColumnDescriptor columnDescriptor = columns.get(index);
 
         NativeTypeSpec typeSpec = columnDescriptor.type().spec();
 
@@ -132,21 +133,34 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
             case BITMASK:
                 return Arrays.compare(tuple1.bitmaskValue(index).toLongArray(), tuple2.bitmaskValue(index).toLongArray());
 
-            // all other types implement Comparable
-            case DECIMAL:
             case UUID:
+                return tuple1.uuidValue(index).compareTo(tuple2.uuidValue(index));
+
             case STRING:
+                return tuple1.stringValue(index).compareTo(tuple2.stringValue(index));
+
             case NUMBER:
+            case DECIMAL:
+                // Floating point position is irrelevant during comparison.
+                // The only real requirement is that it matches in both arguments, and it does.
+                return tuple1.numberValue(index).compareTo(tuple2.numberValue(index));
+
             case TIMESTAMP:
+                return tuple1.timestampValue(index).compareTo(tuple2.timestampValue(index));
+
             case DATE:
+                return tuple1.dateValue(index).compareTo(tuple2.dateValue(index));
+
             case TIME:
+                return tuple1.timeValue(index).compareTo(tuple2.timeValue(index));
+
             case DATETIME:
-                return ((Comparable) typeSpec.objectValue(tuple1, index)).compareTo(typeSpec.objectValue(tuple2, index));
+                return tuple1.dateTimeValue(index).compareTo(tuple2.dateTimeValue(index));
 
             default:
-                throw new IllegalArgumentException(String.format(
-                        "Unsupported column type in binary tuple comparator. Column name: %s, column type: %s",
-                        columnDescriptor.name(), columnDescriptor.type()
+                throw new IllegalArgumentException(format(
+                        "Unsupported column type in binary tuple comparator. [index={}, type={}]",
+                        index, columnDescriptor.type()
                 ));
         }
     }

@@ -3324,6 +3324,7 @@ public class ItNodeTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19688")
     public void testChangePeersStepsDownInJointConsensus() throws Exception {
         List<TestPeer> peers = new ArrayList<>();
 

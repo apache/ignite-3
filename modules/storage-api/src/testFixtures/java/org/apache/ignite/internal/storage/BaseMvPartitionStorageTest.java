@@ -18,27 +18,18 @@
 package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Base test for MV partition storages.
  */
-@ExtendWith(ConfigurationExtension.class)
 public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     protected static final int PARTITION_ID = 1;
 
@@ -54,14 +45,6 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
 
     protected static final BinaryRow TABLE_ROW2 = binaryRow(KEY, new TestValue(30, "bar"));
 
-    protected @InjectConfiguration("mock.tables.foo = {}") TablesConfiguration tablesCfg;
-
-    protected @InjectConfiguration DistributionZoneConfiguration distributionZoneCfg;
-
-    protected StorageEngine engine;
-
-    protected MvTableStorage table;
-
     protected MvPartitionStorage storage;
 
     /**
@@ -71,33 +54,18 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
         return UUID.randomUUID();
     }
 
-    protected abstract StorageEngine createEngine();
-
-    @BeforeEach
-    protected void setUp() {
-        TableConfiguration tableCfg = tablesCfg.tables().get("foo");
-
-        engine = createEngine();
-
-        engine.start();
-
-        distributionZoneCfg.dataStorage()
-                .change(ds -> ds.convert(engine.name())).join();
-
-        table = engine.createMvTable(tableCfg, tablesCfg, distributionZoneCfg);
-
-        table.start();
-
-        storage = getOrCreateMvPartition(table, PARTITION_ID);
-    }
-
     @AfterEach
     protected void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                storage == null ? null : storage::close,
-                table == null ? null : table::stop,
-                engine == null ? null : engine::stop
-        );
+        IgniteUtils.closeAllManually(storage);
+    }
+
+    /**
+     * Initializes the internal structures needed for tests.
+     *
+     * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
+     */
+    protected final void initialize(MvTableStorage tableStorage) {
+        storage = getOrCreateMvPartition(tableStorage, PARTITION_ID);
     }
 
     /**
@@ -160,7 +128,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     }
 
     /**
-     * Writes a row to storage like if it was first added using {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)}
+     * Writes a row to storage like if it was first added using {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)}
      * and immediately committed with {@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)}.
      */
     protected void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) {

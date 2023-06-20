@@ -25,6 +25,8 @@ dependencies {
     implementation project(':ignite-table')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-core')
+    implementation project(':ignite-code-deployment')
+    implementation project(':ignite-rest-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations

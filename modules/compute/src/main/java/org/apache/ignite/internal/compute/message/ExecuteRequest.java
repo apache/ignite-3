@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.message;
 
+import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.network.NetworkMessage;
@@ -29,6 +30,13 @@ import org.jetbrains.annotations.Nullable;
  */
 @Transferable(value = ComputeMessageTypes.EXECUTE_REQUEST)
 public interface ExecuteRequest extends NetworkMessage {
+    /**
+     * Returns list of deployment units.
+     *
+     * @return list of deployment units
+     */
+    List<DeploymentUnitMsg> deploymentUnits();
+
     /**
      * Returns job class name.
      *

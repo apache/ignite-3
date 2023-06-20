@@ -20,6 +20,9 @@ package org.apache.ignite.internal.storage.index;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toSortedIndexDescriptor;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
+import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.addIndex;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
@@ -53,7 +56,10 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesView;
+import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder;
 import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
@@ -63,7 +69,7 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnType.ColumnT
 import org.apache.ignite.internal.schema.testutils.definition.index.ColumnarIndexDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinition;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.storage.index.impl.TestIndexRow;
 import org.apache.ignite.internal.testframework.VariableSource;
@@ -77,7 +83,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 /**
  * Base class for Sorted Index storage tests.
  */
-public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorageTest<SortedIndexStorage, SortedIndexDescriptor> {
+public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorageTest<SortedIndexStorage, StorageSortedIndexDescriptor> {
     private static final IgniteLogger log = Loggers.forClass(AbstractSortedIndexStorageTest.class);
 
     @Override
@@ -129,14 +135,17 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         TablesView tablesView = tablesCfg.value();
 
+        TableIndexView indexView = tablesView.indexes().get(indexDefinition.name());
+        TableView tableView = findTableView(tablesView, indexView.tableId());
+
         return tableStorage.getOrCreateSortedIndex(
                 TEST_PARTITION,
-                new SortedIndexDescriptor(tablesView.indexes().get(indexDefinition.name()).id(), tablesView)
+                new StorageSortedIndexDescriptor(toTableDescriptor(tableView), toSortedIndexDescriptor((SortedIndexView) indexView))
         );
     }
 
     @Override
-    protected SortedIndexDescriptor indexDescriptor(SortedIndexStorage index) {
+    protected StorageSortedIndexDescriptor indexDescriptor(SortedIndexStorage index) {
         return index.indexDescriptor();
     }
 
@@ -148,7 +157,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, ALL_TYPES_COLUMN_DEFINITIONS);
 
         Object[] columns = indexStorage.indexDescriptor().columns().stream()
-                .map(SortedIndexColumnDescriptor::type)
+                .map(StorageSortedIndexColumnDescriptor::type)
                 .map(type -> SchemaTestUtils.generateRandomValue(random, type))
                 .toArray();
 

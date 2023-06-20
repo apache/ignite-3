@@ -84,12 +84,12 @@ public class ItSslTest extends IgniteIntegrationTest {
         String sslDisabledBoostrapConfig = "{\n"
                 + "  network: {\n"
                 + "    ssl.enabled: false,\n"
-                + "    port: 3355,\n"
-                + "    portRange: 2,\n"
+                + "    port: {},\n"
                 + "    nodeFinder:{\n"
-                + "      netClusterNodes: [ \"localhost:3355\", \"localhost:3356\" ]\n"
+                + "      netClusterNodes: [ {}, \"localhost:3355\", \"localhost:3356\" ]\n"
                 + "    }\n"
-                + "  }\n"
+                + "  },\n"
+                + "  clientConnector: { port: {} }\n"
                 + "}";
 
         @BeforeAll
@@ -176,12 +176,12 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "        path: \"" + escapeWindowsPath(keyStorePath) + "\""
                 + "      }\n"
                 + "    },\n"
-                + "    port: 3345,\n"
-                + "    portRange: 2,\n"
+                + "    port: {},\n"
                 + "    nodeFinder:{\n"
-                + "      netClusterNodes: [ \"localhost:3345\", \"localhost:3346\" ]\n"
+                + "      netClusterNodes: [ {}, \"localhost:3345\", \"localhost:3346\" ]\n"
                 + "    }\n"
                 + "  },\n"
+                + "  clientConnector: { port: {} },\n"
                 + "  clientConnector.ssl: {\n"
                 + "    enabled: true, "
                 + "    keyStore: {\n"
@@ -385,12 +385,13 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "        path: \"" + escapeWindowsPath(keyStorePath) + "\""
                 + "      }\n"
                 + "    },\n"
-                + "    port: 3365,\n"
+                + "    port: {},\n"
                 + "    portRange: 2,\n"
                 + "    nodeFinder:{\n"
-                + "      netClusterNodes: [ \"localhost:3365\", \"localhost:3366\" ]\n"
+                + "      netClusterNodes: [ {}, \"localhost:3365\", \"localhost:3366\" ]\n"
                 + "    }\n"
                 + "  },\n"
+                + "  clientConnector: { port: {} },\n"
                 + "  clientConnector.ssl: {\n"
                 + "    enabled: true, "
                 + "    clientAuth: \"require\", "
@@ -506,7 +507,7 @@ public class ItSslTest extends IgniteIntegrationTest {
         String sslEnabledWithCipher1BoostrapConfig = createBoostrapConfig("TLS_AES_256_GCM_SHA384");
         String sslEnabledWithCipher2BoostrapConfig = createBoostrapConfig("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384");
 
-        CompletableFuture<IgniteImpl> node1 = cluster.startClusterNode(0, sslEnabledWithCipher1BoostrapConfig);
+        CompletableFuture<IgniteImpl> node1 = cluster.startNodeAsync(0, sslEnabledWithCipher1BoostrapConfig);
 
         String metaStorageAndCmgNodeName = testNodeName(testInfo, 0);
 
@@ -521,7 +522,7 @@ public class ItSslTest extends IgniteIntegrationTest {
         // First node will initialize the cluster with single node successfully since the second node can't connect to it.
         assertThat(node1, willCompleteSuccessfully());
 
-        CompletableFuture<IgniteImpl> node2 = cluster.startClusterNode(1, sslEnabledWithCipher2BoostrapConfig);
+        CompletableFuture<IgniteImpl> node2 = cluster.startNodeAsync(1, sslEnabledWithCipher2BoostrapConfig);
         assertThat(node2, willTimeoutIn(1, TimeUnit.SECONDS));
 
         cluster.shutdown();
@@ -543,12 +544,13 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "        path: \"" + escapeWindowsPath(keyStorePath) + "\""
                 + "      }\n"
                 + "    },\n"
-                + "    port: 3345,\n"
+                + "    port: {},\n"
                 + "    portRange: 2,\n"
                 + "    nodeFinder:{\n"
-                + "      netClusterNodes: [ \"localhost:3345\", \"localhost:3346\" ]\n"
+                + "      netClusterNodes: [ {}, \"localhost:3345\", \"localhost:3346\" ]\n"
                 + "    }\n"
                 + "  },\n"
+                + "  clientConnector.port: {},\n"
                 + "  clientConnector.ssl: {\n"
                 + "    enabled: true, "
                 + "    ciphers: " + ciphers + ",\n"

@@ -20,5 +20,5 @@ package org.apache.ignite.internal.placementdriver.message;
 /**
  * This is a marker interface. It marks a massage type that is sent from placement driver actor to a replica.
  */
-public interface PlacementDriverReplicaMessage extends PlacementDriverMessage {
+public interface PlacementDriverReplicaMessage extends PlacementDriverGroupMessage {
 }

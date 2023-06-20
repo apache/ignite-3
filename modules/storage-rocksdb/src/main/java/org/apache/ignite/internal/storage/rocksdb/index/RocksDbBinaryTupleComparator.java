@@ -19,8 +19,9 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.List;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.rocksdb.AbstractComparator;
 import org.rocksdb.ComparatorOptions;
 
@@ -36,17 +37,17 @@ public class RocksDbBinaryTupleComparator extends AbstractComparator {
     /**
      * Constructor.
      *
-     * @param descriptor Sorted Index descriptor.
+     * @param columns Sorted Index columns descriptors.
      */
-    public RocksDbBinaryTupleComparator(SortedIndexDescriptor descriptor) {
-        this(descriptor, new ComparatorOptions());
+    public RocksDbBinaryTupleComparator(List<StorageSortedIndexColumnDescriptor> columns) {
+        this(columns, new ComparatorOptions());
     }
 
-    private RocksDbBinaryTupleComparator(SortedIndexDescriptor descriptor, ComparatorOptions options) {
+    private RocksDbBinaryTupleComparator(List<StorageSortedIndexColumnDescriptor> columns, ComparatorOptions options) {
         super(options);
 
         this.options = options;
-        this.comparator = new BinaryTupleComparator(descriptor);
+        this.comparator = new BinaryTupleComparator(columns);
     }
 
     @Override
@@ -56,6 +57,13 @@ public class RocksDbBinaryTupleComparator extends AbstractComparator {
 
     @Override
     public int compare(ByteBuffer a, ByteBuffer b) {
+        int compareTableId = Integer.compare(a.getInt(), b.getInt());
+
+        if (compareTableId != 0) {
+            return compareTableId;
+        }
+
+        // Compare table ids.
         int comparePartitionId = Short.compareUnsigned(a.getShort(), b.getShort());
 
         if (comparePartitionId != 0) {

@@ -65,6 +65,9 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
     /** Default node port. */
     private static final int DEFAULT_NODE_PORT = 3344;
 
+    /** Default client port. */
+    private static final int DEFAULT_CLIENT_PORT = 10800;
+
     /** Value producer for table data, is used to create data and check it later. */
     private static final IntFunction<String> VALUE_PRODUCER = i -> "val " + i;
 
@@ -74,7 +77,8 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  network.port: {},\n"
-            + "  network.nodeFinder.netClusterNodes: {}\n"
+            + "  network.nodeFinder.netClusterNodes: {},\n"
+            + "  clientConnector.port: {}\n"
             + "}";
 
     /** Cluster nodes. */
@@ -159,11 +163,12 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
      */
     private static String configurationString(int idx) {
         int port = DEFAULT_NODE_PORT + idx;
+        int clientPort = DEFAULT_CLIENT_PORT + idx;
 
         // The address of the first node.
         @Language("HOCON") String connectAddr = "[localhost\":\"" + DEFAULT_NODE_PORT + "]";
 
-        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, port, connectAddr);
+        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, port, connectAddr, clientPort);
     }
 
     /**

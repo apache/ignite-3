@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -60,7 +61,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -114,6 +114,9 @@ public class ItDistributedConfigurationPropertiesTest {
 
         private final ConfigurationManager distributedCfgManager;
 
+        /** The future have to be complete after the node start and all Meta storage watches are deployd. */
+        private final CompletableFuture<Void> deployWatchesFut;
+
         /** Flag that disables storage updates. */
         private volatile boolean receivesUpdates = true;
 
@@ -161,6 +164,8 @@ public class ItDistributedConfigurationPropertiesTest {
                     clock
             );
 
+            deployWatchesFut = metaStorageManager.deployWatches();
+
             // create a custom storage implementation that is able to "lose" some storage updates
             var distributedCfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager) {
                 /** {@inheritDoc} */
@@ -206,14 +211,14 @@ public class ItDistributedConfigurationPropertiesTest {
             Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
                     .forEach(IgniteComponent::start);
 
-            // deploy watches to propagate data from the metastore into the vault
-            try {
-                metaStorageManager.deployWatches();
-            } catch (NodeStoppingException e) {
-                throw new RuntimeException(e);
-            }
-
             distributedCfgManager.start();
+        }
+
+        /**
+         * Waits for watches deployed.
+         */
+        void waitWatches() {
+            assertThat("Watches were not deployed", deployWatchesFut, willCompleteSuccessfully());
         }
 
         /**
@@ -286,6 +291,8 @@ public class ItDistributedConfigurationPropertiesTest {
         Stream.of(firstNode, secondNode).parallel().forEach(Node::start);
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(), "cluster");
+
+        Stream.of(firstNode, secondNode).parallel().forEach(Node::waitWatches);
     }
 
     /**

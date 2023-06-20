@@ -30,10 +30,10 @@ import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.IndexColumnDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -91,14 +91,14 @@ public class IgniteSchemaIndex {
         return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTable, name, proj, condition, requiredCols);
     }
 
-    static RelCollation createIndexCollation(IndexDescriptor descriptor, TableDescriptor tableDescriptor) {
-        if (descriptor instanceof SortedIndexDescriptor) {
-            SortedIndexDescriptor sortedIndexDescriptor = (SortedIndexDescriptor) descriptor;
-            List<IndexColumnDescriptor> columns = sortedIndexDescriptor.columns();
+    static RelCollation createIndexCollation(CatalogIndexDescriptor descriptor, TableDescriptor tableDescriptor) {
+        if (descriptor instanceof CatalogSortedIndexDescriptor) {
+            CatalogSortedIndexDescriptor sortedIndexDescriptor = (CatalogSortedIndexDescriptor) descriptor;
+            List<CatalogIndexColumnDescriptor> columns = sortedIndexDescriptor.columns();
             List<RelFieldCollation> fieldCollations = new ArrayList<>(columns.size());
 
             for (int i = 0; i < columns.size(); i++) {
-                IndexColumnDescriptor column = columns.get(i);
+                CatalogIndexColumnDescriptor column = columns.get(i);
                 ColumnDescriptor columnDesc = tableDescriptor.columnDescriptor(column.name());
                 int fieldIndex = columnDesc.logicalIndex();
 
@@ -124,8 +124,8 @@ public class IgniteSchemaIndex {
             }
 
             return RelCollations.of(fieldCollations);
-        } else if (descriptor instanceof HashIndexDescriptor) {
-            HashIndexDescriptor hashIndexDescriptor = (HashIndexDescriptor) descriptor;
+        } else if (descriptor instanceof CatalogHashIndexDescriptor) {
+            CatalogHashIndexDescriptor hashIndexDescriptor = (CatalogHashIndexDescriptor) descriptor;
             List<String> columns = hashIndexDescriptor.columns();
             List<RelFieldCollation> fieldCollations = new ArrayList<>(columns.size());
 

@@ -41,6 +41,8 @@ dependencies {
 
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
+    testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
     testImplementation libs.awaitility
     testImplementation project(':ignite-vault')
     testImplementation project(':ignite-metastorage')

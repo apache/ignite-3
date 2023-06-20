@@ -38,34 +38,24 @@ import static org.mockito.Mockito.mock;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
 
 /**
  * Class for testing {@link MvPartitionStorages}.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class MvPartitionStoragesTest {
-    @InjectConfiguration
-    private TableConfiguration tableConfig;
-
-    @InjectConfiguration("mock.partitions = 10")
-    private DistributionZoneConfiguration distributionZoneConfiguration;
+    private static final int PARTITIONS = 10;
 
     private MvPartitionStorages<MvPartitionStorage> mvPartitionStorages;
 
     @BeforeEach
     void setUp() {
-        mvPartitionStorages = new MvPartitionStorages(tableConfig.value(), distributionZoneConfiguration.value());
+        mvPartitionStorages = new MvPartitionStorages(0, PARTITIONS);
     }
 
     @Test
@@ -325,8 +315,6 @@ public class MvPartitionStoragesTest {
         assertThat(startStartRebalanceMvStorage, willCompleteSuccessfully());
 
         assertThrowsWithMessage(StorageRebalanceException.class, () -> startRebalanceMvStorage(0),
-                "Storage in the process of starting a rebalance");
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> abortRebalanceMvStorage(0),
                 "Storage in the process of starting a rebalance");
         assertThrowsWithMessage(StorageRebalanceException.class, () -> finishRebalanceMvStorage(0),
                 "Storage in the process of starting a rebalance");
@@ -651,6 +639,42 @@ public class MvPartitionStoragesTest {
         assertThat(allForCloseOrDestroyFuture, willCompleteSuccessfully());
     }
 
+    @Test
+    void testAbortRebalanceBeforeFinishStartRebalance() {
+        assertThat(createMvStorage(0), willCompleteSuccessfully());
+
+        CompletableFuture<Void> rebalanceFuture = new CompletableFuture<>();
+
+        CompletableFuture<Void> startRebalanceFuture = mvPartitionStorages.startRebalance(0, mvPartitionStorage -> rebalanceFuture);
+
+        CompletableFuture<Void> startAbortRebalanceFuture = new CompletableFuture<>();
+        CompletableFuture<Void> finishAbortRebalanceFuture = new CompletableFuture<>();
+
+        CompletableFuture<Void> abortRebalanceFuture = mvPartitionStorages.abortRebalance(0, mvPartitionStorage -> {
+            startAbortRebalanceFuture.complete(null);
+
+            return finishAbortRebalanceFuture;
+        });
+
+        // Make sure that the abortion of the rebalance does not start until the start of the rebalance is over.
+        assertThat(startAbortRebalanceFuture, willTimeoutFast());
+
+        // You can't abort rebalancing a second time.
+        assertThrowsWithMessage(StorageRebalanceException.class, () -> abortRebalanceMvStorage(0), "Rebalance abort is already planned");
+
+        rebalanceFuture.complete(null);
+
+        // Let's make sure that the rebalancing abortion will start only after the rebalancing start is completed.
+        assertThat(startRebalanceFuture, willCompleteSuccessfully());
+        assertThat(startAbortRebalanceFuture, willCompleteSuccessfully());
+        assertThat(abortRebalanceFuture, willTimeoutFast());
+
+        // Let's finish the rebalancing abortion.
+        finishAbortRebalanceFuture.complete(null);
+
+        assertThat(abortRebalanceFuture, willCompleteSuccessfully());
+    }
+
     private MvPartitionStorage getMvStorage(int partitionId) {
         return mvPartitionStorages.get(partitionId);
     }
@@ -680,7 +704,7 @@ public class MvPartitionStoragesTest {
     }
 
     private int getPartitionIdOutOfConfig() {
-        return distributionZoneConfiguration.partitions().value();
+        return PARTITIONS;
     }
 
     private static <T extends Throwable> void assertThrowsWithMessage(

@@ -31,6 +31,7 @@ dependencies {
     implementation project(':ignite-configuration')
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-transactions')
+    implementation project(':ignite-catalog')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
 
@@ -42,6 +43,7 @@ dependencies {
     testImplementation project(':ignite-storage-api')
     testImplementation(testFixtures(project(':ignite-storage-api')))
     testImplementation project(':ignite-schema')
+    testImplementation(testFixtures(project(':ignite-schema')))
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
 }

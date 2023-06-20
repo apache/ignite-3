@@ -28,7 +28,7 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationMappingException;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentMappingException;
-import org.apache.ignite.internal.sql.engine.metadata.IgniteMdFragmentMapping;
+import org.apache.ignite.internal.sql.engine.metadata.IgniteFragmentMapping;
 import org.apache.ignite.internal.sql.engine.metadata.NodeMappingException;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -111,7 +111,7 @@ public class Fragment {
 
     private FragmentMapping mapping(MappingQueryContext ctx, RelMetadataQuery mq, Supplier<List<String>> nodesSource) {
         try {
-            FragmentMapping mapping = IgniteMdFragmentMapping.fragmentMappingForMetadataQuery(root, mq, ctx);
+            FragmentMapping mapping = IgniteFragmentMapping.calculateMapping(root, mq, ctx);
 
             if (rootFragment()) {
                 mapping = FragmentMapping.create(ctx.locNodeName()).colocate(mapping);

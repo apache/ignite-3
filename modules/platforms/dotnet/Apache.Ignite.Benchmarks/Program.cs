@@ -17,12 +17,10 @@
 
 namespace Apache.Ignite.Benchmarks;
 
-using System.Threading.Tasks;
+using BenchmarkDotNet.Running;
+using Table;
 
 internal static class Program
 {
-    private static async Task Main()
-    {
-        await ManyConnectionsBenchmark.RunAsync();
-    }
+    private static void Main() => BenchmarkRunner.Run<DataStreamerBenchmark>();
 }

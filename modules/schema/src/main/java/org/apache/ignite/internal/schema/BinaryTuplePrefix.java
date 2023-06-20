@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema;
 
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FLAG;
 
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -31,29 +30,25 @@ import org.apache.ignite.internal.schema.row.InternalTuple;
  * @see BinaryTuplePrefixBuilder BinaryTuplePrefixBuilder for information about the Binary Tuple Prefix format.
  */
 public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTuple {
-    /** Tuple schema. */
-    private final BinaryTupleSchema schema;
 
     /**
      * Constructor.
      *
-     * @param schema Full Tuple schema.
+     * @param elementCount Number of tuple elements.
      * @param bytes Serialized representation of a Binary Tuple Prefix.
      */
-    public BinaryTuplePrefix(BinaryTupleSchema schema, byte[] bytes) {
-        super(schema.elementCount(), bytes);
-        this.schema = schema;
+    public BinaryTuplePrefix(int elementCount, byte[] bytes) {
+        super(elementCount, bytes);
     }
 
     /**
      * Constructor.
      *
-     * @param schema Full Tuple schema.
+     * @param elementCount Number of tuple elements.
      * @param buffer Serialized representation of a Binary Tuple Prefix.
      */
-    public BinaryTuplePrefix(BinaryTupleSchema schema, ByteBuffer buffer) {
-        super(schema.elementCount(), buffer);
-        this.schema = schema;
+    public BinaryTuplePrefix(int elementCount, ByteBuffer buffer) {
+        super(elementCount, buffer);
     }
 
     /**
@@ -68,24 +63,14 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
         ByteBuffer prefixBuffer = ByteBuffer.allocate(tupleBuffer.remaining() + Integer.BYTES)
                 .order(ORDER)
                 .put(tupleBuffer)
-                .putInt(tuple.count())
+                .putInt(tuple.elementCount())
                 .flip();
 
         byte flags = prefixBuffer.get(0);
 
         prefixBuffer.put(0, (byte) (flags | PREFIX_FLAG));
 
-        return new BinaryTuplePrefix(tuple.schema(), prefixBuffer);
-    }
-
-    @Override
-    public int count() {
-        return elementCount();
-    }
-
-    @Override
-    public BigDecimal decimalValue(int index) {
-        return decimalValue(index, schema.element(index).decimalScale);
+        return new BinaryTuplePrefix(tuple.elementCount(), prefixBuffer);
     }
 
     @Override
