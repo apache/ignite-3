@@ -30,6 +30,9 @@ public abstract class AbstractIndexCommandParams implements DdlCommandParams {
     /** Table name. */
     protected String tableName;
 
+    /** Unique index flag. */
+    protected boolean uniq;
+
     /**
      * Returns index simple name.
      */
@@ -49,6 +52,13 @@ public abstract class AbstractIndexCommandParams implements DdlCommandParams {
      */
     public String tableName() {
         return tableName;
+    }
+
+    /**
+     * Returns unique index flag.
+     */
+    public boolean uniq() {
+        return uniq;
     }
 
     /**
@@ -91,6 +101,18 @@ public abstract class AbstractIndexCommandParams implements DdlCommandParams {
          */
         public BuilderT tableName(String tableName) {
             params.tableName = tableName;
+
+            return (BuilderT) this;
+        }
+
+        /**
+         * Sets unique index flag.
+         *
+         * @param uniq Unique index flag.
+         * @return {@code this}.
+         */
+        public BuilderT uniq(boolean uniq) {
+            params.uniq = uniq;
 
             return (BuilderT) this;
         }

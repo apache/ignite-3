@@ -75,10 +75,11 @@ public class CatalogUtils {
      * @return Index descriptor.
      */
     public static CatalogIndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
-        return new CatalogHashIndexDescriptor(id,
+        return new CatalogHashIndexDescriptor(
+                id,
                 params.indexName(),
                 tableId,
-                false,
+                params.uniq(),
                 params.columns()
         );
     }

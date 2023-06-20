@@ -19,12 +19,15 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
@@ -42,17 +45,25 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.table.InternalTable;
@@ -60,6 +71,9 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.junit.jupiter.api.AfterEach;
@@ -72,6 +86,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class IndexManagerTest {
+    private static final String TABLE_NAME = "tName";
+
     @InjectConfiguration(
             "mock.tables.tName {"
                     + "id: 1, "
@@ -81,6 +97,14 @@ public class IndexManagerTest {
                     + "}"
     )
     private TablesConfiguration tablesConfig;
+
+    private final HybridClock clock = new HybridClockImpl();
+
+    private VaultManager vaultManager;
+
+    private MetaStorageManager metaStorageManager;
+
+    private CatalogManager catalogManager;
 
     private IndexManager indexManager;
 
@@ -110,24 +134,47 @@ public class IndexManagerTest {
 
         when(schManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(null));
 
-        // TODO: IGNITE-19500 наверное исправить?
-        CatalogManager catalogManager = mock(CatalogManager.class);
+        vaultManager = new VaultManager(new InMemoryVaultService());
+
+        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, new SimpleInMemoryKeyValueStorage("test"));
+
+        catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageManager, vaultManager), clock);
 
         indexManager = new IndexManager(tablesConfig, schManager, tableManagerMock, catalogManager);
+
+        vaultManager.start();
+        metaStorageManager.start();
+        catalogManager.start();
         indexManager.start();
 
+        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+
         assertThat(
-                tablesConfig.tables().get("tName")
-                        .change(tableChange -> ((ExtendedTableChange) tableChange).changeSchemaId(1)),
+                catalogManager.createTable(
+                        CreateTableParams.builder()
+                                .schemaName(DEFAULT_SCHEMA_NAME)
+                                .zone(DEFAULT_ZONE_NAME)
+                                .tableName(TABLE_NAME)
+                                .columns(List.of(
+                                        ColumnParams.builder().name("c1").type(STRING).build(),
+                                        ColumnParams.builder().name("c2").type(STRING).build()
+                                ))
+                                .colocationColumns(List.of("c1"))
+                                .primaryKeyColumns(List.of("c1"))
+                                .build()
+                ),
                 willCompleteSuccessfully()
         );
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        if (indexManager != null) {
-            indexManager.stop();
-        }
+        IgniteUtils.closeAll(
+                vaultManager == null ? null : vaultManager::stop,
+                metaStorageManager == null ? null : metaStorageManager::stop,
+                catalogManager == null ? null : catalogManager::stop,
+                indexManager == null ? null : indexManager::stop
+        );
     }
 
     @Test
@@ -137,7 +184,7 @@ public class IndexManagerTest {
         assertThat(
                 indexManager.createIndexAsync(
                         CreateSortedIndexParams.builder()
-                                .schemaName("sName")
+                                .schemaName(DEFAULT_SCHEMA_NAME)
                                 .indexName(indexName)
                                 .tableName("tName")
                                 .columns(List.of("c1", "c2"))
@@ -176,7 +223,7 @@ public class IndexManagerTest {
         assertThat(
                 indexManager.createIndexAsync(
                         CreateHashIndexParams.builder()
-                                .schemaName("sName")
+                                .schemaName(DEFAULT_SCHEMA_NAME)
                                 .indexName("")
                                 .tableName("tName")
                                 .build(),
@@ -188,12 +235,18 @@ public class IndexManagerTest {
 
     @Test
     public void dropNonExistingIndex() {
+        String schemaName = DEFAULT_SCHEMA_NAME;
+        String indexName = "nonExisting";
+
         assertThat(
                 indexManager.dropIndexAsync(
-                        DropIndexParams.builder().schemaName("sName").indexName("nonExisting").build(),
+                        DropIndexParams.builder().schemaName(schemaName).indexName(indexName).build(),
                         true
                 ),
-                willThrowFast(IndexNotFoundException.class, "Index does not exist [name=\"sName\".\"nonExisting\"]")
+                willThrowFast(
+                        IndexNotFoundException.class,
+                        format("Index does not exist [name=\"{}\".\"{}\"]", schemaName, indexName)
+                )
         );
     }
 
@@ -219,7 +272,7 @@ public class IndexManagerTest {
         assertThat(
                 indexManager.createIndexAsync(
                         CreateSortedIndexParams.builder()
-                                .schemaName("sName")
+                                .schemaName(DEFAULT_SCHEMA_NAME)
                                 .indexName(indexName)
                                 .tableName("tName")
                                 .columns(List.of("c2"))
@@ -245,7 +298,7 @@ public class IndexManagerTest {
 
         assertThat(
                 indexManager.dropIndexAsync(
-                        DropIndexParams.builder().schemaName("sName").indexName(indexName).build(),
+                        DropIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(indexName).build(),
                         true
                 ),
                 willBe(true)

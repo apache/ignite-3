@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -32,6 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -113,14 +116,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 /**
  * Catalog service self test.
  */
 public class CatalogServiceSelfTest {
-    private static final String SCHEMA_NAME = CatalogService.DEFAULT_SCHEMA_NAME;
+    private static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
     private static final String ZONE_NAME = CatalogService.DEFAULT_ZONE_NAME;
     private static final String TABLE_NAME = "myTable";
     private static final String TABLE_NAME_2 = "myTable2";
@@ -206,9 +208,7 @@ public class CatalogServiceSelfTest {
                 .colocationColumns(List.of("key2"))
                 .build();
 
-        CompletableFuture<Void> fut = service.createTable(params);
-
-        assertThat(fut, willBe((Object) null));
+        assertThat(service.createTable(params), willCompleteSuccessfully());
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = service.schema(0);
@@ -223,6 +223,10 @@ public class CatalogServiceSelfTest {
         assertNull(service.table(TABLE_NAME, 123L));
         assertNull(service.table(1, 123L));
 
+        assertNull(schema.index(pkIndexName(TABLE_NAME)));
+        assertNull(service.index(pkIndexName(TABLE_NAME), 123L));
+        assertNull(service.index(2, 123L));
+
         // Validate actual catalog
         schema = service.schema(1);
 
@@ -234,6 +238,9 @@ public class CatalogServiceSelfTest {
         assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, clock.nowLong()));
         assertSame(schema.table(TABLE_NAME), service.table(2, clock.nowLong()));
 
+        assertSame(schema.index(pkIndexName(TABLE_NAME)), service.index(pkIndexName(TABLE_NAME), clock.nowLong()));
+        assertSame(schema.index(pkIndexName(TABLE_NAME)), service.index(3, clock.nowLong()));
+
         // Validate newly created table
         CatalogTableDescriptor table = schema.table(TABLE_NAME);
 
@@ -242,7 +249,7 @@ public class CatalogServiceSelfTest {
         assertEquals(1L, table.zoneId());
 
         // Validate another table creation.
-        assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willBe((Object) null));
+        assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willCompleteSuccessfully());
 
         // Validate actual catalog has both tables.
         schema = service.schema(2);
@@ -255,16 +262,66 @@ public class CatalogServiceSelfTest {
         assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, clock.nowLong()));
         assertSame(schema.table(TABLE_NAME), service.table(2, clock.nowLong()));
 
+        assertSame(schema.index(pkIndexName(TABLE_NAME)), service.index(pkIndexName(TABLE_NAME), clock.nowLong()));
+        assertSame(schema.index(pkIndexName(TABLE_NAME)), service.index(3, clock.nowLong()));
+
         assertSame(schema.table(TABLE_NAME_2), service.table(TABLE_NAME_2, clock.nowLong()));
-        assertSame(schema.table(TABLE_NAME_2), service.table(3, clock.nowLong()));
+        assertSame(schema.table(TABLE_NAME_2), service.table(4, clock.nowLong()));
+
+        assertSame(schema.index(pkIndexName(TABLE_NAME_2)), service.index(pkIndexName(TABLE_NAME_2), clock.nowLong()));
+        assertSame(schema.index(pkIndexName(TABLE_NAME_2)), service.index(5, clock.nowLong()));
 
         assertNotSame(schema.table(TABLE_NAME), schema.table(TABLE_NAME_2));
+        assertNotSame(schema.index(pkIndexName(TABLE_NAME)), schema.index(pkIndexName(TABLE_NAME_2)));
 
         // Try to create another table with same name.
         assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willThrowFast(TableAlreadyExistsException.class));
 
         // Validate schema wasn't changed.
         assertSame(schema, service.activeSchema(clock.nowLong()));
+    }
+
+    @Test
+    public void testCreatePkIndex() {
+        CreateTableParams createTableParams = CreateTableParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .zone(ZONE_NAME)
+                .columns(List.of(ColumnParams.builder().name("key1").type(ColumnType.INT32).build()))
+                .primaryKeyColumns(List.of())
+                .colocationColumns(List.of("key1"))
+                .build();
+
+        // Let's try to create a table without pk columns.
+        assertThat(
+                service.createTable(createTableParams),
+                willThrowFast(IgniteInternalException.class, "Can't create table without primary key columns")
+        );
+
+        createTableParams = CreateTableParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .zone(ZONE_NAME)
+                .columns(List.of(ColumnParams.builder().name("key1").type(ColumnType.INT32).build()))
+                .primaryKeyColumns(List.of("key1"))
+                .colocationColumns(List.of("key1"))
+                .build();
+
+        assertThat(service.createTable(createTableParams), willCompleteSuccessfully());
+
+        // Let's check pk index.
+        CatalogSchemaDescriptor schema = service.schema(1);
+
+        CatalogTableDescriptor table = schema.table(TABLE_NAME);
+        CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) schema.index(pkIndexName(TABLE_NAME));
+
+        assertNotNull(index);
+
+        assertEquals(3, index.id());
+        assertEquals(pkIndexName(TABLE_NAME), index.name());
+        assertEquals(table.id(), index.tableId());
+        assertTrue(index.unique());
+        assertEquals(table.primaryKeyColumns(), index.columns());
     }
 
     @Test
@@ -281,20 +338,22 @@ public class CatalogServiceSelfTest {
                 .primaryKeyColumns(List.of("key"))
                 .build();
 
-        assertThat(service.createTable(params), willThrowFast(IgniteInternalException.class,
-                "Can't create table with duplicate columns: key, val, val"));
+        assertThat(
+                service.createTable(params),
+                willThrowFast(IgniteInternalException.class, "Can't create table with duplicate columns")
+        );
     }
 
     @Test
     public void testDropTable() {
-        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
-        assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willBe((Object) null));
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willCompleteSuccessfully());
 
         long beforeDropTimestamp = clock.nowLong();
 
         DropTableParams dropTableParams = DropTableParams.builder().schemaName(SCHEMA_NAME).tableName(TABLE_NAME).build();
 
-        assertThat(service.dropTable(dropTableParams), willBe((Object) null));
+        assertThat(service.dropTable(dropTableParams), willCompleteSuccessfully());
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = service.schema(2);
@@ -308,7 +367,7 @@ public class CatalogServiceSelfTest {
         assertSame(schema.table(TABLE_NAME), service.table(2, beforeDropTimestamp));
 
         assertSame(schema.table(TABLE_NAME_2), service.table(TABLE_NAME_2, beforeDropTimestamp));
-        assertSame(schema.table(TABLE_NAME_2), service.table(3, beforeDropTimestamp));
+        assertSame(schema.table(TABLE_NAME_2), service.table(4, beforeDropTimestamp));
 
         // Validate actual catalog
         schema = service.schema(3);
@@ -323,7 +382,7 @@ public class CatalogServiceSelfTest {
         assertNull(service.table(2, clock.nowLong()));
 
         assertSame(schema.table(TABLE_NAME_2), service.table(TABLE_NAME_2, clock.nowLong()));
-        assertSame(schema.table(TABLE_NAME_2), service.table(3, clock.nowLong()));
+        assertSame(schema.table(TABLE_NAME_2), service.table(4, clock.nowLong()));
 
         // Try to drop table once again.
         assertThat(service.dropTable(dropTableParams), willThrowFast(TableNotFoundException.class));
@@ -926,49 +985,56 @@ public class CatalogServiceSelfTest {
                 .columns(List.of("VAL"))
                 .build();
 
-        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
-        assertThat(service.createIndex(params), willBe((Object) null));
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(service.createIndex(params), willCompleteSuccessfully());
 
         long beforeDropTimestamp = clock.nowLong();
 
-        DropTableParams dropTableParams = DropTableParams.builder().schemaName("PUBLIC").tableName(TABLE_NAME).build();
+        DropTableParams dropTableParams = DropTableParams.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).build();
 
-        assertThat(service.dropTable(dropTableParams), willBe((Object) null));
+        assertThat(service.dropTable(dropTableParams), willCompleteSuccessfully());
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = service.schema(2);
 
         assertNotNull(schema);
         assertEquals(0, schema.id());
-        assertEquals(CatalogService.DEFAULT_SCHEMA_NAME, schema.name());
+        assertEquals(DEFAULT_SCHEMA_NAME, schema.name());
         assertSame(schema, service.activeSchema(beforeDropTimestamp));
 
         assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, beforeDropTimestamp));
         assertSame(schema.table(TABLE_NAME), service.table(2, beforeDropTimestamp));
 
+        assertSame(schema.index(pkIndexName(TABLE_NAME)), service.index(pkIndexName(TABLE_NAME), beforeDropTimestamp));
+        assertSame(schema.index(pkIndexName(TABLE_NAME)), service.index(3, beforeDropTimestamp));
+
         assertSame(schema.index(INDEX_NAME), service.index(INDEX_NAME, beforeDropTimestamp));
-        assertSame(schema.index(INDEX_NAME), service.index(3, beforeDropTimestamp));
+        assertSame(schema.index(INDEX_NAME), service.index(4, beforeDropTimestamp));
 
         // Validate actual catalog
         schema = service.schema(3);
 
         assertNotNull(schema);
         assertEquals(0, schema.id());
-        assertEquals(CatalogService.DEFAULT_SCHEMA_NAME, schema.name());
+        assertEquals(DEFAULT_SCHEMA_NAME, schema.name());
         assertSame(schema, service.activeSchema(clock.nowLong()));
 
         assertNull(schema.table(TABLE_NAME));
         assertNull(service.table(TABLE_NAME, clock.nowLong()));
         assertNull(service.table(2, clock.nowLong()));
 
+        assertNull(schema.index(pkIndexName(TABLE_NAME)));
+        assertNull(service.index(pkIndexName(TABLE_NAME), clock.nowLong()));
+        assertNull(service.index(3, clock.nowLong()));
+
         assertNull(schema.index(INDEX_NAME));
         assertNull(service.index(INDEX_NAME, clock.nowLong()));
-        assertNull(service.index(3, clock.nowLong()));
+        assertNull(service.index(4, clock.nowLong()));
     }
 
     @Test
     public void testCreateHashIndex() {
-        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
         CreateHashIndexParams params = CreateHashIndexParams.builder()
                 .indexName(INDEX_NAME)
@@ -976,7 +1042,7 @@ public class CatalogServiceSelfTest {
                 .columns(List.of("VAL", "ID"))
                 .build();
 
-        assertThat(service.createIndex(params), willBe((Object) null));
+        assertThat(service.createIndex(params), willCompleteSuccessfully());
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = service.schema(1);
@@ -984,7 +1050,7 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertNull(schema.index(INDEX_NAME));
         assertNull(service.index(INDEX_NAME, 123L));
-        assertNull(service.index(3, 123L));
+        assertNull(service.index(4, 123L));
 
         // Validate actual catalog
         schema = service.schema(2);
@@ -992,12 +1058,12 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertNull(service.index(1, clock.nowLong()));
         assertSame(schema.index(INDEX_NAME), service.index(INDEX_NAME, clock.nowLong()));
-        assertSame(schema.index(INDEX_NAME), service.index(3, clock.nowLong()));
+        assertSame(schema.index(INDEX_NAME), service.index(4, clock.nowLong()));
 
         // Validate newly created hash index
         CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) schema.index(INDEX_NAME);
 
-        assertEquals(3L, index.id());
+        assertEquals(4L, index.id());
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals(List.of("VAL", "ID"), index.columns());
@@ -1007,7 +1073,7 @@ public class CatalogServiceSelfTest {
 
     @Test
     public void testCreateSortedIndex() {
-        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
         CreateSortedIndexParams params = CreateSortedIndexParams.builder()
                 .indexName(INDEX_NAME)
@@ -1017,7 +1083,7 @@ public class CatalogServiceSelfTest {
                 .collations(List.of(CatalogColumnCollation.DESC_NULLS_FIRST, CatalogColumnCollation.ASC_NULLS_LAST))
                 .build();
 
-        assertThat(service.createIndex(params), willBe((Object) null));
+        assertThat(service.createIndex(params), willCompleteSuccessfully());
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = service.schema(1);
@@ -1025,7 +1091,7 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertNull(schema.index(INDEX_NAME));
         assertNull(service.index(INDEX_NAME, 123L));
-        assertNull(service.index(3, 123L));
+        assertNull(service.index(4, 123L));
 
         // Validate actual catalog
         schema = service.schema(2);
@@ -1033,12 +1099,12 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertNull(service.index(1, clock.nowLong()));
         assertSame(schema.index(INDEX_NAME), service.index(INDEX_NAME, clock.nowLong()));
-        assertSame(schema.index(INDEX_NAME), service.index(3, clock.nowLong()));
+        assertSame(schema.index(INDEX_NAME), service.index(4, clock.nowLong()));
 
         // Validate newly created sorted index
         CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) schema.index(INDEX_NAME);
 
-        assertEquals(3L, index.id());
+        assertEquals(4L, index.id());
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals("VAL", index.columns().get(0).name());
@@ -1199,10 +1265,10 @@ public class CatalogServiceSelfTest {
         service.listen(CatalogEvent.TABLE_DROP, eventListener);
 
         assertThat(service.createTable(createTableParams), willBe((Object) null));
-        verify(eventListener).notify(any(CreateTableEventParameters.class), ArgumentMatchers.isNull());
+        verify(eventListener).notify(any(CreateTableEventParameters.class), isNull());
 
         assertThat(service.dropTable(dropTableparams), willBe((Object) null));
-        verify(eventListener).notify(any(DropTableEventParameters.class), ArgumentMatchers.isNull());
+        verify(eventListener).notify(any(DropTableEventParameters.class), isNull());
 
         verifyNoMoreInteractions(eventListener);
     }
@@ -1210,7 +1276,7 @@ public class CatalogServiceSelfTest {
     @Test
     public void testCreateIndexEvents() {
         CreateTableParams createTableParams = CreateTableParams.builder()
-                .schemaName(CatalogService.DEFAULT_SCHEMA_NAME)
+                .schemaName(DEFAULT_SCHEMA_NAME)
                 .tableName(TABLE_NAME)
                 .zone(ZONE_NAME)
                 .columns(List.of(
@@ -1225,7 +1291,7 @@ public class CatalogServiceSelfTest {
         DropTableParams dropTableparams = DropTableParams.builder().tableName(TABLE_NAME).build();
 
         CreateHashIndexParams createIndexParams = CreateHashIndexParams.builder()
-                .schemaName(CatalogService.DEFAULT_SCHEMA_NAME)
+                .schemaName(DEFAULT_SCHEMA_NAME)
                 .indexName(INDEX_NAME)
                 .tableName(TABLE_NAME)
                 .columns(List.of("key2"))
@@ -1248,11 +1314,13 @@ public class CatalogServiceSelfTest {
 
         // Create index.
         assertThat(service.createIndex(createIndexParams), willCompleteSuccessfully());
-        verify(eventListener).notify(any(CreateIndexEventParameters.class), ArgumentMatchers.isNull());
+        verify(eventListener, times(2)).notify(any(CreateIndexEventParameters.class), isNull());
 
         // Drop index.
         assertThat(service.dropIndex(dropIndexParams), willCompleteSuccessfully());
-        verify(eventListener).notify(any(DropIndexEventParameters.class), ArgumentMatchers.isNull());
+        verify(eventListener).notify(any(DropIndexEventParameters.class), isNull());
+
+        clearInvocations(eventListener);
 
         // Drop table.
         assertThat(service.dropTable(dropTableparams), willCompleteSuccessfully());
@@ -1260,7 +1328,7 @@ public class CatalogServiceSelfTest {
         // Try drop index once again.
         assertThat(service.dropIndex(dropIndexParams), willThrow(IndexNotFoundException.class));
 
-        verifyNoMoreInteractions(eventListener);
+        verify(eventListener).notify(any(DropIndexEventParameters.class), isNull());
     }
 
     @Test
@@ -1515,13 +1583,13 @@ public class CatalogServiceSelfTest {
 
         assertThat(fut, willCompleteSuccessfully());
 
-        verify(eventListener).notify(any(CreateZoneEventParameters.class), ArgumentMatchers.isNull());
+        verify(eventListener).notify(any(CreateZoneEventParameters.class), isNull());
 
         fut = service.dropDistributionZone(dropZoneParams);
 
         assertThat(fut, willCompleteSuccessfully());
 
-        verify(eventListener).notify(any(DropZoneEventParameters.class), ArgumentMatchers.isNull());
+        verify(eventListener).notify(any(DropZoneEventParameters.class), isNull());
         verifyNoMoreInteractions(eventListener);
     }
 
@@ -1559,11 +1627,11 @@ public class CatalogServiceSelfTest {
 
         // Add column.
         assertThat(service.addColumn(addColumnParams), willBe((Object) null));
-        verify(eventListener).notify(any(AddColumnEventParameters.class), ArgumentMatchers.isNull());
+        verify(eventListener).notify(any(AddColumnEventParameters.class), isNull());
 
         // Drop column.
         assertThat(service.dropColumn(dropColumnParams), willBe((Object) null));
-        verify(eventListener).notify(any(DropColumnEventParameters.class), ArgumentMatchers.isNull());
+        verify(eventListener).notify(any(DropColumnEventParameters.class), isNull());
 
         // Try drop column once again.
         assertThat(service.dropColumn(dropColumnParams), willThrow(ColumnNotFoundException.class));
@@ -1655,5 +1723,9 @@ public class CatalogServiceSelfTest {
             this.length = length;
             this.scale = scale;
         }
+    }
+
+    private static String pkIndexName(String tableName) {
+        return tableName + "_PK";
     }
 }
