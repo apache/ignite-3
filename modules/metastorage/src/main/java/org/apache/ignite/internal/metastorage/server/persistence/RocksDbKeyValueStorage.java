@@ -251,7 +251,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 .setMaxWriteBufferNumber(4)
                 .setTableFormatConfig(new BlockBasedTableConfig()
                         // Speed-up key lookup in levels by adding a bloom filter and always caching it for level 0.
-                        // This improves the access time to the from lower levels.
+                        // This improves the access time to keys from lower levels. 12 is chosen to fit into a 4kb memory chunk.
+                        // This proved to be big enough to positively affect the performance.
                         .setPinL0FilterAndIndexBlocksInCache(true)
                         .setFilterPolicy(new BloomFilter(12))
                         // Often helps to avoid reading data from the storage device, making reads faster.
