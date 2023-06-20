@@ -17,22 +17,33 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.READ;
+import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getCrc;
 import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.createDataPageId;
 import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.createPageByteBuffer;
 import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.randomBytes;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.apache.ignite.internal.fileio.FileIo;
+import org.apache.ignite.internal.fileio.FileIoFactory;
+import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -50,8 +61,18 @@ public abstract class AbstractFilePageStoreIoTest {
      * Creates an instance of {@link AbstractFilePageStoreIo}.
      *
      * @param filePath File page store path.
+     * @param ioFactory {@link FileIo} factory.
      */
-    abstract AbstractFilePageStoreIo createFilePageStoreIo(Path filePath);
+    abstract <T extends AbstractFilePageStoreIo> T createFilePageStoreIo(Path filePath, FileIoFactory ioFactory);
+
+    /**
+     * Creates an instance of {@link AbstractFilePageStoreIo}.
+     *
+     * @param filePath File page store path.
+     */
+    <T extends AbstractFilePageStoreIo> T createFilePageStoreIo(Path filePath) {
+        return createFilePageStoreIo(filePath, new RandomAccessFileIoFactory());
+    }
 
     @Test
     void testStop() throws Exception {
@@ -306,6 +327,49 @@ public abstract class AbstractFilePageStoreIoTest {
             assertEquals(testFilePath1, filePageStoreIo.filePath());
 
             assertEquals(2 * PAGE_SIZE, Files.size(testFilePath1));
+        }
+    }
+
+    @Test
+    void testRenameAndEnsure() throws Exception {
+        Path filePath = workDir.resolve("test");
+
+        FileIoFactory ioFactory = spy(new RandomAccessFileIoFactory());
+
+        try (AbstractFilePageStoreIo filePageStoreIo = createFilePageStoreIo(filePath, ioFactory)) {
+            filePageStoreIo.ensure();
+
+            clearInvocations(ioFactory);
+
+            Path newFilePath = workDir.resolve("test0");
+
+            filePageStoreIo.renameFilePath(newFilePath);
+
+            filePageStoreIo.ensure();
+
+            verify(ioFactory).create(newFilePath, CREATE, READ, WRITE);
+        }
+    }
+
+    @RepeatedTest(100)
+    void testRenameAndEnsureRace() throws Exception {
+        Path filePath = workDir.resolve("test");
+
+        FileIoFactory ioFactory = spy(new RandomAccessFileIoFactory());
+
+        try (AbstractFilePageStoreIo filePageStoreIo = createFilePageStoreIo(filePath, ioFactory)) {
+            filePageStoreIo.ensure();
+
+            clearInvocations(ioFactory);
+
+            Path newFilePath = workDir.resolve("test0");
+
+            runRace(
+                    () -> filePageStoreIo.renameFilePath(newFilePath),
+                    filePageStoreIo::ensure
+            );
+
+            verify(ioFactory).create(newFilePath, CREATE, READ, WRITE);
         }
     }
 }

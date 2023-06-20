@@ -2445,8 +2445,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     .thenComposeAsync(mvPartitionStorage -> {
                         TxStateStorage txStateStorage = internalTable.txStateStorage().getOrCreateTxStateStorage(partitionId);
 
-                        if (mvPartitionStorage.persistedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
-                                || txStateStorage.persistedIndex() == TxStateStorage.REBALANCE_IN_PROGRESS) {
+                        if (mvPartitionStorage.lastAppliedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
+                                || txStateStorage.lastAppliedIndex() == TxStateStorage.REBALANCE_IN_PROGRESS) {
                             return allOf(
                                     internalTable.storage().clearPartition(partitionId),
                                     txStateStorage.clear()
