@@ -31,14 +31,11 @@ import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Default implementation of {@link NodeEventCallback}.
  */
 public class DefaultNodeCallback extends NodeEventCallback {
-    private static final IgniteLogger LOG = Loggers.forClass(DefaultNodeCallback.class);
     private final DeploymentUnitStore deploymentUnitStore;
 
     private final DeployMessagingService messaging;
@@ -78,13 +75,11 @@ public class DefaultNodeCallback extends NodeEventCallback {
 
     @Override
     public void onUploading(String id, Version version, List<UnitNodeStatus> holders) {
-        LOG.info("onUploading {}:{}", id, version);
         tracker.track(id, version,
                 () -> messaging.downloadUnitContent(id, version, new ArrayList<>(getDeployedNodeIds(holders)))
                         .thenCompose(content -> deployer.deploy(id, version, content))
                         .thenApply(deployed -> {
                             if (deployed) {
-                                LOG.info("deployed on {}", nodeName);
                                 return deploymentUnitStore.updateNodeStatus(nodeName, id, version, DEPLOYED);
                             }
                             return deployed;
@@ -107,23 +102,18 @@ public class DefaultNodeCallback extends NodeEventCallback {
 
     @Override
     public void onObsolete(String id, Version version, List<UnitNodeStatus> holders) {
-        LOG.info("onObsolete {} {} {}", nodeName, id, version);
         //TODO: IGNITE-19708
         deploymentUnitStore.updateNodeStatus(nodeName, id, version, REMOVING);
     }
 
     @Override
     public void onRemoving(String id, Version version, List<UnitNodeStatus> holders) {
-        LOG.info("onRemoving {} {} {}", nodeName, id, version);
         cmgManager.logicalTopology()
-                .thenApply(snapshot -> {
+                .thenAccept(snapshot -> {
                     Set<String> nodes = snapshot.nodes().stream().map(LogicalNode::name).collect(Collectors.toSet());
-                    return holders.stream()
+                    boolean allRemoved = holders.stream()
                             .filter(nodeStatus -> nodes.contains(nodeStatus.nodeId()))
                             .allMatch(nodeStatus -> nodeStatus.status() == REMOVING);
-                })
-                .thenAccept(allRemoved -> {
-                    LOG.info("allRemoved {}", allRemoved);
                     if (allRemoved) {
                         deploymentUnitStore.updateClusterStatus(id, version, REMOVING);
                     }

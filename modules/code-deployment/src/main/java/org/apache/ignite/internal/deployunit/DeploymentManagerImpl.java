@@ -43,10 +43,12 @@ import org.apache.ignite.internal.deployunit.exception.DeploymentUnitAlreadyExis
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
 import org.apache.ignite.internal.deployunit.exception.InvalidNodesArgumentException;
+import org.apache.ignite.internal.deployunit.metastore.ClusterEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.ClusterEventCallbackImpl;
 import org.apache.ignite.internal.deployunit.metastore.ClusterStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitFailover;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
+import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -107,14 +109,15 @@ public class DeploymentManagerImpl implements IgniteDeployment {
      */
     private final DeploymentUnitAccessor deploymentUnitAccessor;
 
-    private final DefaultNodeCallback nodeStatusCallback;
+    private final String nodeName;
+
+    private final NodeEventCallback nodeStatusCallback;
 
     private final NodeStatusWatchListener nodeStatusWatchListener;
 
-    private final ClusterStatusWatchListener clusterStatusWatchListener;
+    private final ClusterEventCallback clusterEventCallback;
 
-    private final String nodeName;
-    private final ClusterEventCallbackImpl clusterEventCallback;
+    private final ClusterStatusWatchListener clusterStatusWatchListener;
 
     /**
      * Constructor.
@@ -167,6 +170,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         Objects.requireNonNull(version);
         Objects.requireNonNull(deploymentUnit);
 
+        LOG.info("Deploying {}:{} on {}", id, version, deployMode);
         return extractNodes(deployMode)
                 .thenCompose(nodesToDeploy ->
                         doDeploy(id, version, force, deploymentUnit, nodesToDeploy,
@@ -187,6 +191,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         Objects.requireNonNull(version);
         Objects.requireNonNull(deploymentUnit);
 
+        LOG.info("Deploying {}:{} on {}", id, version, nodes);
         return extractNodes(nodes)
                 .thenCompose(nodesToDeploy ->
                         doDeploy(id, version, force, deploymentUnit, nodesToDeploy,
@@ -203,7 +208,6 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             Set<String> nodesToDeploy,
             Function<Boolean, CompletableFuture<Boolean>> retryDeploy
     ) {
-        LOG.info("createClusterStatus {}:{} on {}", id, version, nodesToDeploy);
         return deploymentUnitStore.createClusterStatus(id, version, nodesToDeploy)
                 .thenCompose(success -> {
                     if (success) {
@@ -233,7 +237,6 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         return deployToLocalNode(id, version, unitContent)
                 .thenApply(completed -> {
                     if (completed) {
-                        LOG.info("createNodeStatus on {}", nodesToDeploy);
                         nodesToDeploy.forEach(node -> {
                             if (!node.equals(nodeName)) {
                                 deploymentUnitStore.createNodeStatus(node, id, version);
@@ -245,7 +248,6 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     }
 
     private CompletableFuture<Boolean> deployToLocalNode(String id, Version version, UnitContent unitContent) {
-        LOG.info("deployToLocalNode {}", nodeName);
         return deployer.deploy(id, version, unitContent)
                 .thenCompose(deployed -> {
                     if (deployed) {
@@ -261,11 +263,10 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         checkId(id);
         Objects.requireNonNull(version);
 
-        LOG.info("undeployAsync {} {}", id, version);
+        LOG.info("Undeploying {}:{}", id, version);
         return messaging.stopInProgressDeploy(id, version)
                 .thenCompose(v -> deploymentUnitStore.updateClusterStatus(id, version, OBSOLETE))
                 .thenCompose(success -> {
-                    LOG.info("updateClusterStatus OBSOLETE {}", success);
                     if (success) {
                         return cmgManager.logicalTopology()
                                 .thenCompose(logicalTopology -> {
@@ -279,7 +280,6 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                                                     .map(node -> deploymentUnitStore.updateNodeStatus(node, id, version, OBSOLETE))
                                                     .toArray(CompletableFuture[]::new)))
                                             .thenApply(v -> {
-                                                LOG.info("updateNodeStatus OBSOLETE done");
                                                 // Now the nodes are handling the OBSOLETE node statuses and when all nodes are in the
                                                 // REMOVING status, the cluster status will be changed to REMOVING
                                                 return true;

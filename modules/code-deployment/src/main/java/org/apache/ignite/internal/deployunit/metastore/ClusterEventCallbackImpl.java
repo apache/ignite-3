@@ -26,13 +26,9 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.deployunit.FileDeployerService;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 
 /** Listener of deployment unit cluster status changes. */
 public class ClusterEventCallbackImpl implements ClusterEventCallback {
-    private static final IgniteLogger LOG = Loggers.forClass(ClusterEventCallbackImpl.class);
-
     private final DeploymentUnitStore deploymentUnitStore;
     private final FileDeployerService deployerService;
     private final ClusterManagementGroupManager cmgManager;
@@ -63,8 +59,7 @@ public class ClusterEventCallbackImpl implements ClusterEventCallback {
         String id = status.id();
         Version version = status.version();
         // Now the deployment unit can be removed from each target node and, after it, remove corresponding status records.
-        deploymentUnitStore.getNodeStatus(nodeName, id, version).whenComplete((nodeStatus, err) -> {
-            LOG.info("getNodeStatus {} err {}", nodeStatus, err);
+        deploymentUnitStore.getNodeStatus(nodeName, id, version).thenAccept(nodeStatus -> {
             if (nodeStatus != null && nodeStatus.status() == REMOVING) {
                 undeploy(id, version);
             }
@@ -72,11 +67,9 @@ public class ClusterEventCallbackImpl implements ClusterEventCallback {
     }
 
     private void undeploy(String id, Version version) {
-        deployerService.undeploy(id, version).whenComplete((success, err) -> {
-            LOG.info("undeploy {} err {}", success, err);
+        deployerService.undeploy(id, version).thenAccept(success -> {
             if (success) {
-                deploymentUnitStore.removeNodeStatus(nodeName, id, version).whenComplete((successRemove, errRemove) -> {
-                    LOG.info("removeNodeStatus {} err {}", successRemove, err);
+                deploymentUnitStore.removeNodeStatus(nodeName, id, version).thenAccept(successRemove -> {
                     if (successRemove) {
                         removeClusterStatus(id, version);
                     }
@@ -86,21 +79,17 @@ public class ClusterEventCallbackImpl implements ClusterEventCallback {
     }
 
     private void removeClusterStatus(String id, Version version) {
-        cmgManager.logicalTopology().whenComplete((logicalTopology, err) -> {
-            LOG.info("logicalTopology {} err {}", logicalTopology, err);
+        cmgManager.logicalTopology().thenAccept(logicalTopology -> {
             Set<String> logicalNodes = logicalTopology.nodes().stream()
                     .map(LogicalNode::name)
                     .collect(Collectors.toSet());
-            deploymentUnitStore.getAllNodes(id, version).whenComplete((nodes, nodesErr) -> {
-                LOG.info("getAllNodes {} err {}", nodesErr, nodesErr);
+            deploymentUnitStore.getAllNodes(id, version).thenAccept(nodes -> {
                 boolean emptyTopology = nodes.stream()
                         .filter(logicalNodes::contains)
                         .findAny()
                         .isEmpty();
                 if (emptyTopology) {
-                    deploymentUnitStore.removeClusterStatus(id, version).whenComplete((success, removeErr) -> {
-                        LOG.info("removeClusterStatus {} err {}", success, removeErr);
-                    });
+                    deploymentUnitStore.removeClusterStatus(id, version);
                 }
             });
         });

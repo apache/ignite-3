@@ -31,16 +31,12 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.deployunit.FileDeployerService;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**
  * Deployment unit failover.
  */
 public class DeploymentUnitFailover {
-    private static final IgniteLogger LOG = Loggers.forClass(DeploymentUnitFailover.class);
-
     private final LogicalTopologyService logicalTopology;
 
     private final DeploymentUnitStore deploymentUnitStore;
@@ -71,22 +67,17 @@ public class DeploymentUnitFailover {
      * @param nodeEventCallback Node status callback.
      * @param clusterEventCallback Cluster status callback.
      */
-    public void registerTopologyChangeCallback(NodeEventCallback nodeEventCallback, ClusterEventCallbackImpl clusterEventCallback) {
+    public void registerTopologyChangeCallback(NodeEventCallback nodeEventCallback, ClusterEventCallback clusterEventCallback) {
         logicalTopology.addEventListener(new LogicalTopologyEventListener() {
             @Override
             public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
                 String consistentId = joinedNode.name();
                 if (Objects.equals(consistentId, nodeName)) {
-                    LOG.info("onNodeJoined {}", consistentId);
                     deploymentUnitStore.getNodeStatuses(consistentId)
-                            .thenAccept(nodeStatuses -> nodeStatuses.forEach(unitNodeStatus -> {
-                                LOG.info("nodeStatus {}", unitNodeStatus);
-                                deploymentUnitStore.getClusterStatus(unitNodeStatus.id(), unitNodeStatus.version())
-                                        .thenAccept(unitClusterStatus -> {
-                                            LOG.info("unitClusterStatus {}", unitClusterStatus);
-                                            processStatus(unitClusterStatus, unitNodeStatus, nodeEventCallback);
-                                        });
-                            }));
+                            .thenAccept(nodeStatuses -> nodeStatuses.forEach(unitNodeStatus ->
+                                    deploymentUnitStore.getClusterStatus(unitNodeStatus.id(), unitNodeStatus.version())
+                                            .thenAccept(unitClusterStatus ->
+                                                    processStatus(unitClusterStatus, unitNodeStatus, nodeEventCallback))));
                 }
             }
         });
