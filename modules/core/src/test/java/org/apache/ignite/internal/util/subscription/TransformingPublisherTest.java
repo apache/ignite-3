@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
@@ -55,6 +56,7 @@ public class TransformingPublisherTest {
         ArgumentCaptor<Subscriber<Integer>> capture = ArgumentCaptor.forClass(Subscriber.class);
 
         doAnswer(invocation -> {
+            // call onSubscribe in Publisher::subscribe
             Subscriber<Integer> s = invocation.getArgument(0);
             s.onSubscribe(subscription);
             return null;
@@ -73,6 +75,8 @@ public class TransformingPublisherTest {
         verify(subscriber, times(1)).onNext("1");
         verify(subscriber, times(1)).onNext("2");
         verify(subscriber, times(1)).onComplete();
+
+        verifyNoMoreInteractions(input, subscriber, subscription);
     }
 
     /**
@@ -83,6 +87,7 @@ public class TransformingPublisherTest {
         ArgumentCaptor<Subscriber<Integer>> capture = ArgumentCaptor.forClass(Subscriber.class);
 
         doAnswer(invocation -> {
+            // call onSubscribe in Publisher::subscribe
             Subscriber<Integer> s = invocation.getArgument(0);
             s.onSubscribe(subscription);
             return null;
@@ -101,5 +106,7 @@ public class TransformingPublisherTest {
         verify(subscriber, times(1)).onSubscribe(subscription);
         verify(subscriber, times(1)).onNext("1");
         verify(subscriber, times(1)).onError(err);
+
+        verifyNoMoreInteractions(input, subscriber, subscription);
     }
 }
