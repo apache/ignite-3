@@ -114,14 +114,16 @@ public class ClockWaiter implements IgniteComponent {
         CompletableFuture<Void> future = nowTracker.waitFor(targetTimestamp);
 
         if (!future.isDone()) {
-            // This triggers clock update.
+            // This triggers a clock update.
             HybridTimestamp now = clock.now();
 
             if (targetTimestamp.compareTo(now) <= 0) {
                 assert future.isDone();
             } else {
                 long millisToWait = targetTimestamp.getPhysical() - now.getPhysical()
-                        + (Math.max(targetTimestamp.getLogical() - now.getLogical(), 0) > 0 ? 1 : 0);
+                        + (Math.max(targetTimestamp.getLogical() - now.getLogical(), 0) > 0 ? 1 : 0)
+                        // Adding 1 to account for a possible non-null logical part of the targetTimestamp.
+                        + 1;
 
                 scheduler.schedule(this::triggerClockUpdate, millisToWait, TimeUnit.MILLISECONDS);
             }

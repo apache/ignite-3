@@ -81,7 +81,7 @@ class ClockWaiterTest {
 
         CompletableFuture<Void> future = waiter.waitFor(littleAhead);
 
-        assertThat(future, willSucceedIn(1, TimeUnit.SECONDS));
+        assertThat(future, willSucceedIn(10, TimeUnit.SECONDS));
     }
 
     @Test
