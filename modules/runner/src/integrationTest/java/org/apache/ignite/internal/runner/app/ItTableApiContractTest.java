@@ -228,7 +228,6 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
     @Test
     public void testGetAll() {
         RecordView<Tuple> tbl = ignite.tables().table(TABLE_NAME).recordView();
-        // recordView.insert(tx, Tuple.create().set("name", "k1").set("balance", 1));
 
         List<Tuple> recs = IntStream.range(1, 50)
                 .mapToObj(i -> Tuple.create().set("name", "id_" + i * 2).set("balance", i * 2))
@@ -240,7 +239,7 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
                 .mapToObj(i -> Tuple.create().set("name", "id_" + i))
                 .collect(toList());
 
-        List<Tuple> res = (List<Tuple>) tbl.getAll(null, keyRecs);
+        List<Tuple> res = tbl.getAll(null, keyRecs);
 
         assertThat(res, hasSize(keyRecs.size()));
 
