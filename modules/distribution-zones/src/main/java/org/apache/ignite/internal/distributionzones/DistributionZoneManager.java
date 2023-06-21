@@ -1612,10 +1612,10 @@ public class DistributionZoneManager implements IgniteComponent {
         /** Schedule task for a scale down process. */
         private ScheduledFuture<?> scaleDownTask;
 
-        /** The delay for the scale up task */
+        /** The delay for the scale up task. */
         private long scaleUpTaskDelay;
 
-        /** The delay for the scale down task */
+        /** The delay for the scale down task. */
         private long scaleDownTaskDelay;
 
         /**
