@@ -48,7 +48,7 @@ public class FakeCompute implements IgniteCompute {
     @Override
     public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
         if (Objects.equals(jobClassName, GET_UNITS)) {
-            String unitString = units.stream().map(DeploymentUnit::name).collect(Collectors.joining(","));
+            String unitString = units.stream().map(DeploymentUnit::render).collect(Collectors.joining(","));
             return CompletableFuture.completedFuture((R) unitString);
         }
 
