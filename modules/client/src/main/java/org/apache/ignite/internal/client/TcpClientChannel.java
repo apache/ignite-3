@@ -399,8 +399,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         if (unpacker.tryUnpackNil()) {
-            // TODO: Leak after this tryUnpackNil => unpacker.close() is not called after this point.
-            pendingReq.complete(unpacker);
+            boolean completed = pendingReq.complete(unpacker);
+
+            if (!completed) {
+                // Already completed (timeout, error, closing channel).
+                unpacker.close();
+            }
+
             metrics.requestsCompletedIncrement();
         } else {
             IgniteException err = readError(unpacker);
