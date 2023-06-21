@@ -18,12 +18,15 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.util.Set;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Describes dropping of columns.
  */
-public class DropColumnsEntry implements UpdateEntry {
+public class DropColumnsEntry implements UpdateEntry, CatalogFireEvent {
     private static final long serialVersionUID = 2970125889493580121L;
 
     private final int tableId;
@@ -32,7 +35,7 @@ public class DropColumnsEntry implements UpdateEntry {
     /**
      * Constructs the object.
      *
-     * @param tableId Table id.
+     * @param tableId Table ID.
      * @param columns Names of columns to drop.
      */
     public DropColumnsEntry(int tableId, Set<String> columns) {
@@ -40,17 +43,30 @@ public class DropColumnsEntry implements UpdateEntry {
         this.columns = columns;
     }
 
-    /** Returns table id. */
+    /**
+     * Returns table ID.
+     */
     public int tableId() {
         return tableId;
     }
 
-    /** Returns name of columns to drop. */
+    /**
+     * Returns name of columns to drop.
+     */
     public Set<String> columns() {
         return columns;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public CatalogEvent eventType() {
+        return CatalogEvent.TABLE_ALTER;
+    }
+
+    @Override
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new DropColumnEventParameters(causalityToken, catalogVersion, tableId, columns);
+    }
+
     @Override
     public String toString() {
         return S.toString(this);

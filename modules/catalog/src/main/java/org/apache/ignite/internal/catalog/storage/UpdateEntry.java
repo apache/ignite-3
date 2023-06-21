@@ -20,7 +20,7 @@ package org.apache.ignite.internal.catalog.storage;
 import java.io.Serializable;
 
 /**
- * A marker interface describing a particular change within the {@link VersionedUpdate group}.
+ * Interface describing a particular change within the {@link VersionedUpdate group}.
  */
 public interface UpdateEntry extends Serializable {
 }

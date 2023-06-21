@@ -18,12 +18,15 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.events.AlterColumnEventParameters;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Describes a column replacement.
  */
-public class AlterColumnEntry implements UpdateEntry {
+public class AlterColumnEntry implements UpdateEntry, CatalogFireEvent {
     private static final long serialVersionUID = -4552940987881338656L;
 
     private final int tableId;
@@ -33,7 +36,7 @@ public class AlterColumnEntry implements UpdateEntry {
     /**
      * Constructs the object.
      *
-     * @param tableId An id the table to be modified.
+     * @param tableId ID the table to be modified.
      * @param column A modified descriptor of the column to be replaced.
      */
     public AlterColumnEntry(int tableId, CatalogTableColumnDescriptor column) {
@@ -41,17 +44,30 @@ public class AlterColumnEntry implements UpdateEntry {
         this.column = column;
     }
 
-    /** Returns an id the table to be modified. */
+    /**
+     * Returns ID the table to be modified.
+     */
     public int tableId() {
         return tableId;
     }
 
-    /** Returns a descriptor for the column to be replaced. */
+    /**
+     * Returns a descriptor for the column to be replaced.
+     */
     public CatalogTableColumnDescriptor descriptor() {
         return column;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public CatalogEvent eventType() {
+        return CatalogEvent.TABLE_ALTER;
+    }
+
+    @Override
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new AlterColumnEventParameters(causalityToken, catalogVersion, tableId, column);
+    }
+
     @Override
     public String toString() {
         return S.toString(this);

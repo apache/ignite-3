@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Describes deletion of an index.
  */
-public class DropIndexEntry implements UpdateEntry {
+// TODO: IGNITE-19641 добавить идентификатор таблицы
+public class DropIndexEntry implements UpdateEntry, CatalogFireEvent {
     private static final long serialVersionUID = -604729846502020728L;
 
     private final int indexId;
@@ -30,18 +34,29 @@ public class DropIndexEntry implements UpdateEntry {
     /**
      * Constructs the object.
      *
-     * @param indexId An id of an index to drop.
+     * @param indexId ID of an index to drop.
      */
     public DropIndexEntry(int indexId) {
         this.indexId = indexId;
     }
 
-    /** Returns an id of an index to drop. */
+    /**
+     * Returns ID of an index to drop.
+     */
     public int indexId() {
         return indexId;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public CatalogEvent eventType() {
+        return CatalogEvent.INDEX_DROP;
+    }
+
+    @Override
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new DropIndexEventParameters(causalityToken, catalogVersion, indexId);
+    }
+
     @Override
     public String toString() {
         return S.toString(this);

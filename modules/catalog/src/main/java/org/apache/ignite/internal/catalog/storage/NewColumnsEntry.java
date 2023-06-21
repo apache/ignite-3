@@ -19,12 +19,15 @@ package org.apache.ignite.internal.catalog.storage;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Describes addition of new columns.
  */
-public class NewColumnsEntry implements UpdateEntry {
+public class NewColumnsEntry implements UpdateEntry, CatalogFireEvent {
     private static final long serialVersionUID = 2970125889493580121L;
 
     private final int tableId;
@@ -33,7 +36,7 @@ public class NewColumnsEntry implements UpdateEntry {
     /**
      * Constructs the object.
      *
-     * @param tableId Table id.
+     * @param tableId Table ID.
      * @param descriptors Descriptors of columns to add.
      */
     public NewColumnsEntry(int tableId, List<CatalogTableColumnDescriptor> descriptors) {
@@ -41,17 +44,30 @@ public class NewColumnsEntry implements UpdateEntry {
         this.descriptors = descriptors;
     }
 
-    /** Returns table id. */
+    /**
+     * Returns table ID.
+     */
     public int tableId() {
         return tableId;
     }
 
-    /** Returns descriptors of columns to add. */
+    /**
+     * Returns descriptors of columns to add.
+     */
     public List<CatalogTableColumnDescriptor> descriptors() {
         return descriptors;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public CatalogEvent eventType() {
+        return CatalogEvent.TABLE_ALTER;
+    }
+
+    @Override
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new AddColumnEventParameters(causalityToken, catalogVersion, tableId, descriptors);
+    }
+
     @Override
     public String toString() {
         return S.toString(this);

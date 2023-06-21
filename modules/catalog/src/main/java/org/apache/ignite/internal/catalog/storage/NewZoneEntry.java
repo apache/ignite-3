@@ -18,12 +18,15 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Describes addition of a new zone.
  */
-public class NewZoneEntry implements UpdateEntry {
+public class NewZoneEntry implements UpdateEntry, CatalogFireEvent {
     private static final long serialVersionUID = 2970125889493580121L;
 
     private final CatalogZoneDescriptor descriptor;
@@ -37,12 +40,23 @@ public class NewZoneEntry implements UpdateEntry {
         this.descriptor = descriptor;
     }
 
-    /** Returns descriptor of a zone to add. */
+    /**
+     * Returns descriptor of a zone to add.
+     */
     public CatalogZoneDescriptor descriptor() {
         return descriptor;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public CatalogEvent eventType() {
+        return CatalogEvent.ZONE_CREATE;
+    }
+
+    @Override
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new CreateZoneEventParameters(causalityToken, catalogVersion, descriptor);
+    }
+
     @Override
     public String toString() {
         return S.toString(this);

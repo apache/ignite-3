@@ -91,7 +91,7 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
      * @param err    Exception when it was happened, or {@code null} otherwise.
      * @return Completable future which is completed when event handling is complete.
      */
-    protected CompletableFuture<?> fireEvent(T evt, P params, Throwable err) {
+    protected CompletableFuture<?> fireEvent(T evt, P params, @Nullable Throwable err) {
         List<EventListener<P>> eventListeners = listeners.get(evt);
 
         if (eventListeners == null) {
@@ -100,11 +100,7 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
 
         Collection<CompletableFuture<?>> futures = new ArrayList<>();
 
-        Iterator<EventListener<P>> iter = eventListeners.iterator();
-
-        while (iter.hasNext()) {
-            EventListener<P> closure = iter.next();
-
+        for (EventListener<P> closure : eventListeners) {
             CompletableFuture<?> future = closure.notify(params, err)
                     .thenAccept(b -> {
                         if (b) {
@@ -125,7 +121,7 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
      * @param params Event parameters.
      * @return Completable future which is completed when event handling is complete.
      */
-    protected  CompletableFuture<?> fireEvent(T evt, P params) {
+    protected CompletableFuture<?> fireEvent(T evt, P params) {
         return fireEvent(evt, params, null);
     }
 }

@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Describes deletion of a table.
  */
-public class DropTableEntry implements UpdateEntry {
+public class DropTableEntry implements UpdateEntry, CatalogFireEvent {
     private static final long serialVersionUID = 7727583734058987315L;
 
     private final int tableId;
@@ -30,18 +33,29 @@ public class DropTableEntry implements UpdateEntry {
     /**
      * Constructs the object.
      *
-     * @param tableId An id of a table to drop.
+     * @param tableId ID of a table to drop.
      */
     public DropTableEntry(int tableId) {
         this.tableId = tableId;
     }
 
-    /** Returns an id of a table to drop. */
+    /**
+     * Returns ID of a table to drop.
+     */
     public int tableId() {
         return tableId;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public CatalogEvent eventType() {
+        return CatalogEvent.TABLE_DROP;
+    }
+
+    @Override
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new DropTableEventParameters(causalityToken, catalogVersion, tableId);
+    }
+
     @Override
     public String toString() {
         return S.toString(this);

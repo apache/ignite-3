@@ -15,33 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.events;
+package org.apache.ignite.internal.catalog.storage;
 
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 
 /**
- * Create zone event parameters contains a distribution zone descriptor for newly created distribution zone.
+ * Interface for firing events.
  */
-public class CreateZoneEventParameters extends CatalogEventParameters {
-    private final CatalogZoneDescriptor descriptor;
+public interface CatalogFireEvent {
+    /**
+     * Returns the type of the fired event.
+     */
+    CatalogEvent eventType();
 
     /**
-     * Constructor.
+     * Creates parameters of the fired event.
      *
      * @param causalityToken Causality token.
      * @param catalogVersion Catalog version.
-     * @param descriptor Newly created distribution zone descriptor.
      */
-    public CreateZoneEventParameters(long causalityToken, int catalogVersion, CatalogZoneDescriptor descriptor) {
-        super(causalityToken, catalogVersion);
-
-        this.descriptor = descriptor;
-    }
-
-    /**
-     * Gets distribution zone descriptor for newly created distribution zone.
-     */
-    public CatalogZoneDescriptor zoneDescriptor() {
-        return descriptor;
-    }
+    CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion);
 }

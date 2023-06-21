@@ -18,14 +18,19 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Describes addition of a new table.
  */
-public class NewTableEntry implements UpdateEntry {
+public class NewTableEntry implements UpdateEntry, CatalogFireEvent {
     private static final long serialVersionUID = 2970125889493580121L;
 
+    @IgniteToStringInclude
     private final CatalogTableDescriptor descriptor;
 
     /**
@@ -37,12 +42,23 @@ public class NewTableEntry implements UpdateEntry {
         this.descriptor = descriptor;
     }
 
-    /** Returns descriptor of a table to add. */
+    /**
+     * Returns descriptor of a table to add.
+     */
     public CatalogTableDescriptor descriptor() {
         return descriptor;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public CatalogEvent eventType() {
+        return CatalogEvent.TABLE_CREATE;
+    }
+
+    @Override
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new CreateTableEventParameters(causalityToken, catalogVersion, descriptor);
+    }
+
     @Override
     public String toString() {
         return S.toString(this);

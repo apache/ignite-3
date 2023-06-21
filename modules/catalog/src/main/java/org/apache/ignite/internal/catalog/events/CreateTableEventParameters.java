@@ -23,17 +23,17 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
  * Create table event parameters contains a table descriptor for newly created table.
  */
 public class CreateTableEventParameters extends CatalogEventParameters {
-
     private final CatalogTableDescriptor tableDescriptor;
 
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
+     * @param catalogVersion Catalog version.
      * @param tableDescriptor Newly created table descriptor.
      */
-    public CreateTableEventParameters(long causalityToken, CatalogTableDescriptor tableDescriptor) {
-        super(causalityToken);
+    public CreateTableEventParameters(long causalityToken, int catalogVersion, CatalogTableDescriptor tableDescriptor) {
+        super(causalityToken, catalogVersion);
 
         this.tableDescriptor = tableDescriptor;
     }

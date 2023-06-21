@@ -18,12 +18,15 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Describes addition of a new index.
  */
-public class NewIndexEntry implements UpdateEntry {
+public class NewIndexEntry implements UpdateEntry, CatalogFireEvent {
     private static final long serialVersionUID = 6717363577013237711L;
 
     private final CatalogIndexDescriptor descriptor;
@@ -37,12 +40,23 @@ public class NewIndexEntry implements UpdateEntry {
         this.descriptor = descriptor;
     }
 
-    /** Gets descriptor of an index to add. */
+    /**
+     * Gets descriptor of an index to add.
+     */
     public CatalogIndexDescriptor descriptor() {
         return descriptor;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public CatalogEvent eventType() {
+        return CatalogEvent.INDEX_CREATE;
+    }
+
+    @Override
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new CreateIndexEventParameters(causalityToken, catalogVersion, descriptor);
+    }
+
     @Override
     public String toString() {
         return S.toString(this);

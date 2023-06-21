@@ -61,7 +61,6 @@ import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
-import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
@@ -69,6 +68,7 @@ import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.catalog.storage.AlterColumnEntry;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
+import org.apache.ignite.internal.catalog.storage.CatalogFireEvent;
 import org.apache.ignite.internal.catalog.storage.DropColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
@@ -621,12 +621,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             // TODO: IGNITE-19641 продолжить тут
 
-            List<CompletableFuture<?>> eventFutures = new ArrayList<>(update.entries().size());
-
             for (UpdateEntry entry : update.entries()) {
                 CatalogSchemaDescriptor schema = getSchema(catalog, DEFAULT_SCHEMA_NAME);
 
                 if (entry instanceof NewTableEntry) {
+                    NewTableEntry newTableEntry = (NewTableEntry) entry;
+
                     catalog = new Catalog(
                             version,
                             activationTimestamp,
@@ -635,16 +635,10 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             List.of(new CatalogSchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    ArrayUtils.concat(schema.tables(), ((NewTableEntry) entry).descriptor()),
+                                    ArrayUtils.concat(schema.tables(), newTableEntry.descriptor()),
                                     schema.indexes()
                             ))
                     );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.TABLE_CREATE,
-                            new CreateTableEventParameters(version, ((NewTableEntry) entry).descriptor())
-                    ));
-
                 } else if (entry instanceof DropTableEntry) {
                     int tableId = ((DropTableEntry) entry).tableId();
 
@@ -660,11 +654,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                     schema.indexes()
                             ))
                     );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.TABLE_DROP,
-                            new DropTableEventParameters(version, tableId)
-                    ));
                 } else if (entry instanceof NewColumnsEntry) {
                     int tableId = ((NewColumnsEntry) entry).tableId();
                     List<CatalogTableColumnDescriptor> columnDescriptors = ((NewColumnsEntry) entry).descriptors();
@@ -692,11 +681,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                     schema.indexes()
                             ))
                     );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.TABLE_ALTER,
-                            new AddColumnEventParameters(version, tableId, columnDescriptors)
-                    ));
                 } else if (entry instanceof DropColumnsEntry) {
                     int tableId = ((DropColumnsEntry) entry).tableId();
                     Set<String> columns = ((DropColumnsEntry) entry).columns();
@@ -726,11 +710,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                     schema.indexes()
                             ))
                     );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.TABLE_ALTER,
-                            new DropColumnEventParameters(version, tableId, columns)
-                    ));
                 } else if (entry instanceof NewIndexEntry) {
                     catalog = new Catalog(
                             version,
@@ -744,11 +723,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                     ArrayUtils.concat(schema.indexes(), ((NewIndexEntry) entry).descriptor())
                             ))
                     );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.INDEX_CREATE,
-                            new CreateIndexEventParameters(version, ((NewIndexEntry) entry).descriptor())
-                    ));
                 } else if (entry instanceof DropIndexEntry) {
                     int indexId = ((DropIndexEntry) entry).indexId();
 
@@ -764,11 +738,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                     Arrays.stream(schema.indexes()).filter(t -> t.id() != indexId).toArray(CatalogIndexDescriptor[]::new)
                             ))
                     );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.INDEX_DROP,
-                            new DropIndexEventParameters(version, indexId)
-                    ));
                 } else if (entry instanceof NewZoneEntry) {
                     catalog = new Catalog(
                             version,
@@ -777,11 +746,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             CollectionUtils.concat(catalog.zones(), List.of(((NewZoneEntry) entry).descriptor())),
                             catalog.schemas()
                     );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.ZONE_CREATE,
-                            new CreateZoneEventParameters(version, ((NewZoneEntry) entry).descriptor())
-                    ));
                 } else if (entry instanceof DropZoneEntry) {
                     int zoneId = ((DropZoneEntry) entry).zoneId();
 
@@ -792,11 +756,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             catalog.zones().stream().filter(z -> z.id() != zoneId).collect(toList()),
                             catalog.schemas()
                     );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.ZONE_DROP,
-                            new DropZoneEventParameters(version, zoneId)
-                    ));
                 } else if (entry instanceof AlterZoneEntry) {
                     CatalogZoneDescriptor descriptor = ((AlterZoneEntry) entry).descriptor();
 
@@ -809,11 +768,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                     .collect(toList()),
                             catalog.schemas()
                     );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.ZONE_ALTER,
-                            new AlterZoneEventParameters(version, descriptor)
-                    ));
                 } else if (entry instanceof ObjectIdGenUpdateEntry) {
                     catalog = new Catalog(
                             version,
@@ -851,17 +805,25 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                     schema.indexes()
                             ))
                     );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.TABLE_ALTER,
-                            new AlterColumnEventParameters(version, tableId, target)
-                    ));
                 } else {
                     assert false : entry;
                 }
             }
 
             registerCatalog(catalog);
+
+            List<CompletableFuture<?>> eventFutures = new ArrayList<>(update.entries().size());
+
+            for (UpdateEntry entry : update.entries()) {
+                if (entry instanceof CatalogFireEvent) {
+                    CatalogFireEvent fireEvent = (CatalogFireEvent) entry;
+
+                    eventFutures.add(fireEvent(
+                            fireEvent.eventType(),
+                            fireEvent.createEventParameters(causalityToken, version)
+                    ));
+                }
+            }
 
             CompletableFuture.allOf(eventFutures.toArray(CompletableFuture[]::new))
                     .whenComplete((ignore, err) -> {

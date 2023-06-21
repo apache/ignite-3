@@ -23,25 +23,25 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
  * Create index event parameters that contains a newly created index descriptor.
  */
 public class CreateIndexEventParameters extends CatalogEventParameters {
-
-    private final CatalogIndexDescriptor indexDescriptor;
+    private final CatalogIndexDescriptor descriptor;
 
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
-     * @param indexDescriptor Newly created index descriptor.
+     * @param catalogVersion Catalog version.
+     * @param descriptor Newly created index descriptor.
      */
-    public CreateIndexEventParameters(long causalityToken, CatalogIndexDescriptor indexDescriptor) {
-        super(causalityToken);
+    public CreateIndexEventParameters(long causalityToken, int catalogVersion, CatalogIndexDescriptor descriptor) {
+        super(causalityToken, catalogVersion);
 
-        this.indexDescriptor = indexDescriptor;
+        this.descriptor = descriptor;
     }
 
     /**
      * Gets index descriptor for a newly created index.
      */
     public CatalogIndexDescriptor indexDescriptor() {
-        return indexDescriptor;
+        return descriptor;
     }
 }
