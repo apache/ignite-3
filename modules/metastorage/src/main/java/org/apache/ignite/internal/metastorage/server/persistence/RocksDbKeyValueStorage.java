@@ -576,11 +576,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public List<Entry> getEntries(byte[] key, long revLowerBound, long revUpperBound) {
+    public List<Entry> get(byte[] key, long revLowerBound, long revUpperBound) {
         rwLock.readLock().lock();
 
         try {
-            return doGetEntries(key, revLowerBound, revUpperBound);
+            return doGet(key, revLowerBound, revUpperBound);
         } finally {
             rwLock.readLock().unlock();
         }
@@ -1235,7 +1235,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @param revUpperBound  Target upper bound of revision.
      * @return Value.
      */
-    private List<Entry> doGetEntries(byte[] key, long revLowerBound, long revUpperBound) {
+    private List<Entry> doGet(byte[] key, long revLowerBound, long revUpperBound) {
         assert revLowerBound >= 0 : "Invalid arguments: [revLowerBound=" + revLowerBound + ']';
         assert revUpperBound >= 0 : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
         assert revUpperBound >= revLowerBound

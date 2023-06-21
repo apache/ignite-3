@@ -66,7 +66,7 @@ public interface MetaStorageManager extends IgniteComponent {
      * TODO: IGNITE-19735 move this method to another interface for interaction with local KeyValueStorage.
      */
     @Deprecated
-    List<Entry> getEntriesLocally(byte[] key, long revLowerBound, long revUpperBound);
+    List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound);
 
     /**
      * Retrieves entries for given keys.

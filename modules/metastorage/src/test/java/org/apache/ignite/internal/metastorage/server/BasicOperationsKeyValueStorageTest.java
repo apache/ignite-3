@@ -192,7 +192,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
     }
 
     @Test
-    void getEntriesWithRevisionLowerUpperBound() {
+    void getWithRevisionLowerUpperBound() {
         byte[] key1 = key(1);
         byte[] key2 = key(2);
 
@@ -226,7 +226,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         // Get entries with the lower revision and the upper revision are bound to the key.
         // One entry from the revision range is bound to another key.
-        List<Entry> entries1 = storage.getEntries(key1, 2, 5);
+        List<Entry> entries1 = storage.get(key1, 2, 5);
         List<byte[]> values1 = entries1.stream().map(entry -> entry.value()).collect(Collectors.toList());
 
         assertEquals(3, entries1.size());
@@ -236,7 +236,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         // Get entries with the lower revision and the upper revision are bound to another key.
         // Other entries are bound to the key.
-        List<Entry> entries2 = storage.getEntries(key1, 3, 6);
+        List<Entry> entries2 = storage.get(key1, 3, 6);
         List<byte[]> values2 = entries2.stream().map(entry -> entry.value()).collect(Collectors.toList());
 
         assertEquals(2, entries2.size());
@@ -244,33 +244,33 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertArrayEquals(val5, values2.get(1));
 
         // Get entries with the same lower and upper revision.
-        List<Entry> entries3 = storage.getEntries(key1, 8, 8);
+        List<Entry> entries3 = storage.get(key1, 8, 8);
         List<byte[]> values3 = entries3.stream().map(entry -> entry.value()).collect(Collectors.toList());
 
         assertEquals(1, entries3.size());
         assertArrayEquals(val8, values3.get(0));
 
-        // try to get entries when the revision range doesn't contain entries with the key.
-        List<Entry> entries4 = storage.getEntries(key1, 6, 7);
+        // Try to get entries when the revision range doesn't contain entries with the key.
+        List<Entry> entries4 = storage.get(key1, 6, 7);
 
         assertTrue(entries4.isEmpty());
 
         // Try to get entries when the storage doesn't contain entries with specified revisions.
-        List<Entry> entries5 = storage.getEntries(key1, 20, 30);
+        List<Entry> entries5 = storage.get(key1, 20, 30);
 
         assertTrue(entries5.isEmpty());
 
         // Get a tombstone.
-        List<Entry> entries6 = storage.getEntries(key1, 10, 10);
+        List<Entry> entries6 = storage.get(key1, 10, 10);
 
         assertEquals(1, entries6.size());
         assertTrue(entries6.get(0).tombstone());
         assertNull(entries6.get(0).value());
 
         // Check validation asserts.
-        assertThrows(AssertionError.class, () -> storage.getEntries(key1, -1, 1));
-        assertThrows(AssertionError.class, () -> storage.getEntries(key1, 1, -1));
-        assertThrows(AssertionError.class, () -> storage.getEntries(key1, 2, 1));
+        assertThrows(AssertionError.class, () -> storage.get(key1, -1, 1));
+        assertThrows(AssertionError.class, () -> storage.get(key1, 1, -1));
+        assertThrows(AssertionError.class, () -> storage.get(key1, 2, 1));
     }
 
     @Test
