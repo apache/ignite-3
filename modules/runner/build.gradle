@@ -169,8 +169,6 @@ tasks.register("runnerPlatformTest", JavaExec) {
     classpath = sourceSets.integrationTest.runtimeClasspath
 
     enableAssertions = true
-
-    jvmArgs += ["-Dio.netty.leakDetection.level=paranoid"]
 }
 
 tasks.register("runnerPlatformBenchmark", JavaExec) {
