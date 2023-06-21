@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.table.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MAX_VALUE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -40,6 +42,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
@@ -188,7 +191,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 false,
                 null,
                 schema,
-                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
+                placementDriverMock()
         );
     }
 
@@ -502,5 +505,18 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             public void addIndexToWaitIfAbsent(int indexId) {
             }
         };
+    }
+
+    // TODO: sanpwc Try to use wherever possible and add jadadoc.
+    private static org.apache.ignite.internal.placementdriver.PlacementDriver placementDriverMock() {
+        org.apache.ignite.internal.placementdriver.PlacementDriver placementDriver = mock(
+                org.apache.ignite.internal.placementdriver.PlacementDriver.class);
+
+            ReplicaMeta primaryReplica = new TestReplicaMetaImpl(SCAN_RECIPIENT_NODE.name(), MIN_VALUE, MAX_VALUE);
+
+            lenient().when(placementDriver.awaitPrimaryReplica(any(), any())).thenReturn(completedFuture(primaryReplica));
+            lenient().when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(primaryReplica));
+
+            return placementDriver;
     }
 }
