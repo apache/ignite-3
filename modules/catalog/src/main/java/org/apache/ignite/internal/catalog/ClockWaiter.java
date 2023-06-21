@@ -24,8 +24,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.ClockUpdateListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -113,6 +115,8 @@ public class ClockWaiter implements IgniteComponent {
     private CompletableFuture<Void> doWaitFor(HybridTimestamp targetTimestamp) {
         CompletableFuture<Void> future = nowTracker.waitFor(targetTimestamp);
 
+        AtomicReference<ScheduledFuture<?>> scheduledFutureRef = new AtomicReference<>();
+
         if (!future.isDone()) {
             // This triggers a clock update.
             HybridTimestamp now = clock.now();
@@ -125,16 +129,27 @@ public class ClockWaiter implements IgniteComponent {
                         // Adding 1 to account for a possible non-null logical part of the targetTimestamp.
                         + 1;
 
-                scheduler.schedule(this::triggerClockUpdate, millisToWait, TimeUnit.MILLISECONDS);
+                ScheduledFuture<?> scheduledFuture = scheduler.schedule(this::triggerClockUpdate, millisToWait, TimeUnit.MILLISECONDS);
+                scheduledFutureRef.set(scheduledFuture);
             }
         }
 
-        return future.exceptionally(ex -> {
-            if (ex instanceof TrackerClosedException) {
-                throw new CancellationException();
-            } else {
-                throw new CompletionException(ex);
+        return future.handle((res, ex) -> {
+            ScheduledFuture<?> scheduledFuture = scheduledFutureRef.get();
+
+            if (scheduledFuture != null) {
+                scheduledFuture.cancel(true);
             }
+
+            if (ex != null) {
+                if (ex instanceof TrackerClosedException) {
+                    throw new CancellationException();
+                } else {
+                    throw new CompletionException(ex);
+                }
+            }
+
+            return res;
         });
     }
 
