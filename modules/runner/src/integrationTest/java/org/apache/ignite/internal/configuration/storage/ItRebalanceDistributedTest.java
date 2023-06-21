@@ -766,7 +766,6 @@ public class ItRebalanceDistributedTest {
 
             catalogManager = new CatalogServiceImpl(
                     new UpdateLogImpl(metaStorageManager, keyValueStorage::timestampByRevision, vaultManager),
-                    hybridClock,
                     clockWaiter
             );
 

@@ -156,7 +156,7 @@ public class CatalogServiceSelfTest {
 
         clock = new HybridClockImpl();
         clockWaiter = spy(new ClockWaiter("test", clock));
-        service = new CatalogServiceImpl(new UpdateLogImpl(metastore, keyValueStorage::timestampByRevision, vault), clock, clockWaiter, 0L);
+        service = new CatalogServiceImpl(new UpdateLogImpl(metastore, keyValueStorage::timestampByRevision, vault), clockWaiter, 0L);
 
         vault.start();
         metastore.start();
@@ -1098,7 +1098,7 @@ public class CatalogServiceSelfTest {
 
         doNothing().when(updateLogMock).registerUpdateHandler(updateHandlerCapture.capture());
 
-        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clock, clockWaiter);
+        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clockWaiter);
         service.start();
 
         when(updateLogMock.append(any())).thenAnswer(invocation -> {
@@ -1134,7 +1134,7 @@ public class CatalogServiceSelfTest {
         VaultManager vault = new VaultManager(vaultService);
         StandaloneMetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(vault);
         UpdateLog updateLogMock = Mockito.spy(new UpdateLogImpl(metaStorageManager, rev -> clock.now(), vault));
-        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clock, clockWaiter, delayDuration);
+        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clockWaiter, delayDuration);
 
         vault.start();
         metaStorageManager.start();
@@ -1179,7 +1179,7 @@ public class CatalogServiceSelfTest {
     public void catalogServiceManagesUpdateLogLifecycle() throws Exception {
         UpdateLog updateLogMock = mock(UpdateLog.class);
 
-        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, mock(HybridClock.class), clockWaiter);
+        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clockWaiter);
 
         service.start();
 
@@ -1597,7 +1597,7 @@ public class CatalogServiceSelfTest {
         VaultManager vault = new VaultManager(vaultService);
         StandaloneMetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(vault);
         UpdateLog updateLogMock = spy(new UpdateLogImpl(metaStorageManager, rev -> clock.now(), vault));
-        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clock, clockWaiter, delayDuration);
+        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clockWaiter, delayDuration);
 
         vault.start();
         metaStorageManager.start();

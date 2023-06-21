@@ -84,7 +84,6 @@ import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.hlc.ClockWaiter;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -133,8 +132,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     private final PendingComparableValuesTracker<Integer, Void> versionTracker = new PendingComparableValuesTracker<>(0);
 
-    private final HybridClock clock;
-
     private final ClockWaiter clockWaiter;
 
     private final LongSupplier delayDurationMsSupplier;
@@ -143,23 +140,22 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /**
      * Constructor.
      */
-    public CatalogServiceImpl(UpdateLog updateLog, HybridClock clock, ClockWaiter clockWaiter) {
-        this(updateLog, clock, clockWaiter, DEFAULT_DELAY_DURATION);
+    public CatalogServiceImpl(UpdateLog updateLog, ClockWaiter clockWaiter) {
+        this(updateLog, clockWaiter, DEFAULT_DELAY_DURATION);
     }
 
     /**
      * Constructor.
      */
-    CatalogServiceImpl(UpdateLog updateLog, HybridClock clock, ClockWaiter clockWaiter, long delayDurationMs) {
-        this(updateLog, clock, clockWaiter, () -> delayDurationMs);
+    CatalogServiceImpl(UpdateLog updateLog, ClockWaiter clockWaiter, long delayDurationMs) {
+        this(updateLog, clockWaiter, () -> delayDurationMs);
     }
 
     /**
      * Constructor.
      */
-    public CatalogServiceImpl(UpdateLog updateLog, HybridClock clock, ClockWaiter clockWaiter, LongSupplier delayDurationMsSupplier) {
+    public CatalogServiceImpl(UpdateLog updateLog, ClockWaiter clockWaiter, LongSupplier delayDurationMsSupplier) {
         this.updateLog = updateLog;
-        this.clock = clock;
         this.clockWaiter = clockWaiter;
         this.delayDurationMsSupplier = delayDurationMsSupplier;
     }
@@ -791,18 +787,16 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     private CompletableFuture<Void> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
         return saveUpdate(updateProducer, 0)
-                .thenCompose(newVersion -> {
-                    return versionTracker.waitFor(newVersion)
-                            .thenCompose(unused -> {
-                                Catalog catalog = catalogByVer.get(newVersion);
-                                HybridTimestamp activationTs = HybridTimestamp.hybridTimestamp(catalog.time());
-                                HybridTimestamp clusterWideEnsuredActivationTs = activationTs.addPhysicalTime(
-                                        HybridTimestamp.maxClockSkew()
-                                );
+                .thenCompose(newVersion -> versionTracker.waitFor(newVersion)
+                        .thenCompose(unused -> {
+                            Catalog catalog = catalogByVer.get(newVersion);
+                            HybridTimestamp activationTs = HybridTimestamp.hybridTimestamp(catalog.time());
+                            HybridTimestamp clusterWideEnsuredActivationTs = activationTs.addPhysicalTime(
+                                    HybridTimestamp.maxClockSkew()
+                            );
 
-                                return clockWaiter.waitFor(clusterWideEnsuredActivationTs);
-                            });
-                });
+                            return clockWaiter.waitFor(clusterWideEnsuredActivationTs);
+                        }));
     }
 
     private CompletableFuture<Integer> saveUpdate(UpdateProducer updateProducer, int attemptNo) {
