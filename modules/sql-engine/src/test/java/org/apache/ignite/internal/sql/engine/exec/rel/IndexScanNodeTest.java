@@ -38,7 +38,6 @@ import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.index.HashIndex;
-import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.index.SortedIndexImpl;
@@ -68,7 +67,7 @@ public class IndexScanNodeTest extends AbstractExecutionTest {
     @Test
     @SuppressWarnings({"unchecked", "rawtypes"})
     public void testSortedIndex() {
-        Index<?> index = newSortedIndex();
+        IgniteIndex index = newSortedIndex();
 
         ExecutionContext<Object[]> ctx = executionContext();
 
@@ -95,7 +94,7 @@ public class IndexScanNodeTest extends AbstractExecutionTest {
      */
     @Test
     public void testHashIndex() {
-        Index<?> index = newHashIndex();
+        IgniteIndex index = newHashIndex();
 
         ExecutionContext<Object[]> ctx = executionContext();
 
@@ -119,11 +118,11 @@ public class IndexScanNodeTest extends AbstractExecutionTest {
             this.ctx = ctx;
         }
 
-        IndexScanNode<Object[]> createSortedIndex(Index<?> index, TestScannableTable<?> scannableTable, Comparator<Object[]> cmp) {
+        IndexScanNode<Object[]> createSortedIndex(IgniteIndex index, TestScannableTable<?> scannableTable, Comparator<Object[]> cmp) {
             return createIndexNode(ctx, index, scannableTable, cmp);
         }
 
-        IndexScanNode<Object[]> createHashIndex(Index<?> index, TestScannableTable<?> scannableTable) {
+        IndexScanNode<Object[]> createHashIndex(IgniteIndex index, TestScannableTable<?> scannableTable) {
             return createIndexNode(ctx, index, scannableTable, null);
         }
 
@@ -155,26 +154,28 @@ public class IndexScanNodeTest extends AbstractExecutionTest {
         }
     }
 
-    private Index<?> newHashIndex() {
+    private IgniteIndex newHashIndex() {
         IndexDescriptor descriptor = new IndexDescriptor("IDX", List.of("C1"));
+        HashIndex index = new HashIndex(1, Mockito.mock(InternalTable.class), descriptor);
 
-        return new HashIndex(1, Mockito.mock(InternalTable.class), descriptor);
+        return new IgniteIndex(index);
     }
 
-    private Index<?> newSortedIndex() {
+    private IgniteIndex newSortedIndex() {
         List<String> columnNames = List.of("C1");
         List<ColumnCollation> columnCollations = List.of(ColumnCollation.ASC_NULLS_LAST);
         SortedIndexDescriptor descriptor = new SortedIndexDescriptor("IDX", columnNames, columnCollations);
+        SortedIndexImpl index = new SortedIndexImpl(1, Mockito.mock(InternalTable.class), descriptor);
 
-        return new SortedIndexImpl(1, Mockito.mock(InternalTable.class), descriptor);
+        return new IgniteIndex(index);
     }
 
-    private IndexScanNode<Object[]> createIndexNode(ExecutionContext<Object[]> ctx, Index<?> index,
+    private IndexScanNode<Object[]> createIndexNode(ExecutionContext<Object[]> ctx, IgniteIndex index,
             TestScannableTable<?> scannableTable, @Nullable Comparator<Object[]> comparator) {
 
         RelDataTypeFactory.Builder rowTypeBuilder = new Builder(Commons.typeFactory());
 
-        for (String column : index.descriptor().columns()) {
+        for (String column : index.columns()) {
             rowTypeBuilder = rowTypeBuilder.add(column, SqlTypeName.INTEGER);
         }
 
@@ -182,12 +183,11 @@ public class IndexScanNodeTest extends AbstractExecutionTest {
 
         TableDescriptor tableDescriptor = new TestTableDescriptor(IgniteDistributions::single, rowType);
 
-        IgniteIndex schemaIndex = new IgniteIndex(index);
         RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
         SingleRangeIterable conditions = new SingleRangeIterable(new Object[]{}, null, false, false);
         List<PartitionWithTerm> partitions = scannableTable.getPartitions();
 
-        return new IndexScanNode<>(ctx, rowFactory, schemaIndex, scannableTable, tableDescriptor, partitions,
+        return new IndexScanNode<>(ctx, rowFactory, index, scannableTable, tableDescriptor, partitions,
                 comparator, conditions, null, null, null);
     }
 
