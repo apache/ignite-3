@@ -69,16 +69,17 @@ public class CatalogUtils {
     /**
      * Converts CreateIndex command params to hash index descriptor.
      *
-     * @param id Index id.
-     * @param tableId Table id.
+     * @param id Index ID.
+     * @param tableId Table ID.
      * @param params Parameters.
      * @return Index descriptor.
      */
-    public static CatalogIndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
-        return new CatalogHashIndexDescriptor(id,
+    public static CatalogHashIndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
+        return new CatalogHashIndexDescriptor(
+                id,
                 params.indexName(),
                 tableId,
-                false,
+                params.unique(),
                 params.columns()
         );
     }
@@ -100,7 +101,7 @@ public class CatalogUtils {
                 .mapToObj(i -> new CatalogIndexColumnDescriptor(params.columns().get(i), collations.get(i)))
                 .collect(Collectors.toList());
 
-        return new CatalogSortedIndexDescriptor(id, params.indexName(), tableId, params.isUnique(), columnDescriptors);
+        return new CatalogSortedIndexDescriptor(id, params.indexName(), tableId, params.unique(), columnDescriptors);
     }
 
     /**

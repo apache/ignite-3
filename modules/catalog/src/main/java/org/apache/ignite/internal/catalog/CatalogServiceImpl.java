@@ -48,6 +48,7 @@ import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -271,13 +272,18 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogZoneDescriptor zone = getZone(catalog, Objects.requireNonNullElse(params.zone(), DEFAULT_ZONE_NAME));
 
-            CatalogTableDescriptor table = CatalogUtils.fromParams(catalog.objectIdGenState(), zone.id(), params);
+            int id = catalog.objectIdGenState();
 
-            // TODO: IGNITE-19641 добавлю сразу создание пк индекса
+            CatalogTableDescriptor table = CatalogUtils.fromParams(id++, zone.id(), params);
+
+            CatalogHashIndexDescriptor pkIndex = createHashIndexDescriptor(createPkIndexParams(params), table, id++);
+
+            // TODO: IGNITE-19641 протестировать
 
             return List.of(
                     new NewTableEntry(table),
-                    new ObjectIdGenUpdateEntry(1)
+                    new NewIndexEntry(pkIndex),
+                    new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
             );
         });
     }
@@ -384,9 +390,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            validateParams(params, table);
-
-            CatalogIndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
+            CatalogHashIndexDescriptor index = createHashIndexDescriptor(params, table, catalog.objectIdGenState());
 
             return List.of(
                     new NewIndexEntry(index),
@@ -841,5 +845,25 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         } else if (target.precision() < origin.precision()) {
             throwUnsupportedDdl("Cannot decrease precision to {} for column '{}'.", target.precision(), origin.name());
         }
+    }
+
+    private static CatalogHashIndexDescriptor createHashIndexDescriptor(
+            CreateHashIndexParams params,
+            CatalogTableDescriptor table,
+            int indexId
+    ) {
+        validateParams(params, table);
+
+        return CatalogUtils.fromParams(indexId, table.id(), params);
+    }
+
+    private static CreateHashIndexParams createPkIndexParams(CreateTableParams params) {
+        return CreateHashIndexParams.builder()
+                .schemaName(params.schemaName())
+                .tableName(params.tableName())
+                .indexName(params.tableName() + "_PK")
+                .columns(params.primaryKeyColumns())
+                .unique()
+                .build();
     }
 }

@@ -29,24 +29,11 @@ public class CreateSortedIndexParams extends AbstractIndexCommandParams {
         return new Builder();
     }
 
-    /** Table name. */
-    private String tableName;
-
     /** Indexed columns. */
     private List<String> columns;
 
     /** Columns collations. */
     private List<CatalogColumnCollation> collations;
-
-    /** Unique index flag. */
-    protected boolean unique;
-
-    /**
-     * Gets table name.
-     */
-    public String tableName() {
-        return tableName;
-    }
 
     /**
      * Gets indexed columns.
@@ -63,30 +50,11 @@ public class CreateSortedIndexParams extends AbstractIndexCommandParams {
     }
 
     /**
-     * Returns {@code true} if index is unique, {@code false} otherwise.
-     */
-    public boolean isUnique() {
-        return unique;
-    }
-
-    /**
      * Parameters builder.
      */
     public static class Builder extends AbstractBuilder<CreateSortedIndexParams, CreateSortedIndexParams.Builder> {
         private Builder() {
             super(new CreateSortedIndexParams());
-        }
-
-        /**
-         * Set table name.
-         *
-         * @param tableName Table name.
-         * @return {@code this}.
-         */
-        public Builder tableName(String tableName) {
-            params.tableName = tableName;
-
-            return this;
         }
 
         /**
@@ -109,15 +77,6 @@ public class CreateSortedIndexParams extends AbstractIndexCommandParams {
          */
         public Builder collations(List<CatalogColumnCollation> collations) {
             params.collations = collations;
-
-            return this;
-        }
-
-        /**
-         * Sets unique flag.
-         */
-        public Builder unique() {
-            params.unique = true;
 
             return this;
         }
