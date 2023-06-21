@@ -15,21 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.table;
+package org.apache.ignite.internal.streamer;
 
-import java.util.Map.Entry;
-import org.apache.ignite.table.Tuple;
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Partition awareness provider for data streamer.
+ * Streamer batch sender.
+ *
+ * @param <T> Item type.
+ * @param <P> Partition type.
  */
-class KeyValueTupleStreamerPartitionAwarenessProvider extends AbstractClientStreamerPartitionAwarenessProvider<Entry<Tuple, Tuple>> {
-    KeyValueTupleStreamerPartitionAwarenessProvider(ClientTable tbl) {
-        super(tbl);
-    }
-
-    @Override
-    int colocationHash(ClientSchema schema, Entry<Tuple, Tuple> item) {
-        return ClientTupleSerializer.getColocationHash(schema, item.getKey());
-    }
+@FunctionalInterface
+public interface StreamerBatchSender<T, P> {
+    /**
+     * Sends batch of items asynchronously.
+     *
+     * @param partition Partition.
+     * @param batch Batch.
+     * @return Future representing pending completion of the operation.
+     */
+    CompletableFuture<Void> sendAsync(P partition, Collection<T> batch);
 }

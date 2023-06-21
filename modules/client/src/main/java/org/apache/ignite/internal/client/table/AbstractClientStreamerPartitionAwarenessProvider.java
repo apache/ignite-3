@@ -19,18 +19,19 @@ package org.apache.ignite.internal.client.table;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 
 /**
  * Partition awareness provider for data streamer.
  *
  * @param <T> Item type.
  */
-abstract class AbstractStreamerPartitionAwarenessProvider<T> implements StreamerPartitionAwarenessProvider<T, String> {
+abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements StreamerPartitionAwarenessProvider<T, String> {
     private final ClientTable tbl;
     private List<String> assignment;
     private ClientSchema schema;
 
-    AbstractStreamerPartitionAwarenessProvider(ClientTable tbl) {
+    AbstractClientStreamerPartitionAwarenessProvider(ClientTable tbl) {
         this.tbl = tbl;
     }
 

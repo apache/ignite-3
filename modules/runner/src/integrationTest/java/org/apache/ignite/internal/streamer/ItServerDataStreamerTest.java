@@ -15,21 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.table;
+package org.apache.ignite.internal.streamer;
 
-import java.util.Map.Entry;
-import org.apache.ignite.table.Tuple;
+import org.apache.ignite.Ignite;
 
 /**
- * Partition awareness provider for data streamer.
+ * Integration test for server-side data streamer API.
  */
-class KeyValueTupleStreamerPartitionAwarenessProvider extends AbstractClientStreamerPartitionAwarenessProvider<Entry<Tuple, Tuple>> {
-    KeyValueTupleStreamerPartitionAwarenessProvider(ClientTable tbl) {
-        super(tbl);
-    }
-
+public class ItServerDataStreamerTest extends ItAbstractDataStreamerTest {
     @Override
-    int colocationHash(ClientSchema schema, Entry<Tuple, Tuple> item) {
-        return ClientTupleSerializer.getColocationHash(schema, item.getKey());
+    Ignite ignite() {
+        return CLUSTER_NODES.get(0);
     }
 }
