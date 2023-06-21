@@ -137,59 +137,6 @@ public class PrepareServiceImpl implements PrepareService {
                 .asMap();
     }
 
-    private static boolean skipCache(SqlNode sqlNode) {
-        SqlKind kind = sqlNode.getKind();
-
-        switch (kind) {
-            case SELECT:
-            case INSERT:
-                return false;
-            default:
-                return true;
-        }
-    }
-
-    /** Performs additional validation of a parsed statement. **/
-    public static void validateParsedStatement(
-            QueryContext context,
-            ParseResult parseResult,
-            SqlNode node,
-            Object[] params
-    ) {
-        Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
-        SqlQueryType queryType = Commons.getQueryType(node);
-
-        if (queryType == null) {
-            throw new IgniteInternalException(UNSUPPORTED_SQL_OPERATION_KIND_ERR, "Unsupported operation ["
-                    + "sqlNodeKind=" + node.getKind() + "; "
-                    + "querySql=\"" + node + "\"]");
-        }
-
-        if (!allowedTypes.contains(queryType)) {
-            String message = format("Invalid SQL statement type in the batch. Expected {} but got {}.", allowedTypes, queryType);
-
-            throw new QueryValidationException(message);
-        }
-
-        if (parseResult.dynamicParamsCount() != params.length) {
-            String message = format(
-                    "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
-                    params.length, parseResult.dynamicParamsCount()
-            );
-
-            throw new SqlException(QUERY_INVALID_ERR, message);
-        }
-
-        for (Object param : params) {
-            if (!TypeUtils.supportParamInstance(param)) {
-                String message = format(
-                        "Unsupported dynamic parameter defined. Provided '{}' is not supported.", param.getClass().getName());
-
-                throw new SqlException(QUERY_INVALID_ERR, message);
-            }
-        }
-    }
-
     /** {@inheritDoc} */
     @Override
     public void start() {
@@ -244,38 +191,33 @@ public class PrepareServiceImpl implements PrepareService {
             }
 
             if (skipCache(sqlNode)) {
-                prepareAsync0(sqlNode, ctx)
+                prepareAsync(sqlNode, ctx)
                         .handle((r, e) -> e != null ? opFut.completeExceptionally(e) : opFut.complete(r));
 
                 return null;
             }
 
             if (query.equals(sqlNode.toString())) {
-                prepareAsync0(sqlNode, ctx).handle((r, e) -> e != null ? opFut.completeExceptionally(e) : opFut.complete(r));
+                prepareAsync(sqlNode, ctx).handle((r, e) -> e != null ? opFut.completeExceptionally(e) : opFut.complete(r));
             } else {
-                runAsync(() -> prepareAsync(sqlNode, ctx).handle((r, e) -> e != null ? opFut.completeExceptionally(e) : opFut.complete(r)),
-                        planningPool);
+                runAsync(() -> {
+                    CacheKey normalizedPlanKey = createCacheKey(sqlNode.toString(), ctx);
+
+                    cache.computeIfAbsent(normalizedPlanKey, k -> prepareAsync(sqlNode, ctx))
+                            .handle((r, e) -> e != null ? opFut.completeExceptionally(e) : opFut.complete(r));
+                }, planningPool);
             }
 
             return opFut;
         });
 
-        return cached != null ? cached : opFut;
-    }
-
-    /**
-     * Prepares and caches normalized query plan.
-     */
-    public CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx) {
-        CacheKey cacheKey = createCacheKey(sqlNode.toString(), ctx.unwrap(BaseQueryContext.class));
-
-        return cache.computeIfAbsent(cacheKey, k -> prepareAsync0(sqlNode, ctx));
+        return cached != null ? cached.thenApply(QueryPlan::copy) : opFut;
     }
 
     /**
      * Prepares query plan bypassing cache.
      */
-    public CompletableFuture<QueryPlan> prepareAsync0(SqlNode sqlNode, BaseQueryContext ctx) {
+    public CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx) {
         try {
             assert single(sqlNode);
 
@@ -421,5 +363,58 @@ public class PrepareServiceImpl implements PrepareService {
                     return new ResultSetMetadataImpl(fieldsMeta);
                 }
         );
+    }
+
+    private static boolean skipCache(SqlNode sqlNode) {
+        SqlKind kind = sqlNode.getKind();
+
+        switch (kind) {
+            case SELECT:
+            case INSERT:
+                return false;
+            default:
+                return true;
+        }
+    }
+
+    /** Performs additional validation of a parsed statement. **/
+    public static void validateParsedStatement(
+            QueryContext context,
+            ParseResult parseResult,
+            SqlNode node,
+            Object[] params
+    ) {
+        Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
+        SqlQueryType queryType = Commons.getQueryType(node);
+
+        if (queryType == null) {
+            throw new IgniteInternalException(UNSUPPORTED_SQL_OPERATION_KIND_ERR, "Unsupported operation ["
+                    + "sqlNodeKind=" + node.getKind() + "; "
+                    + "querySql=\"" + node + "\"]");
+        }
+
+        if (!allowedTypes.contains(queryType)) {
+            String message = format("Invalid SQL statement type in the batch. Expected {} but got {}.", allowedTypes, queryType);
+
+            throw new QueryValidationException(message);
+        }
+
+        if (parseResult.dynamicParamsCount() != params.length) {
+            String message = format(
+                    "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
+                    params.length, parseResult.dynamicParamsCount()
+            );
+
+            throw new SqlException(QUERY_INVALID_ERR, message);
+        }
+
+        for (Object param : params) {
+            if (!TypeUtils.supportParamInstance(param)) {
+                String message = format(
+                        "Unsupported dynamic parameter defined. Provided '{}' is not supported.", param.getClass().getName());
+
+                throw new SqlException(QUERY_INVALID_ERR, message);
+            }
+        }
     }
 }

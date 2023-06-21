@@ -97,40 +97,21 @@ public class PrepareServiceSelfTest extends AbstractPlannerTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("queries")
-    public void normalizedQueryCache(String query1, String query2, Object[] params) {
-        // Parse query and check nothing cached.
-        SqlNode query1Ast = parse(query1, params);
-        assertEquals(0, service.cacheSize());
-        Mockito.verifyNoInteractions(queryPlannerSpy);
-
+    public void queryCache(String query1, String query2, Object[] params) {
         // Preparing AST caches a normalized query plan.
-        assertThat(service.prepareAsync(query1Ast, createContext(params)), willBe(notNullValue()));
-        assertEquals(1, service.cacheSize());
+        assertThat(service.prepareAsync(query1, queryCtx, createContext(params)), willBe(notNullValue()));
+        assertEquals(2, service.cacheSize());
         Mockito.verify(queryPlannerSpy, Mockito.times(1)).apply(Mockito.any(), Mockito.any());
 
         // Preparing same AST returns plan from cache.
-        query1Ast = parse(query1, params);
-        assertThat(service.prepareAsync(query1Ast, createContext(params)), willBe(notNullValue()));
-        assertEquals(1, service.cacheSize());
+        assertThat(service.prepareAsync(query1, queryCtx, createContext(params)), willBe(notNullValue()));
+        assertEquals(2, service.cacheSize());
         Mockito.verify(queryPlannerSpy, Mockito.times(1)).apply(Mockito.any(), Mockito.any());
 
         // Prepare similar query returns plan from cache.
-        SqlNode query2Ast = parse(query2, params);
-
-        assertThat(service.prepareAsync(query2Ast, createContext(params)), willBe(notNullValue()));
-        assertEquals(1, service.cacheSize());
+        assertThat(service.prepareAsync(query2, queryCtx, createContext(params)), willBe(notNullValue()));
+        assertEquals(3, service.cacheSize());
         Mockito.verify(queryPlannerSpy, Mockito.times(1)).apply(Mockito.any(), Mockito.any());
-    }
-
-    private SqlNode parse(String sql, Object... params) {
-        // Parse query
-        StatementParseResult parseResult = IgniteSqlParser.parse(sql, StatementParseResult.MODE);
-        SqlNode sqlNode = parseResult.statement();
-
-        // Validate statement
-        validateParsedStatement(queryCtx, parseResult, sqlNode, params);
-
-        return sqlNode;
     }
 
     @Test
@@ -218,10 +199,8 @@ public class PrepareServiceSelfTest extends AbstractPlannerTest {
         assertEquals(0, service.cacheSize());
 
         assertThat(service.prepareAsync("SELECT * FROM tbl WHERE id > 0", queryCtx, createContext()), willBe(notNullValue()));
-        assertThat(service.prepareAsync("SELECT * FROM tbl WHERE id > 1", queryCtx, createContext()), willBe(notNullValue()));
-        assertThat(service.prepareAsync("SELECT * FROM tbl WHERE id > 2", queryCtx, createContext()), willBe(notNullValue()));
-        assertThat(service.prepareAsync("SELECT * FROM tbl WHERE id > 3", queryCtx, createContext()), willBe(notNullValue()));
-        assertEquals(8, service.cacheSize());
+        assertEquals(2, service.cacheSize());
+        Mockito.verify(queryPlannerSpy, Mockito.times(1)).apply(Mockito.any(), Mockito.any());
 
         service.resetCache();
 
@@ -229,6 +208,17 @@ public class PrepareServiceSelfTest extends AbstractPlannerTest {
 
         assertThat(service.prepareAsync("SELECT * FROM tbl WHERE id > 0", queryCtx, createContext()), willBe(notNullValue()));
         assertEquals(2, service.cacheSize());
+    }
+
+    private SqlNode parse(String sql, Object... params) {
+        // Parse query
+        StatementParseResult parseResult = IgniteSqlParser.parse(sql, StatementParseResult.MODE);
+        SqlNode sqlNode = parseResult.statement();
+
+        // Validate statement
+        validateParsedStatement(queryCtx, parseResult, sqlNode, params);
+
+        return sqlNode;
     }
 
     private BaseQueryContext createContext(Object... params) {
