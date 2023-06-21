@@ -90,6 +90,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
@@ -134,8 +135,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     private final ClockWaiter clockWaiter;
 
-    private final LongSupplier delayDurationMsSupplier;
-    private volatile long delayDurationMs;
+    private final Lazy<Long> delayDurationMs;
 
     /**
      * Constructor.
@@ -157,14 +157,13 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     public CatalogServiceImpl(UpdateLog updateLog, ClockWaiter clockWaiter, LongSupplier delayDurationMsSupplier) {
         this.updateLog = updateLog;
         this.clockWaiter = clockWaiter;
-        this.delayDurationMsSupplier = delayDurationMsSupplier;
+
+        delayDurationMs = new Lazy<>(delayDurationMsSupplier::getAsLong);
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
-        delayDurationMs = delayDurationMsSupplier.getAsLong();
-
         int objectIdGen = 0;
 
         // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
@@ -819,7 +818,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
         int newVersion = catalog.version() + 1;
 
-        return updateLog.append(new VersionedUpdate(newVersion, delayDurationMs, updates))
+        return updateLog.append(new VersionedUpdate(newVersion, delayDurationMs.get(), updates))
                 .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
                 .thenCompose(result -> {
                     if (result) {

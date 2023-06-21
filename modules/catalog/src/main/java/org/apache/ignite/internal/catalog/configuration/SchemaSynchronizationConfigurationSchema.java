@@ -33,5 +33,6 @@ public class SchemaSynchronizationConfigurationSchema {
     /** Delay Duration (ms), see the spec for details. */
     @Value(hasDefault = true)
     @Range(min = 0)
+    // TODO: IGNITE-19792 - make @Immutable when it gets being handled property for distributed config.
     public long delayDuration = TimeUnit.SECONDS.toMillis(1);
 }
