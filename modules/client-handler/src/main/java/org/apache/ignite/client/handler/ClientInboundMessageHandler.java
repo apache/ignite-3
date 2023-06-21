@@ -359,8 +359,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         var buf = packer.getBuffer();
         int bytes = buf.readableBytes();
 
-        // writeAndFlush releases pooled buffer.
-        ctx.writeAndFlush(buf);
+        try {
+            // writeAndFlush releases pooled buffer.
+            ctx.writeAndFlush(buf);
+        } catch (Throwable t) {
+            buf.release();
+            throw t;
+        }
 
         metrics.bytesSentAdd(bytes);
     }
