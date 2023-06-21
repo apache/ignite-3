@@ -81,7 +81,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<List<Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return tbl.getAll(mapToBinary(keyRecs, true), (InternalTransaction) tx).thenApply(this::wrap);
+        return tbl.getAll(mapToBinary(keyRecs, true), (InternalTransaction) tx).thenApply(binaryRows -> wrap(binaryRows, true));
     }
 
     @Override
@@ -147,7 +147,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Collection<Tuple>> insertAllAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        return tbl.insertAll(mapToBinary(recs, false), (InternalTransaction) tx).thenApply(this::wrap);
+        return tbl.insertAll(mapToBinary(recs, false), (InternalTransaction) tx).thenApply(binaryRows -> wrap(binaryRows, false));
     }
 
     @Override
@@ -245,7 +245,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Collection<Tuple>> deleteAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return tbl.deleteAll(mapToBinary(keyRecs, true), (InternalTransaction) tx).thenApply(this::wrap);
+        return tbl.deleteAll(mapToBinary(keyRecs, true), (InternalTransaction) tx).thenApply(binaryRows -> wrap(binaryRows, false));
     }
 
     @Override
@@ -257,7 +257,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Collection<Tuple>> deleteAllExactAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        return tbl.deleteAllExact(mapToBinary(recs, false), (InternalTransaction) tx).thenApply(this::wrap);
+        return tbl.deleteAllExact(mapToBinary(recs, false), (InternalTransaction) tx).thenApply(binaryRows -> wrap(binaryRows, false));
     }
 
     /**
@@ -293,17 +293,20 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
      * Returns table rows.
      *
      * @param rows Binary rows.
+     * @param addNull {@code true} if {@code null} is added for missing rows.
      */
-    private Collection<Tuple> wrap(Collection<BinaryRow> rows) {
+    private List<Tuple> wrap(Collection<BinaryRow> rows, boolean addNull) {
         if (rows.isEmpty()) {
             return Collections.emptyList();
         }
 
-        Collection<Tuple> wrapped = new ArrayList<>(rows.size());
+        var wrapped = new ArrayList<Tuple>(rows.size());
 
         for (Row row : schemaReg.resolve(rows)) {
             if (row != null) {
                 wrapped.add(TableRow.tuple(row));
+            } else if (addNull) {
+                wrapped.add(null);
             }
         }
 
