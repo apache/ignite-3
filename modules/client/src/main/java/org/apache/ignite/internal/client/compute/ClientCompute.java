@@ -31,7 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -172,7 +171,7 @@ public class ClientCompute implements IgniteCompute {
                 w.out().packString(node.name());
             }
 
-            packJob(units, jobClassName, args, w.out());
+            packJob(w.out(), units, jobClassName, args);
         }, r -> (R) r.in().unpackObjectFromBinaryTuple(), node.name(), null, null);
     }
 
@@ -208,7 +207,7 @@ public class ClientCompute implements IgniteCompute {
 
                     ClientRecordSerializer.writeRecRaw(key, keyMapper, schema, w, TuplePart.KEY);
 
-                    packJob(units, jobClassName, args, w);
+                    packJob(w, units, jobClassName, args);
                 },
                 r -> (R) r.unpackObjectFromBinaryTuple(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(null, keyMapper, key));
@@ -230,7 +229,7 @@ public class ClientCompute implements IgniteCompute {
 
                     ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true);
 
-                    packJob(units, jobClassName, args, w);
+                    packJob(w, units, jobClassName, args);
                 },
                 r -> (R) r.unpackObjectFromBinaryTuple(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(null, key));
@@ -279,7 +278,7 @@ public class ClientCompute implements IgniteCompute {
         return res;
     }
 
-    private static void packJob(List<DeploymentUnit> units, String jobClassName, Object[] args, ClientMessagePacker w) {
+    private static void packJob(ClientMessagePacker w, List<DeploymentUnit> units, String jobClassName, Object[] args) {
         w.packArrayHeader(units.size());
         for (DeploymentUnit unit : units) {
             w.packString(unit.name());
