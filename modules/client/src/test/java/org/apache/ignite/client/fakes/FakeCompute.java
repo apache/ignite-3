@@ -19,8 +19,10 @@ package org.apache.ignite.client.fakes;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.network.ClusterNode;
@@ -33,6 +35,8 @@ import org.jetbrains.annotations.Nullable;
  */
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class FakeCompute implements IgniteCompute {
+    public static final String GET_UNITS = "get-units";
+
     public static volatile @Nullable CompletableFuture future;
 
     private final String nodeName;
@@ -43,6 +47,11 @@ public class FakeCompute implements IgniteCompute {
 
     @Override
     public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
+        if (Objects.equals(jobClassName, GET_UNITS)) {
+            String unitString = units.stream().map(DeploymentUnit::name).collect(Collectors.joining(","));
+            return CompletableFuture.completedFuture((R) unitString);
+        }
+
         return future != null ? future : CompletableFuture.completedFuture((R) nodeName);
     }
 
