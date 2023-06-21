@@ -1612,6 +1612,12 @@ public class DistributionZoneManager implements IgniteComponent {
         /** Schedule task for a scale down process. */
         private ScheduledFuture<?> scaleDownTask;
 
+        /** The delay for the scale up task */
+        private long scaleUpTaskDelay;
+
+        /** The delay for the scale down task */
+        private long scaleDownTaskDelay;
+
         /**
          * Map that stores pairs revision -> {@link Augmentation} for a zone. With this map we can track which nodes
          * should be added or removed in the processes of scale up or scale down. Revision helps to track visibility of the events
@@ -1653,11 +1659,13 @@ public class DistributionZoneManager implements IgniteComponent {
          * @param runnable Custom logic to run.
          */
         synchronized void rescheduleScaleUp(long delay, Runnable runnable) {
-            if (scaleUpTask != null && scaleUpTask.getDelay(SECONDS) != IMMEDIATE_TIMER_VALUE) {
+            if (scaleUpTask != null && scaleUpTaskDelay > 0) {
                 scaleUpTask.cancel(false);
             }
 
             scaleUpTask = executor.schedule(runnable, delay, SECONDS);
+
+            scaleUpTaskDelay = delay;
         }
 
         /**
@@ -1668,11 +1676,13 @@ public class DistributionZoneManager implements IgniteComponent {
          * @param runnable Custom logic to run.
          */
         synchronized void rescheduleScaleDown(long delay, Runnable runnable) {
-            if (scaleDownTask != null && scaleDownTask.getDelay(SECONDS) != IMMEDIATE_TIMER_VALUE) {
+            if (scaleDownTask != null && scaleDownTaskDelay > 0) {
                 scaleDownTask.cancel(false);
             }
 
             scaleDownTask = executor.schedule(runnable, delay, SECONDS);
+
+            scaleDownTaskDelay = delay;
         }
 
         /**

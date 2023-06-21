@@ -21,9 +21,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.after;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledExecutorService;
@@ -84,53 +81,60 @@ public class DistributionZonesSchedulersTest {
     }
 
     @Test
-    void testScaleUpReScheduling() {
+    void testScaleUpReScheduling() throws InterruptedException {
         ZoneState state = new DistributionZoneManager.ZoneState(executor);
 
         testReScheduling(state::rescheduleScaleUp);
     }
 
     @Test
-    void testScaleDownReScheduling() {
+    void testScaleDownReScheduling() throws InterruptedException {
         ZoneState state = new DistributionZoneManager.ZoneState(executor);
 
         testReScheduling(state::rescheduleScaleDown);
     }
 
-    private static void testReScheduling(BiConsumer<Long, Runnable> fn) {
-        Runnable runnable = mock(Runnable.class);
+    /** Tests that scaleUp/scaleDown tasks with a delay grater then zero will be canceled by tasks with a zero delay. */
+    private static void testReScheduling(BiConsumer<Long, Runnable> fn) throws InterruptedException {
+        AtomicInteger counter = new AtomicInteger();
 
-        CountDownLatch latch = new CountDownLatch(1);
+        CountDownLatch firstTaskLatch = new CountDownLatch(1);
+
+        CountDownLatch lastTaskLatch = new CountDownLatch(1);
 
         fn.accept(0L, () -> {
             try {
-                assertTrue(latch.await(3, TimeUnit.SECONDS));
+                assertTrue(firstTaskLatch.await(3, TimeUnit.SECONDS));
 
-                runnable.run();
+                counter.incrementAndGet();
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
         });
 
-        fn.accept(2L, runnable);
+        fn.accept(1L, counter::incrementAndGet);
 
-        fn.accept(2L, runnable);
+        fn.accept(0L, counter::incrementAndGet);
 
-        fn.accept(0L, runnable);
+        fn.accept(0L, counter::incrementAndGet);
 
-        fn.accept(0L, runnable);
+        fn.accept(1L, counter::incrementAndGet);
 
-        fn.accept(2L, runnable);
+        fn.accept(1L, counter::incrementAndGet);
 
-        fn.accept(2L, runnable);
+        fn.accept(0L, counter::incrementAndGet);
 
-        fn.accept(0L, runnable);
+        fn.accept(0L, () -> {
+            counter.incrementAndGet();
 
-        fn.accept(0L, runnable);
+            lastTaskLatch.countDown();
+        });
 
-        latch.countDown();
+        firstTaskLatch.countDown();
 
-        verify(runnable, after(2500).times(5)).run();
+        assertTrue(lastTaskLatch.await(3, TimeUnit.SECONDS));
+
+        assertEquals(5, counter.get());
     }
 
     @Test
@@ -213,9 +217,7 @@ public class DistributionZonesSchedulersTest {
 
         latch.await(1000, TimeUnit.MILLISECONDS);
 
-        fn.accept(0L, () -> {
-            flag.set(true);
-        });
+        fn.accept(0L, () -> flag.set(true));
 
         assertTrue(waitForCondition(() -> 0L == latch.getCount(), 1500));
         assertTrue(waitForCondition(flag::get, 1500));
