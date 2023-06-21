@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.util.subscription;
 
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
@@ -25,13 +25,13 @@ import java.util.function.Function;
 /**
  * Publisher that converts items of type {@code T} to type {@code R}.
  */
-final class TransformingPublisher<T, R> implements Publisher<R> {
+public final class TransformingPublisher<T, R> implements Publisher<R> {
 
     private final Publisher<T> publisher;
 
     private final Function<T, R> function;
 
-    TransformingPublisher(Publisher<T> publisher, Function<T, R> function) {
+    public TransformingPublisher(Publisher<T> publisher, Function<T, R> function) {
         this.publisher = publisher;
         this.function = function;
     }
