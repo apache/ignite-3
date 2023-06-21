@@ -470,7 +470,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                     .metaStorageNodeNames(List.of(nodeName))
                     .clusterName("cluster")
                     .build();
-            IgnitionManager.init(initParameters);
+            TestIgnitionManager.init(initParameters);
         }
 
         assertThat(future, willCompleteSuccessfully());
@@ -531,7 +531,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                     .metaStorageNodeNames(List.of(nodeName))
                     .clusterName("cluster")
                     .build();
-            IgnitionManager.init(initParameters);
+            TestIgnitionManager.init(initParameters);
         }
 
         return futures.stream()
