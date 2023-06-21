@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -171,8 +172,7 @@ public class ClientCompute implements IgniteCompute {
                 w.out().packString(node.name());
             }
 
-            w.out().packString(jobClassName);
-            w.out().packObjectArrayAsBinaryTuple(args);
+            packJob(units, jobClassName, args, w.out());
         }, r -> (R) r.in().unpackObjectFromBinaryTuple(), node.name(), null, null);
     }
 
@@ -208,8 +208,7 @@ public class ClientCompute implements IgniteCompute {
 
                     ClientRecordSerializer.writeRecRaw(key, keyMapper, schema, w, TuplePart.KEY);
 
-                    w.packString(jobClassName);
-                    w.packObjectArrayAsBinaryTuple(args);
+                    packJob(units, jobClassName, args, w);
                 },
                 r -> (R) r.unpackObjectFromBinaryTuple(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(null, keyMapper, key));
@@ -231,8 +230,7 @@ public class ClientCompute implements IgniteCompute {
 
                     ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true);
 
-                    w.packString(jobClassName);
-                    w.packObjectArrayAsBinaryTuple(args);
+                    packJob(units, jobClassName, args, w);
                 },
                 r -> (R) r.unpackObjectFromBinaryTuple(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(null, key));
@@ -279,5 +277,16 @@ public class ClientCompute implements IgniteCompute {
         }
 
         return res;
+    }
+
+    private static void packJob(List<DeploymentUnit> units, String jobClassName, Object[] args, ClientMessagePacker w) {
+        w.packArrayHeader(units.size());
+        for (DeploymentUnit unit : units) {
+            w.packString(unit.name());
+            w.packString(unit.version().render());
+        }
+
+        w.packString(jobClassName);
+        w.packObjectArrayAsBinaryTuple(args);
     }
 }
