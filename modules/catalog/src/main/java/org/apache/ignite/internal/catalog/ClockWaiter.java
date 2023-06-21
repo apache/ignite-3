@@ -124,10 +124,8 @@ public class ClockWaiter implements IgniteComponent {
             if (targetTimestamp.compareTo(now) <= 0) {
                 assert future.isDone();
             } else {
-                long millisToWait = targetTimestamp.getPhysical() - now.getPhysical()
-                        + (Math.max(targetTimestamp.getLogical() - now.getLogical(), 0) > 0 ? 1 : 0)
-                        // Adding 1 to account for a possible non-null logical part of the targetTimestamp.
-                        + 1;
+                // Adding 1 to account for a possible non-null logical part of the targetTimestamp.
+                long millisToWait = targetTimestamp.getPhysical() - now.getPhysical() + 1;
 
                 ScheduledFuture<?> scheduledFuture = scheduler.schedule(this::triggerClockUpdate, millisToWait, TimeUnit.MILLISECONDS);
                 scheduledFutureRef.set(scheduledFuture);
