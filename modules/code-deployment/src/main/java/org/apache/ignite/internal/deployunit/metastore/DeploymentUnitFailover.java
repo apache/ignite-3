@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.deployunit.metastore;
 
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 
 import java.util.Objects;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
