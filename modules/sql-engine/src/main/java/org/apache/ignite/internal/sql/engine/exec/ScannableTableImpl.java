@@ -78,8 +78,15 @@ public class ScannableTableImpl implements ScannableTable {
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm, RowFactory<RowT> rowFactory,
-            int indexId, String indexName, List<String> columns, @Nullable RangeCondition<RowT> cond, @Nullable BitSet requiredColumns) {
+    public <RowT> Publisher<RowT> indexRangeScan(
+            ExecutionContext<RowT> ctx,
+            PartitionWithTerm partWithTerm,
+            RowFactory<RowT> rowFactory,
+            int indexId, String indexName,
+            List<String> columns,
+            @Nullable RangeCondition<RowT> cond,
+            @Nullable BitSet requiredColumns
+    ) {
 
         BinaryTupleSchema indexRowSchema = RowConverter.createIndexRowSchema(columns, tableDescriptor);
         TxAttributes txAttributes = ctx.txAttributes();
@@ -130,8 +137,14 @@ public class ScannableTableImpl implements ScannableTable {
     }
 
     @Override
-    public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm, RowFactory<RowT> rowFactory,
-            int indexId, String indexName, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
+    public <RowT> Publisher<RowT> indexLookup(
+            ExecutionContext<RowT> ctx,
+            PartitionWithTerm partWithTerm,
+            RowFactory<RowT> rowFactory,
+            int indexId, String indexName,
+            List<String> columns, RowT key,
+            @Nullable BitSet requiredColumns
+    ) {
 
         BinaryTupleSchema indexRowSchema = RowConverter.createIndexRowSchema(columns, tableDescriptor);
         TxAttributes txAttributes = ctx.txAttributes();
