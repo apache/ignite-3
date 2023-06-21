@@ -159,7 +159,7 @@ public class UpdateLogImpl implements UpdateLog {
     private void restoreStateFromVault(OnUpdateHandler handler) {
         int ver = 1;
 
-        // TODO: IGNITE-19641 добавить тикет чтобы читать из метастора
+        // TODO: IGNITE-19790 Read range from metastore
         while (true) {
             VaultEntry entry = vault.get(CatalogKey.update(ver++)).join();
 
