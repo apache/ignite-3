@@ -20,6 +20,8 @@ package org.apache.ignite.internal.table.distributed.replication;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MAX_VALUE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -73,6 +75,8 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -238,7 +242,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** Another (not local) cluster node. */
     private final ClusterNode anotherNode = new ClusterNode("node2", "node2", NetworkAddress.from("127.0.0.2:127"));
 
-    private final PlacementDriver placementDriver = mock(PlacementDriver.class);
+    private final PlacementDriver txnStateResolver = mock(PlacementDriver.class);
 
     private final PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMvPartitionStorage);
 
@@ -323,7 +327,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         HybridTimestamp txFixedTimestamp = clock.now();
 
-        lenient().when(placementDriver.sendMetaRequest(any(), any())).thenAnswer(invocationOnMock -> {
+        lenient().when(txnStateResolver.sendMetaRequest(any(), any())).thenAnswer(invocationOnMock -> {
             TxMeta txMeta;
 
             if (txState == null) {
@@ -385,6 +389,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage().id(), pkStorage()))
         );
 
+        org.apache.ignite.internal.placementdriver.PlacementDriver placementDriver = mock(
+                org.apache.ignite.internal.placementdriver.PlacementDriver.class);
+
+        ReplicaMeta primaryReplica = new TestReplicaMetaImpl(localNode.name(), MIN_VALUE, MAX_VALUE);
+
+        lenient().when(placementDriver.awaitPrimaryReplica(any(), any())).thenReturn(completedFuture(primaryReplica));
+        lenient().when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(primaryReplica));
+
         partitionReplicaListener = new PartitionReplicaListener(
                 testMvPartitionStorage,
                 mockRaftClient,
@@ -399,7 +411,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 clock,
                 safeTimeClock,
                 txStateStorage,
-                placementDriver,
+                txnStateResolver,
                 new StorageUpdateHandler(
                         partId,
                         partitionDataStorage,
@@ -414,7 +426,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new TestMvTableStorage(tblId, DEFAULT_PARTITION_COUNT),
                 mock(IndexBuilder.class),
                 tablesConfig,
-                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
+                placementDriver
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);
@@ -1072,7 +1084,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             while (cursor.hasNext()) {
                 RowId rowId = cursor.next();
 
-                BinaryRow row = testMvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
+                BinaryRow row = testMvPartitionStorage.read(rowId, MAX_VALUE).binaryRow();
 
                 if (row != null && Arrays.equals(binaryRow.bytes(), row.bytes())) {
                     found = true;
@@ -1083,7 +1095,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         } else {
             RowId rowId = cursor.next();
 
-            BinaryRow row = testMvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
+            BinaryRow row = testMvPartitionStorage.read(rowId, MAX_VALUE).binaryRow();
 
             assertTrue(row == null || !Arrays.equals(row.bytes(), binaryRow.bytes()));
         }
@@ -1197,7 +1209,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 // TODO https://issues.apache.org/jira/browse/IGNITE-18767 after this, the following check may be not needed.
                 RowId rowId = cursor.next();
 
-                BinaryRow row = testMvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
+                BinaryRow row = testMvPartitionStorage.read(rowId, MAX_VALUE).binaryRow();
 
                 if (row == null) {
                     break;

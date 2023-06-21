@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.table.distributed.replication;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MAX_VALUE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -42,6 +46,8 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -188,6 +194,16 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TEST_MV_PARTITION_STORAGE);
 
+        ClusterNode localNode = mock(ClusterNode.class);
+
+        org.apache.ignite.internal.placementdriver.PlacementDriver placementDriver = mock(
+                org.apache.ignite.internal.placementdriver.PlacementDriver.class);
+
+        ReplicaMeta primaryReplica = new TestReplicaMetaImpl(localNode.name(), MIN_VALUE, MAX_VALUE);
+
+        lenient().when(placementDriver.awaitPrimaryReplica(any(), any())).thenReturn(completedFuture(primaryReplica));
+        lenient().when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(primaryReplica));
+
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,
                 mockRaftClient,
@@ -220,11 +236,11 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 ),
                 new DummySchemas(schemaManager),
                 CompletableFuture.completedFuture(schemaManager),
-                mock(ClusterNode.class),
+                localNode,
                 new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT),
                 mock(IndexBuilder.class),
                 tablesConfig,
-                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
+                placementDriver
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);
