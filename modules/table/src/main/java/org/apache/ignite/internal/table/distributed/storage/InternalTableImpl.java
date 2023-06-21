@@ -446,14 +446,16 @@ public class InternalTableImpl implements InternalTable {
                                         requestFunction.apply(tx.commitPartition(), primaryReplicaAndTerm.get2())
                                 );
                             } catch (PrimaryReplicaMissException e) {
-                                throw new TransactionException(e);
+                                throw new TransactionException(INTERNAL_ERR, e);
                             } catch (Throwable e) {
                                 throw new TransactionException(
+                                        INTERNAL_ERR,
                                         IgniteStringFormatter.format(
-                                                "Failed to enlist partition[tableName={}, partId={}] into a transaction",
+                                                "Failed to enlist partition [tableName={}, partId={}] into a transaction",
                                                 tableName,
                                                 partId
-                                        )
+                                        ),
+                                        e
                                 );
                             }
                         })
@@ -1268,10 +1270,18 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica.");
             }
 
+            String consistentId = primaryPeerAndTerm.leader().consistentId();
+
+            ClusterNode node = clusterNodeResolver.apply(consistentId);
+
+            if (node == null) {
+                throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node, consistentId="
+                        + consistentId);
+            }
+
             TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
-            return tx.enlist(partGroupId,
-                    new IgniteBiTuple<>(clusterNodeResolver.apply(primaryPeerAndTerm.leader().consistentId()), primaryPeerAndTerm.term()));
+            return tx.enlist(partGroupId, new IgniteBiTuple<>(node, primaryPeerAndTerm.term()));
         });
     }
 

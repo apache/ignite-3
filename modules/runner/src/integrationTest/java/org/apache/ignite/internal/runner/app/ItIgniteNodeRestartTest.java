@@ -1231,9 +1231,20 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         assertNotNull(table);
 
         for (int i = 0; i < 100; i++) {
-            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i));
+            Tuple row;
 
-            assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));
+            try {
+                row = table.keyValueView().get(null, Tuple.create().set("id", i));
+
+                assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));
+            } catch (TransactionException te) {
+                try {
+                    // There may be an exception if the primary replica node was stopped. We should wait for a new primary to appear.
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
         }
     }
 
