@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -44,6 +46,8 @@ public class HybridClockImpl implements HybridClock {
     }
 
     private volatile long latestTime;
+
+    private final List<ClockUpdateListener> updateListeners = new CopyOnWriteArrayList<>();
 
     /**
      * The constructor which initializes the latest time to current time by system clock.
@@ -67,9 +71,16 @@ public class HybridClockImpl implements HybridClock {
             long newLatestTime = max(oldLatestTime + 1, now);
 
             if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
+                HybridTimestamp newTs = hybridTimestamp(newLatestTime);
+                notifyUpdateListeners(newTs);
+
                 return newLatestTime;
             }
         }
+    }
+
+    private void notifyUpdateListeners(HybridTimestamp newTs) {
+        updateListeners.forEach(listener -> listener.onUpdate(newTs));
     }
 
     @Override
@@ -94,12 +105,25 @@ public class HybridClockImpl implements HybridClock {
             long newLatestTime = max(requestTime.longValue() + 1, max(now, oldLatestTime + 1));
 
             if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
-                return hybridTimestamp(newLatestTime);
+                HybridTimestamp newTs = hybridTimestamp(newLatestTime);
+
+                notifyUpdateListeners(newTs);
+
+                return newTs;
             }
         }
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public void addUpdateListener(ClockUpdateListener listener) {
+        updateListeners.add(listener);
+    }
+
+    @Override
+    public void removeUpdateListener(ClockUpdateListener listener) {
+        updateListeners.remove(listener);
+    }
+
     @Override
     public String toString() {
         return S.toString(HybridClock.class, this);

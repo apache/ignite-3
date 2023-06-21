@@ -18,42 +18,15 @@
 package org.apache.ignite.internal.hlc;
 
 /**
- * A Hybrid Logical Clock.
+ * Used to track updates of a {@link HybridClock}: it gets notified each time the clock 'ticks', including
+ * adjustments caused by external events.
  */
-public interface HybridClock {
+@FunctionalInterface
+public interface ClockUpdateListener {
     /**
-     * Creates a timestamp for new event.
+     * Called when the clock's current time advances.
      *
-     * @return The hybrid timestamp.
+     * @param newTs New timestamp on the clock.
      */
-    long nowLong();
-
-    /**
-     * Creates a timestamp for new event.
-     *
-     * @return The hybrid timestamp.
-     */
-    HybridTimestamp now();
-
-    /**
-     * Creates a timestamp for a received event.
-     *
-     * @param requestTime Timestamp from request.
-     * @return The hybrid timestamp.
-     */
-    HybridTimestamp update(HybridTimestamp requestTime);
-
-    /**
-     * Adds an update listener to self.
-     *
-     * @param listener Update listener to add.
-     */
-    void addUpdateListener(ClockUpdateListener listener);
-
-    /**
-     * Removes an update listener from self.
-     *
-     * @param listener Listener to remove.
-     */
-    void removeUpdateListener(ClockUpdateListener listener);
+    void onUpdate(HybridTimestamp newTs);
 }

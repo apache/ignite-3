@@ -83,6 +83,7 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -134,29 +135,32 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     private final HybridClock clock;
 
+    private final ClockWaiter clockWaiter;
+
     private final LongSupplier delayDurationMsSupplier;
     private volatile long delayDurationMs;
 
     /**
      * Constructor.
      */
-    public CatalogServiceImpl(UpdateLog updateLog, HybridClock clock) {
-        this(updateLog, clock, DEFAULT_DELAY_DURATION);
+    public CatalogServiceImpl(UpdateLog updateLog, HybridClock clock, ClockWaiter clockWaiter) {
+        this(updateLog, clock, clockWaiter, DEFAULT_DELAY_DURATION);
     }
 
     /**
      * Constructor.
      */
-    CatalogServiceImpl(UpdateLog updateLog, HybridClock clock, long delayDurationMs) {
-        this(updateLog, clock, () -> delayDurationMs);
+    CatalogServiceImpl(UpdateLog updateLog, HybridClock clock, ClockWaiter clockWaiter, long delayDurationMs) {
+        this(updateLog, clock, clockWaiter, () -> delayDurationMs);
     }
 
     /**
      * Constructor.
      */
-    public CatalogServiceImpl(UpdateLog updateLog, HybridClock clock, LongSupplier delayDurationMsSupplier) {
+    public CatalogServiceImpl(UpdateLog updateLog, HybridClock clock, ClockWaiter clockWaiter, LongSupplier delayDurationMsSupplier) {
         this.updateLog = updateLog;
         this.clock = clock;
+        this.clockWaiter = clockWaiter;
         this.delayDurationMsSupplier = delayDurationMsSupplier;
     }
 
@@ -292,7 +296,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> createTable(CreateTableParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
             CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
@@ -325,7 +329,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> dropTable(DropTableParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
             CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
@@ -355,7 +359,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             return completedFuture(null);
         }
 
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
             CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
@@ -389,7 +393,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             return completedFuture(null);
         }
 
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
             CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
@@ -433,7 +437,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> alterColumn(AlterColumnParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
             CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
@@ -512,7 +516,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> createIndex(CreateHashIndexParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
             CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
@@ -561,7 +565,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> createIndex(CreateSortedIndexParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
             CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
@@ -615,7 +619,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> dropIndex(DropIndexParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
             CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
@@ -647,7 +651,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             ));
         }
 
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             String zoneName = Objects.requireNonNull(params.zoneName(), "zone");
 
             if (catalog.zone(params.zoneName()) != null) {
@@ -666,7 +670,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> dropDistributionZone(DropZoneParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             String zoneName = Objects.requireNonNull(params.zoneName(), "zone");
 
             CatalogZoneDescriptor zone = catalog.zone(zoneName);
@@ -699,7 +703,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> renameDistributionZone(RenameZoneParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             String zoneName = Objects.requireNonNull(params.newZoneName(), "newZoneName");
 
             CatalogZoneDescriptor zone = catalog.zone(params.zoneName());
@@ -735,7 +739,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CompletableFuture<Void> alterDistributionZone(AlterZoneParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             CatalogZoneDescriptor zone = catalog.zone(params.zoneName());
 
             if (zone == null) {
@@ -785,11 +789,23 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         catalogByTs.put(newCatalog.time(), newCatalog);
     }
 
-    private CompletableFuture<Void> saveUpdate(UpdateProducer updateProducer) {
-        return saveUpdate(updateProducer, 0);
+    private CompletableFuture<Void> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
+        return saveUpdate(updateProducer, 0)
+                .thenCompose(newVersion -> {
+                    return versionTracker.waitFor(newVersion)
+                            .thenCompose(unused -> {
+                                Catalog catalog = catalogByVer.get(newVersion);
+                                HybridTimestamp activationTs = HybridTimestamp.hybridTimestamp(catalog.time());
+                                HybridTimestamp clusterWideEnsuredActivationTs = activationTs.addPhysicalTime(
+                                        HybridTimestamp.maxClockSkew()
+                                );
+
+                                return clockWaiter.waitFor(clusterWideEnsuredActivationTs);
+                            });
+                });
     }
 
-    private CompletableFuture<Void> saveUpdate(UpdateProducer updateProducer, int attemptNo) {
+    private CompletableFuture<Integer> saveUpdate(UpdateProducer updateProducer, int attemptNo) {
         if (attemptNo >= MAX_RETRY_COUNT) {
             return failedFuture(new IgniteInternalException(Common.INTERNAL_ERR, "Max retry limit exceeded: " + attemptNo));
         }
@@ -804,7 +820,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         }
 
         if (updates.isEmpty()) {
-            return completedFuture(null);
+            return completedFuture(catalog.version());
         }
 
         int newVersion = catalog.version() + 1;
@@ -813,7 +829,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
                 .thenCompose(result -> {
                     if (result) {
-                        return completedFuture(null);
+                        return completedFuture(newVersion);
                     }
 
                     return saveUpdate(updateProducer, attemptNo + 1);

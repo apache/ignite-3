@@ -87,6 +87,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -596,6 +597,8 @@ public class ItRebalanceDistributedTest {
 
         private final CatalogManager catalogManager;
 
+        private final ClockWaiter clockWaiter;
+
         private List<IgniteComponent> nodeComponents;
 
         private final ConfigurationTreeGenerator nodeCfgGenerator;
@@ -759,9 +762,12 @@ public class ItRebalanceDistributedTest {
                     metaStorageManager,
                     clusterService);
 
+            clockWaiter = new ClockWaiter("test", hybridClock);
+
             catalogManager = new CatalogServiceImpl(
                     new UpdateLogImpl(metaStorageManager, keyValueStorage::timestampByRevision, vaultManager),
-                    hybridClock
+                    hybridClock,
+                    clockWaiter
             );
 
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
@@ -857,6 +863,7 @@ public class ItRebalanceDistributedTest {
                     cmgManager,
                     metaStorageManager,
                     clusterCfgMgr,
+                    clockWaiter,
                     catalogManager,
                     distributionZoneManager,
                     replicaManager,

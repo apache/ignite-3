@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -34,6 +36,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -45,6 +49,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
@@ -85,8 +90,10 @@ import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -136,6 +143,8 @@ public class CatalogServiceSelfTest {
 
     private HybridClock clock;
 
+    private ClockWaiter clockWaiter;
+
     @BeforeEach
     void setUp() {
         vault = new VaultManager(new InMemoryVaultService());
@@ -146,10 +155,12 @@ public class CatalogServiceSelfTest {
         );
 
         clock = new HybridClockImpl();
-        service = new CatalogServiceImpl(new UpdateLogImpl(metastore, keyValueStorage::timestampByRevision, vault), clock, 0L);
+        clockWaiter = spy(new ClockWaiter("test", clock));
+        service = new CatalogServiceImpl(new UpdateLogImpl(metastore, keyValueStorage::timestampByRevision, vault), clock, clockWaiter, 0L);
 
         vault.start();
         metastore.start();
+        clockWaiter.start();
         service.start();
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
@@ -158,6 +169,7 @@ public class CatalogServiceSelfTest {
     @AfterEach
     public void tearDown() throws Exception {
         service.stop();
+        clockWaiter.stop();
         metastore.stop();
         vault.stop();
     }
@@ -1086,7 +1098,7 @@ public class CatalogServiceSelfTest {
 
         doNothing().when(updateLogMock).registerUpdateHandler(updateHandlerCapture.capture());
 
-        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clock);
+        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clock, clockWaiter);
         service.start();
 
         when(updateLogMock.append(any())).thenAnswer(invocation -> {
@@ -1116,13 +1128,13 @@ public class CatalogServiceSelfTest {
 
     @Test
     public void catalogActivationTime() throws Exception {
-        final int delayDuration = 3_000;
+        final long delayDuration = TimeUnit.DAYS.toMillis(365);
 
         InMemoryVaultService vaultService = new InMemoryVaultService();
         VaultManager vault = new VaultManager(vaultService);
         StandaloneMetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(vault);
         UpdateLog updateLogMock = Mockito.spy(new UpdateLogImpl(metaStorageManager, rev -> clock.now(), vault));
-        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clock, delayDuration);
+        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clock, clockWaiter, delayDuration);
 
         vault.start();
         metaStorageManager.start();
@@ -1141,11 +1153,13 @@ public class CatalogServiceSelfTest {
                     .primaryKeyColumns(List.of("key"))
                     .build();
 
-            CompletableFuture<Void> fut = service.createTable(params);
+            service.createTable(params);
 
             verify(updateLogMock).append(any());
-            // TODO IGNITE-19400: recheck future completion guarantees
-            assertThat(fut, willBe((Object) null));
+            // TODO IGNITE-19400: recheck createTable future completion guarantees
+
+            // This waits till the new Catalog version lands in the internal structures.
+            verify(clockWaiter, timeout(10_000)).waitFor(any());
 
             assertSame(service.schema(0), service.activeSchema(clock.nowLong()));
             assertNull(service.table(TABLE_NAME, clock.nowLong()));
@@ -1165,7 +1179,7 @@ public class CatalogServiceSelfTest {
     public void catalogServiceManagesUpdateLogLifecycle() throws Exception {
         UpdateLog updateLogMock = mock(UpdateLog.class);
 
-        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, mock(HybridClock.class));
+        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, mock(HybridClock.class), clockWaiter);
 
         service.start();
 
@@ -1570,6 +1584,52 @@ public class CatalogServiceSelfTest {
         assertThat(service.dropColumn(dropColumnParams), willThrow(ColumnNotFoundException.class));
 
         verifyNoMoreInteractions(eventListener);
+    }
+
+
+    @Test
+    public void userFutureCompletesAfterClusterWideActivationHappens() throws Exception {
+        final long delayDuration = TimeUnit.DAYS.toMillis(365);
+
+        HybridTimestamp startTs = clock.now();
+
+        InMemoryVaultService vaultService = new InMemoryVaultService();
+        VaultManager vault = new VaultManager(vaultService);
+        StandaloneMetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(vault);
+        UpdateLog updateLogMock = spy(new UpdateLogImpl(metaStorageManager, rev -> clock.now(), vault));
+        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clock, clockWaiter, delayDuration);
+
+        vault.start();
+        metaStorageManager.start();
+        service.start();
+
+        assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
+
+        try {
+            CreateTableParams params = CreateTableParams.builder()
+                    .schemaName(SCHEMA_NAME)
+                    .tableName(TABLE_NAME)
+                    .columns(List.of(
+                            ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
+                            ColumnParams.builder().name("val").type(ColumnType.INT32).nullable(true).build()
+                    ))
+                    .primaryKeyColumns(List.of("key"))
+                    .build();
+
+            CompletableFuture<Void> future = service.createTable(params);
+
+            assertThat(future.isDone(), is(false));
+
+            ArgumentCaptor<HybridTimestamp> tsCaptor = ArgumentCaptor.forClass(HybridTimestamp.class);
+
+            verify(clockWaiter).waitFor(tsCaptor.capture());
+            HybridTimestamp userWaitTs = tsCaptor.getValue();
+            assertThat(userWaitTs.getPhysical() - startTs.getPhysical(), greaterThanOrEqualTo(delayDuration + HybridTimestamp.maxClockSkew()));
+        } finally {
+            service.stop();
+            metaStorageManager.stop();
+            vault.stop();
+        }
     }
 
     private CompletableFuture<Void> changeColumn(

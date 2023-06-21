@@ -243,4 +243,11 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
 
         return new HybridTimestamp(time + (mills << LOGICAL_TIME_BITS_SIZE));
     }
+
+    /**
+     * Returns max clock skew for the cluster (in millis).
+     */
+    public static long maxClockSkew() {
+        return CLOCK_SKEW;
+    }
 }

@@ -80,6 +80,7 @@ import org.apache.ignite.internal.deployunit.configuration.DeploymentConfigurati
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
@@ -277,6 +278,8 @@ public class IgniteImpl implements Ignite {
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
+    private final ClockWaiter clockWaiter;
+
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
     private final RestAddressReporter restAddressReporter;
@@ -346,6 +349,8 @@ public class IgniteImpl implements Ignite {
         );
 
         clock = new HybridClockImpl();
+
+        clockWaiter = new ClockWaiter(name, clock);
 
         RaftConfiguration raftConfiguration = nodeConfigRegistry.getConfiguration(RaftConfiguration.KEY);
 
@@ -494,6 +499,7 @@ public class IgniteImpl implements Ignite {
         catalogManager = new CatalogServiceImpl(
                 new UpdateLogImpl(metaStorageMgr, metaStorageKvStorage::timestampByRevision, vaultMgr),
                 clock,
+                clockWaiter,
                 () -> schemaSyncConfig.delayDuration().value()
         );
 
@@ -684,6 +690,7 @@ public class IgniteImpl implements Ignite {
 
             // Start the components that are required to join the cluster.
             lifecycleManager.startComponents(
+                    clockWaiter,
                     nettyBootstrapFactory,
                     clusterSvc,
                     restComponent,

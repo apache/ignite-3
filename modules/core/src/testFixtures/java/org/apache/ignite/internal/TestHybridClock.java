@@ -23,7 +23,10 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.hlc.ClockUpdateListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
@@ -37,6 +40,8 @@ public class TestHybridClock implements HybridClock {
 
     /** Latest time. */
     private volatile long latestTime;
+
+    private final List<ClockUpdateListener> updateListeners = new CopyOnWriteArrayList<>();
 
     /**
      * Var handle for {@link #latestTime}.
@@ -103,7 +108,16 @@ public class TestHybridClock implements HybridClock {
         }
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public void addUpdateListener(ClockUpdateListener listener) {
+        updateListeners.add(listener);
+    }
+
+    @Override
+    public void removeUpdateListener(ClockUpdateListener listener) {
+        updateListeners.remove(listener);
+    }
+
     @Override
     public String toString() {
         return S.toString(HybridClock.class, this);

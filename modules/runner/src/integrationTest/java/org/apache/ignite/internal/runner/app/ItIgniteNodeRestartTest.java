@@ -77,6 +77,7 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
@@ -324,9 +325,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new RaftGroupEventsClientListener()
         );
 
+        var clockWaiter = new ClockWaiter("test", hybridClock);
+
         var catalogManager = new CatalogServiceImpl(
                 new UpdateLogImpl(metaStorageMgr, keyValueStorage::timestampByRevision, vault),
-                hybridClock
+                hybridClock,
+                clockWaiter
         );
 
         TableManager tableManager = new TableManager(
@@ -397,6 +401,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metaStorageMgr,
                 clusterCfgMgr,
                 dataStorageManager,
+                clockWaiter,
                 catalogManager,
                 schemaManager,
                 distributionZoneManager,
