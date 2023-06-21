@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
@@ -53,14 +54,10 @@ public class ReconnectTest {
         FakeIgnite ignite1 = new FakeIgnite();
         ((FakeIgniteTables) ignite1.tables()).createTable("t");
 
-        server = AbstractClientTest.startServer(
-                10900,
-                10,
-                0,
-                ignite1);
+        server = new TestServer(0, ignite1, null, null, null, AbstractClientTest.clusterId, null, 10905);
 
         var client = IgniteClient.builder()
-                .addresses("127.0.0.1:10900..10910", "127.0.0.1:10950..10960")
+                .addresses("127.0.0.1:10905", "127.0.0.1:10950", "127.0.0.1:10960")
                 .retryPolicy(new RetryLimitPolicy().retryLimit(100))
                 .build();
 
@@ -71,11 +68,7 @@ public class ReconnectTest {
         FakeIgnite ignite2 = new FakeIgnite();
         ((FakeIgniteTables) ignite2.tables()).createTable("t2");
 
-        server2 = AbstractClientTest.startServer(
-                10950,
-                10,
-                0,
-                ignite2);
+        server2 = new TestServer(0, ignite2, null, null, null, AbstractClientTest.clusterId, null, 10950);
 
         assertEquals("t2", client.tables().tables().get(0).name());
     }
@@ -86,14 +79,10 @@ public class ReconnectTest {
         FakeIgnite ignite1 = new FakeIgnite();
         ((FakeIgniteTables) ignite1.tables()).createTable("t");
 
-        server = AbstractClientTest.startServer(
-                10900,
-                10,
-                0,
-                ignite1);
+        server = AbstractClientTest.startServer(0, ignite1);
 
         var client = IgniteClient.builder()
-                .addresses("127.0.0.1:10900..10910", "127.0.0.1:10950..10960")
+                .addresses("127.0.0.1:" + server.port(), "127.0.0.1:10960")
                 .build();
 
         assertEquals("t", client.tables().tables().get(0).name());
@@ -109,7 +98,7 @@ public class ReconnectTest {
         startTwoServers();
 
         Builder builder = IgniteClient.builder()
-                .addresses("127.0.0.1:10900..10902")
+                .addresses("127.0.0.1:10901", "127.0.0.1:10902", "127.0.0.1:10903")
                 .reconnectInterval(reconnectEnabled ? 50 : 0)
                 .heartbeatInterval(50);
 
@@ -119,12 +108,8 @@ public class ReconnectTest {
             server2.close();
             waitForConnections(client, 1);
 
-            server2 = AbstractClientTest.startServer(
-                    10902,
-                    0,
-                    0,
-                    new FakeIgnite(),
-                    "node3");
+            Ignite ignite = new FakeIgnite();
+            server2 = new TestServer(0, ignite, null, null, "node3", AbstractClientTest.clusterId, null, 10903);
 
             if (reconnectEnabled) {
                 waitForConnections(client, 2);
@@ -143,7 +128,7 @@ public class ReconnectTest {
         startTwoServers();
 
         Builder builder = IgniteClient.builder()
-                .addresses("127.0.0.1:10900..10902")
+                .addresses("127.0.0.1:10901", "127.0.0.1:10902")
                 .reconnectInterval(50)
                 .heartbeatInterval(50);
 
@@ -159,19 +144,10 @@ public class ReconnectTest {
     }
 
     private void startTwoServers() {
-        server = AbstractClientTest.startServer(
-                10900,
-                0,
-                0,
-                new FakeIgnite(),
-                "node1");
-
-        server2 = AbstractClientTest.startServer(
-                10901,
-                0,
-                0,
-                new FakeIgnite(),
-                "node2");
+        Ignite ignite = new FakeIgnite();
+        server = new TestServer(0, ignite, null, null, "node1", AbstractClientTest.clusterId, null, 10901);
+        Ignite ignite1 = new FakeIgnite();
+        server2 = new TestServer(0, ignite1, null, null, "node2", AbstractClientTest.clusterId, null, 10902);
     }
 
     private static void waitForConnections(IgniteClient client, int expectedConnections) throws InterruptedException {

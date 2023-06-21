@@ -17,15 +17,22 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.INDEX_CF_PREFIX;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.createKey;
+import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.DFLT_WRITE_OPTS;
+import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.deleteByPrefix;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
+import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.RocksDBException;
@@ -37,15 +44,25 @@ import org.rocksdb.WriteBatch;
 class SortedIndex implements ManuallyCloseable {
     private final StorageSortedIndexDescriptor descriptor;
 
+    private final SharedRocksDbInstance rocksDb;
+
     private final ColumnFamily indexCf;
 
     private final ConcurrentMap<Integer, RocksDbSortedIndexStorage> storages = new ConcurrentHashMap<>();
 
     private final RocksDbMetaStorage indexMetaStorage;
 
-    SortedIndex(ColumnFamily indexCf, StorageSortedIndexDescriptor descriptor, RocksDbMetaStorage indexMetaStorage) {
+    SortedIndex(
+            SharedRocksDbInstance rocksDb,
+            StorageSortedIndexDescriptor descriptor,
+            RocksDbMetaStorage indexMetaStorage
+    ) {
+        this.rocksDb = rocksDb;
         this.descriptor = descriptor;
-        this.indexCf = indexCf;
+        this.indexCf = rocksDb.getSortedIndexCfOnIndexCreate(
+                sortedIndexCfName(descriptor.columns()),
+                descriptor.id()
+        );
         this.indexMetaStorage = indexMetaStorage;
     }
 
@@ -60,21 +77,20 @@ class SortedIndex implements ManuallyCloseable {
     }
 
     /**
-     * Returns the Column Family associated with this index.
-     */
-    ColumnFamily indexCf() {
-        return indexCf;
-    }
-
-    /**
      * Removes all data associated with the index.
      */
     void destroy() {
-        try {
-            indexCf.destroy();
+        var indexId = descriptor.id();
+        try (WriteBatch writeBatch = new WriteBatch()) {
+            deleteByPrefix(writeBatch, indexCf, createKey(BYTE_EMPTY_ARRAY, indexId));
+            deleteByPrefix(writeBatch, indexMetaStorage.columnFamily(), createKey(INDEX_CF_PREFIX, indexId));
+
+            rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
         } catch (RocksDBException e) {
-            throw new StorageException("Unable to destroy index " + descriptor.id(), e);
+            throw new StorageException("Unable to destroy index " + indexId, e);
         }
+
+        rocksDb.dropCfOnIndexDestroy(indexCf.nameBytes(), indexId);
     }
 
     /**
@@ -96,10 +112,9 @@ class SortedIndex implements ManuallyCloseable {
     @Override
     public void close() {
         try {
-            IgniteUtils.closeAll(Stream.concat(
-                    storages.values().stream().map(index -> index::close),
-                    Stream.of(() -> indexCf.handle().close())
-            ));
+            IgniteUtils.closeAll(
+                    storages.values().stream().map(index -> index::close)
+            );
         } catch (Exception e) {
             throw new StorageException("Failed to close index storages: " + descriptor.id(), e);
         }

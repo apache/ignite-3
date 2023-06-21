@@ -86,7 +86,7 @@ public class StripedThreadPoolExecutor implements ExecutorService {
      * @throws NullPointerException       If command is null
      */
     public void execute(Runnable task, int idx) {
-        execs[threadId(idx)].execute(task);
+        commandExecutor(idx).execute(task);
     }
 
     /** {@inheritDoc} */
@@ -100,12 +100,13 @@ public class StripedThreadPoolExecutor implements ExecutorService {
      * same {@code index} will be executed in the same thread.
      *
      * @param task The task to submit.
+     * @param idx  Striped index.
      * @return a {@link Future} representing pending completion of the task.
      * @throws RejectedExecutionException if the task cannot be scheduled for execution.
      * @throws NullPointerException       if the task is {@code null}.
      */
     public CompletableFuture<?> submit(Runnable task, int idx) {
-        return CompletableFuture.runAsync(task, execs[threadId(idx)]);
+        return CompletableFuture.runAsync(task, commandExecutor(idx));
     }
 
     /** {@inheritDoc} */
@@ -234,5 +235,9 @@ public class StripedThreadPoolExecutor implements ExecutorService {
     @Override
     public String toString() {
         return S.toString(StripedThreadPoolExecutor.class, this);
+    }
+
+    private ExecutorService commandExecutor(int idx) {
+        return execs[threadId(idx)];
     }
 }

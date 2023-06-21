@@ -66,9 +66,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     /** Partition meta instance. */
     private volatile PartitionMeta meta;
 
-    /** Value of currently persisted last applied index. */
-    private volatile long persistedIndex;
-
     /** Checkpoint listener. */
     private final CheckpointListener checkpointListener;
 
@@ -107,7 +104,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         DataRegion<PersistentPageMemory> dataRegion = tableStorage.dataRegion();
 
         this.meta = meta;
-        persistedIndex = meta.lastAppliedIndex();
 
         checkpointManager.addCheckpointListener(checkpointListener = new CheckpointListener() {
             @Override
@@ -121,17 +117,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 // Should be fast, because here we only need to save the delta, reduce write lock holding time.
                 syncMetadataOnCheckpoint(exec);
             }
-
-            @Override
-            public void afterCheckpointEnd(CheckpointProgress progress) {
-                persistedIndex = meta.metaSnapshot(progress.id()).lastAppliedIndex();
-            }
         }, dataRegion);
 
         blobStorage = new BlobStorage(
                 rowVersionFreeList,
                 dataRegion.pageMemory(),
-                tableStorage.configuration().value().id(),
+                tableStorage.getTableId(),
                 partitionId,
                 IoStatisticsHolderNoOp.INSTANCE
         );
@@ -231,15 +222,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public long persistedIndex() {
-        return busy(() -> {
-            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
-
-            return persistedIndex;
-        });
-    }
-
-    @Override
     public byte @Nullable [] committedGroupConfiguration() {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
@@ -259,7 +241,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                     replicationProtocolGroupConfigReadWriteLock.readLock().unlock();
                 }
             } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Failed to read group config, groupId=" + groupId + ", partitionId=" + partitionId, e);
+                throw new StorageException(
+                        "Failed to read group config: [tableId={}, partitionId={}]",
+                        e,
+                        tableStorage.getTableId(), partitionId
+                );
             }
         });
     }
@@ -292,7 +278,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 blobStorage.updateBlob(meta.lastReplicationProtocolGroupConfigFirstPageId(), groupConfigBytes);
             }
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot save committed group configuration, groupId=" + groupId + ", partitionId=" + groupId, e);
+            throw new StorageException(
+                    "Cannot save committed group configuration: [tableId={}, partitionId={}]",
+                    e,
+                    tableStorage.getTableId(), partitionId
+            );
         } finally {
             replicationProtocolGroupConfigReadWriteLock.writeLock().unlock();
         }
@@ -359,8 +349,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         lastAppliedBusy(lastAppliedIndex, lastAppliedTerm);
-
-        persistedIndex = lastAppliedIndex;
     }
 
     /**
@@ -395,7 +383,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         this.blobStorage = new BlobStorage(
                 rowVersionFreeList,
                 tableStorage.dataRegion().pageMemory(),
-                tableStorage.configuration().id().value(),
+                tableStorage.getTableId(),
                 partitionId,
                 IoStatisticsHolderNoOp.INSTANCE
         );

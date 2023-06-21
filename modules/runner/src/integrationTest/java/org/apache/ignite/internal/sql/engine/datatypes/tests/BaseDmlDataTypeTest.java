@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.stream.Stream;
 import org.apache.calcite.runtime.CalciteContextException;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -45,16 +44,15 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
         checkQuery("SELECT test_key FROM t WHERE id=1").returns(arguments.value(0)).check();
     }
 
-
-    /** {@code INSERT} with dynamic parameters.*/
+    /** {@code INSERT} with dynamic parameters is not allowed for compatible types. */
     @ParameterizedTest
-    @MethodSource("dml")
-    public void testInsertDynamicParameter(TestTypeArguments<T> arguments) {
-        T value1 = arguments.value(0);
+    @MethodSource("convertedFrom")
+    public void testInsertFromDynamicParameterFromConvertible(TestTypeArguments<T> arguments) {
+        var t = assertThrows(CalciteContextException.class, () -> {
+            runSql("INSERT INTO t VALUES (1, ?)", arguments.argValue(0));
+        });
 
-        runSql("INSERT INTO t VALUES (1, ?)", arguments.argValue(0));
-
-        checkQuery("SELECT test_key FROM t WHERE id=1").returns(value1).check();
+        assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
     }
 
     /** {@code DELETE} by key. */
@@ -71,15 +69,14 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
         checkQuery("SELECT id FROM t").returns(2).returns(3).check();
     }
 
-    /** {@code UPDATE}. */
+    /** {@code UPDATE} from a literal of a compatible type. */
     @ParameterizedTest
-    @MethodSource("dml")
-    public void testUpdate(TestTypeArguments<T> arguments) {
+    @MethodSource("convertedFrom")
+    public void testUpdateFromLiteral(TestTypeArguments<T> arguments) {
         String insert = format("INSERT INTO t VALUES (1, {})", arguments.valueExpr(0));
         runSql(insert);
 
-        checkQuery("UPDATE t SET test_key = ? WHERE id=1")
-                .withParams(arguments.argValue(0))
+        checkQuery(format("UPDATE t SET test_key = {} WHERE id=1", arguments.valueExpr(0)))
                 .returns(1L)
                 .check();
 
@@ -88,21 +85,39 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
                 .check();
     }
 
-    /** {@code UPDATE} with dynamic parameter.*/
-    @ParameterizedTest
-    @MethodSource("dml")
-    public void testUpdateWithDynamicParameter(TestTypeArguments<T> arguments) {
-        String insert = format("INSERT INTO t VALUES (1, {})", arguments.valueExpr(0));
-        runSql(insert);
+    /** {@code UPDATE} from a dynamic parameter. */
+    @Test
+    public void testUpdateFromDynamicParam() {
+        runSql("INSERT INTO t VALUES (1, ?)", dataSamples.min());
 
         checkQuery("UPDATE t SET test_key = ? WHERE id=1")
-                .withParams(arguments.argValue(0))
+                .withParams(dataSamples.max())
                 .returns(1L)
                 .check();
 
         checkQuery("SELECT test_key FROM t WHERE id=1")
-                .returns(arguments.value(0))
+                .returns(dataSamples.max())
                 .check();
+    }
+
+    /** {@code UPDATE} is not allowed for dynamic parameter of compatible type. */
+    @ParameterizedTest
+    @MethodSource("convertedFrom")
+    public void testUpdateFromDynamicParameterFromConvertible(TestTypeArguments<T> arguments) {
+        String insert = format("INSERT INTO t VALUES (1, {})", arguments.valueExpr(0));
+        runSql(insert);
+
+        var t = assertThrows(CalciteContextException.class, () -> {
+            checkQuery("UPDATE t SET test_key = ? WHERE id=1")
+                    .withParams(arguments.argValue(0))
+                    .returns(1L)
+                    .check();
+        });
+
+        String error = format("Dynamic parameter requires adding explicit type cast",
+                testTypeSpec.typeName());
+
+        assertThat(t.getMessage(), containsString(error));
     }
 
     /** Type mismatch in {@code INSERT}s {@code VALUES}.*/
@@ -111,18 +126,32 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
     public void testDisallowMismatchTypesOnInsert(TestTypeArguments<T> arguments) {
         var query = format("INSERT INTO t (id, test_key) VALUES (10, null), (20, {})", arguments.valueExpr(0));
         var t = assertThrows(CalciteContextException.class, () -> runSql(query));
+
         assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
     }
 
     /**
      * Type mismatch in {@code INSERT}s {@code VALUES} with dynamic parameters.
      */
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18831")
-    public void testDisallowMismatchTypesOnInsertDynamicParam() {
-        T value1 = values.get(0);
+    @ParameterizedTest
+    @MethodSource("convertedFrom")
+    public void testDisallowMismatchTypesOnInsertDynamicParam(TestTypeArguments<T> arguments) {
+        Object value1 = arguments.argValue(0);
 
         var query = "INSERT INTO t (id, test_key) VALUES (1, null), (2, ?)";
+        var t = assertThrows(CalciteContextException.class, () -> runSql(query, value1));
+        assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
+    }
+
+    /**
+     * Type mismatch in {@code INSERT}s {@code VALUES} with dynamic parameters.
+     */
+    @ParameterizedTest
+    @MethodSource("convertedFrom")
+    public void testDisallowMismatchTypesOnInsertDynamicParam2(TestTypeArguments<T> arguments) {
+        Object value1 = arguments.argValue(0);
+
+        var query = "INSERT INTO t (id, test_key) VALUES (1, 'str'), (2, ?)";
         var t = assertThrows(CalciteContextException.class, () -> runSql(query, value1));
         assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
     }

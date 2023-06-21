@@ -31,6 +31,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.sql.ColumnType;
 
 /**
@@ -49,13 +50,16 @@ public class CatalogUtils {
     /**
      * Converts CreateTable command params to descriptor.
      *
-     * @param id Table id.
+     * @param id Table ID.
+     * @param zoneId Distributed zone ID.
      * @param params Parameters.
      * @return Table descriptor.
      */
-    public static CatalogTableDescriptor fromParams(int id, CreateTableParams params) {
-        return new CatalogTableDescriptor(id,
+    public static CatalogTableDescriptor fromParams(int id, int zoneId, CreateTableParams params) {
+        return new CatalogTableDescriptor(
+                id,
                 params.tableName(),
+                zoneId,
                 params.columns().stream().map(CatalogUtils::fromParams).collect(Collectors.toList()),
                 params.primaryKeyColumns(),
                 params.colocationColumns()
@@ -97,6 +101,26 @@ public class CatalogUtils {
                 .collect(Collectors.toList());
 
         return new CatalogSortedIndexDescriptor(id, params.indexName(), tableId, params.isUnique(), columnDescriptors);
+    }
+
+    /**
+     * Converts CreateZone command params to descriptor.
+     *
+     * @param id Distribution zone id.
+     * @param params Parameters.
+     * @return Distribution zone descriptor.
+     */
+    public static CatalogZoneDescriptor fromParams(int id, CreateZoneParams params) {
+        return new CatalogZoneDescriptor(
+                id,
+                params.zoneName(),
+                params.partitions(),
+                params.replicas(),
+                params.dataNodesAutoAdjust(),
+                params.dataNodesAutoAdjustScaleUp(),
+                params.dataNodesAutoAdjustScaleDown(),
+                params.filter()
+        );
     }
 
     /**

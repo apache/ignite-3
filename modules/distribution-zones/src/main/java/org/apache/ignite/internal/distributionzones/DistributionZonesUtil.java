@@ -43,13 +43,13 @@ import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -73,8 +73,17 @@ public class DistributionZonesUtil {
     /** Key prefix for zones' logical topology nodes and logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX = "distributionZones.logicalTopology.";
 
+    /** Key value for zones' nodes' attributes in vault. */
+    private static final String DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT = "vault.distributionZones.nodesAttributes";
+
+    /** Key value for zones' global state revision in vault. */
+    private static final String DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT = "vault.distributionZones.globalState.revision";
+
     /** Key prefix for zones' logical topology nodes. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "nodes";
+
+    /** Key prefix for zones' logical topology nodes in vault. */
+    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT = "vault." + DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY;
 
     /** Key prefix for zones' logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "version";
@@ -83,7 +92,17 @@ public class DistributionZonesUtil {
     private static final String DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY_PREFIX = "distributionZones.change.trigger.";
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY}. */
-    private static final ByteArray DISTRIBUTION_ZONE_LOGICAL_TOPOLOGY_KEY = new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY);
+    private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_KEY = new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY);
+
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT}. */
+    private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT_KEY = new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT);
+
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT}. */
+    private static final ByteArray DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT_KEY = new ByteArray(DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT);
+
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT}. */
+    public static final ByteArray DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT_KEY =
+            new ByteArray(DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT);
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY =
@@ -123,7 +142,7 @@ public class DistributionZonesUtil {
      *
      * @return ByteArray representation.
      */
-    public static ByteArray zonesLogicalTopologyPrefix() {
+    static ByteArray zonesLogicalTopologyPrefix() {
         return new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX);
     }
 
@@ -156,13 +175,6 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * The key prefix needed for processing an event about zone's data node propagation on scale up.
-     */
-    public static ByteArray zoneScaleUpChangeTriggerKey() {
-        return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX);
-    }
-
-    /**
      * The key needed for processing an event about zone's data node propagation on scale down.
      * With this key we can be sure that event was triggered only once.
      */
@@ -171,18 +183,11 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * The key prefix needed for processing an event about zone's data node propagation on scale down.
-     */
-    public static ByteArray zoneScaleDownChangeTriggerKey() {
-        return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX);
-    }
-
-    /**
      * The key that represents logical topology nodes, needed for distribution zones. It is needed to store them in the metastore
      * to serialize data nodes changes triggered by topology changes and changes of distribution zones configurations.
      */
     public static ByteArray zonesLogicalTopologyKey() {
-        return DISTRIBUTION_ZONE_LOGICAL_TOPOLOGY_KEY;
+        return DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_KEY;
     }
 
     /**
@@ -191,6 +196,28 @@ public class DistributionZonesUtil {
      */
     public static ByteArray zonesLogicalTopologyVersionKey() {
         return DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY;
+    }
+
+    /**
+     * The key that represents logical topology nodes in vault.
+     */
+    public static ByteArray zonesLogicalTopologyVault() {
+        return DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT_KEY;
+    }
+
+    /**
+     * The key that represents nodes' attributes in vault.
+     */
+    public static ByteArray zonesNodesAttributesVault() {
+        return DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT_KEY;
+    }
+
+    /**
+     * The key represents zones' global state revision in vault. This is the revision of the event that triggered saving the global state
+     * of Distribution Zone Manager to Vault.
+     */
+    public static ByteArray zonesGlobalStateRevision() {
+        return DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT_KEY;
     }
 
     /**

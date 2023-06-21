@@ -615,7 +615,7 @@ public class InternalTableImpl implements InternalTable {
         return collectMultiRowsResponses(futures);
     }
 
-    private static List<ByteBuffer> serializeBinaryRows(Collection<BinaryRow> rows) {
+    private static List<ByteBuffer> serializeBinaryRows(Collection<? extends BinaryRow> rows) {
         var result = new ArrayList<ByteBuffer>(rows.size());
 
         for (BinaryRow row : rows) {
@@ -648,16 +648,24 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
-                        .groupId(groupId)
-                        .commitPartitionId(commitPart)
-                        .binaryRowsBytes(serializeBinaryRows(keyRows0))
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RequestType.RW_UPSERT_ALL)
-                        .timestampLong(clock.nowLong())
-                        .build(),
+                this::upsertAllInternal,
                 CompletableFuture::allOf);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
+        InternalTransaction tx = txManager.begin();
+        TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
+
+        CompletableFuture<Void> fut = enlistWithRetry(
+                tx,
+                partition,
+                (commitPart, term) -> upsertAllInternal(commitPart, rows, tx, partGroupId, term),
+                ATTEMPTS_TO_ENLIST_PARTITION
+        );
+
+        return postEnlist(fut, true, tx);
     }
 
     /** {@inheritDoc} */
@@ -1253,6 +1261,8 @@ public class InternalTableImpl implements InternalTable {
      */
     protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
         RaftGroupService svc = raftGroupServiceByPartitionId.get(partId);
+        assert svc != null : "No raft group service for partition " + partId;
+
         tx.assignCommitPartition(new TablePartitionId(tableId, partId));
 
         // TODO: IGNITE-17256 Use a placement driver for getting a primary replica.
@@ -1552,5 +1562,22 @@ public class InternalTableImpl implements InternalTable {
         if (previousStorageIndexTracker != null) {
             previousStorageIndexTracker.close();
         }
+    }
+
+    private ReplicaRequest upsertAllInternal(
+            TablePartitionId commitPart,
+            Collection<? extends BinaryRow> keyRows0,
+            InternalTransaction txo,
+            ReplicationGroupId groupId,
+            Long term) {
+        return tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                .groupId(groupId)
+                .commitPartitionId(commitPart)
+                .binaryRowsBytes(serializeBinaryRows(keyRows0))
+                .transactionId(txo.id())
+                .term(term)
+                .requestType(RequestType.RW_UPSERT_ALL)
+                .timestampLong(clock.nowLong())
+                .build();
     }
 }

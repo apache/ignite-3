@@ -59,6 +59,7 @@ import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
@@ -71,6 +72,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.table.InternalTable;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
@@ -335,6 +337,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         IndexDescriptor indexDescriptor = new IndexDescriptor("IDX1", List.of("idxCol2", "idxCol1"));
 
         Index<IndexDescriptor> hashIndexMock = mock(Index.class);
+        InternalTable table = mock(InternalTable.class);
 
         Mockito.doReturn(indexDescriptor).when(hashIndexMock).descriptor();
         //CHECKSTYLE:OFF:Indentation
@@ -435,11 +438,15 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             when(rangeIterable.multiBounds()).thenReturn(false);
         }
 
+        TestTable testTable = new TestTable(rowType, schemaDescriptor);
+        TableRowConverter rowConverter = new TestRowConverter(testTable.descriptor(), schemaDescriptor);
+
         IndexScanNode<Object[]> scanNode = new IndexScanNode<>(
                 ectx,
                 ectx.rowHandler().factory(ectx.getTypeFactory(), rowType),
                 index,
-                new TestTable(rowType, schemaDescriptor),
+                rowConverter,
+                testTable.descriptor(),
                 List.of(new PartitionWithTerm(0, -1L), new PartitionWithTerm(2, -1L)),
                 index.type() == Type.SORTED ? comp : null,
                 rangeIterable,
@@ -584,21 +591,34 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         public IgniteDistribution distribution() {
             return IgniteDistributions.broadcast();
         }
+    }
+
+    private static final class TestRowConverter implements TableRowConverter {
+
+        private final TableDescriptor descriptor;
+
+        private final SchemaDescriptor schemaDescriptor;
+
+        private TestRowConverter(TableDescriptor descriptor, SchemaDescriptor schemaDescriptor) {
+            this.descriptor = descriptor;
+            this.schemaDescriptor = schemaDescriptor;
+        }
 
         @Override
-        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow binaryRow, RowFactory<RowT> factory,
-                @Nullable BitSet requiredColumns) {
-            TableDescriptor desc = descriptor();
-            Row tableRow = new Row(schemaDesc, binaryRow);
+        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow binaryRow,
+                RowFactory<RowT> factory, @Nullable BitSet requiredColumns) {
+
+            Row tableRow = new Row(schemaDescriptor, binaryRow);
 
             RowT row = factory.create();
             RowHandler<RowT> handler = factory.handler();
 
-            for (int i = 0; i < desc.columnsCount(); i++) {
-                handler.set(i, row, TypeUtils.toInternal(tableRow.value(desc.columnDescriptor(i).physicalIndex())));
+            for (int i = 0; i < descriptor.columnsCount(); i++) {
+                handler.set(i, row, TypeUtils.toInternal(tableRow.value(descriptor.columnDescriptor(i).physicalIndex())));
             }
 
             return row;
         }
     }
+
 }

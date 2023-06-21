@@ -101,7 +101,7 @@ SQLLEN nullability_to_sql(nullability value)
     return SQL_NULLABLE_UNKNOWN;
 }
 
-void column_meta::read(protocol::reader &reader, const protocol_version &ver)
+void column_meta::read(protocol::reader &reader, const protocol_version &)
 {
     m_schema_name = reader.read_string();
     m_table_name = reader.read_string();

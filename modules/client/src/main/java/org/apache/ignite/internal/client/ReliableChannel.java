@@ -44,7 +44,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
@@ -288,22 +287,14 @@ public final class ReliableChannel implements AutoCloseable {
             throw new IgniteException(CONFIGURATION_ERR, "Empty addresses");
         }
 
-        Collection<HostAndPortRange> ranges = new ArrayList<>(addrs.length);
+        Collection<HostAndPort> ranges = new ArrayList<>(addrs.length);
 
         for (String a : addrs) {
-            ranges.add(HostAndPortRange.parse(
-                    a,
-                    IgniteClientConfiguration.DFLT_PORT,
-                    IgniteClientConfiguration.DFLT_PORT + IgniteClientConfiguration.DFLT_PORT_RANGE,
-                    "Failed to parse Ignite server address"
-            ));
+            ranges.add(HostAndPort.parse(a, IgniteClientConfiguration.DFLT_PORT, "Failed to parse Ignite server address"));
         }
 
         return ranges.stream()
-                .flatMap(r -> IntStream
-                        .rangeClosed(r.portFrom(), r.portTo()).boxed()
-                        .map(p -> InetSocketAddress.createUnresolved(r.host(), p))
-                )
+                .map(p -> InetSocketAddress.createUnresolved(p.host(), p.port()))
                 .collect(Collectors.toMap(a -> a, a -> 1, Integer::sum));
     }
 

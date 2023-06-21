@@ -58,7 +58,7 @@ public class ConfigurationTest extends AbstractClientTest {
 
         assertThat(
                 ex.getMessage(),
-                containsString("Failed to parse Ignite server address (port range contains invalid port 70000): 127.0.0.1:70000"));
+                containsString("Failed to parse Ignite server address (invalid port 70000): 127.0.0.1:70000"));
     }
 
     @Test
@@ -161,7 +161,7 @@ public class ConfigurationTest extends AbstractClientTest {
     public void testCustomAsyncContinuationExecutor() throws Exception {
         Function<Integer, Integer> responseDelay = x -> 50;
 
-        try (var testServer = new TestServer(10900, 10, 0, server, x -> false, responseDelay, "n2", clusterId, null)) {
+        try (var testServer = new TestServer(0, server, x -> false, responseDelay, "n2", clusterId, null, null)) {
             ExecutorService executor = Executors.newSingleThreadExecutor();
 
             var builderThreadName = new AtomicReference<String>();

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.deployunit.metastore;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
-import java.util.HashSet;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -45,7 +44,7 @@ public class NodeStatusWatchListener implements WatchListener {
 
     private final Supplier<String> localNodeProvider;
 
-    private final NodeEventCallback listener;
+    private final NodeEventCallback callback;
 
     private final ExecutorService executor = Executors.newFixedThreadPool(
             4, new NamedThreadFactory("NodeStatusWatchListener-pool", LOG));
@@ -62,7 +61,7 @@ public class NodeStatusWatchListener implements WatchListener {
             NodeEventCallback callback) {
         this.deploymentUnitStore = deploymentUnitStore;
         this.localNodeProvider = localNodeProvider;
-        this.listener = callback;
+        this.callback = callback;
     }
 
     @Override
@@ -84,7 +83,7 @@ public class NodeStatusWatchListener implements WatchListener {
 
             CompletableFuture.supplyAsync(() -> nodeStatus, executor)
                     .thenComposeAsync(status -> deploymentUnitStore.getAllNodes(status.id(), status.version()), executor)
-                    .thenAccept(nodes -> listener.onUpdate(nodeStatus, new HashSet<>(nodes)));
+                    .thenAccept(nodes -> callback.onUpdate(nodeStatus, nodes));
         }
         return completedFuture(null);
     }

@@ -34,6 +34,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -53,12 +54,21 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.loader.JobClassLoader;
+import org.apache.ignite.internal.compute.loader.JobContext;
+import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
+import org.apache.ignite.internal.deployunit.DeploymentStatus;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -95,7 +105,7 @@ class ComputeComponentImplTest {
     @Mock
     private ConfigurationValue<Long> threadPoolStopTimeoutMillisValue;
     @Mock
-    private JobClassLoaderFactory jobClassLoaderFactory;
+    private JobContextManager jobContextManager;
 
     @InjectMocks
     private ComputeComponentImpl computeComponent;
@@ -120,8 +130,10 @@ class ComputeComponentImplTest {
 
         lenient().when(ignite.name()).thenReturn(INSTANCE_NAME);
 
-        lenient().when(jobClassLoaderFactory.createClassLoader(anyList()))
-                .thenReturn(CompletableFuture.completedFuture(new JobClassLoader(new URL[0], getClass().getClassLoader())));
+        JobClassLoader classLoader = new JobClassLoader(List.of(), new URL[0], getClass().getClassLoader());
+        JobContext jobContext = new JobContext(classLoader, ignored -> {});
+        lenient().when(jobContextManager.acquireClassLoader(anyList()))
+                .thenReturn(CompletableFuture.completedFuture(jobContext));
 
         doAnswer(invocation -> {
             computeMessageHandlerRef.set(invocation.getArgument(1));
@@ -320,7 +332,7 @@ class ComputeComponentImplTest {
     void executionRejectionCausesExceptionToBeReturnedViaFuture() throws Exception {
         restrictPoolSizeTo1();
 
-        computeComponent = new ComputeComponentImpl(ignite, messagingService, computeConfiguration, jobClassLoaderFactory) {
+        computeComponent = new ComputeComponentImpl(ignite, messagingService, computeConfiguration, jobContextManager) {
             @Override
             BlockingQueue<Runnable> newExecutorServiceTaskQueue() {
                 return new SynchronousQueue<>();
@@ -351,7 +363,7 @@ class ComputeComponentImplTest {
     void stopCausesCancellationExceptionOnLocalExecution() throws Exception {
         restrictPoolSizeTo1();
 
-        computeComponent = new ComputeComponentImpl(ignite, messagingService, computeConfiguration, jobClassLoaderFactory) {
+        computeComponent = new ComputeComponentImpl(ignite, messagingService, computeConfiguration, jobContextManager) {
             @Override
             long stopTimeoutMillis() {
                 return 100;
@@ -412,6 +424,36 @@ class ComputeComponentImplTest {
 
         assertThat(result, is(instanceOf(Exception.class)));
         assertThat(((Exception) result).getMessage(), containsString("'java.lang.Object' does not implement ComputeJob interface"));
+    }
+
+    @Test
+    void executionOfNotExistingDeployedUnit() {
+        List<DeploymentUnit> units = List.of(new DeploymentUnit("unit", "1.0.0"));
+        doReturn(CompletableFuture.failedFuture(new DeploymentUnitNotFoundException("unit", Version.parseVersion("1.0.0"))))
+                .when(jobContextManager).acquireClassLoader(units);
+
+        assertThat(
+                computeComponent.executeLocally(units, "com.example.Maim"),
+                CompletableFutureExceptionMatcher.willThrow(ClassNotFoundException.class)
+        );
+    }
+
+    @Test
+    void executionOfNotAvailableDeployedUnit() {
+        List<DeploymentUnit> units = List.of(new DeploymentUnit("unit", "1.0.0"));
+        DeploymentUnitUnavailableException toBeThrown = new DeploymentUnitUnavailableException(
+                "unit",
+                Version.parseVersion("1.0.0"),
+                DeploymentStatus.OBSOLETE,
+                DeploymentStatus.REMOVING
+        );
+        doReturn(CompletableFuture.failedFuture(toBeThrown))
+                .when(jobContextManager).acquireClassLoader(units);
+
+        assertThat(
+                computeComponent.executeLocally(units, "com.example.Maim"),
+                CompletableFutureExceptionMatcher.willThrow(ClassNotFoundException.class)
+        );
     }
 
     private static class SimpleJob implements ComputeJob<String> {

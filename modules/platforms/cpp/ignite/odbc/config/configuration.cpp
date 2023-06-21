@@ -18,111 +18,61 @@
 #include "ignite/odbc/string_utils.h"
 #include "ignite/odbc/config/config_tools.h"
 #include "ignite/odbc/config/configuration.h"
-#include "ignite/odbc/config/connection_string_parser.h"
+#include "ignite/odbc/odbc_error.h"
 
 #include <string>
-#include <sstream>
+
+/** Configuration keys . */
+namespace key {
+/** Key for fetch results page size attribute. */
+static inline const std::string page_size{"page_size"};
+
+/** Key for Driver attribute. */
+static inline const std::string host{"host"};
+
+/** Key for TCP port attribute. */
+static inline const std::string port{"port"};
+
+/** Key for address attribute. */
+static inline const std::string address{"address"};
+
+} // namespace key;
+
 
 namespace ignite {
 
-const protocol_version configuration::default_value::protocol_version{protocol_version::get_current()};
-const std::string configuration::default_value::driver{"Apache Ignite"};
-const std::string configuration::default_value::address{};
-const std::int32_t configuration::default_value::page_size{1024};
-const std::uint16_t configuration::default_value::port{10800};
+void configuration::from_config_map(const config_map &config_params) {
+    *this = configuration();
 
-std::string configuration::to_connection_string() const
-{
-    argument_map arguments;
+    auto page_size_it = config_params.find(key::page_size);
+    if (page_size_it != config_params.end()) {
+        auto page_size_opt = parse_int<std::int32_t>(page_size_it->second);
+        if (!page_size_opt)
+            throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
+                "Invalid page size value: " + page_size_it->second);
 
-    to_map(arguments);
-
-    std::stringstream connect_string_buffer;
-
-    for (argument_map::const_iterator it = arguments.begin(); it != arguments.end(); ++it)
-    {
-        const std::string& key = it->first;
-        const std::string& value = it->second;
-
-        if (value.empty())
-            continue;
-
-        if (value.find(' ') == std::string::npos)
-            connect_string_buffer << key << '=' << value << ';';
-        else
-            connect_string_buffer << key << "={" << value << "};";
+        m_page_size = {*page_size_opt, true};
     }
 
-    return connect_string_buffer.str();
-}
+    auto address_it = config_params.find(key::address);
+    if (address_it != config_params.end())
+        m_end_points = {parse_address(address_it->second), true};
+    else {
+        end_point ep;
+        auto host_it = config_params.find(key::host);
+        if (host_it == config_params.end())
+            throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
+                "Connection address is not specified");
 
-const std::string& configuration::get_driver() const
-{
-    return m_driver.get_value();
-}
+        auto host = host_it->second;
+        uint16_t port = default_value::port;
 
-void configuration::set_driver(const std::string& driver)
-{
-    m_driver.set_value(driver);
-}
+        auto port_it = config_params.find(key::port);
+        if (port_it != config_params.end())
+            port = parse_port(port_it->second);
 
-const std::vector<network::tcp_range>& configuration::get_addresses() const
-{
-    return m_end_points.get_value();
-}
-
-void configuration::set_addresses(const std::vector<network::tcp_range>& end_points)
-{
-    m_end_points.set_value(end_points);
-}
-
-bool configuration::is_addresses_set() const
-{
-    return m_end_points.is_set();
-}
-
-void configuration::set_page_size(int32_t size)
-{
-    m_page_size.set_value(size);
-}
-
-bool configuration::is_page_size_set() const
-{
-    return m_page_size.is_set();
-}
-
-int32_t configuration::get_page_size() const
-{
-    return m_page_size.get_value();
-}
-
-void configuration::to_map(argument_map& res) const
-{
-    add_to_map(res, connection_string_parser::key::driver, m_driver);
-    add_to_map(res, connection_string_parser::key::address, m_end_points);
-    add_to_map(res, connection_string_parser::key::page_size, m_page_size);
-}
-
-template<>
-void configuration::add_to_map(argument_map& map, const std::string& key, const settable_value<int32_t>& value)
-{
-    if (value.is_set())
-        map[key] = lexical_cast<std::string>(value.get_value());
-}
-
-template<>
-void configuration::add_to_map(argument_map& map, const std::string& key, const settable_value<std::string>& value)
-{
-    if (value.is_set())
-        map[key] = value.get_value();
-}
-
-template<>
-void configuration::add_to_map(argument_map& map, const std::string& key,
-    const settable_value< std::vector<network::tcp_range> >& value)
-{
-    if (value.is_set())
-        map[key] = addresses_to_string(value.get_value());
+        m_end_points = {{{host, port}}, true};
+    }
 }
 
 } // namespace ignite

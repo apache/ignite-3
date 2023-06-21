@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -43,7 +44,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.GarbageCollector;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -66,11 +67,8 @@ public class MvGcTest {
     private final AtomicInteger nextTableId = new AtomicInteger(1001);
 
     @BeforeEach
-    void setUp(
-            @InjectConfiguration("mock.gcThreads = 1")
-            TablesConfiguration tablesConfig
-    ) {
-        gc = new MvGc("test", tablesConfig);
+    void setUp(@InjectConfiguration("mock.threads = 1") GcConfiguration gcConfig) {
+        gc = new MvGc("test", gcConfig);
 
         gc.start();
     }
@@ -305,16 +303,13 @@ public class MvGcTest {
     }
 
     @Test
-    void testParallelUpdateLowWatermark(
-            @InjectConfiguration
-            TablesConfiguration tablesConfig
-    ) throws Exception {
+    void testParallelUpdateLowWatermark(@InjectConfiguration GcConfiguration gcConfig) throws Exception {
         // By default, in the tests we work in one thread, we don’t have enough this, we will add more.
-        assertThat(tablesConfig.gcThreads().update(Runtime.getRuntime().availableProcessors()), willCompleteSuccessfully());
+        assertThat(gcConfig.threads().update(Runtime.getRuntime().availableProcessors()), willCompleteSuccessfully());
 
         gc.close();
 
-        gc = new MvGc("test", tablesConfig);
+        gc = new MvGc("test", gcConfig);
 
         gc.start();
 
@@ -386,7 +381,7 @@ public class MvGcTest {
             CompletableFuture<Void> future,
             @Nullable HybridTimestamp exp
     ) {
-        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt())).then(invocation -> {
+        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt(), eq(true))).then(invocation -> {
             if (exp != null) {
                 try {
                     assertEquals(exp, invocation.getArgument(0));
@@ -406,7 +401,7 @@ public class MvGcTest {
     private GcUpdateHandler createWithCountDownOnVacuum(CountDownLatch latch) {
         GcUpdateHandler gcUpdateHandler = createGcUpdateHandler();
 
-        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt())).then(invocation -> {
+        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt(), eq(true))).then(invocation -> {
             latch.countDown();
 
             return latch.getCount() > 0;
@@ -418,7 +413,7 @@ public class MvGcTest {
     private GcUpdateHandler createWithWaitFinishVacuum(CompletableFuture<Void> startFuture, CompletableFuture<Void> finishFuture) {
         GcUpdateHandler gcUpdateHandler = createGcUpdateHandler();
 
-        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt())).then(invocation -> {
+        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt(), eq(true))).then(invocation -> {
             startFuture.complete(null);
 
             finishFuture.get(1, TimeUnit.SECONDS);
@@ -438,7 +433,7 @@ public class MvGcTest {
     private GcUpdateHandler createWithCountDownOnVacuumWithoutNextBatch(CountDownLatch latch) {
         GcUpdateHandler gcUpdateHandler = createGcUpdateHandler();
 
-        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt())).then(invocation -> {
+        when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt(), eq(true))).then(invocation -> {
             latch.countDown();
 
             // So that there is no processing of the next batch.

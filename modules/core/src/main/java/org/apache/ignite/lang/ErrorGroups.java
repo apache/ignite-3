@@ -65,6 +65,9 @@ public class ErrorGroups {
 
         /** Table is stopping. */
         public static final int TABLE_STOPPING_ERR = TABLE_ERR_GROUP.registerErrorCode(5);
+
+        /** Table definition is incorrect. */
+        public static final int TABLE_DEFINITION_ERR = TABLE_ERR_GROUP.registerErrorCode(6);
     }
 
     /** Client error group. */
@@ -340,8 +343,11 @@ public class ErrorGroups {
         /** Distribution zone rename error. */
         public static final int ZONE_RENAME_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(3);
 
-        /** Distribution zone is bound to table. */
-        public static final int ZONE_BIND_TABLE_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(4);
+        /** Distribution zone is a default distribution zone or bound to table. */
+        public static final int ZONE_DROP_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(4);
+
+        /** Distribution zone definition error. */
+        public static final int ZONE_DEFINITION_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(5);
     }
 
     /** Network error group. */
@@ -351,6 +357,9 @@ public class ErrorGroups {
 
         /** Unresolvable consistent ID. */
         public static final int UNRESOLVABLE_CONSISTENT_ID_ERR = NETWORK_ERR_GROUP.registerErrorCode(1);
+
+        /** Port is in use. */
+        public static final int PORT_IN_USE_ERR = NETWORK_ERR_GROUP.registerErrorCode(2);
     }
 
     /** Node configuration error group. */
@@ -384,6 +393,9 @@ public class ErrorGroups {
 
         /** Deployment unit content read error. */
         public static final int UNIT_CONTENT_READ_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(3);
+
+        /** Deployment unit is unavailable for computing. */
+        public static final int UNIT_UNAVAILABLE_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(4);
     }
 
     /**

@@ -27,6 +27,7 @@ import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Delete;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Post;
+import io.micronaut.http.annotation.QueryValue;
 import io.micronaut.http.multipart.CompletedFileUpload;
 import io.micronaut.security.annotation.Secured;
 import io.micronaut.security.rules.SecurityRule;
@@ -66,14 +67,20 @@ public interface DeploymentCodeApi {
             content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
     )
     @Consumes(FORM_DATA)
-    @Post("units")
+    @Post("units/{unitId}/{unitVersion}")
     CompletableFuture<Boolean> deploy(
             @Schema(name = "unitId", requiredMode = REQUIRED, description = "The ID of the deployment unit.")
             String unitId,
             @Schema(name = "unitVersion", requiredMode = REQUIRED, description = "The version of the deployment unit.")
             String unitVersion,
             @Schema(name = "unitContent", requiredMode = REQUIRED, description = "The code to deploy.")
-            Publisher<CompletedFileUpload> unitContent
+            Publisher<CompletedFileUpload> unitContent,
+            @QueryValue
+            @Schema(name = "deployMode", requiredMode = REQUIRED, description = "ALL or MAJORITY.")
+            Optional<InitialDeployMode> deployMode,
+            @QueryValue
+            @Schema(name = "initialNodes", requiredMode = REQUIRED, description = "List of node identifiers to deploy to.")
+            Optional<List<String>> initialNodes
     );
 
     /**

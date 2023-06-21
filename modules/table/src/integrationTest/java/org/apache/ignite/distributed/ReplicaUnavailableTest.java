@@ -196,7 +196,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                     try {
                         log.info("Replica msg " + message.getClass().getSimpleName());
 
-                        replicaManager.stopReplica(tablePartitionId);
+                        replicaManager.stopReplica(tablePartitionId).join();
                     } catch (NodeStoppingException e) {
                         throw new RuntimeException(e);
                     }

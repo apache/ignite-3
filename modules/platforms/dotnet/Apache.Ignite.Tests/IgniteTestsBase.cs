@@ -133,7 +133,11 @@ namespace Apache.Ignite.Tests
 
         protected static IgniteClientConfiguration GetConfig() => new()
         {
-            Endpoints = { "127.0.0.1:" + ServerNode.Port },
+            Endpoints =
+            {
+                "127.0.0.1:" + ServerNode.Port,
+                "127.0.0.1:" + (ServerNode.Port + 1)
+            },
             Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
         };
 

@@ -110,13 +110,10 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
     private InternalTable internalTable;
 
     @BeforeEach
-    public void beforeTest() throws InterruptedException {
+    public void beforeTest() {
         table = getOrCreateTable();
 
         internalTable = table.internalTable();
-
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
-        waitForIndex(SORTED_IDX);
 
         loadData(table);
     }
@@ -151,21 +148,28 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         assertFalse(scanned.isDone());
 
-        CompletableFuture<Void> insertFut = table.keyValueView()
-                .putAsync(tx0, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3"));
+        CompletableFuture<Void> updateKey2Fut = table.keyValueView()
+                .putAsync(tx0, Tuple.create().set("key", 2), Tuple.create().set("valInt", 2).set("valStr", "New_2"));
 
-        assertFalse(insertFut.isDone());
+        assertFalse(updateKey2Fut.isDone());
 
         subscription.request(1_000); // Request so much entries here to close the publisher.
 
-        IgniteTestUtils.await(scanned);
+        assertThat(scanned, willCompleteSuccessfully());
+
+        CompletableFuture<Void> insertKey99Fut = table.keyValueView()
+                .putAsync(tx0, Tuple.create().set("key", 99), Tuple.create().set("valInt", 99).set("valStr", "New_99"));
+
+        assertFalse(insertKey99Fut.isDone());
 
         log.info("Result: " + scannedRows.stream().map(ItTableScanTest::rowToString).collect(Collectors.joining(", ")));
 
         assertEquals(ROW_IDS.size(), scannedRows.size());
 
         tx1.commit();
-        IgniteTestUtils.await(insertFut);
+
+        assertThat(updateKey2Fut, willCompleteSuccessfully());
+        assertThat(insertKey99Fut, willCompleteSuccessfully());
 
         tx0.commit();
     }
@@ -596,6 +600,8 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                 "expected=" + total + ", actual=" + scannedRows.size());
 
         subscription.cancel();
+
+        assertThat(scanned, willCompleteSuccessfully());
     }
 
     @ParameterizedTest

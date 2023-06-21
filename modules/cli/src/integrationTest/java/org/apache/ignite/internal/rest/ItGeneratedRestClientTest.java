@@ -69,6 +69,7 @@ import org.apache.ignite.rest.client.api.TopologyApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.ClusterState;
+import org.apache.ignite.rest.client.model.DeployMode;
 import org.apache.ignite.rest.client.model.InitCommand;
 import org.apache.ignite.rest.client.model.MetricSource;
 import org.apache.ignite.rest.client.model.NodeState;
@@ -94,6 +95,8 @@ public class ItGeneratedRestClientTest {
 
     /** Start rest server port. */
     private static final int BASE_REST_PORT = 10300;
+
+    private static final int BASE_CLIENT_PORT = 10800;
 
     @WorkDirectory
     private static Path WORK_DIR;
@@ -133,7 +136,8 @@ public class ItGeneratedRestClientTest {
                 + "    nodeFinder: {\n"
                 + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ] \n"
                 + "    }\n"
-                + "  }\n"
+                + "  },\n"
+                + "  clientConnector.port: " + (BASE_CLIENT_PORT + nodeIdx) + "\n"
                 + "}";
     }
 
@@ -393,7 +397,7 @@ public class ItGeneratedRestClientTest {
         String unitId = "test.unit.id";
         String unitVersion = "1.0.0";
 
-        new DeployUnitClient(apiClient).deployUnit(unitId, List.of(emptyFile()), unitVersion);
+        new DeployUnitClient(apiClient).deployUnit(unitId, List.of(emptyFile()), unitVersion, DeployMode.MAJORITY, List.of());
 
         UnitStatus expectedStatus = new UnitStatus().id(unitId).putVersionToStatusItem(unitVersion, DEPLOYED);
 
@@ -423,7 +427,7 @@ public class ItGeneratedRestClientTest {
 
         Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
         assertThat(problem.getStatus(), equalTo(404));
-        assertThat(problem.getDetail(), containsString("Unit test.unit.id with version 0.0.0 doesn't exist"));
+        assertThat(problem.getDetail(), containsString("Unit test.unit.id:0.0.0 not found"));
     }
 
     private static File emptyFile() {

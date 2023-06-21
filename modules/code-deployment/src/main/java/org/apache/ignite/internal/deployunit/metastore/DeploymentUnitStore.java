@@ -17,22 +17,20 @@
 
 package org.apache.ignite.internal.deployunit.metastore;
 
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
-import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**
  * Metastore for deployment units.
  */
 public interface DeploymentUnitStore {
-
-
     /**
      * Register node statuses change events listener.
      *

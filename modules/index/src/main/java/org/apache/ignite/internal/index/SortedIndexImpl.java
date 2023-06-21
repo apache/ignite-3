@@ -26,7 +26,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -46,9 +45,9 @@ public class SortedIndexImpl implements SortedIndex {
      * @param table A table this index relates to.
      * @param descriptor A descriptor of the index.
      */
-    public SortedIndexImpl(int id, TableImpl table, SortedIndexDescriptor descriptor) {
+    public SortedIndexImpl(int id, InternalTable table, SortedIndexDescriptor descriptor) {
         this.id = id;
-        this.table = Objects.requireNonNull(table.internalTable(), "table");
+        this.table = Objects.requireNonNull(table, "table");
         this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
     }
 

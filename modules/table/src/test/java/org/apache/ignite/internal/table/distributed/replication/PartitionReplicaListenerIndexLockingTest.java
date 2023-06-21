@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.replication;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
@@ -38,7 +39,6 @@ import java.util.function.Function;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -52,8 +52,8 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
@@ -126,9 +126,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
     @BeforeAll
     public static void beforeAll(
-            @InjectConfiguration DataStorageConfiguration dsCfg,
-            @InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig,
-            @InjectConfiguration DistributionZoneConfiguration distributionZoneConfig
+            @InjectConfiguration GcConfiguration gcConfig,
+            @InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig
     ) {
         RaftGroupService mockRaftClient = mock(RaftGroupService.class);
 
@@ -214,7 +213,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new StorageUpdateHandler(
                         PART_ID,
                         partitionDataStorage,
-                        dsCfg,
+                        gcConfig,
                         mock(LowWatermark.class),
                         indexUpdateHandler,
                         new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
@@ -222,8 +221,9 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new DummySchemas(schemaManager),
                 CompletableFuture.completedFuture(schemaManager),
                 mock(ClusterNode.class),
-                new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZoneConfig),
-                mock(IndexBuilder.class)
+                new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT),
+                mock(IndexBuilder.class),
+                tablesConfig
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);
