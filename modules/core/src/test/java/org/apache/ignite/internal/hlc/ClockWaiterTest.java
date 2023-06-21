@@ -74,9 +74,9 @@ class ClockWaiterTest {
 
     @Test
     void futureCompletesWithoutClockUpdates() {
-        HybridTimestamp aLittleAhead = clock.now().addPhysicalTime(200);
+        HybridTimestamp littleAhead = clock.now().addPhysicalTime(200);
 
-        CompletableFuture<Void> future = waiter.waitFor(aLittleAhead);
+        CompletableFuture<Void> future = waiter.waitFor(littleAhead);
 
         assertThat(future, willSucceedIn(1, TimeUnit.SECONDS));
     }

@@ -1624,7 +1624,10 @@ public class CatalogServiceSelfTest {
 
             verify(clockWaiter).waitFor(tsCaptor.capture());
             HybridTimestamp userWaitTs = tsCaptor.getValue();
-            assertThat(userWaitTs.getPhysical() - startTs.getPhysical(), greaterThanOrEqualTo(delayDuration + HybridTimestamp.maxClockSkew()));
+            assertThat(
+                    userWaitTs.getPhysical() - startTs.getPhysical(),
+                    greaterThanOrEqualTo(delayDuration + HybridTimestamp.maxClockSkew())
+            );
         } finally {
             service.stop();
             metaStorageManager.stop();
