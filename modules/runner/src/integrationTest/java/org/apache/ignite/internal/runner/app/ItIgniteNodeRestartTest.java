@@ -139,7 +139,6 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -1171,9 +1170,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
-    //@Test
-    //@Disabled("https://issues.apache.org/jira/browse/IGNITE-17770")
-    @RepeatedTest(10)
+    @Test
     public void testCfgGap() throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(4);
 
