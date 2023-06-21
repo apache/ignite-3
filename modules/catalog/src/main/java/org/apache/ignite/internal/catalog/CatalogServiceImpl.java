@@ -299,7 +299,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             Arrays.stream(schema.indexes())
                     .filter(index -> index.tableId() == table.id())
-                    .forEach(index -> updateEntries.add(new DropIndexEntry(index.id())));
+                    .forEach(index -> updateEntries.add(new DropIndexEntry(index.id(), index.tableId())));
 
             updateEntries.add(new DropTableEntry(table.id()));
 
@@ -433,7 +433,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             }
 
             return List.of(
-                    new DropIndexEntry(index.id())
+                    new DropIndexEntry(index.id(), index.tableId())
             );
         });
     }
