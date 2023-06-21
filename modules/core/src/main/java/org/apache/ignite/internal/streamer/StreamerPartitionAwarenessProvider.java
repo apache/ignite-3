@@ -15,25 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.table;
+package org.apache.ignite.internal.streamer;
 
-import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Streamer batch sender.
+ * Partition awareness provider for data streamer.
  *
  * @param <T> Item type.
  * @param <P> Partition type.
  */
-@FunctionalInterface
-interface StreamerBatchSender<T, P> {
+public interface StreamerPartitionAwarenessProvider<T, P> {
     /**
-     * Sends batch of items asynchronously.
+     * Returns partition for item. This partition may or may not map to one or more actual Ignite table partitions.
      *
-     * @param partition Partition.
-     * @param batch Batch.
+     * @param item Data item.
+     * @return Partition.
+     */
+    P partition(T item);
+
+    /**
+     * Refreshes schemas and partition mapping asynchronously.
+     *
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> sendAsync(P partition, Collection<T> batch);
+    CompletableFuture<Void> refreshAsync();
 }

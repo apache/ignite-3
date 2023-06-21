@@ -32,6 +32,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -169,15 +170,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<@NotNull Tuple, @NotNull Tuple> pairs) {
         Objects.requireNonNull(pairs);
 
-        List<BinaryRowEx> rows = new ArrayList<>(pairs.size());
-
-        for (Map.Entry<Tuple, Tuple> pair : pairs.entrySet()) {
-            final Row row = marshal(Objects.requireNonNull(pair.getKey()), Objects.requireNonNull(pair.getValue()));
-
-            rows.add(row);
-        }
-
-        return tbl.upsertAll(rows, (InternalTransaction) tx);
+        return tbl.upsertAll(marshalPairs(pairs.entrySet()), (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -486,7 +479,24 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<Entry<Tuple, Tuple>> publisher, @Nullable DataStreamerOptions options) {
-        // TODO IGNITE-19617 Server-side Basic Data Streamer.
-        throw new UnsupportedOperationException("Not supported.");
+        Objects.requireNonNull(publisher);
+
+        var partitioner = new KeyValueTupleStreamerPartitionAwarenessProvider(schemaReg, tbl.partitions());
+        StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender =
+                (partitionId, items) -> tbl.upsertAll(marshalPairs(items), partitionId);
+
+        return DataStreamer.streamData(publisher, options, batchSender, partitioner);
+    }
+
+    private List<BinaryRowEx> marshalPairs(Collection<Entry<Tuple, Tuple>> pairs) {
+        List<BinaryRowEx> rows = new ArrayList<>(pairs.size());
+
+        for (Entry<Tuple, Tuple> pair : pairs) {
+            Row row = marshal(Objects.requireNonNull(pair.getKey()), Objects.requireNonNull(pair.getValue()));
+
+            rows.add(row);
+        }
+
+        return rows;
     }
 }

@@ -70,4 +70,13 @@ public interface KvMarshaller<K, V> {
      * @throws MarshallerException If failed to unmarshal row.
      */
     @Nullable V unmarshalValue(@NotNull Row row) throws MarshallerException;
+
+    /**
+     * Reads object field value.
+     *
+     * @param obj    Object to read from.
+     * @param fldIdx Field index.
+     * @return Field value.
+     */
+    @Nullable Object value(Object obj, int fldIdx) throws MarshallerException;
 }

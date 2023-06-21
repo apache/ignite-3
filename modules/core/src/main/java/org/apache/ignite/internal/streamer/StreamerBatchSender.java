@@ -15,32 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.exception;
+package org.apache.ignite.internal.streamer;
 
-import org.apache.ignite.lang.ErrorGroups.CodeDeployment;
-import org.apache.ignite.lang.IgniteException;
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Throws when trying to deploy unit which already exist.
+ * Streamer batch sender.
+ *
+ * @param <T> Item type.
+ * @param <P> Partition type.
  */
-public class DeploymentUnitAlreadyExistsException extends IgniteException {
+@FunctionalInterface
+public interface StreamerBatchSender<T, P> {
     /**
-     * Unit identifier.
-     */
-    private final String id;
-
-    /**
-     * Constructor.
+     * Sends batch of items asynchronously.
      *
-     * @param id Unit identifier.
-     * @param message Error message.
+     * @param partition Partition.
+     * @param batch Batch.
+     * @return Future representing pending completion of the operation.
      */
-    public DeploymentUnitAlreadyExistsException(String id, String message) {
-        super(CodeDeployment.UNIT_ALREADY_EXISTS_ERR, message);
-        this.id = id;
-    }
-
-    public String id() {
-        return id;
-    }
+    CompletableFuture<Void> sendAsync(P partition, Collection<T> batch);
 }
