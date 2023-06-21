@@ -78,6 +78,7 @@ public class ClientCompute implements IgniteCompute {
     @Override
     public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
         Objects.requireNonNull(nodes);
+        Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
         if (nodes.isEmpty()) {
@@ -86,7 +87,7 @@ public class ClientCompute implements IgniteCompute {
 
         ClusterNode node = randomNode(nodes);
 
-        return executeOnOneNode(node, jobClassName, args);
+        return executeOnOneNode(node, units, jobClassName, args);
     }
 
     /** {@inheritDoc} */
@@ -100,10 +101,11 @@ public class ClientCompute implements IgniteCompute {
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
+        Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
         return getTable(tableName)
-                .thenCompose(table -> (CompletableFuture<R>) executeColocatedTupleKey(table, key, jobClassName, args))
+                .thenCompose(table -> (CompletableFuture<R>) executeColocatedTupleKey(table, key, units, jobClassName, args))
                 .handle((res, err) -> handleMissingTable(tableName, res, err))
                 .thenCompose(r ->
                         // If a table was dropped, try again: maybe a new table was created with the same name and new id.
@@ -125,10 +127,11 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
+        Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
         return getTable(tableName)
-                .thenCompose(table -> (CompletableFuture<R>) executeColocatedObjectKey(table, key, keyMapper, jobClassName, args))
+                .thenCompose(table -> (CompletableFuture<R>) executeColocatedObjectKey(table, key, keyMapper, units, jobClassName, args))
                 .handle((res, err) -> handleMissingTable(tableName, res, err))
                 .thenCompose(r ->
                         // If a table was dropped, try again: maybe a new table was created with the same name and new id.
@@ -146,12 +149,13 @@ public class ClientCompute implements IgniteCompute {
             Object... args
     ) {
         Objects.requireNonNull(nodes);
+        Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
         Map<ClusterNode, CompletableFuture<R>> map = new HashMap<>(nodes.size());
 
         for (ClusterNode node : nodes) {
-            if (map.put(node, executeOnOneNode(node, jobClassName, args)) != null) {
+            if (map.put(node, executeOnOneNode(node, units, jobClassName, args)) != null) {
                 throw new IllegalStateException("Node can't be specified more than once: " + node);
             }
         }
@@ -159,7 +163,7 @@ public class ClientCompute implements IgniteCompute {
         return map;
     }
 
-    private <R> CompletableFuture<R> executeOnOneNode(ClusterNode node, String jobClassName, Object[] args) {
+    private <R> CompletableFuture<R> executeOnOneNode(ClusterNode node, List<DeploymentUnit> units, String jobClassName, Object[] args) {
         return ch.serviceAsync(ClientOp.COMPUTE_EXECUTE, w -> {
             if (w.clientChannel().protocolContext().clusterNode().name().equals(node.name())) {
                 w.out().packNil();
@@ -191,6 +195,7 @@ public class ClientCompute implements IgniteCompute {
             ClientTable t,
             K key,
             Mapper<K> keyMapper,
+            List<DeploymentUnit> units,
             String jobClassName,
             Object[] args) {
         return t.doSchemaOutOpAsync(
@@ -213,6 +218,7 @@ public class ClientCompute implements IgniteCompute {
     private static <R> CompletableFuture<R> executeColocatedTupleKey(
             ClientTable t,
             Tuple key,
+            List<DeploymentUnit> units,
             String jobClassName,
             Object[] args) {
         return t.doSchemaOutOpAsync(
