@@ -18,14 +18,13 @@
 package org.apache.ignite.internal.client;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.lang.LoggerFactory;
 
 /**
@@ -45,11 +44,10 @@ public class ClientUtils {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
-            throw IgniteException.wrap(e);
+            throw IgniteExceptionUtils.wrap(e);
         } catch (ExecutionException e) {
-            throw IgniteException.wrap(e);
-        } catch (CompletionException e) {
-            throw IgniteException.wrap(e.getCause());
+            //TODO: https://issues.apache.org/jira/browse/IGNITE-19539
+            throw IgniteExceptionUtils.wrap(e);
         }
     }
 
