@@ -39,26 +39,35 @@ final class TransformingPublisher<T, R> implements Publisher<R> {
     /** {@inheritDoc} */
     @Override
     public void subscribe(Subscriber<? super R> subscriber) {
-        this.publisher.subscribe(new Subscriber<T>() {
-            @Override
-            public void onSubscribe(Subscription subscription) {
-                subscriber.onSubscribe(subscription);
-            }
+        this.publisher.subscribe(new SubscriberImpl(subscriber));
+    }
 
-            @Override
-            public void onNext(T item) {
-                subscriber.onNext(function.apply(item));
-            }
+    private class SubscriberImpl implements Subscriber<T> {
 
-            @Override
-            public void onError(Throwable t) {
-                subscriber.onError(t);
-            }
+        private final Subscriber<? super R> subscriber;
 
-            @Override
-            public void onComplete() {
-                subscriber.onComplete();
-            }
-        });
+        SubscriberImpl(Subscriber<? super R> subscriber) {
+            this.subscriber = subscriber;
+        }
+
+        @Override
+        public void onSubscribe(Subscription subscription) {
+            subscriber.onSubscribe(subscription);
+        }
+
+        @Override
+        public void onNext(T item) {
+            subscriber.onNext(function.apply(item));
+        }
+
+        @Override
+        public void onError(Throwable t) {
+            subscriber.onError(t);
+        }
+
+        @Override
+        public void onComplete() {
+            subscriber.onComplete();
+        }
     }
 }
