@@ -179,6 +179,7 @@ public class IgniteComputeImpl implements IgniteCompute {
             Object... args
     ) {
         Objects.requireNonNull(nodes);
+        Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
         return nodes.stream()
