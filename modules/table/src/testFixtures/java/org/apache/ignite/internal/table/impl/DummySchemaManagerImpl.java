@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.Collection;
-import java.util.Objects;
-import java.util.stream.Collectors;
+import java.util.List;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -45,13 +46,11 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
         this.schema = schema;
     }
 
-    /** {@inheritDoc} */
     @Override
     public SchemaDescriptor schema() {
         return schema;
     }
 
-    /** {@inheritDoc} */
     @Override
     public SchemaDescriptor schema(int ver) {
         assert ver >= 0;
@@ -68,24 +67,21 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
         return schema;
     }
 
-    /** {@inheritDoc} */
-    @Override public SchemaDescriptor waitLatestSchema() {
+    @Override
+    public SchemaDescriptor waitLatestSchema() {
         return schema();
     }
 
-    /** {@inheritDoc} */
     @Override
     public int lastSchemaVersion() {
         return schema.version();
     }
 
-    /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row, SchemaDescriptor desc) {
         return new Row(desc, row);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row) {
         assert row.schemaVersion() == schema.version() || row.schemaVersion() == 0;
@@ -93,9 +89,8 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
         return new Row(schema, row);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Collection<Row> resolve(Collection<BinaryRow> rows) {
-        return rows.stream().filter(Objects::nonNull).map(this::resolve).collect(Collectors.toList());
+    public List<Row> resolve(Collection<BinaryRow> rows) {
+        return rows.stream().map(binaryRow -> binaryRow == null ? null : resolve(binaryRow)).collect(toList());
     }
 }

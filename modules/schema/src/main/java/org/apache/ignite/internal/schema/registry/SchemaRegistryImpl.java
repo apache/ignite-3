@@ -69,7 +69,6 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         schemaCache.put(initialSchema.version(), initialSchema);
     }
 
-    /** {@inheritDoc} */
     @Override
     public SchemaDescriptor schema(int ver) {
         if (ver == 0) {
@@ -103,19 +102,16 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable SchemaDescriptor schema() {
         return schema(schemaCache.lastKey());
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable SchemaDescriptor schemaCached(int ver) {
         return schemaCache.get(ver);
     }
 
-    /** {@inheritDoc} */
     @Override
     public SchemaDescriptor waitLatestSchema() {
         // TODO: remove blocking code https://issues.apache.org/jira/browse/IGNITE-17931
@@ -128,13 +124,11 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         return schema(lastVer0);
     }
 
-    /** {@inheritDoc} */
     @Override
     public int lastSchemaVersion() {
         return schemaCache.lastKey();
     }
 
-    /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row) {
         final SchemaDescriptor curSchema = waitLatestSchema();
@@ -142,23 +136,19 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         return resolveInternal(row, curSchema);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row, SchemaDescriptor schemaDescriptor) {
         return resolveInternal(row, schemaDescriptor);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Collection<Row> resolve(Collection<BinaryRow> binaryRows) {
-        final SchemaDescriptor curSchema = waitLatestSchema();
+    public List<Row> resolve(Collection<BinaryRow> binaryRows) {
+        SchemaDescriptor curSchema = waitLatestSchema();
 
-        List<Row> rows = new ArrayList<>(binaryRows.size());
+        var rows = new ArrayList<Row>(binaryRows.size());
 
-        for (BinaryRow r : binaryRows) {
-            if (r != null) {
-                rows.add(resolveInternal(r, curSchema));
-            }
+        for (BinaryRow row : binaryRows) {
+            rows.add(row == null ? null : resolveInternal(row, curSchema));
         }
 
         return rows;

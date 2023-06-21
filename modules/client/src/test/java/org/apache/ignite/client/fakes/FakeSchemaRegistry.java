@@ -17,18 +17,18 @@
 
 package org.apache.ignite.client.fakes;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.Collection;
-import java.util.Objects;
+import java.util.List;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.row.Row;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -62,9 +62,7 @@ public class FakeSchemaRegistry implements SchemaRegistry {
         FakeSchemaRegistry.lastVer = lastVer;
     }
 
-    /** {@inheritDoc} */
     @Override
-    @NotNull
     public SchemaDescriptor schema(int ver) {
         if (ver == 0) {
             // Use last version (any version may be used) for 0 version, that mean row doens't contain value.
@@ -92,44 +90,38 @@ public class FakeSchemaRegistry implements SchemaRegistry {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable SchemaDescriptor schema() {
         return schema(lastVer);
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable SchemaDescriptor schemaCached(int ver) {
         return schemaCache.get(ver);
     }
 
-    /** {@inheritDoc} */
-    @Override public SchemaDescriptor waitLatestSchema() {
+    @Override
+    public SchemaDescriptor waitLatestSchema() {
         return schema();
     }
 
-    /** {@inheritDoc} */
     @Override
     public int lastSchemaVersion() {
         return lastVer;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row, SchemaDescriptor desc) {
         return new Row(desc, row);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row) {
         return new Row(schema(row.schemaVersion()), row);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Collection<Row> resolve(Collection<BinaryRow> rows) {
-        return rows.stream().filter(Objects::nonNull).map(this::resolve).collect(Collectors.toList());
+    public List<Row> resolve(Collection<BinaryRow> rows) {
+        return rows.stream().map(binaryRow -> binaryRow == null ? null : resolve(binaryRow)).collect(toList());
     }
 }
