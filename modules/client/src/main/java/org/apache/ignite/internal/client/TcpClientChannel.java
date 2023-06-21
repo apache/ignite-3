@@ -19,19 +19,18 @@ package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
+import static org.apache.ignite.lang.IgniteExceptionUtils.copyExceptionWithCause;
+import static org.apache.ignite.lang.IgniteExceptionUtils.sneakyThrow;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -58,7 +57,9 @@ import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -322,7 +323,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             metrics.requestsActiveDecrement();
 
-            throw IgniteException.wrap(t);
+            // TODO https://issues.apache.org/jira/browse/IGNITE-19539
+            throw IgniteExceptionUtils.wrap(t);
         }
     }
 
@@ -402,7 +404,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             pendingReq.complete(unpacker);
             metrics.requestsCompletedIncrement();
         } else {
-            IgniteException err = readError(unpacker);
+            Throwable err = readError(unpacker);
             unpacker.close();
 
             pendingReq.completeExceptionally(err);
@@ -416,7 +418,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param unpacker Unpacker.
      * @return Exception.
      */
-    private static IgniteException readError(ClientMessageUnpacker unpacker) {
+    private static <T extends Throwable> T readError(ClientMessageUnpacker unpacker) {
         var traceId = unpacker.unpackUuid();
         var code = unpacker.unpackInt();
         var errClassName = unpacker.unpackString();
@@ -425,19 +427,16 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         IgniteException causeWithStackTrace = unpacker.tryUnpackNil() ? null : new IgniteException(traceId, code, unpacker.unpackString());
 
         try {
-            Class<?> errCls = Class.forName(errClassName);
-
-            if (IgniteException.class.isAssignableFrom(errCls)) {
-                Constructor<?> constructor = errCls.getDeclaredConstructor(UUID.class, int.class, String.class, Throwable.class);
-
-                return (IgniteException) constructor.newInstance(traceId, code, errMsg, causeWithStackTrace);
+            // TODO https://issues.apache.org/jira/browse/IGNITE-19539
+            Class<? extends Throwable> errCls = (Class<? extends Throwable>) Class.forName(errClassName);
+            if (IgniteException.class.isAssignableFrom(errCls) || IgniteCheckedException.class.isAssignableFrom(errCls)) {
+                return copyExceptionWithCause(errCls, traceId, code, errMsg, causeWithStackTrace);
             }
-        } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException
-                | InvocationTargetException ignored) {
+        } catch (ClassNotFoundException ignored) {
             // Ignore: incompatible exception class. Fall back to generic exception.
         }
 
-        return new IgniteException(traceId, code, errClassName + ": " + errMsg, causeWithStackTrace);
+        return (T) new IgniteException(traceId, code, errClassName + ": " + errMsg, causeWithStackTrace);
     }
 
     /** {@inheritDoc} */
@@ -558,7 +557,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     return handshakeAsync(srvVer);
                 }
 
-                throw readError(unpacker);
+                throw sneakyThrow(readError(unpacker));
             }
 
             var serverIdleTimeout = unpacker.unpackLong();

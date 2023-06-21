@@ -47,7 +47,7 @@ public class IgniteCheckedException extends Exception {
     private final int code;
 
     /** Unique identifier of the exception that helps locating the error message in a log file. */
-    private final UUID traceId;
+    private UUID traceId;
 
     /**
      * Creates an exception with the given error code.
