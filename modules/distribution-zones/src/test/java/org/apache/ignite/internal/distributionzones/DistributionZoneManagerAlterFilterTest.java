@@ -329,11 +329,11 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
      * @throws Exception If failed
      */
     private void preparePrerequisites(int scaleUpTimer, int scaleDownTimer, int zoneId) throws Exception {
+        startDistributionZoneManager();
+
         topology.putNode(A);
         topology.putNode(B);
         topology.putNode(C);
-
-        startDistributionZoneManager();
 
         if (zoneId == DEFAULT_ZONE_ID) {
             distributionZoneManager.alterZone(

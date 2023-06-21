@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 
 import java.util.List;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;

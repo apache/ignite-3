@@ -15,25 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.table;
-
-import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
+package org.apache.ignite.internal.deployunit;
 
 /**
- * Streamer batch sender.
- *
- * @param <T> Item type.
- * @param <P> Partition type.
+ * Status of deployment process.
  */
-@FunctionalInterface
-interface StreamerBatchSender<T, P> {
-    /**
-     * Sends batch of items asynchronously.
-     *
-     * @param partition Partition.
-     * @param batch Batch.
-     * @return Future representing pending completion of the operation.
-     */
-    CompletableFuture<Void> sendAsync(P partition, Collection<T> batch);
+public enum DeploymentStatus {
+    /** Unit deployment is in progress. */
+    UPLOADING,
+
+    /** Unit is deployed on the cluster. */
+    DEPLOYED,
+
+    /** Remove command was initiated for the unit and it will be removed soon. */
+    OBSOLETE,
+
+    /** Unit removal from the cluster is in progress. */
+    REMOVING
 }

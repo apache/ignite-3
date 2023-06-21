@@ -16,8 +16,10 @@
  */
 
 #include "ignite/odbc/config/connection_info.h"
+#include "ignite/odbc/string_utils.h"
 #include "ignite/odbc/system/odbc_constants.h"
 #include "ignite/odbc/utility.h"
+#include <iomanip>
 
 // Temporary workaround.
 #ifndef SQL_ASYNC_NOTIFICATION
@@ -36,7 +38,7 @@ namespace ignite {
 
 #define DBG_STR_CASE(x) case x: return #x
 
-const char * connection_info::info_type_to_string(info_type type)
+const char *connection_info::info_type_to_string(info_type type)
 {
     switch (type)
     {
@@ -578,7 +580,7 @@ connection_info::connection_info(const configuration& config) : config(config)
 
     // Driver name.
 #ifdef SQL_DRIVER_NAME
-    m_str_params[SQL_DRIVER_NAME] = "Apache Ignite";
+    m_str_params[SQL_DRIVER_NAME] = "Apache Ignite ODBC Driver";
 #endif // SQL_DRIVER_NAME
 #ifdef SQL_DBMS_NAME
     m_str_params[SQL_DBMS_NAME]   = "Apache Ignite";
@@ -593,10 +595,15 @@ connection_info::connection_info(const configuration& config) : config(config)
     // Driver version. At a minimum, the version is of the form ##.##.####, where the first two digits are
     // the major version, the next two digits are the minor version, and the last four digits are the
     // release version.
-    m_str_params[SQL_DRIVER_VER] = "02.04.0000";
+    m_str_params[SQL_DRIVER_VER] = get_formatted_project_version();
 #endif // SQL_DRIVER_VER
 #ifdef SQL_DBMS_VER
-    m_str_params[SQL_DBMS_VER] = "02.04.0000";
+    // A character string that indicates the version of the DBMS product accessed by the driver. The version is of
+    // the form ##.##.####, where the first two digits are the major version, the next two digits are the minor version,
+    // and the last four digits are the release version. The driver must render the DBMS product version in this form
+    // but can also append the DBMS product-specific version. For example, "04.01.0000 Rdb 4.1".
+    // TODO: IGNITE-19720 Get current server version on handshake to report here.
+    m_str_params[SQL_DBMS_VER] = get_formatted_project_version();
 #endif // SQL_DBMS_VER
 
 #ifdef SQL_COLUMN_ALIAS
@@ -629,11 +636,10 @@ connection_info::connection_info(const configuration& config) : config(config)
     // "directory". This string can be in upper, lower, or mixed case. This info_type has been renamed for
     // ODBC 3.0 from the ODBC 2.0 info_type SQL_QUALIFIER_TERM.
     m_str_params[SQL_CATALOG_TERM] = "";
-#endif // SQL_CATALOG_TERM
-
-#ifdef SQL_QUALIFIER_TERM
+#elif defined(SQL_QUALIFIER_TERM)
+    // Alias
     m_str_params[SQL_QUALIFIER_TERM] = "";
-#endif // SQL_QUALIFIER_TERM
+#endif // SQL_CATALOG_TERM
 
 #ifdef SQL_TABLE_TERM
     // A character string with the data source vendor's name for a table; for example, "table" or "file".
@@ -659,7 +665,7 @@ connection_info::connection_info(const configuration& config) : config(config)
 #endif // SQL_ACCESSIBLE_PROCEDURES
 
 #ifdef SQL_ACCESSIBLE_TABLES
-    // A character string: "Y" if the user is guaranteed SELECT privileges to all tables returned by
+    // A character string: "Y" if the user is guaranteed, SELECT privileges to all tables returned by
     // SQLTables; "N" if there may be tables returned that the user cannot access.
     m_str_params[SQL_ACCESSIBLE_TABLES] = "Y";
 #endif // SQL_ACCESSIBLE_TABLES
@@ -685,6 +691,7 @@ connection_info::connection_info(const configuration& config) : config(config)
     // called SQLDriverConnect or SQLBrowseConnect, this is the value of the DSN keyword in the connection
     // string passed to the driver. If the connection string did not contain the DSN keyword (such as when
     // it contains the DRIVER keyword), this is an empty string.
+    // TODO IGNITE-19210: Implement DSNs
     m_str_params[SQL_DATA_SOURCE_NAME] = "";
 #endif // SQL_DATA_SOURCE_NAME
 
@@ -708,19 +715,17 @@ connection_info::connection_info(const configuration& config) : config(config)
     // A character string: "Y" if m_parameters can be described; "N", if not.
     // An SQL-92 Full level-conformant driver will usually return "Y" because it will support the DESCRIBE
     // INPUT statement. Because this does not directly specify the underlying SQL support, however,
-    // describing m_parameters might not be supported, even in a SQL-92 Full level-conformant driver.
+    // describing m_parameters might not be supported, even in an SQL-92 Full level-conformant driver.
     m_str_params[SQL_DESCRIBE_PARAMETER] = "N";
 #endif // SQL_DESCRIBE_PARAMETER
 
 #ifdef SQL_EXPRESSIONS_IN_ORDERBY
-    // A character string: "Y" if the data source supports expressions in the ORDER BY list; "N" if it does
-    // not.
+    // A character string: "Y" if the data source supports expressions in the ORDER BY list; "N" if it does not.
     m_str_params[SQL_EXPRESSIONS_IN_ORDERBY] = "Y";
 #endif // SQL_EXPRESSIONS_IN_ORDERBY
 
 #ifdef SQL_INTEGRITY
-    // A character string: "Y" if the data source supports the Integrity Enhancement Facility; "N" if it
-    // does not.
+    // A character string: "Y" if the data source supports the Integrity Enhancement Facility; "N" if it does not.
     m_str_params[SQL_INTEGRITY] = "N";
 #endif // SQL_INTEGRITY
 
@@ -729,13 +734,13 @@ connection_info::connection_info(const configuration& config) : config(config)
     // list does not contain keywords specific to ODBC or keywords used by both the data source and ODBC.
     // This list represents all the reserved keywords; interoperable applications should not use these words
     // in object names.
-    // The #define value SQL_ODBC_KEYWORDS contains a comma - separated list of ODBC keywords.
+    // The #define value SQL_ODBC_KEYWORDS contains a comma-separated list of ODBC keywords.
     m_str_params[SQL_KEYWORDS] = "LIMIT,MINUS,OFFSET,ROWNUM,SYSDATE,SYSTIME,SYSTIMESTAMP,TODAY";
 #endif // SQL_KEYWORDS
 
 #ifdef SQL_LIKE_ESCAPE_CLAUSE
     // A character string: "Y" if the data source supports an escape character for the percent character (%)
-    // and underscore character (_) in a LIKE predicate and the driver supports the ODBC syntax for defining
+    // and underscore character (_) in a LIKE predicate, and the driver supports the ODBC syntax for defining
     // a LIKE predicate escape character; "N" otherwise.
     m_str_params[SQL_LIKE_ESCAPE_CLAUSE] = "N";
 #endif // SQL_LIKE_ESCAPE_CLAUSE
@@ -743,7 +748,7 @@ connection_info::connection_info(const configuration& config) : config(config)
 #ifdef SQL_MAX_ROW_SIZE_INCLUDES_LONG
     // A character string: "Y" if the maximum row size returned for the SQL_MAX_ROW_SIZE information type
     // includes the length of all SQL_LONGVARCHAR and SQL_LONGVARBINARY columns in the row; "N" otherwise.
-    m_str_params[SQL_MAX_ROW_SIZE_INCLUDES_LONG] = "Y";
+    m_str_params[SQL_MAX_ROW_SIZE_INCLUDES_LONG] = "N";
 #endif // SQL_MAX_ROW_SIZE_INCLUDES_LONG
 
 #ifdef SQL_MULT_RESULT_SETS
@@ -758,20 +763,20 @@ connection_info::connection_info(const configuration& config) : config(config)
 #endif // SQL_MULTIPLE_ACTIVE_TXN
 
 #ifdef SQL_ORDER_BY_COLUMNS_IN_SELECT
-    // A character string: "Y" if the columns in the ORDER BY clause must be in the select list;
-    // otherwise, "N".
+    // A character string: "Y" if the columns in the ORDER BY clause must be in the select list, otherwise, "N".
     m_str_params[SQL_ORDER_BY_COLUMNS_IN_SELECT] = "N";
 #endif // SQL_ORDER_BY_COLUMNS_IN_SELECT
 
 #ifdef SQL_PROCEDURE_TERM
-    // A character string with the data source vendor's name for a procedure; for example,
-    // "database procedure", "stored procedure", "procedure", "package", or "stored query".
+    // A character string with the data source vendor's name for a procedure; for example, "database procedure",
+    // "stored procedure", "procedure", "package", or "stored query".
     m_str_params[SQL_PROCEDURE_TERM] = "stored procedure";
 #endif // SQL_PROCEDURE_TERM
 
 #ifdef SQL_PROCEDURE_TERM
-    // A character string: "Y" if the data source supports procedures and the driver supports the ODBC
-    // procedure invocation syntax; "N" otherwise.
+    // A character string:
+    // "Y" if the data source supports procedures and the driver supports the ODBC procedure invocation syntax;
+    // "N" otherwise.
     m_str_params[SQL_PROCEDURES] = "N";
 #endif // SQL_PROCEDURE_TERM
 
@@ -798,13 +803,14 @@ connection_info::connection_info(const configuration& config) : config(config)
 #ifdef SQL_SERVER_NAME
     // A character string with the actual data source-specific server name; useful when a data source name
     // is used during SQLConnect, SQLDriverConnect, and SQLBrowseConnect.
-    m_str_params[SQL_SERVER_NAME] = "Apache Ignite";
+    // TODO: IGNITE-19720 Get current server name on handshake to report here.
+    m_str_params[SQL_SERVER_NAME] = "Apache Ignite 3";
 #endif // SQL_SERVER_NAME
 
 #ifdef SQL_USER_NAME
-    // A character string with the name used in a particular database, which can be different from the login
-    // name.
-    m_str_params[SQL_USER_NAME] = "apache_ignite_user";
+    // A character string with the name used in a particular database, which can be different from the login name.
+    // TODO: IGNITE-19722 Report username here.
+    m_str_params[SQL_USER_NAME] = "ignite";
 #endif // SQL_USER_NAME
 
     //
@@ -824,9 +830,9 @@ connection_info::connection_info(const configuration& config) : config(config)
     //    associated with a given connection handle are in asynchronous mode or all are in synchronous mode.
     //    A statement handle on a connection cannot be in asynchronous mode while another statement handle
     //    on the same connection is in synchronous mode, and vice versa.
-    // SQL_AM_STATEMENT = statement level asynchronous execution is supported.Some statement handles
-    //    associated with a connection handle can be in asynchronous mode, while other statement handles on
-    //    the same connection are in synchronous mode.
+    // SQL_AM_STATEMENT = statement level asynchronous execution is supported.Some statement handles associated
+    //    with a connection handle can be in asynchronous mode, while the other statement handles on the same
+    //    connection are in synchronous mode.
     // SQL_AM_NONE = Asynchronous mode is not supported.
     m_int_params[SQL_ASYNC_MODE] = SQL_AM_NONE;
 #endif // SQL_ASYNC_MODE
@@ -848,7 +854,7 @@ connection_info::connection_info(const configuration& config) : config(config)
     // bitmasks are used together with the information type:
     // SQL_BRC_ROLLED_UP = Row counts for consecutive INSERT, DELETE, or UPDATE statements are rolled up
     //     into one. If this bit is not set, row counts are available for each statement.
-    // SQL_BRC_PROCEDURES = Row counts, if any, are available when a batch is executed in a stored
+    // SQL_BRC_PROCEDURES = Row counts, if any are available when a batch is executed in a stored
     //     procedure. If row counts are available, they can be rolled up or individually available,
     //     depending on the SQL_BRC_ROLLED_UP bit.
     // SQL_BRC_EXPLICIT = Row counts, if any, are available when a batch is executed directly by calling
@@ -931,15 +937,15 @@ connection_info::connection_info(const configuration& config) : config(config)
 #ifdef SQL_CATALOG_USAGE
     // Bitmask enumerating the statements in which catalogs can be used.
     // The following bitmasks are used to determine where catalogs can be used:
-    // SQL_CU_DML_STATEMENTS = Catalogs are supported in all Data Manipulation Language statements :
+    // SQL_CU_DML_STATEMENTS = Catalogs are supported in all Data Manipulation Language statements:
     //     SELECT, INSERT, UPDATE, DELETE, and if supported, SELECT FOR UPDATE and positioned update and
     //     delete statements.
     // SQL_CU_PROCEDURE_INVOCATION = Catalogs are supported in the ODBC procedure invocation statement.
-    // SQL_CU_TABLE_DEFINITION = Catalogs are supported in all table definition statements : CREATE TABLE,
+    // SQL_CU_TABLE_DEFINITION = Catalogs are supported in all table definition statements: CREATE TABLE,
     //     CREATE VIEW, ALTER TABLE, DROP TABLE, and DROP VIEW.
-    // SQL_CU_INDEX_DEFINITION = Catalogs are supported in all index definition statements : CREATE INDEX
+    // SQL_CU_INDEX_DEFINITION = Catalogs are supported in all index definition statements: CREATE INDEX
     //     and DROP INDEX.
-    // SQL_CU_PRIVILEGE_DEFINITION = Catalogs are supported in all privilege definition statements : GRANT
+    // SQL_CU_PRIVILEGE_DEFINITION = Catalogs are supported in all privilege definition statements: GRANT
     //     and REVOKE.
     //
     // A value of 0 is returned if catalogs are not supported by the data source.To determine whether
@@ -1042,7 +1048,7 @@ connection_info::connection_info(const configuration& config) : config(config)
 #ifdef SQL_SQL92_NUMERIC_VALUE_FUNCTIONS
     // Bitmask enumerating the numeric value scalar functions that are supported by the driver and the
     // associated data source, as defined in SQL-92.
-    // The following bitmasks are used to determine which numeric functions are supported :
+    // The following bitmasks are used to determine which numeric functions are supported:
     // SQL_SNVF_BIT_LENGTH
     // SQL_SNVF_CHAR_LENGTH
     // SQL_SNVF_CHARACTER_LENGTH
@@ -1346,7 +1352,7 @@ connection_info::connection_info(const configuration& config) : config(config)
     // The SQL - 92 or FIPS conformance level at which this feature must be supported is shown in
     // parentheses next to each bitmask.
     //
-    // The following bitmasks are used to determine which clauses are supported :
+    // The following bitmasks are used to determine which clauses are supported:
     // SQL_AD_ADD_DOMAIN_CONSTRAINT = Adding a domain constraint is supported (Full level).
     // SQL_AD_ADD_DOMAIN_DEFAULT = <alter domain> <set domain default clause> is supported (Full level).
     // SQL_AD_CONSTRAINT_NAME_DEFINITION = <constraint name definition clause> is supported for naming
@@ -1355,7 +1361,7 @@ connection_info::connection_info(const configuration& config) : config(config)
     // SQL_AD_DROP_DOMAIN_DEFAULT = <alter domain> <drop domain default clause> is supported (Full level).
     //
     // The following bits specify the supported <constraint attributes> if <add domain constraint> is
-    // supported (the SQL_AD_ADD_DOMAIN_CONSTRAINT bit is set) :
+    // supported (the SQL_AD_ADD_DOMAIN_CONSTRAINT bit is set):
     // SQL_AD_ADD_CONSTRAINT_DEFERRABLE (Full level)
     // SQL_AD_ADD_CONSTRAINT_NON_DEFERRABLE (Full level)
     // SQL_AD_ADD_CONSTRAINT_INITIALLY_DEFERRED (Full level)
@@ -1422,7 +1428,7 @@ connection_info::connection_info(const configuration& config) : config(config)
 #ifdef SQL_CREATE_CHARACTER_SET
     // Bitmask enumerating the clauses in the CREATE CHARACTER SET statement, as defined in SQL-92,
     // supported by the data source.
-    // The following bitmasks are used to determine which clauses are supported :
+    // The following bitmasks are used to determine which clauses are supported:
     // SQL_CCS_CREATE_CHARACTER_SET
     // SQL_CCS_COLLATE_CLAUSE
     // SQL_CCS_LIMITED_COLLATION
@@ -1435,7 +1441,7 @@ connection_info::connection_info(const configuration& config) : config(config)
 #ifdef SQL_CREATE_COLLATION
     // Bitmask enumerating the clauses in the CREATE COLLATION statement, as defined in SQL-92, supported by
     // the data source.
-    // The following bitmask is used to determine which clauses are supported :
+    // The following bitmask is used to determine which clauses are supported:
     // SQL_CCOL_CREATE_COLLATION
     // An SQL - 92 Full level-conformant driver will always return this option as supported.A return value
     // of "0" means that the CREATE COLLATION statement is not supported.
@@ -1445,10 +1451,10 @@ connection_info::connection_info(const configuration& config) : config(config)
 #ifdef SQL_CREATE_DOMAIN
     // Bitmask enumerating the clauses in the CREATE DOMAIN statement, as defined in SQL-92, supported by
     // the data source.
-    // The following bitmasks are used to determine which clauses are supported :
-    // SQL_CDO_CREATE_DOMAIN = The CREATE DOMAIN statement is supported(Intermediate level).
+    // The following bitmasks are used to determine which clauses are supported:
+    // SQL_CDO_CREATE_DOMAIN = The CREATE DOMAIN statement is supported (Intermediate level).
     // SQL_CDO_CONSTRAINT_NAME_DEFINITION = <constraint name definition> is supported for naming domain
-    //     constraints(Intermediate level).
+    //     constraints (Intermediate level).
     //
     // The following bits specify the ability to create column constraints :
     // SQL_CDO_DEFAULT = Specifying domain constraints is supported (Intermediate level)
@@ -1469,7 +1475,7 @@ connection_info::connection_info(const configuration& config) : config(config)
 #ifdef SQL_CREATE_SCHEMA
     // Bitmask enumerating the clauses in the CREATE SCHEMA statement, as defined in SQL-92, supported by
     // the data source.
-    // The following bitmasks are used to determine which clauses are supported :
+    // The following bitmasks are used to determine which clauses are supported:
     // SQL_CS_CREATE_SCHEMA
     // SQL_CS_AUTHORIZATION
     // SQL_CS_DEFAULT_CHARACTER_SET
@@ -1487,13 +1493,13 @@ connection_info::connection_info(const configuration& config) : config(config)
     // The SQL - 92 or FIPS conformance level at which this feature must be supported is shown in
     // parentheses next to each bitmask.
     //
-    // The following bitmasks are used to determine which clauses are supported :
+    // The following bitmasks are used to determine which clauses are supported:
     // SQL_CT_CREATE_TABLE = The CREATE TABLE statement is supported. (Entry level)
     // SQL_CT_TABLE_CONSTRAINT = Specifying table constraints is supported (FIPS Transitional level)
     // SQL_CT_CONSTRAINT_NAME_DEFINITION = The <constraint name definition> clause is supported for naming
     //     column and table constraints (Intermediate level)
     //
-    // The following bits specify the ability to create temporary tables :
+    // The following bits specify the ability to create temporary tables:
     // SQL_CT_COMMIT_PRESERVE = Deleted rows are preserved on commit. (Full level)
     // SQL_CT_COMMIT_DELETE = Deleted rows are deleted on commit. (Full level)
     // SQL_CT_GLOBAL_TEMPORARY = Global temporary tables can be created. (Full level)
@@ -1517,7 +1523,7 @@ connection_info::connection_info(const configuration& config) : config(config)
     // Bitmask enumerating the clauses in the CREATE TRANSLATION statement, as defined in SQL-92, supported
     // by the data source.
     //
-    // The following bitmask is used to determine which clauses are supported :
+    // The following bitmask is used to determine which clauses are supported:
     // SQL_CTR_CREATE_TRANSLATION
     //
     // An SQL - 92 Full level-conformant driver will always return these options as supported. A return
@@ -1529,7 +1535,7 @@ connection_info::connection_info(const configuration& config) : config(config)
     // Bitmask enumerating the clauses in the CREATE VIEW statement, as defined in SQL-92, supported by the
     // data source.
     //
-    // The following bitmasks are used to determine which clauses are supported :
+    // The following bitmasks are used to determine which clauses are supported:
     // SQL_CV_CREATE_VIEW
     // SQL_CV_CHECK_OPTION
     // SQL_CV_CASCADEDSQL_CV_LOCAL
@@ -2495,7 +2501,7 @@ connection_info::connection_info(const configuration& config) : config(config)
 #endif // SQL_MAX_TABLES_IN_SELECT
 
 #ifdef SQL_MAX_USER_NAME_LEN
-    // Value that specifies the maximum length of a user name in the data source. If there is no maximum
+    // Value that specifies the maximum length of a username in the data source. If there is no maximum
     // length or the length is unknown, this value is set to zero.
     m_short_params[SQL_MAX_USER_NAME_LEN] = 0;
 #endif // SQL_MAX_USER_NAME_LEN
@@ -2522,9 +2528,23 @@ connection_info::connection_info(const configuration& config) : config(config)
 #endif // SQL_NULL_COLLATION
 }
 
-connection_info::~connection_info()
-{
-    // No-op.
+std::string connection_info::get_formatted_project_version() {
+    std::string_view project_ver = CMAKE_PROJECT_VERSION;
+
+    auto res = split_once(project_ver, '.');
+    auto major = lexical_cast<int32_t>(res.first);
+
+    res = split_once(res.second, '.');
+    auto minor = lexical_cast<int32_t>(res.first);
+
+    res = split_once(res.second, '.');
+    auto patch = lexical_cast<int32_t>(res.first);
+
+    std::stringstream buf;
+    buf << std::setfill('0') << std::setw(2) << major
+        << std::setfill('0') << std::setw(2) << minor
+        << std::setfill('0') << std::setw(4) << patch;
+    return buf.str();
 }
 
 sql_result connection_info::get_info(info_type type, void* buf,
@@ -2533,41 +2553,34 @@ sql_result connection_info::get_info(info_type type, void* buf,
     if (!buf)
         return sql_result::AI_ERROR;
 
-    string_info_map::const_iterator itStr = m_str_params.find(type);
-
-    if (itStr != m_str_params.end())
+    auto str_it = m_str_params.find(type);
+    if (str_it != m_str_params.end())
     {
         if (!buffer_len)
             return sql_result::AI_ERROR;
 
-        unsigned short strlen = static_cast<short>(
-            copy_string_to_buffer(itStr->second,
-                reinterpret_cast<char*>(buf), buffer_len));
+        auto str_len = short(copy_string_to_buffer(str_it->second, reinterpret_cast<char*>(buf), buffer_len));
 
         if (result_len)
-            *result_len = strlen;
+            *result_len = str_len;
 
         return sql_result::AI_SUCCESS;
     }
 
-    uint_info_map::const_iterator itInt = m_int_params.find(type);
-
-    if (itInt != m_int_params.end())
+    auto int_it = m_int_params.find(type);
+    if (int_it != m_int_params.end())
     {
-        unsigned int *res = reinterpret_cast<unsigned int*>(buf);
-
-        *res = itInt->second;
+        auto *res = reinterpret_cast<unsigned int*>(buf);
+        *res = int_it->second;
 
         return sql_result::AI_SUCCESS;
     }
 
-    ushort_info_map::const_iterator itShort = m_short_params.find(type);
-
-    if (itShort != m_short_params.end())
+    auto short_it = m_short_params.find(type);
+    if (short_it != m_short_params.end())
     {
-        unsigned short *res = reinterpret_cast<unsigned short*>(buf);
-
-        *res = itShort->second;
+        auto *res = reinterpret_cast<unsigned short*>(buf);
+        *res = short_it->second;
 
         return sql_result::AI_SUCCESS;
     }

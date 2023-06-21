@@ -29,6 +29,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -359,7 +360,11 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
-        // TODO IGNITE-19617 Server-side Basic Data Streamer.
-        throw new UnsupportedOperationException("Not supported.");
+        Objects.requireNonNull(publisher);
+
+        var partitioner = new TupleStreamerPartitionAwarenessProvider(schemaReg, tbl.partitions());
+        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(mapToBinary(items, false), partitionId);
+
+        return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
 }

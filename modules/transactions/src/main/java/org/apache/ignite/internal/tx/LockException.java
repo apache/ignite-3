@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.util.UUID;
-
 /**
  * This exception is thrown when a lock cannot be acquired, released or downgraded.
  */
@@ -32,18 +30,5 @@ public class LockException extends TransactionInternalCheckedException {
      */
     public LockException(int code, String msg) {
         super(code, msg);
-    }
-
-    /**
-     * Creates a new exception of LockException with the given trace id, error code, detail message and cause.
-     *
-     * @param traceId Unique identifier of this exception.
-     * @param code Full error code. {{@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_ERR},
-     *     {@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_TIMEOUT_ERR},
-     * @param message Detail message.
-     * @param cause Optional nested exception (can be {@code null}).
-     */
-    public LockException(UUID traceId, int code, String message, Throwable cause) {
-        super(traceId, code, message, cause);
     }
 }

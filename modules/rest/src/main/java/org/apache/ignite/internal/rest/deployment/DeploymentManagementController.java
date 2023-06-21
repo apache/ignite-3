@@ -161,7 +161,7 @@ public class DeploymentManagementController implements DeploymentCodeApi {
         Map<String, DeploymentStatus> versionToDeploymentStatus = new HashMap<>();
         Set<Version> versions = statuses.versions();
         for (Version version : versions) {
-            DeploymentStatus status = statuses.status(version);
+            DeploymentStatus status = fromDeploymentStatus(statuses.status(version));
             if (statusFilter.test(status)) {
                 versionToDeploymentStatus.put(version.render(), status);
             }
@@ -193,5 +193,9 @@ public class DeploymentManagementController implements DeploymentCodeApi {
             default:
                 return org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
         }
+    }
+
+    private static DeploymentStatus fromDeploymentStatus(org.apache.ignite.internal.deployunit.DeploymentStatus status) {
+        return DeploymentStatus.valueOf(status.name());
     }
 }
