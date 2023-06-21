@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -60,13 +59,6 @@ public interface MetaStorageManager extends IgniteComponent {
      * Retrieves an entry for the given key and the revision upper bound.
      */
     CompletableFuture<Entry> get(ByteArray key, long revUpperBound);
-
-    /**
-     * Retrieves entries for the given key and bound revisions.
-     * TODO: IGNITE-19735 move this method to another interface for interaction with local KeyValueStorage.
-     */
-    @Deprecated
-    List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound);
 
     /**
      * Retrieves entries for given keys.
@@ -189,4 +181,11 @@ public interface MetaStorageManager extends IgniteComponent {
      * @return Cluster time.
      */
     ClusterTime clusterTime();
+
+    /**
+     * Returns the local meta storage.
+     *
+     * @return Storage.
+     */
+    LocalMetaStorageManager getLocalStorage();
 }
