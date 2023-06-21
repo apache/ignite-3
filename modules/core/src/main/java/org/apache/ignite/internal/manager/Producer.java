@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
