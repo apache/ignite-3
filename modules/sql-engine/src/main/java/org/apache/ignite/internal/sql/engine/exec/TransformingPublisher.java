@@ -23,7 +23,7 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.function.Function;
 
 /**
- * Publisher that converts items of type {@code T} to {@code type R}.
+ * Publisher that converts items of type {@code T} to type {@code R}.
  */
 final class TransformingPublisher<T, R> implements Publisher<R> {
 
