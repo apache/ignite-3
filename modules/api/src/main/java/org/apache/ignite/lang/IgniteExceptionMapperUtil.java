@@ -18,22 +18,24 @@
 package org.apache.ignite.lang;
 
 import static java.util.Collections.unmodifiableMap;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 /**
  * This utility class provides an ability to map Ignite internal exceptions to Ignite public ones.
  */
 public class IgniteExceptionMapperUtil {
     /** All exception mappers to be used to map internal exceptions to public ones. */
-    private static final Map<Class<? extends Exception>, IgniteExceptionMapper<? extends Exception, ? extends Exception>>
-            EXCEPTION_CONVERTERS;
+    private static final Map<Class<? extends Exception>, IgniteExceptionMapper<?, ?>> EXCEPTION_CONVERTERS;
 
     static {
-        Map<Class<? extends Exception>, IgniteExceptionMapper<? extends Exception, ? extends Exception>> mappers = new HashMap<>();
+        Map<Class<? extends Exception>, IgniteExceptionMapper<?, ?>> mappers = new HashMap<>();
 
         ServiceLoader
                 .load(IgniteExceptionMappersProvider.class)
@@ -51,8 +53,8 @@ public class IgniteExceptionMapperUtil {
      *      or {@code clazz} represents Java standard exception like {@link NullPointerException}, {@link IllegalArgumentException}.
      */
     static void registerMapping(
-            IgniteExceptionMapper<? extends Exception, ? extends Exception> mapper,
-            Map<Class<? extends Exception>, IgniteExceptionMapper<? extends Exception, ? extends Exception>> registeredMappings) {
+            IgniteExceptionMapper<?, ?> mapper,
+            Map<Class<? extends Exception>, IgniteExceptionMapper<?, ?>> registeredMappings) {
         if (registeredMappings.containsKey(mapper.mappingFrom())) {
             throw new IgniteException(
                     INTERNAL_ERR,
@@ -75,7 +77,7 @@ public class IgniteExceptionMapperUtil {
      * <p>The rules of mapping are the following:</p>
      * <ul>
      *     <li>any instance of {@link Error} is returned as is, except {@link AssertionError}
-     *     that always be mapped to {@link IgniteException} with the {@link ErrorGroups.Common#INTERNAL_ERR} error code.</li>
+     *     that will always be mapped to {@link IgniteException} with the {@link ErrorGroups.Common#INTERNAL_ERR} error code.</li>
      *     <li>any instance of Java standard exception like {@link NullPointerException} is returned as is.</li>
      *     <li>any instance of {@link IgniteException} or {@link IgniteCheckedException} is returned as is.</li>
      *     <li>if there are no any mappers that can do a mapping from the given error to a public exception,
@@ -114,6 +116,25 @@ public class IgniteExceptionMapperUtil {
 
         // There are no exception mappings for the given exception. This case should be considered as internal error.
         return new IgniteException(INTERNAL_ERR, origin);
+    }
+
+    /**
+     * Returns a new CompletableFuture that, when the given {@code origin} future completes exceptionally,
+     * maps the origin's exception to a public Ignite exception if it is needed.
+     *
+     * @param origin The future to use to create a new stage.
+     * @param <T> Type os result.
+     * @return New CompletableFuture.
+     */
+    public static <T> CompletableFuture<T> convertToPublic(CompletableFuture<T> origin) {
+        return origin
+                .handle((res, err) -> {
+                    if (err != null) {
+                        throw new CompletionException(mapToPublicException(unwrapCause(err)));
+                    }
+
+                    return res;
+                });
     }
 
     /**

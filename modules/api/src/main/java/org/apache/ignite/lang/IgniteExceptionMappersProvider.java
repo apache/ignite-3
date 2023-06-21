@@ -20,7 +20,7 @@ package org.apache.ignite.lang;
 import java.util.Collection;
 
 /**
- * This interface provides the ability to register specific mappers from Ignite internal exceptions a public ones.
+ * This interface provides the ability to register specific mappers from Ignite internal exceptions to a public ones.
  *
  * <p>
  *     Each module can provide such a mapping for its own internal exceptions.
@@ -44,5 +44,5 @@ public interface IgniteExceptionMappersProvider {
      *
      * @return Collection of mappers.
      */
-    Collection<IgniteExceptionMapper<? extends Exception, ? extends Exception>> mappers();
+    Collection<IgniteExceptionMapper<?, ?>> mappers();
 }

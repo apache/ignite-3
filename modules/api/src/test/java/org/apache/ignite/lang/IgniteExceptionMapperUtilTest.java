@@ -44,7 +44,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class IgniteExceptionMapperUtilTest {
     /** Internal collection of mappers for tests. */
-    private Map<Class<? extends Exception>, IgniteExceptionMapper<? extends Exception, ? extends Exception>> mappers = new HashMap<>();
+    private Map<Class<? extends Exception>, IgniteExceptionMapper<?, ?>> mappers = new HashMap<>();
 
     /**
      * Tests a simple scenario of registering mapper for internal exceptions.

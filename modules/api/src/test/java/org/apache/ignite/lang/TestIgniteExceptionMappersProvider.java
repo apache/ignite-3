@@ -34,8 +34,8 @@ import org.apache.ignite.lang.IgniteExceptionMapperUtilTest.CustomInternalExcept
 @AutoService(IgniteExceptionMappersProvider.class)
 public class TestIgniteExceptionMappersProvider implements IgniteExceptionMappersProvider {
     @Override
-    public Collection<IgniteExceptionMapper<? extends Exception, ? extends Exception>> mappers() {
-        List<IgniteExceptionMapper<? extends Exception, ? extends Exception>> mappers = new ArrayList<>();
+    public Collection<IgniteExceptionMapper<?, ?>> mappers() {
+        List<IgniteExceptionMapper<?, ?>> mappers = new ArrayList<>();
 
         mappers.add(
                 unchecked(
