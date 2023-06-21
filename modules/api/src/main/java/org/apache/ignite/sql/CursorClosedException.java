@@ -19,8 +19,6 @@ package org.apache.ignite.sql;
 
 import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_CLOSED_ERR;
 
-import java.util.UUID;
-
 /**
  * Exception is thrown when a data fetch attempt is performed on a closed cursor.
  */
@@ -30,17 +28,5 @@ public class CursorClosedException extends SqlException {
      */
     public CursorClosedException() {
         super(CURSOR_CLOSED_ERR);
-    }
-
-    /**
-     * Creates an exception with the given trace ID, error code, detailed message, and cause.
-     *
-     * @param traceId Unique identifier of the exception.
-     * @param code Full error code.
-     * @param message Detailed message.
-     * @param cause Optional nested exception (can be {@code null}).
-     */
-    public CursorClosedException(UUID traceId, int code, String message, Throwable cause) {
-        super(traceId, code, message, cause);
     }
 }

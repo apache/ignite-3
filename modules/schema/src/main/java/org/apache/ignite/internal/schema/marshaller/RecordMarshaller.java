@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.marshaller;
 
 import org.apache.ignite.internal.schema.row.Row;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Record marshaller interface provides method to marshal/unmarshal record objects to/from a row.
@@ -57,4 +58,13 @@ public interface RecordMarshaller<R> {
      * @throws MarshallerException If failed to unmarshal row.
      */
     R unmarshal(@NotNull Row row) throws MarshallerException;
+
+    /**
+     * Reads object field value.
+     *
+     * @param obj    Object to read from.
+     * @param fldIdx Field index.
+     * @return Field value.
+     */
+    @Nullable Object value(Object obj, int fldIdx) throws MarshallerException;
 }

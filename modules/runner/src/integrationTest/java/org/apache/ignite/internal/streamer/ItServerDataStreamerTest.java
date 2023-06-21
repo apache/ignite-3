@@ -15,32 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.exception;
+package org.apache.ignite.internal.streamer;
 
-import org.apache.ignite.lang.ErrorGroups.CodeDeployment;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.Ignite;
 
 /**
- * Throws when trying to deploy unit which already exist.
+ * Integration test for server-side data streamer API.
  */
-public class DeploymentUnitAlreadyExistsException extends IgniteException {
-    /**
-     * Unit identifier.
-     */
-    private final String id;
-
-    /**
-     * Constructor.
-     *
-     * @param id Unit identifier.
-     * @param message Error message.
-     */
-    public DeploymentUnitAlreadyExistsException(String id, String message) {
-        super(CodeDeployment.UNIT_ALREADY_EXISTS_ERR, message);
-        this.id = id;
-    }
-
-    public String id() {
-        return id;
+public class ItServerDataStreamerTest extends ItAbstractDataStreamerTest {
+    @Override
+    Ignite ignite() {
+        return CLUSTER_NODES.get(0);
     }
 }

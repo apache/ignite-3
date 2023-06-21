@@ -444,6 +444,7 @@ public class ClientTupleSerializer {
         var hashCalc = new HashCalculator();
 
         for (ClientColumn col : schema.colocationColumns()) {
+            // Colocation columns are always part of the key and can't be missing; serializer will check this.
             Object value = rec.valueOrDefault(col.name(), null);
             hashCalc.append(value, col.scale(), col.precision());
         }

@@ -15,20 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.table;
+package org.apache.ignite.internal.table;
 
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.util.ColocationUtils;
+import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.table.Tuple;
 
 /**
  * Partition awareness provider for data streamer.
  */
 class TupleStreamerPartitionAwarenessProvider extends AbstractClientStreamerPartitionAwarenessProvider<Tuple> {
-    TupleStreamerPartitionAwarenessProvider(ClientTable tbl) {
-        super(tbl);
+    TupleStreamerPartitionAwarenessProvider(SchemaRegistry schemaReg, int partitions) {
+        super(schemaReg, partitions);
     }
 
     @Override
-    int colocationHash(ClientSchema schema, Tuple item) {
-        return ClientTupleSerializer.getColocationHash(schema, item);
+    int colocationHash(SchemaDescriptor schema, Tuple item) {
+        HashCalculator hashCalc = new HashCalculator();
+
+        for (Column c : schema.colocationColumns()) {
+            // Colocation columns are always part of the key and can't be missing; serializer will check for nulls.
+            Object val = item.valueOrDefault(c.name(), null);
+            ColocationUtils.append(hashCalc, val, c.type());
+        }
+
+        return hashCalc.hash();
     }
 }
