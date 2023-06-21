@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.util;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
@@ -32,12 +35,30 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.SqlException;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * Test utils for SQL.
  */
 public class SqlTestUtils {
     private static final ThreadLocalRandom RND = ThreadLocalRandom.current();
+
+
+    /**
+     * <em>Assert</em> that execution of the supplied {@code executable} throws
+     * an {@link SqlException} with expected error code and return the exception.
+     *
+     * @param expectedCode Expected error code of {@link SqlException}
+     * @param executable supplier to execute and check thrown exception.
+     * @return Thrown the {@link SqlException}.
+     */
+    public static SqlException assertSqlExceptionThrows(int expectedCode, Executable executable) {
+        SqlException ex = assertThrows(SqlException.class, executable);
+        assertEquals(expectedCode, ex.code());
+
+        return ex;
+    }
 
     /**
      * Convert {@link ColumnType} to string representation of SQL type.

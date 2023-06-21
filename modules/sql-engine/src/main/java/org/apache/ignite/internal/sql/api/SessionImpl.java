@@ -43,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.property.Property;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -74,8 +75,6 @@ public class SessionImpl implements Session {
 
     private final int pageSize;
 
-    private final long sessionTimeout;
-
     private final PropertiesHolder props;
 
     /**
@@ -83,20 +82,17 @@ public class SessionImpl implements Session {
      *
      * @param qryProc Query processor.
      * @param pageSize Query fetch page size.
-     * @param sessionTimeoutMs Session timeout in milliseconds.
      * @param props Session's properties.
      */
     SessionImpl(
             SessionId sessionId,
             QueryProcessor qryProc,
             int pageSize,
-            long sessionTimeoutMs,
             PropertiesHolder props
     ) {
         this.qryProc = qryProc;
         this.sessionId = sessionId;
         this.pageSize = pageSize;
-        this.sessionTimeout = sessionTimeoutMs;
         this.props = props;
     }
 
@@ -121,7 +117,7 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public long idleTimeout(TimeUnit timeUnit) {
-        return timeUnit.convert(sessionTimeout, TimeUnit.MILLISECONDS);
+        return timeUnit.convert(props.get(SessionProperty.IDLE_TIMEOUT), TimeUnit.MILLISECONDS);
     }
 
     /** {@inheritDoc} */

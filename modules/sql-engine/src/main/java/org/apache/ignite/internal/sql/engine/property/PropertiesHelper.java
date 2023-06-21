@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.property;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder.Builder;
 import org.apache.ignite.internal.util.IgniteUtils;
 
@@ -40,6 +41,23 @@ public final class PropertiesHelper {
     /** Creates new builder. */
     public static Builder newBuilder() {
         return new BuilderImpl();
+    }
+
+    /**
+     * Creates new builder and populates it with properties from the given Map. Keys of the map are names of properties, values are values.
+     *
+     * @param props A holder to populate new builder with.
+     * @return A builder containing properties from given holder.
+     */
+    public static Builder newBuilder(Map<String, Object> props) {
+        Builder builder = newBuilder();
+
+        for (Entry<String, Object> p : props.entrySet()) {
+            Property property = new Property(p.getKey(), p.getValue().getClass());
+            builder.set(property, p.getValue());
+        }
+
+        return builder;
     }
 
     /**

@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.sql.engine.QueryProperty.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ErrorGroups.Sql;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -43,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.sql.util.SqlTestUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -118,6 +121,21 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         // second session could start new query
         ses2.execute(null, "SELECT 2 + 2").close();
+    }
+
+    /** Check correctness of planning timeout. */
+    @Test
+    public void testPlanningTimeout() throws Exception {
+        IgniteSql sql = igniteSql();
+
+        sql("CREATE TABLE TST(id INTEGER PRIMARY KEY, val INTEGER)");
+
+        Session ses = sql.sessionBuilder().property(PLANNING_TIMEOUT.name, 1L).build();
+
+        SqlTestUtils.assertSqlExceptionThrows(EXECUTION_CANCELLED_ERR,
+                () -> ses.execute(null, "SELECT * FROM TST t, TST t1, TST t2"));
+
+        ses.close();
     }
 
     /** Check timestamp type operations correctness using sql and kv api. */

@@ -148,6 +148,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private final QueryCancel cancel;
 
+    private final String query;
+
     private final UUID queryId;
 
     private final Object[] parameters;
@@ -158,6 +160,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
      * Private constructor, used by a builder.
      */
     private BaseQueryContext(
+            String query,
             UUID queryId,
             FrameworkConfig cfg,
             QueryCancel cancel,
@@ -169,6 +172,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         // link frameworkConfig#context() to this.
         this.cfg = Frameworks.newConfigBuilder(cfg).context(this).build();
 
+        this.query = query;
         this.queryId = queryId;
         this.log = log;
         this.cancel = cancel;
@@ -187,6 +191,10 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     public static BaseQueryContext empty() {
         return EMPTY_CONTEXT;
+    }
+
+    public String query() {
+        return query;
     }
 
     public UUID queryId() {
@@ -283,6 +291,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         private UUID queryId = UUID.randomUUID();
 
+        private String query;
+
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
 
         public Builder frameworkConfig(FrameworkConfig frameworkCfg) {
@@ -305,14 +315,18 @@ public final class BaseQueryContext extends AbstractQueryContext {
             return this;
         }
 
+        public Builder query(String query) {
+            this.query = query;
+            return this;
+        }
+
         public Builder parameters(Object... parameters) {
             this.parameters = Objects.requireNonNull(parameters);
             return this;
         }
 
         public BaseQueryContext build() {
-            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters,
-                    log);
+            return new BaseQueryContext(query, queryId, frameworkCfg, cancel, parameters, log);
         }
     }
 

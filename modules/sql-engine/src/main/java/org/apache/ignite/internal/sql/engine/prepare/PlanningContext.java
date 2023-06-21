@@ -53,6 +53,8 @@ public final class PlanningContext implements Context {
 
     private final long plannerTimeout;
 
+    private boolean timeouted = false;
+
     /**
      * Private constructor, used by a builder.
      */
@@ -201,6 +203,14 @@ public final class PlanningContext implements Context {
      */
     public void rulesFilter(Function<RuleSet, RuleSet> rulesFilter) {
         this.rulesFilter = rulesFilter;
+    }
+
+    public void abortByTimeout() {
+        timeouted = true;
+    }
+
+    public boolean timeouted() {
+        return timeouted;
     }
 
     /**

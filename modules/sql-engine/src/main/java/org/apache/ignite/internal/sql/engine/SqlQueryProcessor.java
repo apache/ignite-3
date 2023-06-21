@@ -111,7 +111,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
 
     /** Default planner timeout, in ms. */
-    private static final long PLANNER_TIMEOUT = 15000L;
+    private static final long DEFAULT_PLANNER_TIMEOUT = 15000L;
 
     /** Size of the cache for query plans. */
     private static final int PLAN_CACHE_SIZE = 1024;
@@ -449,9 +449,11 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .logger(LOG)
                             .cancel(queryCancel)
                             .parameters(params)
+                            .query(sql)
                             .build();
 
-                    return prepareSvc.prepareAsync(sqlNode, ctx, PLANNER_TIMEOUT)
+                    Long plannerTimeout = session.properties().getOrDefault(QueryProperty.PLANNING_TIMEOUT, DEFAULT_PLANNER_TIMEOUT);
+                    return prepareSvc.prepareAsync(sqlNode, ctx, plannerTimeout)
                             .thenApply(plan -> {
                                 var dataCursor = executionSrvc.executePlan(tx.get(), plan, ctx);
 

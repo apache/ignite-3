@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHolder.Builder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.sql.Session;
@@ -57,7 +59,7 @@ public class SessionBuilderImpl implements SessionBuilder {
      */
     SessionBuilderImpl(QueryProcessor qryProc, Map<String, Object> props) {
         this.qryProc = qryProc;
-        this.props = props;
+        this.props = new HashMap<>(props);
     }
 
     /** {@inheritDoc} */
@@ -133,11 +135,13 @@ public class SessionBuilderImpl implements SessionBuilder {
     /** {@inheritDoc} */
     @Override
     public Session build() {
-        PropertiesHolder propsHolder = PropertiesHelper.newBuilder()
+        Builder propBuilder = PropertiesHelper
+                .newBuilder(props)
                 .set(SessionProperty.IDLE_TIMEOUT, sessionTimeout)
                 .set(QueryProperty.QUERY_TIMEOUT, queryTimeout)
-                .set(QueryProperty.DEFAULT_SCHEMA, schema)
-                .build();
+                .set(QueryProperty.DEFAULT_SCHEMA, schema);
+
+        PropertiesHolder propsHolder = propBuilder.build();
 
         SessionId sessionId = qryProc.createSession(propsHolder);
 
@@ -145,7 +149,6 @@ public class SessionBuilderImpl implements SessionBuilder {
                 sessionId,
                 qryProc,
                 pageSize,
-                sessionTimeout,
                 propsHolder
         );
     }

@@ -33,6 +33,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -55,9 +56,13 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -144,30 +149,44 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx, long plannerTimeout) {
+        CompletableFuture<QueryPlan> result;
+
+        assert single(sqlNode);
+
+        SqlQueryType queryType = Commons.getQueryType(sqlNode);
+        assert queryType != null : "No query type for query: " + sqlNode;
+
+        PlanningContext planningContext = PlanningContext.builder()
+                .parentContext(ctx)
+                .query(ctx.query())
+                .plannerTimeout(plannerTimeout)
+                .build();
+
+        result = prepareAsync0(sqlNode, queryType, planningContext);
+
+        return result.exceptionally(ex -> {
+                    Throwable th = ExceptionUtils.unwrapCause(ex);
+                    if (planningContext.timeouted() && th instanceof RelOptPlanner.CannotPlanException) {
+                        LOG.info("Query plan is absent due to planing timeout is reached [query={}]", ctx.query());
+                        throw new SqlException(ErrorGroups.Sql.EXECUTION_CANCELLED_ERR);
+                    }
+
+                    throw new IgniteException(th);
+                }
+        );
+    }
+
+    private CompletableFuture<QueryPlan> prepareAsync0(SqlNode sqlNode, SqlQueryType queryType, PlanningContext planningContext) {
         try {
-            assert single(sqlNode);
-
-            SqlQueryType queryType = Commons.getQueryType(sqlNode);
-            assert queryType != null : "No query type for query: " + sqlNode;
-
-            PlanningContext planningContext = PlanningContext.builder()
-                    .parentContext(ctx)
-                    .plannerTimeout(plannerTimeout)
-                    .build();
-
             switch (queryType) {
                 case QUERY:
                     return prepareQuery(sqlNode, planningContext);
-
                 case DDL:
                     return prepareDdl(sqlNode, planningContext);
-
                 case DML:
                     return prepareDml(sqlNode, planningContext);
-
                 case EXPLAIN:
                     return prepareExplain(sqlNode, planningContext);
-
                 default:
                     throw new IgniteInternalException(UNSUPPORTED_SQL_OPERATION_KIND_ERR, "Unsupported operation ["
                             + "sqlNodeKind=" + sqlNode.getKind() + "; "
