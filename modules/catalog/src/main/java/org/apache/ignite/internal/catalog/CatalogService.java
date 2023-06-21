@@ -44,7 +44,6 @@ public interface CatalogService {
 
     CatalogTableDescriptor table(int tableId, long timestamp);
 
-    // TODO: IGNITE-19641 протестировать
     CatalogTableDescriptor table(int tableId, int catalogVersion);
 
     CatalogIndexDescriptor index(String indexName, long timestamp);

@@ -278,8 +278,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogHashIndexDescriptor pkIndex = createHashIndexDescriptor(createPkIndexParams(params), table, id++);
 
-            // TODO: IGNITE-19641 протестировать
-
             return List.of(
                     new NewTableEntry(table),
                     new NewIndexEntry(pkIndex),

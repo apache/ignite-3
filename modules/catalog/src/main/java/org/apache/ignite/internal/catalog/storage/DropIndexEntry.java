@@ -33,13 +33,11 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Describes deletion of an index.
  */
-// TODO: IGNITE-19641 добавить идентификатор таблицы
 public class DropIndexEntry implements UpdateEntry, CatalogFireEvent {
     private static final long serialVersionUID = -604729846502020728L;
 
     private final int indexId;
 
-    // TODO: IGNITE-19641 протекстировать
     private final int tableId;
 
     /**
