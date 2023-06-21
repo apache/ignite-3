@@ -250,17 +250,22 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertEquals(1, entries3.size());
         assertArrayEquals(val8, values3.get(0));
 
-        // Get entries when the revision range doesn't contain entries with the key.
+        // try to get entries when the revision range doesn't contain entries with the key.
         List<Entry> entries4 = storage.getEntries(key1, 6, 7);
 
         assertTrue(entries4.isEmpty());
 
-        // Get a tombstone.
-        List<Entry> entries5 = storage.getEntries(key1, 10, 10);
+        // Try to get entries when the storage doesn't contain entries with specified revisions.
+        List<Entry> entries5 = storage.getEntries(key1, 20, 30);
 
-        assertEquals(1, entries5.size());
-        assertTrue(entries5.get(0).tombstone());
-        assertNull(entries5.get(0).value());
+        assertTrue(entries5.isEmpty());
+
+        // Get a tombstone.
+        List<Entry> entries6 = storage.getEntries(key1, 10, 10);
+
+        assertEquals(1, entries6.size());
+        assertTrue(entries6.get(0).tombstone());
+        assertNull(entries6.get(0).value());
 
         // Check validation asserts.
         assertThrows(AssertionError.class, () -> storage.getEntries(key1, -1, 1));
