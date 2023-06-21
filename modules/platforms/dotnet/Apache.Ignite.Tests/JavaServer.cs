@@ -133,9 +133,6 @@ namespace Apache.Ignite.Tests
             var opts = Environment.GetEnvironmentVariable(GradleOptsEnvVar);
             var command = $"{GradlePath} {GradleCommandExec} {opts}";
 
-            var javaOpts = Environment.GetEnvironmentVariable("JAVA_OPTS");
-            Environment.SetEnvironmentVariable("JAVA_OPTS", javaOpts + " -Dio.netty.leakDetection.level=paranoid");
-
             Log("Executing command: " + command);
 
             var process = new Process
