@@ -42,7 +42,6 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -220,34 +219,50 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         putToMs(key1, val8);
         putToMs(key1, val9);
 
-        assertEquals(9, storage.revision());
-        assertEquals(9, storage.updateCounter());
+        removeFromMs(key1);
 
+        assertEquals(10, storage.revision());
+        assertEquals(10, storage.updateCounter());
+
+        // Get entries with the lower revision and the upper revision are bound to the key.
+        // One entry from the revision range is bound to another key.
         List<Entry> entries1 = storage.getEntries(key1, 2, 5);
         List<byte[]> values1 = entries1.stream().map(entry -> entry.value()).collect(Collectors.toList());
 
         assertEquals(3, entries1.size());
-        assertTrue(values1.stream().anyMatch(e -> Arrays.equals(val2, e)));
-        assertTrue(values1.stream().anyMatch(e -> Arrays.equals(val4, e)));
-        assertTrue(values1.stream().anyMatch(e -> Arrays.equals(val5, e)));
+        assertArrayEquals(val2, values1.get(0));
+        assertArrayEquals(val4, values1.get(1));
+        assertArrayEquals(val5, values1.get(2));
 
+        // Get entries with the lower revision and the upper revision are bound to another key.
+        // Other entries are bound to the key.
         List<Entry> entries2 = storage.getEntries(key1, 3, 6);
         List<byte[]> values2 = entries2.stream().map(entry -> entry.value()).collect(Collectors.toList());
 
         assertEquals(2, entries2.size());
-        assertTrue(values2.stream().anyMatch(e -> Arrays.equals(val4, e)));
-        assertTrue(values2.stream().anyMatch(e -> Arrays.equals(val5, e)));
+        assertArrayEquals(val4, values2.get(0));
+        assertArrayEquals(val5, values2.get(1));
 
+        // Get entries with the same lower and upper revision.
         List<Entry> entries3 = storage.getEntries(key1, 8, 8);
         List<byte[]> values3 = entries3.stream().map(entry -> entry.value()).collect(Collectors.toList());
 
         assertEquals(1, entries3.size());
-        assertTrue(values3.stream().anyMatch(e -> Arrays.equals(val8, e)));
+        assertArrayEquals(val8, values3.get(0));
 
+        // Get entries when the revision range doesn't contain entries with the key.
         List<Entry> entries4 = storage.getEntries(key1, 6, 7);
 
-        assertEquals(0, entries4.size());
+        assertTrue(entries4.isEmpty());
 
+        // Get a tombstone.
+        List<Entry> entries5 = storage.getEntries(key1, 10, 10);
+
+        assertEquals(1, entries5.size());
+        assertTrue(entries5.get(0).tombstone());
+        assertNull(entries5.get(0).value());
+
+        // Check validation asserts.
         assertThrows(AssertionError.class, () -> storage.getEntries(key1, -1, 1));
         assertThrows(AssertionError.class, () -> storage.getEntries(key1, 1, -1));
         assertThrows(AssertionError.class, () -> storage.getEntries(key1, 2, 1));
