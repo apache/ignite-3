@@ -36,13 +36,16 @@ import org.jetbrains.annotations.Nullable;
  * <p>TBD: events
  */
 public interface CatalogService {
-    String PUBLIC = "PUBLIC";
+    String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     String DEFAULT_ZONE_NAME = "Default";
 
     CatalogTableDescriptor table(String tableName, long timestamp);
 
     CatalogTableDescriptor table(int tableId, long timestamp);
+
+    // TODO: IGNITE-19641 протестировать
+    CatalogTableDescriptor table(int tableId, int catalogVersion);
 
     CatalogIndexDescriptor index(String indexName, long timestamp);
 

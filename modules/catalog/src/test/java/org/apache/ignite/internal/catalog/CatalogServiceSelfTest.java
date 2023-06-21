@@ -120,7 +120,7 @@ import org.mockito.Mockito;
  * Catalog service self test.
  */
 public class CatalogServiceSelfTest {
-    private static final String SCHEMA_NAME = CatalogService.PUBLIC;
+    private static final String SCHEMA_NAME = CatalogService.DEFAULT_SCHEMA_NAME;
     private static final String ZONE_NAME = CatalogService.DEFAULT_ZONE_NAME;
     private static final String TABLE_NAME = "myTable";
     private static final String TABLE_NAME_2 = "myTable2";
@@ -940,7 +940,7 @@ public class CatalogServiceSelfTest {
 
         assertNotNull(schema);
         assertEquals(0, schema.id());
-        assertEquals(CatalogService.PUBLIC, schema.name());
+        assertEquals(CatalogService.DEFAULT_SCHEMA_NAME, schema.name());
         assertSame(schema, service.activeSchema(beforeDropTimestamp));
 
         assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, beforeDropTimestamp));
@@ -954,7 +954,7 @@ public class CatalogServiceSelfTest {
 
         assertNotNull(schema);
         assertEquals(0, schema.id());
-        assertEquals(CatalogService.PUBLIC, schema.name());
+        assertEquals(CatalogService.DEFAULT_SCHEMA_NAME, schema.name());
         assertSame(schema, service.activeSchema(clock.nowLong()));
 
         assertNull(schema.table(TABLE_NAME));
@@ -1100,7 +1100,7 @@ public class CatalogServiceSelfTest {
                     List.of(new ObjectIdGenUpdateEntry(1))
             );
 
-            updateHandlerCapture.getValue().handle(update);
+            updateHandlerCapture.getValue().handle(update, 0);
 
             return completedFuture(false);
         });
@@ -1210,7 +1210,7 @@ public class CatalogServiceSelfTest {
     @Test
     public void testCreateIndexEvents() {
         CreateTableParams createTableParams = CreateTableParams.builder()
-                .schemaName(CatalogService.PUBLIC)
+                .schemaName(CatalogService.DEFAULT_SCHEMA_NAME)
                 .tableName(TABLE_NAME)
                 .zone(ZONE_NAME)
                 .columns(List.of(
@@ -1225,7 +1225,7 @@ public class CatalogServiceSelfTest {
         DropTableParams dropTableparams = DropTableParams.builder().tableName(TABLE_NAME).build();
 
         CreateHashIndexParams createIndexParams = CreateHashIndexParams.builder()
-                .schemaName(CatalogService.PUBLIC)
+                .schemaName(CatalogService.DEFAULT_SCHEMA_NAME)
                 .indexName(INDEX_NAME)
                 .tableName(TABLE_NAME)
                 .columns(List.of("key2"))
