@@ -17,12 +17,20 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.CollectionUtils;
 
 /**
  * Describes addition of new columns.
@@ -66,6 +74,33 @@ public class NewColumnsEntry implements UpdateEntry, CatalogFireEvent {
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
         return new AddColumnEventParameters(causalityToken, catalogVersion, tableId, descriptors);
+    }
+
+    @Override
+    public Catalog applyUpdate(Catalog catalog, VersionedUpdate update) {
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+
+        return new Catalog(
+                update.version(),
+                update.activationTimestamp(),
+                catalog.objectIdGenState(),
+                catalog.zones(),
+                List.of(new CatalogSchemaDescriptor(
+                        schema.id(),
+                        schema.name(),
+                        Arrays.stream(schema.tables())
+                                .map(table -> table.id() == tableId ? new CatalogTableDescriptor(
+                                        table.id(),
+                                        table.name(),
+                                        table.zoneId(),
+                                        CollectionUtils.concat(table.columns(), descriptors),
+                                        table.primaryKeyColumns(),
+                                        table.colocationColumns()) : table
+                                )
+                                .toArray(CatalogTableDescriptor[]::new),
+                        schema.indexes()
+                ))
+        );
     }
 
     @Override

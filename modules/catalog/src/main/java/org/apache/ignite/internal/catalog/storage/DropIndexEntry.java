@@ -17,6 +17,14 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
@@ -55,6 +63,24 @@ public class DropIndexEntry implements UpdateEntry, CatalogFireEvent {
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
         return new DropIndexEventParameters(causalityToken, catalogVersion, indexId);
+    }
+
+    @Override
+    public Catalog applyUpdate(Catalog catalog, VersionedUpdate update) {
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+
+        return new Catalog(
+                update.version(),
+                update.activationTimestamp(),
+                catalog.objectIdGenState(),
+                catalog.zones(),
+                List.of(new CatalogSchemaDescriptor(
+                        schema.id(),
+                        schema.name(),
+                        schema.tables(),
+                        Arrays.stream(schema.indexes()).filter(t -> t.id() != indexId).toArray(CatalogIndexDescriptor[]::new)
+                ))
+        );
     }
 
     @Override

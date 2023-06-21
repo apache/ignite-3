@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -36,12 +37,24 @@ public class ObjectIdGenUpdateEntry implements UpdateEntry {
         this.delta = delta;
     }
 
-    /** Returns delta by which to correct the id generator. */
+    /**
+     * Returns delta by which to correct the id generator.
+     */
     public int delta() {
         return delta;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public Catalog applyUpdate(Catalog catalog, VersionedUpdate update) {
+        return new Catalog(
+                update.version(),
+                update.activationTimestamp(),
+                catalog.objectIdGenState() + delta,
+                catalog.zones(),
+                catalog.schemas()
+        );
+    }
+
     @Override
     public String toString() {
         return S.toString(this);

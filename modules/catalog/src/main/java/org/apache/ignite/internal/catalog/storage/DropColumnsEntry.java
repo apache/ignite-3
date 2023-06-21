@@ -17,7 +17,16 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 import java.util.Set;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
@@ -65,6 +74,35 @@ public class DropColumnsEntry implements UpdateEntry, CatalogFireEvent {
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
         return new DropColumnEventParameters(causalityToken, catalogVersion, tableId, columns);
+    }
+
+    @Override
+    public Catalog applyUpdate(Catalog catalog, VersionedUpdate update) {
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+
+        return new Catalog(
+                update.version(),
+                update.activationTimestamp(),
+                catalog.objectIdGenState(),
+                catalog.zones(),
+                List.of(new CatalogSchemaDescriptor(
+                        schema.id(),
+                        schema.name(),
+                        Arrays.stream(schema.tables())
+                                .map(table -> table.id() == tableId ? new CatalogTableDescriptor(
+                                        table.id(),
+                                        table.name(),
+                                        table.zoneId(),
+                                        table.columns().stream()
+                                                .filter(col -> !columns.contains(col.name()))
+                                                .collect(toList()),
+                                        table.primaryKeyColumns(),
+                                        table.colocationColumns()) : table
+                                )
+                                .toArray(CatalogTableDescriptor[]::new),
+                        schema.indexes()
+                ))
+        );
     }
 
     @Override

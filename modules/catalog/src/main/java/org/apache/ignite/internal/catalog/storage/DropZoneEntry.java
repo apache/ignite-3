@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static java.util.stream.Collectors.toList;
+
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
@@ -54,6 +57,17 @@ public class DropZoneEntry implements UpdateEntry, CatalogFireEvent {
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
         return new DropZoneEventParameters(causalityToken, catalogVersion, zoneId);
+    }
+
+    @Override
+    public Catalog applyUpdate(Catalog catalog, VersionedUpdate update) {
+        return new Catalog(
+                update.version(),
+                update.activationTimestamp(),
+                catalog.objectIdGenState(),
+                catalog.zones().stream().filter(z -> z.id() != zoneId).collect(toList()),
+                catalog.schemas()
+        );
     }
 
     @Override
