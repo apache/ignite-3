@@ -47,7 +47,7 @@ public class IgniteExceptionMapperUtilTest {
     private Map<Class<? extends Exception>, IgniteExceptionMapper<? extends Exception, ? extends Exception>> mappers = new HashMap<>();
 
     /**
-     * Tests a simple scenario od registering mapper for internal exceptions.
+     * Tests a simple scenario of registering mapper for internal exceptions.
      */
     @Test
     public void testRegisterBasicMapper() {
