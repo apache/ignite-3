@@ -108,7 +108,7 @@ public class FileDeployerService {
                 IgniteUtils.deleteIfExistsThrowable(unitPath(id, version));
                 return true;
             } catch (IOException e) {
-                LOG.debug("Failed to get content for unit " + id + ":" + version, e);
+                LOG.debug("Failed to undeploy unit " + id + ":" + version, e);
                 return false;
             }
         }, executor);
@@ -133,7 +133,7 @@ public class FileDeployerService {
                     }
                 });
             } catch (IOException e) {
-                LOG.debug("Failed to undeploy unit " + id + ":" + version, e);
+                LOG.debug("Failed to get content for unit " + id + ":" + version, e);
             }
             return new UnitContent(result);
         }, executor);
