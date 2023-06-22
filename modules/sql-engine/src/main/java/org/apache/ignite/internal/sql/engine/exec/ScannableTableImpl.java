@@ -136,6 +136,7 @@ public class ScannableTableImpl implements ScannableTable {
         return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory, requiredColumns));
     }
 
+    /** {@inheritDoc} */
     @Override
     public <RowT> Publisher<RowT> indexLookup(
             ExecutionContext<RowT> ctx,

@@ -18,33 +18,34 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.SubmissionPublisher;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -67,19 +68,20 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.utils.PrimaryReplica;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentMatcher;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Unit tests for {@link ScannableTableImpl}.
- * Test cases ensure that operations call appropriate method that perform scan/lookups
- * and created {@link Publisher publishers} work.
+ * Unit tests for {@link ScannableTableImpl}. We check that scan/lookup operations call appropriate methods
+ * of the underlying APIs with required arguments.
  */
 @ExtendWith(MockitoExtension.class)
 public class ScannableTableSelfTest {
@@ -88,11 +90,9 @@ public class ScannableTableSelfTest {
 
     private static final NoOpTransaction RW_TX = new NoOpTransaction("RO", false);
 
-    private static final int INDEX_ID = 42;
+    private static final IgniteTypeFactory TYPE_FACTORY = Commons.typeFactory();
 
-    private static final String INDEX_NAME = "test_idx";
-
-    @Mock(lenient = true)
+    @Mock
     private InternalTable internalTable;
 
     @Mock(lenient = true)
@@ -102,58 +102,68 @@ public class ScannableTableSelfTest {
     private BinaryRow binaryRow;
 
     /**
-     * Table scan (ro / rw).
+     * Table scan.
      */
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    public void testTableScan(boolean ro) throws InterruptedException {
-        Tester tester = new Tester(ro ? RO_TX : RW_TX);
-        tester.setRowType(SqlTypeName.INTEGER);
+    public void testTableScan(boolean ro) {
+        NoOpTransaction tx = ro ? RO_TX : RW_TX;
+
+        Tester tester = new Tester();
+
+        int partitionId = 1;
+        long term = 2;
+
+        SubmissionPublisher<BinaryRow> input = newSingleThreadedSubmissionPublisher();
+
+        TestPublisher<Object[]> publisher = tester.tableScan(input, partitionId, term, tx);
 
         if (ro) {
-            tester.tableScanReadOnly();
+            HybridTimestamp timestamp = tx.readTimestamp();
+            ClusterNode clusterNode = tx.clusterNode();
+
+            verify(internalTable).scan(partitionId, timestamp, clusterNode);
         } else {
-            tester.tableScanReadWrite();
+            ClusterNode clusterNode = tx.clusterNode();
+
+            verify(internalTable).scan(partitionId, tx.id(), new PrimaryReplica(clusterNode, term), null, null, null, 0, null);
         }
 
-        SubmissionPublisher<BinaryRow> source = tester.beginTableScan();
+        input.submit(binaryRow);
+        input.close();
 
-        source.submit(binaryRow);
-        source.submit(binaryRow);
-
-        source.close();
-
-        tester.expectDone(2);
+        publisher.expectRow(binaryRow);
+        publisher.expectCompleted();
     }
 
     /**
-     * Table scan (ro / rw) - error propagation.
+     * Table scan error propagation.
      */
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    public void testTableScanErrorPropagation(boolean ro) throws InterruptedException {
-        Tester tester = new Tester(ro ? RO_TX : RW_TX);
-        tester.setRowType(SqlTypeName.INTEGER);
+    public void testTableScanError(boolean ro) {
+        NoOpTransaction tx = ro ? RO_TX : RW_TX;
 
-        if (ro) {
-            tester.tableScanReadOnly();
-        } else {
-            tester.tableScanReadWrite();
-        }
+        Tester tester = new Tester();
 
-        SubmissionPublisher<BinaryRow> source = tester.beginTableScan();
+        int partitionId = 1;
+        long term = 2;
 
-        source.submit(binaryRow);
+        SubmissionPublisher<BinaryRow> input = newSingleThreadedSubmissionPublisher();
 
-        RuntimeException err = new RuntimeException("Broken");
-        source.closeExceptionally(err);
+        TestPublisher<Object[]> publisher = tester.tableScan(input, partitionId, term, tx);
 
-        Throwable actualErr = tester.expectError();
-        assertSame(err, actualErr);
+        input.submit(binaryRow);
+
+        RuntimeException err = new RuntimeException("err");
+        input.closeExceptionally(err);
+
+        publisher.expectRow(binaryRow);
+        publisher.expectError(err);
     }
 
     /**
-     * Index scan (ro/rw) - different bounds.
+     * Index scan with different bounds.
      */
     @ParameterizedTest
     @CsvSource({
@@ -176,451 +186,454 @@ public class ScannableTableSelfTest {
             "false, EXCLUSIVE, INCLUSIVE",
             "false, EXCLUSIVE, EXCLUSIVE",
     })
-    public void testIndexScanBounds(boolean ro, Bound lower, Bound upper) throws InterruptedException {
-        Tester tester = new Tester(ro ? RO_TX : RW_TX);
-        tester.setRowType(SqlTypeName.INTEGER);
+    public void testIndexScan(boolean ro, Bound lower, Bound upper) {
+        NoOpTransaction tx = ro ? RO_TX : RW_TX;
+
+        Tester tester = new Tester();
+
+        int partitionId = 1;
+        long term = 2;
+        int indexId = 3;
 
         Object[] lowerValue = lower == Bound.NONE ? null : new Object[]{1};
         Object[] upperValue = upper == Bound.NONE ? null : new Object[]{10};
 
-        tester.setBounds(lower, lowerValue, upper, upperValue);
-        tester.setFlags(Bound.toFlags(lower, upper));
+        TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
+        condition.setBounds(lower, lowerValue, upper, upperValue);
+        int flags = condition.toFlags();
+
+        SubmissionPublisher<BinaryRow> input = newSingleThreadedSubmissionPublisher();
+
+        TestPublisher<Object[]> publisher = tester.indexScan(input, partitionId, term, tx, indexId, condition);
 
         if (ro) {
-            tester.indexScanReadOnly(INDEX_ID);
+            HybridTimestamp timestamp = tx.readTimestamp();
+            ClusterNode clusterNode = tx.clusterNode();
+
+            verify(internalTable).scan(
+                    eq(partitionId),
+                    eq(timestamp),
+                    eq(clusterNode),
+                    eq(indexId),
+                    condition.lowerValue != null ? any(BinaryTuplePrefix.class) : isNull(),
+                    condition.upperValue != null ? any(BinaryTuplePrefix.class) : isNull(),
+                    eq(flags),
+                    isNull()
+            );
         } else {
-            tester.indexScanReadWrite(INDEX_ID);
+            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), term);
+
+            verify(internalTable).scan(
+                    eq(partitionId),
+                    eq(tx.id()),
+                    eq(primaryReplica),
+                    eq(indexId),
+                    condition.lowerValue != null ? any(BinaryTuplePrefix.class) : isNull(),
+                    condition.upperValue != null ? any(BinaryTuplePrefix.class) : isNull(),
+                    eq(flags),
+                    isNull()
+            );
         }
 
-        SubmissionPublisher<BinaryRow> source = tester.beginIndexScan(INDEX_ID, null);
+        input.submit(binaryRow);
+        input.close();
 
-        source.submit(binaryRow);
-        source.close();
-
-        tester.expectDone(1);
+        publisher.expectRow(binaryRow);
+        publisher.expectCompleted();
     }
 
     /**
-     * Index scan (ro/rw) with required fields.
+     * Index scan with specified required columns.
      */
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    public void testIndexScanWithFields(boolean ro) throws InterruptedException {
-        Tester tester = new Tester(ro ? RO_TX : RW_TX);
-        tester.setRowType(SqlTypeName.INTEGER);
+    public void testIndexScanWithRequiredColumns(boolean ro) {
+        NoOpTransaction tx = ro ? RO_TX : RW_TX;
 
-        tester.setBounds(Bound.INCLUSIVE, new Object[]{1}, Bound.NONE, new Object[]{3});
-        tester.setFlags(Bound.toFlags(Bound.INCLUSIVE, Bound.NONE));
+        Tester tester = new Tester();
 
-        BitSet requiredFields = new BitSet();
-        requiredFields.set(1);
-        requiredFields.set(2);
+        int partitionId = 1;
+        long term = 2;
+        int indexId = 3;
 
-        tester.setRequiredFields(1, 2);
+        SubmissionPublisher<BinaryRow> input = newSingleThreadedSubmissionPublisher();
+
+        tester.requiredFields = new BitSet();
+        tester.requiredFields.set(1);
+
+        TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
+        // Set any valid bounds, they are not of our interest here.
+        condition.setBounds(Bound.INCLUSIVE, new Object[]{0}, Bound.NONE, null);
+
+        TestPublisher<Object[]> publisher = tester.indexScan(input, partitionId, term, tx, indexId, condition);
 
         if (ro) {
-            tester.indexScanReadOnly(INDEX_ID);
+            HybridTimestamp timestamp = tx.readTimestamp();
+            ClusterNode clusterNode = tx.clusterNode();
+
+            verify(internalTable).scan(
+                    eq(partitionId),
+                    eq(timestamp),
+                    eq(clusterNode),
+                    eq(indexId),
+                    nullable(BinaryTuplePrefix.class),
+                    nullable(BinaryTuplePrefix.class),
+                    anyInt(),
+                    eq(tester.requiredFields)
+            );
         } else {
-            tester.indexScanReadWrite(INDEX_ID);
+            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), term);
+
+            verify(internalTable).scan(
+                    eq(partitionId),
+                    eq(tx.id()),
+                    eq(primaryReplica),
+                    eq(indexId),
+                    nullable(BinaryTuplePrefix.class),
+                    nullable(BinaryTuplePrefix.class),
+                    anyInt(),
+                    eq(tester.requiredFields)
+            );
         }
 
-        SubmissionPublisher<BinaryRow> source = tester.beginIndexScan(INDEX_ID, requiredFields);
+        input.submit(binaryRow);
+        input.close();
 
-        source.submit(binaryRow);
-        source.close();
-
-        tester.expectDone(1);
+        publisher.expectRow(binaryRow);
+        publisher.expectCompleted();
     }
 
     /**
-     * Index scan (ro / rw) - error propagation.
+     * Index scan error propagation.
      */
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    public void testIndexScanErrorPropagation(boolean ro) throws InterruptedException {
-        Tester tester = new Tester(ro ? RO_TX : RW_TX);
-        tester.setRowType(SqlTypeName.INTEGER);
+    public void testIndexScanError(boolean ro) {
+        NoOpTransaction tx = ro ? RO_TX : RW_TX;
 
-        tester.setBounds(Bound.INCLUSIVE, new Object[]{1}, Bound.NONE, null);
-        tester.setFlags(Bound.toFlags(Bound.INCLUSIVE, Bound.NONE));
+        Tester tester = new Tester();
+
+        int partitionId = 1;
+        long term = 2;
+        int indexId = 3;
+
+        SubmissionPublisher<BinaryRow> input = newSingleThreadedSubmissionPublisher();
+
+        tester.requiredFields = new BitSet();
+        tester.requiredFields.set(1);
+
+        TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
+        // Set any valid bounds, they are not of our interest here.
+        condition.setBounds(Bound.INCLUSIVE, new Object[]{0}, Bound.NONE, null);
+
+        TestPublisher<Object[]> publisher = tester.indexScan(input, partitionId, term, tx, indexId, condition);
+
+        input.submit(binaryRow);
+
+        RuntimeException err = new RuntimeException("err");
+        input.closeExceptionally(err);
+
+        publisher.expectError(err);
+        publisher.expectRow(binaryRow);
+    }
+
+    /**
+     * Index lookup.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testIndexLookup(boolean ro) {
+        NoOpTransaction tx = ro ? RO_TX : RW_TX;
+
+        Tester tester = new Tester();
+
+        int partitionId = 1;
+        long term = 2;
+        int indexId = 3;
+
+        SubmissionPublisher<BinaryRow> input = newSingleThreadedSubmissionPublisher();
+
+        Object[] key = {1};
+
+        TestPublisher<Object[]> publisher = tester.indexLookUp(input, partitionId, term, tx, indexId, key);
 
         if (ro) {
-            tester.indexScanReadOnly(INDEX_ID);
+            verify(internalTable).lookup(
+                    eq(partitionId),
+                    eq(tx.readTimestamp()),
+                    eq(tx.clusterNode()),
+                    eq(indexId),
+                    any(BinaryTuple.class),
+                    isNull()
+            );
         } else {
-            tester.indexScanReadWrite(INDEX_ID);
+            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), term);
+
+            verify(internalTable).lookup(
+                    eq(partitionId),
+                    eq(tx.id()),
+                    eq(primaryReplica),
+                    eq(indexId),
+                    any(BinaryTuple.class),
+                    isNull()
+            );
         }
 
-        SubmissionPublisher<BinaryRow> source = tester.beginIndexScan(INDEX_ID, null);
+        input.submit(binaryRow);
+        input.close();
 
-        source.submit(binaryRow);
+        publisher.expectRow(binaryRow);
+        publisher.expectCompleted();
+    }
+
+    /**
+     * Index lookup with specified required columns.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testIndexLookupWithRequiredColumns(boolean ro) {
+        NoOpTransaction tx = ro ? RO_TX : RW_TX;
+
+        Tester tester = new Tester();
+
+        int partitionId = 1;
+        long term = 2;
+        int indexId = 3;
+
+        SubmissionPublisher<BinaryRow> input = newSingleThreadedSubmissionPublisher();
+
+        tester.requiredFields = new BitSet();
+        tester.requiredFields.set(1);
+
+        Object[] key = {1};
+
+        TestPublisher<Object[]> publisher = tester.indexLookUp(input, partitionId, term, tx, indexId, key);
+
+        if (ro) {
+            verify(internalTable).lookup(
+                    eq(partitionId),
+                    eq(tx.readTimestamp()),
+                    eq(tx.clusterNode()),
+                    eq(indexId),
+                    any(BinaryTuple.class),
+                    eq(tester.requiredFields)
+            );
+        } else {
+            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), term);
+
+            verify(internalTable).lookup(
+                    eq(partitionId),
+                    eq(tx.id()),
+                    eq(primaryReplica),
+                    eq(indexId),
+                    any(BinaryTuple.class),
+                    eq(tester.requiredFields)
+            );
+        }
+
+        input.submit(binaryRow);
+        input.close();
+
+        publisher.expectCompleted();
+        publisher.expectRow(binaryRow);
+    }
+
+    /**
+     * Index lookup - error propagation.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testIndexLookupError(boolean ro) {
+        NoOpTransaction tx = ro ? RO_TX : RW_TX;
+
+        Tester tester = new Tester();
+
+        int partitionId = 1;
+        long term = 2;
+        int indexId = 3;
+
+        SubmissionPublisher<BinaryRow> input = newSingleThreadedSubmissionPublisher();
+
+        Object[] key = {1};
+
+        TestPublisher<Object[]> publisher = tester.indexLookUp(input, partitionId, term, tx, indexId, key);
+
+        input.submit(binaryRow);
 
         RuntimeException err = new RuntimeException("Broken");
-        source.closeExceptionally(err);
+        input.closeExceptionally(err);
 
-        Throwable actualErr = tester.expectError();
-        assertSame(err, actualErr);
+        publisher.expectRow(binaryRow);
+        publisher.expectError(err);
     }
 
-    /**
-     * Index scan (ro/rw) - invalid bounds key.
-     */
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testIndexScanInvalidKey(boolean ro) {
-        Tester tester = new Tester(ro ? RO_TX : RW_TX);
-        tester.setRowType(SqlTypeName.INTEGER, SqlTypeName.INTEGER);
+    private class Tester {
 
-        tester.setBounds(Bound.INCLUSIVE, new Object[]{1, 2, 3}, Bound.NONE, null);
+        final RelDataType rowType;
 
-        if (ro) {
-            tester.indexScanReadOnly(INDEX_ID);
-        } else {
-            tester.indexScanReadWrite(INDEX_ID);
+        final TableDescriptor tableDescriptor;
+
+        final ScannableTable scannableTable;
+
+        // TableRowConvert that collects converted rows.
+        final RowCollectingTableRwoConverter rowConverter = new RowCollectingTableRwoConverter();
+
+        BitSet requiredFields;
+
+        Tester() {
+            rowType = new RelDataTypeFactory.Builder(TYPE_FACTORY)
+                    .add("C1", SqlTypeName.INTEGER)
+                    .build();
+
+            tableDescriptor = new TestTableDescriptor(IgniteDistributions::single, rowType);
+            scannableTable = new ScannableTableImpl(internalTable, rowConverter, tableDescriptor);
         }
 
-        AssertionError err = assertThrows(AssertionError.class, () -> tester.beginIndexScan(INDEX_ID, null));
-        assertEquals("Invalid range condition", err.getMessage());
-    }
-
-    /**
-     * Index lookup (ro/rw) (required fields are not specified).
-     */
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testIndexLookUp(boolean ro) throws InterruptedException {
-        Tester tester = new Tester(ro ? RO_TX : RW_TX);
-        tester.setRowType(SqlTypeName.INTEGER);
-
-        tester.setKey(new Object[]{1});
-
-        if (ro) {
-            tester.indexLookUpReadOnly(INDEX_ID);
-        } else {
-            tester.indexLookUpReadWrite(INDEX_ID);
-        }
-
-        SubmissionPublisher<BinaryRow> source = tester.beginIndexLookUp(INDEX_ID, null);
-
-        source.submit(binaryRow);
-        source.close();
-
-        tester.expectDone(1);
-    }
-
-    /**
-     * Index lookup (ro/rw) with fields.
-     */
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testIndexLookUpWithFields(boolean ro) throws InterruptedException {
-        Tester tester = new Tester(ro ? RO_TX : RW_TX);
-        tester.setRowType(SqlTypeName.INTEGER);
-
-        tester.setKey(new Object[]{1});
-
-        BitSet requiredFields = new BitSet();
-        requiredFields.set(1);
-        requiredFields.set(2);
-
-        tester.setRequiredFields(1, 2);
-
-        if (ro) {
-            tester.indexLookUpReadOnly(INDEX_ID);
-        } else {
-            tester.indexLookUpReadWrite(INDEX_ID);
-        }
-
-        SubmissionPublisher<BinaryRow> source = tester.beginIndexLookUp(INDEX_ID, requiredFields);
-
-        source.submit(binaryRow);
-        source.close();
-
-        tester.expectDone(1);
-    }
-
-    /**
-     * Index lookup (ro / rw) - error propagation.
-     */
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testIndexLookupErrorPropagation(boolean ro) throws InterruptedException {
-        Tester tester = new Tester(ro ? RO_TX : RW_TX);
-        tester.setRowType(SqlTypeName.INTEGER, SqlTypeName.INTEGER);
-
-        tester.setKey(new Object[]{1});
-
-        if (ro) {
-            tester.indexLookUpReadOnly(INDEX_ID);
-        } else {
-            tester.indexLookUpReadWrite(INDEX_ID);
-        }
-
-        SubmissionPublisher<BinaryRow> source = tester.beginIndexLookUp(INDEX_ID, null);
-
-        source.submit(binaryRow);
-
-        RuntimeException err = new RuntimeException("Broken");
-        source.closeExceptionally(err);
-
-        Throwable actualErr = tester.expectError();
-        assertSame(err, actualErr);
-    }
-
-    /**
-     * Index lookup (ro/rw) - invalid key.
-     */
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testIndexLookUpInvalidKey(boolean ro) {
-        Tester tester = new Tester(ro ? RO_TX : RW_TX);
-        tester.setRowType(SqlTypeName.INTEGER, SqlTypeName.INTEGER);
-
-        tester.setKey(new Object[]{1, 2, 3});
-
-        if (ro) {
-            tester.indexLookUpReadOnly(INDEX_ID);
-        } else {
-            tester.indexLookUpReadWrite(INDEX_ID);
-        }
-
-        AssertionError err = assertThrows(AssertionError.class, () -> tester.beginIndexLookUp(INDEX_ID, null));
-        assertEquals("Invalid lookup key.", err.getMessage());
-    }
-
-    class Tester {
-
-        private final PartitionWithTerm partWithTerm = new PartitionWithTerm(1, 2L);
-
-        private final BlockingQueue<Integer> actual = new LinkedBlockingQueue<>();
-
-        private final AtomicInteger counter = new AtomicInteger();
-
-        private final TableRowConverter rowConverter = new TableRowConverter() {
-
-            @Override
-            public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
-                    @Nullable BitSet requiredColumns) {
-                return (RowT) new Object[]{counter.getAndIncrement()};
-            }
-        };
-
-        private final NoOpTransaction tx;
-
-        private final SubmissionPublisher<BinaryRow> source = new SubmissionPublisher<>();
-
-        private final TestSearchCondition<Object[]> searchCondition = new TestSearchCondition<>();
-
-        private final CountDownLatch done = new CountDownLatch(1);
-
-        private final AtomicReference<Throwable> error = new AtomicReference<>();
-
-        private RelDataType rowType;
-
-        private ScannableTable scannableTable;
-
-        private RowFactory<Object[]> rowFactory;
-
-        private RowHandler<Object[]> rowHandler;
-
-        private BitSet requiredFields;
-
-        private Operation operation;
-
-        Tester(NoOpTransaction tx) {
-            TxAttributes txAttributes = TxAttributes.fromTx(tx);
-
-            when(ctx.txAttributes()).thenReturn(txAttributes);
+        TestPublisher<Object[]> tableScan(SubmissionPublisher<?> input, int partitionId, long term, NoOpTransaction tx) {
+            when(ctx.txAttributes()).thenReturn(TxAttributes.fromTx(tx));
             when(ctx.localNode()).thenReturn(tx.clusterNode());
 
-            this.tx = tx;
-        }
-
-        void setRowType(SqlTypeName... type) {
-            IgniteTypeFactory typeFactory = Commons.typeFactory();
-            Builder builder = new Builder(typeFactory);
-
-            int i = 1;
-            for (SqlTypeName typeName : type) {
-                builder = builder.add("C" + i, typeName);
-                i++;
+            if (tx.isReadOnly()) {
+                doAnswer(invocation -> input).when(internalTable)
+                        .scan(anyInt(), any(HybridTimestamp.class), any(ClusterNode.class));
+            } else {
+                doAnswer(invocation -> input).when(internalTable)
+                        .scan(anyInt(), any(UUID.class), any(PrimaryReplica.class), isNull(), isNull(), isNull(), eq(0), isNull());
             }
 
-            rowType = builder.build();
+            RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
+            RowFactory<Object[]> rowFactory = rowHandler.factory(TYPE_FACTORY, rowType);
 
-            TableDescriptor tableDescriptor = new TestTableDescriptor(IgniteDistributions::single, rowType);
+            Publisher<Object[]> publisher = scannableTable.scan(ctx, new PartitionWithTerm(partitionId, term), rowFactory, null);
 
-            scannableTable = new ScannableTableImpl(internalTable, rowConverter, tableDescriptor);
-
-            rowHandler = ArrayRowHandler.INSTANCE;
-            rowFactory = rowHandler.factory(typeFactory, rowType);
+            return new TestPublisher<>(publisher, requiredFields, rowConverter);
         }
 
-        void tableScanReadOnly() {
-            when(internalTable.scan(partWithTerm.partId(), tx.readTimestamp(), tx.clusterNode())).thenReturn(source);
+        TestPublisher<Object[]> indexScan(SubmissionPublisher<?> input, int partitionId, long term, NoOpTransaction tx,
+                int indexId, TestRangeCondition<Object[]> condition) {
 
-            operation = Operation.TABLE_SCAN;
-        }
+            when(ctx.txAttributes()).thenReturn(TxAttributes.fromTx(tx));
+            when(ctx.localNode()).thenReturn(tx.clusterNode());
 
-        void tableScanReadWrite() {
-            PrimaryReplica recipient = new PrimaryReplica(tx.clusterNode(), partWithTerm.term());
-
-            when(internalTable.scan(partWithTerm.partId(), tx.id(), recipient,
-                    null, null, null, 0, null)).thenReturn(source);
-
-            operation = Operation.TABLE_SCAN;
-        }
-
-        SubmissionPublisher<BinaryRow> beginTableScan() {
-            checkOperation(Operation.TABLE_SCAN);
-
-            Publisher<Object[]> publisher = scannableTable.scan(ctx, partWithTerm, rowFactory, null);
-
-            setSubscriber(publisher);
-
-            return source;
-        }
-
-        void setFlags(int flags) {
-            this.searchCondition.flags = flags;
-        }
-
-        void setBounds(Bound lower, @Nullable Object [] lowerValue, Bound upper, @Nullable Object[] upperValue) {
-            if (lower != Bound.NONE) {
-                searchCondition.setLower(lowerValue, lower == Bound.INCLUSIVE, lowerValue.length);
-            }
-            if (upper != Bound.NONE) {
-                searchCondition.setUpper(upperValue, upper == Bound.INCLUSIVE, upperValue.length);
-            }
-        }
-
-        void setRequiredFields(int... fields) {
-            if (fields.length != 0) {
-                requiredFields = new BitSet();
-
-                for (int b : fields) {
-                    requiredFields.set(b);
-                }
-            }
-        }
-
-        void indexScanReadOnly(int indexId) {
-            int flags = searchCondition.flags;
-
-            when(internalTable.scan(eq(partWithTerm.partId()), eq(tx.readTimestamp()), eq(tx.clusterNode()),
-                    eq(indexId), searchCondition.lowerBound(), searchCondition.upperBound(), eq(flags), eq(requiredFields)))
-                    .thenReturn(source);
-
-            operation = Operation.INDEX_SCAN;
-        }
-
-        void indexScanReadWrite(int indexId, int... fields) {
-            int flags = searchCondition.flags;
-            PrimaryReplica recipient = new PrimaryReplica(tx.clusterNode(), partWithTerm.term());
-
-            when(internalTable.scan(eq(partWithTerm.partId()), eq(tx.id()), eq(recipient),
-                    eq(indexId), searchCondition.lowerBound(), searchCondition.upperBound(), eq(flags), eq(requiredFields)))
-                    .thenReturn(source);
-
-            operation = Operation.INDEX_SCAN;
-        }
-
-        SubmissionPublisher<BinaryRow> beginIndexScan(int indexId, @Nullable BitSet requiredFields) {
-            checkOperation(Operation.INDEX_SCAN);
-
-            RangeCondition<Object[]> condition = searchCondition.toRangeCondition();
-
-            String idxField = rowType.getFieldList().get(0).getName();
-
-            Publisher<Object[]> publisher = scannableTable.indexRangeScan(ctx, partWithTerm, rowFactory,
-                    indexId, INDEX_NAME, List.of(idxField), condition, requiredFields);
-
-            setSubscriber(publisher);
-
-            return source;
-        }
-
-        void setKey(Object[] key) {
-            searchCondition.setKey(key, key.length);
-        }
-
-        void indexLookUpReadOnly(int indexId) {
-            when(internalTable.lookup(eq(partWithTerm.partId()), eq(tx.readTimestamp()), eq(tx.clusterNode()),
-                    eq(indexId), any(BinaryTuple.class), eq(requiredFields))).thenReturn(source);
-
-            operation = Operation.INDEX_LOOKUP;
-        }
-
-        void indexLookUpReadWrite(int indexId) {
-            PrimaryReplica recipient = new PrimaryReplica(tx.clusterNode(), partWithTerm.term());
-
-            when(internalTable.lookup(eq(partWithTerm.partId()), eq(tx.id()), eq(recipient),
-                    eq(indexId), any(BinaryTuple.class), eq(requiredFields))).thenReturn(source);
-
-            operation = Operation.INDEX_LOOKUP;
-        }
-
-        SubmissionPublisher<BinaryRow> beginIndexLookUp(int indexId, @Nullable BitSet requiredFields) {
-            checkOperation(Operation.INDEX_LOOKUP);
-
-            RangeCondition<Object[]> condition = searchCondition.toRangeCondition();
-            Object[] key = condition.lower();
-
-            String idxField = rowType.getFieldList().get(0).getName();
-
-            Publisher<Object[]> publisher = scannableTable.indexLookup(ctx, partWithTerm, rowFactory,
-                    indexId, INDEX_NAME, List.of(idxField), key, requiredFields);
-
-            setSubscriber(publisher);
-
-            return source;
-        }
-
-        void expectDone(int count) throws InterruptedException {
-            done.await();
-
-            Throwable err = error.get();
-            assertNull(err, "Unexpected publisher error");
-
-            List<Integer> rows = IntStream.range(0, count)
-                    .boxed()
-                    .collect(Collectors.toList());
-
-            assertEquals(rows, List.copyOf(actual), "items");
-        }
-
-        Throwable expectError() throws InterruptedException {
-            done.await();
-
-            Throwable err = error.get();
-            assertNotNull(err, "Expected an error but operation has completed successfully");
-            return err;
-        }
-
-        private void checkOperation(Operation expected) {
-            if (expected != operation) {
-                throw new IllegalStateException(format("Unexpected operation. Expected {} but got {}", expected, operation));
-            }
-        }
-
-        private void setSubscriber(Publisher<Object[]> publisher) {
-            if (done.getCount() == 0) {
-                throw new IllegalStateException("Completed");
+            if (tx.isReadOnly()) {
+                doAnswer(i -> input).when(internalTable).scan(
+                        anyInt(),
+                        any(HybridTimestamp.class),
+                        any(ClusterNode.class),
+                        any(Integer.class),
+                        nullable(BinaryTuplePrefix.class),
+                        nullable(BinaryTuplePrefix.class),
+                        anyInt(),
+                        nullable(BitSet.class));
+            } else {
+                doAnswer(i -> input).when(internalTable).scan(
+                        anyInt(),
+                        any(UUID.class),
+                        any(PrimaryReplica.class),
+                        any(Integer.class),
+                        nullable(BinaryTuplePrefix.class),
+                        nullable(BinaryTuplePrefix.class),
+                        anyInt(),
+                        nullable(BitSet.class));
             }
 
-            publisher.subscribe(new Subscriber<>() {
+            RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
+            RowFactory<Object[]> rowFactory = rowHandler.factory(TYPE_FACTORY, rowType);
+            RangeCondition<Object[]> rangeCondition = condition.asRangeCondition();
+
+            Publisher<Object[]> publisher = scannableTable.indexRangeScan(ctx, new PartitionWithTerm(partitionId, term), rowFactory,
+                    indexId, "TEST_IDX", List.of("C1"), rangeCondition, requiredFields);
+
+            return new TestPublisher<>(publisher, requiredFields, rowConverter);
+        }
+
+        TestPublisher<Object[]> indexLookUp(SubmissionPublisher<?> input, int partitionId, long term, NoOpTransaction tx,
+                int indexId, Object[] key) {
+
+            when(ctx.txAttributes()).thenReturn(TxAttributes.fromTx(tx));
+            when(ctx.localNode()).thenReturn(tx.clusterNode());
+
+            if (tx.isReadOnly()) {
+                doAnswer(i -> input).when(internalTable).lookup(
+                        anyInt(),
+                        any(HybridTimestamp.class),
+                        any(ClusterNode.class),
+                        any(Integer.class),
+                        nullable(BinaryTuple.class),
+                        nullable(BitSet.class));
+            } else {
+                doAnswer(i -> input).when(internalTable).lookup(
+                        anyInt(),
+                        any(UUID.class),
+                        any(PrimaryReplica.class),
+                        any(Integer.class),
+                        nullable(BinaryTuple.class),
+                        nullable(BitSet.class));
+            }
+
+            RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
+            RowFactory<Object[]> rowFactory = rowHandler.factory(TYPE_FACTORY, rowType);
+
+            Publisher<Object[]> publisher = scannableTable.indexLookup(ctx, new PartitionWithTerm(partitionId, term), rowFactory,
+                    indexId, "TEST_IDX", List.of("C1"), key, requiredFields);
+
+            return new TestPublisher<>(publisher, requiredFields, rowConverter);
+        }
+    }
+
+    static <T> SubmissionPublisher<T> newSingleThreadedSubmissionPublisher() {
+        return new SubmissionPublisher<>(Runnable::run, Integer.MAX_VALUE);
+    }
+
+    static class RowCollectingTableRwoConverter implements TableRowConverter {
+
+        final List<Map.Entry<BinaryRow, BitSet>> converted = new ArrayList<>();
+
+        @Override
+        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory, @Nullable BitSet requiredColumns) {
+            converted.add(new SimpleEntry<>(row, requiredColumns));
+            return (RowT) new Object[]{0};
+        }
+
+        void expectConverted(BinaryRow row, @Nullable BitSet requiredFields) {
+            if (!converted.contains(new SimpleEntry<>(row, requiredFields))) {
+                fail(format("Unexpected binary row/required fields: {}/{}. Converted: {}", row, requiredFields, converted));
+            }
+        }
+    }
+
+    // Checks that publisher handles onError and onComplete
+    static class TestPublisher<T> {
+
+        final Publisher<T> input;
+
+        final CountDownLatch done = new CountDownLatch(1);
+
+        final AtomicReference<Throwable> err = new AtomicReference<>();
+
+        final RowCollectingTableRwoConverter rowConverter;
+
+        final BitSet requiredFields;
+
+        TestPublisher(Publisher<T> input, BitSet requiredFields, RowCollectingTableRwoConverter rowConverter) {
+            this.input = input;
+            this.rowConverter = rowConverter;
+            this.requiredFields = requiredFields;
+
+            input.subscribe(new Subscriber<T>() {
                 @Override
                 public void onSubscribe(Subscription subscription) {
                     subscription.request(Long.MAX_VALUE);
                 }
 
                 @Override
-                public void onNext(Object[] item) {
-                    actual.offer((Integer) item[0]);
+                public void onNext(T item) {
+                    // do nothing.
                 }
 
                 @Override
                 public void onError(Throwable t) {
-                    error.set(t);
+                    err.set(t);
                     done.countDown();
                 }
 
@@ -630,14 +643,33 @@ public class ScannableTableSelfTest {
                 }
             });
         }
+
+        void expectError(Throwable t) {
+            try {
+                done.await();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            assertSame(t, err.get(), "Unexpected error");
+        }
+
+        void expectCompleted() {
+            try {
+                done.await();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            assertNull(err.get(), "Expected no error");
+        }
+
+        void expectRow(BinaryRow row) {
+            rowConverter.expectConverted(row, requiredFields);
+        }
     }
 
-    enum Operation {
-        TABLE_SCAN,
-        INDEX_SCAN,
-        INDEX_LOOKUP
-    }
-
+    /**
+     * Index bounds.
+     */
     enum Bound {
         INCLUSIVE,
         EXCLUSIVE,
@@ -667,85 +699,77 @@ public class ScannableTableSelfTest {
         }
     }
 
-    private static class TestSearchCondition<T>  {
+    static BinaryTuplePrefix matchBound(@Nullable Object value) {
+        if (value == null) {
+            return isNull();
+        } else {
+            return any(BinaryTuplePrefix.class);
+        }
+    }
 
-        T lower;
-        BinaryTuplePrefix lowerPrefix;
-        boolean lowerInclude;
+    /**
+     * Utility class to build {@link RangeCondition}.
+     */
+    static final class TestRangeCondition<T> {
 
-        T upper;
-        BinaryTuplePrefix upperPrefix;
-        boolean upperInclude;
+        private Bound lowerBoundType;
+        private T lowerValue;
 
-        BinaryTuple keyTuple;
+        private Bound upperBoundType;
+        private T upperValue;
 
-        int flags;
-
-        void setLower(T value, boolean inclusive, int fieldCount) {
-            this.lower = value;
-            this.lowerInclude = inclusive;
-            this.lowerPrefix = BinaryTuplePrefix.fromBinaryTuple(newTuple(fieldCount));
+        void setBounds(Bound lower, @Nullable T lowerValue, Bound upper, @Nullable T upperValue) {
+            setLower(lower, lowerValue);
+            setUpper(upper, upperValue);
         }
 
-        void setUpper(T value, boolean inclusive, int fieldCount) {
-            this.upper = value;
-            this.upperInclude = inclusive;
-            this.upperPrefix = BinaryTuplePrefix.fromBinaryTuple(newTuple(fieldCount));
-        }
-
-        void setKey(T value, int fields) {
-            this.lower = value;
-            keyTuple = newTuple(fields);
-        }
-
-        BinaryTuplePrefix lowerBound() {
-            if (lowerPrefix == null) {
-                return ArgumentMatchers.isNull();
-            } else {
-                return ArgumentMatchers.any(BinaryTuplePrefix.class);
+        void setLower(Bound bound, T value) {
+            if (bound == Bound.NONE && value != null) {
+                throw new IllegalArgumentException("NONE bound with no value");
             }
+            lowerBoundType = bound;
+            lowerValue = value;
         }
 
-        BinaryTuplePrefix upperBound() {
-            if (upperPrefix == null) {
-                return ArgumentMatchers.isNull();
-            } else {
-                return ArgumentMatchers.any(BinaryTuplePrefix.class);
+        void setUpper(Bound bound, T value) {
+            if (bound == Bound.NONE && value != null) {
+                throw new IllegalArgumentException("NONE bound with no value");
             }
+            upperBoundType = bound;
+            upperValue = value;
+        }
+
+        int toFlags() {
+            return Bound.toFlags(lowerBoundType, upperBoundType);
         }
 
         @Nullable
-        RangeCondition<T> toRangeCondition() {
-            if (lower == null && upper == null) {
+        RangeCondition<T> asRangeCondition() {
+            if (lowerValue == null && upperValue == null) {
                 return null;
             } else {
                 return new RangeCondition<T>() {
                     @Override
                     public T lower() {
-                        return lower;
+                        return lowerValue;
                     }
 
                     @Override
                     public T upper() {
-                        return upper;
+                        return upperValue;
                     }
 
                     @Override
                     public boolean lowerInclude() {
-                        return lowerInclude;
+                        return lowerBoundType == Bound.INCLUSIVE;
                     }
 
                     @Override
                     public boolean upperInclude() {
-                        return upperInclude;
+                        return upperBoundType == Bound.INCLUSIVE;
                     }
                 };
             }
         }
-
-        private static BinaryTuple newTuple(int fieldCount) {
-            return new BinaryTuple(fieldCount, ByteBuffer.allocate(32).order(ByteOrder.LITTLE_ENDIAN));
-        }
-
     }
 }
