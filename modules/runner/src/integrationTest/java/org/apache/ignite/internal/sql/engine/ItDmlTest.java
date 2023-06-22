@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.sql.util.SqlTestUtils.assertSqlExceptionThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -27,12 +28,10 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -75,9 +74,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .check();
 
         {
-            SqlException ex = assertThrows(SqlException.class, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 2));
-
-            assertEquals(ex.code(), Sql.DUPLICATE_KEYS_ERR);
+            assertSqlExceptionThrows(Sql.DUPLICATE_KEYS_ERR, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 2));
         }
 
         assertQuery("DELETE FROM my WHERE id=?")
@@ -95,9 +92,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .check();
 
         {
-            SqlException ex = assertThrows(SqlException.class, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 3));
-
-            assertEquals(ex.code(), Sql.DUPLICATE_KEYS_ERR);
+            assertSqlExceptionThrows(Sql.DUPLICATE_KEYS_ERR, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 3));
         }
     }
 
@@ -111,7 +106,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 + "WHEN MATCHED THEN UPDATE SET b = src.b, k1 = src.k1 "
                 + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b) VALUES (src.k1, src.k2, src.a, src.b)";
 
-        assertThrows(CalciteContextException.class, () -> sql(sql));
+        assertThrows(IgniteException.class, () -> sql(sql));
     }
 
     @Test
@@ -124,12 +119,10 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(1L)
                 .check();
 
-        var sqlException = assertThrows(
-                SqlException.class,
+        assertSqlExceptionThrows(
+                Sql.DUPLICATE_KEYS_ERR,
                 () -> sql("INSERT INTO test VALUES (0, 0), (1, 1), (2, 2)")
         );
-
-        assertEquals(Sql.DUPLICATE_KEYS_ERR, sqlException.code());
 
         assertQuery("SELECT count(*) FROM test")
                 .returns(1L)
@@ -174,12 +167,10 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .map(Object::toString)
                 .collect(Collectors.joining("), (", "(", ")"));
 
-        SqlException sqlException = assertThrows(
-                SqlException.class,
+        assertSqlExceptionThrows(
+                Sql.DUPLICATE_KEYS_ERR,
                 () -> sql(insertStatement)
         );
-
-        assertEquals(Sql.DUPLICATE_KEYS_ERR, sqlException.code());
 
         assertQuery("SELECT count(*) FROM test")
                 .returns(0L)
@@ -343,11 +334,11 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT * FROM test2").returns(1, 0, 0, "0").check();
 
         // Target table alias duplicate source table name.
-        assertThrows(CalciteContextException.class, () -> sql("MERGE INTO test2 test1 USING test1 ON c = e "
+        assertThrows(IgniteException.class, () -> sql("MERGE INTO test2 test1 USING test1 ON c = e "
                 + "WHEN MATCHED THEN UPDATE SET d = b + 1"), "Duplicate relation name");
 
         // Source table alias duplicate target table name.
-        assertThrows(CalciteContextException.class, () -> sql("MERGE INTO test2 USING test1 test2 ON c = e "
+        assertThrows(IgniteException.class, () -> sql("MERGE INTO test2 USING test1 test2 ON c = e "
                 + "WHEN MATCHED THEN UPDATE SET d = b + 1"), "Duplicate relation name");
 
         // Without aliases, reference columns by table name.
@@ -357,11 +348,11 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT * FROM test2").returns(1, 1, 0, "0").check();
 
         // Ambiguous column name in condition.
-        assertThrows(CalciteContextException.class, () -> sql("MERGE INTO test2 USING test1 ON a = test1.a "
+        assertThrows(IgniteException.class, () -> sql("MERGE INTO test2 USING test1 ON a = test1.a "
                 + "WHEN MATCHED THEN UPDATE SET a = test1.a + 1"), "Column 'A' is ambiguous");
 
         // Ambiguous column name in update statement.
-        assertThrows(CalciteContextException.class, () -> sql("MERGE INTO test2 USING test1 ON c = e "
+        assertThrows(IgniteException.class, () -> sql("MERGE INTO test2 USING test1 ON c = e "
                 + "WHEN MATCHED THEN UPDATE SET a = a + 1"), "Column 'A' is ambiguous");
 
         // With aliases, reference columns by table alias.
@@ -384,12 +375,10 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE TABLE test2 (k int PRIMARY KEY, a int, b int)");
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> sql(
-                        "MERGE INTO test2 USING test1 ON test1.a = test2.a "
-                                + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
-                                + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
-
-        assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
+        assertSqlExceptionThrows(Sql.DUPLICATE_KEYS_ERR, () -> sql(
+                "MERGE INTO test2 USING test1 ON test1.a = test2.a "
+                        + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
+                        + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
     }
 
     /**
@@ -540,7 +529,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     public void testCheckNullValueErrorMessageForColumnWithDefaultValue() {
         sql("CREATE TABLE tbl(key int DEFAULT 9 primary key, val varchar)");
 
-        var e = assertThrows(CalciteContextException.class,
+        var e = assertThrows(IgniteException.class,
                 () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
 
         var expectedMessage = "From line 1, column 28 to line 1, column 45: Column 'KEY' does not allow NULLs";

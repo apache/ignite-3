@@ -125,15 +125,15 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
     /** Check correctness of planning timeout. */
     @Test
-    public void testPlanningTimeout() throws Exception {
+    public void testPlanningTimeout() {
         IgniteSql sql = igniteSql();
 
-        sql("CREATE TABLE TST(id INTEGER PRIMARY KEY, val INTEGER)");
+        sql("CREATE TABLE TST1(id INTEGER PRIMARY KEY, val INTEGER)");
 
         Session ses = sql.sessionBuilder().property(PLANNING_TIMEOUT.name, 1L).build();
 
         SqlTestUtils.assertSqlExceptionThrows(EXECUTION_CANCELLED_ERR,
-                () -> ses.execute(null, "SELECT * FROM TST t, TST t1, TST t2"));
+                () -> ses.execute(null, "SELECT * FROM TST1 t, TST1 t1, TST1 t2"));
 
         ses.close();
     }

@@ -26,7 +26,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -106,7 +106,7 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
         assertEquals(Set.of(101), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 
         //todo: correct exception https://issues.apache.org/jira/browse/IGNITE-16095
-        assertThrows(CalciteContextException.class, () -> sql("INSERT INTO tbl(c1, c2) VALUES (2, NULL)"));
+        assertThrows(IgniteException.class, () -> sql("INSERT INTO tbl(c1, c2) VALUES (2, NULL)"));
     }
 
     /**
