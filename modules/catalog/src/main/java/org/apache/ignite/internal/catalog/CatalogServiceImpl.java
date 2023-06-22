@@ -839,7 +839,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         @Override
         public void handle(VersionedUpdate update, HybridTimestamp metastoreUpdateTimestamp) {
             int version = update.version();
-            long activationTimestamp = metastoreUpdateTimestamp.addPhysicalTime(update.delayDuration()).longValue();
+            long activationTimestamp = metastoreUpdateTimestamp.addPhysicalTime(update.delayDurationMs()).longValue();
             Catalog catalog = catalogByVer.get(version - 1);
 
             assert catalog != null;

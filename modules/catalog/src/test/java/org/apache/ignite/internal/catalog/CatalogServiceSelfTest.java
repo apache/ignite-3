@@ -1108,7 +1108,7 @@ public class CatalogServiceSelfTest {
 
             VersionedUpdate update = new VersionedUpdate(
                     updateFromInvocation.version(),
-                    updateFromInvocation.delayDuration(),
+                    updateFromInvocation.delayDurationMs(),
                     List.of(new ObjectIdGenUpdateEntry(1))
             );
 

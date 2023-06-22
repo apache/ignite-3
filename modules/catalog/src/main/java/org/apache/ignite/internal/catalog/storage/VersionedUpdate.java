@@ -58,7 +58,7 @@ public class VersionedUpdate implements Serializable {
     }
 
     /** Returns Delay Duration for this update (in milliseconds). */
-    public long delayDuration() {
+    public long delayDurationMs() {
         return delayDurationMs;
     }
 
