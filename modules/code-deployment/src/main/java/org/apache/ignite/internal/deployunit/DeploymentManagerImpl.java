@@ -31,7 +31,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -141,7 +140,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             Version version,
             boolean force,
             CompletableFuture<DeploymentUnit> deploymentUnit,
-            DeployedNodes deployedNodes
+            NodesToDeploy deployedNodes
     ) {
         checkId(id);
         Objects.requireNonNull(version);
@@ -149,9 +148,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
         return deployedNodes.extractNodes(cmgManager)
                 .thenCompose(nodesToDeploy ->
-                        doDeploy(id, version, force, deploymentUnit, nodesToDeploy,
-                                undeployed -> deployAsync(id, version, deploymentUnit, deployedNodes)
-                        )
+                        doDeploy(id, version, force, deploymentUnit, nodesToDeploy)
                 );
     }
 
@@ -160,8 +157,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             Version version,
             boolean force,
             CompletableFuture<DeploymentUnit> unitFuture,
-            Set<String> nodesToDeploy,
-            Function<Boolean, CompletableFuture<Boolean>> retryDeploy
+            Set<String> nodesToDeploy
     ) {
         return deploymentUnitStore.createClusterStatus(id, version, nodesToDeploy)
                 .thenCompose(success -> unitFuture.thenCompose(deploymentUnit -> {
@@ -170,7 +166,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                     } else {
                         if (force) {
                             return undeployAsync(id, version)
-                                    .thenCompose(retryDeploy);
+                                    .thenCompose(u -> doDeploy(id, version, false, unitFuture, nodesToDeploy));
                         }
                         LOG.warn("Failed to deploy meta of unit " + id + ":" + version + " to metastore. "
                                 + "Already exists.");
@@ -181,7 +177,12 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                 }));
     }
 
-    private CompletableFuture<Boolean> doDeploy(String id, Version version, DeploymentUnit deploymentUnit, Set<String> nodesToDeploy) {
+    private CompletableFuture<Boolean> doDeploy(
+            String id,
+            Version version,
+            DeploymentUnit deploymentUnit,
+            Set<String> nodesToDeploy
+    ) {
         UnitContent unitContent;
         try {
             unitContent = UnitContent.readContent(deploymentUnit);

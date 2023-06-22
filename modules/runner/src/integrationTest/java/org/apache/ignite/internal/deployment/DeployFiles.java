@@ -34,7 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.deployunit.DeployedNodes;
+import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
@@ -99,7 +99,7 @@ class DeployFiles {
     }
 
     public Unit deployAndVerify(String id, Version version, boolean force, List<DeployFile> files, IgniteImpl entryNode) {
-        return deployAndVerify(id, version, force, files, new DeployedNodes(List.of()), entryNode);
+        return deployAndVerify(id, version, force, files, new NodesToDeploy(List.of()), entryNode);
     }
 
     public Unit deployAndVerify(
@@ -107,7 +107,7 @@ class DeployFiles {
             Version version,
             boolean force,
             List<DeployFile> files,
-            DeployedNodes deployedNodes,
+            NodesToDeploy nodesToDeploy,
             IgniteImpl entryNode
     ) {
         List<Path> paths = files.stream()
@@ -117,7 +117,7 @@ class DeployFiles {
         CompletableFuture<Boolean> deploy;
 
         deploy = entryNode.deployment()
-                .deployAsync(id, version, force, fromPaths(paths), deployedNodes);
+                .deployAsync(id, version, force, fromPaths(paths), nodesToDeploy);
 
         assertThat(deploy, willBe(true));
 

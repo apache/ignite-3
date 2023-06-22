@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.deployunit.DeployedNodes;
+import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,7 +63,7 @@ public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest 
                 Version.parseVersion("1.0.0"),
                 false,
                 List.of(files.bigFile()),
-                new DeployedNodes(cmgNodes),
+                new NodesToDeploy(cmgNodes),
                 cluster.node(3)
         );
 

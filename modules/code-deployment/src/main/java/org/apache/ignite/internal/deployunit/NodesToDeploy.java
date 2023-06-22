@@ -29,7 +29,7 @@ import org.apache.ignite.network.ClusterNode;
 /**
  * Nodes for initial deploy.
  */
-public class DeployedNodes {
+public class NodesToDeploy {
     /**
      * Direct nodes list.
      */
@@ -40,15 +40,15 @@ public class DeployedNodes {
      */
     private final InitialDeployMode deployMode;
 
-    public DeployedNodes(List<String> nodesList) {
+    public NodesToDeploy(List<String> nodesList) {
         this(null, nodesList);
     }
 
-    public DeployedNodes(InitialDeployMode deployMode) {
+    public NodesToDeploy(InitialDeployMode deployMode) {
         this(deployMode, null);
     }
 
-    private DeployedNodes(InitialDeployMode deployMode, List<String> nodesList) {
+    private NodesToDeploy(InitialDeployMode deployMode, List<String> nodesList) {
         this.deployMode = deployMode;
         this.nodesList = nodesList;
     }
@@ -76,6 +76,13 @@ public class DeployedNodes {
         }
     }
 
+    /**
+     * Gets a list of nodes for initial deployment. Always contains at least a majority of CMG nodes.
+     *
+     * @param cmgManager CMG manager.
+     * @return Completed future with a set of consistent IDs, or a future, completed exceptionally with
+     *         {@link InvalidNodesArgumentException} if any of the nodes are not present in the logical topology.
+     */
     private CompletableFuture<Set<String>> extractNodesFromList(ClusterManagementGroupManager cmgManager) {
         return cmgManager.majority()
                 .thenCompose(majority -> cmgManager.logicalTopology()

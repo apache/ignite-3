@@ -33,7 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.deployunit.DeployedNodes;
+import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -135,7 +135,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
                     unitId,
                     unitVersion,
                     CompletableFuture.completedFuture(() -> Map.of(jarName, jarStream)),
-                    new DeployedNodes(MAJORITY)
+                    new NodesToDeploy(MAJORITY)
             );
 
             assertThat(deployed, willBe(true));
