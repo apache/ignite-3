@@ -150,14 +150,11 @@ public class CatalogServiceSelfTest {
     void setUp() {
         vault = new VaultManager(new InMemoryVaultService());
 
-        SimpleInMemoryKeyValueStorage keyValueStorage = new SimpleInMemoryKeyValueStorage("test");
-        metastore = StandaloneMetaStorageManager.create(
-                vault, keyValueStorage
-        );
+        metastore = StandaloneMetaStorageManager.create(vault, new SimpleInMemoryKeyValueStorage("test"));
 
         clock = new HybridClockImpl();
         clockWaiter = spy(new ClockWaiter("test", clock));
-        updateLog = spy(new UpdateLogImpl(metastore, keyValueStorage::timestampByRevision, vault));
+        updateLog = spy(new UpdateLogImpl(metastore, vault));
         service = new CatalogServiceImpl(updateLog, clockWaiter);
 
         vault.start();

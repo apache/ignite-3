@@ -19,8 +19,10 @@ package org.apache.ignite.internal.metastorage;
 
 import java.util.Collection;
 import java.util.List;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Watch event contains all entry updates done under one revision. Each particular entry update in this revision is represented by {@link
@@ -33,15 +35,20 @@ public class WatchEvent {
 
     private final long revision;
 
+    /** Timestamp assigned by the MetaStorage to the event's revision. */
+    private final HybridTimestamp timestamp;
+
     /**
      * Constructs an watch event with given entry events collection.
      *
      * @param entryEvts Events for entries corresponding to an update under one revision.
      * @param revision Revision of the updated entries.
+     * @param timestamp Timestamp assigned by the MetaStorage to the event's revision.
      */
-    public WatchEvent(Collection<EntryEvent> entryEvts, long revision) {
+    public WatchEvent(Collection<EntryEvent> entryEvts, long revision, HybridTimestamp timestamp) {
         this.entryEvts = List.copyOf(entryEvts);
         this.revision = revision;
+        this.timestamp = timestamp;
     }
 
     /**
@@ -49,8 +56,9 @@ public class WatchEvent {
      *
      * @param entryEvt Entry event.
      */
+    @TestOnly
     public WatchEvent(EntryEvent entryEvt) {
-        this(List.of(entryEvt), entryEvt.newEntry().revision());
+        this(List.of(entryEvt), entryEvt.newEntry().revision(), HybridTimestamp.MAX_VALUE);
     }
 
     /**
@@ -89,6 +97,15 @@ public class WatchEvent {
      */
     public long revision() {
         return revision;
+    }
+
+    /**
+     * Returns the timestamp assigned by the MetaStorage to this event's revision.
+     *
+     * @return Timestamp assigned by the MetaStorage to this event's revision.
+     */
+    public HybridTimestamp timestamp() {
+        return timestamp;
     }
 
     @Override

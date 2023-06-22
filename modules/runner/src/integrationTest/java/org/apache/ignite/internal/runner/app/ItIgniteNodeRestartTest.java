@@ -255,14 +255,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock, new TransactionIdGenerator(idx));
 
-        RocksDbKeyValueStorage keyValueStorage = new RocksDbKeyValueStorage(name, dir.resolve("metastorage"));
         var metaStorageMgr = new MetaStorageManagerImpl(
                 vault,
                 clusterSvc,
                 cmgManager,
                 new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                 raftMgr,
-                keyValueStorage,
+                new RocksDbKeyValueStorage(name, dir.resolve("metastorage")),
                 hybridClock
         );
 
@@ -328,7 +327,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var clockWaiter = new ClockWaiter("test", hybridClock);
 
         var catalogManager = new CatalogServiceImpl(
-                new UpdateLogImpl(metaStorageMgr, keyValueStorage::timestampByRevision, vault),
+                new UpdateLogImpl(metaStorageMgr, vault),
                 clockWaiter
         );
 

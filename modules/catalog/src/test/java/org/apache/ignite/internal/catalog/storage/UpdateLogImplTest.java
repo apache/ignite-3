@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -49,8 +48,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 @SuppressWarnings("ConstantConditions")
 class UpdateLogImplTest {
 
-    private KeyValueStorage keyValueStorage;
-
     private MetaStorageManager metastore;
 
     private VaultManager vault;
@@ -59,9 +56,7 @@ class UpdateLogImplTest {
     void setUp() {
         vault = new VaultManager(new InMemoryVaultService());
 
-        keyValueStorage = new SimpleInMemoryKeyValueStorage("test");
-
-        metastore = StandaloneMetaStorageManager.create(vault, keyValueStorage);
+        metastore = StandaloneMetaStorageManager.create(vault, new SimpleInMemoryKeyValueStorage("test"));
 
         vault.start();
         metastore.start();
@@ -116,7 +111,7 @@ class UpdateLogImplTest {
     }
 
     private UpdateLogImpl createUpdateLogImpl() {
-        return new UpdateLogImpl(metastore, keyValueStorage::timestampByRevision, vault);
+        return new UpdateLogImpl(metastore, vault);
     }
 
     @Test

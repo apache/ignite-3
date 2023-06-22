@@ -29,7 +29,6 @@ import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.LongFunction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -58,7 +57,6 @@ public class UpdateLogImpl implements UpdateLog {
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     private final MetaStorageManager metastore;
-    private final LongFunction<HybridTimestamp> metastoreRevisionToTs;
     private final VaultManager vault;
 
     private volatile OnUpdateHandler onUpdateHandler;
@@ -68,16 +66,10 @@ public class UpdateLogImpl implements UpdateLog {
      * Creates the object.
      *
      * @param metastore A metastore is used to store and distribute updates across the cluster.
-     * @param metastoreRevisionToTs Converts metastore revision to metastore timestamp.
      * @param vault A vault is used to recover state and replay updates on start.
      */
-    public UpdateLogImpl(
-            MetaStorageManager metastore,
-            LongFunction<HybridTimestamp> metastoreRevisionToTs,
-            VaultManager vault
-    ) {
+    public UpdateLogImpl(MetaStorageManager metastore, VaultManager vault) {
         this.vault = vault;
-        this.metastoreRevisionToTs = metastoreRevisionToTs;
         this.metastore = metastore;
     }
 
@@ -174,7 +166,7 @@ public class UpdateLogImpl implements UpdateLog {
             }
 
             if (appliedRevTimestamp == null) {
-                appliedRevTimestamp = metastoreRevisionToTs.apply(metastore.appliedRevision());
+                appliedRevTimestamp = metastore.appliedRevisionTimestamp();
             }
 
             VersionedUpdate update = fromBytes(entry.value());
@@ -204,8 +196,6 @@ public class UpdateLogImpl implements UpdateLog {
     private class UpdateListener implements WatchListener {
         @Override
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
-            HybridTimestamp eventTimestamp = metastoreRevisionToTs.apply(event.revision());
-
             for (EntryEvent eventEntry : event.entryEvents()) {
                 assert eventEntry.newEntry() != null;
                 assert !eventEntry.newEntry().empty();
@@ -216,7 +206,7 @@ public class UpdateLogImpl implements UpdateLog {
 
                 VersionedUpdate update = fromBytes(payload);
 
-                onUpdateHandler.handle(update, eventTimestamp);
+                onUpdateHandler.handle(update, event.timestamp());
             }
 
             return CompletableFuture.completedFuture(null);

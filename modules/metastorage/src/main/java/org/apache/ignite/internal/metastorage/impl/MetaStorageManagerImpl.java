@@ -258,6 +258,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
+    public HybridTimestamp appliedRevisionTimestamp() {
+        return storage.timestampByRevision(appliedRevision);
+    }
+
+    @Override
     public void registerPrefixWatch(ByteArray key, WatchListener listener) {
         storage.watchRange(key.bytes(), storage.nextKey(key.bytes()), appliedRevision() + 1, listener);
     }
