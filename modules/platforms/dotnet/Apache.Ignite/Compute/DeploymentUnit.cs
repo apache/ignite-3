@@ -22,7 +22,9 @@ namespace Apache.Ignite.Compute;
 /// </summary>
 /// <param name="Name">Name.</param>
 /// <param name="Version">Version.</param>
-public sealed record DeploymentUnit(string Name, string Version = DeploymentUnit.LatestVersion)
+public sealed record DeploymentUnit(
+    string Name,
+    string Version = DeploymentUnit.LatestVersion)
 {
     /// <summary>
     /// Latest version.
