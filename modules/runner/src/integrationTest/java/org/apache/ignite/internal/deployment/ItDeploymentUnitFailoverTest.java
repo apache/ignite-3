@@ -56,7 +56,7 @@ public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest 
                 false,
                 List.of(files.bigFile()),
                 new NodesToDeploy(List.of(node.name())),
-                cluster.node(2)
+                cmgNode
         );
 
         stopNode(nodeIndex);
