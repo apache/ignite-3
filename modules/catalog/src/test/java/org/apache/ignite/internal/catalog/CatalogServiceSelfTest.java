@@ -1621,7 +1621,7 @@ public class CatalogServiceSelfTest {
 
             ArgumentCaptor<HybridTimestamp> tsCaptor = ArgumentCaptor.forClass(HybridTimestamp.class);
 
-            verify(clockWaiter).waitFor(tsCaptor.capture());
+            verify(clockWaiter, timeout(10_000)).waitFor(tsCaptor.capture());
             HybridTimestamp userWaitTs = tsCaptor.getValue();
             assertThat(
                     userWaitTs.getPhysical() - startTs.getPhysical(),

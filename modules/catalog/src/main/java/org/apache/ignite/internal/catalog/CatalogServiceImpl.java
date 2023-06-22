@@ -34,8 +34,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.function.LongSupplier;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
@@ -89,7 +89,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
@@ -134,7 +133,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     private final ClockWaiter clockWaiter;
 
-    private final Lazy<Long> delayDurationMs;
+    private final LongSupplier delayDurationMsSupplier;
 
     /**
      * Constructor.
@@ -153,11 +152,10 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /**
      * Constructor.
      */
-    public CatalogServiceImpl(UpdateLog updateLog, ClockWaiter clockWaiter, Supplier<Long> delayDurationMsSupplier) {
+    public CatalogServiceImpl(UpdateLog updateLog, ClockWaiter clockWaiter, LongSupplier delayDurationMsSupplier) {
         this.updateLog = updateLog;
         this.clockWaiter = clockWaiter;
-
-        delayDurationMs = new Lazy<>(delayDurationMsSupplier);
+        this.delayDurationMsSupplier = delayDurationMsSupplier;
     }
 
     /** {@inheritDoc} */
@@ -817,7 +815,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
         int newVersion = catalog.version() + 1;
 
-        return updateLog.append(new VersionedUpdate(newVersion, delayDurationMs.get(), updates))
+        return updateLog.append(new VersionedUpdate(newVersion, delayDurationMsSupplier.getAsLong(), updates))
                 .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
                 .thenCompose(result -> {
                     if (result) {
