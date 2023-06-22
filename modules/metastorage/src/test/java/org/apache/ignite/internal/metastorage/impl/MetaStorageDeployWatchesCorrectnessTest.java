@@ -29,27 +29,36 @@ import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.RaftManager;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests that check correctness of an invocation {@link MetaStorageManager#deployWatches()}.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest {
     /** Vault manager. */
     private static VaultManager vaultManager;
+
+    @InjectConfiguration
+    private static MetaStorageConfiguration metaStorageConfiguration;
 
     @BeforeAll
     public static void init() {
@@ -77,23 +86,24 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
         ClusterService clusterService = mock(ClusterService.class);
-        LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
         RaftManager raftManager = mock(RaftManager.class);
 
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of(mcNodeName)));
         when(clusterService.nodeName()).thenReturn(mcNodeName);
-        when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any())).thenReturn(completedFuture(mock(
-                RaftGroupService.class)));
+        when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any(), any()))
+                .thenReturn(completedFuture(mock(TopologyAwareRaftGroupService.class)));
 
         return Stream.of(
                 new MetaStorageManagerImpl(
                         vaultManager,
                         clusterService,
                         cmgManager,
-                        logicalTopologyService,
+                        mock(LogicalTopologyService.class),
                         raftManager,
                         new SimpleInMemoryKeyValueStorage(mcNodeName),
-                        clock
+                        clock,
+                        mock(TopologyAwareRaftGroupServiceFactory.class),
+                        metaStorageConfiguration
                 ),
                 StandaloneMetaStorageManager.create(vaultManager)
         );

@@ -82,6 +82,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -155,6 +156,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
 
+    @InjectConfiguration
+    private static MetaStorageConfiguration metaStorageConfiguration;
+
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
      *
@@ -224,7 +228,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         HybridClock hybridClock = new HybridClockImpl();
 
-        var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock);
+        var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
+
+        var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock, raftGroupEventsClientListener);
 
         var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
 
@@ -255,14 +261,25 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock, new TransactionIdGenerator(idx));
 
+        var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
+
+        var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                clusterSvc,
+                logicalTopologyService,
+                Loza.FACTORY,
+                raftGroupEventsClientListener
+        );
+
         var metaStorageMgr = new MetaStorageManagerImpl(
                 vault,
                 clusterSvc,
                 cmgManager,
-                new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
+                logicalTopologyService,
                 raftMgr,
                 new RocksDbKeyValueStorage(name, dir.resolve("metastorage")),
-                hybridClock
+                hybridClock,
+                topologyAwareRaftGroupServiceFactory,
+                metaStorageConfiguration
         );
 
         var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vault);
@@ -306,8 +323,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
-        LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
-
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 zonesConfig,
                 tablesConfig,
@@ -315,13 +330,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopologyService,
                 vault,
                 name
-        );
-
-        TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
-                clusterSvc,
-                new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
-                Loza.FACTORY,
-                new RaftGroupEventsClientListener()
         );
 
         var clockWaiter = new ClockWaiter("test", hybridClock);

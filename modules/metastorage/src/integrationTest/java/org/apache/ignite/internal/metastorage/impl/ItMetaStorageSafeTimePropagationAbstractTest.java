@@ -41,13 +41,10 @@ import org.junit.jupiter.api.Test;
 public abstract class ItMetaStorageSafeTimePropagationAbstractTest extends AbstractKeyValueStorageTest {
     private final HybridClock clock = new HybridClockImpl();
 
-    private final ClusterTimeImpl time = new ClusterTimeImpl(new IgniteSpinBusyLock(), clock);
+    private final ClusterTimeImpl time = new ClusterTimeImpl("node", new IgniteSpinBusyLock(), clock);
 
     @BeforeEach
-    @Override
-    public void setUp() {
-        super.setUp();
-
+    public void startWatches() {
         storage.startWatches((e, t) -> {
             time.updateSafeTime(t);
 
@@ -56,8 +53,8 @@ public abstract class ItMetaStorageSafeTimePropagationAbstractTest extends Abstr
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        storage.close();
+    public void stopTime() throws Exception {
+        time.close();
     }
 
     @Test

@@ -276,10 +276,10 @@ public class MetaStorageServiceImpl implements MetaStorageService {
      * @param safeTime New safe time.
      * @return Future that will be completed when message is sent.
      */
-    public CompletableFuture<Void> syncTime(HybridTimestamp safeTime) {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19199 Only propagate safe time when ms is idle
+    public CompletableFuture<Void> syncTime(HybridTimestamp safeTime, long term) {
         SyncTimeCommand syncTimeCommand = context.commandsFactory().syncTimeCommand()
                 .safeTimeLong(safeTime.longValue())
+                .initiatorTerm(term)
                 .build();
 
         return context.raftService().run(syncTimeCommand);

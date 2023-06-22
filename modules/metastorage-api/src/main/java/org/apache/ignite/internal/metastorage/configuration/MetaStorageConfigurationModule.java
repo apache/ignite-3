@@ -15,27 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
+package org.apache.ignite.internal.metastorage.configuration;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.annotations.Transferable;
+import com.google.auto.service.AutoService;
+import java.util.Collection;
+import java.util.Collections;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**
- * Command that initiates idle safe time synchronization.
+ * {@link ConfigurationModule} for Meta Storage configuration.
  */
-@Transferable(MetastorageCommandsMessageGroup.SYNC_TIME)
-public interface SyncTimeCommand extends WriteCommand {
-    /** New safe time. */
-    long safeTimeLong();
+@AutoService(ConfigurationModule.class)
+public class MetaStorageConfigurationModule implements ConfigurationModule {
+    @Override
+    public ConfigurationType type() {
+        return ConfigurationType.DISTRIBUTED;
+    }
 
-    /** Term of the initiator. */
-    long initiatorTerm();
-
-    /** New safe time. */
-    default HybridTimestamp safeTime() {
-        return hybridTimestamp(safeTimeLong());
+    @Override
+    public Collection<RootKey<?, ?>> rootKeys() {
+        return Collections.singleton(MetaStorageConfiguration.KEY);
     }
 }
