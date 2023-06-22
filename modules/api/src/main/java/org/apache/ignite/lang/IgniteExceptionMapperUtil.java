@@ -126,7 +126,7 @@ public class IgniteExceptionMapperUtil {
      * @param <T> Type os result.
      * @return New CompletableFuture.
      */
-    public static <T> CompletableFuture<T> convertToPublic(CompletableFuture<T> origin) {
+    public static <T> CompletableFuture<T> convertToPublicFuture(CompletableFuture<T> origin) {
         return origin
                 .handle((res, err) -> {
                     if (err != null) {
