@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.table.distributed.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponses;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponsesWithRestoreOrder;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponsesWithoutRestoreOrder;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -33,13 +35,10 @@ import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
-import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.TxManager;
@@ -140,8 +139,15 @@ public class InternalTableImplTest {
         rowBatchByPartitionId.get(1).resultFuture = completedFuture(List.of(originalRows.get(2)));
         rowBatchByPartitionId.get(2).resultFuture = completedFuture(List.of(originalRows.get(3), originalRows.get(4), originalRows.get(5)));
 
-        CompletableFuture<Collection<BinaryRow>> resultFuture = collectMultiRowsResponses(rowBatchByPartitionId);
-        assertThat(resultFuture, willBe(equalTo(originalRows)));
+        assertThat(
+                collectMultiRowsResponsesWithRestoreOrder(rowBatchByPartitionId),
+                willBe(equalTo(originalRows))
+        );
+
+        assertThat(
+                collectMultiRowsResponsesWithoutRestoreOrder(rowBatchByPartitionId),
+                willBe(hasItems(originalRows.toArray(BinaryRowEx[]::new)))
+        );
     }
 
     private static BinaryRowEx createBinaryRows(int colocationHash) {

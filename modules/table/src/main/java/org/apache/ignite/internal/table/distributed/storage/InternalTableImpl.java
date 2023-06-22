@@ -581,7 +581,7 @@ public class InternalTableImpl implements InternalTable {
                             .requestType(RequestType.RW_GET_ALL)
                             .timestampLong(clock.nowLong())
                             .build(),
-                    InternalTableImpl::collectMultiRowsResponses
+                    InternalTableImpl::collectMultiRowsResponsesWithRestoreOrder
             );
         }
     }
@@ -609,7 +609,7 @@ public class InternalTableImpl implements InternalTable {
             partitionRowBatch.getValue().resultFuture = fut;
         }
 
-        return collectMultiRowsResponses(rowBatchByPartitionId);
+        return collectMultiRowsResponsesWithRestoreOrder(rowBatchByPartitionId);
     }
 
     private static List<ByteBuffer> serializeBinaryRows(Collection<? extends BinaryRow> rows) {
@@ -717,7 +717,7 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_INSERT_ALL)
                         .timestampLong(clock.nowLong())
                         .build(),
-                InternalTableImpl::collectMultiRowsResponses
+                InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder
         );
     }
 
@@ -845,7 +845,7 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_DELETE_ALL)
                         .timestampLong(clock.nowLong())
                         .build(),
-                InternalTableImpl::collectMultiRowsResponses
+                InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder
         );
     }
 
@@ -867,7 +867,7 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_DELETE_EXACT_ALL)
                         .timestampLong(clock.nowLong())
                         .build(),
-                InternalTableImpl::collectMultiRowsResponses
+                InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder
         );
     }
 
@@ -1208,13 +1208,42 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
+     * Gathers the result of batch processing into a single resulting collection of rows.
+     *
+     * @param rowBatchByPartitionId Row batches by partition ID.
+     * @return Future of collecting results.
+     */
+    static CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponsesWithoutRestoreOrder(
+            Int2ObjectMap<RowBatch> rowBatchByPartitionId
+    ) {
+        return allOfResultFuture(rowBatchByPartitionId)
+                .thenApply(response -> {
+                    var result = new ArrayList<BinaryRow>(rowBatchByPartitionId.size());
+
+                    for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
+                        Collection<BinaryRow> batchResult = getBatchProcessingResult(partitionRowBatch);
+
+                        if (batchResult == null) {
+                            continue;
+                        }
+
+                        result.addAll(batchResult);
+                    }
+
+                    return result;
+                });
+    }
+
+    /**
      * Gathers the result of batch processing into a single resulting collection of rows, restoring order as in the requested collection of
      * rows.
      *
      * @param rowBatchByPartitionId Row batches by partition ID.
      * @return Future of collecting results.
      */
-    static CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponses(Int2ObjectMap<RowBatch> rowBatchByPartitionId) {
+    static CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponsesWithRestoreOrder(
+            Int2ObjectMap<RowBatch> rowBatchByPartitionId
+    ) {
         return allOfResultFuture(rowBatchByPartitionId)
                 .thenApply(response -> {
                     int totalRowSize = rowBatchByPartitionId.values().stream().mapToInt(value -> value.rows.size()).sum();
@@ -1222,22 +1251,21 @@ public class InternalTableImpl implements InternalTable {
                     var result = new BinaryRow[totalRowSize];
 
                     for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
+                        Collection<BinaryRow> batchResult = getBatchProcessingResult(partitionRowBatch);
+
+                        if (batchResult == null) {
+                            continue;
+                        }
+
                         RowBatch rowBatch = partitionRowBatch.getValue();
 
-                        assert rowBatch.resultFuture != null : "partitionId=" + partitionRowBatch.getIntKey();
+                        assert batchResult.size() == rowBatch.rows.size() :
+                                "batchResult=" + batchResult.size() + ", rowBatch=" + rowBatch.rows.size();
 
-                        // It is safe to call join(), we have already waited for all the resultFutures.
-                        Collection<BinaryRow> batchResult = (Collection<BinaryRow>) rowBatch.resultFuture.join();
+                        int i = 0;
 
-                        if (batchResult != null) {
-                            assert batchResult.size() == rowBatch.rows.size() :
-                                    "batchResult=" + batchResult.size() + ", rowBatch=" + rowBatch.rows.size();
-
-                            int i = 0;
-
-                            for (BinaryRow resultRow : batchResult) {
-                                result[rowBatch.originalRowOrder.getInt(i++)] = resultRow;
-                            }
+                        for (BinaryRow resultRow : batchResult) {
+                            result[rowBatch.originalRowOrder.getInt(i++)] = resultRow;
                         }
                     }
 
@@ -1250,6 +1278,15 @@ public class InternalTableImpl implements InternalTable {
         return CompletableFuture.allOf(
                 rowBatchByPartitionId.values().stream().map(rowBatch -> rowBatch.resultFuture).toArray(CompletableFuture[]::new)
         );
+    }
+
+    private static Collection<BinaryRow> getBatchProcessingResult(Int2ObjectMap.Entry<RowBatch> partitionRowBatch) {
+        RowBatch rowBatch = partitionRowBatch.getValue();
+
+        assert rowBatch.resultFuture != null : "partitionId=" + partitionRowBatch.getIntKey();
+
+        // It is safe to call join(), we have already waited for all the resultFutures.
+        return (Collection<BinaryRow>) rowBatch.resultFuture.join();
     }
 
     /**

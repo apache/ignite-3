@@ -1535,8 +1535,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                         if (lockedRowId != null) {
                             rowIdsToDelete.put(lockedRowId.uuid(), null);
-
-                            result.add(null);
                         } else {
                             result.add(row);
                         }
@@ -1576,8 +1574,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                         if (lockedRowId != null) {
                             rowIdsToDelete.put(lockedRowId.uuid(), null);
-
-                            result.add(null);
                         } else {
                             result.add(row);
                         }
@@ -1619,8 +1615,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                             ByteBuffer keyToCheck = keyTuple.byteBuffer();
                             if (uniqueKeys.add(keyToCheck)) {
                                 rowsToInsert.put(new RowId(partId(), UUID.randomUUID()), row);
-
-                                result.add(row);
                             } else {
                                 result.add(row);
                             }
