@@ -34,8 +34,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.function.LongSupplier;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
@@ -153,11 +153,11 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /**
      * Constructor.
      */
-    public CatalogServiceImpl(UpdateLog updateLog, ClockWaiter clockWaiter, LongSupplier delayDurationMsSupplier) {
+    public CatalogServiceImpl(UpdateLog updateLog, ClockWaiter clockWaiter, Supplier<Long> delayDurationMsSupplier) {
         this.updateLog = updateLog;
         this.clockWaiter = clockWaiter;
 
-        delayDurationMs = new Lazy<>(delayDurationMsSupplier::getAsLong);
+        delayDurationMs = new Lazy<>(delayDurationMsSupplier);
     }
 
     /** {@inheritDoc} */
