@@ -702,7 +702,7 @@ public class IgniteImpl implements Ignite {
                         }
 
                         return metaStorageMgr.ready();
-                    })
+                    }, startupExecutor)
                     .thenRunAsync(() -> {
                         LOG.info("MetaStorage started, starting the remaining components");
 
