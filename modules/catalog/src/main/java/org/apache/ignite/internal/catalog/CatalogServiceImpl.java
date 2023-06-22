@@ -796,6 +796,14 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 });
     }
 
+    /**
+     * Attempts to save a versioned update using a CAS-like logic. If the attempt fails, makes more attempts
+     * until the max retry count is reached.
+     *
+     * @param updateProducer Supplies simple updates to include into a versioned update to install.
+     * @param attemptNo Ordinal number of an attempt.
+     * @return Future that completes with the new Catalog version (if update was saved successfully) or an exception, otherwise.
+     */
     private CompletableFuture<Integer> saveUpdate(UpdateProducer updateProducer, int attemptNo) {
         if (attemptNo >= MAX_RETRY_COUNT) {
             return failedFuture(new IgniteInternalException(Common.INTERNAL_ERR, "Max retry limit exceeded: " + attemptNo));
