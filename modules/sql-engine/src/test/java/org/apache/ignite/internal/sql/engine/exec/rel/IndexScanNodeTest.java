@@ -77,7 +77,7 @@ public class IndexScanNodeTest extends AbstractExecutionTest {
         scannableTable.setPartitionData(0, new Object[]{4}, new Object[]{5});
         scannableTable.setPartitionData(2, new Object[]{1}, new Object[]{2});
 
-        Comparator<Object[]> cmp = Comparator.comparing(row -> (Comparable<Object>)row[0]);
+        Comparator<Object[]> cmp = Comparator.comparing(row -> (Comparable<Object>) row[0]);
 
         IndexScanNode<Object[]> node = tester.createSortedIndex(index, scannableTable, cmp);
         List<Object[]> result = tester.execute(node);
