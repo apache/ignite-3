@@ -328,6 +328,10 @@ namespace Apache.Ignite.Tests.Compute
 
             var res = await client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, FakeServer.GetDetailsJob);
             Assert.AreEqual("TODO", res);
+
+            // Lazy enumerable.
+            var res2 = await client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units.Reverse(), FakeServer.GetDetailsJob);
+            Assert.AreEqual("TODO", res2);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
