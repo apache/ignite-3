@@ -81,7 +81,7 @@ public class ClientComputeExecuteRequest {
      * @return Deployment units.
      */
     static List<DeploymentUnit> unpackDeploymentUnits(ClientMessageUnpacker in) {
-        int size = in.unpackArrayHeader();
+        int size = in.tryUnpackNil() ? 0 : in.unpackArrayHeader();
         List<DeploymentUnit> res = new ArrayList<>(size);
 
         for (int i = 0; i < size; i++) {
