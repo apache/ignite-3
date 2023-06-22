@@ -1228,9 +1228,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Returns all entries corresponding to given key and bounded by given revisions.
+     * Returns all entries corresponding to the given key and bounded by given revisions.
      * All these entries are ordered by revisions and have the same key.
-     * The lower and upper bounds are inclusive.
+     * The lower bound and the upper bound are inclusive.
      *
      * @param key The key.
      * @param revLowerBound The lower bound of revision.
@@ -1259,7 +1259,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         int firstRevIndex = minRevisionIndex(revs, revLowerBound);
         int lastRevIndex = maxRevisionIndex(revs, revUpperBound);
 
-        // firstRevIndex can be -1 if minRevision return -1. lastRevIndex can be -1 if maxRevision return -1.
+        // firstRevIndex can be -1 if minRevisionIndex return -1. lastRevIndex can be -1 if maxRevisionIndex return -1.
         if (firstRevIndex == -1 || lastRevIndex == -1) {
             return Collections.emptyList();
         }

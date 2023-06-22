@@ -668,22 +668,18 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             return Collections.emptyList();
         }
 
-        long firstRevIndex = minRevision(revs, revLowerBound);
-        long lastRevIndex = maxRevision(revs, revUpperBound);
+        int firstRevIndex = minRevisionIndex(revs, revLowerBound);
+        int lastRevIndex = maxRevisionIndex(revs, revUpperBound);
 
-        // firstRevIndex can be -1 if minRevision return -1. lastRevIndex can be -1 if maxRevision return -1.
+        // firstRevIndex can be -1 if minRevisionIndex return -1. lastRevIndex can be -1 if maxRevisionIndex return -1.
         if (firstRevIndex == -1 || lastRevIndex == -1) {
             return Collections.emptyList();
         }
 
         List<Entry> entries = new ArrayList<>();
 
-        for (int i = 0; i < revs.size(); i++) {
-            long rev = revs.get(i);
-
-            if (rev >= firstRevIndex && rev <= lastRevIndex) {
-                entries.add(doGetValue(key, rev));
-            }
+        for (int i = firstRevIndex; i <= lastRevIndex; i++) {
+            entries.add(doGetValue(key, revs.get(i)));
         }
 
         return entries;
@@ -712,19 +708,39 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Returns minimum revision which must be greater or equal to {@code lowerBoundRev}.
+     * Returns index of minimum revision which must be greater or equal to {@code lowerBoundRev}.
      * If there is no such revision then {@code -1} will be returned.
      *
      * @param revs          Revisions list.
      * @param lowerBoundRev Revision lower bound.
-     * @return Minimum revision or {@code -1} if there is no such revision.
+     * @return Index of minimum revision or {@code -1} if there is no such revision.
      */
-    private static long minRevision(List<Long> revs, long lowerBoundRev) {
+    private static int minRevisionIndex(List<Long> revs, long lowerBoundRev) {
         for (int i = 0; i < revs.size(); i++) {
             long rev = revs.get(i);
 
             if (rev >= lowerBoundRev) {
-                return rev;
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Returns index of maximum revision which must be less or equal to {@code upperBoundRev}.
+     * If there is no such revision then {@code -1} will be returned.
+     *
+     * @param revs          Revisions list.
+     * @param upperBoundRev Revision upper bound.
+     * @return Index of maximum revision or {@code -1} if there is no such revision.
+     */
+    private static int maxRevisionIndex(List<Long> revs, long upperBoundRev) {
+        for (int i = revs.size() - 1; i >= 0; i--) {
+            long rev = revs.get(i);
+
+            if (rev <= upperBoundRev) {
+                return i;
             }
         }
 
