@@ -668,11 +668,11 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             return Collections.emptyList();
         }
 
-        long firstRev = minRevision(revs, revLowerBound);
-        long lastRev = maxRevision(revs, revUpperBound);
+        long firstRevIndex = minRevision(revs, revLowerBound);
+        long lastRevIndex = maxRevision(revs, revUpperBound);
 
-        // firstRev can be -1 if minRevision return -1. lastRev can be -1 if maxRevision return -1.
-        if (firstRev == -1 || lastRev == -1) {
+        // firstRevIndex can be -1 if minRevision return -1. lastRevIndex can be -1 if maxRevision return -1.
+        if (firstRevIndex == -1 || lastRevIndex == -1) {
             return Collections.emptyList();
         }
 
@@ -681,7 +681,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         for (int i = 0; i < revs.size(); i++) {
             long rev = revs.get(i);
 
-            if (rev >= firstRev && rev <= lastRev) {
+            if (rev >= firstRevIndex && rev <= lastRevIndex) {
                 entries.add(doGetValue(key, rev));
             }
         }
