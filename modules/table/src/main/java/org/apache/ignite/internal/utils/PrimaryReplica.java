@@ -60,6 +60,7 @@ public class PrimaryReplica {
         return term;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -72,13 +73,15 @@ public class PrimaryReplica {
         return term == that.term && Objects.equals(node, that.node);
     }
 
+    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         return Objects.hash(node, term);
     }
 
+    /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(PrimaryReplica.class);
+        return S.toString(this);
     }
 }

@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.UNSPECIFIED_VALUE_PLACEHOLDER;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -28,13 +31,16 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Publisher;
@@ -42,8 +48,11 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.SortedIndex;
@@ -74,8 +83,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.ArgumentMatcher;
-import org.mockito.ArgumentMatchers;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -86,13 +94,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class ScannableTableSelfTest {
 
-    private static final NoOpTransaction RO_TX = new NoOpTransaction("RO", true);
+    private static final NoOpTransaction RO_TX = NoOpTransaction.readOnly("RW");
 
-    private static final NoOpTransaction RW_TX = new NoOpTransaction("RO", false);
+    private static final NoOpTransaction RW_TX = NoOpTransaction.readWrite("RO");
 
     private static final IgniteTypeFactory TYPE_FACTORY = Commons.typeFactory();
 
-    @Mock
+    @Mock(lenient = true)
     private InternalTable internalTable;
 
     @Mock(lenient = true)
@@ -109,14 +117,15 @@ public class ScannableTableSelfTest {
     public void testTableScan(boolean ro) {
         NoOpTransaction tx = ro ? RO_TX : RW_TX;
 
-        Tester tester = new Tester();
+        TestInput data = new TestInput();
+        data.addRow(binaryRow);
+
+        Tester tester = new Tester(data);
 
         int partitionId = 1;
         long term = 2;
 
-        SubmissionPublisher<BinaryRow> input = newSingleThreadedSubmissionPublisher();
-
-        TestPublisher<Object[]> publisher = tester.tableScan(input, partitionId, term, tx);
+        ResultCollector collector = tester.tableScan(partitionId, term, tx);
 
         if (ro) {
             HybridTimestamp timestamp = tx.readTimestamp();
@@ -129,11 +138,11 @@ public class ScannableTableSelfTest {
             verify(internalTable).scan(partitionId, tx.id(), new PrimaryReplica(clusterNode, term), null, null, null, 0, null);
         }
 
-        input.submit(binaryRow);
-        input.close();
+        data.sendRows();
+        data.done();
 
-        publisher.expectRow(binaryRow);
-        publisher.expectCompleted();
+        collector.expectRow(binaryRow);
+        collector.expectCompleted();
     }
 
     /**
@@ -144,22 +153,23 @@ public class ScannableTableSelfTest {
     public void testTableScanError(boolean ro) {
         NoOpTransaction tx = ro ? RO_TX : RW_TX;
 
-        Tester tester = new Tester();
+        TestInput input = new TestInput();
+        input.addRow(binaryRow);
+
+        Tester tester = new Tester(input);
 
         int partitionId = 1;
         long term = 2;
 
-        SubmissionPublisher<BinaryRow> input = newSingleThreadedSubmissionPublisher();
+        ResultCollector collector = tester.tableScan(partitionId, term, tx);
 
-        TestPublisher<Object[]> publisher = tester.tableScan(input, partitionId, term, tx);
-
-        input.submit(binaryRow);
+        input.sendRows();
 
         RuntimeException err = new RuntimeException("err");
-        input.closeExceptionally(err);
+        input.sendError(err);
 
-        publisher.expectRow(binaryRow);
-        publisher.expectError(err);
+        collector.expectRow(binaryRow);
+        collector.expectError(err);
     }
 
     /**
@@ -189,7 +199,10 @@ public class ScannableTableSelfTest {
     public void testIndexScan(boolean ro, Bound lower, Bound upper) {
         NoOpTransaction tx = ro ? RO_TX : RW_TX;
 
-        Tester tester = new Tester();
+        TestInput input = new TestInput();
+        input.addRow(binaryRow);
+
+        Tester tester = new Tester(input);
 
         int partitionId = 1;
         long term = 2;
@@ -202,9 +215,7 @@ public class ScannableTableSelfTest {
         condition.setBounds(lower, lowerValue, upper, upperValue);
         int flags = condition.toFlags();
 
-        SubmissionPublisher<BinaryRow> input = newSingleThreadedSubmissionPublisher();
-
-        TestPublisher<Object[]> publisher = tester.indexScan(input, partitionId, term, tx, indexId, condition);
+        ResultCollector collector = tester.indexScan(partitionId, term, tx, indexId, condition);
 
         if (ro) {
             HybridTimestamp timestamp = tx.readTimestamp();
@@ -235,11 +246,11 @@ public class ScannableTableSelfTest {
             );
         }
 
-        input.submit(binaryRow);
-        input.close();
+        input.sendRows();
+        input.done();
 
-        publisher.expectRow(binaryRow);
-        publisher.expectCompleted();
+        collector.expectRow(binaryRow);
+        collector.expectCompleted();
     }
 
     /**
@@ -250,22 +261,22 @@ public class ScannableTableSelfTest {
     public void testIndexScanWithRequiredColumns(boolean ro) {
         NoOpTransaction tx = ro ? RO_TX : RW_TX;
 
-        Tester tester = new Tester();
+        TestInput input = new TestInput();
+        input.addRow(binaryRow);
+
+        Tester tester = new Tester(input);
+        tester.requiredFields = new BitSet();
+        tester.requiredFields.set(1);
 
         int partitionId = 1;
         long term = 2;
         int indexId = 3;
 
-        SubmissionPublisher<BinaryRow> input = newSingleThreadedSubmissionPublisher();
-
-        tester.requiredFields = new BitSet();
-        tester.requiredFields.set(1);
-
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
         // Set any valid bounds, they are not of our interest here.
         condition.setBounds(Bound.INCLUSIVE, new Object[]{0}, Bound.NONE, null);
 
-        TestPublisher<Object[]> publisher = tester.indexScan(input, partitionId, term, tx, indexId, condition);
+        ResultCollector collector = tester.indexScan(partitionId, term, tx, indexId, condition);
 
         if (ro) {
             HybridTimestamp timestamp = tx.readTimestamp();
@@ -296,11 +307,11 @@ public class ScannableTableSelfTest {
             );
         }
 
-        input.submit(binaryRow);
-        input.close();
+        input.sendRows();
+        input.done();
 
-        publisher.expectRow(binaryRow);
-        publisher.expectCompleted();
+        collector.expectRow(binaryRow);
+        collector.expectCompleted();
     }
 
     /**
@@ -311,30 +322,123 @@ public class ScannableTableSelfTest {
     public void testIndexScanError(boolean ro) {
         NoOpTransaction tx = ro ? RO_TX : RW_TX;
 
-        Tester tester = new Tester();
+        TestInput input = new TestInput();
+        input.addRow(binaryRow);
+
+        Tester tester = new Tester(input);
+        tester.requiredFields = new BitSet();
+        tester.requiredFields.set(1);
 
         int partitionId = 1;
         long term = 2;
         int indexId = 3;
 
-        SubmissionPublisher<BinaryRow> input = newSingleThreadedSubmissionPublisher();
-
-        tester.requiredFields = new BitSet();
-        tester.requiredFields.set(1);
-
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
         // Set any valid bounds, they are not of our interest here.
         condition.setBounds(Bound.INCLUSIVE, new Object[]{0}, Bound.NONE, null);
 
-        TestPublisher<Object[]> publisher = tester.indexScan(input, partitionId, term, tx, indexId, condition);
+        ResultCollector collector = tester.indexScan(partitionId, term, tx, indexId, condition);
 
-        input.submit(binaryRow);
+        input.sendRows();
 
         RuntimeException err = new RuntimeException("err");
-        input.closeExceptionally(err);
+        input.sendError(err);
 
-        publisher.expectError(err);
-        publisher.expectRow(binaryRow);
+        collector.expectError(err);
+        collector.expectRow(binaryRow);
+    }
+
+    /**
+     * Index scan - invalid condition.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testIndexScanInvalidCondition(boolean ro) {
+        NoOpTransaction tx = ro ? RO_TX : RW_TX;
+
+        TestInput input = new TestInput();
+        input.addRow(binaryRow, 1);
+
+        Tester tester = new Tester(input);
+
+        int partitionId = 1;
+        long term = 2;
+        int indexId = 3;
+        TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
+        // Set any valid bounds, they are not of our interest here.
+        condition.setBounds(Bound.INCLUSIVE, new Object[]{1, 2}, Bound.NONE, null);
+
+        AssertionError err = assertThrows(AssertionError.class, () -> tester.indexScan(partitionId, term, tx, indexId, condition));
+        assertEquals("Invalid range condition", err.getMessage());
+
+        verifyNoInteractions(internalTable);
+    }
+
+    /**
+     * Index scan - index bound includes some of columns.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testIndexScanPartialCondition(boolean ro) {
+        NoOpTransaction tx = ro ? RO_TX : RW_TX;
+
+        // 4 column input table.
+        TestInput input = new TestInput(4);
+        // 3 column index.
+        input.indexColumns.set(0);
+        input.indexColumns.set(1);
+        input.indexColumns.set(2);
+
+        input.addRow(binaryRow, 1, 2, 3, 4);
+
+        Tester tester = new Tester(input);
+
+        int partitionId = 1;
+        long term = 2;
+        int indexId = 3;
+        TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
+        condition.setBounds(Bound.INCLUSIVE, new Object[]{1, 2, UNSPECIFIED_VALUE_PLACEHOLDER}, Bound.NONE, null);
+
+        ArgumentCaptor<BinaryTuplePrefix> prefix = ArgumentCaptor.forClass(BinaryTuplePrefix.class);
+
+        ResultCollector collector = tester.indexScan(partitionId, term, tx, indexId, condition);
+
+        if (ro) {
+            HybridTimestamp timestamp = tx.readTimestamp();
+            ClusterNode clusterNode = tx.clusterNode();
+
+            verify(internalTable).scan(
+                    eq(partitionId),
+                    eq(timestamp),
+                    eq(clusterNode),
+                    eq(indexId),
+                    prefix.capture(),
+                    nullable(BinaryTuplePrefix.class),
+                    anyInt(),
+                    eq(tester.requiredFields)
+            );
+        } else {
+            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), term);
+
+            verify(internalTable).scan(
+                    eq(partitionId),
+                    eq(tx.id()),
+                    eq(primaryReplica),
+                    eq(indexId),
+                    prefix.capture(),
+                    nullable(BinaryTuplePrefix.class),
+                    anyInt(),
+                    eq(tester.requiredFields)
+            );
+        }
+
+        input.sendRows();
+        input.done();
+
+        collector.expectCompleted();
+
+        BinaryTuplePrefix lowerBound = prefix.getValue();
+        assertEquals(2, lowerBound.elementCount());
     }
 
     /**
@@ -345,17 +449,18 @@ public class ScannableTableSelfTest {
     public void testIndexLookup(boolean ro) {
         NoOpTransaction tx = ro ? RO_TX : RW_TX;
 
-        Tester tester = new Tester();
+        TestInput input = new TestInput();
+        input.addRow(binaryRow);
+
+        Tester tester = new Tester(input);
 
         int partitionId = 1;
         long term = 2;
         int indexId = 3;
 
-        SubmissionPublisher<BinaryRow> input = newSingleThreadedSubmissionPublisher();
-
         Object[] key = {1};
 
-        TestPublisher<Object[]> publisher = tester.indexLookUp(input, partitionId, term, tx, indexId, key);
+        ResultCollector collector = tester.indexLookUp(partitionId, term, tx, indexId, key);
 
         if (ro) {
             verify(internalTable).lookup(
@@ -379,11 +484,11 @@ public class ScannableTableSelfTest {
             );
         }
 
-        input.submit(binaryRow);
-        input.close();
+        input.sendRows();
+        input.done();
 
-        publisher.expectRow(binaryRow);
-        publisher.expectCompleted();
+        collector.expectRow(binaryRow);
+        collector.expectCompleted();
     }
 
     /**
@@ -394,20 +499,21 @@ public class ScannableTableSelfTest {
     public void testIndexLookupWithRequiredColumns(boolean ro) {
         NoOpTransaction tx = ro ? RO_TX : RW_TX;
 
-        Tester tester = new Tester();
-
         int partitionId = 1;
         long term = 2;
         int indexId = 3;
 
-        SubmissionPublisher<BinaryRow> input = newSingleThreadedSubmissionPublisher();
+        TestInput input = new TestInput();
+        input.addRow(binaryRow);
+
+        Tester tester = new Tester(input);
 
         tester.requiredFields = new BitSet();
         tester.requiredFields.set(1);
 
         Object[] key = {1};
 
-        TestPublisher<Object[]> publisher = tester.indexLookUp(input, partitionId, term, tx, indexId, key);
+        ResultCollector collector = tester.indexLookUp(partitionId, term, tx, indexId, key);
 
         if (ro) {
             verify(internalTable).lookup(
@@ -431,11 +537,11 @@ public class ScannableTableSelfTest {
             );
         }
 
-        input.submit(binaryRow);
-        input.close();
+        input.sendRows();
+        input.done();
 
-        publisher.expectCompleted();
-        publisher.expectRow(binaryRow);
+        collector.expectCompleted();
+        collector.expectRow(binaryRow);
     }
 
     /**
@@ -446,77 +552,98 @@ public class ScannableTableSelfTest {
     public void testIndexLookupError(boolean ro) {
         NoOpTransaction tx = ro ? RO_TX : RW_TX;
 
-        Tester tester = new Tester();
-
         int partitionId = 1;
         long term = 2;
         int indexId = 3;
 
-        SubmissionPublisher<BinaryRow> input = newSingleThreadedSubmissionPublisher();
+        TestInput input = new TestInput();
+        input.addRow(binaryRow);
+
+        Tester tester = new Tester(input);
 
         Object[] key = {1};
 
-        TestPublisher<Object[]> publisher = tester.indexLookUp(input, partitionId, term, tx, indexId, key);
+        ResultCollector collector = tester.indexLookUp(partitionId, term, tx, indexId, key);
 
-        input.submit(binaryRow);
+        input.sendRows();
 
         RuntimeException err = new RuntimeException("Broken");
-        input.closeExceptionally(err);
+        input.sendError(err);
 
-        publisher.expectRow(binaryRow);
-        publisher.expectError(err);
+        collector.expectRow(binaryRow);
+        collector.expectError(err);
+    }
+
+    /**
+     * Index lookup - invalid key.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testIndexLookupInvalidKey(boolean ro) {
+        NoOpTransaction tx = ro ? RO_TX : RW_TX;
+
+        TestInput input = new TestInput();
+
+        Tester tester = new Tester(input);
+
+        int partitionId = 1;
+        long term = 2;
+        int indexId = 3;
+        Object[] key = {UNSPECIFIED_VALUE_PLACEHOLDER};
+
+        AssertionError err = assertThrows(AssertionError.class, () -> tester.indexLookUp(partitionId, term, tx, indexId, key));
+        assertEquals("Invalid lookup key.", err.getMessage());
+
+        verifyNoInteractions(internalTable);
     }
 
     private class Tester {
-
-        final RelDataType rowType;
 
         final TableDescriptor tableDescriptor;
 
         final ScannableTable scannableTable;
 
-        // TableRowConvert that collects converted rows.
-        final RowCollectingTableRwoConverter rowConverter = new RowCollectingTableRwoConverter();
+        final TestInput input;
+
+        final RowCollectingTableRwoConverter rowConverter;
 
         BitSet requiredFields;
 
-        Tester() {
-            rowType = new RelDataTypeFactory.Builder(TYPE_FACTORY)
-                    .add("C1", SqlTypeName.INTEGER)
-                    .build();
-
-            tableDescriptor = new TestTableDescriptor(IgniteDistributions::single, rowType);
+        Tester(TestInput input) {
+            this.input = input;
+            rowConverter = new RowCollectingTableRwoConverter(input);
+            tableDescriptor = new TestTableDescriptor(IgniteDistributions::single, input.rowType);
             scannableTable = new ScannableTableImpl(internalTable, rowConverter, tableDescriptor);
         }
 
-        TestPublisher<Object[]> tableScan(SubmissionPublisher<?> input, int partitionId, long term, NoOpTransaction tx) {
+        ResultCollector tableScan(int partitionId, long term, NoOpTransaction tx) {
             when(ctx.txAttributes()).thenReturn(TxAttributes.fromTx(tx));
             when(ctx.localNode()).thenReturn(tx.clusterNode());
 
             if (tx.isReadOnly()) {
-                doAnswer(invocation -> input).when(internalTable)
+                doAnswer(invocation -> input.publisher).when(internalTable)
                         .scan(anyInt(), any(HybridTimestamp.class), any(ClusterNode.class));
             } else {
-                doAnswer(invocation -> input).when(internalTable)
+                doAnswer(invocation -> input.publisher).when(internalTable)
                         .scan(anyInt(), any(UUID.class), any(PrimaryReplica.class), isNull(), isNull(), isNull(), eq(0), isNull());
             }
 
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(TYPE_FACTORY, rowType);
+            RowFactory<Object[]> rowFactory = rowHandler.factory(TYPE_FACTORY, input.rowType);
 
             Publisher<Object[]> publisher = scannableTable.scan(ctx, new PartitionWithTerm(partitionId, term), rowFactory, null);
 
-            return new TestPublisher<>(publisher, requiredFields, rowConverter);
+            return new ResultCollector(publisher, requiredFields, rowConverter);
         }
 
-        TestPublisher<Object[]> indexScan(SubmissionPublisher<?> input, int partitionId, long term, NoOpTransaction tx,
+        ResultCollector indexScan(int partitionId, long term, NoOpTransaction tx,
                 int indexId, TestRangeCondition<Object[]> condition) {
 
             when(ctx.txAttributes()).thenReturn(TxAttributes.fromTx(tx));
             when(ctx.localNode()).thenReturn(tx.clusterNode());
 
             if (tx.isReadOnly()) {
-                doAnswer(i -> input).when(internalTable).scan(
+                doAnswer(i -> input.publisher).when(internalTable).scan(
                         anyInt(),
                         any(HybridTimestamp.class),
                         any(ClusterNode.class),
@@ -526,7 +653,7 @@ public class ScannableTableSelfTest {
                         anyInt(),
                         nullable(BitSet.class));
             } else {
-                doAnswer(i -> input).when(internalTable).scan(
+                doAnswer(i -> input.publisher).when(internalTable).scan(
                         anyInt(),
                         any(UUID.class),
                         any(PrimaryReplica.class),
@@ -538,23 +665,24 @@ public class ScannableTableSelfTest {
             }
 
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(TYPE_FACTORY, rowType);
+            RowFactory<Object[]> rowFactory = rowHandler.factory(TYPE_FACTORY, input.rowType);
             RangeCondition<Object[]> rangeCondition = condition.asRangeCondition();
+            List<String> indexColumns = input.getIndexColumns();
 
             Publisher<Object[]> publisher = scannableTable.indexRangeScan(ctx, new PartitionWithTerm(partitionId, term), rowFactory,
-                    indexId, "TEST_IDX", List.of("C1"), rangeCondition, requiredFields);
+                    indexId, "TEST_IDX", indexColumns, rangeCondition, requiredFields);
 
-            return new TestPublisher<>(publisher, requiredFields, rowConverter);
+            return new ResultCollector(publisher, requiredFields, rowConverter);
         }
 
-        TestPublisher<Object[]> indexLookUp(SubmissionPublisher<?> input, int partitionId, long term, NoOpTransaction tx,
+        ResultCollector indexLookUp(int partitionId, long term, NoOpTransaction tx,
                 int indexId, Object[] key) {
 
             when(ctx.txAttributes()).thenReturn(TxAttributes.fromTx(tx));
             when(ctx.localNode()).thenReturn(tx.clusterNode());
 
             if (tx.isReadOnly()) {
-                doAnswer(i -> input).when(internalTable).lookup(
+                doAnswer(i -> input.publisher).when(internalTable).lookup(
                         anyInt(),
                         any(HybridTimestamp.class),
                         any(ClusterNode.class),
@@ -562,7 +690,7 @@ public class ScannableTableSelfTest {
                         nullable(BinaryTuple.class),
                         nullable(BitSet.class));
             } else {
-                doAnswer(i -> input).when(internalTable).lookup(
+                doAnswer(i -> input.publisher).when(internalTable).lookup(
                         anyInt(),
                         any(UUID.class),
                         any(PrimaryReplica.class),
@@ -572,40 +700,115 @@ public class ScannableTableSelfTest {
             }
 
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(TYPE_FACTORY, rowType);
+            RowFactory<Object[]> rowFactory = rowHandler.factory(TYPE_FACTORY, input.rowType);
+            List<String> indexColumns = input.getIndexColumns();
 
             Publisher<Object[]> publisher = scannableTable.indexLookup(ctx, new PartitionWithTerm(partitionId, term), rowFactory,
-                    indexId, "TEST_IDX", List.of("C1"), key, requiredFields);
+                    indexId, "TEST_IDX", indexColumns, key, requiredFields);
 
-            return new TestPublisher<>(publisher, requiredFields, rowConverter);
+            return new ResultCollector(publisher, requiredFields, rowConverter);
         }
     }
 
-    static <T> SubmissionPublisher<T> newSingleThreadedSubmissionPublisher() {
-        return new SubmissionPublisher<>(Runnable::run, Integer.MAX_VALUE);
+    /**
+     * Input data.
+     */
+    static class TestInput {
+
+        final SubmissionPublisher<BinaryRow> publisher = new SubmissionPublisher<>(Runnable::run, Integer.MAX_VALUE);
+
+        final Map<BinaryRow, Object[]> data = new HashMap<>();
+
+        final List<BinaryRow> rows = new ArrayList<>();
+
+        final RelDataType rowType;
+
+        final BitSet indexColumns = new BitSet();
+
+        TestInput() {
+            this(1);
+        }
+
+        TestInput(int columnCount) {
+            Builder builder = new Builder(TYPE_FACTORY);
+
+            for (int i = 1; i <= columnCount; i++) {
+                builder.add("C" + i, SqlTypeName.INTEGER);
+            }
+
+            indexColumns.set(0);
+
+            rowType = builder.build();
+        }
+
+        void addRow(BinaryRow row) {
+            Object[] cols = IntStream.generate(() -> 1).limit(rowType.getFieldCount()).boxed().toArray();
+
+            addRow(row, cols);
+        }
+
+        void addRow(BinaryRow row, Object... values) {
+            int fieldCount = rowType.getFieldCount();
+            if (fieldCount != values.length) {
+                throw new IllegalArgumentException(format("Expected {} columns but got {}", fieldCount, values.length));
+            }
+
+            data.put(row, new Object[]{values});
+            rows.add(row);
+        }
+
+        void sendRows() {
+            for (BinaryRow row : rows) {
+                publisher.submit(row);
+            }
+        }
+
+        void done() {
+            publisher.close();
+        }
+
+        void sendError(Throwable t) {
+            publisher.closeExceptionally(t);
+        }
+
+        private List<String> getIndexColumns() {
+            List<String> columns = new ArrayList<>();
+
+            indexColumns.stream().forEach(i -> {
+                RelDataTypeField field = rowType.getFieldList().get(i);
+                columns.add(field.getName());
+            });
+
+            return columns;
+        }
     }
 
+    // Collects rows received from an input source.
     static class RowCollectingTableRwoConverter implements TableRowConverter {
+
+        final TestInput testInput;
 
         final List<Map.Entry<BinaryRow, BitSet>> converted = new ArrayList<>();
 
-        @Override
-        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory, @Nullable BitSet requiredColumns) {
-            converted.add(new SimpleEntry<>(row, requiredColumns));
-            return (RowT) new Object[]{0};
+        RowCollectingTableRwoConverter(TestInput testData) {
+            this.testInput = testData;
         }
 
-        void expectConverted(BinaryRow row, @Nullable BitSet requiredFields) {
-            if (!converted.contains(new SimpleEntry<>(row, requiredFields))) {
-                fail(format("Unexpected binary row/required fields: {}/{}. Converted: {}", row, requiredFields, converted));
+        @Override
+        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory, @Nullable BitSet requiredColumns) {
+            Object[] convertedRow = testInput.data.get(row);
+            if (convertedRow == null) {
+                throw new IllegalArgumentException("Unexpected row: " + row);
             }
+
+            converted.add(new SimpleEntry<>(row, requiredColumns));
+            return (RowT) convertedRow;
         }
     }
 
-    // Checks that publisher handles onError and onComplete
-    static class TestPublisher<T> {
+    static class ResultCollector {
 
-        final Publisher<T> input;
+        final Publisher<?> input;
 
         final CountDownLatch done = new CountDownLatch(1);
 
@@ -615,20 +818,20 @@ public class ScannableTableSelfTest {
 
         final BitSet requiredFields;
 
-        TestPublisher(Publisher<T> input, BitSet requiredFields, RowCollectingTableRwoConverter rowConverter) {
+        ResultCollector(Publisher<?> input, BitSet requiredFields, RowCollectingTableRwoConverter rowConverter) {
             this.input = input;
             this.rowConverter = rowConverter;
             this.requiredFields = requiredFields;
 
-            input.subscribe(new Subscriber<T>() {
+            input.subscribe(new Subscriber<Object>() {
                 @Override
                 public void onSubscribe(Subscription subscription) {
                     subscription.request(Long.MAX_VALUE);
                 }
 
                 @Override
-                public void onNext(T item) {
-                    // do nothing.
+                public void onNext(Object ignore) {
+                    // do nothing - we collect received items in TableRowConverter.
                 }
 
                 @Override
@@ -663,7 +866,11 @@ public class ScannableTableSelfTest {
         }
 
         void expectRow(BinaryRow row) {
-            rowConverter.expectConverted(row, requiredFields);
+            List<Entry<BinaryRow, BitSet>> result = rowConverter.converted;
+
+            if (!result.contains(new SimpleEntry<>(row, requiredFields))) {
+                fail(format("Unexpected binary row/required fields: {}/{}. Converted: {}", row, requiredFields, result));
+            }
         }
     }
 
@@ -696,14 +903,6 @@ public class ScannableTableSelfTest {
                 default:
                     throw new IllegalArgumentException();
             }
-        }
-    }
-
-    static BinaryTuplePrefix matchBound(@Nullable Object value) {
-        if (value == null) {
-            return isNull();
-        } else {
-            return any(BinaryTuplePrefix.class);
         }
     }
 

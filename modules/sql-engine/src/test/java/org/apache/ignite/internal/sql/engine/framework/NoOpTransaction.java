@@ -45,6 +45,16 @@ public final class NoOpTransaction implements InternalTransaction {
 
     private final boolean readOnly;
 
+    /** Creates a read-write transaction. */
+    public static NoOpTransaction readWrite(String name) {
+        return new NoOpTransaction(name, false);
+    }
+
+    /** Creates a read only transaction. */
+    public static NoOpTransaction readOnly(String name) {
+        return new NoOpTransaction(name, true);
+    }
+
     /**
      * Constructs a read only transaction.
      *
@@ -60,7 +70,7 @@ public final class NoOpTransaction implements InternalTransaction {
      * @param name Name of the node.
      * @param readOnly Read-only or not.
      */
-    public NoOpTransaction(String name, boolean readOnly) {
+    private NoOpTransaction(String name, boolean readOnly) {
         var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
         this.tuple = new IgniteBiTuple<>(new ClusterNode(name, name, networkAddress), 1L);
         this.readOnly = readOnly;
