@@ -711,9 +711,7 @@ public class ScannableTableSelfTest {
         }
     }
 
-    /**
-     * Input data.
-     */
+    // Input data.
     static class TestInput {
 
         final SubmissionPublisher<BinaryRow> publisher = new SubmissionPublisher<>(Runnable::run, Integer.MAX_VALUE);
