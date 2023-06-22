@@ -26,7 +26,7 @@ public interface ClockUpdateListener {
     /**
      * Called when the clock's current time advances.
      *
-     * @param newTs New timestamp on the clock.
+     * @param newTs New timestamp on the clock (represented as a long value, see {@link HybridTimestamp#longValue()}.
      */
-    void onUpdate(HybridTimestamp newTs);
+    void onUpdate(long newTs);
 }

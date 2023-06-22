@@ -71,15 +71,14 @@ public class HybridClockImpl implements HybridClock {
             long newLatestTime = max(oldLatestTime + 1, now);
 
             if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
-                HybridTimestamp newTs = hybridTimestamp(newLatestTime);
-                notifyUpdateListeners(newTs);
+                notifyUpdateListeners(newLatestTime);
 
                 return newLatestTime;
             }
         }
     }
 
-    private void notifyUpdateListeners(HybridTimestamp newTs) {
+    private void notifyUpdateListeners(long newTs) {
         updateListeners.forEach(listener -> listener.onUpdate(newTs));
     }
 
@@ -105,11 +104,9 @@ public class HybridClockImpl implements HybridClock {
             long newLatestTime = max(requestTime.longValue() + 1, max(now, oldLatestTime + 1));
 
             if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
-                HybridTimestamp newTs = hybridTimestamp(newLatestTime);
+                notifyUpdateListeners(newLatestTime);
 
-                notifyUpdateListeners(newTs);
-
-                return newTs;
+                return hybridTimestamp(newLatestTime);
             }
         }
     }

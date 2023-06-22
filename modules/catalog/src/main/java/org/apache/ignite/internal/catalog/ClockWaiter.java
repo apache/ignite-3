@@ -54,8 +54,8 @@ public class ClockWaiter implements IgniteComponent {
 
     private final AtomicBoolean stopGuard = new AtomicBoolean(false);
 
-    private final PendingComparableValuesTracker<HybridTimestamp, Void> nowTracker = new PendingComparableValuesTracker<>(
-            new HybridTimestamp(1, 0)
+    private final PendingComparableValuesTracker<Long, Void> nowTracker = new PendingComparableValuesTracker<>(
+            HybridTimestamp.hybridTimestampToLong(new HybridTimestamp(1, 0))
     );
 
     private final ClockUpdateListener updateListener = this::onUpdate;
@@ -90,7 +90,7 @@ public class ClockWaiter implements IgniteComponent {
         scheduler.awaitTermination(10, TimeUnit.SECONDS);
     }
 
-    private void onUpdate(HybridTimestamp newTs) {
+    private void onUpdate(long newTs) {
         nowTracker.update(newTs, null);
     }
 
@@ -113,7 +113,7 @@ public class ClockWaiter implements IgniteComponent {
     }
 
     private CompletableFuture<Void> doWaitFor(HybridTimestamp targetTimestamp) {
-        CompletableFuture<Void> future = nowTracker.waitFor(targetTimestamp);
+        CompletableFuture<Void> future = nowTracker.waitFor(targetTimestamp.longValue());
 
         AtomicReference<ScheduledFuture<?>> scheduledFutureRef = new AtomicReference<>();
 

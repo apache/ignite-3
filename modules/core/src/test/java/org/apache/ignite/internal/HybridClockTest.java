@@ -19,7 +19,7 @@ package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.hlc.HybridClockTestUtils.mockToEpochMilli;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -127,7 +127,7 @@ class HybridClockTest {
 
         HybridTimestamp ts = clock.now();
 
-        verify(updateListener).onUpdate(ts);
+        verify(updateListener).onUpdate(ts.longValue());
     }
 
     @Test
@@ -138,7 +138,7 @@ class HybridClockTest {
 
         long ts = clock.nowLong();
 
-        verify(updateListener).onUpdate(HybridTimestamp.hybridTimestamp(ts));
+        verify(updateListener).onUpdate(ts);
     }
 
     @Test
@@ -151,7 +151,7 @@ class HybridClockTest {
 
         HybridTimestamp afterUpdate = clock.update(ts);
 
-        verify(updateListener).onUpdate(afterUpdate);
+        verify(updateListener).onUpdate(afterUpdate.longValue());
     }
 
     @Test
@@ -164,6 +164,6 @@ class HybridClockTest {
 
         clock.now();
 
-        verify(updateListener, never()).onUpdate(any());
+        verify(updateListener, never()).onUpdate(anyLong());
     }
 }
