@@ -893,10 +893,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }), ioExecutor)
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
-                                LOG.warn("Unable to update raft groups on the node", ex);
-                            }
+                                LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);
 
-                            futures[partId].complete(null);
+                                futures[partId].completeExceptionally(ex);
+                            } else {
+                                futures[partId].complete(null);
+                            }
                         });
             }
 
