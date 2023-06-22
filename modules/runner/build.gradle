@@ -169,9 +169,6 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.junit5.api
-    testFixturesImplementation libs.junit5.impl
-    testFixturesImplementation libs.junit5.params
     testFixturesImplementation libs.hamcrest.core
 }
 
