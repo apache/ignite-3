@@ -315,6 +315,13 @@ namespace Apache.Ignite.Tests.Compute
                 str);
         }
 
+        [Test]
+        public async Task TestDeploymentUnitsPropagation()
+        {
+            // TODO: "latest" is not handled correctly!
+            await Task.Delay(1);
+        }
+
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
             (await Client.GetClusterNodesAsync()).OrderBy(n => n.Name).Skip(index).Take(1).ToList();
     }
