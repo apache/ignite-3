@@ -46,6 +46,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -1137,7 +1138,7 @@ public class InternalTableImpl implements InternalTable {
 
         for (Entry<RaftGroupService> e : entries) {
             // TODO: sanpwc add timeout
-            futs.add(placementDriver.awaitPrimaryReplica(e.getValue().groupId(), clock.now()));
+            futs.add(placementDriver.awaitPrimaryReplica(e.getValue().groupId(), clock.now()).orTimeout(10_000, TimeUnit.SECONDS));
         }
 
         List<PrimaryReplica> primaryReplicas = new ArrayList<>(entries.size());
@@ -1287,7 +1288,8 @@ public class InternalTableImpl implements InternalTable {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
         tx.assignCommitPartition(tablePartitionId);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now());
+        // TODO: sanpwc timeout
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now()).orTimeout(10_000, TimeUnit.SECONDS);
 
         return primaryReplicaFuture.handle((primaryReplica, e) -> {
             if (e != null) {
