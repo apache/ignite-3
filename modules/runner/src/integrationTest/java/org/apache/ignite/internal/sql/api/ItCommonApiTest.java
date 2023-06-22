@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ErrorGroups.Sql;
-import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUTED_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -132,7 +132,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         Session ses = sql.sessionBuilder().property(PLANNING_TIMEOUT.name, 1L).build();
 
-        SqlTestUtils.assertSqlExceptionThrows(EXECUTION_CANCELLED_ERR,
+        SqlTestUtils.assertSqlExceptionThrows(PLANNING_TIMEOUTED_ERR,
                 () -> ses.execute(null, "SELECT * FROM TST1 t, TST1 t1, TST1 t2"));
 
         ses.close();
