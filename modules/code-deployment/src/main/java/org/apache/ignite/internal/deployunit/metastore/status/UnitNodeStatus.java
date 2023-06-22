@@ -36,11 +36,11 @@ public class UnitNodeStatus extends UnitStatus {
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
      * @param status Deployment unit status.
-     * @param depOpId Deployment unit operation identifier.
+     * @param opId Deployment unit operation identifier.
      * @param nodeId Node consistent id.
      */
-    public UnitNodeStatus(String id, Version version, DeploymentStatus status, long depOpId, String nodeId) {
-        super(id, version, status, depOpId);
+    public UnitNodeStatus(String id, Version version, DeploymentStatus status, long opId, String nodeId) {
+        super(id, version, status, opId);
         this.nodeId = nodeId;
     }
 
@@ -83,7 +83,7 @@ public class UnitNodeStatus extends UnitStatus {
                 status.id(),
                 status.version(),
                 status.status(),
-                status.depOpId(),
+                status.opId(),
                 status.nodeId
         );
     }
@@ -115,10 +115,10 @@ public class UnitNodeStatus extends UnitStatus {
             status = null;
         }
 
-        long depOpId = checkElement(values, 3) ? Long.parseLong(SerializeUtils.decode(values[3])) : 0;
+        long opId = checkElement(values, 3) ? Long.parseLong(SerializeUtils.decode(values[3])) : 0;
 
         String nodeId = checkElement(values, 4) ? SerializeUtils.decode(values[4]) : null;
 
-        return new UnitNodeStatus(id, version, status, depOpId, nodeId);
+        return new UnitNodeStatus(id, version, status, opId, nodeId);
     }
 }

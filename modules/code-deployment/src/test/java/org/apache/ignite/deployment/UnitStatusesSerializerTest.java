@@ -61,10 +61,10 @@ public class UnitStatusesSerializerTest {
             String id,
             Version version,
             DeploymentStatus status,
-            long depOpId,
+            long opId,
             String nodeId
     ) {
-        UnitNodeStatus nodeStatus = new UnitNodeStatus(id, version, status, depOpId, nodeId);
+        UnitNodeStatus nodeStatus = new UnitNodeStatus(id, version, status, opId, nodeId);
 
         byte[] serialize = UnitNodeStatus.serialize(nodeStatus);
 
@@ -77,10 +77,10 @@ public class UnitStatusesSerializerTest {
             String id,
             Version version,
             DeploymentStatus status,
-            long depOpId,
+            long opId,
             Set<String> consistentIdLocation
     ) {
-        UnitClusterStatus nodeStatus = new UnitClusterStatus(id, version, status, depOpId, consistentIdLocation);
+        UnitClusterStatus nodeStatus = new UnitClusterStatus(id, version, status, opId, consistentIdLocation);
 
         byte[] serialize = UnitClusterStatus.serialize(nodeStatus);
 

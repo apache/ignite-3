@@ -126,11 +126,12 @@ public interface DeploymentUnitStore {
      * @param nodeId Node consistent identifier.
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
+     * @param opId Deployment unit creation operation identifier.
      * @return Future with {@code true} result if status created successfully or with {@code false} if status with provided {@param id} and
      *         {@param version} and {@param nodeId} already existed.
      */
-    default CompletableFuture<Boolean> createNodeStatus(String nodeId, String id, Version version, long depOpId) {
-        return createNodeStatus(nodeId, id, version, depOpId, UPLOADING);
+    default CompletableFuture<Boolean> createNodeStatus(String nodeId, String id, Version version, long opId) {
+        return createNodeStatus(nodeId, id, version, opId, UPLOADING);
     }
 
     /**
@@ -139,6 +140,7 @@ public interface DeploymentUnitStore {
      * @param nodeId Node consistent identifier.
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
+     * @param opId Deployment unit creation operation identifier.
      * @param status Initial deployment status.
      * @return Future with {@code true} result if status created successfully or with {@code false} if status with provided {@param id} and
      *         {@param version} and {@param nodeId} already existed.
@@ -147,7 +149,7 @@ public interface DeploymentUnitStore {
             String nodeId,
             String id,
             Version version,
-            long depOpId,
+            long opId,
             DeploymentStatus status);
 
     /**

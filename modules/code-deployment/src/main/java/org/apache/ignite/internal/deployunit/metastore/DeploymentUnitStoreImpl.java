@@ -154,11 +154,11 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
             String nodeId,
             String id,
             Version version,
-            long depOpId,
+            long opId,
             DeploymentStatus status
     ) {
         ByteArray key = NodeStatusKey.builder().id(id).version(version).nodeId(nodeId).build().toByteArray();
-        byte[] value = UnitNodeStatus.serialize(new UnitNodeStatus(id, version, status, depOpId, nodeId));
+        byte[] value = UnitNodeStatus.serialize(new UnitNodeStatus(id, version, status, opId, nodeId));
         return metaStorage.invoke(notExists(key), put(key, value), noop());
     }
 

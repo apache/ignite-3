@@ -116,7 +116,7 @@ public class DeploymentUnitFailover {
             case REMOVING:
                 deploymentUnitStore.getAllNodeStatuses(id, version)
                         .thenAccept(nodes -> {
-                            UnitNodeStatus status = new UnitNodeStatus(id, version, REMOVING, unitClusterStatus.depOpId(), nodeName);
+                            UnitNodeStatus status = new UnitNodeStatus(id, version, REMOVING, unitClusterStatus.opId(), nodeName);
                             nodeEventCallback.onUpdate(status, nodes);
                         });
                 break;
@@ -141,7 +141,7 @@ public class DeploymentUnitFailover {
     private boolean checkAbaProblem(UnitClusterStatus clusterStatus, UnitNodeStatus nodeStatus) {
         String id = nodeStatus.id();
         Version version = nodeStatus.version();
-        if (clusterStatus.depOpId() != nodeStatus.depOpId()) {
+        if (clusterStatus.opId() != nodeStatus.opId()) {
             if (nodeStatus.status() == DEPLOYED) {
                 deployer.undeploy(id, version).thenAccept(success -> {
                     if (success) {

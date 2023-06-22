@@ -113,14 +113,14 @@ public class DeploymentUnitStoreImplTest {
         assertThat(clusterStatusFuture, willCompleteSuccessfully());
 
         UnitClusterStatus clusterStatus = clusterStatusFuture.get();
-        long depOpId = clusterStatus.depOpId();
+        long opId = clusterStatus.opId();
 
         assertThat(metastore.getClusterStatus(id, version),
-                willBe(new UnitClusterStatus(id, version, UPLOADING, depOpId, Set.of())));
+                willBe(new UnitClusterStatus(id, version, UPLOADING, opId, Set.of())));
 
         assertThat(metastore.updateClusterStatus(id, version, DEPLOYED), willBe(true));
         assertThat(metastore.getClusterStatus(id, version),
-                willBe(new UnitClusterStatus(id, version, DEPLOYED, depOpId, Set.of())));
+                willBe(new UnitClusterStatus(id, version, DEPLOYED, opId, Set.of())));
 
         assertThat(metastore.removeClusterStatus(id, version), willBe(true));
 
@@ -140,34 +140,38 @@ public class DeploymentUnitStoreImplTest {
         assertThat(clusterStatusFuture, willCompleteSuccessfully());
 
         UnitClusterStatus clusterStatus = clusterStatusFuture.get();
-        long depOpId = clusterStatus.depOpId();
+        long opId = clusterStatus.opId();
 
         assertThat(metastore.getClusterStatus(id, version),
-                willBe(new UnitClusterStatus(id, version, UPLOADING, depOpId, Set.of(node1, node2, node3))));
+                willBe(new UnitClusterStatus(id, version, UPLOADING, opId, Set.of(node1, node2, node3))));
 
-        assertThat(metastore.createNodeStatus(node1, id, version, depOpId), willBe(true));
+        assertThat(metastore.createNodeStatus(node1, id, version, opId), willBe(true));
         assertThat(metastore.getNodeStatus(node1, id, version),
-                willBe(new UnitNodeStatus(id, version, UPLOADING, depOpId, node1)));
+                willBe(new UnitNodeStatus(id, version, UPLOADING, opId, node1)));
 
         assertThat(metastore.updateNodeStatus(node1, id, version, DEPLOYED), willBe(true));
         assertThat(metastore.getNodeStatus(node1, id, version),
-                willBe(new UnitNodeStatus(id, version, DEPLOYED, depOpId, node1)));
+                willBe(new UnitNodeStatus(id, version, DEPLOYED, opId, node1)));
 
-        assertThat(metastore.createNodeStatus(node2, id, version, depOpId), willBe(true));
+        assertThat(metastore.createNodeStatus(node2, id, version, opId), willBe(true));
         assertThat(metastore.getNodeStatus(node2, id, version),
-                willBe(new UnitNodeStatus(id, version, UPLOADING, depOpId, node2)));
+                willBe(new UnitNodeStatus(id, version, UPLOADING, opId, node2)));
 
-        assertThat(metastore.createNodeStatus(node3, id, version, depOpId), willBe(true));
+        assertThat(metastore.createNodeStatus(node3, id, version, opId), willBe(true));
 
         assertThat(metastore.updateClusterStatus(id, version, DEPLOYED), willBe(true));
         assertThat(metastore.getClusterStatus(id, version),
-                willBe(new UnitClusterStatus(id, version, DEPLOYED, depOpId, Set.of(node1, node2, node3))));
+                willBe(new UnitClusterStatus(id, version, DEPLOYED, opId, Set.of(node1, node2, node3))));
 
         assertThat(metastore.getClusterStatuses(id),
-                willBe(contains((new UnitClusterStatus(id, version, DEPLOYED, depOpId, Set.of(node1, node2, node3)))))
+                willBe(contains((new UnitClusterStatus(id, version, DEPLOYED, opId, Set.of(node1, node2, node3)))))
         );
 
         assertThat(metastore.removeClusterStatus(id, version), willBe(true));
+        assertThat(metastore.getNodeStatus(node1, id, version),
+                willBe(new UnitNodeStatus(id, version, DEPLOYED, opId, node1)));
+
+        assertThat(metastore.removeNodeStatus(node1, id, version), willBe(true));
         assertThat(metastore.getNodeStatus(node1, id, version), willBe(nullValue()));
     }
 
@@ -200,7 +204,7 @@ public class DeploymentUnitStoreImplTest {
         assertThat(clusterStatusFuture, willCompleteSuccessfully());
 
         UnitClusterStatus clusterStatus = clusterStatusFuture.get();
-        long depOpId = clusterStatus.depOpId();
+        long opId = clusterStatus.opId();
 
         assertThat(metastore.updateClusterStatus(id, version, DEPLOYED), willBe(true));
         assertThat(metastore.updateClusterStatus(id, version, OBSOLETE), willBe(true));
@@ -208,10 +212,10 @@ public class DeploymentUnitStoreImplTest {
 
         await().untilAsserted(() ->
                 assertThat(clusterHistory, containsInAnyOrder(
-                        new UnitClusterStatus(id, version, UPLOADING, depOpId, Set.of()),
-                        new UnitClusterStatus(id, version, DEPLOYED, depOpId, Set.of()),
-                        new UnitClusterStatus(id, version, OBSOLETE, depOpId, Set.of()),
-                        new UnitClusterStatus(id, version, REMOVING, depOpId, Set.of())
+                        new UnitClusterStatus(id, version, UPLOADING, opId, Set.of()),
+                        new UnitClusterStatus(id, version, DEPLOYED, opId, Set.of()),
+                        new UnitClusterStatus(id, version, OBSOLETE, opId, Set.of()),
+                        new UnitClusterStatus(id, version, REMOVING, opId, Set.of())
                 )));
     }
 }

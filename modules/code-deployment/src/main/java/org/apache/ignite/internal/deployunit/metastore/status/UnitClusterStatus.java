@@ -37,17 +37,17 @@ public class UnitClusterStatus extends UnitStatus {
      * @param id Unit identifier.
      * @param version Unit version.
      * @param status Unit status.
-     * @param depOpId Operation identifier.
+     * @param opId Operation identifier.
      * @param initialNodesToDeploy Nodes required for initial deploy.
      */
     public UnitClusterStatus(
             String id,
             Version version,
             DeploymentStatus status,
-            long depOpId,
+            long opId,
             Set<String> initialNodesToDeploy
     ) {
-        super(id, version, status, depOpId);
+        super(id, version, status, opId);
         this.initialNodesToDeploy = Collections.unmodifiableSet(initialNodesToDeploy);
     }
 
@@ -91,7 +91,7 @@ public class UnitClusterStatus extends UnitStatus {
                 status.id(),
                 status.version(),
                 status.status(),
-                status.depOpId(),
+                status.opId(),
                 status.initialNodesToDeploy
         );
     }
@@ -112,10 +112,10 @@ public class UnitClusterStatus extends UnitStatus {
         String id = checkElement(values, 0) ? SerializeUtils.decode(values[0]) : null;
         Version version = checkElement(values, 1) ? Version.parseVersion(SerializeUtils.decode(values[1])) : null;
         DeploymentStatus status = checkElement(values, 2) ? DeploymentStatus.valueOf(SerializeUtils.decode(values[2])) : null;
-        long depOpId = checkElement(values, 3) ? Long.parseLong(SerializeUtils.decode(values[3])) : 0;
+        long opId = checkElement(values, 3) ? Long.parseLong(SerializeUtils.decode(values[3])) : 0;
         Set<String> nodes = checkElement(values, 4) ? SerializeUtils.decodeAsSet(values[4]) : Set.of();
 
 
-        return new UnitClusterStatus(id, version, status, depOpId, nodes);
+        return new UnitClusterStatus(id, version, status, opId, nodes);
     }
 }

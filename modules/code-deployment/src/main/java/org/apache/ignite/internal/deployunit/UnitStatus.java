@@ -38,7 +38,7 @@ public abstract class UnitStatus {
      */
     private DeploymentStatus status;
 
-    private final long depOpId;
+    private final long opId;
 
     /**
      * Constructor.
@@ -46,13 +46,13 @@ public abstract class UnitStatus {
      * @param id Unit identifier.
      * @param version Unit version.
      * @param status Unit status.
-     * @param depOpId Deployment unit operation identifier.
+     * @param opId Deployment unit operation identifier.
      */
-    public UnitStatus(String id, Version version, DeploymentStatus status, long depOpId) {
+    public UnitStatus(String id, Version version, DeploymentStatus status, long opId) {
         this.id = id;
         this.version = version;
         this.status = status;
-        this.depOpId = depOpId;
+        this.opId = opId;
     }
 
     /**
@@ -83,7 +83,7 @@ public abstract class UnitStatus {
     }
 
     /**
-     * Update deployment status.
+     * Updates deployment status.
      *
      * @param status new deployment status.
      */
@@ -91,8 +91,13 @@ public abstract class UnitStatus {
         this.status = status;
     }
 
-    public long depOpId() {
-        return depOpId;
+    /**
+     * Returns operation identifier of deployment unit creation.
+     *
+     * @return Operation identifier of deployment unit creation.
+     */
+    public long opId() {
+        return opId;
     }
 
     @Override
@@ -129,6 +134,7 @@ public abstract class UnitStatus {
                 + "id='" + id + '\''
                 + ", version=" + version
                 + ", status=" + status
+                + ", opId=" + opId
                 + '}';
     }
 }

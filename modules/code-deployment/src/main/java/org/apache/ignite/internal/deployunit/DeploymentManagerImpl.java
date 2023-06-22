@@ -242,7 +242,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                                         node,
                                         clusterStatus.id(),
                                         clusterStatus.version(),
-                                        clusterStatus.depOpId()
+                                        clusterStatus.opId()
                                 );
                             }
                         });
@@ -259,7 +259,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                                 nodeName,
                                 clusterStatus.id(),
                                 clusterStatus.version(),
-                                clusterStatus.depOpId(),
+                                clusterStatus.opId(),
                                 DEPLOYED
                         );
                     }
