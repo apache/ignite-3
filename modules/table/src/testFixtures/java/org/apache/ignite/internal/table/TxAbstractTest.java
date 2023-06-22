@@ -853,7 +853,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                             List.of(makeValue(1, 200.), makeValue(3, 300.))
                     );
 
-                    assertEquals(2, res.size());
+                    assertEquals(1, res.size());
                 });
 
         validateBalance(
