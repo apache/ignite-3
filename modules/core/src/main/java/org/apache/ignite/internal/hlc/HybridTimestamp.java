@@ -247,6 +247,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     /**
      * Returns max clock skew for the cluster (in millis).
      */
+    // TODO: IGNITE-19809 - Convert this to a cluster-wide config property.
     public static long maxClockSkew() {
         return CLOCK_SKEW;
     }
