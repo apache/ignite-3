@@ -50,7 +50,6 @@ import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -212,7 +211,9 @@ public class ScannableTableSelfTest {
         Object[] upperValue = upper == Bound.NONE ? null : new Object[]{10};
 
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
-        condition.setBounds(lower, lowerValue, upper, upperValue);
+        condition.setLower(lower, lowerValue);
+        condition.setUpper(upper, upperValue);
+
         int flags = condition.toFlags();
 
         ResultCollector collector = tester.indexScan(partitionId, term, tx, indexId, condition);
@@ -274,7 +275,7 @@ public class ScannableTableSelfTest {
 
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
         // Set any valid bounds, they are not of our interest here.
-        condition.setBounds(Bound.INCLUSIVE, new Object[]{0}, Bound.NONE, null);
+        condition.setLower(Bound.INCLUSIVE, new Object[]{0});
 
         ResultCollector collector = tester.indexScan(partitionId, term, tx, indexId, condition);
 
@@ -335,7 +336,7 @@ public class ScannableTableSelfTest {
 
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
         // Set any valid bounds, they are not of our interest here.
-        condition.setBounds(Bound.INCLUSIVE, new Object[]{0}, Bound.NONE, null);
+        condition.setLower(Bound.INCLUSIVE, new Object[]{0});
 
         ResultCollector collector = tester.indexScan(partitionId, term, tx, indexId, condition);
 
@@ -365,8 +366,8 @@ public class ScannableTableSelfTest {
         long term = 2;
         int indexId = 3;
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
-        // Set any valid bounds, they are not of our interest here.
-        condition.setBounds(Bound.INCLUSIVE, new Object[]{1, 2}, Bound.NONE, null);
+        // Bound columns != input columns.
+        condition.setLower(Bound.INCLUSIVE, new Object[]{1, 2});
 
         AssertionError err = assertThrows(AssertionError.class, () -> tester.indexScan(partitionId, term, tx, indexId, condition));
         assertEquals("Invalid range condition", err.getMessage());
@@ -397,7 +398,7 @@ public class ScannableTableSelfTest {
         long term = 2;
         int indexId = 3;
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
-        condition.setBounds(Bound.INCLUSIVE, new Object[]{1, 2, UNSPECIFIED_VALUE_PLACEHOLDER}, Bound.NONE, null);
+        condition.setLower(Bound.INCLUSIVE, new Object[]{1, 2, UNSPECIFIED_VALUE_PLACEHOLDER});
 
         ArgumentCaptor<BinaryTuplePrefix> prefix = ArgumentCaptor.forClass(BinaryTuplePrefix.class);
 
@@ -916,11 +917,6 @@ public class ScannableTableSelfTest {
 
         private Bound upperBoundType;
         private T upperValue;
-
-        void setBounds(Bound lower, @Nullable T lowerValue, Bound upper, @Nullable T upperValue) {
-            setLower(lower, lowerValue);
-            setUpper(upper, upperValue);
-        }
 
         void setLower(Bound bound, T value) {
             if (bound == Bound.NONE && value != null) {
