@@ -89,7 +89,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public void upsert(@Nullable Transaction tx, Tuple rec) {
+    public void upsert(@Nullable Transaction tx, @NotNull Tuple rec) {
         sync(upsertAsync(tx, rec));
     }
 
