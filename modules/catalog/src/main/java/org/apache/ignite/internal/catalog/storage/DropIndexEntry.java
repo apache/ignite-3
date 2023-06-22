@@ -38,17 +38,13 @@ public class DropIndexEntry implements UpdateEntry, CatalogFireEvent {
 
     private final int indexId;
 
-    private final int tableId;
-
     /**
      * Constructs the object.
      *
      * @param indexId ID of an index to drop.
-     * @param tableId ID of the table for which the index will be removed.
      */
-    public DropIndexEntry(int indexId, int tableId) {
+    public DropIndexEntry(int indexId) {
         this.indexId = indexId;
-        this.tableId = tableId;
     }
 
     /**
@@ -58,13 +54,6 @@ public class DropIndexEntry implements UpdateEntry, CatalogFireEvent {
         return indexId;
     }
 
-    /**
-     * Returns ID of the table for which the index will be removed.
-     */
-    public int tableId() {
-        return tableId;
-    }
-
     @Override
     public CatalogEvent eventType() {
         return CatalogEvent.INDEX_DROP;
@@ -72,7 +61,7 @@ public class DropIndexEntry implements UpdateEntry, CatalogFireEvent {
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new DropIndexEventParameters(causalityToken, catalogVersion, indexId, tableId);
+        return new DropIndexEventParameters(causalityToken, catalogVersion, indexId);
     }
 
     @Override

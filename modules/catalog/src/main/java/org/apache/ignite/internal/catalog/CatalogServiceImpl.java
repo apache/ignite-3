@@ -184,11 +184,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     @Override
-    public CatalogTableDescriptor table(int tableId, int catalogVersion) {
-        return catalog(catalogVersion).table(tableId);
-    }
-
-    @Override
     public CatalogIndexDescriptor index(String indexName, long timestamp) {
         return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).index(indexName);
     }
@@ -272,16 +267,11 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogZoneDescriptor zone = getZone(catalog, Objects.requireNonNullElse(params.zone(), DEFAULT_ZONE_NAME));
 
-            int id = catalog.objectIdGenState();
-
-            CatalogTableDescriptor table = CatalogUtils.fromParams(id++, zone.id(), params);
-
-            CatalogHashIndexDescriptor pkIndex = createHashIndexDescriptor(createPkIndexParams(params), table, id++);
+            CatalogTableDescriptor table = CatalogUtils.fromParams(catalog.objectIdGenState(), zone.id(), params);
 
             return List.of(
                     new NewTableEntry(table),
-                    new NewIndexEntry(pkIndex),
-                    new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
+                    new ObjectIdGenUpdateEntry(1)
             );
         });
     }
@@ -297,7 +287,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             Arrays.stream(schema.indexes())
                     .filter(index -> index.tableId() == table.id())
-                    .forEach(index -> updateEntries.add(new DropIndexEntry(index.id(), index.tableId())));
+                    .forEach(index -> updateEntries.add(new DropIndexEntry(index.id())));
 
             updateEntries.add(new DropTableEntry(table.id()));
 
@@ -388,7 +378,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            CatalogHashIndexDescriptor index = createHashIndexDescriptor(params, table, catalog.objectIdGenState());
+            validateParams(params, table);
+
+            CatalogHashIndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
 
             return List.of(
                     new NewIndexEntry(index),
@@ -431,7 +423,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             }
 
             return List.of(
-                    new DropIndexEntry(index.id(), index.tableId())
+                    new DropIndexEntry(index.id())
             );
         });
     }
@@ -462,7 +454,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             CatalogZoneDescriptor zone = getZone(catalog, params.zoneName());
 
             if (zone.name().equals(DEFAULT_ZONE_NAME)) {
-                //TODO IGNITE-19082 Can default zone be dropped?
                 throw new IgniteInternalException(
                         DistributionZones.ZONE_DROP_ERR,
                         "Default distribution zone can't be dropped"
@@ -843,25 +834,5 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         } else if (target.precision() < origin.precision()) {
             throwUnsupportedDdl("Cannot decrease precision to {} for column '{}'.", target.precision(), origin.name());
         }
-    }
-
-    private static CatalogHashIndexDescriptor createHashIndexDescriptor(
-            CreateHashIndexParams params,
-            CatalogTableDescriptor table,
-            int indexId
-    ) {
-        validateParams(params, table);
-
-        return CatalogUtils.fromParams(indexId, table.id(), params);
-    }
-
-    private static CreateHashIndexParams createPkIndexParams(CreateTableParams params) {
-        return CreateHashIndexParams.builder()
-                .schemaName(params.schemaName())
-                .tableName(params.tableName())
-                .indexName(params.tableName() + "_PK")
-                .columns(params.primaryKeyColumns())
-                .unique()
-                .build();
     }
 }

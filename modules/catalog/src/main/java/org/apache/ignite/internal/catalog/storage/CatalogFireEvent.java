@@ -21,7 +21,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 
 /**
- * Interface for firing events.
+ * Interface for updates that require firing events.
  */
 public interface CatalogFireEvent {
     /**

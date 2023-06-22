@@ -79,7 +79,7 @@ public class CatalogUtils {
                 id,
                 params.indexName(),
                 tableId,
-                params.unique(),
+                false,
                 params.columns()
         );
     }
@@ -101,7 +101,7 @@ public class CatalogUtils {
                 .mapToObj(i -> new CatalogIndexColumnDescriptor(params.columns().get(i), collations.get(i)))
                 .collect(Collectors.toList());
 
-        return new CatalogSortedIndexDescriptor(id, params.indexName(), tableId, params.unique(), columnDescriptors);
+        return new CatalogSortedIndexDescriptor(id, params.indexName(), tableId, params.isUnique(), columnDescriptors);
     }
 
     /**

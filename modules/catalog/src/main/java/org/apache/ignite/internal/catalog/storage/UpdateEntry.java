@@ -24,5 +24,12 @@ import org.apache.ignite.internal.catalog.Catalog;
  * Interface describing a particular change within the {@link VersionedUpdate group}.
  */
 public interface UpdateEntry extends Serializable {
+    /**
+     * Applies own change to the catalog.
+     *
+     * @param catalog Current catalog.
+     * @param update Group of changes that relates to specified version.
+     * @return New catalog.
+     */
     Catalog applyUpdate(Catalog catalog, VersionedUpdate update);
 }

@@ -23,21 +23,17 @@ package org.apache.ignite.internal.catalog.events;
 public class DropIndexEventParameters extends CatalogEventParameters {
     private final int indexId;
 
-    private final int tableId;
-
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
      * @param catalogVersion Catalog version.
      * @param indexId ID of dropped index.
-     * @param tableId ID of the table for which the index will be removed.
      */
-    public DropIndexEventParameters(long causalityToken, int catalogVersion, int indexId, int tableId) {
+    public DropIndexEventParameters(long causalityToken, int catalogVersion, int indexId) {
         super(causalityToken, catalogVersion);
 
         this.indexId = indexId;
-        this.tableId = tableId;
     }
 
     /**
@@ -45,12 +41,5 @@ public class DropIndexEventParameters extends CatalogEventParameters {
      */
     public int indexId() {
         return indexId;
-    }
-
-    /**
-     * Returns ID of the table for which the index will be removed.
-     */
-    public int tableId() {
-        return tableId;
     }
 }
