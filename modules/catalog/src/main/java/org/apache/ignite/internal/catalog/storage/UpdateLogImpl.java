@@ -204,6 +204,8 @@ public class UpdateLogImpl implements UpdateLog {
     private class UpdateListener implements WatchListener {
         @Override
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
+            HybridTimestamp eventTimestamp = metastoreRevisionToTs.apply(event.revision());
+
             for (EntryEvent eventEntry : event.entryEvents()) {
                 assert eventEntry.newEntry() != null;
                 assert !eventEntry.newEntry().empty();
@@ -214,9 +216,7 @@ public class UpdateLogImpl implements UpdateLog {
 
                 VersionedUpdate update = fromBytes(payload);
 
-                HybridTimestamp entryTimestamp = metastoreRevisionToTs.apply(eventEntry.newEntry().revision());
-
-                onUpdateHandler.handle(update, entryTimestamp);
+                onUpdateHandler.handle(update, eventTimestamp);
             }
 
             return CompletableFuture.completedFuture(null);
