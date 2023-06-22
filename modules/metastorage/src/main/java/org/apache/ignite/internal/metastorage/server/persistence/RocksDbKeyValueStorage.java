@@ -364,11 +364,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         } finally {
             rwLock.writeLock().unlock();
         }
-
-        // Replay updates if startWatches() has already been called.
-        if (recoveryStatus.compareAndSet(RecoveryStatus.PENDING, RecoveryStatus.IN_PROGRESS)) {
-            replayUpdates(currentRevision);
-        }
     }
 
     @Override
@@ -973,7 +968,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void startWatches(OnRevisionAppliedCallback revisionCallback) {
+    public void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback) {
         long currentRevision;
 
         rwLock.readLock().lock();
@@ -998,7 +993,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
 
         if (currentRevision != 0) {
-            replayUpdates(currentRevision);
+            replayUpdates(startRevision, currentRevision);
         }
     }
 
@@ -1049,6 +1044,26 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     @Override
     public byte @Nullable [] nextKey(byte[] key) {
         return incrementPrefix(key);
+    }
+
+    private long timestamp(long revision) {
+        if (revision == 0) {
+            return 0;
+        }
+
+        long ts;
+
+        try {
+            byte[] tsBytes = revisionToTs.get(longToBytes(revision));
+
+            assert tsBytes != null;
+
+            ts = bytesToLong(tsBytes);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        }
+
+        return ts;
     }
 
     /**
@@ -1488,8 +1503,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         watchProcessor.notifyWatches(copy.updatedEntries, copy.ts);
     }
 
-    private void replayUpdates(long upperRevision) {
-        long minWatchRevision = watchProcessor.minWatchRevision().orElse(-1);
+    private void replayUpdates(long lowerRevision, long upperRevision) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19778 Should be Math.max, so we start from the revision that
+        // components restored their state to (lowerRevision).
+        long minWatchRevision = Math.min(lowerRevision, watchProcessor.minWatchRevision().orElse(-1));
 
         if (minWatchRevision == -1 || minWatchRevision > upperRevision) {
             // No events to replay, we can start processing more recent events from the event queue.
@@ -1551,15 +1568,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     private HybridTimestamp timestampByRevision(long revision) {
-        try {
-            byte[] tsBytes = revisionToTs.get(longToBytes(revision));
-
-            assert tsBytes != null;
-
-            return HybridTimestamp.hybridTimestamp(bytesToLong(tsBytes));
-        } catch (RocksDBException e) {
-            throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        }
+        return HybridTimestamp.hybridTimestamp(timestamp(revision));
     }
 
     private void finishReplay() {

@@ -244,10 +244,11 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * <p>Before calling this method, watches will not receive any updates.
      *
+     * @param startRevision Revision to start processing updates from.
      * @param revisionCallback Callback that will be invoked after all watches of a particular revision are processed, with the
      *         revision and modified entries (processed by at least one watch) as its argument.
      */
-    void startWatches(OnRevisionAppliedCallback revisionCallback);
+    void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback);
 
     /**
      * Unregisters a watch listener.

@@ -691,14 +691,24 @@ public class IgniteImpl implements Ignite {
             LOG.info("Components started, joining the cluster");
 
             return cmgMgr.joinFuture()
-                    // using the default executor to avoid blocking the CMG Manager threads
+                    // Using the default executor to avoid blocking the CMG Manager threads.
+                    .thenComposeAsync(unused -> {
+                        LOG.info("Join complete, starting MetaStorage");
+
+                        try {
+                            lifecycleManager.startComponent(metaStorageMgr);
+                        } catch (NodeStoppingException e) {
+                            throw new CompletionException(e);
+                        }
+
+                        return metaStorageMgr.ready();
+                    })
                     .thenRunAsync(() -> {
-                        LOG.info("Join complete, starting the remaining components");
+                        LOG.info("MetaStorage started, starting the remaining components");
 
                         // Start all other components after the join request has completed and the node has been validated.
                         try {
                             lifecycleManager.startComponents(
-                                    metaStorageMgr,
                                     clusterCfgMgr,
                                     metricManager,
                                     distributionZoneManager,

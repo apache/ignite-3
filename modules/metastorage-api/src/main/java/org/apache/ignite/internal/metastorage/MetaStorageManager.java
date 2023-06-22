@@ -196,4 +196,6 @@ public interface MetaStorageManager extends IgniteComponent {
      * @return Cluster time.
      */
     ClusterTime clusterTime();
+
+    CompletableFuture<Void> ready();
 }

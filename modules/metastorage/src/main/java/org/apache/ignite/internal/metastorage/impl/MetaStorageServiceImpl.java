@@ -39,6 +39,7 @@ import org.apache.ignite.internal.metastorage.command.GetAndPutCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndRemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndRemoveCommand;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
+import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
@@ -289,6 +290,13 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override
     public CompletableFuture<Void> compact() {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Long> currentRevisionAndTime() {
+        GetCurrentRevisionCommand cmd = context.commandsFactory().getCurrentRevisionCommand().build();
+
+        return context.raftService().run(cmd);
     }
 
     @Override

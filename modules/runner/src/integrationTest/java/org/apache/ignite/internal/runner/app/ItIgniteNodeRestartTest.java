@@ -44,6 +44,9 @@ import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
 import java.util.function.LongFunction;
@@ -81,13 +84,18 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStateIds;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -111,10 +119,13 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.raft.jraft.RaftGroupService;
+import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -128,6 +139,8 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * These tests check node restart scenarios.
@@ -715,8 +728,63 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Restarts the node which stores some data.
      */
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void metastorageRecoveryTest(boolean useSnapshot) throws InterruptedException {
+        List<IgniteImpl> nodes = startNodes(2);
+        IgniteImpl main = nodes.get(0);
+
+        createTableWithData(List.of(main), TABLE_NAME, 1);
+
+        stopNode(1);
+
+        MetaStorageManager metaStorageManager = main.metaStorageManager();
+
+        CompletableFuture[] futs = new CompletableFuture[10];
+
+        for (int i = 0; i < 10; i++) {
+            ByteArray key = ByteArray.fromString("some-test-key-" + i);
+            futs[i] = metaStorageManager.put(key, new byte[]{(byte) 0});
+        }
+
+        CompletableFuture.allOf(futs).join();
+
+        if (useSnapshot) {
+            // Force snapshot installation
+            JraftServerImpl server = (JraftServerImpl) main.raftManager().server();
+            List<Peer> peers = server.localPeers(MetastorageGroupId.INSTANCE);
+
+            Peer learnerPeer = peers.stream().filter(peer -> peer.idx() == 0).findFirst().orElseThrow(
+                    () -> new IllegalStateException(String.format("No leader peer"))
+            );
+
+            var nodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, learnerPeer);
+            RaftGroupService raftGroupService = server.raftGroupService(nodeId);
+
+            for (int i = 0; i < 2; i++) {
+                CountDownLatch snapshotLatch = new CountDownLatch(1);
+                AtomicReference<Status> snapshotStatus = new AtomicReference<>();
+
+                raftGroupService.getRaftNode().snapshot(status -> {
+                    snapshotStatus.set(status);
+                    snapshotLatch.countDown();
+                });
+
+                assertTrue(snapshotLatch.await(10, TimeUnit.SECONDS), "Snapshot was not finished in time");
+                assertTrue(snapshotStatus.get().isOk(), "Snapshot failed: " + snapshotStatus.get());
+            }
+        }
+
+        IgniteImpl second = startNode(1);
+
+        checkTableWithData(second, TABLE_NAME);
+    }
+
+    /**
+     * Restarts the node which stores some data.
+     */
     @Test
-    public void nodeWithDataAndIndexRebuildTest() throws InterruptedException {
+    public void nodeWithDataAndIndexRebuildTest() {
         IgniteImpl ignite = startNode(0);
 
         int partitions = 20;

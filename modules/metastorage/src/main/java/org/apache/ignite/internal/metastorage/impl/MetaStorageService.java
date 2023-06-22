@@ -301,4 +301,6 @@ public interface MetaStorageService extends ManuallyCloseable {
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
      */
     CompletableFuture<Void> compact();
+
+    CompletableFuture<Long> currentRevisionAndTime();
 }

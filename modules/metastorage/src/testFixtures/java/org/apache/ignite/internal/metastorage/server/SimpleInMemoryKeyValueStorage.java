@@ -33,7 +33,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.OptionalLong;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -446,24 +445,26 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void startWatches(OnRevisionAppliedCallback revisionCallback) {
+    public void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback) {
         synchronized (mux) {
             areWatchesEnabled = true;
 
             watchProcessor.setRevisionCallback(revisionCallback);
 
-            replayUpdates();
+            replayUpdates(startRevision);
         }
     }
 
-    private void replayUpdates() {
-        OptionalLong minWatchRevision = watchProcessor.minWatchRevision();
+    private void replayUpdates(long startRevision) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19778 Should be Math.max, so we start from the revision that
+        // components restored their state to (lowerRevision).
+        long minWatchRevision = Math.min(startRevision, watchProcessor.minWatchRevision().orElse(-1));
 
-        if (minWatchRevision.isEmpty()) {
+        if (minWatchRevision <= 0) {
             return;
         }
 
-        revsIdx.tailMap(minWatchRevision.getAsLong())
+        revsIdx.tailMap(minWatchRevision)
                 .forEach((revision, entries) -> {
                     entries.forEach((key, value) -> {
                         var entry = new EntryImpl(key, value.bytes(), revision, value.updateCounter());

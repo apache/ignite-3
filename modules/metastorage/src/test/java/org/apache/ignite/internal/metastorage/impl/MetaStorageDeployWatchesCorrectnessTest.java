@@ -45,7 +45,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests that check correctness of an invocation {@link MetaStorageManager#deployWatches()}.
+ * Tests that check correctness of an invocation {@link MetaStorageManager#deployWatches(long)}.
  */
 public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest {
     /** Vault manager. */
@@ -100,7 +100,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
     }
 
     /**
-     * Invokes {@link MetaStorageManager#deployWatches()} and checks result.
+     * Invokes {@link MetaStorageManager#deployWatches(long)} and checks result.
      *
      * @param metastore Meta storage.
      */

@@ -84,6 +84,7 @@ public class ConfigurationCatchUpListener implements ConfigurationStorageRevisio
     private CompletableFuture<?> checkRevisionUpToDate(long appliedRevision) {
         return cfgStorage.lastRevision().thenAccept(rev -> {
             synchronized (targetRevisionUpdateMutex) {
+                // TODO: actual metastorage  revision can be higher than configuration revision
                 assert rev >= appliedRevision : IgniteStringFormatter.format(
                     "Configuration revision must be greater than local node applied revision [msRev={}, appliedRev={}",
                     rev, appliedRevision);
