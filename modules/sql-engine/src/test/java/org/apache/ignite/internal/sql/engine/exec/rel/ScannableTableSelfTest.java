@@ -662,7 +662,7 @@ public class ScannableTableSelfTest {
             List<String> indexColumns = input.getIndexColumns();
 
             Publisher<Object[]> publisher = scannableTable.indexRangeScan(ctx, new PartitionWithTerm(partitionId, term), rowFactory,
-                    indexId, "TEST_IDX", indexColumns, rangeCondition, requiredFields);
+                    indexId, indexColumns, rangeCondition, requiredFields);
 
             return new ResultCollector(publisher, requiredFields, rowConverter);
         }
@@ -696,7 +696,7 @@ public class ScannableTableSelfTest {
             List<String> indexColumns = input.getIndexColumns();
 
             Publisher<Object[]> publisher = scannableTable.indexLookup(ctx, new PartitionWithTerm(partitionId, term), rowFactory,
-                    indexId, "TEST_IDX", indexColumns, key, requiredFields);
+                    indexId, indexColumns, key, requiredFields);
 
             return new ResultCollector(publisher, requiredFields, rowConverter);
         }

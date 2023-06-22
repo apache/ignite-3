@@ -46,36 +46,34 @@ public interface ScannableTable {
     /**
      * Performs range scan using the given index.
      *
-     * @param ctx  Execution context.
-     * @param partWithTerm  Partition.
-     * @param rowFactory  Row factory.
+     * @param <RowT> A type of row.
+     * @param ctx Execution context.
+     * @param partWithTerm Partition.
+     * @param rowFactory Row factory.
      * @param indexId Index id.
-     * @param indexName Index name.
      * @param columns Index columns.
-     * @param cond  Index condition.
-     * @param requiredColumns  Required columns.
-     * @return  A publisher that produces rows.
-     * @param <RowT>  A type of row.
+     * @param cond Index condition.
+     * @param requiredColumns Required columns.
+     * @return A publisher that produces rows.
      */
     <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
-            RowFactory<RowT> rowFactory, int indexId, String indexName, List<String> columns,
+            RowFactory<RowT> rowFactory, int indexId, List<String> columns,
             @Nullable RangeCondition<RowT> cond, @Nullable BitSet requiredColumns);
 
     /**
      * Performs a lookup scan using the given index.
      *
-     * @param ctx  Execution context.
-     * @param partWithTerm  Partition.
-     * @param rowFactory  Row factory.
+     * @param <RowT> A type of row.
+     * @param ctx Execution context.
+     * @param partWithTerm Partition.
+     * @param rowFactory Row factory.
      * @param indexId Index id.
-     * @param indexName Index name.
      * @param columns Index columns.
-     * @param key  A key to lookup.
-     * @param requiredColumns  Required columns.
-     * @return  A publisher that produces rows.
-     * @param <RowT>  A type of row.
+     * @param key A key to lookup.
+     * @param requiredColumns Required columns.
+     * @return A publisher that produces rows.
      */
     <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
-            RowFactory<RowT> rowFactory, int indexId, String indexName, List<String> columns,
+            RowFactory<RowT> rowFactory, int indexId, List<String> columns,
             RowT key, @Nullable BitSet requiredColumns);
 }

@@ -130,11 +130,11 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
         switch (schemaIndex.type()) {
             case SORTED:
-                return table.indexRangeScan(ctx, partWithTerm, factory, indexId, indexName,
+                return table.indexRangeScan(ctx, partWithTerm, factory, indexId,
                         columns, cond, requiredColumns);
 
             case HASH:
-                return table.indexLookup(ctx, partWithTerm, factory, indexId, indexName,
+                return table.indexLookup(ctx, partWithTerm, factory, indexId,
                         columns, cond.lower(), requiredColumns);
 
             default:

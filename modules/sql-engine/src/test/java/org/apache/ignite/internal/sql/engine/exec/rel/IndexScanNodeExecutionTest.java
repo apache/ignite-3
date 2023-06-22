@@ -212,7 +212,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         /** {@inheritDoc} */
         @Override
         public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
-                RowFactory<RowT> rowFactory, int indexId, String indexName, List<String> columns,
+                RowFactory<RowT> rowFactory, int indexId, List<String> columns,
                 @Nullable RangeCondition<RowT> cond, @Nullable BitSet requiredColumns) {
 
             List<T> list = partitionedData.get(partWithTerm.partId());
@@ -221,7 +221,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         @Override
         public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
-                RowFactory<RowT> rowFactory, int indexId, String indexName, List<String> columns,
+                RowFactory<RowT> rowFactory, int indexId, List<String> columns,
                 RowT key, @Nullable BitSet requiredColumns) {
 
             return newPublisher(ctx, partWithTerm, rowFactory);
