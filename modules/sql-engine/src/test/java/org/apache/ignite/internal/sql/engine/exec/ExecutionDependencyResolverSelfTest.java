@@ -71,9 +71,6 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
     @Mock(name = "update2")
     private UpdatableTable update2;
 
-    @Mock
-    private ExecutableTableCallback callback;
-
     /**
      * Table scan.
      */
@@ -100,8 +97,8 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         TableDescriptor td1 = tester.tableDescriptor("TEST1");
         TableDescriptor td2 = tester.tableDescriptor("TEST2");
 
-        verify(registry, times(1)).getTable(eq(t1Id), same(td1), eq(callback));
-        verify(registry, times(1)).getTable(eq(t2Id), same(td2), eq(callback));
+        verify(registry, times(1)).getTable(eq(t1Id), same(td1));
+        verify(registry, times(1)).getTable(eq(t2Id), same(td2));
     }
 
     /**
@@ -124,7 +121,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
 
         TableDescriptor td1 = tester.tableDescriptor("TEST1");
 
-        verify(registry, times(1)).getTable(eq(t1Id), same(td1), eq(callback));
+        verify(registry, times(1)).getTable(eq(t1Id), same(td1));
     }
 
     /**
@@ -155,8 +152,8 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         TableDescriptor td1 = tester.tableDescriptor("TEST1");
         TableDescriptor td2 = tester.tableDescriptor("TEST2");
 
-        verify(registry, times(1)).getTable(eq(t1Id), same(td1), eq(callback));
-        verify(registry, times(1)).getTable(eq(t2Id), same(td2), eq(callback));
+        verify(registry, times(1)).getTable(eq(t1Id), same(td1));
+        verify(registry, times(1)).getTable(eq(t2Id), same(td2));
     }
 
     /**
@@ -179,7 +176,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         ResolvedDependencies deps = f.join();
         tester.checkDependencies(deps, t1Id);
 
-        verify(registry, times(1)).getTable(anyInt(), any(TableDescriptor.class), eq(callback));
+        verify(registry, times(1)).getTable(anyInt(), any(TableDescriptor.class));
     }
 
     /**
@@ -229,19 +226,18 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
 
             CompletableFuture<ExecutableTable> f = CompletableFuture.completedFuture(executableTable);
 
-            when(registry.getTable(eq(tableId), any(TableDescriptor.class), any(ExecutableTableCallback.class))).thenReturn(f);
+            when(registry.getTable(eq(tableId), any(TableDescriptor.class))).thenReturn(f);
         }
 
         void setError(int tableId, Throwable err) {
             CompletableFuture<ExecutableTable> f = new CompletableFuture<>();
             f.completeExceptionally(err);
 
-            when(registry.getTable(eq(tableId), any(TableDescriptor.class), any(ExecutableTableCallback.class))).thenReturn(f);
+            when(registry.getTable(eq(tableId), any(TableDescriptor.class))).thenReturn(f);
         }
 
         CompletableFuture<ResolvedDependencies> resolveDependencies(String sql) {
             ExecutionDependencyResolver resolver = new ExecutionDependencyResolverImpl(registry);
-            resolver.setCallback(callback);
 
             IgniteRel rel;
             try {

@@ -25,12 +25,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
  * Resolves components required for execution.
  */
 public interface ExecutionDependencyResolver {
-
-    /**
-     * Sets a callback to be called when a table is loaded.
-     */
-    void setCallback(ExecutableTableCallback callback);
-
     /**
      * Resolves dependencies required to execute the given operator tree.
      */

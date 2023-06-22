@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
@@ -40,18 +39,8 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
 
     private final ExecutableTableRegistry registry;
 
-    private volatile ExecutableTableCallback callback = (t, name, desc) -> t;
-
     public ExecutionDependencyResolverImpl(ExecutableTableRegistry registry) {
         this.registry = registry;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setCallback(ExecutableTableCallback callback) {
-        this.callback = Objects.requireNonNull(callback);
     }
 
     /**
@@ -93,7 +82,7 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
                 int tableId = igniteTable.id();
                 TableDescriptor tableDescriptor = igniteTable.descriptor();
 
-                tableMap.computeIfAbsent(tableId, (id) -> registry.getTable(tableId, tableDescriptor, callback));
+                tableMap.computeIfAbsent(tableId, (id) -> registry.getTable(tableId, tableDescriptor));
             }
         };
 

@@ -25,7 +25,7 @@ public final class NoOpExecutableTableRegistry implements ExecutableTableRegistr
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int tableId, TableDescriptor tableDescriptor, ExecutableTableCallback callback) {
+    public CompletableFuture<ExecutableTable> getTable(int tableId, TableDescriptor tableDescriptor) {
         return CompletableFuture.completedFuture(new NoOpExecutableTable(tableId));
     }
 

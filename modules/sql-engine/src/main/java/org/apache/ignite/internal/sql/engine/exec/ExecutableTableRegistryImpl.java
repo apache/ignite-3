@@ -62,8 +62,8 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int tableId, TableDescriptor tableDescriptor, ExecutableTableCallback callback) {
-        return tableCache.computeIfAbsent(tableId, (k) -> loadTable(k, tableDescriptor, callback));
+    public CompletableFuture<ExecutableTable> getTable(int tableId, TableDescriptor tableDescriptor) {
+        return tableCache.computeIfAbsent(tableId, (k) -> loadTable(k, tableDescriptor));
     }
 
     /** {@inheritDoc} */
@@ -72,7 +72,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         tableCache.clear();
     }
 
-    private CompletableFuture<ExecutableTable> loadTable(int tableId, TableDescriptor tableDescriptor, ExecutableTableCallback callback) {
+    private CompletableFuture<ExecutableTable> loadTable(int tableId, TableDescriptor tableDescriptor) {
 
         CompletableFuture<Map.Entry<InternalTable, SchemaRegistry>> f = tableManager.tableAsync(tableId)
                 .thenApply(table -> {
@@ -91,12 +91,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
             UpdatableTableImpl updatableTable = new UpdatableTableImpl(tableId, tableDescriptor, internalTable.partitions(),
                     replicaService, clock, rowConverter, schemaDescriptor);
 
-            ExecutableTableImpl executableTable = new ExecutableTableImpl(scannableTable, updatableTable);
-
-            ExecutableTable resolved = callback.onTableLoaded(executableTable, internalTable.name(), tableDescriptor);
-            assert resolved != null : "ExecutableTableCallback returned null";
-
-            return resolved;
+            return new ExecutableTableImpl(scannableTable, updatableTable);
         });
     }
 

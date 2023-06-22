@@ -32,5 +32,5 @@ public interface ExecutableTableRegistry {
      * @param tableDescriptor Table descriptor.
      * @return An operation that returns executable table.
      */
-    CompletableFuture<ExecutableTable> getTable(int tableId, TableDescriptor tableDescriptor, ExecutableTableCallback callback);
+    CompletableFuture<ExecutableTable> getTable(int tableId, TableDescriptor tableDescriptor);
 }
