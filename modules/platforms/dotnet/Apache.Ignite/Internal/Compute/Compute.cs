@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Compute
 {
     using System;
+    using System.Buffers.Binary;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
@@ -29,6 +30,7 @@ namespace Apache.Ignite.Internal.Compute
     using Ignite.Network;
     using Ignite.Table;
     using Proto;
+    using Proto.MsgPack;
     using Table;
     using Table.Serialization;
 
@@ -67,7 +69,7 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(nodes, nameof(nodes));
             IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
 
-            return await ExecuteOnOneNode<T>(GetRandomNode(nodes), jobClassName, args).ConfigureAwait(false);
+            return await ExecuteOnOneNode<T>(GetRandomNode(nodes), units, jobClassName, args).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -110,12 +112,14 @@ namespace Apache.Ignite.Internal.Compute
         {
             IgniteArgumentCheck.NotNull(nodes, nameof(nodes));
             IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
+            IgniteArgumentCheck.NotNull(units, nameof(units));
 
             var res = new Dictionary<IClusterNode, Task<T>>();
+            ICollection<DeploymentUnit> units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
 
             foreach (var node in nodes)
             {
-                var task = ExecuteOnOneNode<T>(node, jobClassName, args);
+                var task = ExecuteOnOneNode<T>(node, units0, jobClassName, args);
 
                 res[node] = task;
             }
@@ -141,7 +145,11 @@ namespace Apache.Ignite.Internal.Compute
         private static ICollection<IClusterNode> GetNodesCollection(IEnumerable<IClusterNode> nodes) =>
             nodes as ICollection<IClusterNode> ?? nodes.ToList();
 
-        private async Task<T> ExecuteOnOneNode<T>(IClusterNode node, string jobClassName, object?[]? args)
+        private async Task<T> ExecuteOnOneNode<T>(
+            IClusterNode node,
+            IEnumerable<DeploymentUnit> units,
+            string jobClassName,
+            object?[]? args)
         {
             IgniteArgumentCheck.NotNull(node, nameof(node));
 
@@ -158,7 +166,32 @@ namespace Apache.Ignite.Internal.Compute
                 var w = writer.MessageWriter;
 
                 w.Write(node.Name);
-                w.WriteNil(); // DeploymentUnits
+
+                if (units is ICollection<DeploymentUnit> unitsCol)
+                {
+                    w.WriteArrayHeader(unitsCol.Count);
+                    foreach (var unit in units)
+                    {
+                        w.Write(unit.Name);
+                        w.Write(unit.Version);
+                    }
+                }
+                else
+                {
+                    // Enumerable without known count - enumerate first, write count later.
+                    var countSpan = writer.GetSpan(5);
+                    var count = 0;
+                    foreach (var unit in units)
+                    {
+                        count++;
+                        w.Write(unit.Name);
+                        w.Write(unit.Version);
+                    }
+
+                    countSpan[0] = MsgPackCode.Array32;
+                    BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
+                }
+
                 w.Write(jobClassName);
                 w.WriteObjectCollectionAsBinaryTuple(args);
             }
@@ -237,6 +270,7 @@ namespace Apache.Ignite.Internal.Compute
                 var serializerHandler = serializerHandlerFunc(table);
                 var colocationHash = serializerHandler.Write(ref w, schema, key, keyOnly: true, computeHash: true);
 
+                // TODO
                 w.WriteNil(); // DeploymentUnits
                 w.Write(jobClassName);
                 w.WriteObjectCollectionAsBinaryTuple(args);
