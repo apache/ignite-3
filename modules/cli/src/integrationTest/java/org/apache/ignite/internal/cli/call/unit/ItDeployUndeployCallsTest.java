@@ -108,7 +108,7 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
             List<UnitStatus> unitsStatuses = listUnitCall.execute(listAllInput()).body();
             assertThat(unitsStatuses.size()).isEqualTo(1);
             Assertions.assertThat(unitsStatuses.get(0).getVersionToStatus())
-                    .containsExactly((new UnitVersionStatus()).version("1.1.0").status(DEPLOYED));
+                    .containsExactly((new UnitVersionStatus()).version("1.0.0").status(DEPLOYED));
         });
 
         // When undeploy unit

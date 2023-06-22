@@ -45,4 +45,36 @@ public class UnitVersionStatus {
     public DeploymentStatus getStatus() {
         return status;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        UnitVersionStatus that = (UnitVersionStatus) o;
+
+        if (version != null ? !version.equals(that.version) : that.version != null) {
+            return false;
+        }
+        return status == that.status;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = version != null ? version.hashCode() : 0;
+        result = 31 * result + (status != null ? status.hashCode() : 0);
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return "UnitVersionStatus{"
+                + "version=" + version
+                + ", status=" + status
+                + '}';
+    }
 }
