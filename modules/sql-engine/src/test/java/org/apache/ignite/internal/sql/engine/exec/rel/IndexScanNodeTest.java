@@ -38,6 +38,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.index.HashIndex;
+import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.index.SortedIndexImpl;
@@ -65,26 +66,23 @@ public class IndexScanNodeTest extends AbstractExecutionTest {
      * Sorted index scan execution.
      */
     @Test
-    @SuppressWarnings({"unchecked", "rawtypes"})
     public void testSortedIndex() {
-        IgniteIndex index = newSortedIndex();
+        Index<?> index = newSortedIndex();
+
+        ExecutionContext<Object[]> ctx = executionContext();
+
+        Tester tester = new Tester(ctx);
 
         TestScannableTable<Object[]> scannableTable = new TestScannableTable<>();
         scannableTable.setPartitionData(0, new Object[]{4}, new Object[]{5});
         scannableTable.setPartitionData(2, new Object[]{1}, new Object[]{2});
 
-        Comparator<Object[]> cmp = (a, b) -> {
-            Comparable o1 = (Comparable<?>) a[0];
-            Comparable o2 = (Comparable<?>) b[0];
-            return o1.compareTo(o2);
-        };
-
-        Tester tester = new Tester();
+        Comparator<Object[]> cmp = Comparator.comparing(row -> (Comparable<Object>)row[0]);
 
         IndexScanNode<Object[]> node = tester.createSortedIndex(index, scannableTable, cmp);
         List<Object[]> result = tester.execute(node);
 
-        tester.expectResult(result, new Object[]{1}, new Object[]{2}, new Object[]{4}, new Object[]{5});
+        validateResult(result, List.of(new Object[]{1}, new Object[]{2}, new Object[]{4}, new Object[]{5}));
     }
 
     /**
@@ -92,49 +90,35 @@ public class IndexScanNodeTest extends AbstractExecutionTest {
      */
     @Test
     public void testHashIndex() {
-        IgniteIndex index = newHashIndex();
+        Index<?> index = newHashIndex();
+
+        ExecutionContext<Object[]> ctx = executionContext();
+
+        Tester tester = new Tester(ctx);
 
         TestScannableTable<Object[]> scannableTable = new TestScannableTable<>();
         scannableTable.setPartitionData(0, new Object[]{2}, new Object[]{1});
         scannableTable.setPartitionData(2, new Object[]{0});
 
-        Tester tester = new Tester();
-
         IndexScanNode<Object[]> node = tester.createHashIndex(index, scannableTable);
         List<Object[]> result = tester.execute(node);
 
-        tester.expectResult(result, new Object[]{2}, new Object[]{1}, new Object[]{0});
-    }
-
-    private static IgniteIndex newHashIndex() {
-        IndexDescriptor descriptor = new IndexDescriptor("IDX", List.of("C1"));
-        HashIndex index = new HashIndex(1, Mockito.mock(InternalTable.class), descriptor);
-
-        return new IgniteIndex(index);
-    }
-
-    private static IgniteIndex newSortedIndex() {
-        List<String> columnNames = List.of("C1");
-        List<ColumnCollation> columnCollations = List.of(ColumnCollation.ASC_NULLS_LAST);
-        SortedIndexDescriptor descriptor = new SortedIndexDescriptor("IDX", columnNames, columnCollations);
-        SortedIndexImpl index = new SortedIndexImpl(1, Mockito.mock(InternalTable.class), descriptor);
-
-        return new IgniteIndex(index);
+        validateResult(result, List.of(new Object[]{2}, new Object[]{1}, new Object[]{0}));
     }
 
     private class Tester {
 
         private final ExecutionContext<Object[]> ctx;
 
-        Tester() {
-            this.ctx = executionContext();
+        Tester(ExecutionContext<Object[]> ctx) {
+            this.ctx = ctx;
         }
 
-        IndexScanNode<Object[]> createSortedIndex(IgniteIndex index, TestScannableTable<?> scannableTable, Comparator<Object[]> cmp) {
+        IndexScanNode<Object[]> createSortedIndex(Index<?> index, TestScannableTable<?> scannableTable, Comparator<Object[]> cmp) {
             return createIndexNode(ctx, index, scannableTable, cmp);
         }
 
-        IndexScanNode<Object[]> createHashIndex(IgniteIndex index, TestScannableTable<?> scannableTable) {
+        IndexScanNode<Object[]> createHashIndex(Index<?> index, TestScannableTable<?> scannableTable) {
             return createIndexNode(ctx, index, scannableTable, null);
         }
 
@@ -153,38 +137,53 @@ public class IndexScanNodeTest extends AbstractExecutionTest {
 
             return actual;
         }
+    }
 
-        void expectResult(List<Object[]> actual, Object[]... expected) {
-            assertEquals(expected.length, actual.size(), "row count");
+    static void validateResult(List<Object[]> actual, List<Object[]> expected) {
+        assertEquals(expected.size(), actual.size(), "row count");
 
-            for (int i = 0; i < expected.length; i++) {
-                Object[] expectedRow = expected[i];
-                Object[] actualRow = actual.get(i);
+        for (int i = 0; i < expected.size(); i++) {
+            Object[] expectedRow = expected.get(i);
+            Object[] actualRow = actual.get(i);
 
-                assertArrayEquals(expectedRow, actualRow, "Row#" + i);
-            }
+            assertArrayEquals(expectedRow, actualRow, "Row#" + i);
+        }
+    }
+
+    private Index<?> newHashIndex() {
+        IndexDescriptor descriptor = new IndexDescriptor("IDX", List.of("C1"));
+
+        return new HashIndex(1, Mockito.mock(InternalTable.class), descriptor);
+    }
+
+    private Index<?> newSortedIndex() {
+        List<String> columnNames = List.of("C1");
+        List<ColumnCollation> columnCollations = List.of(ColumnCollation.ASC_NULLS_LAST);
+        SortedIndexDescriptor descriptor = new SortedIndexDescriptor("IDX", columnNames, columnCollations);
+
+        return new SortedIndexImpl(1, Mockito.mock(InternalTable.class), descriptor);
+    }
+
+    private IndexScanNode<Object[]> createIndexNode(ExecutionContext<Object[]> ctx, Index<?> index,
+            TestScannableTable<?> scannableTable, @Nullable Comparator<Object[]> comparator) {
+
+        RelDataTypeFactory.Builder rowTypeBuilder = new Builder(Commons.typeFactory());
+
+        for (String column : index.descriptor().columns()) {
+            rowTypeBuilder = rowTypeBuilder.add(column, SqlTypeName.INTEGER);
         }
 
-        private IndexScanNode<Object[]> createIndexNode(ExecutionContext<Object[]> ctx, IgniteIndex index,
-                TestScannableTable<?> scannableTable, @Nullable Comparator<Object[]> comparator) {
+        RelDataType rowType = rowTypeBuilder.build();
 
-            RelDataTypeFactory.Builder rowTypeBuilder = new Builder(Commons.typeFactory());
+        TableDescriptor tableDescriptor = new TestTableDescriptor(IgniteDistributions::single, rowType);
 
-            for (String column : index.columns()) {
-                rowTypeBuilder = rowTypeBuilder.add(column, SqlTypeName.INTEGER);
-            }
+        IgniteIndex schemaIndex = new IgniteIndex(index);
+        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
+        SingleRangeIterable conditions = new SingleRangeIterable(new Object[]{}, null, false, false);
+        List<PartitionWithTerm> partitions = scannableTable.getPartitions();
 
-            RelDataType rowType = rowTypeBuilder.build();
-
-            TableDescriptor tableDescriptor = new TestTableDescriptor(IgniteDistributions::single, rowType);
-
-            RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
-            SingleRangeIterable conditions = new SingleRangeIterable(new Object[]{}, null, false, false);
-            List<PartitionWithTerm> partitions = scannableTable.getPartitions();
-
-            return new IndexScanNode<>(ctx, rowFactory, index, scannableTable, tableDescriptor, partitions,
-                    comparator, conditions, null, null, null);
-        }
+        return new IndexScanNode<>(ctx, rowFactory, schemaIndex, scannableTable, tableDescriptor, partitions,
+                comparator, conditions, null, null, null);
     }
 
     static class TestScannableTable<T> implements ScannableTable {
