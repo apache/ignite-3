@@ -206,10 +206,8 @@ public class ScannableTableSelfTest {
         int partitionId = 1;
         long term = 2;
         int indexId = 3;
-
         Object[] lowerValue = lower == Bound.NONE ? null : new Object[]{1};
         Object[] upperValue = upper == Bound.NONE ? null : new Object[]{10};
-
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
         condition.setLower(lower, lowerValue);
         condition.setUpper(upper, upperValue);
@@ -333,7 +331,6 @@ public class ScannableTableSelfTest {
         int partitionId = 1;
         long term = 2;
         int indexId = 3;
-
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
         // Set any valid bounds, they are not of our interest here.
         condition.setLower(Bound.INCLUSIVE, new Object[]{0});
@@ -389,7 +386,6 @@ public class ScannableTableSelfTest {
         input.indexColumns.set(0);
         input.indexColumns.set(1);
         input.indexColumns.set(2);
-
         input.addRow(binaryRow, 1, 2, 3, 4);
 
         Tester tester = new Tester(input);
@@ -458,7 +454,6 @@ public class ScannableTableSelfTest {
         int partitionId = 1;
         long term = 2;
         int indexId = 3;
-
         Object[] key = {1};
 
         ResultCollector collector = tester.indexLookUp(partitionId, term, tx, indexId, key);
@@ -499,19 +494,16 @@ public class ScannableTableSelfTest {
     @ValueSource(booleans = {true, false})
     public void testIndexLookupWithRequiredColumns(boolean ro) {
         NoOpTransaction tx = ro ? RO_TX : RW_TX;
-
-        int partitionId = 1;
-        long term = 2;
-        int indexId = 3;
-
         TestInput input = new TestInput();
         input.addRow(binaryRow);
 
         Tester tester = new Tester(input);
-
         tester.requiredFields = new BitSet();
         tester.requiredFields.set(1);
 
+        int partitionId = 1;
+        long term = 2;
+        int indexId = 3;
         Object[] key = {1};
 
         ResultCollector collector = tester.indexLookUp(partitionId, term, tx, indexId, key);
@@ -553,15 +545,14 @@ public class ScannableTableSelfTest {
     public void testIndexLookupError(boolean ro) {
         NoOpTransaction tx = ro ? RO_TX : RW_TX;
 
-        int partitionId = 1;
-        long term = 2;
-        int indexId = 3;
-
         TestInput input = new TestInput();
         input.addRow(binaryRow);
 
         Tester tester = new Tester(input);
 
+        int partitionId = 1;
+        long term = 2;
+        int indexId = 3;
         Object[] key = {1};
 
         ResultCollector collector = tester.indexLookUp(partitionId, term, tx, indexId, key);
