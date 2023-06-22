@@ -185,21 +185,25 @@ public class InternalTableImpl implements InternalTable {
         this.clock = clock;
     }
 
+    /** {@inheritDoc} */
     @Override
     public MvTableStorage storage() {
         return tableStorage;
     }
 
+    /** {@inheritDoc} */
     @Override
     public int partitions() {
         return partitions;
     }
 
+    /** {@inheritDoc} */
     @Override
     public int tableId() {
         return tableId;
     }
 
+    /** {@inheritDoc} */
     @Override
     public String name() {
         return tableName;
@@ -511,6 +515,7 @@ public class InternalTableImpl implements InternalTable {
         }).thenCompose(x -> x);
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
         if (tx != null && tx.isReadOnly()) {
@@ -619,6 +624,7 @@ public class InternalTableImpl implements InternalTable {
         return result;
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsert(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(
@@ -635,6 +641,7 @@ public class InternalTableImpl implements InternalTable {
                         .build());
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
         return enlistInTx(
@@ -644,6 +651,7 @@ public class InternalTableImpl implements InternalTable {
                 CompletableFuture::allOf);
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
         InternalTransaction tx = txManager.begin();
@@ -659,6 +667,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, true, tx);
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndUpsert(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(
@@ -676,6 +685,7 @@ public class InternalTableImpl implements InternalTable {
         );
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> insert(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(
@@ -693,6 +703,7 @@ public class InternalTableImpl implements InternalTable {
         );
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
         return enlistInTx(
@@ -711,6 +722,7 @@ public class InternalTableImpl implements InternalTable {
         );
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replace(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(
@@ -728,6 +740,7 @@ public class InternalTableImpl implements InternalTable {
         );
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replace(BinaryRowEx oldRow, BinaryRowEx newRow, InternalTransaction tx) {
         return enlistInTx(
@@ -746,6 +759,7 @@ public class InternalTableImpl implements InternalTable {
         );
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndReplace(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(
@@ -763,6 +777,7 @@ public class InternalTableImpl implements InternalTable {
         );
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> delete(BinaryRowEx keyRow, InternalTransaction tx) {
         return enlistInTx(
@@ -780,6 +795,7 @@ public class InternalTableImpl implements InternalTable {
         );
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> deleteExact(BinaryRowEx oldRow, InternalTransaction tx) {
         return enlistInTx(
@@ -797,6 +813,7 @@ public class InternalTableImpl implements InternalTable {
         );
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndDelete(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(
@@ -814,6 +831,7 @@ public class InternalTableImpl implements InternalTable {
         );
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
         return enlistInTx(
@@ -832,6 +850,7 @@ public class InternalTableImpl implements InternalTable {
         );
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<BinaryRow>> deleteAllExact(
             Collection<BinaryRowEx> rows,
@@ -1075,6 +1094,7 @@ public class InternalTableImpl implements InternalTable {
         return keyRowsByPartition;
     }
 
+    /** {@inheritDoc} */
     // TODO: IGNITE-17256 Use a placement driver for getting a primary replica.
     @Override
     public List<String> assignments() {
@@ -1087,6 +1107,7 @@ public class InternalTableImpl implements InternalTable {
                 .collect(Collectors.toList());
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<PrimaryReplica> primaryReplicas() {
         List<Entry<RaftGroupService>> entries = new ArrayList<>(raftGroupServiceByPartitionId.int2ObjectEntrySet());
@@ -1122,6 +1143,7 @@ public class InternalTableImpl implements InternalTable {
         return clusterNodeResolver.apply(raftGroupService.leader().consistentId());
     }
 
+    /** {@inheritDoc} */
     @Override
     public RaftGroupService partitionRaftGroupService(int partition) {
         RaftGroupService raftGroupService = raftGroupServiceByPartitionId.get(partition);
@@ -1136,6 +1158,7 @@ public class InternalTableImpl implements InternalTable {
         return raftGroupService;
     }
 
+    /** {@inheritDoc} */
     @Override
     public TxStateTableStorage txStateStorage() {
         return txStateStorage;
@@ -1153,6 +1176,7 @@ public class InternalTableImpl implements InternalTable {
         CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new)).join();
     }
 
+    /** {@inheritDoc} */
     @TestOnly
     @Override
     public int partition(BinaryRowEx keyRow) {
@@ -1177,6 +1201,7 @@ public class InternalTableImpl implements InternalTable {
                 }));
     }
 
+    /** {@inheritDoc} */
     @Override
     public int partitionId(BinaryRowEx row) {
         return IgniteUtils.safeAbs(row.colocationHash()) % partitions;
@@ -1292,6 +1317,7 @@ public class InternalTableImpl implements InternalTable {
             this.subscribed = new AtomicBoolean(false);
         }
 
+        /** {@inheritDoc} */
         @Override
         public void subscribe(Subscriber<? super BinaryRow> subscriber) {
             if (subscriber == null) {
@@ -1337,6 +1363,7 @@ public class InternalTableImpl implements InternalTable {
                 this.requestedItemsCnt = new AtomicLong(0);
             }
 
+            /** {@inheritDoc} */
             @Override
             public void request(long n) {
                 if (n <= 0) {
@@ -1364,6 +1391,7 @@ public class InternalTableImpl implements InternalTable {
                 }
             }
 
+            /** {@inheritDoc} */
             @Override
             public void cancel() {
                 cancel(null);
@@ -1429,6 +1457,7 @@ public class InternalTableImpl implements InternalTable {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void close() {
         for (RaftGroupService srv : raftGroupServiceByPartitionId.values()) {

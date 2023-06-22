@@ -69,6 +69,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         schemaCache.put(initialSchema.version(), initialSchema);
     }
 
+    /** {@inheritDoc} */
     @Override
     public SchemaDescriptor schema(int ver) {
         if (ver == 0) {
@@ -102,16 +103,19 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public @Nullable SchemaDescriptor schema() {
         return schema(schemaCache.lastKey());
     }
 
+    /** {@inheritDoc} */
     @Override
     public @Nullable SchemaDescriptor schemaCached(int ver) {
         return schemaCache.get(ver);
     }
 
+    /** {@inheritDoc} */
     @Override
     public SchemaDescriptor waitLatestSchema() {
         // TODO: remove blocking code https://issues.apache.org/jira/browse/IGNITE-17931
@@ -124,11 +128,13 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         return schema(lastVer0);
     }
 
+    /** {@inheritDoc} */
     @Override
     public int lastSchemaVersion() {
         return schemaCache.lastKey();
     }
 
+    /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row) {
         final SchemaDescriptor curSchema = waitLatestSchema();
@@ -136,6 +142,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         return resolveInternal(row, curSchema);
     }
 
+    /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row, SchemaDescriptor schemaDescriptor) {
         return resolveInternal(row, schemaDescriptor);

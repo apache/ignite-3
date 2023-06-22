@@ -46,11 +46,13 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
         this.schema = schema;
     }
 
+    /** {@inheritDoc} */
     @Override
     public SchemaDescriptor schema() {
         return schema;
     }
 
+    /** {@inheritDoc} */
     @Override
     public SchemaDescriptor schema(int ver) {
         assert ver >= 0;
@@ -67,21 +69,24 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
         return schema;
     }
 
-    @Override
-    public SchemaDescriptor waitLatestSchema() {
+    /** {@inheritDoc} */
+    @Override public SchemaDescriptor waitLatestSchema() {
         return schema();
     }
 
+    /** {@inheritDoc} */
     @Override
     public int lastSchemaVersion() {
         return schema.version();
     }
 
+    /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row, SchemaDescriptor desc) {
         return new Row(desc, row);
     }
 
+    /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row) {
         assert row.schemaVersion() == schema.version() || row.schemaVersion() == 0;

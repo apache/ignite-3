@@ -126,6 +126,7 @@ public interface InternalTable extends ManuallyCloseable {
             ClusterNode recipientNode
     );
 
+
     /**
      * Asynchronously inserts a row into the table if does not exist or replaces the existed one.
      *
