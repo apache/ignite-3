@@ -165,13 +165,13 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         result = prepareAsync0(sqlNode, queryType, planningContext);
 
         return result.exceptionally(ex -> {
-                    Throwable th = ExceptionUtils.unwrapCause(ex);
-                    if (planningContext.timeouted() && th instanceof RelOptPlanner.CannotPlanException) {
-                        LOG.info("Query plan is absent due to planing timeout is reached [query={}]", ctx.query());
-                        throw new SqlException(ErrorGroups.Sql.EXECUTION_CANCELLED_ERR);
-                    }
+            Throwable th = ExceptionUtils.unwrapCause(ex);
+            if (planningContext.timeouted() && th instanceof RelOptPlanner.CannotPlanException) {
+                LOG.info("Query plan is absent due to planing timeout is reached [query={}]", ctx.query());
+                throw new SqlException(ErrorGroups.Sql.PLANNING_TIMEOUTED_ERR);
+            }
 
-                    throw new IgniteException(th);
+            throw new IgniteException(th);
                 }
         );
     }

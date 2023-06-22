@@ -291,9 +291,9 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         private UUID queryId = UUID.randomUUID();
 
-        private String query;
-
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
+
+        private String query;
 
         public Builder frameworkConfig(FrameworkConfig frameworkCfg) {
             this.frameworkCfg = Objects.requireNonNull(frameworkCfg);
@@ -315,13 +315,13 @@ public final class BaseQueryContext extends AbstractQueryContext {
             return this;
         }
 
-        public Builder query(String query) {
-            this.query = query;
+        public Builder parameters(Object... parameters) {
+            this.parameters = Objects.requireNonNull(parameters);
             return this;
         }
 
-        public Builder parameters(Object... parameters) {
-            this.parameters = Objects.requireNonNull(parameters);
+        public Builder query(String query) {
+            this.query = query;
             return this;
         }
 
