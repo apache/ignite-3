@@ -40,7 +40,6 @@ import org.apache.ignite.internal.deployunit.configuration.DeploymentConfigurati
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitAlreadyExistsException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
-import org.apache.ignite.internal.deployunit.exception.InvalidNodesArgumentException;
 import org.apache.ignite.internal.deployunit.metastore.ClusterEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.ClusterEventCallbackImpl;
 import org.apache.ignite.internal.deployunit.metastore.ClusterStatusWatchListener;
@@ -166,33 +165,10 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         Objects.requireNonNull(version);
         Objects.requireNonNull(deploymentUnit);
 
-        LOG.info("Deploying {}:{} on {}", id, version, deployMode);
+        LOG.info("Deploying {}:{} on {}", id, version, deployedNodes);
         return deployedNodes.extractNodes(cmgManager)
                 .thenCompose(nodesToDeploy ->
-                        doDeploy(id, version, force, deploymentUnit, nodesToDeploy,
-                                undeployed -> deployAsync(id, version, deploymentUnit, deployMode)
-                        )
-                );
-    }
-
-    @Override
-    public CompletableFuture<Boolean> deployAsync(
-            String id,
-            Version version,
-            boolean force,
-            DeploymentUnit deploymentUnit,
-            List<String> nodes
-    ) {
-        checkId(id);
-        Objects.requireNonNull(version);
-        Objects.requireNonNull(deploymentUnit);
-
-        LOG.info("Deploying {}:{} on {}", id, version, nodes);
-        return extractNodes(nodes)
-                .thenCompose(nodesToDeploy ->
-                        doDeploy(id, version, force, deploymentUnit, nodesToDeploy,
-                                undeployed -> deployAsync(id, version, deploymentUnit, nodes)
-                        )
+                        doDeploy(id, version, force, deploymentUnit, nodesToDeploy)
                 );
     }
 

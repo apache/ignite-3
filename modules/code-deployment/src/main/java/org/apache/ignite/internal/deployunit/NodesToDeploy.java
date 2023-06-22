@@ -103,4 +103,12 @@ public class NodesToDeploy {
                         })
                 );
     }
+
+    @Override
+    public String toString() {
+        return "NodesToDeploy{"
+                + "nodesList=" + nodesList
+                + ", deployMode=" + deployMode
+                + '}';
+    }
 }
