@@ -55,8 +55,8 @@ public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest 
                 Version.parseVersion("1.0.0"),
                 false,
                 List.of(files.bigFile()),
-                new NodesToDeploy(cmgNodes),
-                cluster.node(3)
+                new NodesToDeploy(List.of(node.name())),
+                cluster.node(2)
         );
 
         stopNode(nodeIndex);
@@ -74,9 +74,11 @@ public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest 
         String id = "id1";
         Version version = Version.parseVersion("1.0.0");
         Unit unit = files.deployAndVerify(
-                id, version, false,
+                id,
+                version,
+                false,
                 List.of(files.smallFile()),
-                null, List.of(node(nodeIndex).name()),
+                new NodesToDeploy(List.of(node(nodeIndex).name())),
                 node(0)
         );
 
