@@ -21,6 +21,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.INVALID_DML_RESULT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.IgniteExceptionUtils.extractCodeFrom;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
@@ -183,7 +184,7 @@ public class SessionImpl implements Session {
             );
 
             result.whenComplete((rs, th) -> {
-                if (IgniteException.getIgniteErrorCode(th) == SESSION_NOT_FOUND_ERR) {
+                if (extractCodeFrom(th) == SESSION_NOT_FOUND_ERR) {
                     closeInternal();
                 }
             });

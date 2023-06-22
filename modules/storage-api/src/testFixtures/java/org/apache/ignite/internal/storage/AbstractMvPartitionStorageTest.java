@@ -25,7 +25,6 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -803,21 +802,18 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     /**
-     * Tests that changed {@link MvPartitionStorage#lastAppliedIndex()} can be successfully read and that it's returned from
-     * {@link MvPartitionStorage#persistedIndex()} after the {@link MvPartitionStorage#flush()}.
+     * Tests that changed {@link MvPartitionStorage#lastAppliedIndex()} can be successfully read back.
      */
     @Test
     void testAppliedIndex() {
         storage.runConsistently(locker -> {
             assertEquals(0, storage.lastAppliedIndex());
             assertEquals(0, storage.lastAppliedTerm());
-            assertEquals(0, storage.persistedIndex());
 
             storage.lastApplied(1, 1);
 
             assertEquals(1, storage.lastAppliedIndex());
             assertEquals(1, storage.lastAppliedTerm());
-            assertThat(storage.persistedIndex(), is(lessThanOrEqualTo(1L)));
 
             return null;
         });
@@ -825,8 +821,6 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         CompletableFuture<Void> flushFuture = storage.flush();
 
         assertThat(flushFuture, willCompleteSuccessfully());
-
-        assertEquals(1, storage.persistedIndex());
     }
 
     @Test

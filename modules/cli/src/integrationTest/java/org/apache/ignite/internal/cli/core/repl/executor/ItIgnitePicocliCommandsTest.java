@@ -265,7 +265,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         // wait for lazy init of cluster config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder("aimem", "aipersist", "metrics", "rocksDb", "table", "zone", "security", "schemaSync")
+                containsInAnyOrder("aimem", "aipersist", "metrics", "rocksDb", "table", "zone", "security", "schemaSync", "gc")
         );
     }
 
@@ -288,7 +288,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         // wait for lazy init of cluster config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder("aimem", "aipersist", "metrics", "rocksDb", "table", "zone", "security", "schemaSync")
+                containsInAnyOrder("aimem", "aipersist", "metrics", "rocksDb", "table", "zone", "security", "schemaSync", "gc")
         );
     }
 

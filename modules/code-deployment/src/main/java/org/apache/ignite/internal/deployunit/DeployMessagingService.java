@@ -30,13 +30,9 @@ import org.apache.ignite.internal.deployunit.message.DownloadUnitResponseImpl;
 import org.apache.ignite.internal.deployunit.message.StopDeployRequest;
 import org.apache.ignite.internal.deployunit.message.StopDeployRequestImpl;
 import org.apache.ignite.internal.deployunit.message.StopDeployResponseImpl;
-import org.apache.ignite.internal.deployunit.message.UndeployUnitRequest;
-import org.apache.ignite.internal.deployunit.message.UndeployUnitRequestImpl;
-import org.apache.ignite.internal.deployunit.message.UndeployUnitResponseImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.ChannelType;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 
 /**
@@ -95,8 +91,6 @@ public class DeployMessagingService {
                 (message, senderConsistentId, correlationId) -> {
                     if (message instanceof DownloadUnitRequest) {
                         processDownloadRequest((DownloadUnitRequest) message, senderConsistentId, correlationId);
-                    } else if (message instanceof UndeployUnitRequest) {
-                        processUndeployRequest((UndeployUnitRequest) message, senderConsistentId, correlationId);
                     } else if (message instanceof StopDeployRequest) {
                         processStopDeployRequest((StopDeployRequest) message, senderConsistentId, correlationId);
                     }
@@ -146,43 +140,11 @@ public class DeployMessagingService {
                         ).toArray(CompletableFuture[]::new)));
     }
 
-    /**
-     * Start undeploy process from provided node with provided id and version.
-     *
-     * @param node Cluster node.
-     * @param id Deployment unit identifier.
-     * @param version Deployment unit version.
-     * @return Future with undeploy result.
-     */
-    public CompletableFuture<Void> undeploy(ClusterNode node, String id, Version version) {
-        return clusterService.messagingService()
-                .invoke(node,
-                        DEPLOYMENT_CHANNEL,
-                        UndeployUnitRequestImpl.builder()
-                                .id(id)
-                                .version(version.render())
-                                .build(),
-                        Long.MAX_VALUE
-                ).thenAccept(message ->
-                        LOG.info("Undeploy unit " + id + ":" + version + " from node " + node + " finished"));
-    }
-
     private void processStopDeployRequest(StopDeployRequest request, String senderConsistentId, long correlationId) {
         tracker.cancelIfDownloading(request.id(), Version.parseVersion(request.version()));
         clusterService.messagingService()
                 .respond(senderConsistentId, StopDeployResponseImpl.builder().build(), correlationId);
 
-    }
-
-    private void processUndeployRequest(UndeployUnitRequest executeRequest, String senderConsistentId, long correlationId) {
-        LOG.info("Start to undeploy " + executeRequest.id() + " with version " + executeRequest.version() + " from "
-                + clusterService.topologyService().localMember().name());
-        deployerService.undeploy(executeRequest.id(), Version.parseVersion(executeRequest.version()))
-                .thenRun(() -> clusterService.messagingService()
-                        .respond(senderConsistentId,
-                                UndeployUnitResponseImpl.builder().build(),
-                                correlationId)
-                );
     }
 
     private void processDownloadRequest(DownloadUnitRequest request, String senderConsistentId, long correlationId) {

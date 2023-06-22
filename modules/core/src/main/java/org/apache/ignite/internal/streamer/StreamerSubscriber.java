@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.table;
+package org.apache.ignite.internal.streamer;
 
 import java.util.Collection;
 import java.util.Set;
@@ -28,7 +28,6 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.table.DataStreamerOptions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,12 +36,12 @@ import org.jetbrains.annotations.Nullable;
  * @param <T> Item type.
  * @param <P> Partition type.
  */
-class StreamerSubscriber<T, P> implements Subscriber<T> {
+public class StreamerSubscriber<T, P> implements Subscriber<T> {
     private final StreamerBatchSender<T, P> batchSender;
 
     private final StreamerPartitionAwarenessProvider<T, P> partitionAwarenessProvider;
 
-    private final DataStreamerOptions options;
+    private final StreamerOptions options;
 
     private final CompletableFuture<Void> completionFut = new CompletableFuture<>();
 
@@ -68,10 +67,10 @@ class StreamerSubscriber<T, P> implements Subscriber<T> {
      * @param batchSender Batch sender.
      * @param options Data streamer options.
      */
-    StreamerSubscriber(
+    public StreamerSubscriber(
             StreamerBatchSender<T, P> batchSender,
             StreamerPartitionAwarenessProvider<T, P> partitionAwarenessProvider,
-            DataStreamerOptions options,
+            StreamerOptions options,
             IgniteLogger log) {
         assert batchSender != null;
         assert partitionAwarenessProvider != null;
@@ -140,7 +139,7 @@ class StreamerSubscriber<T, P> implements Subscriber<T> {
      *
      * @return Completion future.
      */
-    CompletableFuture<Void> completionFuture() {
+    public CompletableFuture<Void> completionFuture() {
         return completionFut;
     }
 
@@ -153,29 +152,35 @@ class StreamerSubscriber<T, P> implements Subscriber<T> {
         inFlightItemCount.addAndGet(batchSize);
 
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
-        batchSender.sendAsync(partition, batch).whenComplete((res, err) -> {
-            if (err != null) {
-                // Retry is handled by RetryPolicy as usual in ReliableChannel.
-                // If we get here, then retries are exhausted and we should fail the streamer.
-                log.error("Failed to send batch to partition " + partition + ": " + err.getMessage(), err);
-                close(err);
-            } else {
-                fut.complete(null);
-                pendingFuts.remove(fut);
+        try {
+            batchSender.sendAsync(partition, batch).whenComplete((res, err) -> {
+                if (err != null) {
+                    // Retry is handled by the sender (RetryPolicy in ReliableChannel on the client, sendWithRetry on the server).
+                    // If we get here, then retries are exhausted and we should fail the streamer.
+                    log.error("Failed to send batch to partition " + partition + ": " + err.getMessage(), err);
+                    close(err);
+                } else {
+                    fut.complete(null);
+                    pendingFuts.remove(fut);
 
-                inFlightItemCount.addAndGet(-batchSize);
-                requestMore();
+                    inFlightItemCount.addAndGet(-batchSize);
+                    requestMore();
 
-                // Refresh partition assignment asynchronously.
-                partitionAwarenessProvider.refreshAsync().exceptionally(refreshErr -> {
-                    log.error("Failed to refresh schemas and partition assignment: " + refreshErr.getMessage(), refreshErr);
-                    close(refreshErr);
-                    return null;
-                });
-            }
-        });
+                    // Refresh partition assignment asynchronously.
+                    partitionAwarenessProvider.refreshAsync().exceptionally(refreshErr -> {
+                        log.error("Failed to refresh schemas and partition assignment: " + refreshErr.getMessage(), refreshErr);
+                        close(refreshErr);
+                        return null;
+                    });
+                }
+            });
 
-        return fut;
+            return fut;
+        } catch (Exception e) {
+            log.error("Failed to send batch to partition " + partition + ": " + e.getMessage(), e);
+            close(e);
+            return CompletableFuture.failedFuture(e);
+        }
     }
 
     private void close(@Nullable Throwable throwable) {
