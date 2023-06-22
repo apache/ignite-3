@@ -55,7 +55,7 @@ public class ClockWaiter implements IgniteComponent {
     private final AtomicBoolean stopGuard = new AtomicBoolean(false);
 
     private final PendingComparableValuesTracker<Long, Void> nowTracker = new PendingComparableValuesTracker<>(
-            HybridTimestamp.hybridTimestampToLong(new HybridTimestamp(1, 0))
+            HybridTimestamp.MIN_VALUE.longValue()
     );
 
     private final ClockUpdateListener updateListener = this::onUpdate;
