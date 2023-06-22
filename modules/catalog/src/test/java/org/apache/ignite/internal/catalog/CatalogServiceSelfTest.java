@@ -121,7 +121,6 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
-import org.mockito.Mockito;
 
 /**
  * Catalog service self test.
@@ -138,6 +137,8 @@ public class CatalogServiceSelfTest {
     private MetaStorageManager metastore;
 
     private VaultManager vault;
+
+    private UpdateLog updateLog;
 
     private CatalogServiceImpl service;
 
@@ -156,7 +157,8 @@ public class CatalogServiceSelfTest {
 
         clock = new HybridClockImpl();
         clockWaiter = spy(new ClockWaiter("test", clock));
-        service = new CatalogServiceImpl(new UpdateLogImpl(metastore, keyValueStorage::timestampByRevision, vault), clockWaiter, 0L);
+        updateLog = spy(new UpdateLogImpl(metastore, keyValueStorage::timestampByRevision, vault));
+        service = new CatalogServiceImpl(updateLog, clockWaiter);
 
         vault.start();
         metastore.start();
@@ -1130,17 +1132,9 @@ public class CatalogServiceSelfTest {
     public void catalogActivationTime() throws Exception {
         final long delayDuration = TimeUnit.DAYS.toMillis(365);
 
-        InMemoryVaultService vaultService = new InMemoryVaultService();
-        VaultManager vault = new VaultManager(vaultService);
-        StandaloneMetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(vault);
-        UpdateLog updateLogMock = Mockito.spy(new UpdateLogImpl(metaStorageManager, rev -> clock.now(), vault));
-        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clockWaiter, delayDuration);
+        CatalogServiceImpl service = new CatalogServiceImpl(updateLog, clockWaiter, delayDuration);
 
-        vault.start();
-        metaStorageManager.start();
         service.start();
-
-        assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
         try {
             CreateTableParams params = CreateTableParams.builder()
@@ -1155,7 +1149,7 @@ public class CatalogServiceSelfTest {
 
             service.createTable(params);
 
-            verify(updateLogMock).append(any());
+            verify(updateLog).append(any());
             // TODO IGNITE-19400: recheck createTable future completion guarantees
 
             // This waits till the new Catalog version lands in the internal structures.
@@ -1170,8 +1164,6 @@ public class CatalogServiceSelfTest {
             assertNotNull(service.table(TABLE_NAME, clock.nowLong()));
         } finally {
             service.stop();
-            metaStorageManager.stop();
-            vault.stop();
         }
     }
 
@@ -1593,17 +1585,9 @@ public class CatalogServiceSelfTest {
 
         HybridTimestamp startTs = clock.now();
 
-        InMemoryVaultService vaultService = new InMemoryVaultService();
-        VaultManager vault = new VaultManager(vaultService);
-        StandaloneMetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(vault);
-        UpdateLog updateLogMock = spy(new UpdateLogImpl(metaStorageManager, rev -> clock.now(), vault));
-        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clockWaiter, delayDuration);
+        CatalogServiceImpl service = new CatalogServiceImpl(updateLog, clockWaiter, delayDuration);
 
-        vault.start();
-        metaStorageManager.start();
         service.start();
-
-        assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
         try {
             CreateTableParams params = CreateTableParams.builder()
@@ -1630,8 +1614,6 @@ public class CatalogServiceSelfTest {
             );
         } finally {
             service.stop();
-            metaStorageManager.stop();
-            vault.stop();
         }
     }
 
