@@ -95,7 +95,7 @@ public class DeploymentUnitFailover {
             return;
         }
 
-        if (checkABAProblem(unitClusterStatus, unitNodeStatus)) {
+        if (checkAbaProblem(unitClusterStatus, unitNodeStatus)) {
             return;
         }
 
@@ -138,7 +138,7 @@ public class DeploymentUnitFailover {
         return false;
     }
 
-    private boolean checkABAProblem(UnitClusterStatus clusterStatus, UnitNodeStatus nodeStatus) {
+    private boolean checkAbaProblem(UnitClusterStatus clusterStatus, UnitNodeStatus nodeStatus) {
         String id = nodeStatus.id();
         Version version = nodeStatus.version();
         if (clusterStatus.depOpId() != nodeStatus.depOpId()) {

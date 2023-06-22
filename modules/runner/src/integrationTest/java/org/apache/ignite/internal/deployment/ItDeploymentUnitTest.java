@@ -255,7 +255,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    public void testABAValidation() {
+    public void testAbaValidation() {
         String id = "test";
         Version version = Version.parseVersion("1.1.0");
         Unit smallUnit = files.deployAndVerifySmall(id, version, cluster.node(1));
