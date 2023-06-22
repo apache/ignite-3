@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -200,7 +199,7 @@ public class CatalogSqlSchemaManagerTest {
             SchemaPlus schemaPlus = sqlSchemaManager.activeSchema(testSchema.name, testSchema.timestamp);
             IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
 
-            assertEquals(DEFAULT_SCHEMA_NAME, schema.getName());
+            assertEquals(CatalogManager.PUBLIC, schema.getName());
             assertEquals(testSchema.version, schema.version());
         }
 
@@ -208,7 +207,7 @@ public class CatalogSqlSchemaManagerTest {
             SchemaPlus schemaPlus = sqlSchemaManager.activeSchema(null, testSchema.timestamp);
             IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
 
-            assertEquals(DEFAULT_SCHEMA_NAME, schema.getName());
+            assertEquals(CatalogManager.PUBLIC, schema.getName());
             assertEquals(testSchema.version, schema.version());
         }
     }
@@ -456,7 +455,7 @@ public class CatalogSqlSchemaManagerTest {
         final Set<TestIndex> indexes = new LinkedHashSet<>();
 
         TestSchema() {
-            this(DEFAULT_SCHEMA_NAME);
+            this(CatalogManager.PUBLIC);
         }
 
         TestSchema(String name) {
@@ -470,7 +469,7 @@ public class CatalogSqlSchemaManagerTest {
         void init(CatalogManager catalogManager) {
             CatalogSchemaDescriptor schemaDescriptor = newSchemaDescriptor(version);
             when(catalogManager.activeCatalogVersion(timestamp)).thenReturn(version);
-            when(catalogManager.schema(name != null ? name : DEFAULT_SCHEMA_NAME, version)).thenReturn(schemaDescriptor);
+            when(catalogManager.schema(name != null ? name : CatalogManager.PUBLIC, version)).thenReturn(schemaDescriptor);
         }
 
         CatalogSchemaDescriptor newSchemaDescriptor(int version) {

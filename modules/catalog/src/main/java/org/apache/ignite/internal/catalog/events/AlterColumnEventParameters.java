@@ -23,36 +23,32 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
  * Create table event parameters contains a column descriptor for the modified column.
  */
 public class AlterColumnEventParameters extends CatalogEventParameters {
+
     private final int tableId;
 
-    private final CatalogTableColumnDescriptor descriptor;
+    private final CatalogTableColumnDescriptor columnDescriptor;
 
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
-     * @param catalogVersion Catalog version.
-     * @param tableId Returns ID the table to be modified.
-     * @param descriptor Descriptor for the column to be replaced.
+     * @param tableId Returns an id the table to be modified.
+     * @param columnDescriptor Descriptor for the column to be replaced.
      */
-    public AlterColumnEventParameters(long causalityToken, int catalogVersion, int tableId, CatalogTableColumnDescriptor descriptor) {
-        super(causalityToken, catalogVersion);
+    public AlterColumnEventParameters(long causalityToken, int tableId, CatalogTableColumnDescriptor columnDescriptor) {
+        super(causalityToken);
 
         this.tableId = tableId;
-        this.descriptor = descriptor;
+        this.columnDescriptor = columnDescriptor;
     }
 
-    /**
-     * Returns ID of a modified table.
-     */
+    /** Returns an id of a modified table. */
     public int tableId() {
         return tableId;
     }
 
-    /**
-     * Returns column descriptor for the column to be replaced.
-     */
+    /** Returns column descriptor for the column to be replaced. */
     public CatalogTableColumnDescriptor columnDescriptor() {
-        return descriptor;
+        return columnDescriptor;
     }
 }

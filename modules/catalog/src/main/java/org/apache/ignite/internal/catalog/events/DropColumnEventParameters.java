@@ -23,6 +23,7 @@ import java.util.Collection;
  * Drop column event parameters contains descriptors of dropped columns.
  */
 public class DropColumnEventParameters extends CatalogEventParameters {
+
     private final int tableId;
     private final Collection<String> columns;
 
@@ -30,20 +31,17 @@ public class DropColumnEventParameters extends CatalogEventParameters {
      * Constructor.
      *
      * @param causalityToken Causality token.
-     * @param catalogVersion Catalog version.
-     * @param tableId ID of table, which columns are dropped from.
+     * @param tableId An id of table, which columns are dropped from.
      * @param columns Names of columns to drop.
      */
-    public DropColumnEventParameters(long causalityToken, int catalogVersion, int tableId, Collection<String> columns) {
-        super(causalityToken, catalogVersion);
+    public DropColumnEventParameters(long causalityToken, int tableId, Collection<String> columns) {
+        super(causalityToken);
 
         this.tableId = tableId;
         this.columns = columns;
     }
 
-    /**
-     * Returns table ID.
-     */
+    /** Returns table id. */
     public int tableId() {
         return tableId;
     }

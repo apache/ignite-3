@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.PUBLIC;
 
 import java.util.Arrays;
 import java.util.List;
@@ -35,7 +35,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Describes dropping of columns.
  */
-public class DropColumnsEntry implements UpdateEntry, CatalogFireEvent {
+public class DropColumnsEntry implements UpdateEntry, Fireable {
     private static final long serialVersionUID = 2970125889493580121L;
 
     private final int tableId;
@@ -44,7 +44,7 @@ public class DropColumnsEntry implements UpdateEntry, CatalogFireEvent {
     /**
      * Constructs the object.
      *
-     * @param tableId Table ID.
+     * @param tableId Table id.
      * @param columns Names of columns to drop.
      */
     public DropColumnsEntry(int tableId, Set<String> columns) {
@@ -52,16 +52,12 @@ public class DropColumnsEntry implements UpdateEntry, CatalogFireEvent {
         this.columns = columns;
     }
 
-    /**
-     * Returns table ID.
-     */
+    /** Returns table id. */
     public int tableId() {
         return tableId;
     }
 
-    /**
-     * Returns name of columns to drop.
-     */
+    /** Returns name of columns to drop. */
     public Set<String> columns() {
         return columns;
     }
@@ -72,13 +68,13 @@ public class DropColumnsEntry implements UpdateEntry, CatalogFireEvent {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new DropColumnEventParameters(causalityToken, catalogVersion, tableId, columns);
+    public CatalogEventParameters createEventParameters(long causalityToken) {
+        return new DropColumnEventParameters(causalityToken, tableId, columns);
     }
 
     @Override
     public Catalog applyUpdate(Catalog catalog, VersionedUpdate update) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(PUBLIC));
 
         return new Catalog(
                 update.version(),

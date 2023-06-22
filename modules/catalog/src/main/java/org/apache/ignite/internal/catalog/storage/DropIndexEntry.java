@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.PUBLIC;
 
 import java.util.Arrays;
 import java.util.List;
@@ -33,7 +33,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Describes deletion of an index.
  */
-public class DropIndexEntry implements UpdateEntry, CatalogFireEvent {
+public class DropIndexEntry implements UpdateEntry, Fireable {
     private static final long serialVersionUID = -604729846502020728L;
 
     private final int indexId;
@@ -41,15 +41,13 @@ public class DropIndexEntry implements UpdateEntry, CatalogFireEvent {
     /**
      * Constructs the object.
      *
-     * @param indexId ID of an index to drop.
+     * @param indexId An id of an index to drop.
      */
     public DropIndexEntry(int indexId) {
         this.indexId = indexId;
     }
 
-    /**
-     * Returns ID of an index to drop.
-     */
+    /** Returns an id of an index to drop. */
     public int indexId() {
         return indexId;
     }
@@ -60,13 +58,13 @@ public class DropIndexEntry implements UpdateEntry, CatalogFireEvent {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new DropIndexEventParameters(causalityToken, catalogVersion, indexId);
+    public CatalogEventParameters createEventParameters(long causalityToken) {
+        return new DropIndexEventParameters(causalityToken, indexId);
     }
 
     @Override
     public Catalog applyUpdate(Catalog catalog, VersionedUpdate update) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(PUBLIC));
 
         return new Catalog(
                 update.version(),

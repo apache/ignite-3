@@ -21,24 +21,22 @@ package org.apache.ignite.internal.catalog.events;
  * Drop distribution zone event parameters contains an id of dropped distribution zone.
  */
 public class DropZoneEventParameters extends CatalogEventParameters {
+
     private final int zoneId;
 
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
-     * @param catalogVersion Catalog version.
-     * @param zoneId ID of dropped distribution zone.
+     * @param zoneId An id of dropped distribution zone.
      */
-    public DropZoneEventParameters(long causalityToken, int catalogVersion, int zoneId) {
-        super(causalityToken, catalogVersion);
+    public DropZoneEventParameters(long causalityToken, int zoneId) {
+        super(causalityToken);
 
         this.zoneId = zoneId;
     }
 
-    /**
-     * Returns ID of dropped distribution zone.
-     */
+    /** Returns an id of dropped distribution zone. */
     public int zoneId() {
         return zoneId;
     }

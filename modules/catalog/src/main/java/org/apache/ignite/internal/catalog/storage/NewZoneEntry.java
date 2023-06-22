@@ -29,7 +29,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 /**
  * Describes addition of a new zone.
  */
-public class NewZoneEntry implements UpdateEntry, CatalogFireEvent {
+public class NewZoneEntry implements UpdateEntry, Fireable {
     private static final long serialVersionUID = 2970125889493580121L;
 
     private final CatalogZoneDescriptor descriptor;
@@ -43,9 +43,7 @@ public class NewZoneEntry implements UpdateEntry, CatalogFireEvent {
         this.descriptor = descriptor;
     }
 
-    /**
-     * Returns descriptor of a zone to add.
-     */
+    /** Returns descriptor of a zone to add. */
     public CatalogZoneDescriptor descriptor() {
         return descriptor;
     }
@@ -56,8 +54,8 @@ public class NewZoneEntry implements UpdateEntry, CatalogFireEvent {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new CreateZoneEventParameters(causalityToken, catalogVersion, descriptor);
+    public CatalogEventParameters createEventParameters(long causalityToken) {
+        return new CreateZoneEventParameters(causalityToken, descriptor);
     }
 
     @Override

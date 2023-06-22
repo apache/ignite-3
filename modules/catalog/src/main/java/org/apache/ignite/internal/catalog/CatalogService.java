@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>TBD: events
  */
 public interface CatalogService {
-    String DEFAULT_SCHEMA_NAME = "PUBLIC";
+    String PUBLIC = "PUBLIC";
 
     String DEFAULT_ZONE_NAME = "Default";
 

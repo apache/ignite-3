@@ -21,24 +21,22 @@ package org.apache.ignite.internal.catalog.events;
  * Drop table event parameters contains an id of dropped table.
  */
 public class DropTableEventParameters extends CatalogEventParameters {
+
     private final int tableId;
 
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
-     * @param catalogVersion Catalog version.
-     * @param tableId ID of dropped table.
+     * @param tableId An id of dropped table.
      */
-    public DropTableEventParameters(long causalityToken, int catalogVersion, int tableId) {
-        super(causalityToken, catalogVersion);
+    public DropTableEventParameters(long causalityToken, int tableId) {
+        super(causalityToken);
 
         this.tableId = tableId;
     }
 
-    /**
-     * Returns ID of dropped table.
-     */
+    /** Returns an id of dropped table. */
     public int tableId() {
         return tableId;
     }

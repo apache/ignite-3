@@ -37,9 +37,7 @@ public class ObjectIdGenUpdateEntry implements UpdateEntry {
         this.delta = delta;
     }
 
-    /**
-     * Returns delta by which to correct the id generator.
-     */
+    /** Returns delta by which to correct the id generator. */
     public int delta() {
         return delta;
     }

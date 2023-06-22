@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.PUBLIC;
 
 import java.util.Arrays;
 import java.util.List;
@@ -35,7 +35,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Describes a column replacement.
  */
-public class AlterColumnEntry implements UpdateEntry, CatalogFireEvent {
+public class AlterColumnEntry implements UpdateEntry, Fireable {
     private static final long serialVersionUID = -4552940987881338656L;
 
     private final int tableId;
@@ -45,7 +45,7 @@ public class AlterColumnEntry implements UpdateEntry, CatalogFireEvent {
     /**
      * Constructs the object.
      *
-     * @param tableId ID the table to be modified.
+     * @param tableId An id the table to be modified.
      * @param column A modified descriptor of the column to be replaced.
      */
     public AlterColumnEntry(int tableId, CatalogTableColumnDescriptor column) {
@@ -53,16 +53,12 @@ public class AlterColumnEntry implements UpdateEntry, CatalogFireEvent {
         this.column = column;
     }
 
-    /**
-     * Returns ID the table to be modified.
-     */
+    /** Returns an id the table to be modified. */
     public int tableId() {
         return tableId;
     }
 
-    /**
-     * Returns a descriptor for the column to be replaced.
-     */
+    /** Returns a descriptor for the column to be replaced. */
     public CatalogTableColumnDescriptor descriptor() {
         return column;
     }
@@ -73,13 +69,13 @@ public class AlterColumnEntry implements UpdateEntry, CatalogFireEvent {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new AlterColumnEventParameters(causalityToken, catalogVersion, tableId, column);
+    public CatalogEventParameters createEventParameters(long causalityToken) {
+        return new AlterColumnEventParameters(causalityToken, tableId, column);
     }
 
     @Override
     public Catalog applyUpdate(Catalog catalog, VersionedUpdate update) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(PUBLIC));
 
         return new Catalog(
                 update.version(),

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.PUBLIC;
 
 import java.util.List;
 import java.util.Objects;
@@ -33,7 +33,7 @@ import org.apache.ignite.internal.util.ArrayUtils;
 /**
  * Describes addition of a new index.
  */
-public class NewIndexEntry implements UpdateEntry, CatalogFireEvent {
+public class NewIndexEntry implements UpdateEntry, Fireable {
     private static final long serialVersionUID = 6717363577013237711L;
 
     private final CatalogIndexDescriptor descriptor;
@@ -47,9 +47,7 @@ public class NewIndexEntry implements UpdateEntry, CatalogFireEvent {
         this.descriptor = descriptor;
     }
 
-    /**
-     * Gets descriptor of an index to add.
-     */
+    /** Gets descriptor of an index to add. */
     public CatalogIndexDescriptor descriptor() {
         return descriptor;
     }
@@ -60,13 +58,13 @@ public class NewIndexEntry implements UpdateEntry, CatalogFireEvent {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new CreateIndexEventParameters(causalityToken, catalogVersion, descriptor);
+    public CatalogEventParameters createEventParameters(long causalityToken) {
+        return new CreateIndexEventParameters(causalityToken, descriptor);
     }
 
     @Override
     public Catalog applyUpdate(Catalog catalog, VersionedUpdate update) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(PUBLIC));
 
         return new Catalog(
                 update.version(),

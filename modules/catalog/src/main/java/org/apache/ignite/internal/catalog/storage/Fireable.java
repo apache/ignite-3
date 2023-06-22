@@ -23,7 +23,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 /**
  * Interface for updates that require firing events.
  */
-public interface CatalogFireEvent {
+public interface Fireable {
     /**
      * Returns the type of the fired event.
      */
@@ -33,7 +33,6 @@ public interface CatalogFireEvent {
      * Creates parameters of the fired event.
      *
      * @param causalityToken Causality token.
-     * @param catalogVersion Catalog version.
      */
-    CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion);
+    CatalogEventParameters createEventParameters(long causalityToken);
 }

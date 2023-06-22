@@ -69,14 +69,13 @@ public class CatalogUtils {
     /**
      * Converts CreateIndex command params to hash index descriptor.
      *
-     * @param id Index ID.
-     * @param tableId Table ID.
+     * @param id Index id.
+     * @param tableId Table id.
      * @param params Parameters.
      * @return Index descriptor.
      */
-    public static CatalogHashIndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
-        return new CatalogHashIndexDescriptor(
-                id,
+    public static CatalogIndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
+        return new CatalogHashIndexDescriptor(id,
                 params.indexName(),
                 tableId,
                 false,

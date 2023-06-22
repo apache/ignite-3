@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -90,7 +91,7 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
      * @param err    Exception when it was happened, or {@code null} otherwise.
      * @return Completable future which is completed when event handling is complete.
      */
-    protected CompletableFuture<?> fireEvent(T evt, P params, @Nullable Throwable err) {
+    protected CompletableFuture<?> fireEvent(T evt, P params, Throwable err) {
         List<EventListener<P>> eventListeners = listeners.get(evt);
 
         if (eventListeners == null) {
@@ -99,7 +100,11 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
 
         Collection<CompletableFuture<?>> futures = new ArrayList<>();
 
-        for (EventListener<P> closure : eventListeners) {
+        Iterator<EventListener<P>> iter = eventListeners.iterator();
+
+        while (iter.hasNext()) {
+            EventListener<P> closure = iter.next();
+
             CompletableFuture<?> future = closure.notify(params, err)
                     .thenAccept(b -> {
                         if (b) {
@@ -120,7 +125,7 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
      * @param params Event parameters.
      * @return Completable future which is completed when event handling is complete.
      */
-    protected CompletableFuture<?> fireEvent(T evt, P params) {
+    protected  CompletableFuture<?> fireEvent(T evt, P params) {
         return fireEvent(evt, params, null);
     }
 }

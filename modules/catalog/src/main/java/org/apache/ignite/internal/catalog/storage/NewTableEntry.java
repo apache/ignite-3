@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.PUBLIC;
 
 import java.util.List;
 import java.util.Objects;
@@ -27,17 +27,15 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
  * Describes addition of a new table.
  */
-public class NewTableEntry implements UpdateEntry, CatalogFireEvent {
+public class NewTableEntry implements UpdateEntry, Fireable {
     private static final long serialVersionUID = 2970125889493580121L;
 
-    @IgniteToStringInclude
     private final CatalogTableDescriptor descriptor;
 
     /**
@@ -49,9 +47,7 @@ public class NewTableEntry implements UpdateEntry, CatalogFireEvent {
         this.descriptor = descriptor;
     }
 
-    /**
-     * Returns descriptor of a table to add.
-     */
+    /** Returns descriptor of a table to add. */
     public CatalogTableDescriptor descriptor() {
         return descriptor;
     }
@@ -62,13 +58,13 @@ public class NewTableEntry implements UpdateEntry, CatalogFireEvent {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new CreateTableEventParameters(causalityToken, catalogVersion, descriptor);
+    public CatalogEventParameters createEventParameters(long causalityToken) {
+        return new CreateTableEventParameters(causalityToken, descriptor);
     }
 
     @Override
     public Catalog applyUpdate(Catalog catalog, VersionedUpdate update) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(PUBLIC));
 
         return new Catalog(
                 update.version(),

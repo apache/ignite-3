@@ -21,24 +21,22 @@ package org.apache.ignite.internal.catalog.events;
  * Drop index event parameters that contains an id of dropped index.
  */
 public class DropIndexEventParameters extends CatalogEventParameters {
+
     private final int indexId;
 
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
-     * @param catalogVersion Catalog version.
-     * @param indexId ID of dropped index.
+     * @param indexId An id of dropped index.
      */
-    public DropIndexEventParameters(long causalityToken, int catalogVersion, int indexId) {
-        super(causalityToken, catalogVersion);
+    public DropIndexEventParameters(long causalityToken, int indexId) {
+        super(causalityToken);
 
         this.indexId = indexId;
     }
 
-    /**
-     * Returns ID of dropped index.
-     */
+    /** Returns an id of dropped index. */
     public int indexId() {
         return indexId;
     }

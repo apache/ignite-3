@@ -29,7 +29,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Describes altering zone.
  */
-public class AlterZoneEntry implements UpdateEntry, CatalogFireEvent {
+public class AlterZoneEntry implements UpdateEntry, Fireable {
     private static final long serialVersionUID = 7727583734058987315L;
 
     private final CatalogZoneDescriptor descriptor;
@@ -43,9 +43,7 @@ public class AlterZoneEntry implements UpdateEntry, CatalogFireEvent {
         this.descriptor = descriptor;
     }
 
-    /**
-     * Returns descriptor of a zone to alter.
-     */
+    /** Returns descriptor of a zone to alter. */
     public CatalogZoneDescriptor descriptor() {
         return descriptor;
     }
@@ -56,8 +54,8 @@ public class AlterZoneEntry implements UpdateEntry, CatalogFireEvent {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new AlterZoneEventParameters(causalityToken, catalogVersion, descriptor);
+    public CatalogEventParameters createEventParameters(long causalityToken) {
+        return new AlterZoneEventParameters(causalityToken, descriptor);
     }
 
     @Override

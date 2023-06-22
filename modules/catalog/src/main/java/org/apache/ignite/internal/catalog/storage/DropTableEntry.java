@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.PUBLIC;
 
 import java.util.Arrays;
 import java.util.List;
@@ -33,7 +33,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Describes deletion of a table.
  */
-public class DropTableEntry implements UpdateEntry, CatalogFireEvent {
+public class DropTableEntry implements UpdateEntry, Fireable {
     private static final long serialVersionUID = 7727583734058987315L;
 
     private final int tableId;
@@ -41,15 +41,13 @@ public class DropTableEntry implements UpdateEntry, CatalogFireEvent {
     /**
      * Constructs the object.
      *
-     * @param tableId ID of a table to drop.
+     * @param tableId An id of a table to drop.
      */
     public DropTableEntry(int tableId) {
         this.tableId = tableId;
     }
 
-    /**
-     * Returns ID of a table to drop.
-     */
+    /** Returns an id of a table to drop. */
     public int tableId() {
         return tableId;
     }
@@ -60,13 +58,13 @@ public class DropTableEntry implements UpdateEntry, CatalogFireEvent {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new DropTableEventParameters(causalityToken, catalogVersion, tableId);
+    public CatalogEventParameters createEventParameters(long causalityToken) {
+        return new DropTableEventParameters(causalityToken, tableId);
     }
 
     @Override
     public Catalog applyUpdate(Catalog catalog, VersionedUpdate update) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(PUBLIC));
 
         return new Catalog(
                 update.version(),

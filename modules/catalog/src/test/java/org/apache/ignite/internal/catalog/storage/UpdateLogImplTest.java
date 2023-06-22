@@ -78,7 +78,7 @@ class UpdateLogImplTest {
 
         long revisionBefore = metastore.appliedRevision();
 
-        updateLog.registerUpdateHandler((update, causalityToken) -> {/* no-op */});
+        updateLog.registerUpdateHandler(update -> {/* no-op */});
         updateLog.start();
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
@@ -107,7 +107,7 @@ class UpdateLogImplTest {
         updateLog = new UpdateLogImpl(metastore, vault);
 
         List<VersionedUpdate> actualLog = new ArrayList<>();
-        updateLog.registerUpdateHandler((update, causalityToken) -> actualLog.add(update));
+        updateLog.registerUpdateHandler(actualLog::add);
         updateLog.start();
 
         assertEquals(expectedLog, actualLog);
@@ -134,7 +134,7 @@ class UpdateLogImplTest {
         UpdateLogImpl updateLog = new UpdateLogImpl(metastore, vault);
 
         List<Integer> appliedVersions = new ArrayList<>();
-        updateLog.registerUpdateHandler((update, causalityToken) -> appliedVersions.add(update.version()));
+        updateLog.registerUpdateHandler(update -> appliedVersions.add(update.version()));
 
         updateLog.start();
 
@@ -187,6 +187,11 @@ class UpdateLogImplTest {
         }
 
         @Override
+        public Catalog applyUpdate(Catalog catalog, VersionedUpdate update) {
+            return catalog;
+        }
+
+        @Override
         public boolean equals(Object o) {
             if (this == o) {
                 return true;
@@ -203,11 +208,6 @@ class UpdateLogImplTest {
         @Override
         public int hashCode() {
             return payload.hashCode();
-        }
-
-        @Override
-        public Catalog applyUpdate(Catalog catalog, VersionedUpdate update) {
-            return catalog;
         }
 
         @Override

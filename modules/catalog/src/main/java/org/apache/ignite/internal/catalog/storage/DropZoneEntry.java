@@ -28,7 +28,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Describes deletion of a zone.
  */
-public class DropZoneEntry implements UpdateEntry, CatalogFireEvent {
+public class DropZoneEntry implements UpdateEntry, Fireable {
     private static final long serialVersionUID = 7727583734058987315L;
 
     private final int zoneId;
@@ -36,15 +36,13 @@ public class DropZoneEntry implements UpdateEntry, CatalogFireEvent {
     /**
      * Constructs the object.
      *
-     * @param zoneId ID of a zone to drop.
+     * @param zoneId An id of a zone to drop.
      */
     public DropZoneEntry(int zoneId) {
         this.zoneId = zoneId;
     }
 
-    /**
-     * Returns ID of a zone to drop.
-     */
+    /** Returns an id of a zone to drop. */
     public int zoneId() {
         return zoneId;
     }
@@ -55,8 +53,8 @@ public class DropZoneEntry implements UpdateEntry, CatalogFireEvent {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new DropZoneEventParameters(causalityToken, catalogVersion, zoneId);
+    public CatalogEventParameters createEventParameters(long causalityToken) {
+        return new DropZoneEventParameters(causalityToken, zoneId);
     }
 
     @Override

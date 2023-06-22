@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -169,7 +168,7 @@ public class UpdateLogImpl implements UpdateLog {
 
             VersionedUpdate update = fromBytes(entry.value());
 
-            handler.handle(update, metastore.appliedRevision());
+            handler.handle(update);
         }
     }
 
@@ -198,24 +197,26 @@ public class UpdateLogImpl implements UpdateLog {
             this.onUpdateHandler = onUpdateHandler;
         }
 
+        /** {@inheritDoc} */
         @Override
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
             for (EntryEvent eventEntry : event.entryEvents()) {
-                assert eventEntry.newEntry() != null : eventEntry;
-                assert !eventEntry.newEntry().empty() : eventEntry;
+                assert eventEntry.newEntry() != null;
+                assert !eventEntry.newEntry().empty();
 
                 byte[] payload = eventEntry.newEntry().value();
 
-                assert payload != null : eventEntry;
+                assert payload != null;
 
                 VersionedUpdate update = fromBytes(payload);
 
-                onUpdateHandler.handle(update, event.revision());
+                onUpdateHandler.handle(update);
             }
 
-            return completedFuture(null);
+            return CompletableFuture.completedFuture(null);
         }
 
+        /** {@inheritDoc} */
         @Override
         public void onError(Throwable e) {
             assert false;

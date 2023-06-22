@@ -23,25 +23,25 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
  * Alter zone event parameters contains a distribution zone descriptor for newly created distribution zone.
  */
 public class AlterZoneEventParameters extends CatalogEventParameters {
-    private final CatalogZoneDescriptor descriptor;
+
+    private final CatalogZoneDescriptor zoneDescriptor;
 
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
-     * @param catalogVersion Catalog version.
-     * @param descriptor Newly created distribution zone descriptor.
+     * @param zoneDescriptor Newly created distribution zone descriptor.
      */
-    public AlterZoneEventParameters(long causalityToken, int catalogVersion, CatalogZoneDescriptor descriptor) {
-        super(causalityToken, catalogVersion);
+    public AlterZoneEventParameters(long causalityToken, CatalogZoneDescriptor zoneDescriptor) {
+        super(causalityToken);
 
-        this.descriptor = descriptor;
+        this.zoneDescriptor = zoneDescriptor;
     }
 
     /**
      * Gets distribution zone descriptor for newly created distribution zone.
      */
     public CatalogZoneDescriptor zoneDescriptor() {
-        return descriptor;
+        return zoneDescriptor;
     }
 }
