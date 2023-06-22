@@ -401,7 +401,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         if (unpacker.tryUnpackNil()) {
-            pendingReq.complete(unpacker);
+            boolean completed = pendingReq.complete(unpacker);
+
+            if (!completed) {
+                // Already completed (timeout, error, closing channel).
+                unpacker.close();
+            }
+
             metrics.requestsCompletedIncrement();
         } else {
             Throwable err = readError(unpacker);

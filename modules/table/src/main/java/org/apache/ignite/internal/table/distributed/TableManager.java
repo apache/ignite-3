@@ -272,18 +272,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final Map<Integer, CompletableFuture<Table>> tableCreateFuts = new ConcurrentHashMap<>();
 
     /**
-     * Versioned store for tables by id. Only table instances are created here, RAFT groups may not be initialized yet.
+     * Versioned store for tables by id. Only table instances are created here, local storages and RAFT groups may not be initialized yet.
      *
+     * @see #localPartsByTableIdVv
      * @see #assignmentsUpdatedVv
      */
     private final IncrementalVersionedValue<Map<Integer, TableImpl>> tablesByIdVv;
 
-    /** Versioned store for local partition set by table id. */
+    /**
+     * Versioned store for local partition set by table id.
+     * Completed strictly after {@link #tablesByIdVv} and strictly before {@link #assignmentsUpdatedVv}.
+     */
     private final IncrementalVersionedValue<Map<Integer, PartitionSet>> localPartsByTableIdVv;
 
     /**
      * Versioned store for tracking RAFT groups initialization and starting completion.
      * Only explicitly updated in {@link #createTablePartitionsLocally(long, List, int, TableImpl)}.
+     * Completed strictly after {@link #localPartsByTableIdVv}.
      */
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
 
@@ -443,7 +448,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
-        localPartsByTableIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
+        localPartsByTableIdVv = new IncrementalVersionedValue<>(dependingOn(tablesByIdVv), HashMap::new);
 
         assignmentsUpdatedVv = new IncrementalVersionedValue<>(dependingOn(localPartsByTableIdVv));
 
@@ -1830,8 +1835,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         } else {
             CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(latestCausalityToken);
 
-            // "tablesByIdVv" is always completed strictly before the "assignmentsUpdatedVv".
-            assert tablesByIdFuture.isDone();
+            assert tablesByIdFuture.isDone()
+                    : "'tablesByIdVv' is always completed strictly before the 'assignmentsUpdatedVv'";
 
             return tablesByIdFuture.join();
         }
