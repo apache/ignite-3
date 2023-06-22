@@ -28,7 +28,7 @@ import static org.apache.ignite.internal.rest.constants.HttpCode.OK;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -181,7 +181,7 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
         List<String> versions = list.stream()
                 .flatMap(unitStatus -> unitStatus.versionToStatus().stream().map(UnitVersionStatus::getVersion))
                 .collect(Collectors.toList());
-        assertThat(versions, containsInAnyOrder("1.0.0", "1.0.1", "1.1.1", "1.1.2", "1.2.1", "2.0.0"));
+        assertThat(versions, contains("1.0.0", "1.0.1", "1.1.1", "1.1.2", "1.2.1", "2.0.0"));
     }
 
     private HttpResponse<Object> deploy(String id, String version) {

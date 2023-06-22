@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rest.deployment;
 
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.multipart.CompletedFileUpload;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
@@ -156,15 +157,18 @@ public class DeploymentManagementController implements DeploymentCodeApi {
      * @return Unit statuses DTO.
      */
     private static @Nullable UnitStatus fromUnitStatuses(UnitStatuses statuses, Predicate<DeploymentStatus> statusFilter) {
-        List<UnitVersionStatus> versionStatus = statuses.versionStatuses().stream()
-                .filter(unitVersionStatus -> statusFilter.test(fromDeploymentStatus(unitVersionStatus.getStatus())))
-                .map(e -> new UnitVersionStatus(e.getVersion().render(), fromDeploymentStatus(e.getStatus())))
-                .collect(Collectors.toList());
+        List<UnitVersionStatus> versionStatuses = new ArrayList<>();
+        for (org.apache.ignite.internal.deployunit.UnitVersionStatus versionStatus : statuses.versionStatuses()) {
+            DeploymentStatus deploymentStatus = fromDeploymentStatus(versionStatus.getStatus());
+            if (statusFilter.test(deploymentStatus)) {
+                versionStatuses.add(new UnitVersionStatus(versionStatus.getVersion().render(), deploymentStatus));
+            }
+        }
 
-        if (versionStatus.isEmpty()) {
+        if (versionStatuses.isEmpty()) {
             return null;
         }
-        return new UnitStatus(statuses.id(), versionStatus);
+        return new UnitStatus(statuses.id(), versionStatuses);
     }
 
     private static Predicate<DeploymentStatus> createStatusFilter(Optional<List<DeploymentStatus>> statuses) {
