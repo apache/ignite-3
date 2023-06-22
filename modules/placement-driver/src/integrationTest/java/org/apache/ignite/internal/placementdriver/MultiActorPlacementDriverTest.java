@@ -35,7 +35,6 @@ import static org.mockito.Mockito.when;
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -245,7 +244,9 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
             ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
-            when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(new HashSet<>(placementDriverNodeNames)));
+            when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(
+                    Set.of(placementDriverNodeNames.get(0))
+            ));
 
             RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 
