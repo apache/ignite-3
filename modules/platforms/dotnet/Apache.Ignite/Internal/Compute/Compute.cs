@@ -140,6 +140,7 @@ namespace Apache.Ignite.Internal.Compute
                 var w = writer.MessageWriter;
 
                 w.Write(node.Name);
+                w.WriteArrayHeader(0);
                 w.Write(jobClassName);
                 w.WriteObjectCollectionAsBinaryTuple(args);
             }
@@ -218,6 +219,7 @@ namespace Apache.Ignite.Internal.Compute
                 var serializerHandler = serializerHandlerFunc(table);
                 var colocationHash = serializerHandler.Write(ref w, schema, key, keyOnly: true, computeHash: true);
 
+                w.WriteArrayHeader(0);
                 w.Write(jobClassName);
                 w.WriteObjectCollectionAsBinaryTuple(args);
 
