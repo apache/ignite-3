@@ -62,8 +62,15 @@ public interface MetaStorageManager extends IgniteComponent {
     CompletableFuture<Entry> get(ByteArray key, long revUpperBound);
 
     /**
-     * Retrieves entries for the given key and bound revisions.
+     * Returns all entries corresponding to given key and bounded by given revisions.
+     * All these entries are ordered by revisions and have the same key.
+     * The lower and upper bounds are inclusive.
      * TODO: IGNITE-19735 move this method to another interface for interaction with local KeyValueStorage.
+     *
+     * @param key The key.
+     * @param revLowerBound The lower bound of revision.
+     * @param revUpperBound The upper bound of revision.
+     * @return Entries corresponding to the given key.
      */
     @Deprecated
     List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound);

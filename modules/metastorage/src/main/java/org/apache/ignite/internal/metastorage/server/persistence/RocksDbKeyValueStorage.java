@@ -1228,19 +1228,21 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Gets the value by key and revisions.
+     * Returns all entries corresponding to given key and bounded by given revisions.
+     * All these entries are ordered by revisions and have the same key.
+     * The lower and upper bounds are inclusive.
      *
-     * @param key            Target key.
-     * @param revLowerBound  Target lower bound of revision.
-     * @param revUpperBound  Target upper bound of revision.
-     * @return Value.
+     * @param key The key.
+     * @param revLowerBound The lower bound of revision.
+     * @param revUpperBound The upper bound of revision.
+     * @return Entries corresponding to the given key.
      */
     private List<Entry> doGet(byte[] key, long revLowerBound, long revUpperBound) {
         assert revLowerBound >= 0 : "Invalid arguments: [revLowerBound=" + revLowerBound + ']';
         assert revUpperBound >= 0 : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
         assert revUpperBound >= revLowerBound
                 : "Invalid arguments: [revLowerBound=" + revLowerBound + ", revUpperBound=" + revUpperBound + ']';
-        // TODO: IGNITE-19782 assert that revLowerBound is not compacted.
+        // TODO: IGNITE-19782 throw CompactedException if revLowerBound is compacted.
 
         long[] revs;
 
@@ -1254,17 +1256,17 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             return Collections.emptyList();
         }
 
-        int firstRev = minRevisionIndex(revs, revLowerBound);
-        int lastRev = maxRevisionIndex(revs, revUpperBound);
+        int firstRevIndex = minRevisionIndex(revs, revLowerBound);
+        int lastRevIndex = maxRevisionIndex(revs, revUpperBound);
 
-        // firstRev can be -1 if minRevision return -1. lastRev can be -1 if maxRevision return -1.
-        if (firstRev == -1 || lastRev == -1) {
+        // firstRevIndex can be -1 if minRevision return -1. lastRevIndex can be -1 if maxRevision return -1.
+        if (firstRevIndex == -1 || lastRevIndex == -1) {
             return Collections.emptyList();
         }
 
         List<Entry> entries = new ArrayList<>();
 
-        for (int i = firstRev; i <= lastRev; i++) {
+        for (int i = firstRevIndex; i <= lastRevIndex; i++) {
             entries.add(doGetValue(key, revs[i]));
         }
 

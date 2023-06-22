@@ -224,8 +224,8 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertEquals(10, storage.revision());
         assertEquals(10, storage.updateCounter());
 
-        // Get entries with the lower revision and the upper revision are bound to the key.
-        // One entry from the revision range is bound to another key.
+        // Check that a lower revision and an upper revision are inclusive.
+        // Check that entry with another key is not included in a result list.
         List<Entry> entries1 = storage.get(key1, 2, 5);
         List<byte[]> values1 = entries1.stream().map(entry -> entry.value()).collect(Collectors.toList());
 
@@ -234,8 +234,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertArrayEquals(val4, values1.get(1));
         assertArrayEquals(val5, values1.get(2));
 
-        // Get entries with the lower revision and the upper revision are bound to another key.
-        // Other entries are bound to the key.
+        // Check that entries with another key and revision equals to lower revision and to the upper revision are not inclusive.
         List<Entry> entries2 = storage.get(key1, 3, 6);
         List<byte[]> values2 = entries2.stream().map(entry -> entry.value()).collect(Collectors.toList());
 
@@ -243,7 +242,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertArrayEquals(val4, values2.get(0));
         assertArrayEquals(val5, values2.get(1));
 
-        // Get entries with the same lower and upper revision.
+        // Get one entry. The lower and the upper revision are equal.
         List<Entry> entries3 = storage.get(key1, 8, 8);
         List<byte[]> values3 = entries3.stream().map(entry -> entry.value()).collect(Collectors.toList());
 

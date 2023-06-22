@@ -660,7 +660,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         assert revUpperBound >= 0 : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
         assert revUpperBound >= revLowerBound
                 : "Invalid arguments: [revLowerBound=" + revLowerBound + ", revUpperBound=" + revUpperBound + ']';
-        // TODO: IGNITE-19782 assert that revLowerBound is not compacted.
+        // TODO: IGNITE-19782 throw CompactedException if revLowerBound is compacted.
 
         List<Long> revs = keysIdx.get(key);
 
