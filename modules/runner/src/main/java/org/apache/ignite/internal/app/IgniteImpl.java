@@ -716,6 +716,7 @@ public class IgniteImpl implements Ignite {
                         try {
                             lifecycleManager.startComponents(
                                     metaStorageMgr,
+                                    placementDriverMgr,
                                     clusterCfgMgr,
                                     metricManager,
                                     distributionZoneManager,
