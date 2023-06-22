@@ -90,6 +90,7 @@ public class ScaleCubeClusterServiceFactory {
         UserObjectSerializationContext userObjectSerialization = createUserObjectSerializationContext();
 
         var messagingService = new DefaultMessagingService(
+                consistentId,
                 messageFactory,
                 topologyService,
                 userObjectSerialization.descriptorRegistry(),

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.index.hash;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 
+import java.util.Objects;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
@@ -27,9 +28,9 @@ import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.index.AbstractPageMemoryIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
@@ -41,11 +42,11 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * Implementation of Hash index storage using Page Memory.
  */
-public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage implements HashIndexStorage {
+public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<HashIndexRowKey, HashIndexRow> implements HashIndexStorage {
     private static final IgniteLogger LOG = Loggers.forClass(PageMemoryHashIndexStorage.class);
 
     /** Index descriptor. */
-    private final HashIndexDescriptor descriptor;
+    private final StorageHashIndexDescriptor descriptor;
 
     /** Hash index tree instance. */
     private volatile HashIndexTree hashIndexTree;
@@ -61,7 +62,7 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage i
      */
     public PageMemoryHashIndexStorage(
             IndexMeta indexMeta,
-            HashIndexDescriptor descriptor,
+            StorageHashIndexDescriptor descriptor,
             IndexColumnsFreeList freeList,
             HashIndexTree hashIndexTree,
             IndexMetaTree indexMetaTree
@@ -73,7 +74,7 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage i
     }
 
     @Override
-    public HashIndexDescriptor indexDescriptor() {
+    public StorageHashIndexDescriptor indexDescriptor() {
         return descriptor;
     }
 
@@ -82,41 +83,21 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage i
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            try {
-                IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
+            IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
 
-                HashIndexRow lowerBound = new HashIndexRow(indexColumns, lowestRowId);
-                HashIndexRow upperBound = new HashIndexRow(indexColumns, highestRowId);
+            HashIndexRow lowerBound = new HashIndexRow(indexColumns, lowestRowId);
 
-                Cursor<HashIndexRow> cursor = hashIndexTree.find(lowerBound, upperBound);
+            return new ScanCursor<RowId>(lowerBound, hashIndexTree) {
+                @Override
+                protected RowId map(HashIndexRow value) {
+                    return value.rowId();
+                }
 
-                return new Cursor<RowId>() {
-                    @Override
-                    public void close() {
-                        cursor.close();
-                    }
-
-                    @Override
-                    public boolean hasNext() {
-                        return busy(() -> {
-                            throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemoryHashIndexStorage.this::createStorageInfo);
-
-                            return cursor.hasNext();
-                        });
-                    }
-
-                    @Override
-                    public RowId next() {
-                        return busy(() -> {
-                            throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemoryHashIndexStorage.this::createStorageInfo);
-
-                            return cursor.next().rowId();
-                        });
-                    }
-                };
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Failed to create scan cursor", e);
-            }
+                @Override
+                protected boolean exceedsUpperBound(HashIndexRow value) {
+                    return !Objects.equals(value.indexColumns().valueBuffer(), key.byteBuffer());
+                }
+            };
         });
     }
 

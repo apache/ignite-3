@@ -17,21 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.DEFAULT_VALUE_PLACEHOLDER;
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.util.ArrayList;
-import java.util.BitSet;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
@@ -39,7 +31,6 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
-import org.apache.calcite.rel.RelReferentialConstraint;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -48,23 +39,6 @@ import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
-import org.apache.ignite.internal.sql.engine.exec.UpdateableTable;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
@@ -74,91 +48,54 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
-import org.apache.ignite.lang.ErrorGroups;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite table implementation.
  */
-public class IgniteTableImpl extends AbstractTable implements IgniteTable, UpdateableTable {
-    private static final IgniteLogger LOG = Loggers.forClass(IgniteTableImpl.class);
-
-    private static final TableMessagesFactory MESSAGES_FACTORY = new TableMessagesFactory();
+public class IgniteTableImpl extends AbstractTable implements IgniteTable {
 
     private final TableDescriptor desc;
 
     private final int ver;
 
-    private final InternalTable table;
-    private final HybridClock clock;
-    private final ReplicaService replicaService;
+    private final int id;
 
-    private final SchemaRegistry schemaRegistry;
+    private final String name;
 
-    public final SchemaDescriptor schemaDescriptor;
+    private final Supplier<ColocationGroup> colocationGroup;
 
     private final Statistic statistic;
 
     private final Map<String, IgniteIndex> indexes = new HashMap<>();
 
-    private final List<ColumnDescriptor> columnsOrderedByPhysSchema;
-
-    private final PartitionExtractor partitionExtractor;
-
     /**
      * Constructor.
      *
-     * @param desc  Table descriptor.
-     * @param table Physical table this schema object created for.
+     * @param desc Table descriptor.
+     * @param tableId Table id.
+     * @param name Table name.
      */
-    IgniteTableImpl(
-            TableDescriptor desc,
-            InternalTable table,
-            ReplicaService replicaService,
-            HybridClock clock,
-            SchemaRegistry schemaRegistry
-    ) {
-        this.ver = schemaRegistry.lastSchemaVersion();
+    IgniteTableImpl(TableDescriptor desc, int tableId, String name, int version,
+            Supplier<ColocationGroup> colocationGroup, DoubleSupplier rowCount) {
+        this.ver = version;
         this.desc = desc;
-        this.table = table;
-        this.replicaService = replicaService;
-        this.clock = clock;
-        this.schemaRegistry = schemaRegistry;
-        this.schemaDescriptor = schemaRegistry.schema();
-        this.partitionExtractor = table::partitionId;
-
-        assert schemaDescriptor != null;
-
-        List<ColumnDescriptor> tmp = new ArrayList<>(desc.columnsCount());
-        for (int i = 0; i < desc.columnsCount(); i++) {
-            tmp.add(desc.columnDescriptor(i));
-        }
-
-        tmp.sort(Comparator.comparingInt(ColumnDescriptor::physicalIndex));
-
-        columnsOrderedByPhysSchema = tmp;
-
-        statistic = new StatisticsImpl();
+        this.id = tableId;
+        this.name = name;
+        this.colocationGroup = colocationGroup;
+        this.statistic = new IgniteStatistic(rowCount, desc.distribution());
     }
 
     private IgniteTableImpl(IgniteTableImpl t) {
         this.desc = t.desc;
         this.ver = t.ver;
-        this.table = t.table;
-        this.replicaService = t.replicaService;
-        this.clock = t.clock;
-        this.schemaRegistry = t.schemaRegistry;
-        this.schemaDescriptor = t.schemaDescriptor;
+        this.id = t.id;
+        this.name = t.name;
         this.statistic = t.statistic;
-        this.columnsOrderedByPhysSchema = t.columnsOrderedByPhysSchema;
-        this.partitionExtractor = t.partitionExtractor;
+        this.colocationGroup = t.colocationGroup;
         this.indexes.putAll(t.indexes);
     }
 
@@ -169,7 +106,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
     /** {@inheritDoc} */
     @Override
     public int id() {
-        return table.tableId();
+        return id;
     }
 
     /** {@inheritDoc} */
@@ -181,7 +118,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
     /** {@inheritDoc} */
     @Override
     public String name() {
-        return table().name();
+        return name;
     }
 
     /** {@inheritDoc} */
@@ -196,17 +133,10 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         return statistic;
     }
 
-
     /** {@inheritDoc} */
     @Override
     public TableDescriptor descriptor() {
         return desc;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public InternalTable table() {
-        return table;
     }
 
     /** {@inheritDoc} */
@@ -291,252 +221,44 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         return super.unwrap(cls);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public <RowT> RowT toRow(
-            ExecutionContext<RowT> ectx,
-            BinaryRow binaryRow,
-            RowHandler.RowFactory<RowT> factory,
-            @Nullable BitSet requiredColumns
-    ) {
-        RowHandler<RowT> handler = factory.handler();
-
-        assert handler == ectx.rowHandler();
-
-        RowT res = factory.create();
-
-        assert handler.columnCount(res) == (requiredColumns == null ? desc.columnsCount() : requiredColumns.cardinality());
-
-        Row row = schemaRegistry.resolve(binaryRow, schemaDescriptor);
-
-        if (requiredColumns == null) {
-            for (int i = 0; i < desc.columnsCount(); i++) {
-                ColumnDescriptor colDesc = desc.columnDescriptor(i);
-
-                handler.set(i, res, TypeUtils.toInternal(row.value(colDesc.physicalIndex())));
-            }
-        } else {
-            for (int i = 0, j = requiredColumns.nextSetBit(0); j != -1; j = requiredColumns.nextSetBit(j + 1), i++) {
-                ColumnDescriptor colDesc = desc.columnDescriptor(j);
-
-                handler.set(i, res, TypeUtils.toInternal(row.value(colDesc.physicalIndex())));
-            }
-        }
-
-        return res;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <RowT> CompletableFuture<?> upsertAll(
-            ExecutionContext<RowT> ectx,
-            List<RowT> rows
-    ) {
-        TxAttributes txAttributes = ectx.txAttributes();
-        TablePartitionId commitPartitionId = txAttributes.commitPartition();
-
-        assert commitPartitionId != null;
-
-        Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
-
-        for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertRow(row, ectx, false);
-
-            rowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
-        }
-
-        CompletableFuture<List<RowT>>[] futures = new CompletableFuture[rowsByPartition.size()];
-
-        int batchNum = 0;
-
-        for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
-            TablePartitionId partGroupId = new TablePartitionId(table.tableId(), partToRows.getIntKey());
-            NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
-
-            ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
-                    .groupId(partGroupId)
-                    .commitPartitionId(commitPartitionId)
-                    .binaryRows(partToRows.getValue())
-                    .transactionId(txAttributes.id())
-                    .term(nodeWithTerm.term())
-                    .requestType(RequestType.RW_UPSERT_ALL)
-                    .timestampLong(clock.nowLong())
-                    .build();
-
-            futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);
-        }
-
-        return CompletableFuture.allOf(futures);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <RowT> CompletableFuture<?> insertAll(
-            ExecutionContext<RowT> ectx,
-            List<RowT> rows
-    ) {
-        TxAttributes txAttributes = ectx.txAttributes();
-        TablePartitionId commitPartitionId = txAttributes.commitPartition();
-
-        assert commitPartitionId != null;
-
-        RowHandler<RowT> handler = ectx.rowHandler();
-
-        Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
-
-        for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertRow(row, ectx, false);
-
-            rowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
-        }
-
-        CompletableFuture<List<RowT>>[] futures = new CompletableFuture[rowsByPartition.size()];
-
-        int batchNum = 0;
-
-        for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
-            TablePartitionId partGroupId = new TablePartitionId(table.tableId(), partToRows.getIntKey());
-            NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
-
-            ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
-                    .groupId(partGroupId)
-                    .commitPartitionId(commitPartitionId)
-                    .binaryRows(partToRows.getValue())
-                    .transactionId(txAttributes.id())
-                    .term(nodeWithTerm.term())
-                    .requestType(RequestType.RW_INSERT_ALL)
-                    .timestampLong(clock.nowLong())
-                    .build();
-
-            futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request)
-                .thenApply(result -> {
-                    Collection<BinaryRow> binaryRows = (Collection<BinaryRow>) result;
-
-                    if (binaryRows.isEmpty()) {
-                        return List.of();
-                    }
-
-                    List<RowT> conflictRows = new ArrayList<>(binaryRows.size());
-                    IgniteTypeFactory typeFactory = ectx.getTypeFactory();
-                    RowHandler.RowFactory<RowT> rowFactory = handler.factory(
-                            ectx.getTypeFactory(),
-                            desc.insertRowType(typeFactory)
-                    );
-
-                    for (BinaryRow row : binaryRows) {
-                        conflictRows.add(toRow(ectx, row, rowFactory, null));
-                    }
-
-                    return conflictRows;
-                });
-        }
-
-        return handleInsertResults(handler, futures);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <RowT> CompletableFuture<?> deleteAll(
-            ExecutionContext<RowT> ectx,
-            List<RowT> rows
-    ) {
-        TxAttributes txAttributes = ectx.txAttributes();
-        TablePartitionId commitPartitionId = txAttributes.commitPartition();
-
-        assert commitPartitionId != null;
-
-        Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = new Int2ObjectOpenHashMap<>();
-
-        for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertRow(row, ectx, true);
-
-            keyRowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
-        }
-
-        CompletableFuture<List<RowT>>[] futures = new CompletableFuture[keyRowsByPartition.size()];
-
-        int batchNum = 0;
-
-        for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
-            TablePartitionId partGroupId = new TablePartitionId(table.tableId(), partToRows.getIntKey());
-            NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
-
-            ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
-                    .groupId(partGroupId)
-                    .commitPartitionId(commitPartitionId)
-                    .binaryRows(partToRows.getValue())
-                    .transactionId(txAttributes.id())
-                    .term(nodeWithTerm.term())
-                    .requestType(RequestType.RW_DELETE_ALL)
-                    .timestampLong(clock.nowLong())
-                    .build();
-
-            futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);
-        }
-
-        return CompletableFuture.allOf(futures);
-    }
-
-    private <RowT> BinaryRowEx convertRow(RowT row, ExecutionContext<RowT> ectx, boolean keyOnly) {
-        RowHandler<RowT> hnd = ectx.rowHandler();
-
-        boolean hasNulls = false;
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            if (keyOnly && !colDesc.key()) {
-                continue;
-            }
-
-            Object value = hnd.get(colDesc.logicalIndex(), row);
-
-            // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-            assert value != DEFAULT_VALUE_PLACEHOLDER;
-
-            if (value == null) {
-                hasNulls = true;
-                break;
-            }
-        }
-
-        RowAssembler rowAssembler = keyOnly
-                ? RowAssembler.keyAssembler(schemaDescriptor, hasNulls)
-                : new RowAssembler(schemaDescriptor, hasNulls);
-
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            if (keyOnly && !colDesc.key()) {
-                continue;
-            }
-
-            Object val = hnd.get(colDesc.logicalIndex(), row);
-
-            val = TypeUtils.fromInternal(val, NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
-
-            RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
-        }
-
-        return new Row(schemaDescriptor, rowAssembler.build());
-    }
-
     private ColocationGroup partitionedGroup() {
-        List<List<NodeWithTerm>> assignments = table.primaryReplicas().stream()
-                .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
-                .map(Collections::singletonList)
-                .collect(Collectors.toList());
-
-        return ColocationGroup.forAssignments(assignments);
+        return colocationGroup.get();
     }
 
-    private class StatisticsImpl implements Statistic {
-        private final int updateThreshold = DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+    // TODO: should be moved to a separate component after https://issues.apache.org/jira/browse/IGNITE-18453
+    static Supplier<ColocationGroup> partitionedGroup(InternalTable table) {
+        return () -> {
+            List<List<NodeWithTerm>> assignments = table.primaryReplicas().stream()
+                    .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
+                    .map(Collections::singletonList)
+                    .collect(Collectors.toList());
+
+            return ColocationGroup.forAssignments(assignments);
+        };
+    }
+
+    static DoubleSupplier rowCountStatistic(InternalTable table) {
+        return new RowCountStatistic(table);
+    }
+
+    private static final class RowCountStatistic implements DoubleSupplier {
+        private static final int UPDATE_THRESHOLD = DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 
         private final AtomicLong lastUpd = new AtomicLong();
 
         private volatile long localRowCnt = 0L;
 
+        private final InternalTable table;
+
+        private RowCountStatistic(InternalTable table) {
+            this.table = table;
+        }
+
         /** {@inheritDoc} */
         @Override
         // TODO: need to be refactored https://issues.apache.org/jira/browse/IGNITE-19558
-        public Double getRowCount() {
-            int parts = table.storage().distributionZoneConfiguration().partitions().value();
+        public double getAsDouble() {
+            int parts = table.storage().getTableDescriptor().getPartitions();
 
             long partitionsRevisionCounter = 0L;
 
@@ -554,7 +276,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
 
             long prev = lastUpd.get();
 
-            if (partitionsRevisionCounter - prev > updateThreshold) {
+            if (partitionsRevisionCounter - prev > UPDATE_THRESHOLD) {
                 synchronized (this) {
                     if (lastUpd.compareAndSet(prev, partitionsRevisionCounter)) {
                         long size = 0L;
@@ -581,98 +303,5 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
             // Forbid zero result, to prevent zero cost for table and index scans.
             return Math.max(10_000.0, (double) localRowCnt);
         }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean isKey(ImmutableBitSet cols) {
-            return false; // TODO
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public List<ImmutableBitSet> getKeys() {
-            return null; // TODO
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public List<RelReferentialConstraint> getReferentialConstraints() {
-            return List.of();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public List<RelCollation> getCollations() {
-            return List.of(); // The method isn't used
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public IgniteDistribution getDistribution() {
-            return distribution();
-        }
-    }
-
-    private static int[] project(int columnCount, int[] source, BitSet usedFields) {
-        int[] deltas = new int[columnCount];
-        int[] projection = new int[source.length];
-
-        for (int currentIndex = 0, nextIndex = usedFields.nextSetBit(0);
-                nextIndex != -1; nextIndex = usedFields.nextSetBit(nextIndex + 1), currentIndex++) {
-            deltas[nextIndex] = -(nextIndex - currentIndex);
-        }
-
-        for (int i = 0; i < source.length; i++) {
-            projection[i] = source[i] + deltas[source[i]];
-        }
-
-        return projection;
-    }
-
-    private static <RowT> CompletableFuture<List<RowT>> handleInsertResults(
-            RowHandler<RowT> handler,
-            CompletableFuture<List<RowT>>[] futs
-    ) {
-        return CompletableFuture.allOf(futs)
-                .thenApply(response -> {
-                    List<String> conflictRows = null;
-
-                    for (CompletableFuture<List<RowT>> future : futs) {
-                        List<RowT> values = future.join();
-
-                        if (nullOrEmpty(values)) {
-                            continue;
-                        }
-
-                        if (conflictRows == null) {
-                            conflictRows = new ArrayList<>(values.size());
-                        }
-
-                        for (RowT row : values) {
-                            conflictRows.add(handler.toString(row));
-                        }
-                    }
-
-                    if (conflictRows != null) {
-                        throw conflictKeysException(conflictRows);
-                    }
-
-                    return null;
-                });
-    }
-
-    /** Transforms keys list to appropriate exception. */
-    private static RuntimeException conflictKeysException(List<String> conflictKeys) {
-        LOG.debug("Unable to insert rows because of conflict [rows={}]", conflictKeys);
-
-        return new SqlException(ErrorGroups.Sql.DUPLICATE_KEYS_ERR, "PK unique constraint is violated");
-    }
-
-    /**
-     * Extracts an identifier of partition from a given row.
-     */
-    @FunctionalInterface
-    private interface PartitionExtractor {
-        int fromRow(BinaryRowEx row);
     }
 }

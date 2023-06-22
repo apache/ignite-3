@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema.configuration.storage;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
-import org.apache.ignite.configuration.annotation.Value;
 
 /**
  * Configuration schema for data storage.
@@ -29,8 +28,4 @@ public class DataStorageConfigurationSchema {
     /** Name of data storage. */
     @PolymorphicId(hasDefault = true)
     public String name = "aipersist";
-
-    /** The number of entries in the storage to be garbage collected during a storage update operation. */
-    @Value(hasDefault = true)
-    public int gcOnUpdateBatchSize = 5;
 }

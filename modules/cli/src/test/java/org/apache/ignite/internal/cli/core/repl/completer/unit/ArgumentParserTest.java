@@ -27,10 +27,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 class ArgumentParserTest {
     private static Stream<Arguments> wordsSource() {
         return Stream.of(
-                Arguments.of(new String[]{"unit", "undeploy", "unit.id", "--version", "1.1.1"}, "unit.id"),
+                Arguments.of(new String[]{"cluster", "unit", "undeploy", "unit.id", "--version", "1.1.1"}, "unit.id"),
                 // Picocli throws exception here. Probably we will need to use another parser.
-                Arguments.of(new String[]{"unit", "undeploy", "unit.id", "--version"}, null),
-                Arguments.of(new String[]{"undeploy", "unit.id", "--version"}, null),
+                Arguments.of(new String[]{"cluster", "unit", "undeploy", "unit.id", "--version"}, null),
+                Arguments.of(new String[]{"cluster", "undeploy", "unit.id", "--version"}, null),
                 Arguments.of(new String[]{""}, null),
                 Arguments.of(new String[]{"nosuch"}, null)
         );

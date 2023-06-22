@@ -80,8 +80,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnSpecificNode() {
-        String res1 = client().compute().execute(Set.of(node(0)), NodeNameJob.class).join();
-        String res2 = client().compute().execute(Set.of(node(1)), NodeNameJob.class).join();
+        String res1 = client().compute().<String>execute(Set.of(node(0)), List.of(), NodeNameJob.class.getName()).join();
+        String res2 = client().compute().<String>execute(Set.of(node(1)), List.of(), NodeNameJob.class.getName()).join();
 
         assertEquals("itcct_n_3344", res1);
         assertEquals("itcct_n_3345", res2);
@@ -89,7 +89,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnRandomNode() {
-        String res = client().compute().execute(new HashSet<>(sortedNodes()), NodeNameJob.class).join();
+        String res = client().compute().<String>execute(new HashSet<>(sortedNodes()), List.of(), NodeNameJob.class.getName()).join();
 
         assertTrue(Set.of("itcct_n_3344", "itcct_n_3345").contains(res));
     }
@@ -98,7 +98,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testBroadcastOneNode() {
         Map<ClusterNode, CompletableFuture<String>> futuresPerNode = client().compute().broadcast(
                 Set.of(node(1)),
-                NodeNameJob.class,
+                List.of(),
+                NodeNameJob.class.getName(),
                 "_",
                 123);
 
@@ -113,7 +114,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testBroadcastAllNodes() {
         Map<ClusterNode, CompletableFuture<String>> futuresPerNode = client().compute().broadcast(
                 new HashSet<>(sortedNodes()),
-                NodeNameJob.class,
+                List.of(),
+                NodeNameJob.class.getName(),
                 "_",
                 123);
 
@@ -129,7 +131,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteWithArgs() {
         var nodes = new HashSet<>(client().clusterNodes());
-        String res = client().compute().execute(nodes, ConcatJob.class, 1, "2", 3.3).join();
+        String res = client().compute().<String>execute(nodes, List.of(), ConcatJob.class.getName(), 1, "2", 3.3).join();
 
         assertEquals("1_2_3.3", res);
     }
@@ -138,7 +140,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testIgniteExceptionInJobPropagatesToClientWithMessageAndCodeAndTraceId() {
         CompletionException ex = assertThrows(
                 CompletionException.class,
-                () ->  client().compute().execute(Set.of(node(0)), IgniteExceptionJob.class).join());
+                () ->  client().compute().<String>execute(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName()).join());
 
         var cause = (IgniteException) ex.getCause();
 
@@ -153,11 +155,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testExceptionInJobPropagatesToClientWithClassAndMessage() {
         CompletionException ex = assertThrows(
                 CompletionException.class,
-                () ->  client().compute().execute(Set.of(node(0)), ExceptionJob.class).join());
+                () ->  client().compute().<String>execute(Set.of(node(0)), List.of(), ExceptionJob.class.getName()).join());
 
         var cause = (IgniteException) ex.getCause();
 
-        assertThat(cause.getMessage(), containsString("NullPointerException: null ref"));
+        assertThat(cause.getMessage(), containsString("ArithmeticException: math err"));
         assertEquals(INTERNAL_ERR, cause.code());
         assertNull(cause.getCause()); // No stack trace by default.
     }
@@ -167,11 +169,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         // Second node has sendServerExceptionStackTraceToClient enabled.
         CompletionException ex = assertThrows(
                 CompletionException.class,
-                () ->  client().compute().execute(Set.of(node(1)), ExceptionJob.class).join());
+                () ->  client().compute().execute(Set.of(node(1)), List.of(), ExceptionJob.class.getName()).join());
 
         var cause = (IgniteException) ex.getCause();
 
-        assertThat(cause.getMessage(), containsString("NullPointerException: null ref"));
+        assertThat(cause.getMessage(), containsString("ArithmeticException: math err"));
         assertEquals(INTERNAL_ERR, cause.code());
 
         assertNotNull(cause.getCause());
@@ -187,8 +189,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var keyTuple = Tuple.create().set(COLUMN_KEY, key);
         var keyPojo = new TestPojo(key);
 
-        String tupleRes = client().compute().executeColocated(table, keyTuple, NodeNameJob.class).join();
-        String pojoRes = client().compute().executeColocated(table, keyPojo, Mapper.of(TestPojo.class), NodeNameJob.class).join();
+        String tupleRes = client().compute().<String>executeColocated(table, keyTuple, List.of(), NodeNameJob.class.getName()).join();
+        String pojoRes = client().compute().<TestPojo, String>executeColocated(
+                table,
+                keyPojo,
+                Mapper.of(TestPojo.class),
+                List.of(),
+                NodeNameJob.class.getName()
+        ).join();
 
         String expectedNode = "itcct_n_" + port;
         assertEquals(expectedNode, tupleRes);
@@ -216,7 +224,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     private void testEchoArg(Object arg) {
-        Object res = client().compute().execute(Set.of(node(0)), EchoJob.class, arg, arg.toString()).join();
+        Object res = client().compute().execute(Set.of(node(0)), List.of(), EchoJob.class.getName(), arg, arg.toString()).join();
 
         if (arg instanceof byte[]) {
             assertArrayEquals((byte[]) arg, (byte[]) res);
@@ -263,7 +271,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class ExceptionJob implements ComputeJob<String> {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
-            throw new NullPointerException("null ref");
+            throw new ArithmeticException("math err");
         }
     }
 

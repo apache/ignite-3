@@ -74,6 +74,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     /** {@inheritDoc} */
     @Override
     public void execute(UUID qryId, long fragmentId, Runnable qryTask) {
+        int commandIdx = hash(qryId, fragmentId);
         stripedThreadPoolExecutor.execute(
                 () -> {
                     try {
@@ -89,7 +90,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
                         uncaughtException(Thread.currentThread(), e);
                     }
                 },
-                hash(qryId, fragmentId)
+                commandIdx
         );
     }
 

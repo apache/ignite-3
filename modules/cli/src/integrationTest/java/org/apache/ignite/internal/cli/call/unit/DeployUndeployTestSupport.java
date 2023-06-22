@@ -35,9 +35,6 @@ class DeployUndeployTestSupport {
 
     static ProgressTracker tracker() {
         return new ProgressTracker() {
-            @Override
-            public void track() {
-            }
 
             @Override
             public void track(long size) {
@@ -49,6 +46,10 @@ class DeployUndeployTestSupport {
 
             @Override
             public void done() {
+            }
+
+            @Override
+            public void close() {
             }
         };
     }

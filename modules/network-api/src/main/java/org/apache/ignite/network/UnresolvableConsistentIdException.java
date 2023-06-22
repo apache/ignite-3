@@ -17,7 +17,6 @@
 
 package org.apache.ignite.network;
 
-import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Network;
 import org.apache.ignite.lang.IgniteException;
 
@@ -28,9 +27,5 @@ import org.apache.ignite.lang.IgniteException;
 public class UnresolvableConsistentIdException extends IgniteException {
     public UnresolvableConsistentIdException(String msg) {
         super(Network.UNRESOLVABLE_CONSISTENT_ID_ERR, msg);
-    }
-
-    public UnresolvableConsistentIdException(UUID traceId, int code, String message, Throwable cause) {
-        super(traceId, code, message, cause);
     }
 }

@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite-odbc)
+project(ignite3-odbc)
 
 set(TARGET ${PROJECT_NAME})
 
@@ -29,7 +29,6 @@ set(SOURCES
     config/config_tools.cpp
     config/configuration.cpp
     config/connection_info.cpp
-    config/connection_string_parser.cpp
     diagnostic/diagnosable_adapter.cpp
     diagnostic/diagnostic_record.cpp
     diagnostic/diagnostic_record_storage.cpp
@@ -42,44 +41,58 @@ set(SOURCES
     sql_environment.cpp
     sql_statement.cpp
     protocol_version.cpp
-    message.cpp
     type_traits.cpp
     utility.cpp
     log.cpp
 )
 
-if (WIN32)
-    list(APPEND SOURCES
-        module.def
-    )
-endif ()
+add_compile_definitions(CMAKE_PROJECT_VERSION="${CMAKE_PROJECT_VERSION}")
 
-add_library(${TARGET} SHARED ${SOURCES})
-target_link_libraries(${TARGET} ignite-common ignite-tuple ignite-network ignite-protocol ${ODBC_LIBRARIES})
+add_library(${TARGET}-obj OBJECT ${SOURCES})
+target_include_directories(${TARGET}-obj PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
-set_target_properties(${TARGET} PROPERTIES POSITION_INDEPENDENT_CODE 1)
+add_library(${TARGET} SHARED $<TARGET_OBJECTS:${TARGET}-obj> module.def)
 
-if (WIN32)
-    target_link_libraries(${TARGET} odbccp32 shlwapi)
+set(LIBRARIES
+    ignite-common
+    ignite-tuple
+    ignite-network
+    ignite-protocol
+    ${ODBC_LIBRARIES}
+)
 
-    remove_definitions(-DUNICODE=1)
+set(_target_libs ${TARGET} ${TARGET}-obj)
 
-    if (MSVC_VERSION GREATER_EQUAL 1900)
-        target_link_libraries(${TARGET} legacy_stdio_definitions)
+foreach(_target_lib IN LISTS _target_libs)
+    set_target_properties(${_target_lib} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
+    set_target_properties(${_target_lib} PROPERTIES POSITION_INDEPENDENT_CODE 1)
+
+    if (WIN32)
+        list(APPEND LIBRARIES odbccp32 shlwapi)
+
+        remove_definitions(-DUNICODE=1)
+
+        if (MSVC_VERSION GREATER_EQUAL 1900)
+            list(APPEND LIBRARIES legacy_stdio_definitions)
+        endif()
+    else()
+        list(APPEND LIBRARIES odbcinst)
     endif()
 
-    set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME "ignite-odbc")
-else()
-    target_link_libraries(${TARGET} odbcinst)
-endif()
-
-target_include_directories(${TARGET} SYSTEM INTERFACE ${ODBC_INCLUDE_DIRS})
+    target_include_directories(${_target_lib} SYSTEM INTERFACE ${ODBC_INCLUDE_DIRS})
+    target_link_libraries(${_target_lib} ${LIBRARIES})
+endforeach()
+unset(_target_libs)
 
 if (${INSTALL_IGNITE_FILES})
     install(TARGETS ${TARGET}
-        RUNTIME DESTINATION bin
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-    )
+            RUNTIME DESTINATION bin
+            ARCHIVE DESTINATION lib
+            LIBRARY DESTINATION lib
+            )
 endif()
+
+ignite_test(connection_info_test config/connection_info_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
+ignite_test(config_tools_test config/config_tools_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
+ignite_test(string_utils_test string_utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
+

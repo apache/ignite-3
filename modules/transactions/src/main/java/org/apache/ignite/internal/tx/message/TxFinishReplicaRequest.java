@@ -84,6 +84,5 @@ public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
      * @return Raft term.
      */
     @Deprecated
-    @Marshallable
     Long term();
 }

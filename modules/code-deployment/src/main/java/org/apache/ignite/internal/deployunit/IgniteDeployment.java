@@ -27,32 +27,83 @@ import org.apache.ignite.internal.manager.IgniteComponent;
  */
 public interface IgniteDeployment extends IgniteComponent {
     /**
-     * Deploy provided unit to current node.
-     * After deploy finished, this deployment unit will be place to CMG group asynchronously.
+     * Deploys provided unit to the current node. After the deploy is finished, the unit will be placed to the CMG group, if
+     * {@code deployMode} is {@code MAJORITY}, or to all available units, if {@code deployMode} is {@code ALL} asynchronously.
      *
      * @param id Unit identifier. Not empty and not null.
      * @param version Unit version.
      * @param deploymentUnit Unit content.
+     * @param deployMode Initial deploy mode.
      * @return Future with success or not result.
      */
-    default CompletableFuture<Boolean> deployAsync(String id, Version version, DeploymentUnit deploymentUnit) {
-        return deployAsync(id, version, false, deploymentUnit);
+    default CompletableFuture<Boolean> deployAsync(
+            String id,
+            Version version,
+            DeploymentUnit deploymentUnit,
+            InitialDeployMode deployMode
+    ) {
+        return deployAsync(id, version, false, deploymentUnit, deployMode);
     }
 
     /**
-     * Deploy provided unit to current node.
-     * After deploy finished, this deployment unit will be place to CMG group asynchronously.
+     * Deploys provided unit to the current node. After the deploy is finished, the unit will be placed to the CMG group, if
+     * {@code deployMode} is {@code MAJORITY}, or to all available units, if {@code deployMode} is {@code ALL} asynchronously.
      *
      * @param id Unit identifier. Not empty and not null.
      * @param version Unit version.
      * @param force Force redeploy if unit with provided id and version exists.
      * @param deploymentUnit Unit content.
+     * @param deployMode Initial deploy mode.
      * @return Future with success or not result.
      */
-    CompletableFuture<Boolean> deployAsync(String id, Version version, boolean force, DeploymentUnit deploymentUnit);
+    CompletableFuture<Boolean> deployAsync(
+            String id,
+            Version version,
+            boolean force,
+            DeploymentUnit deploymentUnit,
+            InitialDeployMode deployMode
+    );
 
     /**
-     * Undeploy unit with corresponding identifier and version.
+     * Deploys provided unit to the current node. After the deploy is finished, the unit will be placed to the CMG group and to the nodes
+     * passed in the @{code initialNodes} list asynchronously.
+     *
+     * @param id Unit identifier. Not empty and not null.
+     * @param version Unit version.
+     * @param deploymentUnit Unit content.
+     * @param nodes List of nodes to deploy to initially.
+     * @return Future with success or not result.
+     */
+    default CompletableFuture<Boolean> deployAsync(
+            String id,
+            Version version,
+            DeploymentUnit deploymentUnit,
+            List<String> nodes
+    ) {
+        return deployAsync(id, version, false, deploymentUnit, nodes);
+    }
+
+    /**
+     * Deploys provided unit to the current node. After the deploy is finished, the unit will be placed to the CMG group and to the nodes
+     * passed in the @{code initialNodes} list asynchronously.
+     *
+     * @param id Unit identifier. Not empty and not null.
+     * @param version Unit version.
+     * @param force Force redeploy if unit with provided id and version exists.
+     * @param deploymentUnit Unit content.
+     * @param nodes List of nodes to deploy to initially.
+     * @return Future with success or not result.
+     */
+    CompletableFuture<Boolean> deployAsync(
+            String id,
+            Version version,
+            boolean force,
+            DeploymentUnit deploymentUnit,
+            List<String> nodes
+    );
+
+    /**
+     * Undeploys unit with corresponding identifier and version.
      * Note that unit files will be deleted asynchronously.
      *
      * @param id Unit identifier.
@@ -63,32 +114,64 @@ public interface IgniteDeployment extends IgniteComponent {
     CompletableFuture<Boolean> undeployAsync(String id, Version version);
 
     /**
-     * Lists all deployed units.
+     * Lists all units statuses.
      *
-     * @return Future with result.
+     * @return Future with the list of unit statuses.
      */
-    CompletableFuture<List<UnitStatuses>> unitsAsync();
+    CompletableFuture<List<UnitStatuses>> clusterStatusesAsync();
 
     /**
-     * List all deployed versions of the specified unit.
+     * Lists all versions of the unit.
+     *
+     * @param id Unit identifier.
+     * @return Future with the unit statuses.
+     */
+    CompletableFuture<UnitStatuses> clusterStatusesAsync(String id);
+
+    /**
+     * Gets unit status of particular version.
+     *
+     * @param id Unit identifier.
+     * @param version Unit version.
+     * @return Future with unit status.
+     */
+    CompletableFuture<DeploymentStatus> clusterStatusAsync(String id, Version version);
+
+    /**
+     * Lists all deployed versions of the specified unit.
      *
      * @param id Unit identifier. Not empty and not null.
-     * @return Future with list of all available version of unit.
-     *      In case when unit with specified identifier not exist future list will be empty.
+     * @return Future with list of all available version of unit. In case when unit with specified identifier not exist future list will be
+     *         empty.
      */
     CompletableFuture<List<Version>> versionsAsync(String id);
 
     /**
-     * Return status of unit with provided identifier.
+     * Lists all units statuses on this node.
      *
-     * @param id Unit identifier. Not empty and not null.
-     * @return Future with unit status.
-     *      Future will be failed if unit with specified identifier not exist.
+     * @return Future with the list of unit statuses.
      */
-    CompletableFuture<UnitStatuses> statusAsync(String id);
+    CompletableFuture<List<UnitStatuses>> nodeStatusesAsync();
 
     /**
-     * Request on demand deploy to local node unit with provided identifier and version.
+     * Returns status of unit with provided identifier.
+     *
+     * @param id Unit identifier.
+     * @return Future with the unit statuses.
+     */
+    CompletableFuture<UnitStatuses> nodeStatusesAsync(String id);
+
+    /**
+     * Gets unit status of particular version on this node.
+     *
+     * @param id Unit identifier.
+     * @param version Unit version.
+     * @return Future with unit status.
+     */
+    CompletableFuture<DeploymentStatus> nodeStatusAsync(String id, Version version);
+
+    /**
+     * Requests on demand deploy to local node unit with provided identifier and version.
      *
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
@@ -96,4 +179,12 @@ public interface IgniteDeployment extends IgniteComponent {
      *      {@code false} if deploy failed or unit with provided identifier and version doesn't exist.
      */
     CompletableFuture<Boolean> onDemandDeploy(String id, Version version);
+
+    /**
+     * Detects the latest version of the deployment unit.
+     *
+     * @param id Deployment unit identifier.
+     * @return Future with the latest version of the deployment unit.
+     */
+    CompletableFuture<Version> detectLatestDeployedVersion(String id);
 }

@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**
  * Deployment unit status.
@@ -35,7 +34,7 @@ public class UnitStatuses {
     private final String id;
 
     /**
-     * Map from existing unit version to list of nodes consistent ids where unit deployed.
+     * Map from the unit version to the unit status.
      */
     private final Map<Version, DeploymentStatus> versionToStatus;
 
@@ -43,13 +42,11 @@ public class UnitStatuses {
      * Constructor.
      *
      * @param id Unit identifier.
-     * @param versionToConsistentIds Map from existing unit version to list
-     *      of nodes consistent ids where unit deployed.
+     * @param versionToStatus Map from the unit version to the unit status.
      */
-    private UnitStatuses(String id,
-            Map<Version, DeploymentStatus> versionToConsistentIds) {
+    private UnitStatuses(String id, Map<Version, DeploymentStatus> versionToStatus) {
         this.id = id;
-        this.versionToStatus = Collections.unmodifiableMap(versionToConsistentIds);
+        this.versionToStatus = Collections.unmodifiableMap(versionToStatus);
     }
 
     /**
@@ -70,6 +67,12 @@ public class UnitStatuses {
         return Collections.unmodifiableSet(versionToStatus.keySet());
     }
 
+    /**
+     * Returns unit status.
+     *
+     * @param version Unit version.
+     * @return Unit status.
+     */
     public DeploymentStatus status(Version version) {
         return versionToStatus.get(version);
     }
@@ -131,14 +134,14 @@ public class UnitStatuses {
         }
 
         /**
-         * Append node consistent ids with provided version.
+         * Append unit status with provided version.
          *
          * @param version Unit version.
-         * @param deploymentInfo Node consistent ids.
+         * @param deploymentStatus Unit status.
          * @return {@code this} builder for use in a chained invocation.
          */
-        public UnitStatusesBuilder append(Version version, DeploymentStatus deploymentInfo) {
-            versionToStatus.put(version, deploymentInfo);
+        public UnitStatusesBuilder append(Version version, DeploymentStatus deploymentStatus) {
+            versionToStatus.put(version, deploymentStatus);
             return this;
         }
 
@@ -152,4 +155,3 @@ public class UnitStatuses {
         }
     }
 }
-

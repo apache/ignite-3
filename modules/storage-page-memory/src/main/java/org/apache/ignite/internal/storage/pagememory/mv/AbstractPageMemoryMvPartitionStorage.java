@@ -42,10 +42,6 @@ import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.schema.configuration.TablesView;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -55,9 +51,10 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
@@ -104,8 +101,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     protected static final ThreadLocal<LocalLocker> THREAD_LOCAL_LOCKER = new ThreadLocal<>();
 
     protected final int partitionId;
-
-    protected final int groupId;
 
     protected final AbstractPageMemoryTableStorage tableStorage;
 
@@ -167,9 +162,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
-        groupId = tableStorage.configuration().value().id();
-
-        rowVersionDataPageReader = new DataPageReader(pageMemory, groupId, IoStatisticsHolderNoOp.INSTANCE);
+        rowVersionDataPageReader = new DataPageReader(pageMemory, tableStorage.getTableId(), IoStatisticsHolderNoOp.INSTANCE);
     }
 
     /**
@@ -180,28 +173,17 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             throwExceptionIfStorageNotInRunnableState();
 
             try (Cursor<IndexMeta> cursor = indexMetaTree.find(null, null)) {
-                TablesView tablesView = tableStorage.tablesConfiguration().value();
-
                 for (IndexMeta indexMeta : cursor) {
                     int indexId = indexMeta.indexId();
 
-                    TableIndexView indexCfgView = tablesView.indexes().stream()
-                            .filter(tableIndexView -> indexId == tableIndexView.id())
-                            .findFirst()
-                            .orElse(null);
+                    StorageIndexDescriptor indexDescriptor = tableStorage.getIndexDescriptorSupplier().get(indexId);
 
-                    if (indexCfgView instanceof HashIndexView) {
-                        hashIndexes.put(
-                                indexId,
-                                createOrRestoreHashIndex(indexMeta, new HashIndexDescriptor(indexId, tablesView))
-                        );
-                    } else if (indexCfgView instanceof SortedIndexView) {
-                        sortedIndexes.put(
-                                indexId,
-                                createOrRestoreSortedIndex(indexMeta, new SortedIndexDescriptor(indexId, tablesView))
-                        );
+                    if (indexDescriptor instanceof StorageHashIndexDescriptor) {
+                        hashIndexes.put(indexId, createOrRestoreHashIndex(indexMeta, (StorageHashIndexDescriptor) indexDescriptor));
+                    } else if (indexDescriptor instanceof StorageSortedIndexDescriptor) {
+                        sortedIndexes.put(indexId, createOrRestoreSortedIndex(indexMeta, (StorageSortedIndexDescriptor) indexDescriptor));
                     } else {
-                        assert indexCfgView == null;
+                        assert indexDescriptor == null;
 
                         //TODO: IGNITE-17626 Drop the index synchronously.
                     }
@@ -226,7 +208,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      *
      * @param indexDescriptor Index descriptor.
      */
-    public PageMemoryHashIndexStorage getOrCreateHashIndex(HashIndexDescriptor indexDescriptor) {
+    public PageMemoryHashIndexStorage getOrCreateHashIndex(StorageHashIndexDescriptor indexDescriptor) {
         return busy(() -> hashIndexes.computeIfAbsent(
                 indexDescriptor.id(),
                 id -> createOrRestoreHashIndex(createIndexMetaForNewIndex(id), indexDescriptor))
@@ -238,14 +220,14 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      *
      * @param indexDescriptor Index descriptor.
      */
-    public PageMemorySortedIndexStorage getOrCreateSortedIndex(SortedIndexDescriptor indexDescriptor) {
+    public PageMemorySortedIndexStorage getOrCreateSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
         return busy(() -> sortedIndexes.computeIfAbsent(
                 indexDescriptor.id(),
                 id -> createOrRestoreSortedIndex(createIndexMetaForNewIndex(id), indexDescriptor))
         );
     }
 
-    private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta, HashIndexDescriptor indexDescriptor) {
+    private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta, StorageHashIndexDescriptor indexDescriptor) {
         throwExceptionIfStorageNotInRunnableState();
 
         HashIndexTree hashIndexTree = createHashIndexTree(indexDescriptor, indexMeta);
@@ -253,19 +235,19 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return new PageMemoryHashIndexStorage(indexMeta, indexDescriptor, indexFreeList, hashIndexTree, indexMetaTree);
     }
 
-    HashIndexTree createHashIndexTree(HashIndexDescriptor indexDescriptor, IndexMeta indexMeta) {
+    HashIndexTree createHashIndexTree(StorageHashIndexDescriptor indexDescriptor, IndexMeta indexMeta) {
         try {
             PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
             boolean initNew = indexMeta.metaPageId() == 0L;
 
             long metaPageId = initNew
-                    ? pageMemory.allocatePage(groupId, partitionId, PageIdAllocator.FLAG_AUX)
+                    ? pageMemory.allocatePage(tableStorage.getTableId(), partitionId, PageIdAllocator.FLAG_AUX)
                     : indexMeta.metaPageId();
 
             HashIndexTree hashIndexTree = new HashIndexTree(
-                    groupId,
-                    tableStorage.getTableName(),
+                    tableStorage.getTableId(),
+                    Integer.toString(tableStorage.getTableId()),
                     partitionId,
                     pageMemory,
                     PageLockListenerNoOp.INSTANCE,
@@ -288,7 +270,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
-    private PageMemorySortedIndexStorage createOrRestoreSortedIndex(IndexMeta indexMeta, SortedIndexDescriptor indexDescriptor) {
+    private PageMemorySortedIndexStorage createOrRestoreSortedIndex(IndexMeta indexMeta, StorageSortedIndexDescriptor indexDescriptor) {
         throwExceptionIfStorageNotInRunnableState();
 
         SortedIndexTree sortedIndexTree = createSortedIndexTree(indexDescriptor, indexMeta);
@@ -296,19 +278,19 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return new PageMemorySortedIndexStorage(indexMeta, indexDescriptor, indexFreeList, sortedIndexTree, indexMetaTree);
     }
 
-    SortedIndexTree createSortedIndexTree(SortedIndexDescriptor indexDescriptor, IndexMeta indexMeta) {
+    SortedIndexTree createSortedIndexTree(StorageSortedIndexDescriptor indexDescriptor, IndexMeta indexMeta) {
         try {
             PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
             boolean initNew = indexMeta.metaPageId() == 0L;
 
             long metaPageId = initNew
-                    ? pageMemory.allocatePage(groupId, partitionId, PageIdAllocator.FLAG_AUX)
+                    ? pageMemory.allocatePage(tableStorage.getTableId(), partitionId, PageIdAllocator.FLAG_AUX)
                     : indexMeta.metaPageId();
 
             SortedIndexTree sortedIndexTree = new SortedIndexTree(
-                    groupId,
-                    tableStorage.getTableName(),
+                    tableStorage.getTableId(),
+                    Integer.toString(tableStorage.getTableId()),
                     partitionId,
                     pageMemory,
                     PageLockListenerNoOp.INSTANCE,
@@ -794,7 +776,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * Creates a summary info of the storage in the format "table=user, partitionId=1".
      */
     public String createStorageInfo() {
-        return IgniteStringFormatter.format("table={}, partitionId={}", tableStorage.getTableName(), partitionId);
+        return IgniteStringFormatter.format("tableId={}, partitionId={}", tableStorage.getTableId(), partitionId);
     }
 
     /**
@@ -994,9 +976,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /**
      * Returns a index storage instance or {@code null} if not exists.
      *
-     * @param indexId Index UUID.
+     * @param indexId Index ID.
      */
-    public @Nullable IndexStorage getIndex(UUID indexId) {
+    public @Nullable IndexStorage getIndex(int indexId) {
         return busy(() -> {
             PageMemoryHashIndexStorage hashIndexStorage = hashIndexes.get(indexId);
 

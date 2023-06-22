@@ -19,37 +19,36 @@ package org.apache.ignite.internal.rebalance;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
+import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,6 +67,8 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
 
     private Cluster cluster;
 
+    private final HybridClock clock = new HybridClockImpl();
+
     @BeforeEach
     void createCluster(TestInfo testInfo) {
         cluster = new Cluster(testInfo, workDir);
@@ -83,121 +84,89 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
      *
      * @throws Exception If failed.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19712")
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18692")
     void assignmentsChangingOnNodeLeaveNodeJoin() throws Exception {
         cluster.startAndInit(4);
 
         //Creates table with 1 partition and 3 replicas.
         createTestTable();
 
-        assertTrue(waitAssignments(List.of(
-                Set.of(0, 1, 2),
-                Set.of(0, 1, 2),
-                Set.of(0, 1, 2),
-                Set.of(0, 1, 2)
-        )));
-
         TableImpl table = (TableImpl) cluster.node(0).tables().table("TEST");
+
+        waitForStableAssignmentsInMetastore(Set.of(
+                nodeName(0),
+                nodeName(1),
+                nodeName(2)
+        ), table.tableId());
 
         BinaryRowEx row = new TupleMarshallerImpl(table.schemaView()).marshal(Tuple.create().set("id", 1).set("value", "value1"));
         BinaryRowEx key = new TupleMarshallerImpl(table.schemaView()).marshal(Tuple.create().set("id", 1));
 
-        assertNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(0).node()).get());
-        assertNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(1).node()).get());
-        assertNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(2).node()).get());
+        assertThat(table.internalTable().get(key, clock.now(), cluster.node(0).node()), willBe(nullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), cluster.node(1).node()), willBe(nullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), cluster.node(2).node()), willBe(nullValue()));
 
         table.internalTable().insert(row, null).get();
 
-        assertNotNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(0).node()).get());
-        assertNotNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(1).node()).get());
-        assertNotNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(2).node()).get());
+        assertThat(table.internalTable().get(key, clock.now(), cluster.node(0).node()), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), cluster.node(1).node()), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), cluster.node(2).node()), willBe(notNullValue()));
 
-        try {
-            table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(3).node()).get();
+        assertThat(
+                table.internalTable().get(key, clock.now(), cluster.node(3).node()),
+                willThrow(ReplicationException.class, 10, TimeUnit.SECONDS)
+        );
 
-            fail();
-        } catch (Exception e) {
-            assertInstanceOf(ExecutionException.class, e);
+        cluster.stopNode(2);
 
-            assertInstanceOf(ReplicaUnavailableException.class, e.getCause());
-        }
+        waitForStableAssignmentsInMetastore(Set.of(
+                nodeName(0),
+                nodeName(1),
+                nodeName(3)
+        ), table.tableId());
 
-        cluster.simulateNetworkPartitionOf(2);
+        assertThat(table.internalTable().get(key, clock.now(), cluster.node(0).node()), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), cluster.node(1).node()), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), cluster.node(3).node()), willBe(notNullValue()));
 
-        assertTrue(waitAssignments(List.of(
-                Set.of(0, 1, 3),
-                Set.of(0, 1, 3),
-                Set.of(0, 1, 2),
-                Set.of(0, 1, 3)
-        )));
+        cluster.startNode(2);
 
-        assertNotNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(0).node()).get());
-        assertNotNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(1).node()).get());
-        assertNotNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(3).node()).get());
+        waitForStableAssignmentsInMetastore(Set.of(
+                nodeName(0),
+                nodeName(1),
+                nodeName(2)
+        ), table.tableId());
 
-        cluster.removeNetworkPartitionOf(2);
+        assertThat(table.internalTable().get(key, clock.now(), cluster.node(0).node()), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), cluster.node(1).node()), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), cluster.node(2).node()), willBe(notNullValue()));
 
-        assertTrue(waitAssignments(List.of(
-                Set.of(0, 1, 2),
-                Set.of(0, 1, 2),
-                Set.of(0, 1, 2),
-                Set.of(0, 1, 2)
-        )));
-
-        assertNotNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(0).node()).get());
-        assertNotNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(1).node()).get());
-        assertNotNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(2).node()).get());
-
-        try {
-            table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(3).node()).get();
-
-            fail();
-        } catch (Exception e) {
-            assertInstanceOf(ExecutionException.class, e);
-
-            assertInstanceOf(ReplicaUnavailableException.class, e.getCause());
-        }
+        assertThat(
+                table.internalTable().get(key, clock.now(), cluster.node(3).node()),
+                willThrow(ReplicationException.class, 10, TimeUnit.SECONDS)
+        );
     }
 
-    /**
-     * Wait assignments on nodes.
-     *
-     * @param nodes Expected assignments.
-     * @return {@code true} if the expected and actual assignments are the same.
-     * @throws InterruptedException If interrupted.
-     */
-    private boolean waitAssignments(List<Set<Integer>> nodes) throws InterruptedException {
-        return waitForCondition(() -> {
-            for (int i = 0; i < nodes.size(); i++) {
-                Set<Integer> expectedAssignments = nodes.get(i);
+    private void waitForStableAssignmentsInMetastore(Set<String> expectedNodes, int table) throws InterruptedException {
+        Set<String>[] lastAssignmentsHolderForLog = new Set[1];
 
-                ExtendedTableConfiguration table =
-                        (ExtendedTableConfiguration) cluster.node(i)
-                                .clusterConfiguration().getConfiguration(TablesConfiguration.KEY).tables().get("TEST");
+        assertTrue(waitForCondition(() -> {
+            Set<String> assignments =
+                    partitionAssignments(
+                            cluster.aliveNode().metaStorageManager(), table, 0
+                    ).join().stream()
+                            .map(Assignment::consistentId)
+                            .collect(Collectors.toSet());
 
-                byte[] assignmentsBytes = table.assignments().value();
+            lastAssignmentsHolderForLog[0] = assignments;
 
-                Set<String> assignments;
+            return assignments.equals(expectedNodes);
+        }, 30000), "Expected nodes: " + expectedNodes + ", actual nodes: " + lastAssignmentsHolderForLog[0]);
+    }
 
-                if (assignmentsBytes != null) {
-                    assignments = ((List<Set<Assignment>>) ByteUtils.fromBytes(assignmentsBytes)).get(0)
-                            .stream().map(assignment -> assignment.consistentId()).collect(Collectors.toSet());
-                } else {
-                    assignments = Collections.emptySet();
-                }
-
-                LOG.info("Assignments for node " + i + ": " + assignments);
-
-                if (!(expectedAssignments.size() == assignments.size())
-                        || !expectedAssignments.stream().allMatch(node -> assignments.contains(cluster.node(node).name()))) {
-                    return false;
-                }
-            }
-
-            return true;
-        },
-                5000);
+    private String nodeName(int nodeIndex) {
+        return cluster.node(nodeIndex).name();
     }
 
     private void createTestTable() throws InterruptedException {

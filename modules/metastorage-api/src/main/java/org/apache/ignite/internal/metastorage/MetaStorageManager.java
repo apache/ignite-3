@@ -71,6 +71,11 @@ public interface MetaStorageManager extends IgniteComponent {
     CompletableFuture<Void> put(ByteArray key, byte[] val);
 
     /**
+     * Inserts or updates entries with given keys and given values.
+     */
+    CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals);
+
+    /**
      * Retrieves entries for the given key prefix in lexicographic order. Shortcut for {@link #prefix(ByteArray, long)} where
      * {@code revUpperBound = LATEST_REVISION}.
      *
@@ -165,8 +170,10 @@ public interface MetaStorageManager extends IgniteComponent {
      * Starts all registered watches.
      *
      * <p>Should be called after all Ignite components have registered required watches and they are ready to process Meta Storage events.
+     *
+     * @return Future which completes when Meta storage manager is started and deploying watches is finished.
      */
-    void deployWatches() throws NodeStoppingException;
+    CompletableFuture<Void> deployWatches();
 
     /**
      * Returns cluster time with a hybrid clock instance and access to safe time.

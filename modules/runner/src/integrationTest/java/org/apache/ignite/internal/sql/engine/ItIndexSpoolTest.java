@@ -99,10 +99,6 @@ public class ItIndexSpoolTest extends ClusterPerClassIntegrationTest {
 
             sql("CREATE INDEX " + name + "_jid_idx ON " + name + "(jid)");
 
-            // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
-            waitForIndex(name + "_PK");
-            waitForIndex(name + "_jid_idx");
-
             insertData(name, List.of("ID", "JID", "VAL"), dataRows);
         }
     }

@@ -196,7 +196,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<? extends AsyncResultSet> fetchNextPage() {
-        return null;
+        return CompletableFuture.completedFuture(new FakeAsyncResultSet(session, transaction, statement, arguments));
     }
 
     /** {@inheritDoc} */

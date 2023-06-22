@@ -31,7 +31,11 @@ namespace Apache.Ignite.Tests
         {
             var logger = new ListLogger();
 
-            var cfg = new IgniteClientConfiguration(GetConfig()) { Logger = logger };
+            var cfg = new IgniteClientConfiguration
+            {
+                Endpoints = { "127.0.0.1:" + ServerPort },
+                Logger = logger
+            };
             using var client = await IgniteClient.StartAsync(cfg);
 
             logger.Clear();

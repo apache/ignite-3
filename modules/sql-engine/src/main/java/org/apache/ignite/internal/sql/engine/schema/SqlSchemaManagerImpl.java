@@ -37,28 +37,30 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.DoubleSupplier;
+import java.util.function.LongFunction;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.causality.CompletableVersionedValue;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.OutdatedTokenException;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.HashIndex;
 import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.index.SortedIndexImpl;
-import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -80,8 +82,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private final TableManager tableManager;
     private final SchemaManager schemaManager;
-    private final ReplicaService replicaService;
-    private final HybridClock clock;
 
     private final CompletableVersionedValue<SchemaPlus> calciteSchemaVv;
 
@@ -97,15 +97,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     public SqlSchemaManagerImpl(
             TableManager tableManager,
             SchemaManager schemaManager,
-            ReplicaService replicaService,
-            HybridClock clock,
-            Consumer<Function<Long, CompletableFuture<?>>> registry,
+            Consumer<LongFunction<CompletableFuture<?>>> registry,
             IgniteSpinBusyLock busyLock
     ) {
         this.tableManager = tableManager;
         this.schemaManager = schemaManager;
-        this.replicaService = replicaService;
-        this.clock = clock;
 
         schemasVv = new IncrementalVersionedValue<>(registry, HashMap::new);
         tablesVv = new IncrementalVersionedValue<>(registry, HashMap::new);
@@ -149,12 +145,18 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     public SchemaPlus schema(@Nullable String schema) {
-        SchemaPlus schemaPlus = calciteSchemaVv.latest();
-
         // stub for waiting pk indexes, more clear place is IgniteSchema
         CompletableFuture.allOf(pkIdxReady.values().toArray(CompletableFuture[]::new)).join();
 
+        SchemaPlus schemaPlus = calciteSchemaVv.latest();
+
         return schema != null ? schemaPlus.getSubSchema(schema) : schemaPlus.getSubSchema(DEFAULT_SCHEMA_NAME);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SchemaPlus schema(String name, int version) {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -165,7 +167,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
         try {
             if (ver == IgniteSchema.INITIAL_VERSION) {
-                return completedFuture(null);
+                return completedFuture(calciteSchemaVv.latest());
             }
 
             CompletableFuture<SchemaPlus> lastSchemaFut;
@@ -180,6 +182,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SchemaPlus activeSchema(@Nullable String name, long timestamp) {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -352,16 +360,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private CompletableFuture<IgniteTableImpl> convert(long causalityToken, TableImpl table) {
         return schemaManager.schemaRegistry(causalityToken, table.tableId())
-                .thenApply(schemaRegistry -> inBusyLock(busyLock, () -> convert(table, schemaRegistry)));
+                .thenApply(schemaRegistry -> inBusyLock(busyLock, () -> convert(table, schemaRegistry, causalityToken)));
     }
 
-    private IgniteTableImpl convert(TableImpl table) {
-        SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(table.tableId());
-
-        return convert(table, schemaRegistry);
-    }
-
-    private IgniteTableImpl convert(TableImpl table, SchemaRegistry schemaRegistry) {
+    private IgniteTableImpl convert(TableImpl table, SchemaRegistry schemaRegistry, long schemaVersion) {
         SchemaDescriptor descriptor = schemaRegistry.schema();
 
         List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()
@@ -388,12 +390,17 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         // TODO Use the actual zone ID after implementing https://issues.apache.org/jira/browse/IGNITE-18426.
         IgniteDistribution distribution = IgniteDistributions.affinity(colocationColumns, table.tableId(), table.tableId());
 
+        InternalTable internalTable = table.internalTable();
+        Supplier<ColocationGroup> colocationGroup = IgniteTableImpl.partitionedGroup(internalTable);
+        DoubleSupplier rowCount = IgniteTableImpl.rowCountStatistic(internalTable);
+
         return new IgniteTableImpl(
                 new TableDescriptorImpl(colDescriptors, distribution),
-                table.internalTable(),
-                replicaService,
-                clock,
-                schemaRegistry
+                internalTable.tableId(),
+                internalTable.name(),
+                schemaRegistry.lastSchemaVersion(),
+                colocationGroup,
+                rowCount
         );
     }
 
@@ -492,9 +499,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private static Index<?> newIndex(TableImpl table, int indexId, IndexDescriptor descriptor) {
         if (descriptor instanceof SortedIndexDescriptor) {
-            return new SortedIndexImpl(indexId, table, (SortedIndexDescriptor) descriptor);
+            return new SortedIndexImpl(indexId, table.internalTable(), (SortedIndexDescriptor) descriptor);
         } else {
-            return new HashIndex(indexId, table, descriptor);
+            return new HashIndex(indexId, table.internalTable(), descriptor);
         }
     }
 

@@ -17,20 +17,20 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 
 /**
  * Captures a difference between 'old' and 'new' versions of the same column definition.
  */
 public class ColumnDefinitionDiff {
     @SuppressWarnings("PMD.UnusedPrivateField")
-    private final TableColumnDescriptor oldColumn;
+    private final CatalogTableColumnDescriptor oldColumn;
     @SuppressWarnings("PMD.UnusedPrivateField")
-    private final TableColumnDescriptor newColumn;
+    private final CatalogTableColumnDescriptor newColumn;
 
     // TODO: IGNITE-19229 - extend
 
-    public ColumnDefinitionDiff(TableColumnDescriptor oldColumn, TableColumnDescriptor newColumn) {
+    public ColumnDefinitionDiff(CatalogTableColumnDescriptor oldColumn, CatalogTableColumnDescriptor newColumn) {
         this.oldColumn = oldColumn;
         this.newColumn = newColumn;
     }

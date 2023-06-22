@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -54,9 +55,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -64,8 +62,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -108,14 +104,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Answers;
 
 /**
  * For {@link IncomingSnapshotCopier} testing.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class IncomingSnapshotCopierTest {
+    private static final int TABLE_ID = 1;
+
     private static final String NODE_NAME = "node";
 
     private static final int TEST_PARTITION = 0;
@@ -134,17 +130,9 @@ public class IncomingSnapshotCopierTest {
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-    @InjectConfiguration("mock.tables.foo {}")
-    private TablesConfiguration tablesConfig;
-
-    @InjectConfiguration
-    private DistributionZonesConfiguration distributionZonesConfiguration;
-
     private final ClusterNode clusterNode = mock(ClusterNode.class);
 
     private final UUID snapshotId = UUID.randomUUID();
-
-    private final int tableId = 1;
 
     private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
 
@@ -177,8 +165,7 @@ public class IncomingSnapshotCopierTest {
         fillMvPartitionStorage(outgoingMvPartitionStorage, expLastAppliedIndex, expLastAppliedTerm, expLastGroupConfig, rowIds);
         fillTxStatePartitionStorage(outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, txIds);
 
-        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone()));
+        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
         assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
@@ -203,7 +190,7 @@ public class IncomingSnapshotCopierTest {
 
         assertEquals(Status.OK().getCode(), snapshotCopier.getCode());
 
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, TEST_PARTITION);
+        TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, TEST_PARTITION);
 
         verify(mvGc, times(1)).removeStorage(eq(tablePartitionId));
         verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(GcUpdateHandler.class));
@@ -298,7 +285,7 @@ public class IncomingSnapshotCopierTest {
                 SnapshotUri.toStringUri(snapshotId, NODE_NAME),
                 mock(RaftOptions.class),
                 spy(new PartitionAccessImpl(
-                        new PartitionKey(tableId, TEST_PARTITION),
+                        new PartitionKey(TABLE_ID, TEST_PARTITION),
                         incomingTableStorage,
                         incomingTxStateTableStorage,
                         mvGc,
@@ -443,8 +430,7 @@ public class IncomingSnapshotCopierTest {
 
     @Test
     void cancellationMakesJoinFinishIfHangingOnNetworkCall() throws Exception {
-        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone()));
+        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
         assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
@@ -500,8 +486,7 @@ public class IncomingSnapshotCopierTest {
         fillMvPartitionStorage(outgoingMvPartitionStorage, expLastAppliedIndex, expLastAppliedTerm, expLastGroupConfig, rowIds);
         fillTxStatePartitionStorage(outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, txIds);
 
-        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone()));
+        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
         assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
@@ -569,8 +554,7 @@ public class IncomingSnapshotCopierTest {
         fillMvPartitionStorage(outgoingMvPartitionStorage, expLastAppliedIndex, expLastAppliedTerm, expLastGroupConfig, rowIds);
         fillTxStatePartitionStorage(outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, txIds);
 
-        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig,
-                distributionZonesConfiguration.defaultDistributionZone()));
+        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
         assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
@@ -601,7 +585,7 @@ public class IncomingSnapshotCopierTest {
 
         verify(partitionSnapshotStorage.partition()).abortRebalance();
 
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, TEST_PARTITION);
+        TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, TEST_PARTITION);
 
         verify(mvGc, times(1)).removeStorage(eq(tablePartitionId));
         verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(GcUpdateHandler.class));
@@ -624,10 +608,6 @@ public class IncomingSnapshotCopierTest {
         anotherThread.join();
 
         copier.cancel();
-    }
-
-    private TableConfiguration getTableConfig() {
-        return tablesConfig.tables().get("foo");
     }
 
     private static List<RowId> generateRowIds() {

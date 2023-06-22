@@ -114,10 +114,16 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
                 ses,
                 "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)"
         );
+        checkError(
+                SqlException.class,
+                "Can't create table with duplicate columns: ID, VAL, VAL",
+                ses,
+                "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL INT, VAL INT)"
+        );
         checkDdl(false, ses, "CREATE TABLE IF NOT EXISTS TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
 
         // ADD COLUMN
-        checkDdl(true, ses, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS VAL1 VARCHAR");
+        checkDdl(true, ses, "ALTER TABLE TEST ADD COLUMN VAL1 VARCHAR");
         checkError(
                 TableNotFoundException.class,
                 "The table does not exist [name=\"PUBLIC\".\"NOT_EXISTS_TABLE\"]",
@@ -131,7 +137,6 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
                 ses,
                 "ALTER TABLE TEST ADD COLUMN VAL1 INT"
         );
-        checkDdl(false, ses, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS VAL1 INT");
 
         // CREATE INDEX
         checkDdl(true, ses, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
@@ -150,6 +155,12 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkDdl(true, ses, "CREATE INDEX TEST_IDX1 ON TEST(VAL0)");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX2 ON TEST(VAL0)");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX3 ON TEST(ID, VAL0, VAL1)");
+        checkError(
+                SqlException.class,
+                "Can't create index on duplicate columns: VAL0, VAL0",
+                ses,
+                "CREATE INDEX TEST_IDX4 ON TEST(VAL0, VAL0)"
+        );
 
         checkError(
                 SqlException.class,
@@ -196,7 +207,6 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
                 ses,
                 "ALTER TABLE TEST DROP COLUMN VAL1"
         );
-        checkDdl(false, ses, "ALTER TABLE TEST DROP COLUMN IF EXISTS VAL1");
 
         // DROP TABLE
         checkDdl(false, ses, "DROP TABLE IF EXISTS NOT_EXISTS_TABLE");

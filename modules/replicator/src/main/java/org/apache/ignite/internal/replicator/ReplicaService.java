@@ -32,6 +32,7 @@ import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableExcepti
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.AwaitReplicaRequest;
+import org.apache.ignite.internal.replicator.message.AwaitReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -151,13 +152,20 @@ public class ReplicaService {
                                             throwable0));
                                 }
                             } else {
-                                sendToReplica(targetNodeConsistentId, req).whenComplete((r, e) -> {
-                                    if (e != null) {
-                                        res.completeExceptionally(e);
-                                    } else {
-                                        res.complete((R) r);
-                                    }
-                                });
+                                if (response0 instanceof ErrorReplicaResponse) {
+                                    res.completeExceptionally(((ErrorReplicaResponse) response0).throwable());
+                                } else {
+                                    assert response0 instanceof AwaitReplicaResponse :
+                                            "Incorrect response type [type=" + response0.getClass().getSimpleName() + ']';
+
+                                    sendToReplica(targetNodeConsistentId, req).whenComplete((r, e) -> {
+                                        if (e != null) {
+                                            res.completeExceptionally(e);
+                                        } else {
+                                            res.complete((R) r);
+                                        }
+                                    });
+                                }
                             }
 
                             return null;

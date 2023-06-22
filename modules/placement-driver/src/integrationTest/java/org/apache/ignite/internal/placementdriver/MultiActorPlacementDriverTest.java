@@ -23,7 +23,10 @@ import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.
 import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.lang.ByteArray.fromString;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -72,6 +75,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteTriFunction;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -196,7 +200,6 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
             if (resp == null) {
                 resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                        .groupId(((LeaseGrantedMessage) msg).groupId())
                         .accepted(true)
                         .build();
             }
@@ -236,7 +239,6 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
      * @param services Cluster services.
      * @param logicalTopManagers The list to update in the method. The list might be used for driving of the logical topology.
      * @return List of closures to stop the services.
-     * @throws Exception If something goes wrong.
      */
     public List<Closeable> startPlacementDriver(
             Map<String, ClusterService> services,
@@ -312,7 +314,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
             metaStorageManager.start();
             placementDriverManager.start();
 
-            metaStorageManager.deployWatches();
+            assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
             res.add(() -> {
                         try {
@@ -611,12 +613,25 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
             tableViewTableChangeNamedListChange.create("test-table-" + tableId, tableChange -> {
                 var extConfCh = ((ExtendedTableChange) tableChange);
-                extConfCh.changeId(tableId);
-                extConfCh.changeZoneId(zoneId);
 
-                extConfCh.changeAssignments(ByteUtils.toBytes(assignments));
+                extConfCh.changeId(tableId);
+
+                extConfCh.changeZoneId(zoneId);
             });
-        }).get();
+        }).thenCompose(v -> {
+            Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
+
+            for (int i = 0; i < assignments.size(); i++) {
+                partitionAssignments.put(
+                        stablePartAssignmentsKey(
+                                new TablePartitionId(tableId, i)),
+                        ByteUtils.toBytes(assignments.get(i)));
+
+            }
+
+            return metaStorageManager.putAll(partitionAssignments);
+        })
+        .get();
 
         var grpPart0 = new TablePartitionId(tableId, 0);
 

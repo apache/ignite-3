@@ -26,6 +26,7 @@ import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import org.jetbrains.annotations.Nullable;
 
@@ -61,18 +62,26 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
     private CompletableFuture<T> updaterFuture;
 
     /**
+     * This registry chains two versioned values. The value, that uses this registry in the constructor, will be completed strictly after
+     * the value, passed into this method.
+     */
+    public static Consumer<LongFunction<CompletableFuture<?>>> dependingOn(IncrementalVersionedValue<?> vv) {
+        return callback -> vv.whenComplete((causalityToken, value, ex) -> callback.apply(causalityToken));
+    }
+
+    /**
      * Constructor.
      *
      * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this
      *         VersionedValue should be able to listen to, for receiving storage revision updates. This closure is called once on a
-     *         construction of this VersionedValue and accepts a {@code Function<Long, CompletableFuture<?>>} that should be called on every
+     *         construction of this VersionedValue and accepts a {@code LongFunction<CompletableFuture<?>>} that should be called on every
      *         update of storage revision as a listener.
      * @param maxHistorySize Size of the history of changes to store, including last applied token.
      * @param defaultValueSupplier Supplier of the default value, that is used on {@link #update(long, BiFunction)} to evaluate the
      *         default value if the value is not initialized yet. It is not guaranteed to execute only once.
      */
     public IncrementalVersionedValue(
-            @Nullable Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater,
+            @Nullable Consumer<LongFunction<CompletableFuture<?>>> observableRevisionUpdater,
             int maxHistorySize,
             @Nullable Supplier<T> defaultValueSupplier
     ) {
@@ -90,13 +99,13 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
      *
      * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this
      *         VersionedValue should be able to listen to, for receiving storage revision updates. This closure is called once on a
-     *         construction of this VersionedValue and accepts a {@code Function<Long, CompletableFuture<?>>} that should be called on every
+     *         construction of this VersionedValue and accepts a {@code LongFunction<CompletableFuture<?>>} that should be called on every
      *         update of storage revision as a listener.
      * @param defaultValueSupplier Supplier of the default value, that is used on {@link #update(long, BiFunction)} to evaluate the
      *         default value if the value is not initialized yet. It is not guaranteed to execute only once.
      */
     public IncrementalVersionedValue(
-            @Nullable Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater,
+            @Nullable Consumer<LongFunction<CompletableFuture<?>>> observableRevisionUpdater,
             @Nullable Supplier<T> defaultValueSupplier
     ) {
         this.versionedValue = new BaseVersionedValue<>(defaultValueSupplier);
@@ -113,10 +122,10 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
      *
      * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this
      *         VersionedValue should be able to listen to, for receiving storage revision updates. This closure is called once on a
-     *         construction of this VersionedValue and accepts a {@code Function<Long, CompletableFuture<?>>} that should be called on every
+     *         construction of this VersionedValue and accepts a {@code LongFunction<CompletableFuture<?>>} that should be called on every
      *         update of storage revision as a listener.
      */
-    public IncrementalVersionedValue(Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater) {
+    public IncrementalVersionedValue(Consumer<LongFunction<CompletableFuture<?>>> observableRevisionUpdater) {
         this(observableRevisionUpdater, null);
     }
 
@@ -128,6 +137,11 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
     @Override
     public @Nullable T latest() {
         return versionedValue.latest();
+    }
+
+    @Override
+    public long latestCausalityToken() {
+        return versionedValue.latestCausalityToken();
     }
 
     @Override

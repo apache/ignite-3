@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.UpdateableTable;
+import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -35,7 +35,7 @@ import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The node that can perform data modification operation on tables implementing {@link UpdateableTable} interface.
+ * The node that can perform data modification operation on tables implementing {@link UpdatableTable} interface.
  *
  * <p>This node covers all currently supported DML operations: INSERT, UPDATE, DELETE, and MERGE.
  *
@@ -70,7 +70,7 @@ import org.jetbrains.annotations.Nullable;
 public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     private final TableModify.Operation modifyOp;
 
-    private final UpdateableTable table;
+    private final UpdatableTable table;
 
     private final @Nullable List<String> updateColumns;
 
@@ -98,7 +98,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
      */
     public ModifyNode(
             ExecutionContext<RowT> ctx,
-            UpdateableTable table,
+            UpdatableTable table,
             TableModify.Operation op,
             @Nullable List<String> updateColumns
     ) {

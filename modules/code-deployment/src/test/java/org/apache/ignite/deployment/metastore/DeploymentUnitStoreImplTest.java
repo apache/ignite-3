@@ -17,13 +17,16 @@
 
 package org.apache.ignite.deployment.metastore;
 
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.OBSOLETE;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.nullValue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -31,7 +34,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.internal.deployunit.UnitStatus;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
@@ -45,7 +47,6 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,7 +63,12 @@ public class DeploymentUnitStoreImplTest {
 
     private final List<UnitNodeStatus> history = Collections.synchronizedList(new ArrayList<>());
 
-    private final NodeEventCallback listener = (status, holders) -> history.add(status);
+    private final NodeEventCallback listener = new NodeEventCallback() {
+        @Override
+        public void onUpdate(UnitNodeStatus status, List<String> holders) {
+            history.add(status);
+        }
+    };
 
     private DeploymentUnitStoreImpl metastore;
 
@@ -70,7 +76,7 @@ public class DeploymentUnitStoreImplTest {
     private Path workDir;
 
     @BeforeEach
-    public void setup() throws NodeStoppingException {
+    public void setup() {
         history.clear();
         KeyValueStorage storage = new RocksDbKeyValueStorage("test", workDir);
 
@@ -81,7 +87,7 @@ public class DeploymentUnitStoreImplTest {
         vaultManager.start();
         metaStorageManager.start();
 
-        metaStorageManager.deployWatches();
+        assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
     @Test
@@ -100,7 +106,7 @@ public class DeploymentUnitStoreImplTest {
 
         assertThat(metastore.remove(id, version), willBe(true));
 
-        assertThat(metastore.getClusterStatus(id, version), willBe((UnitStatus) null));
+        assertThat(metastore.getClusterStatus(id, version), willBe(nullValue()));
     }
 
     @Test
@@ -135,12 +141,11 @@ public class DeploymentUnitStoreImplTest {
                 willBe(new UnitClusterStatus(id, version, DEPLOYED, Set.of(node1, node2, node3))));
 
         assertThat(metastore.getClusterStatuses(id),
-                willBe(List.of(new UnitClusterStatus(id, version, DEPLOYED, Set.of(node1, node2, node3))))
+                willBe(contains((new UnitClusterStatus(id, version, DEPLOYED, Set.of(node1, node2, node3)))))
         );
 
         assertThat(metastore.remove(id, version), willBe(true));
-        assertThat(metastore.getNodeStatus(node1, id, version),
-                willBe((UnitNodeStatus) null));
+        assertThat(metastore.getNodeStatus(node1, id, version), willBe(nullValue()));
     }
 
     @Test

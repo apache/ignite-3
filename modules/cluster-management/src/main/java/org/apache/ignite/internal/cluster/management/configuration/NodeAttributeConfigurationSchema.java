@@ -22,8 +22,11 @@ import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Node's attribute configuration schema.
- * TODO: add proper javadocs when filtering feature will be closer to the end https://issues.apache.org/jira/browse/IGNITE-19184
+ * Node's attribute configuration schema. User can specify any number of pairs (key, attribute) for a node through the local configuration
+ * of a node, and also can specify a filter through the SQL syntax of distribution zones. Any time data nodes will be recalculated,
+ * corresponding filter will be applied to set of nodes with pre-defined attributes.
+ *
+ * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/distribution-zones/tech-notes/filters.md">Filter documentation</a>
  */
 @Config
 public class NodeAttributeConfigurationSchema {

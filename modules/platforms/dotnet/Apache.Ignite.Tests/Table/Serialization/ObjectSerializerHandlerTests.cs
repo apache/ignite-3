@@ -32,7 +32,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
     // ReSharper disable NotAccessedPositionalProperty.Local
     public class ObjectSerializerHandlerTests
     {
-        private static readonly Schema Schema = new(1, 1, new[]
+        private static readonly Schema Schema = new(1, 1, 1, new[]
         {
             new Column("Key", ColumnType.Int64, IsNullable: false, IsColocation: true, IsKey: true, SchemaIndex: 0, Scale: 0, Precision: 0),
             new Column("Val", ColumnType.String, IsNullable: false, IsColocation: false, IsKey: false, SchemaIndex: 1, Scale: 0, Precision: 0)

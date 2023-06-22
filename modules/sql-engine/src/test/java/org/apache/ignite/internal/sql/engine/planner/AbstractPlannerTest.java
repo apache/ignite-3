@@ -45,6 +45,7 @@ import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -95,8 +96,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.Cloner;
@@ -124,7 +123,7 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -1031,19 +1030,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         public String name() {
             return name;
         }
-
-        /** {@inheritDoc} */
-        @Override
-        public InternalTable table() {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
-                @Nullable BitSet requiredColumns) {
-            throw new AssertionError();
-        }
     }
 
     /**
@@ -1397,6 +1383,50 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         public void reset() {
             attemptedRules.clear();
+        }
+    }
+
+    /**
+     * A shorthand for {@code checkStatement().sql(statement, params)}.
+     */
+    public StatementChecker sql(String statement, Object... params) {
+        return checkStatement().sql(statement, params);
+    }
+
+    /**
+     * Creates an instance of {@link StatementChecker statement checker} to test plans.
+     * <pre>
+     *     checkStatement().sql("SELECT 1").ok()
+     * </pre>
+     */
+    public StatementChecker checkStatement() {
+        return new PlanChecker();
+    }
+
+    /**
+     * Creates an instance of {@link PlanChecker statement checker} with the given setup.
+     * A shorthand for {@code checkStatement().setup(func)}.
+     */
+    public StatementChecker checkStatement(Consumer<StatementChecker> setup) {
+        return new PlanChecker().setup(setup);
+    }
+
+    /**
+     * An implementation of {@link PlanChecker} with initialized {@link SqlPrepare} to test plans.
+     */
+    public class PlanChecker extends StatementChecker {
+
+        PlanChecker() {
+            super((schema, sql, params) -> {
+                return physicalPlan(sql, List.of(schema), HintStrategyTable.EMPTY,
+                        params, new NoopRelOptListener());
+            });
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        protected void checkRel(IgniteRel igniteRel, IgniteSchema schema) {
+            checkSplitAndSerialization(igniteRel, schema);
         }
     }
 }

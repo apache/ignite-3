@@ -281,7 +281,7 @@ private:
      * @param addr Address of the new connection.
      * @param id Connection ID.
      */
-    void on_connection_success(const network::end_point &addr, uint64_t id) override;
+    void on_connection_success(const end_point &addr, uint64_t id) override;
 
     /**
      * Callback that called on error during connection establishment.
@@ -289,7 +289,7 @@ private:
      * @param addr Connection address.
      * @param err Error.
      */
-    void on_connection_error(const network::end_point &addr, ignite_error err) override;
+    void on_connection_error(const end_point &addr, ignite_error err) override;
 
     /**
      * Callback that called on error during connection establishment.

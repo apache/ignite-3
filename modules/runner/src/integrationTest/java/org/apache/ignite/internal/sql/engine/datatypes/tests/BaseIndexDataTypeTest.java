@@ -35,10 +35,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends BaseDataTypeTest<T> {
 
     @BeforeAll
-    public void addIndexSimpleIndex() throws InterruptedException {
+    public void addIndexSimpleIndex() {
         runSql("create index t_test_key_idx on t (test_key)");
-
-        waitForIndex("t_test_key_idx");
     }
 
     @BeforeEach
@@ -196,8 +194,6 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
     public void testCompoundIndex(TestTypeArguments<T> arguments) throws InterruptedException {
         sql("drop index if exists t_test_key_pk_idx");
         sql("create index if not exists t_test_key_pk_idx on t (id, test_key)");
-
-        waitForIndex("t_test_key_pk_idx");
 
         runSql("insert into t values(100, $0)");
 

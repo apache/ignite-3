@@ -128,7 +128,7 @@ class ItStartTest extends IgniteIntegrationTest {
 
         AtomicReference<String> threadNameRef = new AtomicReference<>();
 
-        CompletableFuture<IgniteImpl> future = cluster.startClusterNode(1).whenComplete((res, ex) -> {
+        CompletableFuture<IgniteImpl> future = cluster.startNodeAsync(1).whenComplete((res, ex) -> {
             threadNameRef.set(Thread.currentThread().getName());
         });
 

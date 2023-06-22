@@ -70,6 +70,8 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
 
     private static final int BASE_PORT = 3344;
 
+    private static final int BASE_CLIENT_PORT = 10800;
+
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  network: {\n"
@@ -78,7 +80,8 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
             + "    nodeFinder:{\n"
             + "      netClusterNodes: [ {} ]\n"
             + "    }\n"
-            + "  }\n"
+            + "  },\n"
+            + "  clientConnector: { port:{} }\n"
             + "}";
 
     /** Futures that are going to be completed when all nodes are started and the cluster is initialized. */
@@ -101,7 +104,11 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
                     String nodeName = testNodeName(testInfo, i);
                     CLUSTER_NODE_NAMES.add(nodeName);
 
-                    String config = IgniteStringFormatter.format(nodeBootstrapConfigTemplate(), BASE_PORT + i, connectNodeAddr);
+                    String config = IgniteStringFormatter.format(
+                            nodeBootstrapConfigTemplate(),
+                            BASE_PORT + i,
+                            connectNodeAddr,
+                            BASE_CLIENT_PORT + i);
 
                     NODE_CONFIGS.put(nodeName, config);
 

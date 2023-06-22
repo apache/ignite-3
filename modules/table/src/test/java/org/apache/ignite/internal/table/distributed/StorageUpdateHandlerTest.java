@@ -33,7 +33,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
@@ -50,7 +50,7 @@ public class StorageUpdateHandlerTest {
     private static final int PARTITION_ID = 0;
 
     @InjectConfiguration
-    private DataStorageConfiguration dataStorageConfig;
+    private GcConfiguration gcConfig;
 
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
             new HybridTimestamp(1, 0)
@@ -71,7 +71,7 @@ public class StorageUpdateHandlerTest {
         // Let's check that if lwm is {@code null} then nothing will happen.
         storageUpdateHandler.executeBatchGc();
 
-        verify(partitionStorage, never()).pollForVacuum(any(HybridTimestamp.class));
+        verify(partitionStorage, never()).peek(any(HybridTimestamp.class));
 
         // Let's check that if lvm is greater than the safe time, then nothing will happen.
         safeTimeTracker.update(new HybridTimestamp(10, 10), null);
@@ -80,20 +80,20 @@ public class StorageUpdateHandlerTest {
 
         storageUpdateHandler.executeBatchGc();
 
-        verify(partitionStorage, never()).pollForVacuum(any(HybridTimestamp.class));
+        verify(partitionStorage, never()).peek(any(HybridTimestamp.class));
 
         // Let's check that if lvm is equal to or less than the safe time, then garbage collection will be executed.
         lowWatermarkReference.set(new HybridTimestamp(10, 10));
 
         storageUpdateHandler.executeBatchGc();
 
-        verify(partitionStorage, times(1)).pollForVacuum(any(HybridTimestamp.class));
+        verify(partitionStorage, times(1)).peek(any(HybridTimestamp.class));
 
         lowWatermarkReference.set(new HybridTimestamp(9, 9));
 
         storageUpdateHandler.executeBatchGc();
 
-        verify(partitionStorage, times(2)).pollForVacuum(any(HybridTimestamp.class));
+        verify(partitionStorage, times(2)).peek(any(HybridTimestamp.class));
     }
 
     @Test
@@ -114,7 +114,7 @@ public class StorageUpdateHandlerTest {
                 null
         );
 
-        verify(partitionStorage).pollForVacuum(lwm);
+        verify(partitionStorage).peek(lwm);
     }
 
     @Test
@@ -134,7 +134,7 @@ public class StorageUpdateHandlerTest {
                 null
         );
 
-        verify(partitionStorage).pollForVacuum(lwm);
+        verify(partitionStorage).peek(lwm);
     }
 
     private StorageUpdateHandler createStorageUpdateHandler(PartitionDataStorage partitionStorage, TableIndexStoragesSupplier indexes) {
@@ -143,7 +143,7 @@ public class StorageUpdateHandlerTest {
         return new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionStorage,
-                dataStorageConfig,
+                gcConfig,
                 lowWatermark,
                 indexUpdateHandler,
                 new GcUpdateHandler(partitionStorage, safeTimeTracker, indexUpdateHandler)

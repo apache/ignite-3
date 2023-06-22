@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.sqllogic;
 
+import static org.hamcrest.CoreMatchers.any;
+import static org.hamcrest.CoreMatchers.anyOf;
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.google.common.base.Strings;
@@ -24,7 +28,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import org.hamcrest.CoreMatchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 
@@ -146,11 +149,11 @@ final class Statement extends Command {
         }
 
         static ExpectedStatementStatus error() {
-            return new ExpectedStatementStatus(false, CoreMatchers.any(String.class));
+            return new ExpectedStatementStatus(false, anyOf(nullValue(String.class), any(String.class)));
         }
 
         static ExpectedStatementStatus error(String errorMessage) {
-            return new ExpectedStatementStatus(false, CoreMatchers.containsString(errorMessage));
+            return new ExpectedStatementStatus(false, containsString(errorMessage));
         }
 
         @Override

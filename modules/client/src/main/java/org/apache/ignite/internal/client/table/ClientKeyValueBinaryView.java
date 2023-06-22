@@ -22,12 +22,17 @@ import static org.apache.ignite.internal.client.ClientUtils.sync;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -193,7 +198,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
-                (s, w) -> ser.writeKvTuples(tx, pairs, s, w),
+                (s, w) -> ser.writeKvTuples(tx, pairs.entrySet(), s, w),
                 r -> null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, pairs.keySet().iterator().next()));
     }
@@ -434,5 +439,25 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAndReplaceAsync(@Nullable Transaction tx, @NotNull Tuple key,
             Tuple val) {
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> streamData(Publisher<Entry<Tuple, Tuple>> publisher, @Nullable DataStreamerOptions options) {
+        Objects.requireNonNull(publisher);
+
+        var provider = new KeyValueTupleStreamerPartitionAwarenessProvider(tbl);
+        var opts = options == null ? DataStreamerOptions.DEFAULT : options;
+
+        // Partition-aware (best effort) sender with retries.
+        // The batch may go to a different node when a direct connection is not available.
+        StreamerBatchSender<Entry<Tuple, Tuple>, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_UPSERT_ALL,
+                (s, w) -> ser.writeKvTuples(null, items, s, w),
+                r -> null,
+                PartitionAwarenessProvider.of(nodeId),
+                new RetryLimitPolicy().retryLimit(opts.retryLimit()));
+
+        return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 }

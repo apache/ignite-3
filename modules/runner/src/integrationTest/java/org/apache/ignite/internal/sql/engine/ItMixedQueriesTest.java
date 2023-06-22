@@ -224,20 +224,12 @@ public class ItMixedQueriesTest extends ClusterPerClassIntegrationTest {
 
         assertQuery(selectAllQry).columnNames("ID", "VAL", "NEW_COL").check();
 
-        sql("alter table test_tbl add column if not exists new_col int");
-
-        assertQuery(selectAllQry).columnNames("ID", "VAL", "NEW_COL").check();
-
         sql("alter table test_tbl drop column new_col");
 
         assertQuery(selectAllQry).columnNames("ID", "VAL").check();
 
         // column with such name is not exists
         assertThrows(Exception.class, () -> sql("alter table test_tbl drop column new_col"));
-
-        assertQuery(selectAllQry).columnNames("ID", "VAL").check();
-
-        sql("alter table test_tbl drop column if exists new_col");
 
         assertQuery(selectAllQry).columnNames("ID", "VAL").check();
     }
@@ -294,10 +286,6 @@ public class ItMixedQueriesTest extends ClusterPerClassIntegrationTest {
 
         sql("create index idx_asc on test_tbl (c1)");
         sql("create index idx_desc on test_tbl (c1 desc)");
-
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
-        waitForIndex("idx_asc");
-        waitForIndex("idx_desc");
 
         sql("insert into test_tbl values (1, 1), (2, 2), (3, 3), (4, null)");
 

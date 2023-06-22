@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Table
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
     using Common;
@@ -324,6 +325,29 @@ namespace Apache.Ignite.Internal.Table
             await DeleteAllAsync(transaction, records, exact: true).ConfigureAwait(false);
 
         /// <inheritdoc/>
+        public async Task StreamDataAsync(
+            IAsyncEnumerable<T> data,
+            DataStreamerOptions? options = null,
+            CancellationToken cancellationToken = default) =>
+            await DataStreamer.StreamDataAsync(
+                data,
+                sender: async (batch, preferredNode, retryPolicy) =>
+                {
+                    using var resBuf = await DoOutInOpAsync(
+                            ClientOp.TupleUpsertAll,
+                            tx: null,
+                            batch,
+                            PreferredNode.FromId(preferredNode),
+                            retryPolicy)
+                        .ConfigureAwait(false);
+                },
+                writer: _ser.Handler,
+                schemaProvider: () => _table.GetLatestSchemaAsync(),
+                partitionAssignmentProvider: () => _table.GetPartitionAssignmentAsync(),
+                options ?? DataStreamerOptions.Default,
+                cancellationToken).ConfigureAwait(false);
+
+        /// <inheritdoc/>
         public override string ToString() =>
             new IgniteToStringBuilder(GetType())
                 .Append(Table)
@@ -411,9 +435,11 @@ namespace Apache.Ignite.Internal.Table
             ClientOp clientOp,
             Transaction? tx,
             PooledArrayBuffer? request = null,
-            PreferredNode preferredNode = default)
+            PreferredNode preferredNode = default,
+            IRetryPolicy? retryPolicyOverride = null)
         {
-            var (buf, _) = await _table.Socket.DoOutInOpAndGetSocketAsync(clientOp, tx, request, preferredNode).ConfigureAwait(false);
+            var (buf, _) = await _table.Socket.DoOutInOpAndGetSocketAsync(clientOp, tx, request, preferredNode, retryPolicyOverride)
+                .ConfigureAwait(false);
 
             return buf;
         }

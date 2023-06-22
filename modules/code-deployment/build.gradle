@@ -32,7 +32,6 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-api')
     implementation project(':ignite-network-api')
-    implementation project(':ignite-rest-api')
     implementation project(':ignite-metastorage-api')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-configuration-api')
@@ -41,6 +40,8 @@ dependencies {
 
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
+    testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
     testImplementation libs.awaitility
     testImplementation project(':ignite-vault')
     testImplementation project(':ignite-metastorage')

@@ -19,11 +19,10 @@ package org.apache.ignite.internal.table.distributed.gc;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.BinaryRowAndRowId;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
+import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -65,56 +64,97 @@ public class GcUpdateHandler {
 
     /**
      * Tries removing {@code count} oldest stale entries and their indexes.
-     * If there's less entries that can be removed, then exits prematurely.
+     * If there are fewer rows than the {@code count}, then exits prematurely.
      *
      * @param lowWatermark Low watermark for the vacuum.
      * @param count Count of entries to GC.
+     * @param strict {@code true} if needed to remove the strictly passed {@code count} oldest stale entries, {@code false} if a premature
+     *      exit is allowed when it is not possible to acquire a lock for the {@link RowId}.
+     * @return {@code False} if there is no garbage left in the storage.
      */
-    public void vacuumBatch(HybridTimestamp lowWatermark, int count) {
-        for (int i = 0; i < count; i++) {
-            if (!storage.runConsistently(locker -> internalVacuum(lowWatermark))) {
-                break;
+    public boolean vacuumBatch(HybridTimestamp lowWatermark, int count, boolean strict) {
+        if (count <= 0) {
+            return true;
+        }
+
+        IntHolder countHolder = new IntHolder(count);
+
+        while (countHolder.get() > 0) {
+            VacuumResult vacuumResult = internalVacuumBatch(lowWatermark, countHolder);
+
+            switch (vacuumResult) {
+                case NO_GARBAGE_LEFT:
+                    return false;
+                case SUCCESS:
+                    return true;
+                case FAILED_ACQUIRE_LOCK:
+                    if (strict) {
+                        continue;
+                    }
+
+                    return true;
+                default:
+                    throw new IllegalStateException(vacuumResult.toString());
             }
-        }
-    }
-
-    /**
-     * Tries removing partition's oldest stale entry and its indexes.
-     *
-     * @param lowWatermark Low watermark for the vacuum.
-     * @return {@code true} if an entry was garbage collected, {@code false} if there was nothing to collect.
-     * @see MvPartitionStorage#pollForVacuum(HybridTimestamp)
-     */
-    public boolean vacuum(HybridTimestamp lowWatermark) {
-        return storage.runConsistently(locker -> internalVacuum(lowWatermark));
-    }
-
-    /**
-     * Executes garbage collection.
-     *
-     * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.
-     *
-     * @param lowWatermark Low watermark for the vacuum.
-     * @return {@code true} if an entry was garbage collected, {@code false} if there was nothing to collect.
-     */
-    private boolean internalVacuum(HybridTimestamp lowWatermark) {
-        BinaryRowAndRowId vacuumed = storage.pollForVacuum(lowWatermark);
-
-        if (vacuumed == null) {
-            // Nothing was garbage collected.
-            return false;
-        }
-
-        BinaryRow binaryRow = vacuumed.binaryRow();
-
-        assert binaryRow != null;
-
-        RowId rowId = vacuumed.rowId();
-
-        try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-            indexUpdateHandler.tryRemoveFromIndexes(binaryRow, rowId, cursor);
         }
 
         return true;
+    }
+
+    private VacuumResult internalVacuumBatch(HybridTimestamp lowWatermark, IntHolder countHolder) {
+        return storage.runConsistently(locker -> {
+            int count = countHolder.get();
+
+            for (int i = 0; i < count; i++) {
+                // It is safe for the first iteration to use a lock instead of tryLock, since there will be no deadlock for the first RowId
+                // and a deadlock may happen with subsequent ones.
+                VacuumResult vacuumResult = internalVacuum(lowWatermark, locker, i > 0);
+
+                if (vacuumResult != VacuumResult.SUCCESS) {
+                    return vacuumResult;
+                }
+
+                countHolder.getAndDecrement();
+            }
+
+            return VacuumResult.SUCCESS;
+        });
+    }
+
+    private VacuumResult internalVacuum(HybridTimestamp lowWatermark, Locker locker, boolean useTryLock) {
+        while (true) {
+            GcEntry gcEntry = storage.peek(lowWatermark);
+
+            if (gcEntry == null) {
+                return VacuumResult.NO_GARBAGE_LEFT;
+            }
+
+            RowId rowId = gcEntry.getRowId();
+
+            if (useTryLock) {
+                if (!locker.tryLock(rowId)) {
+                    return VacuumResult.FAILED_ACQUIRE_LOCK;
+                }
+            } else {
+                locker.lock(rowId);
+            }
+
+            BinaryRow binaryRow = storage.vacuum(gcEntry);
+
+            if (binaryRow == null) {
+                // Removed by another thread, let's try to take another.
+                continue;
+            }
+
+            try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
+                indexUpdateHandler.tryRemoveFromIndexes(binaryRow, rowId, cursor);
+            }
+
+            return VacuumResult.SUCCESS;
+        }
+    }
+
+    private enum VacuumResult {
+        SUCCESS, NO_GARBAGE_LEFT, FAILED_ACQUIRE_LOCK
     }
 }
