@@ -17,16 +17,30 @@
 
 package org.apache.ignite.internal.table.distributed.storage;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponses;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -80,5 +94,61 @@ public class InternalTableImplTest {
 
         verify(safeTime0).close();
         verify(storageIndex0).close();
+    }
+
+    @Test
+    void testRowBatchByPartitionId() {
+        InternalTableImpl internalTable = new InternalTableImpl(
+                "test",
+                1,
+                Int2ObjectMaps.emptyMap(),
+                3,
+                s -> mock(ClusterNode.class),
+                mock(TxManager.class),
+                mock(MvTableStorage.class),
+                mock(TxStateTableStorage.class),
+                mock(ReplicaService.class),
+                mock(HybridClock.class)
+        );
+
+        List<BinaryRowEx> originalRows = List.of(
+                // Rows for 0 partition.
+                createBinaryRows(0),
+                createBinaryRows(0),
+                // Rows for 1 partition.
+                createBinaryRows(1),
+                // Rows for 2 partition.
+                createBinaryRows(2),
+                createBinaryRows(2),
+                createBinaryRows(2)
+        );
+
+        // We will get batches for processing and check them.
+        Int2ObjectMap<RowBatch> rowBatchByPartitionId = internalTable.toRowBatchByPartitionId(originalRows);
+
+        assertThat(rowBatchByPartitionId.get(0).rows, hasSize(2));
+        assertThat(rowBatchByPartitionId.get(0).originalRowOrder, contains(0, 1));
+
+        assertThat(rowBatchByPartitionId.get(1).rows, hasSize(1));
+        assertThat(rowBatchByPartitionId.get(1).originalRowOrder, contains(2));
+
+        assertThat(rowBatchByPartitionId.get(2).rows, hasSize(3));
+        assertThat(rowBatchByPartitionId.get(2).originalRowOrder, contains(3, 4, 5));
+
+        // Collect the result and check it.
+        rowBatchByPartitionId.get(0).resultFuture = completedFuture(List.of(originalRows.get(0), originalRows.get(1)));
+        rowBatchByPartitionId.get(1).resultFuture = completedFuture(List.of(originalRows.get(2)));
+        rowBatchByPartitionId.get(2).resultFuture = completedFuture(List.of(originalRows.get(3), originalRows.get(4), originalRows.get(5)));
+
+        CompletableFuture<Collection<BinaryRow>> resultFuture = collectMultiRowsResponses(rowBatchByPartitionId);
+        assertThat(resultFuture, willBe(equalTo(originalRows)));
+    }
+
+    private static BinaryRowEx createBinaryRows(int colocationHash) {
+        BinaryRowEx rowEx = mock(BinaryRowEx.class);
+
+        when(rowEx.colocationHash()).thenReturn(colocationHash);
+
+        return rowEx;
     }
 }
