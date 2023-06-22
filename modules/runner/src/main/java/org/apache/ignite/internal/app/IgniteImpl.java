@@ -539,7 +539,8 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 workDir,
                 nodeConfigRegistry.getConfiguration(DeploymentConfiguration.KEY),
-                cmgMgr
+                cmgMgr,
+                name
         );
         deploymentManager = deploymentManagerImpl;
 

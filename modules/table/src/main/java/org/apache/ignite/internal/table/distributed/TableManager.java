@@ -184,6 +184,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
@@ -271,18 +272,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final Map<Integer, CompletableFuture<Table>> tableCreateFuts = new ConcurrentHashMap<>();
 
     /**
-     * Versioned store for tables by id. Only table instances are created here, RAFT groups may not be initialized yet.
+     * Versioned store for tables by id. Only table instances are created here, local storages and RAFT groups may not be initialized yet.
      *
+     * @see #localPartsByTableIdVv
      * @see #assignmentsUpdatedVv
      */
     private final IncrementalVersionedValue<Map<Integer, TableImpl>> tablesByIdVv;
 
-    /** Versioned store for local partition set by table id. */
+    /**
+     * Versioned store for local partition set by table id.
+     * Completed strictly after {@link #tablesByIdVv} and strictly before {@link #assignmentsUpdatedVv}.
+     */
     private final IncrementalVersionedValue<Map<Integer, PartitionSet>> localPartsByTableIdVv;
 
     /**
      * Versioned store for tracking RAFT groups initialization and starting completion.
      * Only explicitly updated in {@link #createTablePartitionsLocally(long, List, int, TableImpl)}.
+     * Completed strictly after {@link #localPartsByTableIdVv}.
      */
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
 
@@ -442,7 +448,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
-        localPartsByTableIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
+        localPartsByTableIdVv = new IncrementalVersionedValue<>(dependingOn(tablesByIdVv), HashMap::new);
 
         assignmentsUpdatedVv = new IncrementalVersionedValue<>(dependingOn(localPartsByTableIdVv));
 
@@ -1655,7 +1661,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             ex = t;
         }
 
-        return (ex instanceof IgniteException) ? (IgniteException) ex : IgniteException.wrap(ex);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19539
+        return (ex instanceof IgniteException) ? (IgniteException) ex : IgniteExceptionUtils.wrap(ex);
     }
 
     /**
@@ -1828,8 +1835,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         } else {
             CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(latestCausalityToken);
 
-            // "tablesByIdVv" is always completed strictly before the "assignmentsUpdatedVv".
-            assert tablesByIdFuture.isDone();
+            assert tablesByIdFuture.isDone()
+                    : "'tablesByIdVv' is always completed strictly before the 'assignmentsUpdatedVv'";
 
             return tablesByIdFuture.join();
         }
@@ -1970,7 +1977,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return completedFuture(null);
             }
 
-            TableImpl tbl = tablesByIdVv.latest().get(id);
+            TableImpl tbl = latestTablesById().get(id);
 
             if (tbl != null) {
                 return completedFuture(tbl);
@@ -1978,37 +1985,39 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             CompletableFuture<TableImpl> getTblFut = new CompletableFuture<>();
 
-            CompletionListener<Map<Integer, TableImpl>> tablesListener = (token, tables, th) -> {
+            CompletionListener<Void> tablesListener = (token, v, th) -> {
                 if (th == null) {
-                    TableImpl table = tables.get(id);
+                    CompletableFuture<Map<Integer, TableImpl>> tablesFut = tablesByIdVv.get(token);
 
-                    if (table != null) {
-                        assignmentsUpdatedVv.get(token).whenComplete((v, e) -> {
-                            if (e != null) {
-                                getTblFut.completeExceptionally(e);
-                            } else {
+                    tablesFut.whenComplete((tables, e) -> {
+                        if (e != null) {
+                            getTblFut.completeExceptionally(e);
+                        } else {
+                            TableImpl table = tables.get(id);
+
+                            if (table != null) {
                                 getTblFut.complete(table);
                             }
-                        });
-                    }
+                        }
+                    });
                 } else {
                     getTblFut.completeExceptionally(th);
                 }
             };
 
-            tablesByIdVv.whenComplete(tablesListener);
+            assignmentsUpdatedVv.whenComplete(tablesListener);
 
             // This check is needed for the case when we have registered tablesListener,
             // but tablesByIdVv has already been completed, so listener would be triggered only for the next versioned value update.
             tbl = latestTablesById().get(id);
 
             if (tbl != null) {
-                tablesByIdVv.removeWhenComplete(tablesListener);
+                assignmentsUpdatedVv.removeWhenComplete(tablesListener);
 
                 return completedFuture(tbl);
             }
 
-            return getTblFut.whenComplete((unused, throwable) -> tablesByIdVv.removeWhenComplete(tablesListener));
+            return getTblFut.whenComplete((unused, throwable) -> assignmentsUpdatedVv.removeWhenComplete(tablesListener));
         }));
     }
 

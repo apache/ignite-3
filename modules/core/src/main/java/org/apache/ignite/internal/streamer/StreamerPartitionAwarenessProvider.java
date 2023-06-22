@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.table;
+package org.apache.ignite.internal.streamer;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -25,7 +25,7 @@ import java.util.concurrent.CompletableFuture;
  * @param <T> Item type.
  * @param <P> Partition type.
  */
-interface StreamerPartitionAwarenessProvider<T, P> {
+public interface StreamerPartitionAwarenessProvider<T, P> {
     /**
      * Returns partition for item. This partition may or may not map to one or more actual Ignite table partitions.
      *

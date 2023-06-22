@@ -15,27 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.message;
-
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.internal.deployunit;
 
 /**
- * Undeploy unit request.
+ * Status of deployment process.
  */
-@Transferable(DeployUnitMessageTypes.UNDEPLOY_UNIT_REQUEST)
-public interface UndeployUnitRequest extends NetworkMessage {
-    /**
-     * Returns id of deployment unit.
-     *
-     * @return id of deployment unit.
-     */
-    String id();
+public enum DeploymentStatus {
+    /** Unit deployment is in progress. */
+    UPLOADING,
 
-    /**
-     * Returns version of deployment unit.
-     *
-     * @return version of deployment unit.
-     */
-    String version();
+    /** Unit is deployed on the cluster. */
+    DEPLOYED,
+
+    /** Remove command was initiated for the unit and it will be removed soon. */
+    OBSOLETE,
+
+    /** Unit removal from the cluster is in progress. */
+    REMOVING
 }

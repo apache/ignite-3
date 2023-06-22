@@ -15,25 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.table;
+package org.apache.ignite.internal.streamer;
 
-import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.Ignite;
 
 /**
- * Streamer batch sender.
- *
- * @param <T> Item type.
- * @param <P> Partition type.
+ * Integration test for server-side data streamer API.
  */
-@FunctionalInterface
-interface StreamerBatchSender<T, P> {
-    /**
-     * Sends batch of items asynchronously.
-     *
-     * @param partition Partition.
-     * @param batch Batch.
-     * @return Future representing pending completion of the operation.
-     */
-    CompletableFuture<Void> sendAsync(P partition, Collection<T> batch);
+public class ItServerDataStreamerTest extends ItAbstractDataStreamerTest {
+    @Override
+    Ignite ignite() {
+        return CLUSTER_NODES.get(0);
+    }
 }
