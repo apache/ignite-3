@@ -17,17 +17,16 @@
 
 package org.apache.ignite.internal.cli.call.unit;
 
-import java.util.Map;
+import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.rest.client.model.DeploymentStatus;
+import org.apache.ignite.rest.client.model.UnitVersionStatus;
 
 /** Unit status record. */
 public class UnitStatusRecord {
     private final String id;
-    private final Map<Version, DeploymentStatus> versionToStatus;
+    private final List<UnitVersionStatus> versionToStatus;
 
-    UnitStatusRecord(String id, Map<Version, DeploymentStatus> versionToStatus) {
+    UnitStatusRecord(String id, List<UnitVersionStatus> versionToStatus) {
         this.id = id;
         this.versionToStatus = versionToStatus;
     }
@@ -36,7 +35,7 @@ public class UnitStatusRecord {
         return id;
     }
 
-    public Map<Version, DeploymentStatus> versionToStatus() {
+    public List<UnitVersionStatus> versionToStatus() {
         return versionToStatus;
     }
 

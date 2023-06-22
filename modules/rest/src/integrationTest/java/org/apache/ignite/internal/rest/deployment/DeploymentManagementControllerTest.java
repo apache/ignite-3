@@ -52,9 +52,9 @@ import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
+import org.apache.ignite.internal.rest.api.deployment.UnitVersionStatus;
 import org.apache.ignite.internal.testframework.IntegrationTestBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -110,8 +110,7 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
             UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
 
             assertThat(status.id(), is(id));
-            assertThat(status.versionToStatus().keySet(), equalTo(Set.of(version)));
-            assertThat(status.versionToStatus().get(version), equalTo(DEPLOYED));
+            assertThat(status.versionToStatus(), equalTo(List.of(new UnitVersionStatus(version, DEPLOYED))));
         });
     }
 
@@ -180,7 +179,7 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
         List<UnitStatus> list = list(id);
 
         List<String> versions = list.stream()
-                .flatMap(unitStatus -> unitStatus.versionToStatus().keySet().stream())
+                .flatMap(unitStatus -> unitStatus.versionToStatus().stream().map(UnitVersionStatus::getVersion))
                 .collect(Collectors.toList());
         assertThat(versions, containsInAnyOrder("1.0.0", "1.0.1", "1.1.1", "1.1.2", "1.2.1", "2.0.0"));
     }

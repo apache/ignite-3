@@ -21,12 +21,9 @@ import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.multipart.CompletedFileUpload;
 import java.util.Collection;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -38,6 +35,7 @@ import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.rest.api.deployment.InitialDeployMode;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
+import org.apache.ignite.internal.rest.api.deployment.UnitVersionStatus;
 import org.jetbrains.annotations.Nullable;
 import org.reactivestreams.Publisher;
 
@@ -158,18 +156,15 @@ public class DeploymentManagementController implements DeploymentCodeApi {
      * @return Unit statuses DTO.
      */
     private static @Nullable UnitStatus fromUnitStatuses(UnitStatuses statuses, Predicate<DeploymentStatus> statusFilter) {
-        Map<String, DeploymentStatus> versionToDeploymentStatus = new HashMap<>();
-        Set<Version> versions = statuses.versions();
-        for (Version version : versions) {
-            DeploymentStatus status = fromDeploymentStatus(statuses.status(version));
-            if (statusFilter.test(status)) {
-                versionToDeploymentStatus.put(version.render(), status);
-            }
-        }
-        if (versionToDeploymentStatus.isEmpty()) {
+        List<UnitVersionStatus> versionStatus = statuses.versionStatuses().stream()
+                .filter(unitVersionStatus -> statusFilter.test(fromDeploymentStatus(unitVersionStatus.getStatus())))
+                .map(e -> new UnitVersionStatus(e.getVersion().render(), fromDeploymentStatus(e.getStatus())))
+                .collect(Collectors.toList());
+
+        if (versionStatus.isEmpty()) {
             return null;
         }
-        return new UnitStatus(statuses.id(), versionToDeploymentStatus);
+        return new UnitStatus(statuses.id(), versionStatus);
     }
 
     private static Predicate<DeploymentStatus> createStatusFilter(Optional<List<DeploymentStatus>> statuses) {

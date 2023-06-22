@@ -22,14 +22,12 @@ import static org.apache.ignite.internal.cli.call.unit.DeployUndeployTestSupport
 import static org.apache.ignite.internal.cli.call.unit.DeployUndeployTestSupport.tracker;
 import static org.apache.ignite.rest.client.model.DeploymentStatus.DEPLOYED;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.entry;
 import static org.awaitility.Awaitility.await;
 
 import jakarta.inject.Inject;
 import java.io.FileNotFoundException;
 import java.nio.file.Path;
 import java.util.List;
-import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cli.call.CallInitializedIntegrationTestBase;
 import org.apache.ignite.internal.cli.call.cluster.unit.ClusterListUnitCall;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallFactory;
@@ -42,6 +40,8 @@ import org.apache.ignite.internal.cli.core.exception.UnitAlreadyExistsException;
 import org.apache.ignite.internal.cli.core.exception.UnitNotFoundException;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
+import org.apache.ignite.rest.client.model.UnitStatus;
+import org.apache.ignite.rest.client.model.UnitVersionStatus;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -105,9 +105,10 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
 
         await().untilAsserted(() -> {
             // And list is not empty
-            List<UnitStatusRecord> unitsStatuses = listUnitCall.execute(listAllInput()).body();
+            List<UnitStatus> unitsStatuses = listUnitCall.execute(listAllInput()).body();
             assertThat(unitsStatuses.size()).isEqualTo(1);
-            Assertions.assertThat(unitsStatuses.get(0).versionToStatus()).containsExactly(entry(Version.parseVersion("1.0.0"), DEPLOYED));
+            Assertions.assertThat(unitsStatuses.get(0).getVersionToStatus())
+                    .containsExactly((new UnitVersionStatus()).version("1.1.0").status(DEPLOYED));
         });
 
         // When undeploy unit
@@ -217,9 +218,10 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
 
         await().untilAsserted(() -> {
             // And list is not empty
-            List<UnitStatusRecord> unisStatuses = listUnitCall.execute(listAllInput()).body();
+            List<UnitStatus> unisStatuses = listUnitCall.execute(listAllInput()).body();
             assertThat(unisStatuses.size()).isEqualTo(1);
-            Assertions.assertThat(unisStatuses.get(0).versionToStatus()).containsExactly(entry(Version.parseVersion("1.1.0"), DEPLOYED));
+            Assertions.assertThat(unisStatuses.get(0).getVersionToStatus())
+                    .containsExactly((new UnitVersionStatus()).version("1.1.0").status(DEPLOYED));
         });
     }
 }
