@@ -183,8 +183,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Distributed catalog manager. */
     private final CatalogManager catalogManager;
 
-    private volatile ExecutionDependencyResolver dependencyResolver;
-
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
@@ -264,7 +262,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(tableManager, schemaManager, replicaService, clock, TABLE_CACHE_SIZE);
 
-        dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
+        var dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
 
         sqlSchemaManager.registerListener(executableTableRegistry);
 
@@ -295,10 +293,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.sqlSchemaManager = sqlSchemaManager;
 
         services.forEach(LifecycleAware::start);
-    }
-
-    public ExecutionDependencyResolver dependencyResolver() {
-        return dependencyResolver;
     }
 
     /** {@inheritDoc} */
