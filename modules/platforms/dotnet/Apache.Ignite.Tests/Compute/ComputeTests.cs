@@ -55,7 +55,11 @@ namespace Apache.Ignite.Tests.Compute
 
         private const string ExceptionJob = PlatformTestNodeRunner + "$ExceptionJob";
 
-        private static readonly IList<DeploymentUnit> Units = Array.Empty<DeploymentUnit>();
+        private static readonly IList<DeploymentUnit> Units = new DeploymentUnit[]
+        {
+            new("unit-latest"),
+            new("unit1", "1.0.0")
+        };
 
         [Test]
         public async Task TestGetClusterNodes()

@@ -26,6 +26,7 @@ namespace Apache.Ignite.Tests
     using System.Net.Sockets;
     using System.Threading;
     using System.Threading.Tasks;
+    using Ignite.Compute;
     using Ignite.Sql;
     using Internal.Buffers;
     using Internal.Network;
@@ -47,6 +48,8 @@ namespace Apache.Ignite.Tests
         public const string CompositeKeyTableName = "tbl2";
 
         public const string CustomColocationKeyTableName = "tbl3";
+
+        public const string GetDetailsJob = "get-details";
 
         private const int ExistingTableId = 1001;
 
@@ -619,11 +622,26 @@ namespace Apache.Ignite.Tests
 
                         case ClientOp.ComputeExecute:
                         {
+                            var targetNodeName = reader.ReadString();
+                            var unitsCount = reader.TryReadNil() ? 0 : reader.ReadArrayHeader();
+                            var units = new List<DeploymentUnit>(unitsCount);
+                            for (int i = 0; i < unitsCount; i++)
+                            {
+                                units.Add(new DeploymentUnit(reader.ReadString(), reader.ReadString()));
+                            }
+
+                            var jobClassName = reader.ReadString();
+
                             using var arrayBufferWriter = new PooledArrayBuffer();
                             var writer = new MsgPackWriter(arrayBufferWriter);
 
                             using var builder = new BinaryTupleBuilder(3);
-                            builder.AppendObjectWithType(Node.Name);
+
+                            object? resObj = jobClassName == GetDetailsJob
+                                ? new { NodeName = Node.Name, Units = string.Join(", ", units), jobClassName }.ToString()
+                                : Node.Name;
+
+                            builder.AppendObjectWithType(resObj);
                             writer.Write(builder.Build().Span);
 
                             Send(handler, requestId, arrayBufferWriter);
