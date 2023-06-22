@@ -322,8 +322,11 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestDeploymentUnitsPropagation()
         {
-            // TODO: "latest" is not handled correctly!
-            await Task.Delay(1);
+            using var server = new FakeServer();
+            using var client = await server.ConnectClientAsync();
+
+            var res = await client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, FakeServer.GetDetailsJob);
+            Assert.AreEqual("TODO", res);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>

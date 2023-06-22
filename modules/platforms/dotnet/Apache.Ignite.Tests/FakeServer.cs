@@ -638,7 +638,13 @@ namespace Apache.Ignite.Tests
                             using var builder = new BinaryTupleBuilder(3);
 
                             object? resObj = jobClassName == GetDetailsJob
-                                ? new { NodeName = Node.Name, Units = string.Join(", ", units), jobClassName }.ToString()
+                                ? new
+                                {
+                                    NodeName = Node.Name,
+                                    Units = string.Join(", ", units),
+                                    jobClassName,
+                                    targetNodeName
+                                }.ToString()
                                 : Node.Name;
 
                             builder.AppendObjectWithType(resObj);
