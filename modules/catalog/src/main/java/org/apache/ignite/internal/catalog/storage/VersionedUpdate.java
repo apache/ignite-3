@@ -40,7 +40,8 @@ public class VersionedUpdate implements Serializable {
      * Constructs the object.
      *
      * @param version A version the changes relate to.
-     * @param delayDurationMs Delay duration that, when added to the entry save timestamp, will produce activation timestamp (milliseconds).
+     * @param delayDurationMs Delay duration that, when added to the entry save timestamp, will produce the activation timestamp
+     *     (milliseconds).
      * @param entries A list of changes.
      */
     public VersionedUpdate(int version, long delayDurationMs, List<UpdateEntry> entries) {
