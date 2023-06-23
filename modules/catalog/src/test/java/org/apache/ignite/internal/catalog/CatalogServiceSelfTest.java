@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -1571,6 +1572,28 @@ public class CatalogServiceSelfTest {
         assertThat(service.dropColumn(dropColumnParams), willThrow(ColumnNotFoundException.class));
 
         verifyNoMoreInteractions(eventListener);
+    }
+
+    @Test
+    void testGetCatalogEntityInCatalogEvent() {
+        CompletableFuture<Void> result = new CompletableFuture<>();
+
+        service.listen(CatalogEvent.TABLE_CREATE, (parameters, exception) -> {
+            try {
+                assertNotNull(service.schema((int) parameters.causalityToken()));
+
+                result.complete(null);
+
+                return completedFuture(true);
+            } catch (Throwable t) {
+                result.completeExceptionally(t);
+
+                return failedFuture(t);
+            }
+        });
+
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+        assertThat(result, willCompleteSuccessfully());
     }
 
     private CompletableFuture<Void> changeColumn(

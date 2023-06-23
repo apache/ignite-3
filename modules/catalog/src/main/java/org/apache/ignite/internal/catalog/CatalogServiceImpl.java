@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Predicate;
@@ -56,24 +55,15 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
-import org.apache.ignite.internal.catalog.events.AlterColumnEventParameters;
-import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
-import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
-import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
-import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
-import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
-import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
-import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.catalog.storage.AlterColumnEntry;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.DropColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
+import org.apache.ignite.internal.catalog.storage.Fireable;
 import org.apache.ignite.internal.catalog.storage.NewColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
@@ -87,8 +77,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.Producer;
-import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
@@ -605,253 +593,30 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         @Override
         public void handle(VersionedUpdate update) {
             int version = update.version();
-            long activationTimestamp = update.activationTimestamp();
             Catalog catalog = catalogByVer.get(version - 1);
 
-            assert catalog != null;
+            assert catalog != null : version - 1;
+
+            for (UpdateEntry entry : update.entries()) {
+                catalog = entry.applyUpdate(catalog);
+            }
+
+            catalog = applyUpdateFinal(catalog, update);
+
+            registerCatalog(catalog);
 
             List<CompletableFuture<?>> eventFutures = new ArrayList<>(update.entries().size());
 
             for (UpdateEntry entry : update.entries()) {
-                String schemaName = CatalogService.DEFAULT_SCHEMA_NAME;
-                CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
-
-                if (entry instanceof NewTableEntry) {
-                    catalog = new Catalog(
-                            version,
-                            activationTimestamp,
-                            catalog.objectIdGenState(),
-                            catalog.zones(),
-                            List.of(new CatalogSchemaDescriptor(
-                                    schema.id(),
-                                    schema.name(),
-                                    ArrayUtils.concat(schema.tables(), ((NewTableEntry) entry).descriptor()),
-                                    schema.indexes()
-                            ))
-                    );
+                if (entry instanceof Fireable) {
+                    Fireable fireEvent = (Fireable) entry;
 
                     eventFutures.add(fireEvent(
-                            CatalogEvent.TABLE_CREATE,
-                            new CreateTableEventParameters(version, ((NewTableEntry) entry).descriptor())
+                            fireEvent.eventType(),
+                            fireEvent.createEventParameters(version)
                     ));
-
-                } else if (entry instanceof DropTableEntry) {
-                    int tableId = ((DropTableEntry) entry).tableId();
-
-                    catalog = new Catalog(
-                            version,
-                            activationTimestamp,
-                            catalog.objectIdGenState(),
-                            catalog.zones(),
-                            List.of(new CatalogSchemaDescriptor(
-                                    schema.id(),
-                                    schema.name(),
-                                    Arrays.stream(schema.tables()).filter(t -> t.id() != tableId).toArray(CatalogTableDescriptor[]::new),
-                                    schema.indexes()
-                            ))
-                    );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.TABLE_DROP,
-                            new DropTableEventParameters(version, tableId)
-                    ));
-                } else if (entry instanceof NewColumnsEntry) {
-                    int tableId = ((NewColumnsEntry) entry).tableId();
-                    List<CatalogTableColumnDescriptor> columnDescriptors = ((NewColumnsEntry) entry).descriptors();
-
-                    catalog = new Catalog(
-                            version,
-                            activationTimestamp,
-                            catalog.objectIdGenState(),
-                            catalog.zones(),
-                            List.of(new CatalogSchemaDescriptor(
-                                    schema.id(),
-                                    schema.name(),
-                                    Arrays.stream(schema.tables())
-                                            .map(table -> table.id() != tableId
-                                                    ? table
-                                                    : new CatalogTableDescriptor(
-                                                            table.id(),
-                                                            table.name(),
-                                                            table.zoneId(),
-                                                            CollectionUtils.concat(table.columns(), columnDescriptors),
-                                                            table.primaryKeyColumns(),
-                                                            table.colocationColumns())
-                                            )
-                                            .toArray(CatalogTableDescriptor[]::new),
-                                    schema.indexes()
-                            ))
-                    );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.TABLE_ALTER,
-                            new AddColumnEventParameters(version, tableId, columnDescriptors)
-                    ));
-                } else if (entry instanceof DropColumnsEntry) {
-                    int tableId = ((DropColumnsEntry) entry).tableId();
-                    Set<String> columns = ((DropColumnsEntry) entry).columns();
-
-                    catalog = new Catalog(
-                            version,
-                            activationTimestamp,
-                            catalog.objectIdGenState(),
-                            catalog.zones(),
-                            List.of(new CatalogSchemaDescriptor(
-                                    schema.id(),
-                                    schema.name(),
-                                    Arrays.stream(schema.tables())
-                                            .map(table -> table.id() != tableId
-                                                    ? table
-                                                    : new CatalogTableDescriptor(
-                                                            table.id(),
-                                                            table.name(),
-                                                            table.zoneId(),
-                                                            table.columns().stream()
-                                                                    .filter(col -> !columns.contains(col.name()))
-                                                                    .collect(toList()),
-                                                            table.primaryKeyColumns(),
-                                                            table.colocationColumns())
-                                            )
-                                            .toArray(CatalogTableDescriptor[]::new),
-                                    schema.indexes()
-                            ))
-                    );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.TABLE_ALTER,
-                            new DropColumnEventParameters(version, tableId, columns)
-                    ));
-                } else if (entry instanceof NewIndexEntry) {
-                    catalog = new Catalog(
-                            version,
-                            activationTimestamp,
-                            catalog.objectIdGenState(),
-                            catalog.zones(),
-                            List.of(new CatalogSchemaDescriptor(
-                                    schema.id(),
-                                    schema.name(),
-                                    schema.tables(),
-                                    ArrayUtils.concat(schema.indexes(), ((NewIndexEntry) entry).descriptor())
-                            ))
-                    );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.INDEX_CREATE,
-                            new CreateIndexEventParameters(version, ((NewIndexEntry) entry).descriptor())
-                    ));
-                } else if (entry instanceof DropIndexEntry) {
-                    int indexId = ((DropIndexEntry) entry).indexId();
-
-                    catalog = new Catalog(
-                            version,
-                            activationTimestamp,
-                            catalog.objectIdGenState(),
-                            catalog.zones(),
-                            List.of(new CatalogSchemaDescriptor(
-                                    schema.id(),
-                                    schema.name(),
-                                    schema.tables(),
-                                    Arrays.stream(schema.indexes()).filter(t -> t.id() != indexId).toArray(CatalogIndexDescriptor[]::new)
-                            ))
-                    );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.INDEX_DROP,
-                            new DropIndexEventParameters(version, indexId)
-                    ));
-                } else if (entry instanceof NewZoneEntry) {
-                    catalog = new Catalog(
-                            version,
-                            activationTimestamp,
-                            catalog.objectIdGenState(),
-                            CollectionUtils.concat(catalog.zones(), List.of(((NewZoneEntry) entry).descriptor())),
-                            catalog.schemas()
-                    );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.ZONE_CREATE,
-                            new CreateZoneEventParameters(version, ((NewZoneEntry) entry).descriptor())
-                    ));
-                } else if (entry instanceof DropZoneEntry) {
-                    int zoneId = ((DropZoneEntry) entry).zoneId();
-
-                    catalog = new Catalog(
-                            version,
-                            activationTimestamp,
-                            catalog.objectIdGenState(),
-                            catalog.zones().stream().filter(z -> z.id() != zoneId).collect(toList()),
-                            catalog.schemas()
-                    );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.ZONE_DROP,
-                            new DropZoneEventParameters(version, zoneId)
-                    ));
-                } else if (entry instanceof AlterZoneEntry) {
-                    CatalogZoneDescriptor descriptor = ((AlterZoneEntry) entry).descriptor();
-
-                    catalog = new Catalog(
-                            version,
-                            activationTimestamp,
-                            catalog.objectIdGenState(),
-                            catalog.zones().stream()
-                                    .map(z -> z.id() == descriptor.id() ? descriptor : z)
-                                    .collect(toList()),
-                            catalog.schemas()
-                    );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.ZONE_ALTER,
-                            new AlterZoneEventParameters(version, descriptor)
-                    ));
-                } else if (entry instanceof ObjectIdGenUpdateEntry) {
-                    catalog = new Catalog(
-                            version,
-                            activationTimestamp,
-                            catalog.objectIdGenState() + ((ObjectIdGenUpdateEntry) entry).delta(),
-                            catalog.zones(),
-                            catalog.schemas()
-                    );
-                } else if (entry instanceof AlterColumnEntry) {
-                    int tableId = ((AlterColumnEntry) entry).tableId();
-                    CatalogTableColumnDescriptor target = ((AlterColumnEntry) entry).descriptor();
-
-                    catalog = new Catalog(
-                            version,
-                            activationTimestamp,
-                            catalog.objectIdGenState(),
-                            catalog.zones(),
-                            List.of(new CatalogSchemaDescriptor(
-                                    schema.id(),
-                                    schema.name(),
-                                    Arrays.stream(schema.tables())
-                                            .map(table -> table.id() != tableId
-                                                    ? table
-                                                    : new CatalogTableDescriptor(
-                                                            table.id(),
-                                                            table.name(),
-                                                            table.zoneId(),
-                                                            table.columns().stream()
-                                                                    .map(source -> source.name().equals(target.name()) ? target : source)
-                                                                    .collect(toList()),
-                                                            table.primaryKeyColumns(),
-                                                            table.colocationColumns())
-                                            )
-                                            .toArray(CatalogTableDescriptor[]::new),
-                                    schema.indexes()
-                            ))
-                    );
-
-                    eventFutures.add(fireEvent(
-                            CatalogEvent.TABLE_ALTER,
-                            new AlterColumnEventParameters(version, tableId, target)
-                    ));
-                } else {
-                    assert false : entry;
                 }
             }
-
-            registerCatalog(catalog);
 
             CompletableFuture.allOf(eventFutures.toArray(CompletableFuture[]::new))
                     .whenComplete((ignore, err) -> {
@@ -879,6 +644,16 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     @FunctionalInterface
     interface UpdateProducer {
         List<UpdateEntry> get(Catalog catalog);
+    }
+
+    private Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update) {
+        return new Catalog(
+                update.version(),
+                update.activationTimestamp(),
+                catalog.objectIdGenState(),
+                catalog.zones(),
+                catalog.schemas()
+        );
     }
 
     private static CatalogSchemaDescriptor getSchema(Catalog catalog, @Nullable String schemaName) {
