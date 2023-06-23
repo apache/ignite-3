@@ -17,13 +17,23 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.catalog.CatalogService.PUBLIC;
+
+import java.util.List;
+import java.util.Objects;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
  * Describes addition of a new index.
  */
-public class NewIndexEntry implements UpdateEntry {
+public class NewIndexEntry implements UpdateEntry, Fireable {
     private static final long serialVersionUID = 6717363577013237711L;
 
     private final CatalogIndexDescriptor descriptor;
@@ -42,7 +52,34 @@ public class NewIndexEntry implements UpdateEntry {
         return descriptor;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public CatalogEvent eventType() {
+        return CatalogEvent.INDEX_CREATE;
+    }
+
+    @Override
+    public CatalogEventParameters createEventParameters(long causalityToken) {
+        return new CreateIndexEventParameters(causalityToken, descriptor);
+    }
+
+    @Override
+    public Catalog applyUpdate(Catalog catalog) {
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(PUBLIC));
+
+        return new Catalog(
+                catalog.version(),
+                catalog.time(),
+                catalog.objectIdGenState(),
+                catalog.zones(),
+                List.of(new CatalogSchemaDescriptor(
+                        schema.id(),
+                        schema.name(),
+                        schema.tables(),
+                        ArrayUtils.concat(schema.indexes(), descriptor)
+                ))
+        );
+    }
+
     @Override
     public String toString() {
         return S.toString(this);
