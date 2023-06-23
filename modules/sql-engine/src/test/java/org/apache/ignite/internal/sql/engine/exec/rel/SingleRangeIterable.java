@@ -25,10 +25,10 @@ import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 /**
  * Implementation of {@link RangeIterable} that contains single bounds.
  */
-final class SingleRangeIterable implements RangeIterable<Object[]> {
-    private final Object[] lower;
+final class SingleRangeIterable<T> implements RangeIterable<T> {
+    private final T lower;
 
-    private final Object[] upper;
+    private final T upper;
 
     private final boolean lowerInclusive;
 
@@ -37,7 +37,7 @@ final class SingleRangeIterable implements RangeIterable<Object[]> {
     /**
      * Constructor.
      */
-    SingleRangeIterable(Object[] lower, Object[] upper, boolean lowerInclusive, boolean upperInclusive) {
+    SingleRangeIterable(T lower, T upper, boolean lowerInclusive, boolean upperInclusive) {
         this.lower = lower;
         this.upper = upper;
         this.lowerInclusive = lowerInclusive;
@@ -52,15 +52,15 @@ final class SingleRangeIterable implements RangeIterable<Object[]> {
 
     /** {@inheritDoc} */
     @Override
-    public Iterator<RangeCondition<Object[]>> iterator() {
-        RangeCondition<Object[]> range = new RangeCondition<Object[]>() {
+    public Iterator<RangeCondition<T>> iterator() {
+        RangeCondition<T> range = new RangeCondition<T>() {
             @Override
-            public Object[] lower() {
+            public T lower() {
                 return lower;
             }
 
             @Override
-            public Object[] upper() {
+            public T upper() {
                 return upper;
             }
 

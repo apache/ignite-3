@@ -180,6 +180,7 @@ public class ExpressionFactoryImplTest {
     static final class TestRange {
 
         final Object[] lower;
+
         final Object[] upper;
 
         TestRange(Object[] lower) {

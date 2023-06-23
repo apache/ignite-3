@@ -902,9 +902,11 @@ public class ScannableTableSelfTest {
     static final class TestRangeCondition<T> {
 
         private Bound lowerBoundType;
+
         private T lowerValue;
 
         private Bound upperBoundType;
+
         private T upperValue;
 
         void setLower(Bound bound, T value) {
@@ -932,7 +934,7 @@ public class ScannableTableSelfTest {
             if (lowerValue == null && upperValue == null) {
                 return null;
             } else {
-                return new RangeCondition<T>() {
+                return new RangeCondition<>() {
                     @Override
                     public T lower() {
                         return lowerValue;

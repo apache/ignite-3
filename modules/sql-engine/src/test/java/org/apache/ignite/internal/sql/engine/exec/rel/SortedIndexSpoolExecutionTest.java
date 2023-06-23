@@ -126,7 +126,7 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
                     RelCollations.of(ImmutableIntList.of(0)),
                     (o1, o2) -> o1[0] != null ? ((Comparable) o1[0]).compareTo(o2[0]) : 0,
                     testFilter,
-                    new SingleRangeIterable(lower, upper, true, true)
+                    new SingleRangeIterable<>(lower, upper, true, true)
             );
 
             spool.register(singletonList(scan));
@@ -171,7 +171,7 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
                 collation,
                 ctx.expressionFactory().comparator(collation),
                 v -> true,
-                new SingleRangeIterable(lower, upper, true, true)
+                new SingleRangeIterable<>(lower, upper, true, true)
         );
 
         spool.register(scan);

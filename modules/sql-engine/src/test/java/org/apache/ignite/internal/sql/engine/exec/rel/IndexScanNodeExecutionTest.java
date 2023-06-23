@@ -179,7 +179,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         IgniteIndex schemaIndex = new IgniteIndex(index);
         RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
-        SingleRangeIterable conditions = new SingleRangeIterable(new Object[]{}, null, false, false);
+        SingleRangeIterable<Object[]> conditions = new SingleRangeIterable<>(new Object[]{}, null, false, false);
         List<PartitionWithTerm> partitions = scannableTable.getPartitions();
 
         return new IndexScanNode<>(ctx, rowFactory, schemaIndex, scannableTable, tableDescriptor, partitions,
