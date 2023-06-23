@@ -374,11 +374,12 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        public async Task TestGetAllNonExistentKeysReturnsEmptyList()
+        public async Task TestGetAllNonExistentKeysReturnsListWithNoValue()
         {
             var res = await TupleView.GetAllAsync(null, new[] { GetTuple(-100) });
 
-            Assert.AreEqual(0, res.Count);
+            Assert.AreEqual(1, res.Count);
+            Assert.IsFalse(res[0].HasValue);
         }
 
         [Test]
