@@ -90,7 +90,15 @@ public class ClockWaiter implements IgniteComponent {
     }
 
     private void onUpdate(long newTs) {
-        nowTracker.update(newTs, null);
+        if (!busyLock.enterBusy()) {
+            return;
+        }
+
+        try {
+            nowTracker.update(newTs, null);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**
