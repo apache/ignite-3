@@ -59,10 +59,10 @@ public class NewZoneEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, VersionedUpdate update) {
+    public Catalog applyUpdate(Catalog catalog) {
         return new Catalog(
-                update.version(),
-                update.activationTimestamp(),
+                catalog.version(),
+                catalog.time(),
                 catalog.objectIdGenState(),
                 CollectionUtils.concat(catalog.zones(), List.of(descriptor)),
                 catalog.schemas()

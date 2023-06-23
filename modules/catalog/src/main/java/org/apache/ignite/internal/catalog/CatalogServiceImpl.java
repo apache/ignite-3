@@ -806,8 +806,10 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             assert catalog != null : version - 1;
 
             for (UpdateEntry entry : update.entries()) {
-                catalog = entry.applyUpdate(catalog, update);
+                catalog = entry.applyUpdate(catalog);
             }
+
+            catalog = applyUpdateFinal(catalog, update);
 
             registerCatalog(catalog);
 
@@ -850,5 +852,15 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     @FunctionalInterface
     interface UpdateProducer {
         List<UpdateEntry> get(Catalog catalog);
+    }
+
+    private Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update) {
+        return new Catalog(
+                update.version(),
+                update.activationTimestamp(),
+                catalog.objectIdGenState(),
+                catalog.zones(),
+                catalog.schemas()
+        );
     }
 }

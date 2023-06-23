@@ -187,7 +187,7 @@ class UpdateLogImplTest {
         }
 
         @Override
-        public Catalog applyUpdate(Catalog catalog, VersionedUpdate update) {
+        public Catalog applyUpdate(Catalog catalog) {
             return catalog;
         }
 

@@ -63,12 +63,12 @@ public class NewTableEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, VersionedUpdate update) {
+    public Catalog applyUpdate(Catalog catalog) {
         CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(PUBLIC));
 
         return new Catalog(
-                update.version(),
-                update.activationTimestamp(),
+                catalog.version(),
+                catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
                 List.of(new CatalogSchemaDescriptor(

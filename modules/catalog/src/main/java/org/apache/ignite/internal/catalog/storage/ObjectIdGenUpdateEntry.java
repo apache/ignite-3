@@ -43,10 +43,10 @@ public class ObjectIdGenUpdateEntry implements UpdateEntry {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, VersionedUpdate update) {
+    public Catalog applyUpdate(Catalog catalog) {
         return new Catalog(
-                update.version(),
-                update.activationTimestamp(),
+                catalog.version(),
+                catalog.time(),
                 catalog.objectIdGenState() + delta,
                 catalog.zones(),
                 catalog.schemas()
