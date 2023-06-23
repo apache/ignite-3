@@ -27,6 +27,12 @@ public abstract class AbstractIndexCommandParams implements DdlCommandParams {
     /** Schema name where this new index will be created. */
     protected String schema;
 
+    /** Table name. */
+    protected String tableName;
+
+    /** Unique index flag. */
+    protected boolean unique;
+
     /**
      * Returns index simple name.
      */
@@ -39,6 +45,20 @@ public abstract class AbstractIndexCommandParams implements DdlCommandParams {
      */
     public String schemaName() {
         return schema;
+    }
+
+    /**
+     * Returns table name.
+     */
+    public String tableName() {
+        return tableName;
+    }
+
+    /**
+     * Returns {@code true} if index is unique, {@code false} otherwise.
+     */
+    public boolean isUnique() {
+        return unique;
     }
 
     /**
@@ -70,6 +90,27 @@ public abstract class AbstractIndexCommandParams implements DdlCommandParams {
          */
         public BuilderT indexName(String indexName) {
             params.indexName = indexName;
+            return (BuilderT) this;
+        }
+
+        /**
+         * Set table name.
+         *
+         * @param tableName Table name.
+         * @return {@code this}.
+         */
+        public BuilderT tableName(String tableName) {
+            params.tableName = tableName;
+
+            return (BuilderT) this;
+        }
+
+        /**
+         * Sets unique flag.
+         */
+        public BuilderT unique() {
+            params.unique = true;
+
             return (BuilderT) this;
         }
 

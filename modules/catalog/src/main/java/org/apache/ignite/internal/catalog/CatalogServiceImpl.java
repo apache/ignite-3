@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CreateZoneParams.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
@@ -35,7 +36,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
@@ -50,6 +50,7 @@ import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -99,7 +100,6 @@ import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -150,7 +150,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         this.delayDurationMs = delayDurationMs;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() {
         int objectIdGen = 0;
@@ -158,13 +157,14 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
         CatalogSchemaDescriptor schemaPublic = new CatalogSchemaDescriptor(
                 objectIdGen++,
-                "PUBLIC",
+                PUBLIC,
                 new CatalogTableDescriptor[0],
                 new CatalogIndexDescriptor[0]
         );
+
         CatalogZoneDescriptor defaultZone = new CatalogZoneDescriptor(
                 objectIdGen++,
-                CatalogService.DEFAULT_ZONE_NAME,
+                DEFAULT_ZONE_NAME,
                 25,
                 1,
                 INFINITE_TIMER_VALUE,
@@ -172,6 +172,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 INFINITE_TIMER_VALUE,
                 CreateZoneParams.DEFAULT_FILTER
         );
+
         registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), List.of(schemaPublic)));
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
@@ -179,37 +180,31 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         updateLog.start();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
         updateLog.stop();
     }
 
-    /** {@inheritDoc} */
     @Override
     public CatalogTableDescriptor table(String tableName, long timestamp) {
-        return catalogAt(timestamp).schema(CatalogService.PUBLIC).table(tableName);
+        return catalogAt(timestamp).schema(PUBLIC).table(tableName);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CatalogTableDescriptor table(int tableId, long timestamp) {
         return catalogAt(timestamp).table(tableId);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CatalogIndexDescriptor index(String indexName, long timestamp) {
-        return catalogAt(timestamp).schema(CatalogService.PUBLIC).index(indexName);
+        return catalogAt(timestamp).schema(PUBLIC).index(indexName);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CatalogIndexDescriptor index(int indexId, long timestamp) {
         return catalogAt(timestamp).index(indexId);
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable CatalogSchemaDescriptor schema(int version) {
         Catalog catalog = catalog(version);
@@ -218,10 +213,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             return null;
         }
 
-        return catalog.schema(CatalogService.PUBLIC);
+        return catalog.schema(PUBLIC);
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable CatalogSchemaDescriptor schema(String schemaName, int version) {
         Catalog catalog = catalog(version);
@@ -230,34 +224,29 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             return null;
         }
 
-        return catalog.schema(schemaName == null ? CatalogService.PUBLIC : schemaName);
+        return catalog.schema(schemaName == null ? PUBLIC : schemaName);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CatalogZoneDescriptor zone(String zoneName, long timestamp) {
         return catalogAt(timestamp).zone(zoneName);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CatalogZoneDescriptor zone(int zoneId, long timestamp) {
         return catalogAt(timestamp).zone(zoneId);
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable CatalogSchemaDescriptor activeSchema(long timestamp) {
-        return catalogAt(timestamp).schema(CatalogService.PUBLIC);
+        return catalogAt(timestamp).schema(PUBLIC);
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable CatalogSchemaDescriptor activeSchema(String schemaName, long timestamp) {
-        return catalogAt(timestamp).schema(schemaName == null ? CatalogService.PUBLIC : schemaName);
+        return catalogAt(timestamp).schema(schemaName == null ? PUBLIC : schemaName);
     }
 
-    /** {@inheritDoc} */
     @Override
     public int activeCatalogVersion(long timestamp) {
         return catalogAt(timestamp).version();
@@ -277,29 +266,18 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         return entry.getValue();
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> createTable(CreateTableParams params) {
         return saveUpdate(catalog -> {
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
-
-            CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             if (schema.table(params.tableName()) != null) {
-                throw new TableAlreadyExistsException(schemaName, params.tableName());
+                throw new TableAlreadyExistsException(schema.name(), params.tableName());
             }
 
-            params.columns().stream().map(ColumnParams::name).filter(Predicate.not(new HashSet<>()::add))
-                    .findAny().ifPresent(columnName -> {
-                        throw new IgniteInternalException(
-                                ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR, "Can't create table with duplicate columns: "
-                                + params.columns().stream().map(ColumnParams::name).collect(Collectors.joining(", "))
-                        );
-                    });
+            validateParams(params);
 
-            String zoneName = Objects.requireNonNullElse(params.zone(), CatalogService.DEFAULT_ZONE_NAME);
-
-            CatalogZoneDescriptor zone = Objects.requireNonNull(catalog.zone(zoneName), "No zone found: " + zoneName);
+            CatalogZoneDescriptor zone = getZone(catalog, Objects.requireNonNullElse(params.zone(), DEFAULT_ZONE_NAME));
 
             CatalogTableDescriptor table = CatalogUtils.fromParams(catalog.objectIdGenState(), zone.id(), params);
 
@@ -310,19 +288,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> dropTable(DropTableParams params) {
         return saveUpdate(catalog -> {
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
-            CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
-
-            CatalogTableDescriptor table = schema.table(params.tableName());
-
-            if (table == null) {
-                throw new TableNotFoundException(schemaName, params.tableName());
-            }
+            CatalogTableDescriptor table = getTable(schema, params.tableName());
 
             List<UpdateEntry> updateEntries = new ArrayList<>();
 
@@ -336,7 +307,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> addColumn(AlterTableAddColumnParams params) {
         if (params.columns().isEmpty()) {
@@ -344,15 +314,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         }
 
         return saveUpdate(catalog -> {
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
-            CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
-
-            CatalogTableDescriptor table = schema.table(params.tableName());
-
-            if (table == null) {
-                throw new TableNotFoundException(schemaName, params.tableName());
-            }
+            CatalogTableDescriptor table = getTable(schema, params.tableName());
 
             List<CatalogTableColumnDescriptor> columnDescriptors = new ArrayList<>();
 
@@ -370,7 +334,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> dropColumn(AlterTableDropColumnParams params) {
         if (params.columns().isEmpty()) {
@@ -378,39 +341,11 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         }
 
         return saveUpdate(catalog -> {
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
-            CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+            CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            CatalogTableDescriptor table = schema.table(params.tableName());
-
-            if (table == null) {
-                throw new TableNotFoundException(schemaName, params.tableName());
-            }
-
-            for (String columnName : params.columns()) {
-                if (table.column(columnName) == null) {
-                    throw new ColumnNotFoundException(columnName);
-                }
-                if (table.isPrimaryKeyColumn(columnName)) {
-                    throw new SqlException(
-                            Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR,
-                            "Can't drop primary key column: column=" + columnName
-                    );
-                }
-            }
-
-            Arrays.stream(schema.indexes())
-                    .filter(index -> index.tableId() == table.id())
-                    .forEach(index -> params.columns().stream()
-                            .filter(index::hasColumn)
-                            .findAny()
-                            .ifPresent(columnName -> {
-                                throw new SqlException(
-                                        Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR,
-                                        "Can't drop indexed column: columnName=" + columnName + ", indexName=" + index.name()
-                                );
-                            }));
+            validateParams(params, schema, table);
 
             return List.of(
                     new DropColumnsEntry(table.id(), params.columns())
@@ -418,36 +353,16 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> alterColumn(AlterColumnParams params) {
         return saveUpdate(catalog -> {
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
-            CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+            CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            CatalogTableDescriptor table = schema.table(params.tableName());
+            CatalogTableColumnDescriptor origin = findTableColumn(table, params.columnName());
 
-            if (table == null) {
-                throw new TableNotFoundException(schemaName, params.tableName());
-            }
-
-            String columnName = params.columnName();
-
-            CatalogTableColumnDescriptor origin = table.columns().stream()
-                    .filter(desc -> desc.name().equals(columnName))
-                    .findFirst()
-                    .orElseThrow(() -> new ColumnNotFoundException(columnName));
-
-            CatalogTableColumnDescriptor target = new CatalogTableColumnDescriptor(
-                    origin.name(),
-                    Objects.requireNonNullElse(params.type(), origin.type()),
-                    !Objects.requireNonNullElse(params.notNull(), !origin.nullable()),
-                    Objects.requireNonNullElse(params.precision(), origin.precision()),
-                    Objects.requireNonNullElse(params.scale(), origin.scale()),
-                    Objects.requireNonNullElse(params.length(), origin.length()),
-                    Objects.requireNonNullElse(params.defaultValue(origin.type()), origin.defaultValue())
-            );
+            CatalogTableColumnDescriptor target = createNewTableColumn(params, origin);
 
             if (origin.equals(target)) {
                 // No modifications required.
@@ -456,88 +371,28 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             boolean isPkColumn = table.isPrimaryKeyColumn(origin.name());
 
-            if (origin.nullable() != target.nullable()) {
-                if (isPkColumn) {
-                    throwUnsupportedDdl("Cannot change NOT NULL for the primary key column '{}'.", origin.name());
-                }
+            validateAlterTableColumn(origin, target, isPkColumn);
 
-                if (origin.nullable()) {
-                    throwUnsupportedDdl("Cannot set NOT NULL for column '{}'.", origin.name());
-                }
-            }
-
-            if (origin.scale() != target.scale()) {
-                throwUnsupportedDdl("Cannot change scale for column '{}'.", origin.name());
-            }
-
-            if (origin.type() != target.type()) {
-                if (isPkColumn) {
-                    throwUnsupportedDdl("Cannot change data type for primary key column '{}'.", origin.name());
-                }
-
-                if (!CatalogUtils.isSupportedColumnTypeChange(origin.type(), target.type())) {
-                    throwUnsupportedDdl("Cannot change data type for column '{}' [from={}, to={}].",
-                            origin.name(), origin.type(), target.type());
-                }
-            }
-
-            if (origin.length() != target.length() && target.type() != ColumnType.STRING && target.type() != ColumnType.BYTE_ARRAY) {
-                throwUnsupportedDdl("Cannot change length for column '{}'.", origin.name());
-            } else if (target.length() < origin.length()) {
-                throwUnsupportedDdl("Cannot decrease length to {} for column '{}'.", target.length(), origin.name());
-            }
-
-            if (origin.precision() != target.precision() && target.type() != ColumnType.DECIMAL) {
-                throwUnsupportedDdl("Cannot change precision for column '{}'.", origin.name());
-            } else if (target.precision() < origin.precision()) {
-                throwUnsupportedDdl("Cannot decrease precision to {} for column '{}'.", params.precision(), origin.name());
-            }
-
-            return List.of(new AlterColumnEntry(table.id(), target));
+            return List.of(
+                    new AlterColumnEntry(table.id(), target)
+            );
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> createIndex(CreateHashIndexParams params) {
         return saveUpdate(catalog -> {
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
-
-            CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             if (schema.index(params.indexName()) != null) {
-                throw new IndexAlreadyExistsException(schemaName, params.indexName());
+                throw new IndexAlreadyExistsException(schema.name(), params.indexName());
             }
 
-            CatalogTableDescriptor table = schema.table(params.tableName());
+            CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            if (table == null) {
-                throw new TableNotFoundException(schemaName, params.tableName());
-            }
+            validateParams(params, table);
 
-            if (params.columns().isEmpty()) {
-                throw new IgniteInternalException(
-                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                        "No index columns was specified."
-                );
-            }
-
-            Predicate<String> duplicateValidator = Predicate.not(new HashSet<>()::add);
-
-            for (String columnName : params.columns()) {
-                CatalogTableColumnDescriptor columnDescriptor = table.columnDescriptor(columnName);
-
-                if (columnDescriptor == null) {
-                    throw new ColumnNotFoundException(columnName);
-                } else if (duplicateValidator.test(columnName)) {
-                    throw new IgniteInternalException(
-                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                            "Can't create index on duplicate columns: " + String.join(", ", params.columns())
-                    );
-                }
-            }
-
-            CatalogIndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
+            CatalogHashIndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
 
             return List.of(
                     new NewIndexEntry(index),
@@ -546,50 +401,18 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> createIndex(CreateSortedIndexParams params) {
         return saveUpdate(catalog -> {
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
-
-            CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             if (schema.index(params.indexName()) != null) {
-                throw new IndexAlreadyExistsException(schemaName, params.indexName());
+                throw new IndexAlreadyExistsException(schema.name(), params.indexName());
             }
 
-            CatalogTableDescriptor table = schema.table(params.tableName());
+            CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            if (table == null) {
-                throw new TableNotFoundException(schemaName, params.tableName());
-            }
-
-            if (params.columns().isEmpty()) {
-                throw new IgniteInternalException(
-                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                        "No index columns was specified."
-                );
-            } else if (params.collations().size() != params.columns().size()) {
-                throw new IgniteInternalException(
-                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                        "Columns collations doesn't match number of columns."
-                );
-            }
-
-            Predicate<String> duplicateValidator = Predicate.not(new HashSet<>()::add);
-
-            for (String columnName : params.columns()) {
-                CatalogTableColumnDescriptor columnDescriptor = table.columnDescriptor(columnName);
-
-                if (columnDescriptor == null) {
-                    throw new ColumnNotFoundException(columnName);
-                } else if (duplicateValidator.test(columnName)) {
-                    throw new IgniteInternalException(
-                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                            "Can't create index on duplicate columns: " + String.join(", ", params.columns())
-                    );
-                }
-            }
+            validateParams(params, table);
 
             CatalogIndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
 
@@ -600,18 +423,15 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> dropIndex(DropIndexParams params) {
         return saveUpdate(catalog -> {
-            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
-
-            CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             CatalogIndexDescriptor index = schema.index(params.indexName());
 
             if (index == null) {
-                throw new IndexNotFoundException(schemaName, params.indexName());
+                throw new IndexNotFoundException(schema.name(), params.indexName());
             }
 
             return List.of(
@@ -620,22 +440,11 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> createDistributionZone(CreateZoneParams params) {
-        if (params.dataNodesAutoAdjust() != INFINITE_TIMER_VALUE
-                && (params.dataNodesAutoAdjustScaleUp() != INFINITE_TIMER_VALUE
-                || params.dataNodesAutoAdjustScaleDown() != INFINITE_TIMER_VALUE)
-        ) {
-            return failedFuture(new IgniteInternalException(
-                    DistributionZones.ZONE_DEFINITION_ERR,
-                    "Not compatible parameters [dataNodesAutoAdjust=" + params.dataNodesAutoAdjust()
-                            + ", dataNodesAutoAdjustScaleUp=" + params.dataNodesAutoAdjustScaleUp()
-                            + ", dataNodesAutoAdjustScaleDown=" + params.dataNodesAutoAdjustScaleDown() + ']'
-            ));
-        }
-
         return saveUpdate(catalog -> {
+            validateParams(params);
+
             String zoneName = Objects.requireNonNull(params.zoneName(), "zone");
 
             if (catalog.zone(params.zoneName()) != null) {
@@ -651,19 +460,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> dropDistributionZone(DropZoneParams params) {
         return saveUpdate(catalog -> {
-            String zoneName = Objects.requireNonNull(params.zoneName(), "zone");
+            CatalogZoneDescriptor zone = getZone(catalog, params.zoneName());
 
-            CatalogZoneDescriptor zone = catalog.zone(zoneName);
-
-            if (zone == null) {
-                throw new DistributionZoneNotFoundException(zoneName);
-            }
-            if (zone.name().equals(CatalogService.DEFAULT_ZONE_NAME)) {
-                //TODO IGNITE-19082 Can default zone be dropped?
+            if (zone.name().equals(DEFAULT_ZONE_NAME)) {
                 throw new IgniteInternalException(
                         DistributionZones.ZONE_DROP_ERR,
                         "Default distribution zone can't be dropped"
@@ -675,7 +477,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                     .filter(t -> t.zoneId() == zone.id())
                     .findAny()
                     .ifPresent(t -> {
-                        throw new DistributionZoneBindTableException(zoneName, t.name());
+                        throw new DistributionZoneBindTableException(zone.name(), t.name());
                     });
 
             return List.of(
@@ -684,22 +486,16 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> renameDistributionZone(RenameZoneParams params) {
         return saveUpdate(catalog -> {
-            String zoneName = Objects.requireNonNull(params.newZoneName(), "newZoneName");
+            CatalogZoneDescriptor zone = getZone(catalog, params.zoneName());
 
-            CatalogZoneDescriptor zone = catalog.zone(params.zoneName());
-
-            if (zone == null) {
-                throw new DistributionZoneNotFoundException(zoneName);
-            }
             if (catalog.zone(params.newZoneName()) != null) {
                 throw new DistributionZoneAlreadyExistsException(params.newZoneName());
             }
-            if (zone.name().equals(CatalogService.DEFAULT_ZONE_NAME)) {
-                //TODO IGNITE-19082 Can default zone be renamed?
+
+            if (zone.name().equals(DEFAULT_ZONE_NAME)) {
                 throw new IgniteInternalException(
                         DistributionZones.ZONE_RENAME_ERR,
                         "Default distribution zone can't be renamed"
@@ -724,11 +520,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public CompletableFuture<Void> alterDistributionZone(AlterZoneParams params) {
         return saveUpdate(catalog -> {
-            CatalogZoneDescriptor zone = catalog.zone(params.zoneName());
-
-            if (zone == null) {
-                throw new DistributionZoneNotFoundException(params.zoneName());
-            }
+            CatalogZoneDescriptor zone = getZone(catalog, params.zoneName());
 
             Integer dataNodesAutoAdjust = params.dataNodesAutoAdjust();
             Integer dataNodesAutoAdjustScaleUp = params.dataNodesAutoAdjustScaleUp();
@@ -742,9 +534,8 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 if (dataNodesAutoAdjust != null && (dataNodesAutoAdjustScaleUp != null || dataNodesAutoAdjustScaleDown != null)) {
                     throw new IgniteInternalException(
                             DistributionZones.ZONE_DEFINITION_ERR,
-                            "Not compatible parameters [dataNodesAutoAdjust=" + params.dataNodesAutoAdjust()
-                                    + ", dataNodesAutoAdjustScaleUp=" + params.dataNodesAutoAdjustScaleUp()
-                                    + ", dataNodesAutoAdjustScaleDown=" + params.dataNodesAutoAdjustScaleDown() + ']'
+                            "Not compatible dataNodes parameters [autoAdjust={}, autoAdjustScaleUp={}, autoAdjustScaleDown={}]",
+                            params.dataNodesAutoAdjust(), params.dataNodesAutoAdjustScaleUp(), params.dataNodesAutoAdjustScaleDown()
                     );
                 }
 
@@ -1082,11 +873,204 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     private static void throwUnsupportedDdl(String msg, Object... params) {
-        throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, IgniteStringFormatter.format(msg, params));
+        throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, msg, params);
     }
 
     @FunctionalInterface
     interface UpdateProducer {
         List<UpdateEntry> get(Catalog catalog);
+    }
+
+    private static CatalogSchemaDescriptor getSchema(Catalog catalog, @Nullable String schemaName) {
+        schemaName = Objects.requireNonNullElse(schemaName, PUBLIC);
+
+        return Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+    }
+
+    private static CatalogTableDescriptor getTable(CatalogSchemaDescriptor schema, @Nullable String tableName) {
+        CatalogTableDescriptor table = schema.table(tableName);
+
+        if (table == null) {
+            throw new TableNotFoundException(schema.name(), tableName);
+        }
+
+        return table;
+    }
+
+    private static CatalogZoneDescriptor getZone(Catalog catalog, String zoneName) {
+        zoneName = Objects.requireNonNull(zoneName, "zoneName");
+
+        CatalogZoneDescriptor zone = catalog.zone(zoneName);
+
+        if (zone == null) {
+            throw new DistributionZoneNotFoundException(zoneName);
+        }
+
+        return zone;
+    }
+
+    private static CatalogTableColumnDescriptor findTableColumn(CatalogTableDescriptor table, String columnName) {
+        return table.columns().stream()
+                .filter(desc -> desc.name().equals(columnName))
+                .findFirst()
+                .orElseThrow(() -> new ColumnNotFoundException(columnName));
+    }
+
+    private static CatalogTableColumnDescriptor createNewTableColumn(AlterColumnParams params, CatalogTableColumnDescriptor origin) {
+        return new CatalogTableColumnDescriptor(
+                origin.name(),
+                Objects.requireNonNullElse(params.type(), origin.type()),
+                !Objects.requireNonNullElse(params.notNull(), !origin.nullable()),
+                Objects.requireNonNullElse(params.precision(), origin.precision()),
+                Objects.requireNonNullElse(params.scale(), origin.scale()),
+                Objects.requireNonNullElse(params.length(), origin.length()),
+                Objects.requireNonNullElse(params.defaultValue(origin.type()), origin.defaultValue())
+        );
+    }
+
+    private static void validateParams(CreateTableParams params) {
+        params.columns().stream()
+                .map(ColumnParams::name)
+                .filter(Predicate.not(new HashSet<>()::add))
+                .findAny()
+                .ifPresent(columnName -> {
+                    throw new IgniteInternalException(
+                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                            "Can't create table with duplicate columns: {}",
+                            params.columns().stream().map(ColumnParams::name).collect(joining(", "))
+                    );
+                });
+
+        if (params.primaryKeyColumns().isEmpty()) {
+            throw new IgniteInternalException(
+                    ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                    "Missing primary key columns"
+            );
+        }
+    }
+
+    private static void validateParams(AlterTableDropColumnParams params, CatalogSchemaDescriptor schema, CatalogTableDescriptor table) {
+        for (String columnName : params.columns()) {
+            if (table.column(columnName) == null) {
+                throw new ColumnNotFoundException(columnName);
+            }
+
+            if (table.isPrimaryKeyColumn(columnName)) {
+                throw new SqlException(
+                        Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR,
+                        "Can't drop primary key column: [column={}]",
+                        columnName
+                );
+            }
+        }
+
+        Arrays.stream(schema.indexes())
+                .filter(index -> index.tableId() == table.id())
+                .forEach(index -> params.columns().stream()
+                        .filter(index::hasColumn)
+                        .findAny()
+                        .ifPresent(columnName -> {
+                            throw new SqlException(
+                                    Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR,
+                                    "Can't drop indexed column: [columnName={}, indexName={}]",
+                                    columnName, index.name()
+                            );
+                        }));
+    }
+
+    private static void validateParams(CreateHashIndexParams params, CatalogTableDescriptor table) {
+        validateIndexColumns(params.columns(), table);
+    }
+
+    private static void validateParams(CreateSortedIndexParams params, CatalogTableDescriptor table) {
+        validateIndexColumns(params.columns(), table);
+
+        if (params.collations().size() != params.columns().size()) {
+            throw new IgniteInternalException(
+                    ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                    "Columns collations doesn't match number of columns."
+            );
+        }
+    }
+
+    private static void validateParams(CreateZoneParams params) {
+        if (params.dataNodesAutoAdjust() != INFINITE_TIMER_VALUE
+                && (params.dataNodesAutoAdjustScaleUp() != INFINITE_TIMER_VALUE
+                || params.dataNodesAutoAdjustScaleDown() != INFINITE_TIMER_VALUE)
+        ) {
+            throw new IgniteInternalException(
+                    DistributionZones.ZONE_DEFINITION_ERR,
+                    "Not compatible parameters [dataNodesAutoAdjust={}, dataNodesAutoAdjustScaleUp={}, dataNodesAutoAdjustScaleDown={}]",
+                    params.dataNodesAutoAdjust(), params.dataNodesAutoAdjustScaleUp(), params.dataNodesAutoAdjustScaleDown()
+            );
+        }
+    }
+
+    private static void validateIndexColumns(List<String> indexColumns, CatalogTableDescriptor table) {
+        if (indexColumns.isEmpty()) {
+            throw new IgniteInternalException(
+                    ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                    "No index columns was specified."
+            );
+        }
+
+        Predicate<String> duplicateValidator = Predicate.not(new HashSet<>()::add);
+
+        for (String columnName : indexColumns) {
+            CatalogTableColumnDescriptor columnDescriptor = table.columnDescriptor(columnName);
+
+            if (columnDescriptor == null) {
+                throw new ColumnNotFoundException(columnName);
+            } else if (duplicateValidator.test(columnName)) {
+                throw new IgniteInternalException(
+                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                        "Can't create index on duplicate columns: {}",
+                        String.join(", ", indexColumns)
+                );
+            }
+        }
+    }
+
+    private static void validateAlterTableColumn(
+            CatalogTableColumnDescriptor origin,
+            CatalogTableColumnDescriptor target,
+            boolean isPkColumn
+    ) {
+        if (origin.nullable() != target.nullable()) {
+            if (isPkColumn) {
+                throwUnsupportedDdl("Cannot change NOT NULL for the primary key column '{}'.", origin.name());
+            }
+
+            if (origin.nullable()) {
+                throwUnsupportedDdl("Cannot set NOT NULL for column '{}'.", origin.name());
+            }
+        }
+
+        if (origin.scale() != target.scale()) {
+            throwUnsupportedDdl("Cannot change scale for column '{}'.", origin.name());
+        }
+
+        if (origin.type() != target.type()) {
+            if (isPkColumn) {
+                throwUnsupportedDdl("Cannot change data type for primary key column '{}'.", origin.name());
+            }
+
+            if (!CatalogUtils.isSupportedColumnTypeChange(origin.type(), target.type())) {
+                throwUnsupportedDdl("Cannot change data type for column '{}' [from={}, to={}].",
+                        origin.name(), origin.type(), target.type());
+            }
+        }
+
+        if (origin.length() != target.length() && target.type() != ColumnType.STRING && target.type() != ColumnType.BYTE_ARRAY) {
+            throwUnsupportedDdl("Cannot change length for column '{}'.", origin.name());
+        } else if (target.length() < origin.length()) {
+            throwUnsupportedDdl("Cannot decrease length to {} for column '{}'.", target.length(), origin.name());
+        }
+
+        if (origin.precision() != target.precision() && target.type() != ColumnType.DECIMAL) {
+            throwUnsupportedDdl("Cannot change precision for column '{}'.", origin.name());
+        } else if (target.precision() < origin.precision()) {
+            throwUnsupportedDdl("Cannot decrease precision to {} for column '{}'.", target.precision(), origin.name());
+        }
     }
 }
