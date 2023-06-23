@@ -345,6 +345,8 @@ namespace Apache.Ignite.Tests.Compute
         public async Task TestExecuteColocatedOnUnknownUnitWithLatestVersionThrows()
         {
             // TODO: Why does this hang?
+            // This was hanging due to buggy exception handling in ComputeComponentImpl.processExecuteRequest.
+            // However, the same test is not failing in Java because partition awareness in .NET seems to be broken.
             var keyTuple = new IgniteTuple { [KeyCol] = 1L };
             var deploymentUnits = new DeploymentUnit[] { new("unit-latest") };
             var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, deploymentUnits, NodeNameJob);
