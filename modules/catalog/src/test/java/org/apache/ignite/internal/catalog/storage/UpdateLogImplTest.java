@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -185,6 +186,11 @@ class UpdateLogImplTest {
 
         TestUpdateEntry(String payload) {
             this.payload = payload;
+        }
+
+        @Override
+        public Catalog applyUpdate(Catalog catalog) {
+            return catalog;
         }
 
         @Override

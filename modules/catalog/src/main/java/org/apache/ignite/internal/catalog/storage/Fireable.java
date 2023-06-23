@@ -15,25 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.table;
+package org.apache.ignite.internal.catalog.storage;
 
-import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 
 /**
- * Streamer batch sender.
- *
- * @param <T> Item type.
- * @param <P> Partition type.
+ * Interface for updates that require firing events.
  */
-@FunctionalInterface
-interface StreamerBatchSender<T, P> {
+public interface Fireable {
     /**
-     * Sends batch of items asynchronously.
-     *
-     * @param partition Partition.
-     * @param batch Batch.
-     * @return Future representing pending completion of the operation.
+     * Returns the type of the fired event.
      */
-    CompletableFuture<Void> sendAsync(P partition, Collection<T> batch);
+    CatalogEvent eventType();
+
+    /**
+     * Creates parameters of the fired event.
+     *
+     * @param causalityToken Causality token.
+     */
+    CatalogEventParameters createEventParameters(long causalityToken);
 }

@@ -29,7 +29,7 @@ import org.apache.ignite.client.fakes.FakeSession;
 import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -166,7 +166,7 @@ public class ClientMetricsTest {
         assertEquals(1, metrics().requestsSent());
         assertEquals(0, metrics().requestsRetried());
 
-        assertThrows(IgniteException.class, () -> client.sql().createSession().execute(null, FakeSession.FAILED_SQL));
+        assertThrows(SqlException.class, () -> client.sql().createSession().execute(null, FakeSession.FAILED_SQL));
 
         assertEquals(0, metrics().requestsActive());
         assertEquals(1, metrics().requestsFailed());

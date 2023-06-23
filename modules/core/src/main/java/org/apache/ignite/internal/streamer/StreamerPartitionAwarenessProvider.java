@@ -15,27 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.message;
+package org.apache.ignite.internal.streamer;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Undeploy unit request.
+ * Partition awareness provider for data streamer.
+ *
+ * @param <T> Item type.
+ * @param <P> Partition type.
  */
-@Transferable(DeployUnitMessageTypes.UNDEPLOY_UNIT_REQUEST)
-public interface UndeployUnitRequest extends NetworkMessage {
+public interface StreamerPartitionAwarenessProvider<T, P> {
     /**
-     * Returns id of deployment unit.
+     * Returns partition for item. This partition may or may not map to one or more actual Ignite table partitions.
      *
-     * @return id of deployment unit.
+     * @param item Data item.
+     * @return Partition.
      */
-    String id();
+    P partition(T item);
 
     /**
-     * Returns version of deployment unit.
+     * Refreshes schemas and partition mapping asynchronously.
      *
-     * @return version of deployment unit.
+     * @return Future representing pending completion of the operation.
      */
-    String version();
+    CompletableFuture<Void> refreshAsync();
 }

@@ -15,29 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.table;
+package org.apache.ignite.internal.streamer;
 
-import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.Ignite;
 
 /**
- * Partition awareness provider for data streamer.
- *
- * @param <T> Item type.
- * @param <P> Partition type.
+ * Integration test for server-side data streamer API.
  */
-interface StreamerPartitionAwarenessProvider<T, P> {
-    /**
-     * Returns partition for item. This partition may or may not map to one or more actual Ignite table partitions.
-     *
-     * @param item Data item.
-     * @return Partition.
-     */
-    P partition(T item);
-
-    /**
-     * Refreshes schemas and partition mapping asynchronously.
-     *
-     * @return Future representing pending completion of the operation.
-     */
-    CompletableFuture<Void> refreshAsync();
+public class ItServerDataStreamerTest extends ItAbstractDataStreamerTest {
+    @Override
+    Ignite ignite() {
+        return CLUSTER_NODES.get(0);
+    }
 }

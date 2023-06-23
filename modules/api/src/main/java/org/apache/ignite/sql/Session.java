@@ -22,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.table.mapper.Mapper;
@@ -57,7 +57,7 @@ public interface Session extends AutoCloseable {
         try {
             return new SyncResultSetAdapter<>(executeAsync(transaction, query, arguments).join());
         } catch (CompletionException e) {
-            throw IgniteException.wrap(e);
+            throw IgniteExceptionUtils.wrap(e);
         }
     }
 
@@ -75,7 +75,7 @@ public interface Session extends AutoCloseable {
         try {
             return new SyncResultSetAdapter<>(executeAsync(transaction, statement, arguments).join());
         } catch (CompletionException e) {
-            throw IgniteException.wrap(e);
+            throw IgniteExceptionUtils.wrap(e);
         }
     }
 
@@ -99,7 +99,7 @@ public interface Session extends AutoCloseable {
         try {
             return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, query, arguments).join());
         } catch (CompletionException e) {
-            throw IgniteException.wrap(e);
+            throw IgniteExceptionUtils.wrap(e);
         }
     }
 
@@ -123,7 +123,7 @@ public interface Session extends AutoCloseable {
         try {
             return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, statement, arguments).join());
         } catch (CompletionException e) {
-            throw IgniteException.wrap(e);
+            throw IgniteExceptionUtils.wrap(e);
         }
     }
 
@@ -219,7 +219,7 @@ public interface Session extends AutoCloseable {
         try {
             return executeBatchAsync(transaction, dmlQuery, batch).join();
         } catch (CompletionException e) {
-            throw IgniteException.wrap(e);
+            throw IgniteExceptionUtils.wrap(e);
         }
     }
 

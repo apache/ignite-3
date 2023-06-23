@@ -18,9 +18,17 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.catalog.Catalog;
 
 /**
- * A marker interface describing a particular change within the {@link VersionedUpdate group}.
+ * Interface describing a particular change within the {@link VersionedUpdate group}.
  */
 public interface UpdateEntry extends Serializable {
+    /**
+     * Applies own change to the catalog.
+     *
+     * @param catalog Current catalog.
+     * @return New catalog.
+     */
+    Catalog applyUpdate(Catalog catalog);
 }
