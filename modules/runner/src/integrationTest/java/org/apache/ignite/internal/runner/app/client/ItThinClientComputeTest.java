@@ -206,7 +206,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testUnknownUnitWithLatestVersionThrows() {
+    void testExecuteOnUnknownUnitWithLatestVersionThrows() {
         CompletionException ex = assertThrows(
                 CompletionException.class,
                 () -> client().compute().<String>execute(
@@ -215,7 +215,23 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                         NodeNameJob.class.getName()).join());
 
         var cause = (IgniteException) ex.getCause();
+        assertThat(cause.getMessage(), containsString("Deployment unit u:latest doesn’t exist"));
 
+        // TODO IGNITE-19823 DeploymentUnitNotFoundException is internal, does not propagate to client.
+        assertEquals(INTERNAL_ERR, cause.code());
+    }
+
+    @Test
+    void testExecuteColocatedOnUnknownUnitWithLatestVersionThrows() {
+        CompletionException ex = assertThrows(
+                CompletionException.class,
+                () -> client().compute().<String>executeColocated(
+                        TABLE_NAME,
+                        Tuple.create().set(COLUMN_KEY, 1),
+                        List.of(new DeploymentUnit("u", "latest")),
+                        NodeNameJob.class.getName()).join());
+
+        var cause = (IgniteException) ex.getCause();
         assertThat(cause.getMessage(), containsString("Deployment unit u:latest doesn’t exist"));
 
         // TODO IGNITE-19823 DeploymentUnitNotFoundException is internal, does not propagate to client.

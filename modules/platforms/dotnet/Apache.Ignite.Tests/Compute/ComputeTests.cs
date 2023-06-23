@@ -342,9 +342,10 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestExecuteColocatedUnknownUnitWithLatestVersionThrows()
+        public async Task TestExecuteColocatedOnUnknownUnitWithLatestVersionThrows()
         {
-            var keyTuple = new IgniteTuple { [KeyCol] = 1 };
+            // TODO: Why does this hang?
+            var keyTuple = new IgniteTuple { [KeyCol] = 1L };
             var deploymentUnits = new DeploymentUnit[] { new("unit-latest") };
             var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, deploymentUnits, NodeNameJob);
         }
