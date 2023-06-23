@@ -138,6 +138,11 @@ public class PrepareServiceSelfTest extends AbstractPlannerTest {
         Mockito.verify(ddlPlannerSpy, Mockito.times(1)).convert(Mockito.any(), Mockito.any());
         // DDL goes a separate flow via ddl converter.
         Mockito.verifyNoInteractions(queryPlannerSpy);
+
+        // Prepare DDL query once again.
+        assertThat(service.prepareAsync(query, queryCtx, createContext()), willBe(notNullValue()));
+        assertEquals(0, service.planCacheSize());
+        Mockito.verify(ddlPlannerSpy, Mockito.times(2)).convert(Mockito.any(), Mockito.any());
     }
 
     @Test

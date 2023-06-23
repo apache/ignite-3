@@ -374,7 +374,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
             SessionId sessionId,
-            QueryContext queryContext,
+            QueryContext context,
             String sql,
             Object... params
     ) {
@@ -395,7 +395,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         String schemaName = session.properties().get(QueryProperty.DEFAULT_SCHEMA);
 
-        InternalTransaction outerTx = queryContext.unwrap(InternalTransaction.class);
+        InternalTransaction outerTx = context.unwrap(InternalTransaction.class);
         boolean implicitTx = outerTx == null;
 
         // TODO: IGNITE-19497 Use timestamp to get schema.
@@ -413,7 +413,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .plannerTimeout(PLANNER_TIMEOUT)
                 .build();
 
-        return prepareSvc.prepareAsync(sql, queryContext, plannerContext)
+        return prepareSvc.prepareAsync(sql, context, plannerContext)
                 .thenComposeAsync(plan -> {
                     // Ensure plan can be executed.
                     if (SqlQueryType.DDL == plan.type() && outerTx != null) {

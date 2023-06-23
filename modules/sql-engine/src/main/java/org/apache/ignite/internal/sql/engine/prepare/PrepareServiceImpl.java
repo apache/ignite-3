@@ -72,7 +72,8 @@ import org.jetbrains.annotations.TestOnly;
 
 /**
  * An implementation of the {@link PrepareService} that uses a Calcite-based query planner to parse, validate and optimize a given query.
- * This implementation supports caching of query plans and aware of different queries notation may lead to the same query plan.
+ * This implementation provides a 2-tier caching system for SQL query plans, avoiding duplication by caching normalized queries in the first
+ * tier and their corresponding query plans in the second tier.
  */
 public class PrepareServiceImpl implements PrepareService {
     private static final IgniteLogger LOG = Loggers.forClass(PrepareServiceImpl.class);
@@ -83,8 +84,8 @@ public class PrepareServiceImpl implements PrepareService {
 
     private final DdlSqlToCommandConverter ddlConverter;
 
-    private final ConcurrentMap<CacheKey, CompletableFuture<QueryPlan>> cache;
-    private final ConcurrentMap<CacheKey, String> parseCache;
+    private final ConcurrentMap<CacheKey, CompletableFuture<QueryPlan>> planCache;
+    private final ConcurrentMap<CacheKey, String> normalizedQueryCache;
 
     private final String nodeName;
 
@@ -132,11 +133,11 @@ public class PrepareServiceImpl implements PrepareService {
         this.ddlConverter = ddlConverter;
         this.queryOptimizer = queryOptimizer;
 
-        cache = Caffeine.newBuilder()
+        planCache = Caffeine.newBuilder()
                 .maximumSize(cacheSize)
                 .<CacheKey, CompletableFuture<QueryPlan>>build()
                 .asMap();
-        parseCache = Caffeine.newBuilder()
+        normalizedQueryCache = Caffeine.newBuilder()
                 .maximumSize(cacheSize)
                 .<CacheKey, String>build()
                 .asMap();
@@ -165,22 +166,22 @@ public class PrepareServiceImpl implements PrepareService {
 
     /** Drop cached query plans. */
     public void invalidateCachedPlans() {
-        cache.clear();
+        planCache.clear();
     }
 
     @TestOnly
     public void invalidateParserCache() {
-        parseCache.clear();
+        normalizedQueryCache.clear();
     }
 
     @TestOnly
     public int planCacheSize() {
-        return cache.size();
+        return planCache.size();
     }
 
     @TestOnly
     public int parseCacheSize() {
-        return parseCache.size();
+        return normalizedQueryCache.size();
     }
 
     /** {@inheritDoc} */
@@ -188,7 +189,7 @@ public class PrepareServiceImpl implements PrepareService {
     public CompletableFuture<QueryPlan> prepareAsync(String query, QueryContext queryContext, BaseQueryContext ctx) {
         CacheKey cacheKey = createCacheKey(query, ctx);
 
-        String normalizedQuery = parseCache.get(cacheKey);
+        String normalizedQuery = normalizedQueryCache.get(cacheKey);
 
         if (normalizedQuery == null) {
             SqlNode sqlNode;
@@ -202,13 +203,13 @@ public class PrepareServiceImpl implements PrepareService {
                 return prepareAsync(sqlNode, ctx);
             }
 
-            parseCache.putIfAbsent(cacheKey, sqlNode.toString());
+            normalizedQueryCache.putIfAbsent(cacheKey, sqlNode.toString());
 
-            return cache.computeIfAbsent(createCacheKey(sqlNode.toString(), ctx), k -> prepareAsync(sqlNode, ctx))
+            return planCache.computeIfAbsent(createCacheKey(sqlNode.toString(), ctx), k -> prepareAsync(sqlNode, ctx))
                     .thenApply(QueryPlan::copy);
         }
 
-        return cache.computeIfAbsent(createCacheKey(normalizedQuery, ctx), k ->
+        return planCache.computeIfAbsent(createCacheKey(normalizedQuery, ctx), k ->
                         supplyAsync(() -> parse(query, queryContext, ctx)).thenCompose(sqlNode -> prepareAsync(sqlNode, ctx)))
                 .thenApply(QueryPlan::copy);
     }
@@ -265,7 +266,7 @@ public class PrepareServiceImpl implements PrepareService {
 
         CacheKey cacheKey = createCacheKey(sqlNode.toString(), ctx.unwrap(BaseQueryContext.class));
 
-        CompletableFuture<QueryPlan> cachedPlan = cache.get(cacheKey);
+        CompletableFuture<QueryPlan> cachedPlan = planCache.get(cacheKey);
 
         if (cachedPlan != null) {
             return cachedPlan.thenApply(plan -> new ExplainPlan(plan.explain(SqlExplainLevel.ALL_ATTRIBUTES)));

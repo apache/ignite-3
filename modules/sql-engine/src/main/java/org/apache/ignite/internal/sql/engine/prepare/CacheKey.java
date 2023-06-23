@@ -21,8 +21,8 @@ import java.util.Arrays;
 
 /**
  * CacheKey.
- * The class uses to distinguish different query plans which could be various for the same query text but different context. For
- * example, the context could contains a catalog version, a default schema id, dynamic parameters, and so on.
+ * The class uses to distinguish different query plans which could be various for the same query text, but different context: a catalog
+ * version, a default schema and types of dynamic parameters.
  */
 public class CacheKey {
     private static final Class<?>[] EMPTY_CLASS_ARRAY = {};

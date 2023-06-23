@@ -72,7 +72,6 @@ public class IgniteSqlCreateTable extends SqlCreate {
     /** {@inheritDoc} */
     @Override
     public SqlNode clone(SqlParserPos pos) {
-        //TODO: add clone for all DDL nodes.
         return new IgniteSqlCreateTable(pos, ifNotExists, name, columnList, colocationColumns, createOptionList);
     }
 
