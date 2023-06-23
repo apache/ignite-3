@@ -184,6 +184,11 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         return catalogAt(timestamp).table(tableId);
     }
 
+    @Override
+    public CatalogTableDescriptor table(int tableId, int catalogVersion) {
+        return catalog(catalogVersion).table(tableId);
+    }
+
     /** {@inheritDoc} */
     @Override
     public CatalogIndexDescriptor index(String indexName, long timestamp) {

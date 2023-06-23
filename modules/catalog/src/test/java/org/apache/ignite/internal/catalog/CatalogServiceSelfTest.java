@@ -1594,6 +1594,14 @@ public class CatalogServiceSelfTest {
         assertThat(result, willCompleteSuccessfully());
     }
 
+    @Test
+    void testGetTableByIdAndCatalogVersion() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        assertNull(service.table(2, 0));
+        assertNotNull(service.table(2, 1));
+    }
+
     private CompletableFuture<Void> changeColumn(
             String tab,
             String col,
