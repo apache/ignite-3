@@ -158,11 +158,11 @@ TEST_F(record_binary_view_test, upsert_all_empty_no_throw) {
 }
 
 TEST_F(record_binary_view_test, upsert_all_get_all) {
-    static constexpr std::size_t records_num = 10;
+    static constexpr std::int64_t records_num = 10;
 
     std::vector<ignite_tuple> records;
     records.reserve(records_num);
-    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i)
+    for (std::int64_t i = 1; i < 1 + records_num; ++i)
         records.emplace_back(get_tuple(i, "Val" + std::to_string(i)));
 
     std::vector<ignite_tuple> keys;
@@ -173,7 +173,7 @@ TEST_F(record_binary_view_test, upsert_all_get_all) {
     auto res = tuple_view.get_all(nullptr, keys);
 
     ASSERT_EQ(res.size(), keys.size());
-    for (std::int64_t i = 0; i < keys.size(); ++i) {
+    for (std::size_t i = 0; i < keys.size(); ++i) {
         auto key = keys[i].get<std::int64_t>(0);
         auto val = res[i];
 
@@ -189,11 +189,11 @@ TEST_F(record_binary_view_test, upsert_all_get_all) {
 }
 
 TEST_F(record_binary_view_test, upsert_all_get_all_async) {
-    static constexpr std::size_t records_num = 10;
+    static constexpr std::int64_t records_num = 10;
 
     std::vector<ignite_tuple> records;
     records.reserve(records_num);
-    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i)
+    for (std::int64_t i = 1; i < 1 + records_num; ++i)
         records.emplace_back(get_tuple(i, "Val" + std::to_string(i)));
 
     std::vector<ignite_tuple> keys;
@@ -212,7 +212,7 @@ TEST_F(record_binary_view_test, upsert_all_get_all_async) {
     auto res = all_done->get_future().get();
 
     ASSERT_EQ(res.size(), keys.size());
-    for (std::int64_t i = 0; i < keys.size(); ++i) {
+    for (std::size_t i = 0; i < keys.size(); ++i) {
         auto key = keys[i].get<std::int64_t>(0);
         auto val = res[i];
 
