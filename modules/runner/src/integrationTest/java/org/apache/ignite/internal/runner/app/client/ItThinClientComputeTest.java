@@ -218,7 +218,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertThat(cause.getMessage(), containsString("Deployment unit u:latest doesn’t exist"));
 
-        // TODO: Why internal error?
+        // TODO IGNITE-19823 DeploymentUnitNotFoundException is internal, does not propagate to client.
         assertEquals(INTERNAL_ERR, cause.code());
     }
 
