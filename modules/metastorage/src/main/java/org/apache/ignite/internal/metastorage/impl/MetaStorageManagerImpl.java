@@ -177,6 +177,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                     return;
                 }
 
+                LOG.info("Performing MetaStorage recovery from revision {} to {}", storage.revision(), revision);
+
                 assert revision != null;
 
                 while (storage.revision() < revision) {
@@ -195,6 +197,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                     }
                 }
 
+                LOG.info("Finished MetaStorage recovery");
+
                 res.complete(revision);
             }, recoveryExecutor);
 
@@ -205,10 +209,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             busyLock.leaveBusy();
         }
     }
-
-    /**
-     * TODO: Restore state and remove everything that is not in the state.
-     */
 
     private CompletableFuture<MetaStorageServiceImpl> initializeMetaStorage(Set<String> metaStorageNodes) {
         String thisNodeName = clusterService.nodeName();
@@ -288,8 +288,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         recoveryFinishedFuture.completeExceptionally(e);
                     } else {
                         MetaStorageServiceImpl service = res.get1();
-
                         Long revision = res.get2();
+
+                        assert service != null;
                         assert revision != null;
 
                         metaStorageSvcFut.complete(service);
