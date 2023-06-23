@@ -234,7 +234,6 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
         if (!check_and_set_operation_error(*all_done, res))
             return;
 
-        // TODO: Key order should be preserved by the server (IGNITE-16004).
         kv_view.get_all_async(nullptr, keys, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
     });
 

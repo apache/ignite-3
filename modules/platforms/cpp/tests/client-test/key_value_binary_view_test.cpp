@@ -185,18 +185,20 @@ TEST_F(key_value_binary_view_test, put_all_get_all) {
     kv_view.put_all(nullptr, records);
     auto res = kv_view.get_all(nullptr, keys);
 
-    // TODO: Key order should be preserved by the server (IGNITE-16004).
-    EXPECT_EQ(res.size(), 2);
+    ASSERT_EQ(res.size(), keys.size());
+    for (std::int64_t i = 0; i < keys.size(); ++i) {
+        auto key = keys[i].get<std::int64_t>(0);
+        auto val = res[i];
 
-    ASSERT_TRUE(res[0].has_value());
-    EXPECT_EQ(2, res[0]->column_count());
-    EXPECT_EQ(9, res[0]->get<int64_t>("key"));
-    EXPECT_EQ("Val9", res[0]->get<std::string>("val"));
-
-    ASSERT_TRUE(res[1].has_value());
-    EXPECT_EQ(2, res[1]->column_count());
-    EXPECT_EQ(10, res[1]->get<int64_t>("key"));
-    EXPECT_EQ("Val10", res[1]->get<std::string>("val"));
+        if (key <= records_num) {
+            ASSERT_TRUE(val.has_value()) << "Key = " << key;
+            EXPECT_EQ(2, val->column_count());
+            EXPECT_EQ(key, val->get<std::int64_t>("key"));
+            EXPECT_EQ("Val" + std::to_string(key), val->get<std::string>("val"));
+        } else {
+            ASSERT_FALSE(val.has_value()) << "Key = " << key << ", Res = " << val->get<std::string>("val");
+        }
+    }
 }
 
 TEST_F(key_value_binary_view_test, put_all_get_all_async) {
@@ -217,23 +219,25 @@ TEST_F(key_value_binary_view_test, put_all_get_all_async) {
         if (!check_and_set_operation_error(*all_done, res))
             return;
 
-        // TODO: Key order should be preserved by the server (IGNITE-16004).
         kv_view.get_all_async(nullptr, keys, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
     });
 
     auto res = all_done->get_future().get();
 
-    EXPECT_EQ(res.size(), 2);
+    ASSERT_EQ(res.size(), keys.size());
+    for (std::int64_t i = 0; i < keys.size(); ++i) {
+        auto key = keys[i].get<std::int64_t>(0);
+        auto val = res[i];
 
-    ASSERT_TRUE(res[0].has_value());
-    EXPECT_EQ(2, res[0]->column_count());
-    EXPECT_EQ(9, res[0]->get<int64_t>("key"));
-    EXPECT_EQ("Val9", res[0]->get<std::string>("val"));
-
-    ASSERT_TRUE(res[1].has_value());
-    EXPECT_EQ(2, res[1]->column_count());
-    EXPECT_EQ(10, res[1]->get<int64_t>("key"));
-    EXPECT_EQ("Val10", res[1]->get<std::string>("val"));
+        if (key <= records_num) {
+            ASSERT_TRUE(val.has_value()) << "Key = " << key;
+            EXPECT_EQ(2, val->column_count());
+            EXPECT_EQ(key, val->get<std::int64_t>("key"));
+            EXPECT_EQ("Val" + std::to_string(key), val->get<std::string>("val"));
+        } else {
+            ASSERT_FALSE(val.has_value()) << "Key = " << key << ", Res = " << val->get<std::string>("val");
+        }
+    }
 }
 
 TEST_F(key_value_binary_view_test, get_and_put_new_record) {
