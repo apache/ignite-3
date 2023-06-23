@@ -74,8 +74,9 @@ public class CatalogUtils {
      * @param params Parameters.
      * @return Index descriptor.
      */
-    public static CatalogIndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
-        return new CatalogHashIndexDescriptor(id,
+    public static CatalogHashIndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
+        return new CatalogHashIndexDescriptor(
+                id,
                 params.indexName(),
                 tableId,
                 false,

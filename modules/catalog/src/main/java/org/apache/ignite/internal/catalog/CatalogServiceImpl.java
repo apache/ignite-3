@@ -48,6 +48,7 @@ import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -289,15 +290,27 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                         );
                     });
 
+            if (params.primaryKeyColumns().isEmpty()) {
+                throw new IgniteInternalException(
+                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                        "Missing primary key columns"
+                );
+            }
+
             String zoneName = Objects.requireNonNullElse(params.zone(), CatalogService.DEFAULT_ZONE_NAME);
 
             CatalogZoneDescriptor zone = Objects.requireNonNull(catalog.zone(zoneName), "No zone found: " + zoneName);
 
-            CatalogTableDescriptor table = CatalogUtils.fromParams(catalog.objectIdGenState(), zone.id(), params);
+            int id = catalog.objectIdGenState();
+
+            CatalogTableDescriptor table = CatalogUtils.fromParams(id++, zone.id(), params);
+
+            CatalogHashIndexDescriptor pkIndex = createHashIndexDescriptor(table, id++, createPkIndexParams(params));
 
             return List.of(
                     new NewTableEntry(table),
-                    new ObjectIdGenUpdateEntry(1)
+                    new NewIndexEntry(pkIndex),
+                    new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
             );
         });
     }
@@ -507,29 +520,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 throw new TableNotFoundException(schemaName, params.tableName());
             }
 
-            if (params.columns().isEmpty()) {
-                throw new IgniteInternalException(
-                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                        "No index columns was specified."
-                );
-            }
-
-            Predicate<String> duplicateValidator = Predicate.not(new HashSet<>()::add);
-
-            for (String columnName : params.columns()) {
-                CatalogTableColumnDescriptor columnDescriptor = table.columnDescriptor(columnName);
-
-                if (columnDescriptor == null) {
-                    throw new ColumnNotFoundException(columnName);
-                } else if (duplicateValidator.test(columnName)) {
-                    throw new IgniteInternalException(
-                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                            "Can't create index on duplicate columns: " + String.join(", ", params.columns())
-                    );
-                }
-            }
-
-            CatalogIndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
+            CatalogIndexDescriptor index = createHashIndexDescriptor(table, catalog.objectIdGenState(), params);
 
             return List.of(
                     new NewIndexEntry(index),
@@ -867,5 +858,49 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 catalog.zones(),
                 catalog.schemas()
         );
+    }
+
+    private static CreateHashIndexParams createPkIndexParams(CreateTableParams params) {
+        return CreateHashIndexParams.builder()
+                .schemaName(params.schemaName())
+                .tableName(params.tableName())
+                .indexName(params.tableName() + "_PK")
+                .columns(params.primaryKeyColumns())
+                .build();
+    }
+
+    private static CatalogHashIndexDescriptor createHashIndexDescriptor(
+            CatalogTableDescriptor table,
+            int indexId,
+            CreateHashIndexParams params
+    ) {
+        validateParams(params, table);
+
+        return CatalogUtils.fromParams(indexId, table.id(), params);
+    }
+
+    private static void validateParams(CreateHashIndexParams params, CatalogTableDescriptor table) {
+        if (params.columns().isEmpty()) {
+            throw new IgniteInternalException(
+                    ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                    "No index columns was specified."
+            );
+        }
+
+        Predicate<String> duplicateValidator = Predicate.not(new HashSet<>()::add);
+
+        for (String columnName : params.columns()) {
+            CatalogTableColumnDescriptor columnDescriptor = table.columnDescriptor(columnName);
+
+            if (columnDescriptor == null) {
+                throw new ColumnNotFoundException(columnName);
+            } else if (duplicateValidator.test(columnName)) {
+                throw new IgniteInternalException(
+                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                        "Can't create index on duplicate columns: {}",
+                        String.join(", ", params.columns())
+                );
+            }
+        }
     }
 }
