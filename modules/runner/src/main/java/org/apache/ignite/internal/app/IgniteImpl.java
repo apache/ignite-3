@@ -496,7 +496,7 @@ public class IgniteImpl implements Ignite {
         );
 
         catalogManager = new CatalogServiceImpl(
-                new UpdateLogImpl(metaStorageMgr, vaultMgr),
+                new UpdateLogImpl(metaStorageMgr),
                 clockWaiter,
                 () -> schemaSyncConfig.delayDuration().value()
         );

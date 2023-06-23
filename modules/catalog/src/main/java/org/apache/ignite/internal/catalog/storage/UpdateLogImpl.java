@@ -41,7 +41,6 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
@@ -57,7 +56,6 @@ public class UpdateLogImpl implements UpdateLog {
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     private final MetaStorageManager metastore;
-    private final VaultManager vault;
 
     private volatile OnUpdateHandler onUpdateHandler;
     private volatile @Nullable UpdateListener listener = null;
@@ -66,10 +64,8 @@ public class UpdateLogImpl implements UpdateLog {
      * Creates the object.
      *
      * @param metastore A metastore is used to store and distribute updates across the cluster.
-     * @param vault A vault is used to recover state and replay updates on start.
      */
-    public UpdateLogImpl(MetaStorageManager metastore, VaultManager vault) {
-        this.vault = vault;
+    public UpdateLogImpl(MetaStorageManager metastore) {
         this.metastore = metastore;
     }
 

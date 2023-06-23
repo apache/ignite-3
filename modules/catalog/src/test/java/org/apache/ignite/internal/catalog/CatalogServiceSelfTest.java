@@ -155,7 +155,7 @@ public class CatalogServiceSelfTest {
 
         clock = new HybridClockImpl();
         clockWaiter = spy(new ClockWaiter("test", clock));
-        updateLog = spy(new UpdateLogImpl(metastore, vault));
+        updateLog = spy(new UpdateLogImpl(metastore));
         service = new CatalogServiceImpl(updateLog, clockWaiter);
 
         vault.start();

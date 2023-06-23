@@ -112,7 +112,7 @@ class UpdateLogImplTest {
     }
 
     private UpdateLogImpl createUpdateLogImpl() {
-        return new UpdateLogImpl(metastore, vault);
+        return new UpdateLogImpl(metastore);
     }
 
     @Test

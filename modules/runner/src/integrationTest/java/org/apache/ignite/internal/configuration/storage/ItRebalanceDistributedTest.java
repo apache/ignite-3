@@ -765,7 +765,7 @@ public class ItRebalanceDistributedTest {
             clockWaiter = new ClockWaiter("test", hybridClock);
 
             catalogManager = new CatalogServiceImpl(
-                    new UpdateLogImpl(metaStorageManager, vaultManager),
+                    new UpdateLogImpl(metaStorageManager),
                     clockWaiter
             );
 

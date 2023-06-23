@@ -327,7 +327,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var clockWaiter = new ClockWaiter("test", hybridClock);
 
         var catalogManager = new CatalogServiceImpl(
-                new UpdateLogImpl(metaStorageMgr, vault),
+                new UpdateLogImpl(metaStorageMgr),
                 clockWaiter
         );
 
