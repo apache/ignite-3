@@ -46,6 +46,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -569,6 +570,17 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         try {
             return doGet(key, revUpperBound);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public List<Entry> get(byte[] key, long revLowerBound, long revUpperBound) {
+        rwLock.readLock().lock();
+
+        try {
+            return doGet(key, revLowerBound, revUpperBound);
         } finally {
             rwLock.readLock().unlock();
         }
@@ -1216,6 +1228,52 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     /**
+     * Returns all entries corresponding to the given key and bounded by given revisions.
+     * All these entries are ordered by revisions and have the same key.
+     * The lower bound and the upper bound are inclusive.
+     *
+     * @param key The key.
+     * @param revLowerBound The lower bound of revision.
+     * @param revUpperBound The upper bound of revision.
+     * @return Entries corresponding to the given key.
+     */
+    private List<Entry> doGet(byte[] key, long revLowerBound, long revUpperBound) {
+        assert revLowerBound >= 0 : "Invalid arguments: [revLowerBound=" + revLowerBound + ']';
+        assert revUpperBound >= 0 : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
+        assert revUpperBound >= revLowerBound
+                : "Invalid arguments: [revLowerBound=" + revLowerBound + ", revUpperBound=" + revUpperBound + ']';
+        // TODO: IGNITE-19782 throw CompactedException if revLowerBound is compacted.
+
+        long[] revs;
+
+        try {
+            revs = getRevisions(key);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        }
+
+        if (revs.length == 0) {
+            return Collections.emptyList();
+        }
+
+        int firstRevIndex = minRevisionIndex(revs, revLowerBound);
+        int lastRevIndex = maxRevisionIndex(revs, revUpperBound);
+
+        // firstRevIndex can be -1 if minRevisionIndex return -1. lastRevIndex can be -1 if maxRevisionIndex return -1.
+        if (firstRevIndex == -1 || lastRevIndex == -1) {
+            return Collections.emptyList();
+        }
+
+        List<Entry> entries = new ArrayList<>();
+
+        for (int i = firstRevIndex; i <= lastRevIndex; i++) {
+            entries.add(doGetValue(key, revs[i]));
+        }
+
+        return entries;
+    }
+
+    /**
      * Get a list of the revisions of the entry corresponding to the key.
      *
      * @param key Key.
@@ -1246,6 +1304,46 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             if (rev <= upperBoundRev) {
                 return rev;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Returns index of minimum revision which must be greater or equal to {@code lowerBoundRev}.
+     * If there is no such revision then {@code -1} will be returned.
+     *
+     * @param revs          Revisions list.
+     * @param lowerBoundRev Revision lower bound.
+     * @return Index of minimum revision or {@code -1} if there is no such revision.
+     */
+    private static int minRevisionIndex(long[] revs, long lowerBoundRev) {
+        for (int i = 0; i < revs.length; i++) {
+            long rev = revs[i];
+
+            if (rev >= lowerBoundRev) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Returns index of maximum revision which must be less or equal to {@code upperBoundRev}.
+     * If there is no such revision then {@code -1} will be returned.
+     *
+     * @param revs          Revisions list.
+     * @param upperBoundRev Revision upper bound.
+     * @return Index of maximum revision or {@code -1} if there is no such revision.
+     */
+    private static int maxRevisionIndex(long[] revs, long upperBoundRev) {
+        for (int i = revs.length - 1; i >= 0; i--) {
+            long rev = revs[i];
+
+            if (rev <= upperBoundRev) {
+                return i;
             }
         }
 
