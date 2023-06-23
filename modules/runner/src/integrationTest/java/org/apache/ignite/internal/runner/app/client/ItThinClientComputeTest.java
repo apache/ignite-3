@@ -47,6 +47,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -201,6 +202,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         String expectedNode = "itcct_n_" + port;
         assertEquals(expectedNode, tupleRes);
         assertEquals(expectedNode, pojoRes);
+    }
+
+    @Test
+    void testUnknownUnitWithLatestVersionThrows() {
+        String res1 = client().compute().<String>execute(
+                Set.of(node(0)),
+                List.of(new DeploymentUnit("u", "latest")),
+                NodeNameJob.class.getName()).join();
     }
 
     @Test

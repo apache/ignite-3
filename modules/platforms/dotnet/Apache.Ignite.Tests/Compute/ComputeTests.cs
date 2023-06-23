@@ -247,7 +247,7 @@ namespace Apache.Ignite.Tests.Compute
             var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, Units, NodeNameJob);
 
             var keyPoco = new Poco { Key = key };
-            var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string, Poco>(TableName, keyPoco, Units, NodeNameJob);
+            var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string, Poco>(TableName, keyPoco, Units.Reverse(), NodeNameJob);
 
             var keyPocoStruct = new PocoStruct(key, null);
             var resNodeName3 = await Client.Compute.ExecuteColocatedAsync<string, PocoStruct>(TableName, keyPocoStruct, Units, NodeNameJob);

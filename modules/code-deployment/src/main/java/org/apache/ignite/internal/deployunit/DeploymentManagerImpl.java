@@ -363,6 +363,10 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     public CompletableFuture<Version> detectLatestDeployedVersion(String id) {
         return clusterStatusesAsync(id)
                 .thenApply(statuses -> {
+                    if (statuses == null) {
+                        throw new DeploymentUnitNotFoundException(id);
+                    }
+
                     return statuses.versions()
                             .stream()
                             .filter(version -> statuses.status(version) == DEPLOYED)
