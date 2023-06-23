@@ -30,11 +30,10 @@ public class CreateZoneEventParameters extends CatalogEventParameters {
      * Constructor.
      *
      * @param causalityToken Causality token.
-     * @param version Catalog version.
      * @param zoneDescriptor Newly created distribution zone descriptor.
      */
-    public CreateZoneEventParameters(long causalityToken, int version, CatalogZoneDescriptor zoneDescriptor) {
-        super(causalityToken, version);
+    public CreateZoneEventParameters(long causalityToken, CatalogZoneDescriptor zoneDescriptor) {
+        super(causalityToken);
 
         this.zoneDescriptor = zoneDescriptor;
     }

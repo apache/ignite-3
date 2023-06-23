@@ -32,12 +32,11 @@ public class AlterColumnEventParameters extends CatalogEventParameters {
      * Constructor.
      *
      * @param causalityToken Causality token.
-     * @param version Catalog version.
-     * @param tableId ID the table to be modified.
+     * @param tableId Returns an id the table to be modified.
      * @param columnDescriptor Descriptor for the column to be replaced.
      */
-    public AlterColumnEventParameters(long causalityToken, int version, int tableId, CatalogTableColumnDescriptor columnDescriptor) {
-        super(causalityToken, version);
+    public AlterColumnEventParameters(long causalityToken, int tableId, CatalogTableColumnDescriptor columnDescriptor) {
+        super(causalityToken);
 
         this.tableId = tableId;
         this.columnDescriptor = columnDescriptor;

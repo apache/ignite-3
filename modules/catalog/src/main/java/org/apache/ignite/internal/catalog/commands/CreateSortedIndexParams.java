@@ -29,6 +29,9 @@ public class CreateSortedIndexParams extends AbstractIndexCommandParams {
         return new Builder();
     }
 
+    /** Table name. */
+    private String tableName;
+
     /** Indexed columns. */
     private List<String> columns;
 
@@ -37,6 +40,13 @@ public class CreateSortedIndexParams extends AbstractIndexCommandParams {
 
     /** Unique index flag. */
     protected boolean unique;
+
+    /**
+     * Gets table name.
+     */
+    public String tableName() {
+        return tableName;
+    }
 
     /**
      * Gets indexed columns.
@@ -65,6 +75,18 @@ public class CreateSortedIndexParams extends AbstractIndexCommandParams {
     public static class Builder extends AbstractBuilder<CreateSortedIndexParams, CreateSortedIndexParams.Builder> {
         private Builder() {
             super(new CreateSortedIndexParams());
+        }
+
+        /**
+         * Set table name.
+         *
+         * @param tableName Table name.
+         * @return {@code this}.
+         */
+        public Builder tableName(String tableName) {
+            params.tableName = tableName;
+
+            return this;
         }
 
         /**

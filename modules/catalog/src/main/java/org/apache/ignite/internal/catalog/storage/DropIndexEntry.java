@@ -27,33 +27,21 @@ public class DropIndexEntry implements UpdateEntry {
 
     private final int indexId;
 
-    private final int tableId;
-
     /**
      * Constructs the object.
      *
-     * @param indexId ID of dropped index.
-     * @param tableId ID of the table for which the index is dropped.
+     * @param indexId An id of an index to drop.
      */
-    public DropIndexEntry(int indexId, int tableId) {
+    public DropIndexEntry(int indexId) {
         this.indexId = indexId;
-        this.tableId = tableId;
     }
 
-    /**
-     * Returns ID of dropped index.
-     */
+    /** Returns an id of an index to drop. */
     public int indexId() {
         return indexId;
     }
 
-    /**
-     * Returns ID of the table for which the index is dropped.
-     */
-    public int tableId() {
-        return tableId;
-    }
-
+    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);

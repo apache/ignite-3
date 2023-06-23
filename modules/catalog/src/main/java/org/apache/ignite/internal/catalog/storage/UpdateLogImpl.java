@@ -167,7 +167,7 @@ public class UpdateLogImpl implements UpdateLog {
 
             VersionedUpdate update = fromBytes(entry.value());
 
-            handler.handle(update, metastore.appliedRevision());
+            handler.handle(update);
         }
     }
 
@@ -209,7 +209,7 @@ public class UpdateLogImpl implements UpdateLog {
 
                 VersionedUpdate update = fromBytes(payload);
 
-                onUpdateHandler.handle(update, event.revision());
+                onUpdateHandler.handle(update);
             }
 
             return CompletableFuture.completedFuture(null);

@@ -30,11 +30,10 @@ public class CreateIndexEventParameters extends CatalogEventParameters {
      * Constructor.
      *
      * @param causalityToken Causality token.
-     * @param version Catalog version.
      * @param indexDescriptor Newly created index descriptor.
      */
-    public CreateIndexEventParameters(long causalityToken, int version, CatalogIndexDescriptor indexDescriptor) {
-        super(causalityToken, version);
+    public CreateIndexEventParameters(long causalityToken, CatalogIndexDescriptor indexDescriptor) {
+        super(causalityToken);
 
         this.indexDescriptor = indexDescriptor;
     }

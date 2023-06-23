@@ -67,8 +67,7 @@ public interface UpdateLog extends IgniteComponent {
          * An actual handler that will be invoked when new update is appended to the log.
          *
          * @param update A new update.
-         * @param storageRevision Storage revision.
          */
-        void handle(VersionedUpdate update, long storageRevision);
+        void handle(VersionedUpdate update);
     }
 }

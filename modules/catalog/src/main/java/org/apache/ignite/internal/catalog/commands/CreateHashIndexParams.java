@@ -28,8 +28,18 @@ public class CreateHashIndexParams extends AbstractIndexCommandParams {
         return new Builder();
     }
 
+    /** Table name. */
+    private String tableName;
+
     /** Indexed columns. */
     private List<String> columns;
+
+    /**
+     * Gets table name.
+     */
+    public String tableName() {
+        return tableName;
+    }
 
     /**
      * Gets indexed columns.
@@ -44,6 +54,18 @@ public class CreateHashIndexParams extends AbstractIndexCommandParams {
     public static class Builder extends AbstractIndexCommandParams.AbstractBuilder<CreateHashIndexParams, CreateHashIndexParams.Builder> {
         private Builder() {
             super(new CreateHashIndexParams());
+        }
+
+        /**
+         * Set table name.
+         *
+         * @param tableName Table name.
+         * @return {@code this}.
+         */
+        public Builder tableName(String tableName) {
+            params.tableName = tableName;
+
+            return this;
         }
 
         /**

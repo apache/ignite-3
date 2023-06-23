@@ -77,7 +77,7 @@ class UpdateLogImplTest {
 
         long revisionBefore = metastore.appliedRevision();
 
-        updateLog.registerUpdateHandler((update, storageRevision) -> {/* no-op */});
+        updateLog.registerUpdateHandler(update -> {/* no-op */});
         updateLog.start();
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
@@ -106,7 +106,7 @@ class UpdateLogImplTest {
         updateLog = new UpdateLogImpl(metastore, vault);
 
         List<VersionedUpdate> actualLog = new ArrayList<>();
-        updateLog.registerUpdateHandler((update, storageRevision) -> actualLog.add(update));
+        updateLog.registerUpdateHandler(actualLog::add);
         updateLog.start();
 
         assertEquals(expectedLog, actualLog);
@@ -133,7 +133,7 @@ class UpdateLogImplTest {
         UpdateLogImpl updateLog = new UpdateLogImpl(metastore, vault);
 
         List<Integer> appliedVersions = new ArrayList<>();
-        updateLog.registerUpdateHandler((update, storageRevision) -> appliedVersions.add(update.version()));
+        updateLog.registerUpdateHandler(update -> appliedVersions.add(update.version()));
 
         updateLog.start();
 

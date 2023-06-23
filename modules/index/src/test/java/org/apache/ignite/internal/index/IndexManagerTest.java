@@ -19,7 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.PUBLIC;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
@@ -152,7 +152,7 @@ public class IndexManagerTest {
         assertThat(
                 catalogManager.createTable(
                         CreateTableParams.builder()
-                                .schemaName(DEFAULT_SCHEMA_NAME)
+                                .schemaName(PUBLIC)
                                 .zone(DEFAULT_ZONE_NAME)
                                 .tableName(TABLE_NAME)
                                 .columns(List.of(
@@ -184,7 +184,7 @@ public class IndexManagerTest {
         assertThat(
                 indexManager.createIndexAsync(
                         CreateSortedIndexParams.builder()
-                                .schemaName(DEFAULT_SCHEMA_NAME)
+                                .schemaName(PUBLIC)
                                 .indexName(indexName)
                                 .tableName("tName")
                                 .columns(List.of("c1", "c2"))
@@ -223,7 +223,7 @@ public class IndexManagerTest {
         assertThat(
                 indexManager.createIndexAsync(
                         CreateHashIndexParams.builder()
-                                .schemaName(DEFAULT_SCHEMA_NAME)
+                                .schemaName(PUBLIC)
                                 .indexName("")
                                 .tableName("tName")
                                 .build(),
@@ -235,7 +235,7 @@ public class IndexManagerTest {
 
     @Test
     public void dropNonExistingIndex() {
-        String schemaName = DEFAULT_SCHEMA_NAME;
+        String schemaName = PUBLIC;
         String indexName = "nonExisting";
 
         assertThat(
@@ -272,7 +272,7 @@ public class IndexManagerTest {
         assertThat(
                 indexManager.createIndexAsync(
                         CreateSortedIndexParams.builder()
-                                .schemaName(DEFAULT_SCHEMA_NAME)
+                                .schemaName(PUBLIC)
                                 .indexName(indexName)
                                 .tableName("tName")
                                 .columns(List.of("c2"))
@@ -298,7 +298,7 @@ public class IndexManagerTest {
 
         assertThat(
                 indexManager.dropIndexAsync(
-                        DropIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(indexName).build(),
+                        DropIndexParams.builder().schemaName(PUBLIC).indexName(indexName).build(),
                         true
                 ),
                 willBe(true)
