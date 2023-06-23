@@ -56,6 +56,7 @@ public class WatchEvent {
      *
      * @param entryEvt Entry event.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19820 - remove/rework.
     @TestOnly
     public WatchEvent(EntryEvent entryEvt) {
         this(List.of(entryEvt), entryEvt.newEntry().revision(), HybridTimestamp.MAX_VALUE);
