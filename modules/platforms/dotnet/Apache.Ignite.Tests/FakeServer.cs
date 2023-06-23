@@ -622,35 +622,8 @@ namespace Apache.Ignite.Tests
 
                         case ClientOp.ComputeExecute:
                         {
-                            var targetNodeName = reader.ReadString();
-                            var unitsCount = reader.TryReadNil() ? 0 : reader.ReadArrayHeader();
-                            var units = new List<DeploymentUnit>(unitsCount);
-                            for (int i = 0; i < unitsCount; i++)
-                            {
-                                units.Add(new DeploymentUnit(reader.ReadString(), reader.ReadString()));
-                            }
-
-                            var jobClassName = reader.ReadString();
-
-                            using var arrayBufferWriter = new PooledArrayBuffer();
-                            var writer = new MsgPackWriter(arrayBufferWriter);
-
-                            using var builder = new BinaryTupleBuilder(3);
-
-                            object? resObj = jobClassName == GetDetailsJob
-                                ? new
-                                {
-                                    NodeName = Node.Name,
-                                    Units = string.Join(", ", units.Select(u => $"{u.Name}|{u.Version}")),
-                                    jobClassName,
-                                    targetNodeName
-                                }.ToString()
-                                : Node.Name;
-
-                            builder.AppendObjectWithType(resObj);
-                            writer.Write(builder.Build().Span);
-
-                            Send(handler, requestId, arrayBufferWriter);
+                            using var pooledArrayBuffer = ComputeExecute(reader);
+                            Send(handler, requestId, pooledArrayBuffer);
                             continue;
                         }
 
@@ -668,8 +641,11 @@ namespace Apache.Ignite.Tests
                             continue;
 
                         case ClientOp.ComputeExecuteColocated:
-                            Send(handler, requestId, new byte[] { 1, MessagePackCode.Nil }.AsMemory());
+                        {
+                            using var pooledArrayBuffer = ComputeExecute(reader, colocated: true);
+                            Send(handler, requestId, pooledArrayBuffer);
                             continue;
+                        }
                     }
 
                     // Fake error message for any other op code.
@@ -686,6 +662,41 @@ namespace Apache.Ignite.Tests
 
                 handler.Disconnect(true);
             }
+        }
+
+        private PooledArrayBuffer ComputeExecute(MsgPackReader reader, bool colocated = false)
+        {
+            // Colocated: table id, schema version, key.
+            // Else: node name.
+            reader.Skip(colocated ? 3 : 1);
+
+            var unitsCount = reader.TryReadNil() ? 0 : reader.ReadArrayHeader();
+            var units = new List<DeploymentUnit>(unitsCount);
+            for (int i = 0; i < unitsCount; i++)
+            {
+                units.Add(new DeploymentUnit(reader.ReadString(), reader.ReadString()));
+            }
+
+            var jobClassName = reader.ReadString();
+
+            var arrayBufferWriter = new PooledArrayBuffer();
+            var writer = new MsgPackWriter(arrayBufferWriter);
+
+            using var builder = new BinaryTupleBuilder(3);
+
+            object? resObj = jobClassName == GetDetailsJob
+                ? new
+                {
+                    NodeName = Node.Name,
+                    Units = string.Join(", ", units.Select(u => $"{u.Name}|{u.Version}")),
+                    jobClassName
+                }.ToString()
+                : Node.Name;
+
+            builder.AppendObjectWithType(resObj);
+            writer.Write(builder.Build().Span);
+
+            return arrayBufferWriter;
         }
 
         internal record struct RequestContext(int RequestCount, ClientOp OpCode, long RequestId);
