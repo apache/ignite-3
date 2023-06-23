@@ -89,6 +89,7 @@ import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
+import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
@@ -262,7 +263,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 throw new TableAlreadyExistsException(schema.name(), params.tableName());
             }
 
-            validateParams(params);
+            validateCreateTableParams(params);
 
             CatalogZoneDescriptor zone = getZone(catalog, Objects.requireNonNullElse(params.zone(), DEFAULT_ZONE_NAME));
 
@@ -332,7 +333,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            validateParams(params, schema, table);
+            validateAlterTableDropColumnParams(params, schema, table);
 
             return List.of(
                     new DropColumnsEntry(table.id(), params.columns())
@@ -377,7 +378,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            validateParams(params, table);
+            validateCreateHashIndexParams(params, table);
 
             CatalogHashIndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
 
@@ -399,7 +400,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            validateParams(params, table);
+            validateCreateSortedIndexParams(params, table);
 
             CatalogIndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
 
@@ -430,7 +431,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public CompletableFuture<Void> createDistributionZone(CreateZoneParams params) {
         return saveUpdate(catalog -> {
-            validateParams(params);
+            validateCreateZoneParams(params);
 
             String zoneName = Objects.requireNonNull(params.zoneName(), "zone");
 
@@ -645,7 +646,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         List<UpdateEntry> get(Catalog catalog);
     }
 
-    private Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update) {
+    private static Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update) {
         return new Catalog(
                 update.version(),
                 update.activationTimestamp(),
@@ -658,11 +659,17 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     private static CatalogSchemaDescriptor getSchema(Catalog catalog, @Nullable String schemaName) {
         schemaName = Objects.requireNonNullElse(schemaName, DEFAULT_SCHEMA_NAME);
 
-        return Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+        CatalogSchemaDescriptor schema = catalog.schema(schemaName);
+
+        if (schema == null) {
+            throw new SchemaNotFoundException(schemaName);
+        }
+
+        return schema;
     }
 
-    private static CatalogTableDescriptor getTable(CatalogSchemaDescriptor schema, @Nullable String tableName) {
-        CatalogTableDescriptor table = schema.table(tableName);
+    private static CatalogTableDescriptor getTable(CatalogSchemaDescriptor schema, String tableName) {
+        CatalogTableDescriptor table = schema.table(Objects.requireNonNull(tableName, "tableName"));
 
         if (table == null) {
             throw new TableNotFoundException(schema.name(), tableName);
@@ -702,7 +709,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         );
     }
 
-    private static void validateParams(CreateTableParams params) {
+    private static void validateCreateTableParams(CreateTableParams params) {
         params.columns().stream()
                 .map(ColumnParams::name)
                 .filter(Predicate.not(new HashSet<>()::add))
@@ -723,7 +730,11 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         }
     }
 
-    private static void validateParams(AlterTableDropColumnParams params, CatalogSchemaDescriptor schema, CatalogTableDescriptor table) {
+    private static void validateAlterTableDropColumnParams(
+            AlterTableDropColumnParams params,
+            CatalogSchemaDescriptor schema,
+            CatalogTableDescriptor table
+    ) {
         for (String columnName : params.columns()) {
             if (table.column(columnName) == null) {
                 throw new ColumnNotFoundException(columnName);
@@ -752,11 +763,11 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                         }));
     }
 
-    private static void validateParams(CreateHashIndexParams params, CatalogTableDescriptor table) {
+    private static void validateCreateHashIndexParams(CreateHashIndexParams params, CatalogTableDescriptor table) {
         validateIndexColumns(params.columns(), table);
     }
 
-    private static void validateParams(CreateSortedIndexParams params, CatalogTableDescriptor table) {
+    private static void validateCreateSortedIndexParams(CreateSortedIndexParams params, CatalogTableDescriptor table) {
         validateIndexColumns(params.columns(), table);
 
         if (params.collations().size() != params.columns().size()) {
@@ -767,7 +778,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         }
     }
 
-    private static void validateParams(CreateZoneParams params) {
+    private static void validateCreateZoneParams(CreateZoneParams params) {
         if (params.dataNodesAutoAdjust() != INFINITE_TIMER_VALUE
                 && (params.dataNodesAutoAdjustScaleUp() != INFINITE_TIMER_VALUE
                 || params.dataNodesAutoAdjustScaleDown() != INFINITE_TIMER_VALUE)

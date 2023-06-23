@@ -28,7 +28,6 @@ import java.util.concurrent.TimeoutException;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link Matcher} that awaits for the given future to complete and then forwards the result to the nested {@code matcher}.
@@ -146,7 +145,7 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      * @param <T> value type
      * @return matcher
      */
-    public static <T> CompletableFutureMatcher<T> willBe(@Nullable T value) {
+    public static <T> CompletableFutureMatcher<T> willBe(T value) {
         return willBe(equalTo(value));
     }
 }

@@ -57,7 +57,7 @@ public abstract class AbstractIndexCommandParams implements DdlCommandParams {
     /**
      * Returns {@code true} if index is unique, {@code false} otherwise.
      */
-    public boolean isUnique() {
+    public boolean unique() {
         return unique;
     }
 

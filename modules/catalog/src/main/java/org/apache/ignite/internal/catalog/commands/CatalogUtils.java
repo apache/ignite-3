@@ -75,7 +75,7 @@ public class CatalogUtils {
      * @return Index descriptor.
      */
     public static CatalogHashIndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
-        return new CatalogHashIndexDescriptor(id, params.indexName(), tableId, params.isUnique(), params.columns());
+        return new CatalogHashIndexDescriptor(id, params.indexName(), tableId, params.unique(), params.columns());
     }
 
     /**
@@ -95,7 +95,7 @@ public class CatalogUtils {
                 .mapToObj(i -> new CatalogIndexColumnDescriptor(params.columns().get(i), collations.get(i)))
                 .collect(toList());
 
-        return new CatalogSortedIndexDescriptor(id, params.indexName(), tableId, params.isUnique(), columnDescriptors);
+        return new CatalogSortedIndexDescriptor(id, params.indexName(), tableId, params.unique(), columnDescriptors);
     }
 
     /**
