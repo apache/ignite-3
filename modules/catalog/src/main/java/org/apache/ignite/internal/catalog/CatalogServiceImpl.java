@@ -783,10 +783,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     private CompletableFuture<Void> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
         return saveUpdate(updateProducer, 0)
-                .thenCompose(newVersion -> versionTracker.waitFor(newVersion)
-                        .thenApply(unused -> catalogByVer.get(newVersion))
-                )
-                .thenCompose(catalog -> {
+                .thenCompose(newVersion -> {
+                    Catalog catalog = catalogByVer.get(newVersion);
+
                     HybridTimestamp activationTs = HybridTimestamp.hybridTimestamp(catalog.time());
                     HybridTimestamp clusterWideEnsuredActivationTs = activationTs.addPhysicalTime(
                             HybridTimestamp.maxClockSkew()
