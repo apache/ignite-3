@@ -130,7 +130,7 @@ public class WatchProcessor implements ManuallyCloseable {
 
                     // Notify all watches in parallel, then aggregate the entries that they have processed.
                     CompletableFuture<List<EntryEvent>>[] notificationFutures = watches.stream()
-                            .map(watch -> notifyWatch(watch, updatedEntries, newRevision))
+                            .map(watch -> notifyWatch(watch, updatedEntries, newRevision, time))
                             .toArray(CompletableFuture[]::new);
 
                     return allOf(notificationFutures)
@@ -138,7 +138,7 @@ public class WatchProcessor implements ManuallyCloseable {
                 }, watchExecutor);
     }
 
-    private CompletableFuture<List<EntryEvent>> notifyWatch(Watch watch, List<Entry> updatedEntries, long revision) {
+    private CompletableFuture<List<EntryEvent>> notifyWatch(Watch watch, List<Entry> updatedEntries, long revision, HybridTimestamp time) {
         CompletableFuture<List<EntryEvent>> eventFuture = supplyAsync(() -> {
             List<EntryEvent> entryEvents = List.of();
 
@@ -165,7 +165,7 @@ public class WatchProcessor implements ManuallyCloseable {
                 .thenCompose(entryEvents -> {
                     CompletableFuture<Void> eventNotificationFuture = entryEvents.isEmpty()
                             ? watch.onRevisionUpdated(revision)
-                            : watch.onUpdate(new WatchEvent(entryEvents, revision));
+                            : watch.onUpdate(new WatchEvent(entryEvents, revision, time));
 
                     return eventNotificationFuture.thenApply(v -> entryEvents);
                 })
@@ -199,7 +199,7 @@ public class WatchProcessor implements ManuallyCloseable {
                 acceptedEntries.addAll(future.join());
             }
 
-            var event = new WatchEvent(acceptedEntries, revision);
+            var event = new WatchEvent(acceptedEntries, revision, time);
 
             return revisionCallback.onRevisionApplied(event, time)
                     .whenComplete((ignored, e) -> {
