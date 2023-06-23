@@ -302,5 +302,8 @@ public interface MetaStorageService extends ManuallyCloseable {
      */
     CompletableFuture<Void> compact();
 
-    CompletableFuture<Long> currentRevisionAndTime();
+    /**
+     * Returns a future which will hold current revision of the metastorage leader.
+     */
+    CompletableFuture<Long> currentRevision();
 }

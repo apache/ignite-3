@@ -170,7 +170,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                     NamedThreadFactory.create(clusterService.nodeName(), "ms-start", LOG)
             );
 
-            service.currentRevisionAndTime().whenCompleteAsync((revision, throwable) -> {
+            service.currentRevision().whenCompleteAsync((revision, throwable) -> {
                 if (throwable != null) {
                     res.completeExceptionally(throwable);
 
@@ -181,6 +181,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
                 assert revision != null;
 
+                // Busy wait is ok here, because other threads are not doing any real work,
+                // and for node to start we must wait until storage is up to this revision.
                 while (storage.revision() < revision) {
                     if (!busyLock.enterBusy()) {
                         res.completeExceptionally(new NodeStoppingException());

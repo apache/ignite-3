@@ -293,7 +293,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     }
 
     @Override
-    public CompletableFuture<Long> currentRevisionAndTime() {
+    public CompletableFuture<Long> currentRevision() {
         GetCurrentRevisionCommand cmd = context.commandsFactory().getCurrentRevisionCommand().build();
 
         return context.raftService().run(cmd);

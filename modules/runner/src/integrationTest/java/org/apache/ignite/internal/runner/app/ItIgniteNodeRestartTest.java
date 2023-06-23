@@ -750,7 +750,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         CompletableFuture.allOf(futs).join();
 
         if (useSnapshot) {
-            // Force snapshot installation
+            // Force log truncation, so that restarting node would request a snapshot.
             JraftServerImpl server = (JraftServerImpl) main.raftManager().server();
             List<Peer> peers = server.localPeers(MetastorageGroupId.INSTANCE);
 

@@ -44,7 +44,6 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Tests MetaStorage manager recovery basics. */
@@ -53,21 +52,18 @@ public class MetaStorageManagerRecoveryTest {
 
     private static final String LEADER_NAME = "ms-leader";
 
-    private static final long TARGET_REVISION = 10;
-
     private MetaStorageManagerImpl metaStorageManager;
 
     private KeyValueStorage kvs;
 
     private HybridClock clock;
 
-    @BeforeEach
-    void setUp() throws Exception {
+    private void createMetaStorage(long remoteRevision) throws Exception {
         VaultManager vault = new VaultManager(new InMemoryVaultService());
-        ClusterService clusterService = cs();
-        ClusterManagementGroupManager cmgManager = cmg();
+        ClusterService clusterService = clusterService();
+        ClusterManagementGroupManager cmgManager = clusterManagementManager();
         LogicalTopologyService topologyService = mock(LogicalTopologyService.class);
-        RaftManager raftManager = raftManager();
+        RaftManager raftManager = raftManager(remoteRevision);
 
         clock = new HybridClockImpl();
         kvs = spy(new SimpleInMemoryKeyValueStorage(NODE_NAME));
@@ -83,13 +79,13 @@ public class MetaStorageManagerRecoveryTest {
         );
     }
 
-    private RaftManager raftManager() throws Exception {
+    private RaftManager raftManager(long remoteRevision) throws Exception {
         RaftManager raft = mock(RaftManager.class);
 
         RaftGroupService service = mock(RaftGroupService.class);
 
         when(service.run(any(GetCurrentRevisionCommand.class))).thenAnswer(invocation -> {
-            return CompletableFuture.completedFuture(TARGET_REVISION);
+            return CompletableFuture.completedFuture(remoteRevision);
         });
 
         when(raft.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any()))
@@ -98,7 +94,7 @@ public class MetaStorageManagerRecoveryTest {
         return raft;
     }
 
-    private ClusterService cs() {
+    private ClusterService clusterService() {
         return new ClusterService() {
             @Override
             public String nodeName() {
@@ -127,17 +123,15 @@ public class MetaStorageManagerRecoveryTest {
 
             @Override
             public void updateMetadata(NodeMetadata metadata) {
-
             }
 
             @Override
             public void start() {
-
             }
         };
     }
 
-    private ClusterManagementGroupManager cmg() {
+    private ClusterManagementGroupManager clusterManagementManager() {
         ClusterManagementGroupManager mock = mock(ClusterManagementGroupManager.class);
 
         when(mock.metaStorageNodes())
@@ -147,17 +141,36 @@ public class MetaStorageManagerRecoveryTest {
     }
 
     @Test
-    void test() {
+    void testRecoverToRevision() throws Exception {
+        long targetRevision = 10;
+
+        createMetaStorage(targetRevision);
+
         metaStorageManager.start();
 
         CompletableFuture<Void> msDeployFut = metaStorageManager.deployWatches();
 
-        for (int i = 0; i < TARGET_REVISION; i++) {
+        for (int i = 0; i < targetRevision; i++) {
             kvs.put(new byte[0], new byte[0], clock.now());
         }
 
         assertThat(msDeployFut, willSucceedFast());
 
-        verify(kvs).startWatches(eq(TARGET_REVISION + 1), any());
+        // MetaStorage recovered to targetRevision and started watching targetRevision + 1.
+        verify(kvs).startWatches(eq(targetRevision + 1), any());
+    }
+
+    @Test
+    void testRecoverClean() throws Exception {
+        createMetaStorage(0);
+
+        metaStorageManager.start();
+
+        CompletableFuture<Void> msDeployFut = metaStorageManager.deployWatches();
+
+        assertThat(msDeployFut, willSucceedFast());
+
+        // MetaStorage is at revision 0 and started watching revision 1.
+        verify(kvs).startWatches(eq(1L), any());
     }
 }
