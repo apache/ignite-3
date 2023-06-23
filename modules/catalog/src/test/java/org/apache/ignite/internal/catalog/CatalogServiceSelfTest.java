@@ -71,7 +71,6 @@ import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -120,7 +119,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 /**
@@ -286,7 +284,7 @@ public class CatalogServiceSelfTest {
         assertSame(schema.index(createPkIndexName(TABLE_NAME_2)), service.index(5, clock.nowLong()));
 
         assertNotSame(schema.table(TABLE_NAME), schema.table(TABLE_NAME_2));
-        assertNotSame(schema.table(createPkIndexName(TABLE_NAME)), schema.table(createPkIndexName(TABLE_NAME_2)));
+        assertNotSame(schema.index(createPkIndexName(TABLE_NAME)), schema.index(createPkIndexName(TABLE_NAME_2)));
 
         // Try to create another table with same name.
         assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willThrowFast(TableAlreadyExistsException.class));

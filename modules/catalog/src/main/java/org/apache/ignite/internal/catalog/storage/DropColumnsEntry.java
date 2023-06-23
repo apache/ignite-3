@@ -69,7 +69,7 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new DropColumnEventParameters(causalityToken,catalogVersion, tableId, columns);
+        return new DropColumnEventParameters(causalityToken, catalogVersion, tableId, columns);
     }
 
     @Override

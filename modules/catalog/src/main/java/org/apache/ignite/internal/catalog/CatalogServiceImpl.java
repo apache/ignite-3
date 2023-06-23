@@ -389,9 +389,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            validateCreateHashIndexParams(params, table);
-
-            CatalogHashIndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
+            CatalogHashIndexDescriptor index = createHashIndexDescriptor(table, catalog.objectIdGenState(), params);
 
             return List.of(
                     new NewIndexEntry(index),
@@ -876,6 +874,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 .tableName(params.tableName())
                 .indexName(params.tableName() + "_PK")
                 .columns(params.primaryKeyColumns())
+                .unique()
                 .build();
     }
 
@@ -884,33 +883,8 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             int indexId,
             CreateHashIndexParams params
     ) {
-        validateParams(params, table);
+        validateCreateHashIndexParams(params, table);
 
         return CatalogUtils.fromParams(indexId, table.id(), params);
-    }
-
-    private static void validateParams(CreateHashIndexParams params, CatalogTableDescriptor table) {
-        if (params.columns().isEmpty()) {
-            throw new IgniteInternalException(
-                    ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                    "No index columns was specified."
-            );
-        }
-
-        Predicate<String> duplicateValidator = Predicate.not(new HashSet<>()::add);
-
-        for (String columnName : params.columns()) {
-            CatalogTableColumnDescriptor columnDescriptor = table.columnDescriptor(columnName);
-
-            if (columnDescriptor == null) {
-                throw new ColumnNotFoundException(columnName);
-            } else if (duplicateValidator.test(columnName)) {
-                throw new IgniteInternalException(
-                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                        "Can't create index on duplicate columns: {}",
-                        String.join(", ", params.columns())
-                );
-            }
-        }
     }
 }
