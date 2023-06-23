@@ -157,7 +157,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
         CatalogSchemaDescriptor schemaPublic = new CatalogSchemaDescriptor(
                 objectIdGen++,
-                PUBLIC,
+                DEFAULT_SCHEMA_NAME,
                 new CatalogTableDescriptor[0],
                 new CatalogIndexDescriptor[0]
         );
@@ -187,7 +187,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CatalogTableDescriptor table(String tableName, long timestamp) {
-        return catalogAt(timestamp).schema(PUBLIC).table(tableName);
+        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).table(tableName);
     }
 
     @Override
@@ -197,7 +197,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CatalogIndexDescriptor index(String indexName, long timestamp) {
-        return catalogAt(timestamp).schema(PUBLIC).index(indexName);
+        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).index(indexName);
     }
 
     @Override
@@ -213,7 +213,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             return null;
         }
 
-        return catalog.schema(PUBLIC);
+        return catalog.schema(DEFAULT_SCHEMA_NAME);
     }
 
     @Override
@@ -224,7 +224,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             return null;
         }
 
-        return catalog.schema(schemaName == null ? PUBLIC : schemaName);
+        return catalog.schema(schemaName == null ? DEFAULT_SCHEMA_NAME : schemaName);
     }
 
     @Override
@@ -239,12 +239,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public @Nullable CatalogSchemaDescriptor activeSchema(long timestamp) {
-        return catalogAt(timestamp).schema(PUBLIC);
+        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME);
     }
 
     @Override
     public @Nullable CatalogSchemaDescriptor activeSchema(String schemaName, long timestamp) {
-        return catalogAt(timestamp).schema(schemaName == null ? PUBLIC : schemaName);
+        return catalogAt(timestamp).schema(schemaName == null ? DEFAULT_SCHEMA_NAME : schemaName);
     }
 
     @Override
@@ -613,7 +613,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             List<CompletableFuture<?>> eventFutures = new ArrayList<>(update.entries().size());
 
             for (UpdateEntry entry : update.entries()) {
-                String schemaName = CatalogService.PUBLIC;
+                String schemaName = CatalogService.DEFAULT_SCHEMA_NAME;
                 CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
                 if (entry instanceof NewTableEntry) {
@@ -882,7 +882,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     private static CatalogSchemaDescriptor getSchema(Catalog catalog, @Nullable String schemaName) {
-        schemaName = Objects.requireNonNullElse(schemaName, PUBLIC);
+        schemaName = Objects.requireNonNullElse(schemaName, DEFAULT_SCHEMA_NAME);
 
         return Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
     }
