@@ -364,14 +364,14 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         return clusterStatusesAsync(id)
                 .thenApply(statuses -> {
                     if (statuses == null) {
-                        throw new DeploymentUnitNotFoundException(id);
+                        throw new DeploymentUnitNotFoundException(id, Version.LATEST);
                     }
 
                     return statuses.versions()
                             .stream()
                             .filter(version -> statuses.status(version) == DEPLOYED)
                             .max(Version::compareTo)
-                            .orElseThrow(() -> new DeploymentUnitNotFoundException(id));
+                            .orElseThrow(() -> new DeploymentUnitNotFoundException(id, Version.LATEST));
                 });
     }
 

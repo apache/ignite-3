@@ -216,8 +216,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         var cause = (IgniteException) ex.getCause();
 
-        // TODO: Why null version?
-        assertThat(cause.getMessage(), containsString("Deployment unit u:null doesn’t exist"));
+        assertThat(cause.getMessage(), containsString("Deployment unit u:latest doesn’t exist"));
 
         // TODO: Why internal error?
         assertEquals(INTERNAL_ERR, cause.code());
