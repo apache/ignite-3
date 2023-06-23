@@ -92,7 +92,7 @@ public class UpdateLogImpl implements UpdateLog {
 
             restoreStateFromVault(handler);
 
-            UpdateListener listener = new UpdateListener();
+            UpdateListener listener = new UpdateListener(onUpdateHandler);
             this.listener = listener;
 
             metastore.registerPrefixWatch(CatalogKey.updatePrefix(), listener);
@@ -191,7 +191,13 @@ public class UpdateLogImpl implements UpdateLog {
         }
     }
 
-    private class UpdateListener implements WatchListener {
+    private static class UpdateListener implements WatchListener {
+        private final OnUpdateHandler onUpdateHandler;
+
+        private UpdateListener(OnUpdateHandler onUpdateHandler) {
+            this.onUpdateHandler = onUpdateHandler;
+        }
+
         @Override
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
             for (EntryEvent eventEntry : event.entryEvents()) {
