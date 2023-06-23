@@ -55,11 +55,7 @@ namespace Apache.Ignite.Tests.Compute
 
         private const string ExceptionJob = PlatformTestNodeRunner + "$ExceptionJob";
 
-        private static readonly IList<DeploymentUnit> Units = new DeploymentUnit[]
-        {
-            new("unit-latest"),
-            new("unit1", "1.0.0")
-        };
+        private static readonly IList<DeploymentUnit> Units = Array.Empty<DeploymentUnit>();
 
         [Test]
         public async Task TestGetClusterNodes()
@@ -243,7 +239,6 @@ namespace Apache.Ignite.Tests.Compute
         [TestCase(11, "_2")]
         public async Task TestExecuteColocated(long key, string nodeName)
         {
-            // TODO: Why does this hang with unknown unit version?
             var keyTuple = new IgniteTuple { [KeyCol] = key };
             var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, Units, NodeNameJob);
 
@@ -323,15 +318,21 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestDeploymentUnitsPropagation()
         {
+            var units = new DeploymentUnit[]
+            {
+                new("unit-latest"),
+                new("unit1", "1.0.0")
+            };
+
             // TODO: Test all overloads.
             using var server = new FakeServer();
             using var client = await server.ConnectClientAsync();
 
-            var res = await client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, FakeServer.GetDetailsJob);
+            var res = await client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), units, FakeServer.GetDetailsJob);
             StringAssert.Contains("Units = unit-latest|latest, unit1|1.0.0", res);
 
             // Lazy enumerable.
-            var res2 = await client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units.Reverse(), FakeServer.GetDetailsJob);
+            var res2 = await client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), units.Reverse(), FakeServer.GetDetailsJob);
             StringAssert.Contains("Units = unit1|1.0.0, unit-latest|latest", res2);
         }
 
