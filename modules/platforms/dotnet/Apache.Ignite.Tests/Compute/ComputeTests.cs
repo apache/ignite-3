@@ -338,7 +338,12 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestExecuteOnUnknownUnitWithLatestVersionThrows()
         {
-            Assert.Fail("TODO");
+            var deploymentUnits = new DeploymentUnit[] { new("unit-latest") };
+
+            var ex = Assert.ThrowsAsync<IgniteException>(
+                async () => await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
+
+            StringAssert.Contains("Deployment unit unit-latest:latest doesn’t exist", ex!.Message);
         }
 
         [Test]
