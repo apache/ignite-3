@@ -166,7 +166,7 @@ public final class V1Encoder implements LogEntryEncoder {
             }
 
             // old learners count
-            pos = writeLong(oldPeerCount, content, pos);
+            pos = writeLong(oldLearnerCount, content, pos);
             // old learners
             for (final String peerStr : oldLearnerStrs) {
                 final byte[] ps = AsciiStringUtil.unsafeEncode(peerStr);
