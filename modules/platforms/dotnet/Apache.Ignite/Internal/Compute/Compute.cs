@@ -179,8 +179,10 @@ namespace Apache.Ignite.Internal.Compute
                 else
                 {
                     // Enumerable without known count - enumerate first, write count later.
-                    var countSpan = writer.GetSpan(5);
                     var count = 0;
+                    var countSpan = writer.GetSpan(5);
+                    writer.Advance(5);
+
                     foreach (var unit in units)
                     {
                         count++;
