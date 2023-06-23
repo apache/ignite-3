@@ -910,4 +910,61 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
                 .returns(7, null)
                 .check();
     }
+
+    @Test
+    public void testNullsInCorrNestedLoopJoinSearchRow() {
+        try {
+            sql("CREATE TABLE t(i0 INTEGER PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
+            sql("CREATE INDEX t_idx ON t(i1)");
+            sql("INSERT INTO t VALUES (1, 0, null), (2, 1, null), (3, 2, 2), (4, 3, null), (5, 4, null), (6, null, 5)");
+
+            String sql = "SELECT t1.i1, t2.i1 FROM t t1 LEFT JOIN t t2 ON t1.i2 = t2.i1";
+
+            assertQuery(sql)
+                    .disableRules("NestedLoopJoinConverter", "MergeJoinConverter")
+                    .matches(containsSubPlan("IgniteCorrelatedNestedLoopJoin"))
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .returns(0, null)
+                    .returns(1, null)
+                    .returns(2, 2)
+                    .returns(3, null)
+                    .returns(4, null)
+                    .returns(null, null)
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS t");
+        }
+    }
+
+    @Test
+    public void testNullsInSearchRow() {
+        try {
+            sql("CREATE TABLE t(i0 INTEGER PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
+            sql("CREATE INDEX t_idx ON t(i1, i2)");
+            sql("INSERT INTO t VALUES (1, null, 0), (2, 1, null), (3, 2, 2), (4, 3, null)");
+
+            assertQuery("SELECT * FROM t WHERE i1 = ?")
+                    .withParams(null)
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .check();
+
+            assertQuery("SELECT * FROM t WHERE i1 = 1 AND i2 = ?")
+                    .withParams(new Object[] { null })
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .check();
+
+            // Multi ranges.
+            assertQuery("SELECT * FROM t WHERE i1 IN (1, 2, 3) AND i2 = ?")
+                    .withParams(new Object[] { null })
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .check();
+
+            assertQuery("SELECT i1, i2 FROM t WHERE i1 IN (1, 2) AND i2 IS NULL")
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .returns(1, null)
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS t");
+        }
+    }
 }
