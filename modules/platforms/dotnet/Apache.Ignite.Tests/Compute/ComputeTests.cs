@@ -336,9 +336,17 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public void TestUnknownUnitWithLatestVersionThrows()
+        public void TestExecuteOnUnknownUnitWithLatestVersionThrows()
         {
             Assert.Fail("TODO");
+        }
+
+        [Test]
+        public async Task TestExecuteColocatedUnknownUnitWithLatestVersionThrows()
+        {
+            var keyTuple = new IgniteTuple { [KeyCol] = 1 };
+            var deploymentUnits = new DeploymentUnit[] { new("unit-latest") };
+            var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, deploymentUnits, NodeNameJob);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
