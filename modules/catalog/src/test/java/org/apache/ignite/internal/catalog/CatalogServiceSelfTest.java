@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -1600,6 +1601,54 @@ public class CatalogServiceSelfTest {
 
         assertNull(service.table(2, 0));
         assertNotNull(service.table(2, 1));
+    }
+
+    @Test
+    void testGetTableIdOnDropIndexEvent() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        assertThat(
+                service.createIndex(
+                        CreateHashIndexParams.builder()
+                                .schemaName(SCHEMA_NAME)
+                                .tableName(TABLE_NAME)
+                                .indexName(INDEX_NAME)
+                                .columns(List.of("VAL"))
+                                .build()
+                ),
+                willBe((Object) null)
+        );
+
+        EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
+
+        ArgumentCaptor<DropIndexEventParameters> captor = ArgumentCaptor.forClass(DropIndexEventParameters.class);
+
+        doReturn(completedFuture(false)).when(eventListener).notify(captor.capture(), any());
+
+        service.listen(CatalogEvent.INDEX_DROP, eventListener);
+
+        // Let's remove the index.
+        assertThat(
+                service.dropIndex(DropIndexParams.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                willBe((Object) null)
+        );
+
+        DropIndexEventParameters eventParameters = captor.getValue();
+
+        assertEquals(4L, eventParameters.indexId());
+        assertEquals(2L, eventParameters.tableId());
+
+        // Let's delete the table.
+        assertThat(
+                service.dropTable(DropTableParams.builder().schemaName(SCHEMA_NAME).tableName(TABLE_NAME).build()),
+                willBe((Object) null)
+        );
+
+        // Let's make sure that the pk index has been deleted.
+        eventParameters = captor.getValue();
+
+        assertEquals(3L, eventParameters.indexId());
+        assertEquals(2L, eventParameters.tableId());
     }
 
     private CompletableFuture<Void> changeColumn(
