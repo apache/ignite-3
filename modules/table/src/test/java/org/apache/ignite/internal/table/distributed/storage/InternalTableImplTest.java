@@ -125,13 +125,13 @@ public class InternalTableImplTest {
         // We will get batches for processing and check them.
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = internalTable.toRowBatchByPartitionId(originalRows);
 
-        assertThat(rowBatchByPartitionId.get(0).rows, hasSize(2));
+        assertThat(rowBatchByPartitionId.get(0).requestedRows, hasSize(2));
         assertThat(rowBatchByPartitionId.get(0).originalRowOrder, contains(0, 1));
 
-        assertThat(rowBatchByPartitionId.get(1).rows, hasSize(1));
+        assertThat(rowBatchByPartitionId.get(1).requestedRows, hasSize(1));
         assertThat(rowBatchByPartitionId.get(1).originalRowOrder, contains(2));
 
-        assertThat(rowBatchByPartitionId.get(2).rows, hasSize(3));
+        assertThat(rowBatchByPartitionId.get(2).requestedRows, hasSize(3));
         assertThat(rowBatchByPartitionId.get(2).originalRowOrder, contains(3, 4, 5));
 
         // Collect the result and check it.
@@ -140,12 +140,12 @@ public class InternalTableImplTest {
         rowBatchByPartitionId.get(2).resultFuture = completedFuture(List.of(originalRows.get(3), originalRows.get(4), originalRows.get(5)));
 
         assertThat(
-                collectMultiRowsResponsesWithRestoreOrder(rowBatchByPartitionId),
+                collectMultiRowsResponsesWithRestoreOrder(rowBatchByPartitionId.values()),
                 willBe(equalTo(originalRows))
         );
 
         assertThat(
-                collectMultiRowsResponsesWithoutRestoreOrder(rowBatchByPartitionId),
+                collectMultiRowsResponsesWithoutRestoreOrder(rowBatchByPartitionId.values()),
                 willBe(hasItems(originalRows.toArray(BinaryRowEx[]::new)))
         );
     }

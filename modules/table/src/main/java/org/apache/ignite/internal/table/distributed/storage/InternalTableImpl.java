@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.storage;
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
@@ -284,7 +285,7 @@ public class InternalTableImpl implements InternalTable {
             Collection<BinaryRowEx> keyRows,
             @Nullable InternalTransaction tx,
             IgniteFiveFunction<TablePartitionId, Collection<BinaryRow>, InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> op,
-            Function<Int2ObjectMap<RowBatch>, CompletableFuture<T>> reducer
+            Function<Collection<RowBatch>, CompletableFuture<T>> reducer
     ) {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
         // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
@@ -322,7 +323,7 @@ public class InternalTableImpl implements InternalTable {
             if (primaryReplicaAndTerm != null) {
                 TablePartitionId commitPart = tx.commitPartition();
 
-                ReplicaRequest request = op.apply(commitPart, rowBatch.rows, tx0, partGroupId, primaryReplicaAndTerm.get2());
+                ReplicaRequest request = op.apply(commitPart, rowBatch.requestedRows, tx0, partGroupId, primaryReplicaAndTerm.get2());
 
                 try {
                     fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
@@ -335,7 +336,7 @@ public class InternalTableImpl implements InternalTable {
                 fut = enlistWithRetry(
                         tx0,
                         partitionId,
-                        (commitPart, term) -> op.apply(commitPart, rowBatch.rows, tx0, partGroupId, term),
+                        (commitPart, term) -> op.apply(commitPart, rowBatch.requestedRows, tx0, partGroupId, term),
                         ATTEMPTS_TO_ENLIST_PARTITION
                 );
             }
@@ -343,7 +344,7 @@ public class InternalTableImpl implements InternalTable {
             rowBatch.resultFuture = fut;
         }
 
-        CompletableFuture<T> fut = reducer.apply(rowBatchByPartitionId);
+        CompletableFuture<T> fut = reducer.apply(rowBatchByPartitionId.values());
 
         return postEnlist(fut, implicit, tx0);
     }
@@ -600,7 +601,7 @@ public class InternalTableImpl implements InternalTable {
 
             CompletableFuture<Object> fut = replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlyMultiRowReplicaRequest()
                     .groupId(partGroupId)
-                    .binaryRowsBytes(serializeBinaryRows(partitionRowBatch.getValue().rows))
+                    .binaryRowsBytes(serializeBinaryRows(partitionRowBatch.getValue().requestedRows))
                     .requestType(RequestType.RO_GET_ALL)
                     .readTimestampLong(readTimestamp.longValue())
                     .build()
@@ -609,7 +610,7 @@ public class InternalTableImpl implements InternalTable {
             partitionRowBatch.getValue().resultFuture = fut;
         }
 
-        return collectMultiRowsResponsesWithRestoreOrder(rowBatchByPartitionId);
+        return collectMultiRowsResponsesWithRestoreOrder(rowBatchByPartitionId.values());
     }
 
     private static List<ByteBuffer> serializeBinaryRows(Collection<? extends BinaryRow> rows) {
@@ -646,7 +647,7 @@ public class InternalTableImpl implements InternalTable {
                 rows,
                 tx,
                 this::upsertAllInternal,
-                InternalTableImpl::allOfResultFuture
+                RowBatch::allResultFuture
         );
     }
 
@@ -1078,7 +1079,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Creates batches of rows for processing, separated by partition ID.
+     * Creates batches of rows for processing, grouped by partition ID.
      *
      * @param rows Rows.
      */
@@ -1210,18 +1211,16 @@ public class InternalTableImpl implements InternalTable {
     /**
      * Gathers the result of batch processing into a single resulting collection of rows.
      *
-     * @param rowBatchByPartitionId Row batches by partition ID.
+     * @param rowBatches Row batches.
      * @return Future of collecting results.
      */
-    static CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponsesWithoutRestoreOrder(
-            Int2ObjectMap<RowBatch> rowBatchByPartitionId
-    ) {
-        return allOfResultFuture(rowBatchByPartitionId)
+    static CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponsesWithoutRestoreOrder(Collection<RowBatch> rowBatches) {
+        return allResultFuture(rowBatches)
                 .thenApply(response -> {
-                    var result = new ArrayList<BinaryRow>(rowBatchByPartitionId.size());
+                    var result = new ArrayList<BinaryRow>(rowBatches.size());
 
-                    for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
-                        Collection<BinaryRow> batchResult = getBatchProcessingResult(partitionRowBatch);
+                    for (RowBatch rowBatch : rowBatches) {
+                        Collection<BinaryRow> batchResult = (Collection<BinaryRow>) rowBatch.getCompletedResult();
 
                         if (batchResult == null) {
                             continue;
@@ -1238,55 +1237,34 @@ public class InternalTableImpl implements InternalTable {
      * Gathers the result of batch processing into a single resulting collection of rows, restoring order as in the requested collection of
      * rows.
      *
-     * @param rowBatchByPartitionId Row batches by partition ID.
+     * @param rowBatches Row batches by partition ID.
      * @return Future of collecting results.
      */
-    static CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponsesWithRestoreOrder(
-            Int2ObjectMap<RowBatch> rowBatchByPartitionId
-    ) {
-        return allOfResultFuture(rowBatchByPartitionId)
+    static CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponsesWithRestoreOrder(Collection<RowBatch> rowBatches) {
+        return allResultFuture(rowBatches)
                 .thenApply(response -> {
-                    int totalRowSize = rowBatchByPartitionId.values().stream().mapToInt(value -> value.rows.size()).sum();
+                    var result = new BinaryRow[RowBatch.getTotalRequestedRowSize(rowBatches)];
 
-                    var result = new BinaryRow[totalRowSize];
-
-                    for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
-                        Collection<BinaryRow> batchResult = getBatchProcessingResult(partitionRowBatch);
+                    for (RowBatch rowBatch : rowBatches) {
+                        Collection<BinaryRow> batchResult = (Collection<BinaryRow>) rowBatch.getCompletedResult();
 
                         if (batchResult == null) {
                             continue;
                         }
 
-                        RowBatch rowBatch = partitionRowBatch.getValue();
-
-                        assert batchResult.size() == rowBatch.rows.size() :
-                                "batchResult=" + batchResult.size() + ", rowBatch=" + rowBatch.rows.size();
+                        assert batchResult.size() == rowBatch.requestedRows.size() :
+                                "batchResult=" + batchResult.size() + ", requestedRows=" + rowBatch.requestedRows.size();
 
                         int i = 0;
 
                         for (BinaryRow resultRow : batchResult) {
-                            result[rowBatch.originalRowOrder.getInt(i++)] = resultRow;
+                            result[rowBatch.getOriginalRowIndex(i++)] = resultRow;
                         }
                     }
 
                     // Use Arrays#asList to avoid copying the array.
                     return Arrays.asList(result);
                 });
-    }
-
-    private static CompletableFuture<Void> allOfResultFuture(Int2ObjectMap<RowBatch> rowBatchByPartitionId) {
-        return CompletableFuture.allOf(
-                rowBatchByPartitionId.values().stream().map(rowBatch -> rowBatch.resultFuture).toArray(CompletableFuture[]::new)
-        );
-    }
-
-    private static Collection<BinaryRow> getBatchProcessingResult(Int2ObjectMap.Entry<RowBatch> partitionRowBatch) {
-        RowBatch rowBatch = partitionRowBatch.getValue();
-
-        assert rowBatch.resultFuture != null : "partitionId=" + partitionRowBatch.getIntKey();
-
-        // It is safe to call join(), we have already waited for all the resultFutures.
-        return (Collection<BinaryRow>) rowBatch.resultFuture.join();
     }
 
     /**

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.storage;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -32,18 +33,45 @@ import org.jetbrains.annotations.Nullable;
  */
 class RowBatch {
     /** Batch of rows from the original collection of rows. */
-    final List<BinaryRow> rows = new ArrayList<>();
+    final List<BinaryRow> requestedRows = new ArrayList<>();
 
-    /** Order of the rows from the {@link #rows} in the original row collection. */
+    /** Order of the rows from the {@link #requestedRows} in the original row collection. */
     final IntList originalRowOrder = new IntArrayList();
 
     /**
-     * Future of the result of processing the {@link #rows}, {@code null} if not set and may return {@code null}.
+     * Future of the result of processing the {@link #requestedRows}, {@code null} if not set and may return {@code null}.
      */
     @Nullable CompletableFuture<Object> resultFuture;
 
     void add(BinaryRow row, int originalIndex) {
-        rows.add(row);
+        requestedRows.add(row);
         originalRowOrder.add(originalIndex);
+    }
+
+    @Nullable Object getCompletedResult() {
+        CompletableFuture<Object> resultFuture = this.resultFuture;
+
+        assert resultFuture != null;
+        assert resultFuture.isDone();
+
+        return resultFuture.join();
+    }
+
+    int getOriginalRowIndex(int resultRowIndex) {
+        return originalRowOrder.getInt(resultRowIndex);
+    }
+
+    static CompletableFuture<Void> allResultFuture(Collection<RowBatch> batches) {
+        return CompletableFuture.allOf(batches.stream().map(rowBatch -> rowBatch.resultFuture).toArray(CompletableFuture[]::new));
+    }
+
+    static int getTotalRequestedRowSize(Collection<RowBatch> batches) {
+        int totalSize = 0;
+
+        for (RowBatch batch : batches) {
+            totalSize += batch.requestedRows.size();
+        }
+
+        return totalSize;
     }
 }
