@@ -44,7 +44,10 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
 
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(TablesConfiguration.KEY);
+        return List.of(
+                TablesConfiguration.KEY,
+                GcConfiguration.KEY
+        );
     }
 
     @Override

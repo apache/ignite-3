@@ -20,8 +20,8 @@ package org.apache.ignite.internal.deployunit.metastore.status;
 import java.util.Collections;
 import java.util.Set;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.UnitStatus;
-import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**
  * Deployment unit cluster status.

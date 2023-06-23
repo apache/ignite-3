@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.rocksdb;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.util.LocalLocker;
+import org.jetbrains.annotations.Nullable;
 import org.rocksdb.WriteBatchWithIndex;
 
 /**
@@ -31,6 +32,10 @@ class ThreadLocalState {
 
     /** Locker instance, used in {@link WriteClosure#execute(Locker)}. */
     public final LocalLocker locker;
+
+    public long pendingAppliedIndex;
+    public long pendingAppliedTerm;
+    public byte @Nullable [] pendingGroupConfig;
 
     ThreadLocalState(WriteBatchWithIndex batch, LocalLocker locker) {
         this.batch = batch;

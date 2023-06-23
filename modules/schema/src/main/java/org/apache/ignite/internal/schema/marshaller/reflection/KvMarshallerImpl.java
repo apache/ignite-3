@@ -121,6 +121,14 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         return (V) o;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable Object value(Object obj, int fldIdx) throws MarshallerException {
+        return schema.isKeyColumn(fldIdx)
+                ? keyMarsh.value(obj, fldIdx)
+                : valMarsh.value(obj, fldIdx - schema.keyColumns().length());
+    }
+
     /**
      * Creates {@link RowAssembler} for key.
      *

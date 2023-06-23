@@ -70,10 +70,8 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     void releasePartitionSnapshotsReadLock();
 
     /**
-     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be
-     * completed when the underlying storage {@link MvPartitionStorage#persistedIndex()} is higher
-     * than {@link #lastAppliedIndex()} at the moment of the method's call. This feature
-     * allows implementing a batch flush for several partitions at once.
+     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage.
+     * This feature allows implementing a batch flush for several partitions at once.
      *
      * @return Future that's completed when flushing of the data is completed.
      * @see MvPartitionStorage#flush()

@@ -66,9 +66,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     /** Partition meta instance. */
     private volatile PartitionMeta meta;
 
-    /** Value of currently persisted last applied index. */
-    private volatile long persistedIndex;
-
     /** Checkpoint listener. */
     private final CheckpointListener checkpointListener;
 
@@ -107,7 +104,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         DataRegion<PersistentPageMemory> dataRegion = tableStorage.dataRegion();
 
         this.meta = meta;
-        persistedIndex = meta.lastAppliedIndex();
 
         checkpointManager.addCheckpointListener(checkpointListener = new CheckpointListener() {
             @Override
@@ -120,11 +116,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             public void onMarkCheckpointBegin(CheckpointProgress progress, @Nullable Executor exec) throws IgniteInternalCheckedException {
                 // Should be fast, because here we only need to save the delta, reduce write lock holding time.
                 syncMetadataOnCheckpoint(exec);
-            }
-
-            @Override
-            public void afterCheckpointEnd(CheckpointProgress progress) {
-                persistedIndex = meta.metaSnapshot(progress.id()).lastAppliedIndex();
             }
         }, dataRegion);
 
@@ -228,15 +219,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
 
         meta.lastApplied(lastCheckpointId, lastAppliedIndex, lastAppliedTerm);
-    }
-
-    @Override
-    public long persistedIndex() {
-        return busy(() -> {
-            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
-
-            return persistedIndex;
-        });
     }
 
     @Override
@@ -367,8 +349,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         lastAppliedBusy(lastAppliedIndex, lastAppliedTerm);
-
-        persistedIndex = lastAppliedIndex;
     }
 
     /**

@@ -157,6 +157,7 @@ dependencies {
     }
     integrationTestImplementation libs.typesafe.config
     integrationTestImplementation libs.auto.service.annotations
+    integrationTestImplementation libs.netty.common
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-api')

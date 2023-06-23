@@ -775,7 +775,7 @@ components:
       description: Unique tag that identifies the cluster.
     DeploymentStatus:
       type: string
-      description: Status of deployment process.
+      description: REST presentation of the deployment statuses.
       enum:
       - UPLOADING
       - DEPLOYED
