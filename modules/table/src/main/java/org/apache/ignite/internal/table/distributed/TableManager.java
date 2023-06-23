@@ -773,7 +773,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
 
-                CompletableFuture<Void> startGroupFut;
+                CompletableFuture<Boolean> startGroupFut;
 
                 // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
                 if (localMemberAssignment != null) {
@@ -809,9 +809,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         shouldStartGroupFut = completedFuture(true);
                     }
 
-                    startGroupFut = shouldStartGroupFut.thenAcceptAsync(startGroup -> inBusyLock(busyLock, () -> {
+                    startGroupFut = shouldStartGroupFut.thenApplyAsync(startGroup -> inBusyLock(busyLock, () -> {
                         if (!startGroup) {
-                            return;
+                            return false;
                         }
                         TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
@@ -848,12 +848,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     ),
                                     groupOptions
                             );
+
+                            return true;
                         } catch (NodeStoppingException ex) {
                             throw new CompletionException(ex);
                         }
                     }), ioExecutor);
                 } else {
-                    startGroupFut = completedFuture(null);
+                    startGroupFut = completedFuture(false);
                 }
 
                 startGroupFut
@@ -868,7 +870,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         .thenAcceptAsync(updatedRaftGroupService -> inBusyLock(busyLock, () -> {
                             ((InternalTableImpl) internalTbl).updateInternalTableRaftGroupService(partId, updatedRaftGroupService);
 
-                            if (localMemberAssignment == null) {
+                            boolean startedRaftNode = startGroupFut.join();
+                            if (localMemberAssignment == null || !startedRaftNode) {
                                 return;
                             }
 
