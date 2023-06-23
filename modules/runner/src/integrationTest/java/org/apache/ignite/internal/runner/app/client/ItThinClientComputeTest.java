@@ -60,6 +60,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 /**
  * Thin client compute integration test.
  */
+@SuppressWarnings("resource")
 public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     /** Test trace id. */
     private static final UUID TRACE_ID = UUID.randomUUID();
@@ -206,10 +207,20 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testUnknownUnitWithLatestVersionThrows() {
-        String res1 = client().compute().<String>execute(
-                Set.of(node(0)),
-                List.of(new DeploymentUnit("u", "latest")),
-                NodeNameJob.class.getName()).join();
+        CompletionException ex = assertThrows(
+                CompletionException.class,
+                () -> client().compute().<String>execute(
+                        Set.of(node(0)),
+                        List.of(new DeploymentUnit("u", "latest")),
+                        NodeNameJob.class.getName()).join());
+
+        var cause = (IgniteException) ex.getCause();
+
+        // TODO: Why null version?
+        assertThat(cause.getMessage(), containsString("Deployment unit u:null doesn’t exist"));
+
+        // TODO: Why internal error?
+        assertEquals(INTERNAL_ERR, cause.code());
     }
 
     @Test
