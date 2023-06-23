@@ -17,18 +17,22 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import java.io.Serializable;
-import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 
 /**
- * Interface describing a particular change within the {@link VersionedUpdate group}.
+ * Interface for updates that require firing events.
  */
-public interface UpdateEntry extends Serializable {
+public interface Fireable {
     /**
-     * Applies own change to the catalog.
-     *
-     * @param catalog Current catalog.
-     * @return New catalog.
+     * Returns the type of the fired event.
      */
-    Catalog applyUpdate(Catalog catalog);
+    CatalogEvent eventType();
+
+    /**
+     * Creates parameters of the fired event.
+     *
+     * @param causalityToken Causality token.
+     */
+    CatalogEventParameters createEventParameters(long causalityToken);
 }
