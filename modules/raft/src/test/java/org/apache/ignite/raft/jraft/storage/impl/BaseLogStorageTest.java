@@ -16,6 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.storage.impl;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -35,12 +41,6 @@ import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public abstract class BaseLogStorageTest extends BaseStorageTest {
     protected LogStorage logStorage;
@@ -90,15 +90,15 @@ public abstract class BaseLogStorageTest extends BaseStorageTest {
         assertEquals(entry1, this.logStorage.getEntry(100));
         assertEquals(1, this.logStorage.getTerm(100));
 
-        final LogEntry entry2 = TestUtils.mockEntry(200, 2);
+        final LogEntry entry2 = TestUtils.mockEntry(101, 2);
         assertTrue(this.logStorage.appendEntry(entry2));
 
         assertEquals(100, this.logStorage.getFirstLogIndex());
-        assertEquals(200, this.logStorage.getLastLogIndex());
+        assertEquals(101, this.logStorage.getLastLogIndex());
         assertEquals(entry1, this.logStorage.getEntry(100));
-        assertEquals(entry2, this.logStorage.getEntry(200));
+        assertEquals(entry2, this.logStorage.getEntry(101));
         assertEquals(1, this.logStorage.getTerm(100));
-        assertEquals(2, this.logStorage.getTerm(200));
+        assertEquals(2, this.logStorage.getTerm(101));
     }
 
     @Test

@@ -40,7 +40,10 @@ public class LogitLogStorageFactory implements LogStorageFactory {
     /** Executor for shared storages. */
     protected final ExecutorService executorService;
 
-    public LogitLogStorageFactory() {
+    private final StoreOptions storeOptions;
+
+    public LogitLogStorageFactory(StoreOptions storeOptions) {
+        this.storeOptions = storeOptions;
         executorService = Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors() * 2,
                 new NamedThreadFactory("raft-shared-log-storage-pool", LOG)
@@ -57,7 +60,7 @@ public class LogitLogStorageFactory implements LogStorageFactory {
         Requires.requireTrue(StringUtils.isNotBlank(uri), "Blank log storage uri.");
 
         String newStoragePath = Paths.get(uri, NEW_STORAGE_PATH).toString();
-        return new LogitLogStorage(newStoragePath, new StoreOptions(), raftOptions, executorService);
+        return new LogitLogStorage(newStoragePath, storeOptions, raftOptions, executorService);
     }
 
     @Override
