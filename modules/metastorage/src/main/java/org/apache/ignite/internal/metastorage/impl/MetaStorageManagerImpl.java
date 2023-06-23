@@ -260,11 +260,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public HybridTimestamp appliedRevisionTimestamp() {
-        return storage.timestampByRevision(appliedRevision);
-    }
-
-    @Override
     public void registerPrefixWatch(ByteArray key, WatchListener listener) {
         storage.watchRange(key.bytes(), storage.nextKey(key.bytes()), appliedRevision() + 1, listener);
     }
@@ -334,6 +329,32 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         try {
             return storage.get(key, revLowerBound, revUpperBound);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
+    public Entry getLocally(byte[] key, long revUpperBound) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+
+        try {
+            return storage.get(key, revUpperBound);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
+    public HybridTimestamp timestampByRevision(long revision) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+
+        try {
+            return storage.timestampByRevision(revision);
         } finally {
             busyLock.leaveBusy();
         }

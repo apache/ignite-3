@@ -27,9 +27,10 @@ import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -40,7 +41,6 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.ErrorGroups.Common;
@@ -154,25 +154,22 @@ public class UpdateLogImpl implements UpdateLog {
     }
 
     private void restoreStateFromVault(OnUpdateHandler handler) {
-        HybridTimestamp appliedRevTimestamp = null;
+        long appliedRevision = metastore.appliedRevision();
 
         int ver = 1;
 
         // TODO: IGNITE-19790 Read range from metastore
         while (true) {
-            VaultEntry entry = vault.get(CatalogKey.update(ver++)).join();
+            ByteArray key = CatalogKey.update(ver++);
+            Entry entry = metastore.getLocally(key.bytes(), appliedRevision);
 
-            if (entry == null) {
+            if (entry.empty() || entry.tombstone()) {
                 break;
             }
 
-            if (appliedRevTimestamp == null) {
-                appliedRevTimestamp = metastore.appliedRevisionTimestamp();
-            }
+            VersionedUpdate update = fromBytes(Objects.requireNonNull(entry.value()));
 
-            VersionedUpdate update = fromBytes(entry.value());
-
-            handler.handle(update, appliedRevTimestamp);
+            handler.handle(update, metastore.timestampByRevision(entry.revision()));
         }
     }
 
