@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CreateZoneParams.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 
