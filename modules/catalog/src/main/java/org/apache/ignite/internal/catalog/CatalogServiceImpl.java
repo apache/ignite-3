@@ -836,9 +836,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     class OnUpdateHandlerImpl implements OnUpdateHandler {
         @Override
-        public void handle(VersionedUpdate update, HybridTimestamp metastoreUpdateTimestamp) {
+        public void handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp) {
             int version = update.version();
-            long activationTimestamp = metastoreUpdateTimestamp.addPhysicalTime(update.delayDurationMs()).longValue();
+            long activationTimestamp = metaStorageUpdateTimestamp.addPhysicalTime(update.delayDurationMs()).longValue();
             Catalog catalog = catalogByVer.get(version - 1);
 
             assert catalog != null;

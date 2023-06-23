@@ -68,8 +68,8 @@ public interface UpdateLog extends IgniteComponent {
          * An actual handler that will be invoked when new update is appended to the log.
          *
          * @param update A new update.
-         * @param metastoreUpdateTimestamp Timestamp assigned to the update by the metastore.
+         * @param metaStorageUpdateTimestamp Timestamp assigned to the update by the Metastorage.
          */
-        void handle(VersionedUpdate update, HybridTimestamp metastoreUpdateTimestamp);
+        void handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp);
     }
 }
