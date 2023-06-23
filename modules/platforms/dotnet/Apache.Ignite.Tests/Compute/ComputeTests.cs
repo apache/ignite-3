@@ -342,14 +342,15 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestExecuteColocatedOnUnknownUnitWithLatestVersionThrows()
+        public void TestExecuteColocatedOnUnknownUnitWithLatestVersionThrows()
         {
-            // TODO: Why does this hang?
-            // This was hanging due to buggy exception handling in ComputeComponentImpl.processExecuteRequest.
-            // However, the same test is not failing in Java because partition awareness in .NET seems to be broken.
             var keyTuple = new IgniteTuple { [KeyCol] = 1L };
             var deploymentUnits = new DeploymentUnit[] { new("unit-latest") };
-            var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, deploymentUnits, NodeNameJob);
+
+            var ex = Assert.ThrowsAsync<IgniteException>(
+                async () => await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, deploymentUnits, NodeNameJob));
+
+            StringAssert.Contains("Deployment unit unit-latest:latest doesn’t exist", ex!.Message);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
