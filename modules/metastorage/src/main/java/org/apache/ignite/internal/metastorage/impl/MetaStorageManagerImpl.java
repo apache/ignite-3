@@ -21,9 +21,11 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_ERR;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -65,6 +67,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
@@ -277,14 +280,16 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public void deployWatches() throws NodeStoppingException {
+    public CompletableFuture<Void> deployWatches() {
         if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
+            return CompletableFuture.failedFuture(new NodeStoppingException());
         }
 
         try {
-            // Meta Storage contract states that all updated entries under a particular revision must be stored in the Vault.
-            storage.startWatches(this::onRevisionApplied);
+            return metaStorageSvcFut.thenRun(() -> inBusyLock(busyLock, () -> {
+                // Meta Storage contract states that all updated entries under a particular revision must be stored in the Vault.
+                storage.startWatches(this::onRevisionApplied);
+            }));
         } finally {
             busyLock.leaveBusy();
         }
@@ -311,6 +316,19 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         try {
             return metaStorageSvcFut.thenCompose(svc -> svc.get(key, revUpperBound));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
+    public List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+
+        try {
+            return storage.get(key, revLowerBound, revUpperBound);
         } finally {
             busyLock.leaveBusy();
         }

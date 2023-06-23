@@ -276,7 +276,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      *
      * @throws IgniteInternalCheckedException If initialization failed (IO error occurred).
      */
-    public void ensure() throws IgniteInternalCheckedException {
+    void ensure() throws IgniteInternalCheckedException {
         if (!initialized) {
             readWriteLock.writeLock().lock();
 
@@ -579,11 +579,11 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * @throws IOException If failed.
      */
     public void renameFilePath(Path newFilePath) throws IOException {
-        initialized = false;
-
         readWriteLock.writeLock().lock();
 
         try {
+            initialized = false;
+
             Path filePath = this.filePath;
 
             if (!filePath.equals(newFilePath)) {
@@ -599,9 +599,9 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
 
                 this.filePath = newFilePath;
 
-                if (fileIo != null) {
-                    reinit(fileIo);
-                }
+                reinit(fileIo);
+
+                initialized = true;
             }
         } finally {
             readWriteLock.writeLock().unlock();

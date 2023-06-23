@@ -55,7 +55,7 @@ public class SchemaUpdateTest {
     @Test
     public void testMultipleParallelOperationsRequestSchemaOnce() {
         int responseDelay = 100;
-        server = new TestServer(10800, 10, 10000, ignite(), null, idx -> responseDelay, "n", UUID.randomUUID(), null);
+        server = new TestServer(10000, ignite(), null, idx -> responseDelay, "n", UUID.randomUUID(), null, null);
         client = startClient();
 
         RecordView<Tuple> view = client.tables().table(DEFAULT_TABLE).recordView();
@@ -75,7 +75,7 @@ public class SchemaUpdateTest {
         AtomicBoolean shouldFail = new AtomicBoolean(true);
         Function<Integer, Boolean> shouldDropConnection = idx -> idx >= 3 && shouldFail.getAndSet(false);
 
-        server = new TestServer(10800, 10, 10000, ignite(), shouldDropConnection, null, "n", UUID.randomUUID(), null);
+        server = new TestServer(10000, ignite(), shouldDropConnection, null, "n", UUID.randomUUID(), null, null);
         client = startClient();
 
         RecordView<Tuple> view = client.tables().table(DEFAULT_TABLE).recordView();

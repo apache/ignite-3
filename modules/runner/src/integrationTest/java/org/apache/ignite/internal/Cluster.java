@@ -73,6 +73,8 @@ public class Cluster {
     /** Base port number. */
     private static final int BASE_PORT = 3344;
 
+    private static final int BASE_CLIENT_PORT = 10800;
+
     private static final String CONNECT_NODE_ADDR = "\"localhost:" + BASE_PORT + '\"';
 
     /** Timeout for SQL queries (in milliseconds). */
@@ -85,7 +87,8 @@ public class Cluster {
             + "    \"nodeFinder\":{\n"
             + "      \"netClusterNodes\": [ {} ]\n"
             + "    }\n"
-            + "  }\n"
+            + "  },\n"
+            + "  clientConnector: { port:{} }\n"
             + "}";
 
     private final TestInfo testInfo;
@@ -222,7 +225,11 @@ public class Cluster {
     public CompletableFuture<IgniteImpl> startNodeAsync(int nodeIndex, String nodeBootstrapConfigTemplate) {
         String nodeName = testNodeName(testInfo, nodeIndex);
 
-        String config = IgniteStringFormatter.format(nodeBootstrapConfigTemplate, BASE_PORT + nodeIndex, CONNECT_NODE_ADDR);
+        String config = IgniteStringFormatter.format(
+                nodeBootstrapConfigTemplate,
+                BASE_PORT + nodeIndex,
+                CONNECT_NODE_ADDR,
+                BASE_CLIENT_PORT + nodeIndex);
 
         return TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName))
                 .thenApply(IgniteImpl.class::cast)

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.storage;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -30,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -79,7 +81,7 @@ class UpdateLogImplTest {
         updateLog.registerUpdateHandler(update -> {/* no-op */});
         updateLog.start();
 
-        metastore.deployWatches();
+        assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 
         List<VersionedUpdate> expectedLog = List.of(
                 new VersionedUpdate(1, 1L, List.of(new TestUpdateEntry("foo"))),
@@ -138,7 +140,7 @@ class UpdateLogImplTest {
 
         long revisionBefore = metastore.appliedRevision();
 
-        metastore.deployWatches();
+        assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 
         // first update should always be successful
         assertTrue(await(updateLog.append(singleEntryUpdateOfVersion(startVersion))));
@@ -182,6 +184,11 @@ class UpdateLogImplTest {
 
         TestUpdateEntry(String payload) {
             this.payload = payload;
+        }
+
+        @Override
+        public Catalog applyUpdate(Catalog catalog) {
+            return catalog;
         }
 
         @Override

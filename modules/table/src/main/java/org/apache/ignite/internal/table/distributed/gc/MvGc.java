@@ -36,7 +36,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.TrackerClosedException;
@@ -47,7 +47,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Garbage collector for multi-versioned storages and their indexes in the background.
  *
- * @see GcUpdateHandler#vacuumBatch(HybridTimestamp, int)
+ * @see GcUpdateHandler#vacuumBatch(HybridTimestamp, int, boolean)
  */
 public class MvGc implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(MvGc.class);
@@ -58,8 +58,8 @@ public class MvGc implements ManuallyCloseable {
     /** Node name. */
     private final String nodeName;
 
-    /** Tables configuration. */
-    private final TablesConfiguration tablesConfig;
+    /** Garbage collector configuration. */
+    private final GcConfiguration gcConfig;
 
     /** Garbage collection thread pool. */
     private volatile ExecutorService executor;
@@ -80,18 +80,18 @@ public class MvGc implements ManuallyCloseable {
      * Constructor.
      *
      * @param nodeName Node name.
-     * @param tablesConfig Tables configuration.
+     * @param gcConfig Garbage collector configuration.
      */
-    public MvGc(String nodeName, TablesConfiguration tablesConfig) {
+    public MvGc(String nodeName, GcConfiguration gcConfig) {
         this.nodeName = nodeName;
-        this.tablesConfig = tablesConfig;
+        this.gcConfig = gcConfig;
     }
 
     /**
      * Starts the garbage collector.
      */
     public void start() {
-        int threadCount = tablesConfig.gcThreads().value();
+        int threadCount = gcConfig.threads().value();
 
         executor = new ThreadPoolExecutor(
                 threadCount,
@@ -242,7 +242,7 @@ public class MvGc implements ManuallyCloseable {
                 // We can only start garbage collection when the partition safe time is reached.
                 gcUpdateHandler.getSafeTimeTracker()
                         .waitFor(lowWatermark)
-                        .thenApplyAsync(unused -> gcUpdateHandler.vacuumBatch(lowWatermark, GC_BATCH_SIZE), executor)
+                        .thenApplyAsync(unused -> gcUpdateHandler.vacuumBatch(lowWatermark, GC_BATCH_SIZE, true), executor)
                         .whenComplete((isGarbageLeft, throwable) -> {
                             if (throwable != null) {
                                 if (throwable instanceof TrackerClosedException

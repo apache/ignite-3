@@ -49,7 +49,7 @@ public class IgniteInternalException extends RuntimeException {
     private final int code;
 
     /** Unique identifier of this exception that should help locating the error message in a log file. */
-    private final UUID traceId;
+    private UUID traceId;
 
     /**
      * Creates a new exception with the given error code.

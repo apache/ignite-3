@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -59,6 +60,20 @@ public interface MetaStorageManager extends IgniteComponent {
      * Retrieves an entry for the given key and the revision upper bound.
      */
     CompletableFuture<Entry> get(ByteArray key, long revUpperBound);
+
+    /**
+     * Returns all entries corresponding to the given key and bounded by given revisions.
+     * All these entries are ordered by revisions and have the same key.
+     * The lower bound and the upper bound are inclusive.
+     * TODO: IGNITE-19735 move this method to another interface for interaction with local KeyValueStorage.
+     *
+     * @param key The key.
+     * @param revLowerBound The lower bound of revision.
+     * @param revUpperBound The upper bound of revision.
+     * @return Entries corresponding to the given key.
+     */
+    @Deprecated
+    List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound);
 
     /**
      * Retrieves entries for given keys.
@@ -170,8 +185,10 @@ public interface MetaStorageManager extends IgniteComponent {
      * Starts all registered watches.
      *
      * <p>Should be called after all Ignite components have registered required watches and they are ready to process Meta Storage events.
+     *
+     * @return Future which completes when Meta storage manager is started and deploying watches is finished.
      */
-    void deployWatches() throws NodeStoppingException;
+    CompletableFuture<Void> deployWatches();
 
     /**
      * Returns cluster time with a hybrid clock instance and access to safe time.

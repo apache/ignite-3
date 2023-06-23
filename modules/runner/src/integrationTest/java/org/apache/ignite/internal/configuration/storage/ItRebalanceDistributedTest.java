@@ -80,6 +80,7 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -113,6 +114,7 @@ import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
@@ -237,6 +239,8 @@ public class ItRebalanceDistributedTest {
                 allOf(nodes.get(0).cmgManager.onJoinReady(), nodes.get(1).cmgManager.onJoinReady(), nodes.get(2).cmgManager.onJoinReady()),
                 willCompleteSuccessfully()
         );
+
+        nodes.stream().forEach(Node::waitWatches);
     }
 
     @AfterEach
@@ -514,6 +518,8 @@ public class ItRebalanceDistributedTest {
 
         newNode.start();
 
+        newNode.waitWatches();
+
         nodes.set(evictedNodeIndex, newNode);
 
         // Let's make sure that we will destroy the partition again.
@@ -599,6 +605,9 @@ public class ItRebalanceDistributedTest {
                 = new ConcurrentHashMap<>();
 
         private final NetworkAddress networkAddress;
+
+        /** The future have to be complete after the node start and all Meta storage watches are deployd. */
+        private CompletableFuture<Void> deployWatchesFut;
 
         /**
          * Constructor that simply creates a subset of components of this node.
@@ -688,7 +697,8 @@ public class ItRebalanceDistributedTest {
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
                             TablesConfiguration.KEY,
-                            DistributionZonesConfiguration.KEY
+                            DistributionZonesConfiguration.KEY,
+                            GcConfiguration.KEY
                     ),
                     List.of(ExtendedTableConfigurationSchema.class),
                     List.of(
@@ -707,20 +717,24 @@ public class ItRebalanceDistributedTest {
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
                             TablesConfiguration.KEY,
-                            DistributionZonesConfiguration.KEY
+                            DistributionZonesConfiguration.KEY,
+                            GcConfiguration.KEY
                     ),
                     cfgStorage,
                     clusterCfgGenerator,
                     new TestConfigurationValidator()
             );
 
+            ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
+
             Consumer<LongFunction<CompletableFuture<?>>> registry = (LongFunction<CompletableFuture<?>> function) ->
-                    clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(function::apply);
+                    clusterConfigRegistry.listenUpdateStorageRevision(function::apply);
 
-            TablesConfiguration tablesCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
+            TablesConfiguration tablesCfg = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
-            DistributionZonesConfiguration zonesCfg =
-                    clusterCfgMgr.configurationRegistry().getConfiguration(DistributionZonesConfiguration.KEY);
+            DistributionZonesConfiguration zonesCfg = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
+
+            GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
             DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                     new PersistentPageMemoryDataStorageModule(),
@@ -734,7 +748,7 @@ public class ItRebalanceDistributedTest {
                     zonesCfg,
                     dataStorageModules.createStorageEngines(
                             name,
-                            clusterCfgMgr.configurationRegistry(),
+                            clusterConfigRegistry,
                             dir.resolve("storage"),
                             null));
 
@@ -769,6 +783,7 @@ public class ItRebalanceDistributedTest {
                     registry,
                     tablesCfg,
                     zonesCfg,
+                    gcConfig,
                     clusterService,
                     raftManager,
                     replicaManager,
@@ -828,7 +843,7 @@ public class ItRebalanceDistributedTest {
         /**
          * Starts the created components.
          */
-        void start() throws Exception {
+        void start() {
             nodeComponents = List.of(
                     vaultManager,
                     nodeCfgMgr,
@@ -857,8 +872,14 @@ public class ItRebalanceDistributedTest {
                     willSucceedIn(1, TimeUnit.MINUTES)
             );
 
-            // deploy watches to propagate data from the metastore into the vault
-            metaStorageManager.deployWatches();
+            deployWatchesFut = metaStorageManager.deployWatches();
+        }
+
+        /**
+         * Waits for watches deployed.
+         */
+        void waitWatches() {
+            assertThat("Watches were not deployed", deployWatchesFut, willCompleteSuccessfully());
         }
 
         /**

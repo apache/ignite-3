@@ -82,17 +82,17 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     /** Nodes bootstrap configuration. */
     private final List<String> nodesBootstrapCfg = List.of(
             "{\n"
-                    + "  network.port :3344,\n"
+                    + "  network.port :3344, clientConnector.port: 10800,\n"
                     + "  network.nodeFinder.netClusterNodes:[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "}",
 
             "{\n"
-                    + "  network.port :3345,\n"
+                    + "  network.port :3345, clientConnector.port: 10801,\n"
                     + "  network.nodeFinder.netClusterNodes:[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "}",
 
             "{\n"
-                    + "  network.port :3346,\n"
+                    + "  network.port :3346, clientConnector.port: 10802,\n"
                     + "  network.nodeFinder.netClusterNodes:[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "}"
     );

@@ -39,12 +39,14 @@ import static org.apache.ignite.lang.ErrorGroups.MetaStorage.COMPACTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.STARTING_STORAGE_ERR;
+import static org.rocksdb.util.SizeUnit.MB;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -86,10 +88,13 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
+import org.rocksdb.BlockBasedTableConfig;
+import org.rocksdb.BloomFilter;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.DBOptions;
+import org.rocksdb.LRUCache;
 import org.rocksdb.Options;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
@@ -239,20 +244,31 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     private static List<ColumnFamilyDescriptor> cfDescriptors() {
-        Options dataOptions = new Options().setCreateIfMissing(true)
+        Options baseOptions = new Options()
+                .setCreateIfMissing(true)
+                // Lowering the desired number of levels will, on average, lead to less lookups in files, making reads faster.
+                .setNumLevels(4)
+                // Protect ourselves from slower flushes during the peak write load.
+                .setMaxWriteBufferNumber(4)
+                .setTableFormatConfig(new BlockBasedTableConfig()
+                        // Speed-up key lookup in levels by adding a bloom filter and always caching it for level 0.
+                        // This improves the access time to keys from lower levels. 12 is chosen to fit into a 4kb memory chunk.
+                        // This proved to be big enough to positively affect the performance.
+                        .setPinL0FilterAndIndexBlocksInCache(true)
+                        .setFilterPolicy(new BloomFilter(12))
+                        // Often helps to avoid reading data from the storage device, making reads faster.
+                        .setBlockCache(new LRUCache(64 * MB))
+                );
+
+        ColumnFamilyOptions dataFamilyOptions = new ColumnFamilyOptions(baseOptions)
                 // The prefix is the revision of an entry, so prefix length is the size of a long
                 .useFixedLengthPrefixExtractor(Long.BYTES);
 
-        ColumnFamilyOptions dataFamilyOptions = new ColumnFamilyOptions(dataOptions);
+        ColumnFamilyOptions indexFamilyOptions = new ColumnFamilyOptions(baseOptions);
 
-        Options indexOptions = new Options().setCreateIfMissing(true);
-        ColumnFamilyOptions indexFamilyOptions = new ColumnFamilyOptions(indexOptions);
+        ColumnFamilyOptions tsToRevFamilyOptions = new ColumnFamilyOptions(baseOptions);
 
-        Options tsToRevOptions = new Options().setCreateIfMissing(true);
-        ColumnFamilyOptions tsToRevFamilyOptions = new ColumnFamilyOptions(tsToRevOptions);
-
-        Options revToTsOptions = new Options().setCreateIfMissing(true);
-        ColumnFamilyOptions revToTsFamilyOptions = new ColumnFamilyOptions(revToTsOptions);
+        ColumnFamilyOptions revToTsFamilyOptions = new ColumnFamilyOptions(baseOptions);
 
         return List.of(
                 new ColumnFamilyDescriptor(DATA.nameAsBytes(), dataFamilyOptions),
@@ -427,7 +443,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @throws RocksDBException If failed.
      */
     private void fillAndWriteBatch(WriteBatch batch, long newRev, long newCntr, @Nullable HybridTimestamp ts) throws RocksDBException {
-        try (WriteOptions opts = new WriteOptions()) {
+        // Meta-storage recovery is based on the snapshot & external log. WAL is never used for recovery, and can be safely disabled.
+        try (WriteOptions opts = new WriteOptions().setDisableWAL(true)) {
             byte[] revisionBytes = longToBytes(newRev);
 
             data.put(batch, UPDATE_COUNTER_KEY, longToBytes(newCntr));
@@ -553,6 +570,17 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         try {
             return doGet(key, revUpperBound);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public List<Entry> get(byte[] key, long revLowerBound, long revUpperBound) {
+        rwLock.readLock().lock();
+
+        try {
+            return doGet(key, revLowerBound, revUpperBound);
         } finally {
             rwLock.readLock().unlock();
         }
@@ -1200,6 +1228,52 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     /**
+     * Returns all entries corresponding to the given key and bounded by given revisions.
+     * All these entries are ordered by revisions and have the same key.
+     * The lower bound and the upper bound are inclusive.
+     *
+     * @param key The key.
+     * @param revLowerBound The lower bound of revision.
+     * @param revUpperBound The upper bound of revision.
+     * @return Entries corresponding to the given key.
+     */
+    private List<Entry> doGet(byte[] key, long revLowerBound, long revUpperBound) {
+        assert revLowerBound >= 0 : "Invalid arguments: [revLowerBound=" + revLowerBound + ']';
+        assert revUpperBound >= 0 : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
+        assert revUpperBound >= revLowerBound
+                : "Invalid arguments: [revLowerBound=" + revLowerBound + ", revUpperBound=" + revUpperBound + ']';
+        // TODO: IGNITE-19782 throw CompactedException if revLowerBound is compacted.
+
+        long[] revs;
+
+        try {
+            revs = getRevisions(key);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        }
+
+        if (revs.length == 0) {
+            return Collections.emptyList();
+        }
+
+        int firstRevIndex = minRevisionIndex(revs, revLowerBound);
+        int lastRevIndex = maxRevisionIndex(revs, revUpperBound);
+
+        // firstRevIndex can be -1 if minRevisionIndex return -1. lastRevIndex can be -1 if maxRevisionIndex return -1.
+        if (firstRevIndex == -1 || lastRevIndex == -1) {
+            return Collections.emptyList();
+        }
+
+        List<Entry> entries = new ArrayList<>();
+
+        for (int i = firstRevIndex; i <= lastRevIndex; i++) {
+            entries.add(doGetValue(key, revs[i]));
+        }
+
+        return entries;
+    }
+
+    /**
      * Get a list of the revisions of the entry corresponding to the key.
      *
      * @param key Key.
@@ -1230,6 +1304,46 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             if (rev <= upperBoundRev) {
                 return rev;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Returns index of minimum revision which must be greater or equal to {@code lowerBoundRev}.
+     * If there is no such revision then {@code -1} will be returned.
+     *
+     * @param revs          Revisions list.
+     * @param lowerBoundRev Revision lower bound.
+     * @return Index of minimum revision or {@code -1} if there is no such revision.
+     */
+    private static int minRevisionIndex(long[] revs, long lowerBoundRev) {
+        for (int i = 0; i < revs.length; i++) {
+            long rev = revs[i];
+
+            if (rev >= lowerBoundRev) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Returns index of maximum revision which must be less or equal to {@code upperBoundRev}.
+     * If there is no such revision then {@code -1} will be returned.
+     *
+     * @param revs          Revisions list.
+     * @param upperBoundRev Revision upper bound.
+     * @return Index of maximum revision or {@code -1} if there is no such revision.
+     */
+    private static int maxRevisionIndex(long[] revs, long upperBoundRev) {
+        for (int i = revs.length - 1; i >= 0; i--) {
+            long rev = revs[i];
+
+            if (rev <= upperBoundRev) {
+                return i;
             }
         }
 

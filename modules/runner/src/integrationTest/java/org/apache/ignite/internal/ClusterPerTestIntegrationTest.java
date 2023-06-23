@@ -54,7 +54,8 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "    nodeFinder: {\n"
             + "      netClusterNodes: [ {} ]\n"
             + "    }\n"
-            + "  }\n"
+            + "  },\n"
+            + "  clientConnector: { port:{} }\n"
             + "}";
 
     /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
@@ -73,7 +74,8 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "        gossipInterval: 10\n"
             + "      },\n"
             + "    }\n"
-            + "  }\n"
+            + "  },\n"
+            + "  clientConnector: { port:{} }\n"
             + "}";
 
     /** Template for node bootstrap config with Scalecube settings for a disabled failure detection. */
@@ -86,7 +88,8 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "    membership: {\n"
             + "      failurePingInterval: 1000000000\n"
             + "    }\n"
-            + "  }\n"
+            + "  },\n"
+            + "  clientConnector: { port:{} }\n"
             + "}";
 
     protected Cluster cluster;

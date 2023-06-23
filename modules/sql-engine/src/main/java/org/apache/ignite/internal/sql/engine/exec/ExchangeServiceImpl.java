@@ -36,6 +36,7 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.SqlException;
@@ -131,11 +132,12 @@ public class ExchangeServiceImpl implements ExchangeService {
         );
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-19539
     private static IgniteException wrapIfNecessary(@NotNull Throwable t) {
         Throwable cause = ExceptionUtils.unwrapCause(t);
 
         if (cause instanceof IgniteException) {
-            return cause == t ? (IgniteException) cause : IgniteException.wrap(t);
+            return cause == t ? (IgniteException) cause : IgniteExceptionUtils.wrap(t);
         } else if (cause instanceof IgniteInternalException) {
             IgniteInternalException iex = (IgniteInternalException) cause;
 

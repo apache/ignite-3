@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 
+import io.netty.util.ResourceLeakDetector;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -96,7 +97,7 @@ public class PlatformTestNodeRunner {
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = Map.of(
             NODE_NAME, "{\n"
-                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":1,\"idleTimeout\":3000,\""
+                    + "  \"clientConnector\":{\"port\": 10942,\"idleTimeout\":3000,\""
                     + "sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
                     + "    \"port\":3344,\n"
@@ -107,7 +108,7 @@ public class PlatformTestNodeRunner {
                     + "}",
 
             NODE_NAME2, "{\n"
-                    + "  \"clientConnector\":{\"port\": 10943,\"portRange\":1,\"idleTimeout\":3000,"
+                    + "  \"clientConnector\":{\"port\": 10943,\"idleTimeout\":3000,"
                     + "\"sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
                     + "    \"port\":3345,\n"
@@ -120,7 +121,6 @@ public class PlatformTestNodeRunner {
             NODE_NAME3, "{\n"
                     + "  \"clientConnector\":{"
                     + "    \"port\": 10944,"
-                    + "    \"portRange\":1,"
                     + "    \"idleTimeout\":3000,"
                     + "    \"sendServerExceptionStackTraceToClient\":true, "
                     + "    \"ssl\": {\n"
@@ -142,7 +142,6 @@ public class PlatformTestNodeRunner {
             NODE_NAME4, "{\n"
                     + "  \"clientConnector\":{"
                     + "    \"port\": 10945,"
-                    + "    \"portRange\":1,"
                     + "    \"idleTimeout\":3000,"
                     + "    \"sendServerExceptionStackTraceToClient\":true, "
                     + "    \"ssl\": {\n"
@@ -177,6 +176,7 @@ public class PlatformTestNodeRunner {
      */
     public static void main(String[] args) throws Exception {
         System.out.println("Starting test node runner...");
+        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
         for (int i = 0; i < args.length; i++) {
             System.out.println("Arg " + i + ": " + args[i]);
