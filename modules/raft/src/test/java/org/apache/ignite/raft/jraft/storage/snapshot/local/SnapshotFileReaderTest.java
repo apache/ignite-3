@@ -16,6 +16,10 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.io.FileNotFoundException;
 import java.nio.ByteBuffer;
 import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter;
@@ -25,10 +29,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
 
 public class SnapshotFileReaderTest extends BaseStorageTest {
     private SnapshotFileReader reader;
@@ -60,7 +60,7 @@ public class SnapshotFileReaderTest extends BaseStorageTest {
         final LocalFileMetaOutter.LocalFileMeta meta = opts.getRaftMessagesFactory()
             .localFileMeta()
             .checksum("test")
-            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
+            .sourceNumber(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL.getNumber())
             .build();
         this.metaTable.addFile("data", meta);
         return meta;

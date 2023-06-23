@@ -23,6 +23,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.LocalFileMetaBuilder;
+import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.FileSource;
 import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.LocalFileMeta;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -108,7 +109,9 @@ public class LocalSnapshotWriter extends SnapshotWriter {
     public boolean addFile(final String fileName, final Message fileMeta) {
         final LocalFileMetaBuilder metaBuilder = msgFactory.localFileMeta();
         if (fileMeta != null) {
-            metaBuilder.source(((LocalFileMeta)fileMeta).source());
+            FileSource source = ((LocalFileMeta)fileMeta).source();
+
+            metaBuilder.sourceNumber(source == null ? 0 : source.getNumber());
             metaBuilder.checksum(((LocalFileMeta)fileMeta).checksum());
         }
         final LocalFileMeta meta = metaBuilder.build();
