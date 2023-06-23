@@ -61,7 +61,7 @@ class RowBatch {
         return originalRowOrder.getInt(resultRowIndex);
     }
 
-    static CompletableFuture<Void> allResultFuture(Collection<RowBatch> batches) {
+    static CompletableFuture<Void> allResultFutures(Collection<RowBatch> batches) {
         return CompletableFuture.allOf(batches.stream().map(rowBatch -> rowBatch.resultFuture).toArray(CompletableFuture[]::new));
     }
 

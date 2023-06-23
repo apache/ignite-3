@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table.distributed.storage;
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFuture;
+import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
@@ -647,7 +647,7 @@ public class InternalTableImpl implements InternalTable {
                 rows,
                 tx,
                 this::upsertAllInternal,
-                RowBatch::allResultFuture
+                RowBatch::allResultFutures
         );
     }
 
@@ -1215,7 +1215,7 @@ public class InternalTableImpl implements InternalTable {
      * @return Future of collecting results.
      */
     static CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponsesWithoutRestoreOrder(Collection<RowBatch> rowBatches) {
-        return allResultFuture(rowBatches)
+        return allResultFutures(rowBatches)
                 .thenApply(response -> {
                     var result = new ArrayList<BinaryRow>(rowBatches.size());
 
@@ -1241,7 +1241,7 @@ public class InternalTableImpl implements InternalTable {
      * @return Future of collecting results.
      */
     static CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponsesWithRestoreOrder(Collection<RowBatch> rowBatches) {
-        return allResultFuture(rowBatches)
+        return allResultFutures(rowBatches)
                 .thenApply(response -> {
                     var result = new BinaryRow[RowBatch.getTotalRequestedRowSize(rowBatches)];
 
