@@ -397,13 +397,13 @@ public class Compactor extends IgniteWorker {
             return;
         }
 
-        boolean removed = filePageStore.removeDeltaFile(deltaFilePageStore);
-
-        assert removed : filePageStore.filePath();
-
         deltaFilePageStore.markMergedToFilePageStore();
 
         deltaFilePageStore.stop(true);
+
+        boolean removed = filePageStore.removeDeltaFile(deltaFilePageStore);
+
+        assert removed : filePageStore.filePath();
     }
 
     /**

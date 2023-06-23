@@ -60,6 +60,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
@@ -117,6 +118,9 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     @InjectConfiguration("mock.partitions = 1")
     private DistributionZoneConfiguration zoneCfg;
+
+    @InjectConfiguration
+    private GcConfiguration gcConfig;
 
     @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16777216, writeBufferSize = 16777216}}")
     private RocksDbStorageEngineConfiguration engineConfig;
@@ -359,8 +363,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     RocksDbStorageEngine storageEngine = new RocksDbStorageEngine("test", engineConfig, path);
                     storageEngine.start();
 
-                    closeables.add(storageEngine::stop);
-
                     zoneCfg.dataStorage().change(ds -> ds.convert(storageEngine.name())).join();
 
                     MvTableStorage mvTableStorage = storageEngine.createMvTable(
@@ -370,11 +372,9 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     mvTableStorage.start();
 
                     mvTableStorages.put(index, mvTableStorage);
-                    closeables.add(mvTableStorage::close);
 
                     MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(mvTableStorage, 0);
                     mvPartitionStorages.put(index, mvPartitionStorage);
-                    closeables.add(mvPartitionStorage::close);
 
                     PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 
@@ -389,7 +389,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                             0,
                             partitionDataStorage,
-                            zoneCfg.dataStorage(),
+                            gcConfig,
                             mock(LowWatermark.class),
                             indexUpdateHandler,
                             new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
@@ -401,7 +401,18 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             new TestTxStateStorage(),
                             safeTime,
                             new PendingComparableValuesTracker<>(0L)
-                    );
+                    ) {
+                        @Override
+                        public void onShutdown() {
+                            super.onShutdown();
+
+                            try {
+                                closeAll(mvPartitionStorage::close, mvTableStorage::stop, storageEngine::stop);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                    };
 
                     paths.put(listener, path);
                     partListeners.put(index, listener);

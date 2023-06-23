@@ -82,8 +82,8 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -149,7 +149,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     private static RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    private static DataStorageConfiguration dsCfg;
+    private static GcConfiguration gcConfig;
 
     @InjectConfiguration("mock.tables.foo {}")
     private static TablesConfiguration tablesConfig;
@@ -483,7 +483,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                         partId,
                         partitionDataStorage,
-                        dsCfg,
+                        gcConfig,
                         mock(LowWatermark.class),
                         indexUpdateHandler,
                         new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)

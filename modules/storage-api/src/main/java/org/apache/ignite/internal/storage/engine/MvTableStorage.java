@@ -167,7 +167,6 @@ public interface MvTableStorage extends ManuallyCloseable {
      *         <li>{@link MvPartitionStorage#addWriteCommitted(RowId, BinaryRow, HybridTimestamp)};</li>
      *         <li>{@link MvPartitionStorage#lastAppliedIndex()};</li>
      *         <li>{@link MvPartitionStorage#lastAppliedTerm()};</li>
-     *         <li>{@link MvPartitionStorage#persistedIndex()};</li>
      *         <li>{@link MvPartitionStorage#committedGroupConfiguration()};</li>
      *         <li>{@link HashIndexStorage#put(IndexRow)};</li>
      *         <li>{@link SortedIndexStorage#put(IndexRow)};</li>
@@ -244,9 +243,8 @@ public interface MvTableStorage extends ManuallyCloseable {
      *     <li>Does not allow operations on a multi-version partition storage and its indexes to be performed (exceptions will be thrown)
      *     until the cleaning is completed;</li>
      *     <li>Clears a multi-version partition storage and its indexes;</li>
-     *     <li>Sets {@link MvPartitionStorage#lastAppliedIndex()}, {@link MvPartitionStorage#lastAppliedTerm()},
-     *     {@link MvPartitionStorage#persistedIndex()} to {@code 0} and {@link MvPartitionStorage#committedGroupConfiguration()} to
-     *     {@code null};</li>
+     *     <li>Sets {@link MvPartitionStorage#lastAppliedIndex()}, {@link MvPartitionStorage#lastAppliedTerm()} to {@code 0}
+     *     and {@link MvPartitionStorage#committedGroupConfiguration()} to {@code null};</li>
      *     <li>Once cleanup a multi-version partition storage and its indexes is complete (success or error), allows to perform all with a
      *     multi-version partition storage and its indexes.</li>
      * </ul>

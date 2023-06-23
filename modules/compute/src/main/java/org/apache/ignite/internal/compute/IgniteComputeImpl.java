@@ -63,6 +63,7 @@ public class IgniteComputeImpl implements IgniteCompute {
     @Override
     public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
         Objects.requireNonNull(nodes);
+        Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
         if (nodes.isEmpty()) {
@@ -111,6 +112,7 @@ public class IgniteComputeImpl implements IgniteCompute {
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
+        Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
         return requiredTable(tableName)
@@ -131,6 +133,7 @@ public class IgniteComputeImpl implements IgniteCompute {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
+        Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
         return requiredTable(tableName)
@@ -150,15 +153,15 @@ public class IgniteComputeImpl implements IgniteCompute {
                 });
     }
 
-    private ClusterNode leaderOfTablePartitionByTupleKey(TableImpl table, Tuple key) {
+    private static ClusterNode leaderOfTablePartitionByTupleKey(TableImpl table, Tuple key) {
         return requiredLeaderByPartition(table, table.partition(key));
     }
 
-    private <K> ClusterNode leaderOfTablePartitionByMappedKey(TableImpl table, K key, Mapper<K> keyMapper) {
+    private static  <K> ClusterNode leaderOfTablePartitionByMappedKey(TableImpl table, K key, Mapper<K> keyMapper) {
         return requiredLeaderByPartition(table, table.partition(key, keyMapper));
     }
 
-    private ClusterNode requiredLeaderByPartition(TableImpl table, int partitionIndex) {
+    private static ClusterNode requiredLeaderByPartition(TableImpl table, int partitionIndex) {
         ClusterNode leaderNode = table.leaderAssignment(partitionIndex);
         if (leaderNode == null) {
             throw new IgniteInternalException("Leader not found for partition " + partitionIndex);
@@ -176,6 +179,7 @@ public class IgniteComputeImpl implements IgniteCompute {
             Object... args
     ) {
         Objects.requireNonNull(nodes);
+        Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
         return nodes.stream()

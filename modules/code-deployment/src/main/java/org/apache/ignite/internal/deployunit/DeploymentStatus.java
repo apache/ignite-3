@@ -15,16 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed;
+package org.apache.ignite.internal.deployunit;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+/**
+ * Status of deployment process.
+ */
+public enum DeploymentStatus {
+    /** Unit deployment is in progress. */
+    UPLOADING,
 
-import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
-import org.junit.jupiter.api.BeforeEach;
+    /** Unit is deployed on the cluster. */
+    DEPLOYED,
 
-class TestMvStorageUpdateHandlerTest extends AbstractMvStorageUpdateHandlerTest {
-    @BeforeEach
-    void setUp() {
-        initialize(new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT));
-    }
+    /** Remove command was initiated for the unit and it will be removed soon. */
+    OBSOLETE,
+
+    /** Unit removal from the cluster is in progress. */
+    REMOVING
 }

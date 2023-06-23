@@ -25,10 +25,9 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.client.RetryLimitPolicy;
-import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -378,11 +377,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 PartitionAwarenessProvider.of(nodeId),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
-        //noinspection resource
-        IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
-        StreamerSubscriber<Tuple, String> subscriber = new StreamerSubscriber<>(batchSender, provider, opts, log);
-        publisher.subscribe(subscriber);
-
-        return subscriber.completionFuture();
+        return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 }

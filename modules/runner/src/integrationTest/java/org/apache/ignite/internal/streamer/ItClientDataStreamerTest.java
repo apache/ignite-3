@@ -15,27 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.message;
+package org.apache.ignite.internal.streamer;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.client.IgniteClient;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 
 /**
- * Undeploy unit request.
+ * Integration test for client-side data streamer API.
  */
-@Transferable(DeployUnitMessageTypes.UNDEPLOY_UNIT_REQUEST)
-public interface UndeployUnitRequest extends NetworkMessage {
-    /**
-     * Returns id of deployment unit.
-     *
-     * @return id of deployment unit.
-     */
-    String id();
+public class ItClientDataStreamerTest extends ItAbstractDataStreamerTest {
+    private IgniteClient client;
 
-    /**
-     * Returns version of deployment unit.
-     *
-     * @return version of deployment unit.
-     */
-    String version();
+    @BeforeAll
+    public void startClient() {
+        client = IgniteClient.builder().addresses("localhost").build();
+    }
+
+    @AfterAll
+    public void stopClient() throws Exception {
+        client.close();
+    }
+
+    @Override
+    Ignite ignite() {
+        return client;
+    }
 }

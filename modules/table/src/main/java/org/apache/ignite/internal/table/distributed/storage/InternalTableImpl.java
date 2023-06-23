@@ -341,7 +341,7 @@ public class InternalTableImpl implements InternalTable {
                 fut = enlistWithRetry(
                         tx0,
                         partToRows.getIntKey(),
-                        (commitPart, term) -> op.apply(commitPart, partToRows.getValue(), tx0, partGroupId, term),
+                        (commitPart, enlistmentConsistencyToken) -> op.apply(commitPart, partToRows.getValue(), tx0, partGroupId, enlistmentConsistencyToken),
                         ATTEMPTS_TO_ENLIST_PARTITION
                 );
             }
@@ -621,7 +621,7 @@ public class InternalTableImpl implements InternalTable {
         return collectMultiRowsResponses(futures);
     }
 
-    private static List<ByteBuffer> serializeBinaryRows(Collection<BinaryRow> rows) {
+    private static List<ByteBuffer> serializeBinaryRows(Collection<? extends BinaryRow> rows) {
         var result = new ArrayList<ByteBuffer>(rows.size());
 
         for (BinaryRow row : rows) {
@@ -654,16 +654,24 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (commitPart, keyRows0, txo, groupId, leaseStartTime) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
-                        .groupId(groupId)
-                        .commitPartitionId(commitPart)
-                        .binaryRowsBytes(serializeBinaryRows(keyRows0))
-                        .transactionId(txo.id())
-                        .enlistmentConsistencyToken(leaseStartTime.longValue())
-                        .requestType(RequestType.RW_UPSERT_ALL)
-                        .timestampLong(clock.nowLong())
-                        .build(),
+                this::upsertAllInternal,
                 CompletableFuture::allOf);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
+        InternalTransaction tx = txManager.begin();
+        TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
+
+        CompletableFuture<Void> fut = enlistWithRetry(
+                tx,
+                partition,
+                (commitPart, enlistmentConsistencyToken) -> upsertAllInternal(commitPart, rows, tx, partGroupId, enlistmentConsistencyToken),
+                ATTEMPTS_TO_ENLIST_PARTITION
+        );
+
+        return postEnlist(fut, true, tx);
     }
 
     /** {@inheritDoc} */
@@ -1488,6 +1496,7 @@ public class InternalTableImpl implements InternalTable {
      * @param partId Partition id.
      * @return Cluster node to evalute read-only request.
      */
+    // TODO: sanpwc refactor.
     protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
         RaftGroupService svc = raftGroupServiceByPartitionId.get(partId);
 
@@ -1579,5 +1588,22 @@ public class InternalTableImpl implements InternalTable {
         if (previousStorageIndexTracker != null) {
             previousStorageIndexTracker.close();
         }
+    }
+
+    private ReplicaRequest upsertAllInternal(
+            TablePartitionId commitPart,
+            Collection<? extends BinaryRow> keyRows0,
+            InternalTransaction txo,
+            ReplicationGroupId groupId,
+            HybridTimestamp enlistmentConsistencyToken) {
+        return tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                .groupId(groupId)
+                .commitPartitionId(commitPart)
+                .binaryRowsBytes(serializeBinaryRows(keyRows0))
+                .transactionId(txo.id())
+                .enlistmentConsistencyToken(enlistmentConsistencyToken.longValue())
+                .requestType(RequestType.RW_UPSERT_ALL)
+                .timestampLong(clock.nowLong())
+                .build();
     }
 }

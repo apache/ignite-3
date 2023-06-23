@@ -15,29 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.table;
+package org.apache.ignite.internal.table.distributed;
 
-import java.util.concurrent.CompletableFuture;
-
-/**
- * Partition awareness provider for data streamer.
- *
- * @param <T> Item type.
- * @param <P> Partition type.
- */
-interface StreamerPartitionAwarenessProvider<T, P> {
-    /**
-     * Returns partition for item. This partition may or may not map to one or more actual Ignite table partitions.
-     *
-     * @param item Data item.
-     * @return Partition.
-     */
-    P partition(T item);
-
-    /**
-     * Refreshes schemas and partition mapping asynchronously.
-     *
-     * @return Future representing pending completion of the operation.
-     */
-    CompletableFuture<Void> refreshAsync();
+/** Tests of the {@link BitSetPartitionSet} implementation of {@link PartitionSet}. */
+class BitSetPartitionSetTest extends AbstractPartitionSetTest {
+    @Override
+    PartitionSet createSet() {
+        return new BitSetPartitionSet();
+    }
 }

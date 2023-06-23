@@ -87,8 +87,8 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
@@ -298,7 +298,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void beforeTest(
-            @InjectConfiguration DataStorageConfiguration dsCfg,
+            @InjectConfiguration GcConfiguration gcConfig,
             @InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig
     ) {
         lenient().when(mockRaftClient.refreshAndGetLeaderWithTerm()).thenAnswer(invocationOnMock -> {
@@ -415,7 +415,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new StorageUpdateHandler(
                         partId,
                         partitionDataStorage,
-                        dsCfg,
+                        gcConfig,
                         mock(LowWatermark.class),
                         indexUpdateHandler,
                         new GcUpdateHandler(partitionDataStorage, safeTimeClock, indexUpdateHandler)

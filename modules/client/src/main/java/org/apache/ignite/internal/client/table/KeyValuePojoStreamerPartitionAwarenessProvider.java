@@ -23,7 +23,7 @@ import org.apache.ignite.table.mapper.Mapper;
 /**
  * Partition awareness provider for data streamer.
  */
-class KeyValuePojoStreamerPartitionAwarenessProvider<K, V> extends AbstractStreamerPartitionAwarenessProvider<Entry<K, V>> {
+class KeyValuePojoStreamerPartitionAwarenessProvider<K, V> extends AbstractClientStreamerPartitionAwarenessProvider<Entry<K, V>> {
     private final Mapper<K> mapper;
 
     KeyValuePojoStreamerPartitionAwarenessProvider(ClientTable tbl, Mapper<K> mapper) {

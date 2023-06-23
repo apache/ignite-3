@@ -27,10 +27,9 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.client.RetryLimitPolicy;
-import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -459,11 +458,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 PartitionAwarenessProvider.of(nodeId),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
-        //noinspection resource
-        IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
-        StreamerSubscriber<Entry<Tuple, Tuple>, String> subscriber = new StreamerSubscriber<>(batchSender, provider, opts, log);
-        publisher.subscribe(subscriber);
-
-        return subscriber.completionFuture();
+        return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 }

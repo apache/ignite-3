@@ -813,7 +813,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return lockManager.acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
             return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IS).thenCompose(tblLock -> { // Table IS lock
-                var comparator = new BinaryTupleComparator(indexStorage.indexDescriptor());
+                var comparator = new BinaryTupleComparator(indexStorage.indexDescriptor().columns());
 
                 Predicate<IndexRow> isUpperBoundAchieved = indexRow -> {
                     if (indexRow == null) {

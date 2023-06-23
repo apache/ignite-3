@@ -28,7 +28,6 @@ import org.apache.ignite.lang.IgniteStringFormatter;
  * See {@link CompletableVersionedValue#get(long)}.
  */
 public class OutdatedTokenException extends IgniteInternalException {
-
     /**
      * Constructor.
      *
