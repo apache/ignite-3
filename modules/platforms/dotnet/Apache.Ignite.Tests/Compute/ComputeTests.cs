@@ -243,6 +243,7 @@ namespace Apache.Ignite.Tests.Compute
         [TestCase(11, "_2")]
         public async Task TestExecuteColocated(long key, string nodeName)
         {
+            // TODO: Why does this hang with unknown unit version?
             var keyTuple = new IgniteTuple { [KeyCol] = key };
             var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, Units, NodeNameJob);
 
@@ -332,6 +333,12 @@ namespace Apache.Ignite.Tests.Compute
             // Lazy enumerable.
             var res2 = await client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units.Reverse(), FakeServer.GetDetailsJob);
             StringAssert.Contains("Units = unit1|1.0.0, unit-latest|latest", res2);
+        }
+
+        [Test]
+        public void TestUnknownUnitWithLatestVersionThrows()
+        {
+            Assert.Fail("TODO");
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
