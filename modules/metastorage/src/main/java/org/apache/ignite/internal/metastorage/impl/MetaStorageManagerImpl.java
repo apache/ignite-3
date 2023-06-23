@@ -37,7 +37,6 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -65,12 +64,14 @@ import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
@@ -118,7 +119,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /** Prevents double stopping of the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
 
-    private final CompletableFuture<Void> readyFuture = new CompletableFuture<>();
+    /**
+     * Future which completes when MetaStorage manager finished local recovery.
+     * The value of the future is the revision which must be used for state recovery by other components.
+     */
+    private final CompletableFuture<Long> recoveryFinishedFuture = new CompletableFuture<>();
 
     private final ClusterTimeImpl clusterTime;
 
@@ -153,15 +158,17 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.clusterTime = new ClusterTimeImpl(busyLock, clock);
     }
 
-    private CompletableFuture<MetaStorageServiceImpl> recover(MetaStorageServiceImpl service) {
+    private CompletableFuture<Long> recover(MetaStorageServiceImpl service) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
 
         try {
-            CompletableFuture<MetaStorageServiceImpl> res = new CompletableFuture<>();
+            CompletableFuture<Long> res = new CompletableFuture<>();
 
-            ExecutorService recoveryExecutor = Executors.newSingleThreadExecutor();
+            ExecutorService recoveryExecutor = Executors.newSingleThreadExecutor(
+                    NamedThreadFactory.create(clusterService.nodeName(), "ms-start", LOG)
+            );
 
             service.currentRevisionAndTime().whenCompleteAsync((revision, throwable) -> {
                 if (throwable != null) {
@@ -188,9 +195,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                     }
                 }
 
-                startRevision.set(revision);
-
-                res.complete(service);
+                res.complete(revision);
             }, recoveryExecutor);
 
             return res.whenComplete((s, t) -> {
@@ -256,8 +261,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(thisNodeName, raftService, busyLock, clusterTime));
     }
 
-    private final AtomicLong startRevision = new AtomicLong();
-
     @Override
     public void start() {
         storage.start();
@@ -276,14 +279,21 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         busyLock.leaveBusy();
                     }
                 })
-                .thenCompose(this::recover)
-                .whenComplete((service, e) -> {
+                .thenCompose(service -> recover(service)
+                        .thenApply(rev -> new IgniteBiTuple<>(service, rev))
+                )
+                .whenComplete((res, e) -> {
                     if (e != null) {
                         metaStorageSvcFut.completeExceptionally(e);
-                        readyFuture.completeExceptionally(e);
+                        recoveryFinishedFuture.completeExceptionally(e);
                     } else {
+                        MetaStorageServiceImpl service = res.get1();
+
+                        Long revision = res.get2();
+                        assert revision != null;
+
                         metaStorageSvcFut.complete(service);
-                        readyFuture.complete(null);
+                        recoveryFinishedFuture.complete(revision);
                     }
                 });
     }
@@ -348,9 +358,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            return metaStorageSvcFut.thenRun(() -> inBusyLock(busyLock, () -> {
-                long revision = startRevision.get();
-
+            return recoveryFinishedFuture.thenAccept(revision -> inBusyLock(busyLock, () -> {
                 // Meta Storage contract states that all updated entries under a particular revision must be stored in the Vault.
                 storage.startWatches(revision + 1, this::onRevisionApplied);
             }));
@@ -721,8 +729,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public CompletableFuture<Void> ready() {
-        return readyFuture;
+    public CompletableFuture<Long> recoveryFinishedFuture() {
+        return recoveryFinishedFuture;
     }
 
     @TestOnly

@@ -701,7 +701,7 @@ public class IgniteImpl implements Ignite {
                             throw new CompletionException(e);
                         }
 
-                        return metaStorageMgr.ready();
+                        return metaStorageMgr.recoveryFinishedFuture();
                     }, startupExecutor)
                     .thenRunAsync(() -> {
                         LOG.info("MetaStorage started, starting the remaining components");
