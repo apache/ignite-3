@@ -173,9 +173,8 @@ public class TestNode implements LifecycleAware {
      * @param plan A plan to execute.
      * @return A cursor representing the result.
      */
-    public AsyncCursor<List<Object>> executePlan(QueryPlan plan, Object... dynamicParams) {
-        BaseQueryContext queryContext = createContext(dynamicParams);
-        return executionService.executePlan(new NoOpTransaction(nodeName), plan, queryContext);
+    public AsyncCursor<List<Object>> executePlan(QueryPlan plan) {
+        return executionService.executePlan(new NoOpTransaction(nodeName), plan, createContext());
     }
 
     /**
@@ -185,9 +184,9 @@ public class TestNode implements LifecycleAware {
      * @param query A query string to prepare.
      * @return A plan to execute.
      */
-    public QueryPlan prepare(String query, Object... dynamicParams) {
+    public QueryPlan prepare(String query) {
         StatementParseResult parseResult = IgniteSqlParser.parse(query, StatementParseResult.MODE);
-        BaseQueryContext ctx = createContext(dynamicParams);
+        BaseQueryContext ctx = createContext();
 
         assertEquals(ctx.parameters().length, parseResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
 
@@ -201,15 +200,13 @@ public class TestNode implements LifecycleAware {
      * @param queryAst Parsed ASD of a query to prepare.
      * @return A plan to execute.
      */
-    public QueryPlan prepare(SqlNode queryAst, Object... dynamicParams) {
+    public QueryPlan prepare(SqlNode queryAst) {
         assertThat(queryAst, not(instanceOf(SqlNodeList.class)));
 
-        BaseQueryContext ctx = createContext(dynamicParams);
-
-        return await(prepareService.prepareAsync(queryAst, ctx));
+        return await(prepareService.prepareAsync(queryAst, createContext()));
     }
 
-    private BaseQueryContext createContext(Object... dynamicParams) {
+    private BaseQueryContext createContext() {
         return BaseQueryContext.builder()
                 .cancel(new QueryCancel())
                 .frameworkConfig(
@@ -217,7 +214,6 @@ public class TestNode implements LifecycleAware {
                                 .defaultSchema(schema)
                                 .build()
                 )
-                .parameters(dynamicParams)
                 .build();
     }
 
