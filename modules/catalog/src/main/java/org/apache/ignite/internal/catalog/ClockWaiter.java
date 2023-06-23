@@ -27,7 +27,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.ClockUpdateListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -115,7 +114,7 @@ public class ClockWaiter implements IgniteComponent {
     private CompletableFuture<Void> doWaitFor(HybridTimestamp targetTimestamp) {
         CompletableFuture<Void> future = nowTracker.waitFor(targetTimestamp.longValue());
 
-        AtomicReference<ScheduledFuture<?>> scheduledFutureRef = new AtomicReference<>();
+        ScheduledFuture<?> scheduledFuture;
 
         if (!future.isDone()) {
             // This triggers a clock update.
@@ -123,18 +122,19 @@ public class ClockWaiter implements IgniteComponent {
 
             if (targetTimestamp.compareTo(now) <= 0) {
                 assert future.isDone();
+
+                scheduledFuture = null;
             } else {
                 // Adding 1 to account for a possible non-null logical part of the targetTimestamp.
                 long millisToWait = targetTimestamp.getPhysical() - now.getPhysical() + 1;
 
-                ScheduledFuture<?> scheduledFuture = scheduler.schedule(this::triggerClockUpdate, millisToWait, TimeUnit.MILLISECONDS);
-                scheduledFutureRef.set(scheduledFuture);
+                scheduledFuture = scheduler.schedule(this::triggerClockUpdate, millisToWait, TimeUnit.MILLISECONDS);
             }
+        } else {
+            scheduledFuture = null;
         }
 
         return future.handle((res, ex) -> {
-            ScheduledFuture<?> scheduledFuture = scheduledFutureRef.get();
-
             if (scheduledFuture != null) {
                 scheduledFuture.cancel(true);
             }
