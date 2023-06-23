@@ -60,7 +60,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolver;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolverImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
