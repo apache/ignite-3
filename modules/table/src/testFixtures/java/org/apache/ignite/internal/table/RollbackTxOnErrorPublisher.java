@@ -23,7 +23,7 @@ import java.util.concurrent.Flow.Subscription;
 import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
- * A simple decorate that rollbacks the given transaction in case of any error that supplied by original
+ * A simple decorator that rollbacks the given transaction in case of any error supplied by original
  * publisher to the subscriber.
  *
  * @param <T> Type of the published items.
