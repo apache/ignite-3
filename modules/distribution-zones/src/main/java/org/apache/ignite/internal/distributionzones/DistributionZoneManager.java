@@ -1659,9 +1659,7 @@ public class DistributionZoneManager implements IgniteComponent {
          * @param runnable Custom logic to run.
          */
         synchronized void rescheduleScaleUp(long delay, Runnable runnable) {
-            if (scaleUpTask != null && scaleUpTaskDelay > 0) {
-                scaleUpTask.cancel(false);
-            }
+            stopScaleUp();
 
             scaleUpTask = executor.schedule(runnable, delay, SECONDS);
 
@@ -1676,9 +1674,7 @@ public class DistributionZoneManager implements IgniteComponent {
          * @param runnable Custom logic to run.
          */
         synchronized void rescheduleScaleDown(long delay, Runnable runnable) {
-            if (scaleDownTask != null && scaleDownTaskDelay > 0) {
-                scaleDownTask.cancel(false);
-            }
+            stopScaleDown();
 
             scaleDownTask = executor.schedule(runnable, delay, SECONDS);
 
@@ -1686,28 +1682,34 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         /**
-         * Cancels task for scale up and scale down.
+         * Cancels task for scale up and scale down. Used on {@link ZonesConfigurationListener#onDelete(ConfigurationNotificationEvent)}.
+         * Not need to check {@code scaleUpTaskDelay} and {@code scaleDownTaskDelay} because after timer stopping on zone delete event
+         * the data nodes value will be updated.
          */
         synchronized void stopTimers() {
-            stopScaleUp();
+            if (scaleUpTask != null) {
+                scaleUpTask.cancel(false);
+            }
 
-            stopScaleDown();
+            if (scaleDownTask != null) {
+                scaleDownTask.cancel(false);
+            }
         }
 
         /**
-         * Cancels task for scale up.
+         * Cancels task for scale up if it is not started yet and the delay of this task is not immediate.
          */
         synchronized void stopScaleUp() {
-            if (scaleUpTask != null) {
+            if (scaleUpTask != null && scaleUpTaskDelay > 0) {
                 scaleUpTask.cancel(false);
             }
         }
 
         /**
-         * Cancels task for scale down.
+         * Cancels task for scale down if it is not started yet and the delay of this task is not immediate.
          */
         synchronized void stopScaleDown() {
-            if (scaleDownTask != null) {
+            if (scaleDownTask != null && scaleDownTaskDelay > 0) {
                 scaleDownTask.cancel(false);
             }
         }

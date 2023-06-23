@@ -20,6 +20,7 @@ package org.apache.ignite.internal.distributionzones;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CountDownLatch;
@@ -30,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -221,5 +223,152 @@ public class DistributionZonesSchedulersTest {
 
         assertTrue(waitForCondition(() -> 0L == latch.getCount(), 1500));
         assertTrue(waitForCondition(flag::get, 1500));
+    }
+
+    @Test
+    void testCancelScaleUpTaskOnStopScaleUp() {
+        ZoneState state = new DistributionZoneManager.ZoneState(executor);
+
+        testCancelTask(state::rescheduleScaleUp, state::stopScaleUp, () -> state.scaleUpTask().isCancelled());
+    }
+
+    @Test
+    void testCancelScaleDownTaskOnStopScaleDown() {
+        ZoneState state = new ZoneState(executor);
+
+        testCancelTask(state::rescheduleScaleDown, state::stopScaleDown, () -> state.scaleDownTask().isCancelled());
+    }
+
+    @Test
+    void testCancelScaleUpTasksOnStopTimers() {
+        ZoneState state = new ZoneState(executor);
+
+        testCancelTask(state::rescheduleScaleUp, state::stopTimers, () -> state.scaleUpTask().isCancelled());
+    }
+
+    @Test
+    void testCancelScaleDownTasksOnStopTimers() {
+        ZoneState state = new ZoneState(executor);
+
+        testCancelTask(state::rescheduleScaleDown, state::stopTimers, () -> state.scaleDownTask().isCancelled());
+    }
+
+    /**
+     * {@link ZoneState#stopScaleUp()}, {@link ZoneState#stopScaleDown()} and {@link ZoneState#stopTimers()} cancel task
+     * if it is not started and has a delay greater than zero.
+     */
+    private static void testCancelTask(
+            BiConsumer<Long, Runnable> fn,
+            Runnable stopTask,
+            Supplier<Boolean> isTaskCancelled
+    ) {
+        CountDownLatch latch = new CountDownLatch(1);
+
+        fn.accept(0L, () -> {
+            try {
+                assertTrue(latch.await(3, TimeUnit.SECONDS));
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        fn.accept(1L, () -> {});
+
+        assertFalse(isTaskCancelled.get());
+
+        stopTask.run();
+
+        assertTrue(isTaskCancelled.get());
+
+        latch.countDown();
+    }
+
+    @Test
+    void testNotCancelScaleUpTaskOnStopScaleUp() {
+        ZoneState state = new DistributionZoneManager.ZoneState(executor);
+
+        testNotCancelTask(state::rescheduleScaleUp, state::stopScaleUp, () -> state.scaleUpTask().isCancelled());
+    }
+
+    @Test
+    void testNotCancelScaleDownTaskOnStopScaleDown() {
+        ZoneState state = new ZoneState(executor);
+
+        testNotCancelTask(state::rescheduleScaleDown, state::stopScaleDown, () -> state.scaleDownTask().isCancelled());
+
+    }
+
+    /**
+     * {@link ZoneState#stopScaleUp()} and {@link ZoneState#stopScaleDown()} doesn't cancel task
+     * if it is not started and has a delay equal to zero.
+     */
+    private static void testNotCancelTask(
+            BiConsumer<Long, Runnable> fn,
+            Runnable stopTask,
+            Supplier<Boolean> isTaskCancelled
+    ) {
+        CountDownLatch latch = new CountDownLatch(1);
+
+        fn.accept(0L, () -> {
+            try {
+                assertTrue(latch.await(3, TimeUnit.SECONDS));
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        fn.accept(0L, () -> {});
+
+        assertFalse(isTaskCancelled.get());
+
+        stopTask.run();
+
+        assertFalse(isTaskCancelled.get());
+
+        latch.countDown();
+    }
+
+    /**
+     * {@link ZoneState#stopTimers()} cancel task if it is not started and has a delay equal to zero.
+     */
+    @Test
+    public void testCancelTasksOnStopTimersAndImmediateTimerValues() {
+        ZoneState state = new DistributionZoneManager.ZoneState(executor);
+
+        CountDownLatch scaleUpTaskLatch = new CountDownLatch(1);
+
+        state.rescheduleScaleUp(0L, () -> {
+            try {
+                assertTrue(scaleUpTaskLatch.await(3, TimeUnit.SECONDS));
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        state.rescheduleScaleUp(0L, () -> {});
+
+        assertFalse(state.scaleUpTask().isCancelled());
+
+        CountDownLatch scaleDownTaskLatch = new CountDownLatch(1);
+
+        state.rescheduleScaleDown(0L, () -> {
+            try {
+                assertTrue(scaleDownTaskLatch.await(3, TimeUnit.SECONDS));
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        state.rescheduleScaleDown(0L, () -> {});
+
+        assertFalse(state.scaleDownTask().isCancelled());
+
+        state.stopTimers();
+
+        assertTrue(state.scaleUpTask().isCancelled());
+        assertTrue(state.scaleDownTask().isCancelled());
+
+        scaleUpTaskLatch.countDown();
+        scaleDownTaskLatch.countDown();
     }
 }
