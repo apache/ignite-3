@@ -336,8 +336,10 @@ namespace Apache.Ignite.Tests.Compute
 
             // Colocated.
             var keyTuple = new IgniteTuple { [KeyCol] = 1L };
-            var res3 = await client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, units, FakeServer.GetDetailsJob);
-            StringAssert.Contains("Units = unit1|1.0.0, unit-latest|latest", res3);
+            var res3 = await client.Compute.ExecuteColocatedAsync<string>(
+                FakeServer.ExistingTableName, keyTuple, units, FakeServer.GetDetailsJob);
+
+            StringAssert.Contains("Units = unit-latest|latest, unit1|1.0.0", res3);
         }
 
         [Test]

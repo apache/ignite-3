@@ -668,7 +668,7 @@ namespace Apache.Ignite.Tests
         {
             // Colocated: table id, schema version, key.
             // Else: node name.
-            reader.Skip(colocated ? 3 : 1);
+            reader.Skip(colocated ? 4 : 1);
 
             var unitsCount = reader.TryReadNil() ? 0 : reader.ReadArrayHeader();
             var units = new List<DeploymentUnit>(unitsCount);
@@ -679,11 +679,6 @@ namespace Apache.Ignite.Tests
 
             var jobClassName = reader.ReadString();
 
-            var arrayBufferWriter = new PooledArrayBuffer();
-            var writer = new MsgPackWriter(arrayBufferWriter);
-
-            using var builder = new BinaryTupleBuilder(3);
-
             object? resObj = jobClassName == GetDetailsJob
                 ? new
                 {
@@ -693,7 +688,17 @@ namespace Apache.Ignite.Tests
                 }.ToString()
                 : Node.Name;
 
+            using var builder = new BinaryTupleBuilder(3);
             builder.AppendObjectWithType(resObj);
+
+            var arrayBufferWriter = new PooledArrayBuffer();
+            var writer = new MsgPackWriter(arrayBufferWriter);
+
+            if (colocated)
+            {
+                writer.Write(1); // Latest schema.
+            }
+
             writer.Write(builder.Build().Span);
 
             return arrayBufferWriter;
