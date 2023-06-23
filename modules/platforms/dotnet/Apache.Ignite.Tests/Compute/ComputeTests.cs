@@ -327,11 +327,11 @@ namespace Apache.Ignite.Tests.Compute
             using var client = await server.ConnectClientAsync();
 
             var res = await client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, FakeServer.GetDetailsJob);
-            Assert.AreEqual("TODO", res);
+            StringAssert.Contains("Units = unit-latest|latest, unit1|1.0.0", res);
 
             // Lazy enumerable.
             var res2 = await client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units.Reverse(), FakeServer.GetDetailsJob);
-            Assert.AreEqual("TODO", res2);
+            StringAssert.Contains("Units = unit1|1.0.0, unit-latest|latest", res2);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>

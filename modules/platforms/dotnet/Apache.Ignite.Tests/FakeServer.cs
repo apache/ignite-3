@@ -641,7 +641,7 @@ namespace Apache.Ignite.Tests
                                 ? new
                                 {
                                     NodeName = Node.Name,
-                                    Units = string.Join(", ", units),
+                                    Units = string.Join(", ", units.Select(u => $"{u.Name}|{u.Version}")),
                                     jobClassName,
                                     targetNodeName
                                 }.ToString()
