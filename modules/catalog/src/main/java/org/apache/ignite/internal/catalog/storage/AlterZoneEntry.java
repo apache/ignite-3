@@ -54,8 +54,8 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken) {
-        return new AlterZoneEventParameters(causalityToken, descriptor);
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new AlterZoneEventParameters(causalityToken,catalogVersion, descriptor);
     }
 
     @Override

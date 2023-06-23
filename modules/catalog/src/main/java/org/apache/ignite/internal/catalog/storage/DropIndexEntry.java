@@ -58,8 +58,8 @@ public class DropIndexEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken) {
-        return new DropIndexEventParameters(causalityToken, indexId);
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new DropIndexEventParameters(causalityToken, catalogVersion, indexId);
     }
 
     @Override

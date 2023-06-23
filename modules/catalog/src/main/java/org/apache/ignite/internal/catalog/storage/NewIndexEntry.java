@@ -58,8 +58,8 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken) {
-        return new CreateIndexEventParameters(causalityToken, descriptor);
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new CreateIndexEventParameters(causalityToken, catalogVersion, descriptor);
     }
 
     @Override

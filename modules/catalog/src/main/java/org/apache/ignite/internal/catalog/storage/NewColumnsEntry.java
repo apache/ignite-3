@@ -68,8 +68,8 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken) {
-        return new AddColumnEventParameters(causalityToken, tableId, descriptors);
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new AddColumnEventParameters(causalityToken, catalogVersion, tableId, descriptors);
     }
 
     @Override

@@ -1101,7 +1101,7 @@ public class CatalogServiceSelfTest {
                     List.of(new ObjectIdGenUpdateEntry(1))
             );
 
-            updateHandlerCapture.getValue().handle(update);
+            updateHandlerCapture.getValue().handle(update, 0);
 
             return completedFuture(false);
         });
@@ -1578,7 +1578,7 @@ public class CatalogServiceSelfTest {
 
         service.listen(CatalogEvent.TABLE_CREATE, (parameters, exception) -> {
             try {
-                assertNotNull(service.schema((int) parameters.causalityToken()));
+                assertNotNull(service.schema(parameters.catalogVersion()));
 
                 result.complete(null);
 

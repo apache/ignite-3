@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -78,24 +77,24 @@ class UpdateLogImplTest {
 
         long revisionBefore = metastore.appliedRevision();
 
-        updateLog.registerUpdateHandler(update -> {/* no-op */});
+        updateLog.registerUpdateHandler((update, causalityToken) -> {/* no-op */});
         updateLog.start();
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 
-        List<VersionedUpdate> expectedLog = List.of(
+        List<VersionedUpdate> expectedVersions = List.of(
                 new VersionedUpdate(1, 1L, List.of(new TestUpdateEntry("foo"))),
                 new VersionedUpdate(2, 2L, List.of(new TestUpdateEntry("bar")))
         );
 
-        for (VersionedUpdate update : expectedLog) {
-            assertTrue(await(updateLog.append(update)));
+        for (VersionedUpdate update : expectedVersions) {
+            assertThat(updateLog.append(update), willBe(true));
         }
 
         // and wait till metastore apply necessary revision
         assertTrue(
                 waitForCondition(
-                        () -> metastore.appliedRevision() - expectedLog.size() == revisionBefore,
+                        () -> metastore.appliedRevision() - expectedVersions.size() == revisionBefore,
                         TimeUnit.SECONDS.toMillis(5)
                 )
         );
@@ -106,11 +105,18 @@ class UpdateLogImplTest {
         // and check if log is replayed on start
         updateLog = new UpdateLogImpl(metastore, vault);
 
-        List<VersionedUpdate> actualLog = new ArrayList<>();
-        updateLog.registerUpdateHandler(actualLog::add);
+        List<VersionedUpdate> actualVersions = new ArrayList<>();
+        List<Long> actualCausalityTokens = new ArrayList<>();
+
+        updateLog.registerUpdateHandler((update, causalityToken) -> {
+            actualVersions.add(update);
+            actualCausalityTokens.add(causalityToken);
+        });
+
         updateLog.start();
 
-        assertEquals(expectedLog, actualLog);
+        assertEquals(expectedVersions, actualVersions);
+        assertEquals(List.of(revisionBefore + 2, revisionBefore + 2), actualCausalityTokens);
     }
 
     @Test
@@ -134,33 +140,39 @@ class UpdateLogImplTest {
         UpdateLogImpl updateLog = new UpdateLogImpl(metastore, vault);
 
         List<Integer> appliedVersions = new ArrayList<>();
-        updateLog.registerUpdateHandler(update -> appliedVersions.add(update.version()));
+        List<Long> causalityTokens = new ArrayList<>();
 
-        updateLog.start();
+        updateLog.registerUpdateHandler((update, causalityToken) -> {
+            appliedVersions.add(update.version());
+            causalityTokens.add(causalityToken);
+        });
 
         long revisionBefore = metastore.appliedRevision();
+
+        updateLog.start();
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 
         // first update should always be successful
-        assertTrue(await(updateLog.append(singleEntryUpdateOfVersion(startVersion))));
+        assertThat(updateLog.append(singleEntryUpdateOfVersion(startVersion)), willBe(true));
 
         // update of the same version should not be accepted
-        assertFalse(await(updateLog.append(singleEntryUpdateOfVersion(startVersion))));
+        assertThat(updateLog.append(singleEntryUpdateOfVersion(startVersion)), willBe(false));
 
         // update of the version lower than the last applied should not be accepted
-        assertFalse(await(updateLog.append(singleEntryUpdateOfVersion(startVersion - 1))));
+        assertThat(updateLog.append(singleEntryUpdateOfVersion(startVersion - 1)), willBe(false));
 
         // update of the version creating gap should not be accepted
-        assertFalse(await(updateLog.append(singleEntryUpdateOfVersion(startVersion + 2))));
+        assertThat(updateLog.append(singleEntryUpdateOfVersion(startVersion + 2)), willBe(false));
 
         // regular update of next version should be accepted
-        assertTrue(await(updateLog.append(singleEntryUpdateOfVersion(startVersion + 1))));
+        assertThat(updateLog.append(singleEntryUpdateOfVersion(startVersion + 1)), willBe(true));
 
         // now the gap is filled, thus update should be accepted as well
-        assertTrue(await(updateLog.append(singleEntryUpdateOfVersion(startVersion + 2))));
+        assertThat(updateLog.append(singleEntryUpdateOfVersion(startVersion + 2)), willBe(true));
 
         List<Integer> expectedVersions = List.of(startVersion, startVersion + 1, startVersion + 2);
+        List<Long> expectedTokens = List.of(revisionBefore + 1, revisionBefore + 2, revisionBefore + 3);
 
         // wait till necessary revision is applied
         assertTrue(
@@ -171,6 +183,7 @@ class UpdateLogImplTest {
         );
 
         assertThat(appliedVersions, equalTo(expectedVersions));
+        assertThat(causalityTokens, equalTo(expectedTokens));
     }
 
     private static VersionedUpdate singleEntryUpdateOfVersion(int version) {
