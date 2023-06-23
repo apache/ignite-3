@@ -126,8 +126,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatchers;
-import org.mockito.Mockito;
 
 /**
  * Catalog service self test.
@@ -1301,13 +1299,13 @@ public class CatalogServiceSelfTest {
         clearInvocations(eventListener);
 
         // Drop index.
-        assertThat(service.dropIndex(dropIndexParams), willBe((Object) null));
+        assertThat(service.dropIndex(dropIndexParams), willBe(nullValue()));
         verify(eventListener).notify(any(DropIndexEventParameters.class), isNull());
 
         clearInvocations(eventListener);
 
         // Drop table with pk index.
-        assertThat(service.dropTable(dropTableparams), willBe((Object) null));
+        assertThat(service.dropTable(dropTableparams), willBe(nullValue()));
 
         // Try drop index once again.
         assertThat(service.dropIndex(dropIndexParams), willThrow(IndexNotFoundException.class));
@@ -1685,7 +1683,7 @@ public class CatalogServiceSelfTest {
 
     @Test
     void testGetTableByIdAndCatalogVersion() {
-        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         assertNull(service.table(2, 0));
         assertNotNull(service.table(2, 1));
@@ -1693,7 +1691,7 @@ public class CatalogServiceSelfTest {
 
     @Test
     void testGetTableIdOnDropIndexEvent() {
-        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         assertThat(
                 service.createIndex(
@@ -1704,7 +1702,7 @@ public class CatalogServiceSelfTest {
                                 .columns(List.of("VAL"))
                                 .build()
                 ),
-                willBe((Object) null)
+                willBe(nullValue())
         );
 
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
@@ -1718,7 +1716,7 @@ public class CatalogServiceSelfTest {
         // Let's remove the index.
         assertThat(
                 service.dropIndex(DropIndexParams.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build()),
-                willBe((Object) null)
+                willBe(nullValue())
         );
 
         DropIndexEventParameters eventParameters = captor.getValue();
@@ -1729,7 +1727,7 @@ public class CatalogServiceSelfTest {
         // Let's delete the table.
         assertThat(
                 service.dropTable(DropTableParams.builder().schemaName(SCHEMA_NAME).tableName(TABLE_NAME).build()),
-                willBe((Object) null)
+                willBe(nullValue())
         );
 
         // Let's make sure that the pk index has been deleted.

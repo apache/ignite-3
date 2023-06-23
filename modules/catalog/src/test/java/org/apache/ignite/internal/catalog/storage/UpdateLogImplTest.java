@@ -114,7 +114,7 @@ class UpdateLogImplTest {
         updateLog.start();
 
         assertEquals(expectedVersions, actualVersions);
-        assertEquals(List.of(revisionBefore + 2, revisionBefore + 2), actualCausalityTokens);
+        assertEquals(List.of(revisionBefore + 1, revisionBefore + 2), actualCausalityTokens);
     }
 
     private UpdateLogImpl createUpdateLogImpl() {

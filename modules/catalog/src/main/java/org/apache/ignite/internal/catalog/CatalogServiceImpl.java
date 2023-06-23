@@ -634,7 +634,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 catalog = entry.applyUpdate(catalog);
             }
 
-            catalog = applyUpdateFinal(catalog, update, metaStorageUpdateTimestamp, causalityToken);
+            catalog = applyUpdateFinal(catalog, update, metaStorageUpdateTimestamp);
 
             registerCatalog(catalog);
 
