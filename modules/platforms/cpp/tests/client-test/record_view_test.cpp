@@ -286,7 +286,10 @@ TEST_F(record_view_test, get_all_empty) {
 TEST_F(record_view_test, get_all_nonexisting) {
     auto res = view.get_all(nullptr, {test_type(-42)});
 
-    ASSERT_TRUE(res.empty());
+    ASSERT_FALSE(res.empty());
+
+    EXPECT_EQ(res.size(), 1);
+    EXPECT_EQ(res.front(), std::nullopt);
 }
 
 TEST_F(record_view_test, upsert_all_empty_no_throw) {

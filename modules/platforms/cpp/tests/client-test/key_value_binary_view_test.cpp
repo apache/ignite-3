@@ -160,7 +160,10 @@ TEST_F(key_value_binary_view_test, get_all_empty) {
 TEST_F(key_value_binary_view_test, get_all_nonexisting) {
     auto res = kv_view.get_all(nullptr, {get_tuple(-42)});
 
-    ASSERT_TRUE(res.empty());
+    ASSERT_FALSE(res.empty());
+
+    EXPECT_EQ(res.size(), 1);
+    EXPECT_EQ(res.front(), std::nullopt);
 }
 
 TEST_F(key_value_binary_view_test, put_all_empty_no_throw) {
