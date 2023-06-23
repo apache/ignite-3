@@ -360,17 +360,19 @@ namespace Apache.Ignite.Tests.Table
 
             await TupleView.UpsertAllAsync(null, records);
 
-            // TODO: Key order should be preserved by the server (IGNITE-16004).
             var res = await TupleView.GetAllAsync(null, Enumerable.Range(9, 4).Select(x => GetTuple(x)));
-            var resArr = res.OrderBy(x => x.Value[0]).ToArray();
+            var resArr = res.ToArray();
 
-            Assert.AreEqual(2, res.Count);
+            Assert.AreEqual(4, res.Count);
 
             Assert.AreEqual(9, resArr[0].Value[0]);
             Assert.AreEqual("9", resArr[0].Value[1]);
 
             Assert.AreEqual(10, resArr[1].Value[0]);
             Assert.AreEqual("10", resArr[1].Value[1]);
+
+            Assert.IsFalse(resArr[2].HasValue);
+            Assert.IsFalse(resArr[3].HasValue);
         }
 
         [Test]
