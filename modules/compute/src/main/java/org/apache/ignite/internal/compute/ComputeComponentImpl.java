@@ -238,12 +238,15 @@ public class ComputeComponentImpl implements ComputeComponent {
             List<DeploymentUnit> units = toDeploymentUnit(executeRequest.deploymentUnits());
 
             mapClassLoaderExceptions(jobClassLoader(units), executeRequest.jobClassName())
-                    .thenCompose(context -> {
-                        return doExecuteLocally(jobClass(context.classLoader(), executeRequest.jobClassName()), executeRequest.args())
-                                        .whenComplete((r, e) -> context.close())
-                                        .handle((result, ex) -> sendExecuteResponse(result, ex, senderConsistentId, correlationId));
-                            }
-                    );
+                    .whenComplete((context, err) -> {
+                        if (err != null) {
+                            sendExecuteResponse(null, err, senderConsistentId, correlationId);
+                        }
+
+                        doExecuteLocally(jobClass(context.classLoader(), executeRequest.jobClassName()), executeRequest.args())
+                                .whenComplete((r, e) -> context.close())
+                                .handle((result, ex) -> sendExecuteResponse(result, ex, senderConsistentId, correlationId));
+                    });
         } finally {
             busyLock.leaveBusy();
         }
