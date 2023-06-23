@@ -1248,9 +1248,7 @@ public class InternalTableImpl implements InternalTable {
                     for (RowBatch rowBatch : rowBatches) {
                         Collection<BinaryRow> batchResult = (Collection<BinaryRow>) rowBatch.getCompletedResult();
 
-                        if (batchResult == null) {
-                            continue;
-                        }
+                        assert batchResult != null;
 
                         assert batchResult.size() == rowBatch.requestedRows.size() :
                                 "batchResult=" + batchResult.size() + ", requestedRows=" + rowBatch.requestedRows.size();
