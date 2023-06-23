@@ -52,97 +52,140 @@ public final class V1Decoder implements LogEntryDecoder {
     }
 
     public void decode(final LogEntry log, final byte[] content) {
-        // 1-5 type
-        final int iType = Bits.getInt(content, 1);
-        log.setType(EnumOutter.EntryType.forNumber(iType));
-        // 5-13 index
-        // 13-21 term
-        final long index = Bits.getLong(content, 5);
-        final long term = Bits.getLong(content, 13);
+        var reader = new Reader(content);
+        reader.pos = 1;
+
+        // type
+        final int iType = (int)reader.readLong();
+        EnumOutter.EntryType type = EnumOutter.EntryType.forNumber(iType);
+        log.setType(type);
+        // index
+        // term
+        final long index = reader.readLong();
+        final long term = reader.readLong();
         log.setId(new LogId(index, term));
-        // 21-29 checksum
-        log.setChecksum(Bits.getLong(content, 21));
-        // 29-33 peer count
-        int peerCount = Bits.getInt(content, 29);
-        // peers
-        int pos = 33;
-        if (peerCount > 0) {
-            List<PeerId> peers = new ArrayList<>(peerCount);
-            while (peerCount-- > 0) {
-                final short len = Bits.getShort(content, pos);
-                final byte[] bs = new byte[len];
-                System.arraycopy(content, pos + 2, bs, 0, len);
-                // peer len (short in 2 bytes)
-                // peer str
-                pos += 2 + len;
-                final PeerId peer = new PeerId();
-                peer.parse(AsciiStringUtil.unsafeDecode(bs));
-                peers.add(peer);
+        // checksum
+        log.setChecksum(Bits.getLong(content, reader.pos));
+        int pos = reader.pos + Long.BYTES;
+
+        if (type != EnumOutter.EntryType.ENTRY_TYPE_DATA) {
+            // peer count
+            reader.pos = pos;
+            int peerCount = (int)reader.readLong();
+            pos = reader.pos;
+
+            // peers
+            if (peerCount > 0) {
+                List<PeerId> peers = new ArrayList<>(peerCount);
+                while (peerCount-- > 0) {
+                    final short len = Bits.getShort(content, pos);
+                    final byte[] bs = new byte[len];
+                    System.arraycopy(content, pos + 2, bs, 0, len);
+                    // peer len (short in 2 bytes)
+                    // peer str
+                    pos += 2 + len;
+                    final PeerId peer = new PeerId();
+                    peer.parse(AsciiStringUtil.unsafeDecode(bs));
+                    peers.add(peer);
+                }
+                log.setPeers(peers);
             }
-            log.setPeers(peers);
-        }
-        // old peers
-        int oldPeerCount = Bits.getInt(content, pos);
-        pos += 4;
-        if (oldPeerCount > 0) {
-            List<PeerId> oldPeers = new ArrayList<>(oldPeerCount);
-            while (oldPeerCount-- > 0) {
-                final short len = Bits.getShort(content, pos);
-                final byte[] bs = new byte[len];
-                System.arraycopy(content, pos + 2, bs, 0, len);
-                // peer len (short in 2 bytes)
-                // peer str
-                pos += 2 + len;
-                final PeerId peer = new PeerId();
-                peer.parse(AsciiStringUtil.unsafeDecode(bs));
-                oldPeers.add(peer);
+            // old peers
+            reader.pos = pos;
+            int oldPeerCount = (int)reader.readLong();
+            pos = reader.pos;
+            if (oldPeerCount > 0) {
+                List<PeerId> oldPeers = new ArrayList<>(oldPeerCount);
+                while (oldPeerCount-- > 0) {
+                    final short len = Bits.getShort(content, pos);
+                    final byte[] bs = new byte[len];
+                    System.arraycopy(content, pos + 2, bs, 0, len);
+                    // peer len (short in 2 bytes)
+                    // peer str
+                    pos += 2 + len;
+                    final PeerId peer = new PeerId();
+                    peer.parse(AsciiStringUtil.unsafeDecode(bs));
+                    oldPeers.add(peer);
+                }
+                log.setOldPeers(oldPeers);
             }
-            log.setOldPeers(oldPeers);
-        }
-        // learners
-        int learnersCount = Bits.getInt(content, pos);
-        pos += 4;
-        if (learnersCount > 0) {
-            List<PeerId> learners = new ArrayList<>(learnersCount);
-            while (learnersCount-- > 0) {
-                final short len = Bits.getShort(content, pos);
-                final byte[] bs = new byte[len];
-                System.arraycopy(content, pos + 2, bs, 0, len);
-                // peer len (short in 2 bytes)
-                // peer str
-                pos += 2 + len;
-                final PeerId peer = new PeerId();
-                peer.parse(AsciiStringUtil.unsafeDecode(bs));
-                learners.add(peer);
+            // learners
+            reader.pos = pos;
+            int learnersCount = (int)reader.readLong();
+            pos = reader.pos;
+            if (learnersCount > 0) {
+                List<PeerId> learners = new ArrayList<>(learnersCount);
+                while (learnersCount-- > 0) {
+                    final short len = Bits.getShort(content, pos);
+                    final byte[] bs = new byte[len];
+                    System.arraycopy(content, pos + 2, bs, 0, len);
+                    // peer len (short in 2 bytes)
+                    // peer str
+                    pos += 2 + len;
+                    final PeerId peer = new PeerId();
+                    peer.parse(AsciiStringUtil.unsafeDecode(bs));
+                    learners.add(peer);
+                }
+                log.setLearners(learners);
             }
-            log.setLearners(learners);
-        }
-        // old learners
-        int oldLearnersCount = Bits.getInt(content, pos);
-        pos += 4;
-        if (oldLearnersCount > 0) {
-            List<PeerId> oldLearners = new ArrayList<>(oldLearnersCount);
-            while (oldLearnersCount-- > 0) {
-                final short len = Bits.getShort(content, pos);
-                final byte[] bs = new byte[len];
-                System.arraycopy(content, pos + 2, bs, 0, len);
-                // peer len (short in 2 bytes)
-                // peer str
-                pos += 2 + len;
-                final PeerId peer = new PeerId();
-                peer.parse(AsciiStringUtil.unsafeDecode(bs));
-                oldLearners.add(peer);
+            // old learners
+            reader.pos = pos;
+            int oldLearnersCount = (int)reader.readLong();
+            pos = reader.pos;
+            if (oldLearnersCount > 0) {
+                List<PeerId> oldLearners = new ArrayList<>(oldLearnersCount);
+                while (oldLearnersCount-- > 0) {
+                    final short len = Bits.getShort(content, pos);
+                    final byte[] bs = new byte[len];
+                    System.arraycopy(content, pos + 2, bs, 0, len);
+                    // peer len (short in 2 bytes)
+                    // peer str
+                    pos += 2 + len;
+                    final PeerId peer = new PeerId();
+                    peer.parse(AsciiStringUtil.unsafeDecode(bs));
+                    oldLearners.add(peer);
+                }
+                log.setOldLearners(oldLearners);
             }
-            log.setOldLearners(oldLearners);
         }
 
-        // data
-        if (content.length > pos) {
-            final int len = content.length - pos;
-            ByteBuffer data = ByteBuffer.allocate(len);
-            data.put(content, pos, len);
-            data.flip();
-            log.setData(data);
+        if (type != EnumOutter.EntryType.ENTRY_TYPE_CONFIGURATION) {
+            // data
+            if (content.length > pos) {
+                final int len = content.length - pos;
+                ByteBuffer data = ByteBuffer.allocate(len);
+                data.put(content, pos, len);
+                data.flip();
+                log.setData(data);
+            }
+        }
+    }
+
+    private static class Reader {
+        private final byte[] content;
+        int pos;
+
+        private Reader(byte[] content) {
+            this.content = content;
+        }
+
+        public long readLong() {
+            long val = 0;
+            int shift = 0;
+
+            while (true) {
+                byte b = content[pos];
+
+                pos++;
+
+                val |= ((long) b & 0x7F) << shift;
+
+                if ((b & 0x80) == 0) {
+                    return val;
+                } else {
+                    shift += 7;
+                }
+            }
         }
     }
 }

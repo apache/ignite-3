@@ -51,125 +51,178 @@ public final class V1Encoder implements LogEntryEncoder {
         final int iType = type.getNumber();
         final long index = id.getIndex();
         final long term = id.getTerm();
-        // type(4) + index(8) + term(8) + checksum(8)
-        totalLen += 4 + 8 + 8 + 8;
+        // type + index + term + checksum(8)
+        totalLen += sizeInBytes(iType) + sizeInBytes(index) + sizeInBytes(term) + 8;
+
+        List<String> peerStrs = null;
         int peerCount = 0;
-        // peer count
-        totalLen += 4;
-        final List<String> peerStrs = new ArrayList<>();
-        if (peers != null) {
-            peerCount = peers.size();
-            for (final PeerId peer : peers) {
-                final String peerStr = peer.toString();
-                // peer len (short in 2 bytes)
-                // peer str
-                totalLen += 2 + peerStr.length();
-                peerStrs.add(peerStr);
-            }
-        }
+        List<String> oldPeerStrs = null;
         int oldPeerCount = 0;
-        // old peer count
-        totalLen += 4;
-        final List<String> oldPeerStrs = new ArrayList<>();
-        if (oldPeers != null) {
-            oldPeerCount = oldPeers.size();
-            for (final PeerId peer : oldPeers) {
-                final String peerStr = peer.toString();
-                // peer len (short in 2 bytes)
-                // peer str
-                totalLen += 2 + peerStr.length();
-                oldPeerStrs.add(peerStr);
-            }
-        }
+        List<String> learnerStrs = null;
         int learnerCount = 0;
-        // peer count
-        totalLen += 4;
-        final List<String> learnerStrs = new ArrayList<>();
-        if (learners != null) {
-            learnerCount = learners.size();
-            for (final PeerId learner : learners) {
-                final String learnerStr = learner.toString();
-                // learner len (short in 2 bytes)
-                // learner str
-                totalLen += 2 + learnerStr.length();
-                learnerStrs.add(learnerStr);
-            }
-        }
+        List<String> oldLearnerStrs = null;
         int oldLearnerCount = 0;
-        // old peer count
-        totalLen += 4;
-        final List<String> oldLearnerStrs = new ArrayList<>();
-        if (oldLearners != null) {
-            oldLearnerCount = oldLearners.size();
-            for (final PeerId oldLearner : oldLearners) {
-                final String learnerStr = oldLearner.toString();
-                // oldLearner len (short in 2 bytes)
-                // oldLearner str
-                totalLen += 2 + learnerStr.length();
-                oldLearnerStrs.add(learnerStr);
+
+        if (type != EntryType.ENTRY_TYPE_DATA) {
+            peerStrs = new ArrayList<>();
+            if (peers != null) {
+                peerCount = peers.size();
+                for (final PeerId peer : peers) {
+                    final String peerStr = peer.toString();
+                    // peer len (short in 2 bytes)
+                    // peer str
+                    totalLen += 2 + peerStr.length();
+                    peerStrs.add(peerStr);
+                }
             }
+            totalLen += sizeInBytes(peerCount);
+
+            oldPeerStrs = new ArrayList<>();
+            if (oldPeers != null) {
+                oldPeerCount = oldPeers.size();
+                for (final PeerId peer : oldPeers) {
+                    final String peerStr = peer.toString();
+                    // peer len (short in 2 bytes)
+                    // peer str
+                    totalLen += 2 + peerStr.length();
+                    oldPeerStrs.add(peerStr);
+                }
+            }
+            totalLen += sizeInBytes(oldPeerCount);
+
+            learnerStrs = new ArrayList<>();
+            if (learners != null) {
+                learnerCount = learners.size();
+                for (final PeerId learner : learners) {
+                    final String learnerStr = learner.toString();
+                    // learner len (short in 2 bytes)
+                    // learner str
+                    totalLen += 2 + learnerStr.length();
+                    learnerStrs.add(learnerStr);
+                }
+            }
+            totalLen += sizeInBytes(learnerCount);
+
+            oldLearnerStrs = new ArrayList<>();
+            if (oldLearners != null) {
+                oldLearnerCount = oldLearners.size();
+                for (final PeerId oldLearner : oldLearners) {
+                    final String learnerStr = oldLearner.toString();
+                    // oldLearner len (short in 2 bytes)
+                    // oldLearner str
+                    totalLen += 2 + learnerStr.length();
+                    oldLearnerStrs.add(learnerStr);
+                }
+            }
+            totalLen += sizeInBytes(oldLearnerCount);
         }
 
-        final int bodyLen = data != null ? data.remaining() : 0;
-        totalLen += bodyLen;
+        if (type != EntryType.ENTRY_TYPE_CONFIGURATION) {
+            final int bodyLen = data != null ? data.remaining() : 0;
+            totalLen += bodyLen;
+        }
 
         final byte[] content = new byte[totalLen];
         // {0} magic
         content[0] = LogEntryV1CodecFactory.MAGIC;
-        // 1-5 type
-        Bits.putInt(content, 1, iType);
-        // 5-13 index
-        Bits.putLong(content, 5, index);
-        // 13-21 term
-        Bits.putLong(content, 13, term);
-        // checksum
-        Bits.putLong(content, 21, log.getChecksum());
+        int pos = 1;
 
-        // peers
-        // 21-25 peer count
-        Bits.putInt(content, 29, peerCount);
-        int pos = 33;
-        for (final String peerStr : peerStrs) {
-            final byte[] ps = AsciiStringUtil.unsafeEncode(peerStr);
-            Bits.putShort(content, pos, (short) peerStr.length());
-            System.arraycopy(ps, 0, content, pos + 2, ps.length);
-            pos += 2 + ps.length;
+        pos = writeLong(iType, content, pos);
+        pos = writeLong(index, content, pos);
+        pos = writeLong(term, content, pos);
+
+        Bits.putLong(content, pos, log.getChecksum());
+        pos += Long.BYTES;
+
+        if (type != EntryType.ENTRY_TYPE_DATA) {
+            // peer count
+            pos = writeLong(peerCount, content, pos);
+            // peers
+            for (final String peerStr : peerStrs) {
+                final byte[] ps = AsciiStringUtil.unsafeEncode(peerStr);
+                Bits.putShort(content, pos, (short) peerStr.length());
+                System.arraycopy(ps, 0, content, pos + 2, ps.length);
+                pos += 2 + ps.length;
+            }
+
+            // old peers count
+            pos = writeLong(oldPeerCount, content, pos);
+            // old peers
+            for (final String peerStr : oldPeerStrs) {
+                final byte[] ps = AsciiStringUtil.unsafeEncode(peerStr);
+                Bits.putShort(content, pos, (short) peerStr.length());
+                System.arraycopy(ps, 0, content, pos + 2, ps.length);
+                pos += 2 + ps.length;
+            }
+
+            // learners count
+            pos = writeLong(learnerCount, content, pos);
+            // learners
+            for (final String peerStr : learnerStrs) {
+                final byte[] ps = AsciiStringUtil.unsafeEncode(peerStr);
+                Bits.putShort(content, pos, (short) peerStr.length());
+                System.arraycopy(ps, 0, content, pos + 2, ps.length);
+                pos += 2 + ps.length;
+            }
+
+            // old learners count
+            pos = writeLong(oldPeerCount, content, pos);
+            // old learners
+            for (final String peerStr : oldLearnerStrs) {
+                final byte[] ps = AsciiStringUtil.unsafeEncode(peerStr);
+                Bits.putShort(content, pos, (short) peerStr.length());
+                System.arraycopy(ps, 0, content, pos + 2, ps.length);
+                pos += 2 + ps.length;
+            }
         }
-        // old peers
-        // old peers count
-        Bits.putInt(content, pos, oldPeerCount);
-        pos += 4;
-        for (final String peerStr : oldPeerStrs) {
-            final byte[] ps = AsciiStringUtil.unsafeEncode(peerStr);
-            Bits.putShort(content, pos, (short) peerStr.length());
-            System.arraycopy(ps, 0, content, pos + 2, ps.length);
-            pos += 2 + ps.length;
-        }
-        // learners
-        // learners count
-        Bits.putInt(content, pos, learnerCount);
-        pos += 4;
-        for (final String peerStr : learnerStrs) {
-            final byte[] ps = AsciiStringUtil.unsafeEncode(peerStr);
-            Bits.putShort(content, pos, (short) peerStr.length());
-            System.arraycopy(ps, 0, content, pos + 2, ps.length);
-            pos += 2 + ps.length;
-        }
-        // old learners
-        // old learners count
-        Bits.putInt(content, pos, oldLearnerCount);
-        pos += 4;
-        for (final String peerStr : oldLearnerStrs) {
-            final byte[] ps = AsciiStringUtil.unsafeEncode(peerStr);
-            Bits.putShort(content, pos, (short) peerStr.length());
-            System.arraycopy(ps, 0, content, pos + 2, ps.length);
-            pos += 2 + ps.length;
-        }
-        // data
-        if (data != null) {
-            System.arraycopy(data.array(), data.position(), content, pos, data.remaining());
+
+        if (type != EntryType.ENTRY_TYPE_CONFIGURATION) {
+            // data
+            if (data != null) {
+                System.arraycopy(data.array(), data.position(), content, pos, data.remaining());
+            }
         }
 
         return content;
+    }
+
+    private static int writeLong(long val, byte[] out, int pos) {
+        while ((val & 0xFFFF_FFFF_FFFF_FF80L) != 0) {
+            byte b = (byte) (val | 0x80);
+
+            out[pos++] = b;
+
+            val >>>= 7;
+        }
+
+        out[pos++] = (byte) val;
+
+        return pos;
+    }
+
+    private static int sizeInBytes(long val) {
+        if (val >= 0) {
+            if (val < (1L << 7)) {
+                return 1;
+            } else if (val < (1L << 14)) {
+                return 2;
+            } else if (val < (1L << 21)) {
+                return 3;
+            } else if (val < (1L << 28)) {
+                return 4;
+            } else if (val < (1L << 35)) {
+                return 5;
+            } else if (val < (1L << 42)) {
+                return 6;
+            } else if (val < (1L << 49)) {
+                return 7;
+            } else if (val < (1L << 56)) {
+                return 8;
+            } else {
+                return 9;
+            }
+        } else {
+            return 10;
+        }
     }
 }
