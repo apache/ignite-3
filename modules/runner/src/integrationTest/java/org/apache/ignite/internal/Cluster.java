@@ -173,7 +173,7 @@ public class Cluster {
      *     with this call.
      * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
      */
-    public void startAndInit(
+    private void startAndInit(
             int nodeCount,
             int[] cmgNodes,
             String nodeBootstrapConfigTemplate,
@@ -196,7 +196,7 @@ public class Cluster {
 
         initParametersConfigurator.accept(builder);
 
-        IgnitionManager.init(builder.build());
+        TestIgnitionManager.init(builder.build());
 
         for (CompletableFuture<IgniteImpl> future : futures) {
             assertThat(future, willCompleteSuccessfully());

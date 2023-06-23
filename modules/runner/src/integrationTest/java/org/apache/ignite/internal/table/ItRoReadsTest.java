@@ -133,7 +133,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
                 .clusterName("cluster")
                 .build();
 
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         assertThat(future, willCompleteSuccessfully());
 
