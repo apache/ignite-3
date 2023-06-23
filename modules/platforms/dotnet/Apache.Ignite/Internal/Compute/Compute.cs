@@ -82,7 +82,8 @@ namespace Apache.Ignite.Internal.Compute
             await ExecuteColocatedAsync<T, IIgniteTuple>(
                     tableName,
                     key,
-                    serializerHandlerFunc: _ => TupleSerializerHandler.Instance,
+                    serializerHandlerFunc: static _ => TupleSerializerHandler.Instance,
+                    units,
                     jobClassName,
                     args)
                 .ConfigureAwait(false);
@@ -99,6 +100,7 @@ namespace Apache.Ignite.Internal.Compute
                     tableName,
                     key,
                     serializerHandlerFunc: table => table.GetRecordViewInternal<TKey>().RecordSerializer.Handler,
+                    units,
                     jobClassName,
                     args)
                 .ConfigureAwait(false);
@@ -115,7 +117,7 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(units, nameof(units));
 
             var res = new Dictionary<IClusterNode, Task<T>>();
-            ICollection<DeploymentUnit> units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
+            var units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
 
             foreach (var node in nodes)
             {
@@ -235,6 +237,7 @@ namespace Apache.Ignite.Internal.Compute
             string tableName,
             TKey key,
             Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc,
+            IEnumerable<DeploymentUnit> units,
             string jobClassName,
             params object?[]? args)
             where TKey : notnull
@@ -242,6 +245,8 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(tableName, nameof(tableName));
             IgniteArgumentCheck.NotNull(key, nameof(key));
             IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
+
+            var units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
 
             while (true)
             {
@@ -277,8 +282,7 @@ namespace Apache.Ignite.Internal.Compute
                 var serializerHandler = serializerHandlerFunc(table);
                 var colocationHash = serializerHandler.Write(ref w, schema, key, keyOnly: true, computeHash: true);
 
-                // TODO
-                w.WriteNil(); // DeploymentUnits
+                WriteUnits(units0, bufferWriter);
                 w.Write(jobClassName);
                 w.WriteObjectCollectionAsBinaryTuple(args);
 
