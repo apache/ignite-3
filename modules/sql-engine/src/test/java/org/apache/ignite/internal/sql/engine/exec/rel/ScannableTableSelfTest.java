@@ -49,6 +49,7 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -78,9 +79,12 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -93,9 +97,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class ScannableTableSelfTest {
 
-    private static final NoOpTransaction RO_TX = NoOpTransaction.readOnly("RW");
+    private static final NoOpTransaction RO_TX = NoOpTransaction.readOnly("RO");
 
-    private static final NoOpTransaction RW_TX = NoOpTransaction.readWrite("RO");
+    private static final NoOpTransaction RW_TX = NoOpTransaction.readWrite("RW");
 
     private static final IgniteTypeFactory TYPE_FACTORY = Commons.typeFactory();
 
@@ -112,10 +116,8 @@ public class ScannableTableSelfTest {
      * Table scan.
      */
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testTableScan(boolean ro) {
-        NoOpTransaction tx = ro ? RO_TX : RW_TX;
-
+    @MethodSource("transactions")
+    public void testTableScan(NoOpTransaction tx) {
         TestInput data = new TestInput();
         data.addRow(binaryRow);
 
@@ -126,7 +128,7 @@ public class ScannableTableSelfTest {
 
         ResultCollector collector = tester.tableScan(partitionId, term, tx);
 
-        if (ro) {
+        if (tx.isReadOnly()) {
             HybridTimestamp timestamp = tx.readTimestamp();
             ClusterNode clusterNode = tx.clusterNode();
 
@@ -148,10 +150,8 @@ public class ScannableTableSelfTest {
      * Table scan error propagation.
      */
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testTableScanError(boolean ro) {
-        NoOpTransaction tx = ro ? RO_TX : RW_TX;
-
+    @MethodSource("transactions")
+    public void testTableScanError(NoOpTransaction tx) {
         TestInput input = new TestInput();
         input.addRow(binaryRow);
 
@@ -216,7 +216,7 @@ public class ScannableTableSelfTest {
 
         ResultCollector collector = tester.indexScan(partitionId, term, tx, indexId, condition);
 
-        if (ro) {
+        if (tx.isReadOnly()) {
             HybridTimestamp timestamp = tx.readTimestamp();
             ClusterNode clusterNode = tx.clusterNode();
 
@@ -256,10 +256,8 @@ public class ScannableTableSelfTest {
      * Index scan with specified required columns.
      */
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testIndexScanWithRequiredColumns(boolean ro) {
-        NoOpTransaction tx = ro ? RO_TX : RW_TX;
-
+    @MethodSource("transactions")
+    public void testIndexScanWithRequiredColumns(NoOpTransaction tx) {
         TestInput input = new TestInput();
         input.addRow(binaryRow);
 
@@ -277,7 +275,7 @@ public class ScannableTableSelfTest {
 
         ResultCollector collector = tester.indexScan(partitionId, term, tx, indexId, condition);
 
-        if (ro) {
+        if (tx.isReadOnly()) {
             HybridTimestamp timestamp = tx.readTimestamp();
             ClusterNode clusterNode = tx.clusterNode();
 
@@ -317,10 +315,8 @@ public class ScannableTableSelfTest {
      * Index scan error propagation.
      */
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testIndexScanError(boolean ro) {
-        NoOpTransaction tx = ro ? RO_TX : RW_TX;
-
+    @MethodSource("transactions")
+    public void testIndexScanError(NoOpTransaction tx) {
         TestInput input = new TestInput();
         input.addRow(binaryRow);
 
@@ -350,10 +346,8 @@ public class ScannableTableSelfTest {
      * Index scan - invalid condition.
      */
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testIndexScanInvalidCondition(boolean ro) {
-        NoOpTransaction tx = ro ? RO_TX : RW_TX;
-
+    @MethodSource("transactions")
+    public void testIndexScanInvalidCondition(NoOpTransaction tx ) {
         TestInput input = new TestInput();
         input.addRow(binaryRow, 1);
 
@@ -376,10 +370,8 @@ public class ScannableTableSelfTest {
      * Index scan - index bound includes some of columns.
      */
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testIndexScanPartialCondition(boolean ro) {
-        NoOpTransaction tx = ro ? RO_TX : RW_TX;
-
+    @MethodSource("transactions")
+    public void testIndexScanPartialCondition(NoOpTransaction tx) {
         // 4 column input table.
         TestInput input = new TestInput(4);
         // 3 column index.
@@ -400,7 +392,7 @@ public class ScannableTableSelfTest {
 
         ResultCollector collector = tester.indexScan(partitionId, term, tx, indexId, condition);
 
-        if (ro) {
+        if (tx.isReadOnly()) {
             HybridTimestamp timestamp = tx.readTimestamp();
             ClusterNode clusterNode = tx.clusterNode();
 
@@ -442,10 +434,8 @@ public class ScannableTableSelfTest {
      * Index lookup.
      */
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testIndexLookup(boolean ro) {
-        NoOpTransaction tx = ro ? RO_TX : RW_TX;
-
+    @MethodSource("transactions")
+    public void testIndexLookup(NoOpTransaction tx) {
         TestInput input = new TestInput();
         input.addRow(binaryRow);
 
@@ -458,7 +448,7 @@ public class ScannableTableSelfTest {
 
         ResultCollector collector = tester.indexLookUp(partitionId, term, tx, indexId, key);
 
-        if (ro) {
+        if (tx.isReadOnly()) {
             verify(internalTable).lookup(
                     eq(partitionId),
                     eq(tx.readTimestamp()),
@@ -491,9 +481,8 @@ public class ScannableTableSelfTest {
      * Index lookup with specified required columns.
      */
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testIndexLookupWithRequiredColumns(boolean ro) {
-        NoOpTransaction tx = ro ? RO_TX : RW_TX;
+    @MethodSource("transactions")
+    public void testIndexLookupWithRequiredColumns(NoOpTransaction tx) {
         TestInput input = new TestInput();
         input.addRow(binaryRow);
 
@@ -508,7 +497,7 @@ public class ScannableTableSelfTest {
 
         ResultCollector collector = tester.indexLookUp(partitionId, term, tx, indexId, key);
 
-        if (ro) {
+        if (tx.isReadOnly()) {
             verify(internalTable).lookup(
                     eq(partitionId),
                     eq(tx.readTimestamp()),
@@ -541,10 +530,8 @@ public class ScannableTableSelfTest {
      * Index lookup - error propagation.
      */
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testIndexLookupError(boolean ro) {
-        NoOpTransaction tx = ro ? RO_TX : RW_TX;
-
+    @MethodSource("transactions")
+    public void testIndexLookupError(NoOpTransaction tx) {
         TestInput input = new TestInput();
         input.addRow(binaryRow);
 
@@ -570,10 +557,8 @@ public class ScannableTableSelfTest {
      * Index lookup - invalid key.
      */
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testIndexLookupInvalidKey(boolean ro) {
-        NoOpTransaction tx = ro ? RO_TX : RW_TX;
-
+    @MethodSource("transactions")
+    public void testIndexLookupInvalidKey(NoOpTransaction tx) {
         TestInput input = new TestInput();
 
         Tester tester = new Tester(input);
@@ -587,6 +572,13 @@ public class ScannableTableSelfTest {
         assertEquals("Invalid lookup key.", err.getMessage());
 
         verifyNoInteractions(internalTable);
+    }
+
+    private static Stream<Arguments> transactions() {
+        return Stream.of(
+                Arguments.of(Named.of("Read-only transaction", NoOpTransaction.readOnly("RO"))),
+                Arguments.of(Named.of("Read-write transaction", NoOpTransaction.readOnly("RW")))
+        );
     }
 
     private class Tester {
