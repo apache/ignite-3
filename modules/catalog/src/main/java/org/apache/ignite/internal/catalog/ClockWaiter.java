@@ -85,6 +85,11 @@ public class ClockWaiter implements IgniteComponent {
 
         nowTracker.close();
 
+        // We do shutdownNow() right away without doing usual shutdown()+awaitTermination() because
+        // this would make us wait till all the scheduled tasks get executed (which might take a lot
+        // of time). An alternative would be to track all ScheduledFutures (which are not same as the
+        // user-facing futures we return from the tracker), but we don't need them for anything else,
+        // so it's simpler to just use shutdownNow().
         scheduler.shutdownNow();
         scheduler.awaitTermination(10, TimeUnit.SECONDS);
     }
