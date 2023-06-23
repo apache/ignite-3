@@ -19,6 +19,8 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -121,8 +123,8 @@ import org.mockito.Mockito;
  * Catalog service self test.
  */
 public class CatalogServiceSelfTest {
-    private static final String SCHEMA_NAME = CatalogService.PUBLIC;
-    private static final String ZONE_NAME = CatalogService.DEFAULT_ZONE_NAME;
+    private static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
+    private static final String ZONE_NAME = DEFAULT_ZONE_NAME;
     private static final String TABLE_NAME = "myTable";
     private static final String TABLE_NAME_2 = "myTable2";
     private static final String NEW_COLUMN_NAME = "NEWCOL";
@@ -181,7 +183,7 @@ public class CatalogServiceSelfTest {
         assertEquals(0, schema.indexes().length);
 
         CatalogZoneDescriptor zone = service.zone(1, clock.nowLong());
-        assertEquals(CatalogService.DEFAULT_ZONE_NAME, zone.name());
+        assertEquals(DEFAULT_ZONE_NAME, zone.name());
 
         assertEquals(1, zone.id());
         assertEquals(CreateZoneParams.DEFAULT_PARTITION_COUNT, zone.partitions());
@@ -941,7 +943,7 @@ public class CatalogServiceSelfTest {
 
         assertNotNull(schema);
         assertEquals(0, schema.id());
-        assertEquals(CatalogService.PUBLIC, schema.name());
+        assertEquals(DEFAULT_SCHEMA_NAME, schema.name());
         assertSame(schema, service.activeSchema(beforeDropTimestamp));
 
         assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, beforeDropTimestamp));
@@ -955,7 +957,7 @@ public class CatalogServiceSelfTest {
 
         assertNotNull(schema);
         assertEquals(0, schema.id());
-        assertEquals(CatalogService.PUBLIC, schema.name());
+        assertEquals(DEFAULT_SCHEMA_NAME, schema.name());
         assertSame(schema, service.activeSchema(clock.nowLong()));
 
         assertNull(schema.table(TABLE_NAME));
@@ -1211,7 +1213,7 @@ public class CatalogServiceSelfTest {
     @Test
     public void testCreateIndexEvents() {
         CreateTableParams createTableParams = CreateTableParams.builder()
-                .schemaName(CatalogService.PUBLIC)
+                .schemaName(DEFAULT_SCHEMA_NAME)
                 .tableName(TABLE_NAME)
                 .zone(ZONE_NAME)
                 .columns(List.of(
@@ -1226,7 +1228,7 @@ public class CatalogServiceSelfTest {
         DropTableParams dropTableparams = DropTableParams.builder().tableName(TABLE_NAME).build();
 
         CreateHashIndexParams createIndexParams = CreateHashIndexParams.builder()
-                .schemaName(CatalogService.PUBLIC)
+                .schemaName(DEFAULT_SCHEMA_NAME)
                 .indexName(INDEX_NAME)
                 .tableName(TABLE_NAME)
                 .columns(List.of("key2"))
@@ -1385,40 +1387,40 @@ public class CatalogServiceSelfTest {
 
     @Test
     public void testDefaultZone() {
-        CatalogZoneDescriptor defaultZone = service.zone(CatalogService.DEFAULT_ZONE_NAME, clock.nowLong());
+        CatalogZoneDescriptor defaultZone = service.zone(DEFAULT_ZONE_NAME, clock.nowLong());
 
         // Try to create zone with default zone name.
         CreateZoneParams createParams = CreateZoneParams.builder()
-                .zoneName(CatalogService.DEFAULT_ZONE_NAME)
+                .zoneName(DEFAULT_ZONE_NAME)
                 .partitions(42)
                 .replicas(15)
                 .build();
         assertThat(service.createDistributionZone(createParams), willThrow(IgniteInternalException.class));
 
         // Validate default zone wasn't changed.
-        assertSame(defaultZone, service.zone(CatalogService.DEFAULT_ZONE_NAME, clock.nowLong()));
+        assertSame(defaultZone, service.zone(DEFAULT_ZONE_NAME, clock.nowLong()));
 
         // Try to rename default zone.
         String newDefaultZoneName = "RenamedDefaultZone";
 
         RenameZoneParams renameZoneParams = RenameZoneParams.builder()
-                .zoneName(CatalogService.DEFAULT_ZONE_NAME)
+                .zoneName(DEFAULT_ZONE_NAME)
                 .newZoneName(newDefaultZoneName)
                 .build();
         assertThat(service.renameDistributionZone(renameZoneParams), willThrow(IgniteInternalException.class));
 
         // Validate default zone wasn't changed.
         assertNull(service.zone(newDefaultZoneName, clock.nowLong()));
-        assertSame(defaultZone, service.zone(CatalogService.DEFAULT_ZONE_NAME, clock.nowLong()));
+        assertSame(defaultZone, service.zone(DEFAULT_ZONE_NAME, clock.nowLong()));
 
         // Try to drop default zone.
         DropZoneParams dropZoneParams = DropZoneParams.builder()
-                .zoneName(CatalogService.DEFAULT_ZONE_NAME)
+                .zoneName(DEFAULT_ZONE_NAME)
                 .build();
         assertThat(service.dropDistributionZone(dropZoneParams), willThrow(IgniteInternalException.class));
 
         // Validate default zone wasn't changed.
-        assertSame(defaultZone, service.zone(CatalogService.DEFAULT_ZONE_NAME, clock.nowLong()));
+        assertSame(defaultZone, service.zone(DEFAULT_ZONE_NAME, clock.nowLong()));
     }
 
     @Test
