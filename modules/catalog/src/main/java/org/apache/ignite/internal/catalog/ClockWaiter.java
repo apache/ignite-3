@@ -140,6 +140,7 @@ public class ClockWaiter implements IgniteComponent {
             }
 
             if (ex != null) {
+                // Let's replace a TrackerClosedException with a CancellationException as the latter makes more sense for the clients.
                 if (ex instanceof TrackerClosedException) {
                     throw new CancellationException();
                 } else {
