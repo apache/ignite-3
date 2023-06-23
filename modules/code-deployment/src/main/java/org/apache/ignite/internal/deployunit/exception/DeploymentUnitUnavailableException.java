@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.deployunit.exception;
 
 import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
+import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.lang.ErrorGroups.CodeDeployment;
 import org.apache.ignite.lang.IgniteException;
 

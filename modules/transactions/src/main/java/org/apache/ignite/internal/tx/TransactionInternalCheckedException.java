@@ -110,18 +110,4 @@ public class TransactionInternalCheckedException extends IgniteInternalCheckedEx
         assert extractGroupCode(code) == TX_ERR_GROUP.code() :
                 "Error code does not relate to transaction error group [code=" + code + ", errGroup=" + errorGroupByCode(code).name() + ']';
     }
-
-    /**
-     * Creates a new exception with the given trace id, error code, detail message and cause.
-     *
-     * @param traceId Unique identifier of this exception.
-     * @param code Full error code.
-     * @param message Detail message.
-     * @param cause Optional nested exception (can be {@code null}).
-     */
-    public TransactionInternalCheckedException(UUID traceId, int code, String message, Throwable cause) {
-        super(traceId, code, message, cause);
-        assert extractGroupCode(code) == TX_ERR_GROUP.code() :
-                "Error code does not relate to transaction error group [code=" + code + ", errGroup=" + errorGroupByCode(code).name() + ']';
-    }
 }

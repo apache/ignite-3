@@ -75,6 +75,10 @@ public abstract class AbstractClientTest {
     public static void afterAll() throws Exception {
         client.close();
         testServer.close();
+
+        // Force GC to detect Netty buffer leaks.
+        // noinspection CallToSystemGC
+        System.gc();
     }
 
     /**

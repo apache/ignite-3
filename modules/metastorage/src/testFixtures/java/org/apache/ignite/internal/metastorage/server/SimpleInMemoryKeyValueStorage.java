@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -178,6 +179,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     public Entry get(byte[] key, long revUpperBound) {
         synchronized (mux) {
             return doGet(key, revUpperBound);
+        }
+    }
+
+
+    @Override
+    public List<Entry> get(byte[] key, long revLowerBound, long revUpperBound) {
+        synchronized (mux) {
+            return doGet(key, revLowerBound, revUpperBound);
         }
     }
 
@@ -646,6 +655,36 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         return doGetValue(key, lastRev);
     }
 
+    private List<Entry> doGet(byte[] key, long revLowerBound, long revUpperBound) {
+        assert revLowerBound >= 0 : "Invalid arguments: [revLowerBound=" + revLowerBound + ']';
+        assert revUpperBound >= 0 : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
+        assert revUpperBound >= revLowerBound
+                : "Invalid arguments: [revLowerBound=" + revLowerBound + ", revUpperBound=" + revUpperBound + ']';
+        // TODO: IGNITE-19782 throw CompactedException if revLowerBound is compacted.
+
+        List<Long> revs = keysIdx.get(key);
+
+        if (revs == null || revs.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        int firstRevIndex = minRevisionIndex(revs, revLowerBound);
+        int lastRevIndex = maxRevisionIndex(revs, revUpperBound);
+
+        // firstRevIndex can be -1 if minRevisionIndex return -1. lastRevIndex can be -1 if maxRevisionIndex return -1.
+        if (firstRevIndex == -1 || lastRevIndex == -1) {
+            return Collections.emptyList();
+        }
+
+        List<Entry> entries = new ArrayList<>();
+
+        for (int i = firstRevIndex; i <= lastRevIndex; i++) {
+            entries.add(doGetValue(key, revs.get(i)));
+        }
+
+        return entries;
+    }
+
     /**
      * Returns maximum revision which must be less or equal to {@code upperBoundRev}. If there is no such revision then {@code -1} will be
      * returned.
@@ -662,6 +701,46 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
             if (rev <= upperBoundRev) {
                 return rev;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Returns index of minimum revision which must be greater or equal to {@code lowerBoundRev}.
+     * If there is no such revision then {@code -1} will be returned.
+     *
+     * @param revs          Revisions list.
+     * @param lowerBoundRev Revision lower bound.
+     * @return Index of minimum revision or {@code -1} if there is no such revision.
+     */
+    private static int minRevisionIndex(List<Long> revs, long lowerBoundRev) {
+        for (int i = 0; i < revs.size(); i++) {
+            long rev = revs.get(i);
+
+            if (rev >= lowerBoundRev) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Returns index of maximum revision which must be less or equal to {@code upperBoundRev}.
+     * If there is no such revision then {@code -1} will be returned.
+     *
+     * @param revs          Revisions list.
+     * @param upperBoundRev Revision upper bound.
+     * @return Index of maximum revision or {@code -1} if there is no such revision.
+     */
+    private static int maxRevisionIndex(List<Long> revs, long upperBoundRev) {
+        for (int i = revs.size() - 1; i >= 0; i--) {
+            long rev = revs.get(i);
+
+            if (rev <= upperBoundRev) {
+                return i;
             }
         }
 

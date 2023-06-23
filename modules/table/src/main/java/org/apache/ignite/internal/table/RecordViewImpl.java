@@ -33,6 +33,7 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -295,13 +296,22 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     }
 
     /**
+     * Returns marshaller for the latest schema.
+     *
+     * @return Marshaller.
+     */
+    private RecordMarshaller<R> marshaller() {
+        return marshaller(schemaReg.lastSchemaVersion());
+    }
+
+    /**
      * Marshals given record to a row.
      *
      * @param rec Record object.
      * @return Binary row.
      */
     private BinaryRowEx marshal(R rec) {
-        RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+        RecordMarshaller<R> marsh = marshaller();
 
         try {
             return marsh.marshal(rec);
@@ -317,7 +327,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @return Binary rows collection.
      */
     private Collection<BinaryRowEx> marshal(Collection<R> recs) {
-        RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+        RecordMarshaller<R> marsh = marshaller();
 
         List<BinaryRowEx> rows = new ArrayList<>(recs.size());
 
@@ -341,7 +351,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @return Binary row.
      */
     private BinaryRowEx marshalKey(@NotNull R rec) {
-        RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+        RecordMarshaller<R> marsh = marshaller();
 
         try {
             return marsh.marshalKey(rec);
@@ -357,7 +367,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @return Binary rows collection.
      */
     private Collection<BinaryRowEx> marshalKeys(Collection<R> recs) {
-        RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+        RecordMarshaller<R> marsh = marshaller();
 
         List<BinaryRowEx> rows = new ArrayList<>(recs.size());
 
@@ -407,7 +417,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
             return Collections.emptyList();
         }
 
-        RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+        RecordMarshaller<R> marsh = marshaller();
 
         List<R> recs = new ArrayList<>(rows.size());
 
@@ -425,7 +435,11 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<R> publisher, @Nullable DataStreamerOptions options) {
-        // TODO IGNITE-19617 Server-side Basic Data Streamer.
-        throw new UnsupportedOperationException("Not supported.");
+        Objects.requireNonNull(publisher);
+
+        var partitioner = new PojoStreamerPartitionAwarenessProvider<>(schemaReg, tbl.partitions(), marshaller());
+        StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshal(items), partitionId);
+
+        return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
 }

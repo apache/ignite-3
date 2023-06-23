@@ -18,17 +18,14 @@
 package org.apache.ignite.internal.deployunit.metastore;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -36,19 +33,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.metastore.accumulator.ClusterStatusAccumulator;
-import org.apache.ignite.internal.deployunit.metastore.accumulator.KeyAccumulator;
 import org.apache.ignite.internal.deployunit.metastore.accumulator.NodeStatusAccumulator;
 import org.apache.ignite.internal.deployunit.metastore.status.ClusterStatusKey;
 import org.apache.ignite.internal.deployunit.metastore.status.NodeStatusKey;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.dsl.Condition;
-import org.apache.ignite.internal.metastorage.dsl.Conditions;
-import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
-import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.lang.ByteArray;
 
 /**
@@ -67,8 +60,23 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     }
 
     @Override
-    public void registerListener(NodeStatusWatchListener listener) {
+    public void registerNodeStatusListener(NodeStatusWatchListener listener) {
         metaStorage.registerPrefixWatch(NodeStatusKey.builder().build().toByteArray(), listener);
+    }
+
+    @Override
+    public void unregisterNodeStatusListener(NodeStatusWatchListener listener) {
+        metaStorage.unregisterWatch(listener);
+    }
+
+    @Override
+    public void registerClusterStatusListener(ClusterStatusWatchListener listener) {
+        metaStorage.registerPrefixWatch(ClusterStatusKey.builder().build().toByteArray(), listener);
+    }
+
+    @Override
+    public void unregisterClusterStatusListener(ClusterStatusWatchListener listener) {
+        metaStorage.unregisterWatch(listener);
     }
 
     @Override
@@ -182,31 +190,25 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     }
 
     @Override
-    public CompletableFuture<Boolean> remove(String id, Version version) {
-        ByteArray key = ClusterStatusKey.builder().id(id).version(version).build().toByteArray();
-        CompletableFuture<List<byte[]>> nodesFuture = new CompletableFuture<>();
-        metaStorage.prefix(NodeStatusKey.builder().id(id).version(version).build().toByteArray())
-                .subscribe(new KeyAccumulator().toSubscriber(nodesFuture));
-
-        return nodesFuture.thenCompose(nodes ->
-                metaStorage.invoke(existsAll(key, nodes), removeAll(key, nodes), Collections.emptyList())
-        );
-    }
-
-    private static Condition existsAll(ByteArray key, List<byte[]> nodeKeys) {
-        Condition result = exists(key);
-        for (byte[] keyArr : nodeKeys) {
-            result = Conditions.and(result, exists(new ByteArray(keyArr)));
-        }
+    public CompletableFuture<List<UnitNodeStatus>> getAllNodeStatuses(String id, Version version) {
+        CompletableFuture<List<UnitNodeStatus>> result = new CompletableFuture<>();
+        ByteArray nodes = NodeStatusKey.builder().id(id).version(version).build().toByteArray();
+        metaStorage.prefix(nodes).subscribe(new NodeStatusAccumulator().toSubscriber(result));
         return result;
     }
 
-    private static Collection<Operation> removeAll(ByteArray key, List<byte[]> keys) {
-        List<Operation> operations = new ArrayList<>();
-        operations.add(Operations.remove(key));
+    @Override
+    public CompletableFuture<Boolean> removeClusterStatus(String id, Version version) {
+        ByteArray key = ClusterStatusKey.builder().id(id).version(version).build().toByteArray();
 
-        keys.stream().map(ByteArray::new).map(Operations::remove).collect(Collectors.toCollection(() -> operations));
-        return operations;
+        return metaStorage.invoke(exists(key), Operations.remove(key), noop());
+    }
+
+    @Override
+    public CompletableFuture<Boolean> removeNodeStatus(String nodeId, String id, Version version) {
+        ByteArray key = NodeStatusKey.builder().id(id).version(version).nodeId(nodeId).build().toByteArray();
+
+        return metaStorage.invoke(exists(key), Operations.remove(key), noop());
     }
 
     /**
