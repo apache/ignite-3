@@ -22,6 +22,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.RollbackTxOnErrorPublisher;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.utils.PrimaryReplica;
@@ -29,7 +30,7 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 
 /**
- * Tests for {@link InternalTable#scan(int, org.apache.ignite.internal.tx.InternalTransaction)}.
+ * Tests for {@link InternalTable#scan(int, InternalTransaction)}.
  */
 public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableScanTest {
     @Override
@@ -41,7 +42,10 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
         IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(new TablePartitionId(internalTbl.tableId(), part));
         PrimaryReplica recipient = new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
 
-        return internalTbl.scan(part, tx.id(), recipient, null, null, null, 0, null);
+        return new RollbackTxOnErrorPublisher<>(
+                tx,
+                internalTbl.scan(part, tx.id(), recipient, null, null, null, 0, null)
+        );
     }
 
     @Override
