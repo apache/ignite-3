@@ -124,7 +124,6 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private Publisher<RowT> partitionPublisher(PartitionWithTerm partWithTerm, @Nullable RangeCondition<RowT> cond) {
         int indexId = schemaIndex.id();
-        String indexName = schemaIndex.name();
         List<String> columns = schemaIndex.columns();
         ExecutionContext<RowT> ctx = context();
 
