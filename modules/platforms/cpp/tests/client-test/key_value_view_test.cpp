@@ -176,7 +176,10 @@ TEST_F(key_value_view_test, get_all_empty) {
 TEST_F(key_value_view_test, get_all_nonexisting) {
     auto res = kv_view.get_all(nullptr, {test_key_type(-42)});
 
-    ASSERT_TRUE(res.empty());
+    ASSERT_FALSE(res.empty());
+
+    EXPECT_EQ(res.size(), 1);
+    EXPECT_EQ(res.front(), std::nullopt);
 }
 
 TEST_F(key_value_view_test, put_all_empty_no_throw) {
@@ -198,14 +201,19 @@ TEST_F(key_value_view_test, put_all_get_all) {
     kv_view.put_all(nullptr, records);
     auto res = kv_view.get_all(nullptr, keys);
 
-    // TODO: Key order should be preserved by the server (IGNITE-16004).
-    EXPECT_EQ(res.size(), 2);
+    ASSERT_EQ(res.size(), keys.size());
 
-    ASSERT_TRUE(res[0].has_value());
-    EXPECT_EQ("Val9", res[0]->val);
+    for (std::int64_t i = 0; i < keys.size(); ++i) {
+        auto key = keys[i];
+        auto val = res[i];
 
-    ASSERT_TRUE(res[1].has_value());
-    EXPECT_EQ("Val10", res[1]->val);
+        if (key.key <= records_num) {
+            ASSERT_TRUE(val.has_value()) << "Key = " << key.key;
+            EXPECT_EQ("Val" + std::to_string(key.key), val->val);
+        } else {
+            ASSERT_FALSE(val.has_value()) << "Key = " << key.key << ", Res = " << val->val;
+        }
+    }
 }
 
 TEST_F(key_value_view_test, put_all_get_all_async) {
@@ -232,13 +240,19 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
 
     auto res = all_done->get_future().get();
 
-    EXPECT_EQ(res.size(), 2);
+    ASSERT_EQ(res.size(), keys.size());
 
-    ASSERT_TRUE(res[0].has_value());
-    EXPECT_EQ("Val9", res[0]->val);
+    for (std::int64_t i = 0; i < keys.size(); ++i) {
+        auto key = keys[i];
+        auto val = res[i];
 
-    ASSERT_TRUE(res[1].has_value());
-    EXPECT_EQ("Val10", res[1]->val);
+        if (key.key <= records_num) {
+            ASSERT_TRUE(val.has_value()) << "Key = " << key.key;
+            EXPECT_EQ("Val" + std::to_string(key.key), val->val);
+        } else {
+            ASSERT_FALSE(val.has_value()) << "Key = " << key.key << ", Res = " << val->val;
+        }
+    }
 }
 
 TEST_F(key_value_view_test, get_and_put_new_record) {
