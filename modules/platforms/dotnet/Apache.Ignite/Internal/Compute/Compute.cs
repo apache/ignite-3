@@ -145,6 +145,38 @@ namespace Apache.Ignite.Internal.Compute
         private static ICollection<IClusterNode> GetNodesCollection(IEnumerable<IClusterNode> nodes) =>
             nodes as ICollection<IClusterNode> ?? nodes.ToList();
 
+        private static void WriteUnits(IEnumerable<DeploymentUnit> units, PooledArrayBuffer buf)
+        {
+            var w = buf.MessageWriter;
+
+            if (units is ICollection<DeploymentUnit> unitsCol)
+            {
+                w.WriteArrayHeader(unitsCol.Count);
+                foreach (var unit in units)
+                {
+                    w.Write(unit.Name);
+                    w.Write(unit.Version);
+                }
+
+                return;
+            }
+
+            // Enumerable without known count - enumerate first, write count later.
+            var count = 0;
+            var countSpan = buf.GetSpan(5);
+            buf.Advance(5);
+
+            foreach (var unit in units)
+            {
+                count++;
+                w.Write(unit.Name);
+                w.Write(unit.Version);
+            }
+
+            countSpan[0] = MsgPackCode.Array32;
+            BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
+        }
+
         private async Task<T> ExecuteOnOneNode<T>(
             IClusterNode node,
             IEnumerable<DeploymentUnit> units,
@@ -166,34 +198,7 @@ namespace Apache.Ignite.Internal.Compute
                 var w = writer.MessageWriter;
 
                 w.Write(node.Name);
-
-                if (units is ICollection<DeploymentUnit> unitsCol)
-                {
-                    w.WriteArrayHeader(unitsCol.Count);
-                    foreach (var unit in units)
-                    {
-                        w.Write(unit.Name);
-                        w.Write(unit.Version);
-                    }
-                }
-                else
-                {
-                    // Enumerable without known count - enumerate first, write count later.
-                    var count = 0;
-                    var countSpan = writer.GetSpan(5);
-                    writer.Advance(5);
-
-                    foreach (var unit in units)
-                    {
-                        count++;
-                        w.Write(unit.Name);
-                        w.Write(unit.Version);
-                    }
-
-                    countSpan[0] = MsgPackCode.Array32;
-                    BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
-                }
-
+                WriteUnits(units, writer);
                 w.Write(jobClassName);
                 w.WriteObjectCollectionAsBinaryTuple(args);
             }
