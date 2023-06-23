@@ -34,6 +34,7 @@ dependencies {
     testFixturesAnnotationProcessor libs.micronaut.inject.annotation.processor
     testFixturesImplementation project(":ignite-core")
     testFixturesImplementation testFixtures(project(":ignite-core"))
+    testFixturesImplementation libs.typesafe.config
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.micronaut.junit5
     testFixturesImplementation libs.jetbrains.annotations

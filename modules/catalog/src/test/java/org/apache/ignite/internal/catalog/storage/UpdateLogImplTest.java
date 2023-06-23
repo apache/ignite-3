@@ -56,9 +56,7 @@ class UpdateLogImplTest {
     void setUp() {
         vault = new VaultManager(new InMemoryVaultService());
 
-        metastore = StandaloneMetaStorageManager.create(
-                vault, new SimpleInMemoryKeyValueStorage("test")
-        );
+        metastore = StandaloneMetaStorageManager.create(vault, new SimpleInMemoryKeyValueStorage("test"));
 
         vault.start();
         metastore.start();
@@ -73,11 +71,11 @@ class UpdateLogImplTest {
     @Test
     public void logReplayedOnStart() throws Exception {
         // first, let's append a few entries to the log
-        UpdateLogImpl updateLog = new UpdateLogImpl(metastore, vault);
+        UpdateLogImpl updateLog = createUpdateLogImpl();
 
         long revisionBefore = metastore.appliedRevision();
 
-        updateLog.registerUpdateHandler((update, causalityToken) -> {/* no-op */});
+        updateLog.registerUpdateHandler((update, ts, causalityToken) -> {/* no-op */});
         updateLog.start();
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
@@ -103,12 +101,12 @@ class UpdateLogImplTest {
 
         // now let's create new component over a stuffed vault/metastore
         // and check if log is replayed on start
-        updateLog = new UpdateLogImpl(metastore, vault);
+        updateLog = createUpdateLogImpl();
 
         List<VersionedUpdate> actualVersions = new ArrayList<>();
         List<Long> actualCausalityTokens = new ArrayList<>();
 
-        updateLog.registerUpdateHandler((update, causalityToken) -> {
+        updateLog.registerUpdateHandler((update, ts, causalityToken) -> {
             actualVersions.add(update);
             actualCausalityTokens.add(causalityToken);
         });
@@ -119,9 +117,13 @@ class UpdateLogImplTest {
         assertEquals(List.of(revisionBefore + 2, revisionBefore + 2), actualCausalityTokens);
     }
 
+    private UpdateLogImpl createUpdateLogImpl() {
+        return new UpdateLogImpl(metastore);
+    }
+
     @Test
     public void exceptionIsThrownOnStartIfHandlerHasNotBeenRegistered() {
-        UpdateLogImpl updateLog = new UpdateLogImpl(metastore, vault);
+        UpdateLogImpl updateLog = createUpdateLogImpl();
 
         IgniteInternalException ex = assertThrows(
                 IgniteInternalException.class,
@@ -137,12 +139,12 @@ class UpdateLogImplTest {
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 4, 8})
     public void appendAcceptsUpdatesInOrder(int startVersion) throws Exception {
-        UpdateLogImpl updateLog = new UpdateLogImpl(metastore, vault);
+        UpdateLogImpl updateLog = createUpdateLogImpl();
 
         List<Integer> appliedVersions = new ArrayList<>();
         List<Long> causalityTokens = new ArrayList<>();
 
-        updateLog.registerUpdateHandler((update, causalityToken) -> {
+        updateLog.registerUpdateHandler((update, ts, causalityToken) -> {
             appliedVersions.add(update.version());
             causalityTokens.add(causalityToken);
         });
@@ -187,7 +189,7 @@ class UpdateLogImplTest {
     }
 
     private static VersionedUpdate singleEntryUpdateOfVersion(int version) {
-        return new VersionedUpdate(version, version, List.of(new TestUpdateEntry("foo_" + version)));
+        return new VersionedUpdate(version, 1, List.of(new TestUpdateEntry("foo_" + version)));
     }
 
     static class TestUpdateEntry implements UpdateEntry {

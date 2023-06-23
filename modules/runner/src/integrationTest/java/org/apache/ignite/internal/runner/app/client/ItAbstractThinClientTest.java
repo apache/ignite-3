@@ -107,7 +107,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
                 .metaStorageNodeNames(List.of(metaStorageNode))
                 .clusterName("cluster")
                 .build();
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());

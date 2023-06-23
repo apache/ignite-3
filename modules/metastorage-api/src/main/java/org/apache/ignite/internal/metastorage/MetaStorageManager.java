@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
@@ -74,6 +75,25 @@ public interface MetaStorageManager extends IgniteComponent {
      */
     @Deprecated
     List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound);
+
+    /**
+     * Returns an entry by the given key and bounded by the given revision. The entry is obtained
+     * from the local storage.
+     *
+     * @param key The key.
+     * @param revUpperBound The upper bound of revision.
+     * @return Value corresponding to the given key.
+     */
+    Entry getLocally(byte[] key, long revUpperBound);
+
+    /**
+     * Looks up a timestamp by a revision. This should only be invoked if it is guaranteed that the
+     * revision is available in the local storage. This method always operates locally.
+     *
+     * @param revision Revision by which to do a lookup.
+     * @return Timestamp corresponding to the revision.
+     */
+    HybridTimestamp timestampByRevision(long revision);
 
     /**
      * Retrieves entries for given keys.
