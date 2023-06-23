@@ -324,7 +324,6 @@ namespace Apache.Ignite.Tests.Compute
                 new("unit1", "1.0.0")
             };
 
-            // TODO: Test all overloads.
             using var server = new FakeServer();
             using var client = await server.ConnectClientAsync();
 
@@ -334,6 +333,11 @@ namespace Apache.Ignite.Tests.Compute
             // Lazy enumerable.
             var res2 = await client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), units.Reverse(), FakeServer.GetDetailsJob);
             StringAssert.Contains("Units = unit1|1.0.0, unit-latest|latest", res2);
+
+            // Colocated.
+            var keyTuple = new IgniteTuple { [KeyCol] = 1L };
+            var res3 = await client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, units, FakeServer.GetDetailsJob);
+            StringAssert.Contains("Units = unit1|1.0.0, unit-latest|latest", res3);
         }
 
         [Test]
