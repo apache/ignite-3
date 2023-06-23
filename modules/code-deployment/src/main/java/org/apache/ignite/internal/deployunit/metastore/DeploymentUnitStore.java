@@ -32,11 +32,32 @@ import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
  */
 public interface DeploymentUnitStore {
     /**
-     * Register node statuses change events listener.
+     * Registers node statuses change events listener.
      *
      * @param listener Node statuses update listener.
      */
-    void registerListener(NodeStatusWatchListener listener);
+    void registerNodeStatusListener(NodeStatusWatchListener listener);
+
+    /**
+     * Unregisters node statuses change events listener.
+     *
+     * @param listener Node statuses update listener.
+     */
+    void unregisterNodeStatusListener(NodeStatusWatchListener listener);
+
+    /**
+     * Registers cluster statuses change events listener.
+     *
+     * @param listener Cluster statuses update listener.
+     */
+    void registerClusterStatusListener(ClusterStatusWatchListener listener);
+
+    /**
+     * Unregisters cluster statuses change events listener.
+     *
+     * @param listener Cluster statuses update listener.
+     */
+    void unregisterClusterStatusListener(ClusterStatusWatchListener listener);
 
     /**
      * Returns cluster statuses of all existed deployment units.
@@ -154,11 +175,29 @@ public interface DeploymentUnitStore {
     CompletableFuture<List<String>> getAllNodes(String id, Version version);
 
     /**
-     * Removes all data for deployment unit.
+     * Returns a list of node statuses where unit with provided identifier and version is deployed.
+     *
+     * @param id Deployment unit identifier.
+     * @param version Deployment unit version.
+     * @return A list of node statuses where unit with provided identifier and version is deployed or empty list.
+     */
+    CompletableFuture<List<UnitNodeStatus>> getAllNodeStatuses(String id, Version version);
+
+    /**
+     * Removes cluster status.
      *
      * @param id Deployment unit identifier.
      * @param version Deployment version identifier.
      * @return Future with {@code true} result if removed successfully.
      */
-    CompletableFuture<Boolean> remove(String id, Version version);
+    CompletableFuture<Boolean> removeClusterStatus(String id, Version version);
+
+    /**
+     * Removes node status.
+     *
+     * @param id Deployment unit identifier.
+     * @param version Deployment version identifier.
+     * @return Future with {@code true} result if removed successfully.
+     */
+    CompletableFuture<Boolean> removeNodeStatus(String nodeId, String id, Version version);
 }
