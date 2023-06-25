@@ -26,26 +26,15 @@ import org.apache.ignite.lang.NodeStoppingException;
 
 /**
  * Raft manager.
+ *
+ * <p>This class contains two groups of methods for starting Raft nodes: {@code #startRaftGroupNode} and
+ * {@code startRaftGroupNodeAndWaitNodeReadyFuture} (and its overloads). When using {@code #startRaftGroupNode}, Raft log re-application
+ * does not get performed and external synchronisation methods must be used to avoid observing a Raft node in inconsistent state. The other
+ * group of methods synchronously waits for the Raft log to be re-applied, so no external synchronisation is required.
  */
 public interface RaftManager extends IgniteComponent {
     /**
-     * Starts a Raft group and a Raft service on the current node.
-     *
-     * @param nodeId Raft node ID.
-     * @param configuration Peers and Learners of the Raft group.
-     * @param lsnr Raft group listener.
-     * @param eventsLsnr Raft group events listener.
-     * @throws NodeStoppingException If node stopping intention was detected.
-     */
-    CompletableFuture<RaftGroupService> startRaftGroupNode(
-            RaftNodeId nodeId,
-            PeersAndLearners configuration,
-            RaftGroupListener lsnr,
-            RaftGroupEventsListener eventsLsnr
-    ) throws NodeStoppingException;
-
-    /**
-     * Starts a Raft group and a Raft service on the current node, using the given raft group service.
+     * Starts a Raft group and a Raft service on the current node, using the given service factory.
      *
      * @param nodeId Raft node ID.
      * @param configuration Peers and Learners of the Raft group.
@@ -65,13 +54,32 @@ public interface RaftManager extends IgniteComponent {
     /**
      * Starts a Raft group and a Raft service on the current node.
      *
-     * <p>Synchronously waits for the plot log to be applied.
+     * <p>Synchronously waits for the Raft log to be applied.
      *
      * @param nodeId Raft node ID.
      * @param configuration Peers and Learners of the Raft group.
      * @param lsnr Raft group listener.
      * @param eventsLsnr Raft group events listener.
-     * @param ownFsmCallerExecutorDisruptorConfig Configuration own (not shared) striped disruptor for FSMCaller service of raft node.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    // FIXME: IGNITE-19047 Meta storage and cmg raft log re-application in async manner
+    CompletableFuture<RaftGroupService> startRaftGroupNodeAndWaitNodeReadyFuture(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr
+    ) throws NodeStoppingException;
+
+    /**
+     * Starts a Raft group and a Raft service on the current node.
+     *
+     * <p>Synchronously waits for the Raft log to be applied.
+     *
+     * @param nodeId Raft node ID.
+     * @param configuration Peers and Learners of the Raft group.
+     * @param lsnr Raft group listener.
+     * @param eventsLsnr Raft group events listener.
+     * @param disruptorConfiguration Configuration own (not shared) striped disruptor for FSMCaller service of raft node.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     // FIXME: IGNITE-19047 Meta storage and cmg raft log re-application in async manner
@@ -80,7 +88,29 @@ public interface RaftManager extends IgniteComponent {
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
-            RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
+            RaftNodeDisruptorConfiguration disruptorConfiguration
+    ) throws NodeStoppingException;
+
+    /**
+     * Starts a Raft group and a Raft service on the current node, using the given service factory.
+     *
+     * <p>Synchronously waits for the Raft log to be applied.
+     *
+     * @param nodeId Raft node ID.
+     * @param configuration Peers and Learners of the Raft group.
+     * @param lsnr Raft group listener.
+     * @param eventsLsnr Raft group events listener.
+     * @param factory Service factory.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    // FIXME: IGNITE-19047 Meta storage and cmg raft log re-application in async manner
+    <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNodeAndWaitNodeReadyFuture(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            RaftNodeDisruptorConfiguration disruptorConfiguration,
+            RaftServiceFactory<T> factory
     ) throws NodeStoppingException;
 
     /**
