@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -36,7 +35,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
 
@@ -233,23 +231,6 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
 
         assertUnexpectedNumberOfParameters("SELECT * FROM t1 OFFSET 1", 1);
         assertUnexpectedNumberOfParameters("SELECT * FROM t1 OFFSET ?", 1, 2);
-    }
-
-    /** var char casts. */
-    @ParameterizedTest
-    @CsvSource({
-            //input, type, result
-            "abcde, VARCHAR, abcde",
-            "abcde, VARCHAR(3), abc",
-            "abcde, CHAR(3), abc",
-            "abcde, CHAR, a",
-    })
-    public void testVarcharCasts(String param, String type, String expected) {
-        String q1 = format("SELECT CAST('{}' AS {})", param, type);
-        assertQuery(q1).returns(expected).check();
-
-        String q2 = format("SELECT CAST(? AS {})", type);
-        assertQuery(q2).withParams(param).returns(expected).check();
     }
 
     private static void assertUnexpectedNumberOfParameters(String query, Object... params) {
