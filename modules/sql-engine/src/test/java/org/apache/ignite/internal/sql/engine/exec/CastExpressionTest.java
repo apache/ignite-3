@@ -90,7 +90,7 @@ public class CastExpressionTest {
         cluster.stop();
     }
 
-    /** var char casts - literals. */
+    /** varchar casts - literals. */
     @ParameterizedTest
     @MethodSource("varcharCasts")
     public void testVarcharCastsLiterals(String value, RelDataType type, String result) {
@@ -98,7 +98,7 @@ public class CastExpressionTest {
         sql(query).returns(result).ok();
     }
 
-    /** var char casts - dynamic params. */
+    /** varchar casts - dynamic params. */
     @ParameterizedTest
     @MethodSource("varcharCasts")
     public void testVarcharCastsDynamicParams(String value, RelDataType type, String result) {
@@ -170,10 +170,10 @@ public class CastExpressionTest {
         sql(query).withParams(input).expect(result);
     }
 
-    /** decimals casts - cast numeric literal to specific type then the result to decimal . */
+    /** decimals casts - cast numeric literal to specific type then cast the result to decimal. */
     @ParameterizedTest(name = "{1}: {2}::{1} AS {3} = {4}")
     @MethodSource("decimalCasts")
-    public void testDecimalCastsFromCastedNumericLiterals(CaseStatus status, RelDataType inputType, Object input,
+    public void testDecimalCastsFromNumeric(CaseStatus status, RelDataType inputType, Object input,
             RelDataType targetType, Result<BigDecimal> result) {
 
         Assumptions.assumeTrue(status == CaseStatus.RUN);

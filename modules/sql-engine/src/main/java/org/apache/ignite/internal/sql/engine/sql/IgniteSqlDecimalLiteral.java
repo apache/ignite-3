@@ -42,7 +42,7 @@ public final class IgniteSqlDecimalLiteral extends SqlNumericLiteral {
     private IgniteSqlDecimalLiteral(BigDecimal value, SqlParserPos pos) {
         // We are using precision/scale from BigDecimal because calcite's values
         // for those are not incorrect as they include an additional digit in precision for negative numbers.
-        super(value, value.precision(), value.scale(), true, pos);
+        super(value, getPrecision(value), value.scale(), true, pos);
     }
 
     /** Creates a decimal literal. */
@@ -65,8 +65,9 @@ public final class IgniteSqlDecimalLiteral extends SqlNumericLiteral {
     @Override
     public RelDataType createSqlType(RelDataTypeFactory typeFactory) {
         var value = getDecimalValue();
+        var precision = getPrecision(value);
 
-        return typeFactory.createSqlType(SqlTypeName.DECIMAL, value.precision(), value.scale());
+        return typeFactory.createSqlType(SqlTypeName.DECIMAL, precision, value.scale());
     }
 
     /** {@inheritDoc} **/
@@ -97,5 +98,16 @@ public final class IgniteSqlDecimalLiteral extends SqlNumericLiteral {
         var value = bigDecimalValue();
         assert value != null : "bigDecimalValue returned null for a subclass exact numeric literal: " + this;
         return value;
+    }
+
+    private static int getPrecision(BigDecimal value) {
+        int scale = value.scale();
+
+        if (value.precision() == 1 && value.compareTo(BigDecimal.ONE) < 0) {
+            // 0.10 = BigDecimal precision=1, scale=2, Calcite: precision=2, scale=2
+            return 1 + scale;
+        } else {
+            return value.precision();
+        }
     }
 }

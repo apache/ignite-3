@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
@@ -34,10 +35,13 @@ import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Litmus;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -64,6 +68,30 @@ public class IgniteSqlDecimalLiteralTest extends AbstractPlannerTest {
 
         var expectedType = typeFactory.createSqlType(SqlTypeName.DECIMAL, input.precision(), input.scale());
         assertEquals(expectedType, actualType, "type");
+    }
+
+    /**
+     * Type of numeric literal and type of decimal literal should match.
+     */
+    @ParameterizedTest
+    @CsvSource({
+            "-0.01",
+            "-10.0",
+            "-10.122",
+            "0.0",
+            "0.01",
+            "10.0",
+            "10.122",
+    })
+    public void testLiteralTypeMatch(String val) throws Exception {
+        String query = format("SELECT {}, DECIMAL '{}'", val, val);
+
+        IgniteRel rel = physicalPlan(query, new IgniteSchema("PUBLIC"));
+
+        RelDataType numericLitType = rel.getRowType().getFieldList().get(0).getType();
+        RelDataType decimalLitType = rel.getRowType().getFieldList().get(1).getType();
+
+        assertEquals(numericLitType, decimalLitType);
     }
 
     /**
