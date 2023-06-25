@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rebalance;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -153,9 +154,8 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
 
         assertTrue(waitForCondition(() -> {
             Set<String> assignments =
-                    partitionAssignments(
-                            cluster.aliveNode().metaStorageManager(), table, 0
-                    ).join().stream()
+                    await(partitionAssignments(cluster.aliveNode().metaStorageManager(), table, 0))
+                            .stream()
                             .map(Assignment::consistentId)
                             .collect(Collectors.toSet());
 
