@@ -306,7 +306,7 @@ TEST(tuple, FixedAndVarlenValue) { // NOLINT(cert-err58-cpp)
 TEST(tuple, TwoVarlenValues) { // NOLINT(cert-err58-cpp)
     // With key and value.
     {
-        auto values = std::make_tuple(std::string{"key"}, std::string{"val"});
+        auto values = std::make_tuple("key"s, "val"s);
 
         int8_t binary[] = {0, 3, 6, 107, 101, 121, 118, 97, 108};
 
@@ -315,7 +315,7 @@ TEST(tuple, TwoVarlenValues) { // NOLINT(cert-err58-cpp)
 
     // Null key.
     {
-        auto values = std::make_tuple(std::nullopt, std::string{"val"});
+        auto values = std::make_tuple(std::nullopt, "val"s);
 
         int8_t binary[] = {0, 0, 3, 118, 97, 108};
 
@@ -324,7 +324,7 @@ TEST(tuple, TwoVarlenValues) { // NOLINT(cert-err58-cpp)
 
     // Null value.
     {
-        auto values = std::make_tuple(std::string{"key"}, std::nullopt);
+        auto values = std::make_tuple("key"s, std::nullopt);
 
         int8_t binary[] = {0, 3, 3, 107, 101, 121};
 
@@ -336,6 +336,44 @@ TEST(tuple, TwoVarlenValues) { // NOLINT(cert-err58-cpp)
         auto values = std::make_tuple(std::nullopt, std::nullopt);
 
         int8_t binary[] = {0, 0, 0};
+
+        check_reader_writer_equality(values, binary);
+    }
+}
+
+TEST(tuple, VarlenEmptyEscape) {
+    // Empty value.
+    {
+        auto values = std::make_tuple("key"s, ""s);
+
+        int8_t binary[] = {0, 3, 4, 107, 101, 121, -128};
+
+        check_reader_writer_equality(values, binary);
+    }
+
+    // Normal non-empty value.
+    {
+        auto values = std::make_tuple("key"s, "\xff"s);
+
+        int8_t binary[] = {0, 3, 4, 107, 101, 121, -1};
+
+        check_reader_writer_equality(values, binary);
+    }
+
+    // Clashing non-empty value.
+    {
+        auto values = std::make_tuple("key"s, "\x80"s);
+
+        int8_t binary[] = {0, 3, 5, 107, 101, 121, -128, -128};
+
+        check_reader_writer_equality(values, binary);
+    }
+
+    // Another clashing non-empty value.
+    {
+        auto values = std::make_tuple("key"s, "\x80\xff"s);
+
+        int8_t binary[] = {0, 3, 6, 107, 101, 121, -128, -128, -1};
 
         check_reader_writer_equality(values, binary);
     }
