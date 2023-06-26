@@ -27,6 +27,7 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Undeploys deployment units that are not acquired by any class loader. This class is thread-safe.
@@ -84,8 +85,8 @@ class DeploymentUnitUndeployer {
      * Undeploys deployment units that are not acquired by any class loader. If a deployment unit is acquired, it is put back to the queue.
      */
     private void undeployUnits() {
-        int i = 0;
-        while (i < unitsToUndeploy.size()) {
+        int size = unitsToUndeploy.size();
+        for (int i = 0; i < size; i++) {
             undeploy(unitsToUndeploy.poll());
         }
     }
@@ -95,7 +96,11 @@ class DeploymentUnitUndeployer {
      *
      * @param unit deployment unit to undeploy.
      */
-    public void undeploy(DeploymentUnit unit) {
+    public void undeploy(@Nullable DeploymentUnit unit) {
+        if (unit == null) {
+            return;
+        }
+
         if (!deploymentUnitAccessor.isAcquired(unit)) {
             undeploy.accept(unit);
         } else {
