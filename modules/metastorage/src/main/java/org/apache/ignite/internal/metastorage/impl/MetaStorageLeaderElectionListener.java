@@ -103,7 +103,6 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
     @Override
     public void onLeaderElected(ClusterNode node, long term) {
-        System.err.println("FUCK: " + node + " " + term);
         synchronized (serializationFutureMux) {
             if (node.name().equals(nodeName) && serializationFuture == null) {
                 LOG.info("Node has been elected as the leader, starting Idle Safe Time scheduler");

@@ -461,7 +461,6 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
          */
         @Override
         public synchronized void onLeaderElected(ClusterNode node, long term) {
-            System.err.println("CLIENT LEADER ELECTED " + node);
             if (onLeaderElectedCallback != null && term > this.term) {
                 this.term = term;
                 this.leaderPeer = new Peer(node.name());
