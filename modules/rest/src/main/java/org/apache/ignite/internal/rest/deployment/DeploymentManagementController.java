@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
@@ -63,13 +64,9 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     ) {
         CompletableFuture<DeploymentUnit> result = new CompletableFuture<>();
         unitContent.subscribe(new CompletedFileUploadSubscriber(result));
-        return result.thenCompose(deploymentUnit -> {
-            if (initialNodes.isPresent()) {
-                return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit, initialNodes.get());
-            } else {
-                return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit, fromInitialDeployMode(deployMode));
-            }
-        });
+        NodesToDeploy nodesToDeploy = initialNodes.map(NodesToDeploy::new)
+                .orElseGet(() -> new NodesToDeploy(fromInitialDeployMode(deployMode)));
+        return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), result, nodesToDeploy);
     }
 
     @Override
