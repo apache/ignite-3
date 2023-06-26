@@ -706,7 +706,6 @@ public class IgniteImpl implements Ignite {
             LOG.info("Components started, joining the cluster");
 
             return cmgMgr.joinFuture()
-                    // Using the default executor to avoid blocking the CMG Manager threads.
                     .thenComposeAsync(unused -> {
                         LOG.info("Join complete, starting MetaStorage");
 

@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.C
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -750,41 +751,57 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         CompletableFuture[] futs = new CompletableFuture[10];
 
         for (int i = 0; i < 10; i++) {
+            // Put some data to the MetaStorage so that there would be new entries to apply to the restarting node.
             ByteArray key = ByteArray.fromString("some-test-key-" + i);
-            futs[i] = metaStorageManager.put(key, new byte[]{(byte) 0});
+            futs[i] = metaStorageManager.put(key, new byte[]{(byte) i});
         }
 
-        CompletableFuture.allOf(futs).join();
+        assertThat(CompletableFuture.allOf(futs), willSucceedFast());
 
         if (useSnapshot) {
-            // Force log truncation, so that restarting node would request a snapshot.
-            JraftServerImpl server = (JraftServerImpl) main.raftManager().server();
-            List<Peer> peers = server.localPeers(MetastorageGroupId.INSTANCE);
-
-            Peer learnerPeer = peers.stream().filter(peer -> peer.idx() == 0).findFirst().orElseThrow(
-                    () -> new IllegalStateException(String.format("No leader peer"))
-            );
-
-            var nodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, learnerPeer);
-            RaftGroupService raftGroupService = server.raftGroupService(nodeId);
-
-            for (int i = 0; i < 2; i++) {
-                CountDownLatch snapshotLatch = new CountDownLatch(1);
-                AtomicReference<Status> snapshotStatus = new AtomicReference<>();
-
-                raftGroupService.getRaftNode().snapshot(status -> {
-                    snapshotStatus.set(status);
-                    snapshotLatch.countDown();
-                });
-
-                assertTrue(snapshotLatch.await(10, TimeUnit.SECONDS), "Snapshot was not finished in time");
-                assertTrue(snapshotStatus.get().isOk(), "Snapshot failed: " + snapshotStatus.get());
-            }
+            forceSnapshotUsageOnRestart(main);
         }
 
         IgniteImpl second = startNode(1);
 
         checkTableWithData(second, TABLE_NAME);
+
+        MetaStorageManager restartedMs = second.metaStorageManager();
+        for (int i = 0; i < 10; i++) {
+            ByteArray key = ByteArray.fromString("some-test-key-" + i);
+
+            byte[] value = restartedMs.getLocally(key.bytes(), 100).value();
+
+            assertEquals(1, value.length);
+            assertEquals((byte) i, value[0]);
+        }
+    }
+
+    private static void forceSnapshotUsageOnRestart(IgniteImpl main) throws InterruptedException {
+        // Force log truncation, so that restarting node would request a snapshot.
+        JraftServerImpl server = (JraftServerImpl) main.raftManager().server();
+        List<Peer> peers = server.localPeers(MetastorageGroupId.INSTANCE);
+
+        Peer learnerPeer = peers.stream().filter(peer -> peer.idx() == 0).findFirst().orElseThrow(
+                () -> new IllegalStateException(String.format("No leader peer"))
+        );
+
+        var nodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, learnerPeer);
+        RaftGroupService raftGroupService = server.raftGroupService(nodeId);
+
+        for (int i = 0; i < 2; i++) {
+            // Log must be truncated twice.
+            CountDownLatch snapshotLatch = new CountDownLatch(1);
+            AtomicReference<Status> snapshotStatus = new AtomicReference<>();
+
+            raftGroupService.getRaftNode().snapshot(status -> {
+                snapshotStatus.set(status);
+                snapshotLatch.countDown();
+            });
+
+            assertTrue(snapshotLatch.await(10, TimeUnit.SECONDS), "Snapshot was not finished in time");
+            assertTrue(snapshotStatus.get().isOk(), "Snapshot failed: " + snapshotStatus.get());
+        }
     }
 
     /**
