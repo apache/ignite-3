@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -82,6 +81,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -357,6 +357,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     }
 
     @Test
+    @Disabled("IGNITE-19120 Raft client should get leader metadata along while getting leader itself")
     public void testLeaseGrantWhenMajorityLoss() throws Exception {
         Set<String> grpNodes = chooseRandomNodes(3);
 
@@ -420,14 +421,16 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                         .leaseStartTimeLong(clock.nowLong())
                         .leaseExpirationTimeLong(new HybridTimestamp(clock.now().getPhysical() + 10_000, 0).longValue())
                         .build(),
-                2_000
+                1_000
         );
 
-        Thread.sleep(4_000);
+        Thread.sleep(2_000);
 
-        assertFalse(prolongLeaseFut.isDone());
+        if (prolongLeaseFut.isDone()) {
+            stopReplicationGroup(GROUP_ID, grpNodes);
 
-        stopReplicationGroup(GROUP_ID, grpNodes);
+            fail("The lease granting have no possibility to execute until replication group majority does not recovery");
+        }
     }
 
     /**

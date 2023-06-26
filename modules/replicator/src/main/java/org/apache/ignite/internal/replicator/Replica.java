@@ -69,8 +69,7 @@ public class Replica {
     /** Instance of the local node. */
     private final ClusterNode localNode;
 
-    // TODO IGNITE-19120 after replica inoperability logic is introduced, this future should be replaced with something like
-    //     VersionedValue (so that PlacementDriverMessages would wait for new leader election)
+    // TODO:IGNITE-19120 Raft client should get leader metadata along while getting leader itself
     private CompletableFuture<Void> readyMajority = new CompletableFuture<>();
 
     /** Latest lease expiration time. */
