@@ -19,25 +19,37 @@ package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.hlc.HybridClockTestUtils.mockToEpochMilli;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import java.time.Clock;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.hlc.ClockUpdateListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Tests of a Hybrid Logical Clock implementation.
  * {@link HybridClock}
  */
+@ExtendWith(MockitoExtension.class)
 class HybridClockTest {
     /**
      * Mock of a system clock.
      */
     private static MockedStatic<Clock> clockMock;
+
+    @Mock
+    private ClockUpdateListener updateListener;
 
     @AfterEach
     public void afterEach() {
@@ -105,5 +117,53 @@ class HybridClockTest {
         if (clockMock != null && !clockMock.isClosed()) {
             clockMock.close();
         }
+    }
+
+    @Test
+    void updateListenerGetsNotifiedOnUpdateCausedByNowCall() {
+        HybridClock clock = new HybridClockImpl();
+
+        clock.addUpdateListener(updateListener);
+
+        HybridTimestamp ts = clock.now();
+
+        verify(updateListener).onUpdate(ts.longValue());
+    }
+
+    @Test
+    void updateListenerGetsNotifiedOnUpdateCausedByNowLongCall() {
+        HybridClock clock = new HybridClockImpl();
+
+        clock.addUpdateListener(updateListener);
+
+        long ts = clock.nowLong();
+
+        verify(updateListener).onUpdate(ts);
+    }
+
+    @Test
+    void updateListenerGetsNotifiedOnExternalUpdate() {
+        HybridClock clock = new HybridClockImpl();
+
+        clock.addUpdateListener(updateListener);
+
+        HybridTimestamp ts = clock.now().addPhysicalTime(TimeUnit.DAYS.toMillis(365));
+
+        HybridTimestamp afterUpdate = clock.update(ts);
+
+        verify(updateListener).onUpdate(afterUpdate.longValue());
+    }
+
+    @Test
+    void updateListenerIsNotUpdatedAfterRemoval() {
+        HybridClock clock = new HybridClockImpl();
+
+        clock.addUpdateListener(updateListener);
+
+        clock.removeUpdateListener(updateListener);
+
+        clock.now();
+
+        verify(updateListener, never()).onUpdate(anyLong());
     }
 }

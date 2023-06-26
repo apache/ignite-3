@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.util;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.jraft.util.Marshaller;
 
@@ -42,7 +43,7 @@ public class ThreadLocalOptimizedMarshaller implements Marshaller {
     }
 
     @Override
-    public <T> T unmarshall(byte[] bytes) {
+    public <T> T unmarshall(ByteBuffer bytes) {
         return marshaller.get().unmarshall(bytes);
     }
 }

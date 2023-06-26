@@ -213,9 +213,6 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             public void onError(Throwable throwable) {
                 gotException.set(throwable);
                 subscriberFinishedLatch.countDown();
-
-                // Rollback the transaction manually, because only ID of the explicit transaction is passed to the internal table.
-                tx.rollback();
             }
 
             @Override
@@ -263,9 +260,6 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             public void onError(Throwable throwable) {
                 gotException.set(throwable);
                 gotExceptionLatch.countDown();
-
-                // Rollback the transaction manually, because only ID of the explicit transaction is passed to the internal table.
-                tx.rollback();
             }
 
             @Override

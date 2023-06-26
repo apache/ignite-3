@@ -62,7 +62,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
                 .clusterName("cluster")
                 .build();
 
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         assertThat(future, willCompleteSuccessfully());
 
