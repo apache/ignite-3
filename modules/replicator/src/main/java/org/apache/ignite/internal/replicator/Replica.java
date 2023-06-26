@@ -167,44 +167,44 @@ public class Replica {
         LOG.info("Received LeaseGrantedMessage for replica belonging to group=" + groupId() + ", force=" + msg.force());
 
         return readyMajority.thenCompose(unused -> raftClient.readLeaderMetadata()).thenCompose(leaderMetadata -> {
-                assert leaseExpirationTime == null || msg.leaseExpirationTime().after(leaseExpirationTime) :
-                        "Invalid lease expiration time in message [leaseExpirationTime=" + leaseExpirationTime +
-                                ", msgLeaseExpirationTime=" + msg.leaseExpirationTime() + ']';
+            assert leaseExpirationTime == null || msg.leaseExpirationTime().after(leaseExpirationTime) :
+                    "Invalid lease expiration time in message [leaseExpirationTime=" + leaseExpirationTime +
+                            ", msgLeaseExpirationTime=" + msg.leaseExpirationTime() + ']';
 
-                if (msg.force()) {
-                    // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
-                    // group leader are received.
+            if (msg.force()) {
+                // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
+                // group leader are received.
+                return waitForActualState(leaderMetadata.getIndex())
+                        .thenCompose(v -> {
+                            if (msg.leaseExpirationTime().getPhysical() < currentTimeMillis()) {
+                                return failedFuture(new TimeoutException());
+                            }
+
+                            CompletableFuture<LeaseGrantedMessageResponse> respFut =
+                                    acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
+
+                            if (leaderMetadata.getLeader().consistentId().equals(localNode.name())) {
+                                return respFut;
+                            } else {
+                                return raftClient.transferLeadership(new Peer(localNode.name()))
+                                        .thenCompose(ignored -> respFut);
+                            }
+                        });
+            } else {
+                if (leaderMetadata.getLeader().consistentId().equals(localNode.name())) {
                     return waitForActualState(leaderMetadata.getIndex())
                             .thenCompose(v -> {
                                 if (msg.leaseExpirationTime().getPhysical() < currentTimeMillis()) {
                                     return failedFuture(new TimeoutException());
                                 }
 
-                                CompletableFuture<LeaseGrantedMessageResponse> respFut =
-                                        acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
-
-                                if (leaderMetadata.getLeader().consistentId().equals(localNode.name())) {
-                                    return respFut;
-                                } else {
-                                    return raftClient.transferLeadership(new Peer(localNode.name()))
-                                            .thenCompose(ignored -> respFut);
-                                }
+                                return acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
                             });
                 } else {
-                    if (leaderMetadata.getLeader().consistentId().equals(localNode.name())) {
-                        return waitForActualState(leaderMetadata.getIndex())
-                                .thenCompose(v -> {
-                                    if (msg.leaseExpirationTime().getPhysical() < currentTimeMillis()) {
-                                        return failedFuture(new TimeoutException());
-                                    }
-
-                                    return acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
-                                });
-                    } else {
-                        return proposeLeaseRedirect(leaderMetadata.getLeader());
-                    }
+                    return proposeLeaseRedirect(leaderMetadata.getLeader());
                 }
-            });
+            }
+        });
     }
 
     private CompletableFuture<LeaseGrantedMessageResponse> acceptLease(
