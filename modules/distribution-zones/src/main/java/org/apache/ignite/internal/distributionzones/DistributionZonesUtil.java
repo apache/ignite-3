@@ -41,11 +41,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
-import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
@@ -91,6 +91,9 @@ public class DistributionZonesUtil {
     /** Key prefix, needed for processing the event about zone's update was triggered only once. */
     private static final String DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY_PREFIX = "distributionZones.change.trigger.";
 
+    /** Key prefix that represents {@link ZoneState#topologyAugmentationMap()} in the Vault.*/
+    private static final String DISTRIBUTION_ZONES_TOPOLOGY_AUGMENTATION_VAULT_PREFIX = "vault.distributionZones.topologyAugmentation.";
+
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_KEY = new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY);
 
@@ -101,7 +104,7 @@ public class DistributionZonesUtil {
     private static final ByteArray DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT_KEY = new ByteArray(DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT);
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT}. */
-    public static final ByteArray DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT_KEY =
+    private static final ByteArray DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT_KEY =
             new ByteArray(DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT);
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION}. */
@@ -199,6 +202,13 @@ public class DistributionZonesUtil {
     }
 
     /**
+     * The key that represents {@link ZoneState#topologyAugmentationMap()} in the Vault.
+     */
+    static ByteArray zonesDataNodesPrefix() {
+        return DISTRIBUTION_ZONES_DATA_NODES_KEY;
+    }
+
+    /**
      * The key that represents logical topology nodes in vault.
      */
     public static ByteArray zonesLogicalTopologyVault() {
@@ -221,10 +231,11 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * The key prefix needed for processing an event about zone's data nodes.
+     * The key needed for processing an event about zone's data node propagation on scale down.
+     * With this key we can be sure that event was triggered only once.
      */
-    static ByteArray zonesDataNodesPrefix() {
-        return DISTRIBUTION_ZONES_DATA_NODES_KEY;
+    static ByteArray zoneTopologyAugmentationVault(int zoneId) {
+        return new ByteArray(DISTRIBUTION_ZONES_TOPOLOGY_AUGMENTATION_VAULT_PREFIX + zoneId);
     }
 
     /**
@@ -250,24 +261,11 @@ public class DistributionZonesUtil {
      * @param zoneId Zone id.
      * @return Update condition.
      */
-    static CompoundCondition triggerScaleUpScaleDownKeysCondition(long scaleUpTriggerRevision, long scaleDownTriggerRevision,  int zoneId) {
-        SimpleCondition scaleUpCondition;
-
-        if (scaleUpTriggerRevision != INITIAL_TRIGGER_REVISION_VALUE) {
-            scaleUpCondition = value(zoneScaleUpChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleUpTriggerRevision));
-        } else {
-            scaleUpCondition = notExists(zoneScaleUpChangeTriggerKey(zoneId));
-        }
-
-        SimpleCondition scaleDownCondition;
-
-        if (scaleDownTriggerRevision != INITIAL_TRIGGER_REVISION_VALUE) {
-            scaleDownCondition = value(zoneScaleDownChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleDownTriggerRevision));
-        } else {
-            scaleDownCondition = notExists(zoneScaleDownChangeTriggerKey(zoneId));
-        }
-
-        return and(scaleUpCondition, scaleDownCondition);
+    static CompoundCondition triggerScaleUpScaleDownKeysCondition(long scaleUpTriggerRevision, long scaleDownTriggerRevision, int zoneId) {
+        return and(
+                value(zoneScaleUpChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleUpTriggerRevision)),
+                value(zoneScaleDownChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleDownTriggerRevision))
+        );
     }
 
     /**
