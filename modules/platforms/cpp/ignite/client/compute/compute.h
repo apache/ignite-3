@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "ignite/client/compute/deployment_unit.h"
 #include "ignite/client/network/cluster_node.h"
 #include "ignite/client/primitive.h"
 #include "ignite/client/table/ignite_tuple.h"

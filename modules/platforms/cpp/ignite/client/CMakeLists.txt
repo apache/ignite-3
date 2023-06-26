@@ -49,6 +49,7 @@ set(PUBLIC_HEADERS
     primitive.h
     type_mapping.h
     compute/compute.h
+    compute/deployment_unit.h
     detail/type_mapping_utils.h
     network/cluster_node.h
     sql/sql.h
