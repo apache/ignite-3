@@ -198,7 +198,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /** Status of the watch recovery process. */
     private enum RecoveryStatus {
         INITIAL,
-        PENDING,
         IN_PROGRESS,
         DONE
     }
@@ -999,9 +998,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             // We update the recovery status under the read lock in order to avoid races between starting watches and applying a snapshot
             // or concurrent writes. Replay of events can be done outside of the read lock relying on RocksDB snapshot isolation.
             if (currentRevision == 0) {
-                // Revision can be 0 if there's no data in the storage. We set the status to PENDING expecting that it will be further
-                // updated either by applying a snapshot or by the first write to the storage.
-                recoveryStatus.set(RecoveryStatus.PENDING);
+                recoveryStatus.set(RecoveryStatus.DONE);
             } else {
                 // If revision is not 0, we need to replay updates that match the existing data.
                 recoveryStatus.set(RecoveryStatus.IN_PROGRESS);
@@ -1464,15 +1461,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             case INITIAL:
                 // Watches haven't been enabled yet, no need to queue any events, they will be replayed upon recovery.
                 updatedEntries.clear();
-
-                break;
-
-            case PENDING:
-                // Watches have been enabled, but no event replay happened because there was no data in the
-                // storage. We need to finish the recovery process (by simply updating the status) and process the events as usual.
-                recoveryStatus.set(RecoveryStatus.DONE);
-
-                notifyWatches();
 
                 break;
 
