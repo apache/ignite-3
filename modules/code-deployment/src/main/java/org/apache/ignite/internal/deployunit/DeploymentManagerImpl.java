@@ -144,19 +144,19 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         this.nodeName = nodeName;
         tracker = new DownloadTracker();
         deployer = new FileDeployerService();
-        messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
         deploymentUnitAccessor = new DeploymentUnitAccessorImpl(deployer);
         undeployer = new DeploymentUnitUndeployer(
                 nodeName,
                 deploymentUnitAccessor,
                 unit -> deploymentUnitStore.updateNodeStatus(nodeName, unit.name(), unit.version(), REMOVING)
         );
+        messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
 
         nodeStatusCallback = new DefaultNodeCallback(
                 deploymentUnitStore,
                 messaging,
-                undeployer,
                 deployer,
+                undeployer,
                 tracker,
                 cmgManager,
                 nodeName
@@ -378,6 +378,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         tracker.cancelAll();
         deploymentUnitStore.unregisterNodeStatusListener(nodeStatusWatchListener);
         deploymentUnitStore.unregisterClusterStatusListener(clusterStatusWatchListener);
+        undeployer.stop();
     }
 
     private static void checkId(String id) {

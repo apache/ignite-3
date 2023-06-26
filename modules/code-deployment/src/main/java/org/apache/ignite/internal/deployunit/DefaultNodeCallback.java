@@ -41,9 +41,9 @@ public class DefaultNodeCallback extends NodeEventCallback {
 
     private final DeployMessagingService messaging;
 
-    private final DeploymentUnitUndeployer undeployer;
-
     private final FileDeployerService deployer;
+
+    private final DeploymentUnitUndeployer undeployer;
 
     private final DownloadTracker tracker;
 
@@ -64,16 +64,16 @@ public class DefaultNodeCallback extends NodeEventCallback {
     public DefaultNodeCallback(
             DeploymentUnitStore deploymentUnitStore,
             DeployMessagingService messaging,
-            DeploymentUnitUndeployer undeployer,
             FileDeployerService deployer,
+            DeploymentUnitUndeployer undeployer,
             DownloadTracker tracker,
             ClusterManagementGroupManager cmgManager,
             String nodeName
     ) {
         this.deploymentUnitStore = deploymentUnitStore;
         this.messaging = messaging;
-        this.undeployer = undeployer;
         this.deployer = deployer;
+        this.undeployer = undeployer;
         this.tracker = tracker;
         this.cmgManager = cmgManager;
         this.nodeName = nodeName;

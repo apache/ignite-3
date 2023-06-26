@@ -81,27 +81,25 @@ class DeploymentUnitUndeployer {
     }
 
     /**
-     * Undeploys deployment units that are not acquired by any class loader.
-     * If a deployment unit is acquired, it is put back to the queue.
+     * Undeploys deployment units that are not acquired by any class loader. If a deployment unit is acquired, it is put back to the queue.
      */
     private void undeployUnits() {
         int i = 0;
         while (i < unitsToUndeploy.size()) {
-            DeploymentUnit unit = unitsToUndeploy.poll();
-            if (!deploymentUnitAccessor.isAcquired(unit)) {
-                undeploy.accept(unit);
-            } else {
-                unitsToUndeploy.offer(unit);
-            }
+            undeploy(unitsToUndeploy.poll());
         }
     }
 
     /**
-     * Adds a deployment unit to the queue of units to undeploy.
+     * Undeploys deployment unit. If the unit is acquired by any class loader, it is put to the queue.
      *
      * @param unit deployment unit to undeploy.
      */
     public void undeploy(DeploymentUnit unit) {
-        unitsToUndeploy.offer(unit);
+        if (!deploymentUnitAccessor.isAcquired(unit)) {
+            undeploy.accept(unit);
+        } else {
+            unitsToUndeploy.offer(unit);
+        }
     }
 }

@@ -154,7 +154,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     }
 
     @Test
-    void executeJonWithObsoleteUnit() {
+    void executeJobWithObsoleteUnit() {
         IgniteImpl entryNode = node(0);
         CompletableFuture<Void> successJob = entryNode.compute().execute(Set.of(entryNode.node()), units, "org.example.SleepJob", 2L);
 
@@ -164,7 +164,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
         assertThat(failedJob, willThrow(
                 ClassNotFoundException.class,
-                "org.example.SleepJob. Deployment unit jobs:1.0.0 can’t be used: "
+                "org.example.SleepJob. Deployment unit jobs:1.0.0 can't be used: "
                         + "[clusterStatus = OBSOLETE, nodeStatus = OBSOLETE]")
         );
         assertThat(successJob, willCompleteSuccessfully());
