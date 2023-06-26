@@ -71,7 +71,7 @@ protected:
     template<typename T>
     void check_argument(T value, const std::string &expected_str) {
         auto cluster_nodes = m_client.get_cluster_nodes();
-        auto result = m_client.get_compute().execute(cluster_nodes, ECHO_JOB, {value, expected_str});
+        auto result = m_client.get_compute().execute(cluster_nodes, {}, ECHO_JOB, {value, expected_str});
 
         ASSERT_TRUE(result.has_value());
         EXPECT_EQ(result.value().template get<T>(), value);
@@ -115,15 +115,15 @@ TEST_F(compute_test, get_cluster_nodes) {
 TEST_F(compute_test, execute_on_random_node) {
     auto cluster_nodes = m_client.get_cluster_nodes();
 
-    auto result = m_client.get_compute().execute(cluster_nodes, NODE_NAME_JOB, {});
+    auto result = m_client.get_compute().execute(cluster_nodes, {}, NODE_NAME_JOB, {});
 
     ASSERT_TRUE(result.has_value());
     EXPECT_THAT(result.value().get<std::string>(), ::testing::StartsWith(PLATFORM_TEST_NODE_RUNNER));
 }
 
 TEST_F(compute_test, execute_on_specific_node) {
-    auto res1 = m_client.get_compute().execute({get_node(0)}, NODE_NAME_JOB, {"-", 11});
-    auto res2 = m_client.get_compute().execute({get_node(1)}, NODE_NAME_JOB, {":", 22});
+    auto res1 = m_client.get_compute().execute({get_node(0)}, {}, NODE_NAME_JOB, {"-", 11});
+    auto res2 = m_client.get_compute().execute({get_node(1)}, {}, NODE_NAME_JOB, {":", 22});
 
     ASSERT_TRUE(res1.has_value());
     ASSERT_TRUE(res2.has_value());
@@ -133,7 +133,7 @@ TEST_F(compute_test, execute_on_specific_node) {
 }
 
 TEST_F(compute_test, execute_broadcast_one_node) {
-    auto res = m_client.get_compute().broadcast({get_node(1)}, NODE_NAME_JOB, {"42"});
+    auto res = m_client.get_compute().broadcast({get_node(1)}, {}, NODE_NAME_JOB, {"42"});
 
     ASSERT_EQ(res.size(), 1);
 
@@ -144,7 +144,7 @@ TEST_F(compute_test, execute_broadcast_one_node) {
 }
 
 TEST_F(compute_test, execute_broadcast_all_nodes) {
-    auto res = m_client.get_compute().broadcast(get_node_set(), NODE_NAME_JOB, {"42"});
+    auto res = m_client.get_compute().broadcast(get_node_set(), {}, NODE_NAME_JOB, {"42"});
 
     ASSERT_EQ(res.size(), 4);
 
@@ -157,7 +157,7 @@ TEST_F(compute_test, execute_broadcast_all_nodes) {
 TEST_F(compute_test, execute_with_args) {
     auto cluster_nodes = m_client.get_cluster_nodes();
 
-    auto result = m_client.get_compute().execute(cluster_nodes, CONCAT_JOB, {5.3, uuid(), "42", nullptr});
+    auto result = m_client.get_compute().execute(cluster_nodes, {}, CONCAT_JOB, {5.3, uuid(), "42", nullptr});
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value().get<std::string>(), "5.3_00000000-0000-0000-0000-000000000000_42_null");
@@ -169,7 +169,7 @@ TEST_F(compute_test, job_error_propagates_to_client) {
     EXPECT_THROW(
         {
             try {
-                m_client.get_compute().execute(cluster_nodes, ERROR_JOB, {"unused"});
+                m_client.get_compute().execute(cluster_nodes, {}, ERROR_JOB, {"unused"});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), testing::HasSubstr("Custom job error"));
                 // TODO https://issues.apache.org/jira/browse/IGNITE-19603
@@ -189,7 +189,7 @@ TEST_F(compute_test, unknown_node_throws) {
     EXPECT_THROW(
         {
             try {
-                m_client.get_compute().execute({unknown_node}, ECHO_JOB, {"unused"});
+                m_client.get_compute().execute({unknown_node}, {}, ECHO_JOB, {"unused"});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), testing::HasSubstr("Specified node is not present in the cluster: random"));
                 throw;
@@ -245,7 +245,7 @@ TEST_F(compute_test, execute_colocated) {
         SCOPED_TRACE("key=" + std::to_string(var.first) + ", node=" + var.second);
         auto key = get_tuple(var.first);
 
-        auto resNodeName = m_client.get_compute().execute_colocated(TABLE_1, key, NODE_NAME_JOB, {});
+        auto resNodeName = m_client.get_compute().execute_colocated(TABLE_1, key, {}, NODE_NAME_JOB, {});
         auto expectedNodeName = PLATFORM_TEST_NODE_RUNNER + var.second;
 
         EXPECT_EQ(expectedNodeName, resNodeName);
@@ -256,7 +256,7 @@ TEST_F(compute_test, execute_colocated_throws_when_table_does_not_exist) {
     EXPECT_THROW(
         {
             try {
-                (void) m_client.get_compute().execute_colocated("unknownTable", get_tuple(42), ECHO_JOB, {});
+                (void) m_client.get_compute().execute_colocated("unknownTable", get_tuple(42), {}, ECHO_JOB, {});
             } catch (const ignite_error &e) {
                 EXPECT_STREQ("Table does not exist: 'unknownTable'", e.what());
                 throw;
@@ -269,7 +269,7 @@ TEST_F(compute_test, execute_colocated_throws_when_key_column_is_missing) {
     EXPECT_THROW(
         {
             try {
-                (void) m_client.get_compute().execute_colocated(TABLE_1, get_tuple("some"), ECHO_JOB, {});
+                (void) m_client.get_compute().execute_colocated(TABLE_1, get_tuple("some"), {}, ECHO_JOB, {});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Missed key column: KEY"));
                 throw;
@@ -282,7 +282,7 @@ TEST_F(compute_test, execute_colocated_throws_when_key_is_empty) {
     EXPECT_THROW(
         {
             try {
-                (void) m_client.get_compute().execute_colocated(TABLE_1, {}, ECHO_JOB, {});
+                (void) m_client.get_compute().execute_colocated(TABLE_1, {}, {}, ECHO_JOB, {});
             } catch (const ignite_error &e) {
                 EXPECT_EQ("Key tuple can not be empty", e.what_str());
                 throw;
@@ -295,7 +295,7 @@ TEST_F(compute_test, exception_in_server_job_propogates_to_client) {
     EXPECT_THROW(
         {
             try {
-                (void) m_client.get_compute().execute_colocated(TABLE_1, {}, ECHO_JOB, {});
+                (void) m_client.get_compute().execute_colocated(TABLE_1, {}, {}, ECHO_JOB, {});
             } catch (const ignite_error &e) {
                 EXPECT_EQ("Key tuple can not be empty", e.what_str());
                 throw;
