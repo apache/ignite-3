@@ -83,7 +83,6 @@ import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -174,29 +173,8 @@ public class ScannableTableSelfTest {
      * Index scan with different bounds.
      */
     @ParameterizedTest
-    @CsvSource({
-            // RO
-            "true, INCLUSIVE, NONE",
-            "true, EXCLUSIVE, NONE",
-            "true, NONE, INCLUSIVE",
-            "true, NONE, EXCLUSIVE",
-            "true, INCLUSIVE, INCLUSIVE",
-            "true, INCLUSIVE, EXCLUSIVE",
-            "true, EXCLUSIVE, INCLUSIVE",
-            "true, EXCLUSIVE, EXCLUSIVE",
-            // RW
-            "false, INCLUSIVE, NONE",
-            "false, EXCLUSIVE, NONE",
-            "false, NONE, INCLUSIVE",
-            "false, NONE, EXCLUSIVE",
-            "false, INCLUSIVE, INCLUSIVE",
-            "false, INCLUSIVE, EXCLUSIVE",
-            "false, EXCLUSIVE, INCLUSIVE",
-            "false, EXCLUSIVE, EXCLUSIVE",
-    })
-    public void testIndexScan(boolean ro, Bound lower, Bound upper) {
-        NoOpTransaction tx = ro ? RO_TX : RW_TX;
-
+    @MethodSource("indexScanParameters")
+    public void testIndexScan(NoOpTransaction tx, Bound lower, Bound upper) {
         TestInput input = new TestInput();
         input.addRow(binaryRow);
 
@@ -249,6 +227,19 @@ public class ScannableTableSelfTest {
 
         collector.expectRow(binaryRow);
         collector.expectCompleted();
+    }
+
+    private static Stream<Arguments> indexScanParameters() {
+        List<Arguments> params = new ArrayList<>();
+
+        for (Bound leftBound : Bound.values()) {
+            for (Bound rightBound : Bound.values()) {
+                params.add(Arguments.of(NoOpTransaction.readOnly("RO"), leftBound, rightBound));
+                params.add(Arguments.of(NoOpTransaction.readWrite("RW"), leftBound, rightBound));
+            }
+        }
+
+        return params.stream();
     }
 
     /**
