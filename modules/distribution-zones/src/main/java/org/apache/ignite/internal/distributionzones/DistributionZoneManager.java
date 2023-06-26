@@ -787,8 +787,8 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Creates or restores zone's state depending of the topologyAugmentationMap existence in the Vault. We save topologyAugmentationMap
-     * in the Vault every time we receive logical topology changes from the metastore.
+     * Creates or restores zone's state depending of the {@link ZoneState#topologyAugmentationMap()} existence in the Vault.
+     * We save {@link ZoneState#topologyAugmentationMap()} in the Vault every time we receive logical topology changes from the metastore.
      *
      * @param zone Zone's view.
      * @param revision Revision for which we restore zone's state.
@@ -798,7 +798,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         VaultEntry topologyAugmentationMapFromVault = vaultMgr.get(zoneTopologyAugmentationVault(zoneId)).join();
 
-        // First creation of the zone
+        // First creation of a zone, or first call on the manager start for the default zone.
         if (topologyAugmentationMapFromVault == null) {
             ZoneState zoneState = new ZoneState(executor);
 
@@ -806,9 +806,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Set<Node> dataNodes = logicalTopology.stream().map(NodeWithAttributes::node).collect(toSet());
 
-            saveDataNodesAndUpdateTriggerKeysInMetaStorage(zoneId, revision, dataNodes);
+            initDataNodesAndTriggerKeysInMetaStorage(zoneId, revision, dataNodes);
         } else {
-            // Restart case
+            // Restart case, when topologyAugmentationMap has already been saved during a cluster work.
             ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap = fromBytes(topologyAugmentationMapFromVault.value());
 
             ZoneState zoneState = new ZoneState(executor, topologyAugmentationMap);
@@ -825,6 +825,11 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Optional<Long> maxScaleUpRevision = zoneState.highestRevision(true);
 
+            // Take the highest revision from the topologyAugmentationMap and schedule scale up/scale down,
+            // meaning that all augmentation of nodes will be taken into account in newly created timers. If the augmentation has already
+            // been proposed to data nodes in the metastorage before restart,
+            // that means we have updated corresponding trigger key and it's value will be greater than
+            // the highest revision from the topologyAugmentationMap, and current timer won't affect data nodes.
             maxScaleUpRevision.ifPresent(
                     rev -> zoneState.rescheduleScaleUp(
                             zone.dataNodesAutoAdjustScaleUp(),
@@ -844,15 +849,15 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Method updates data nodes value for the specified zone, also sets {@code revision} to the
+     * Method initialise data nodes value for the specified zone, also sets {@code revision} to the
      * {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)}, {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} and
-     * {@link DistributionZonesUtil#zonesChangeTriggerKey(int)} if it passes the condition.
+     * {@link DistributionZonesUtil#zonesChangeTriggerKey(int)} if it passes the condition. It is called on the first creation of a zone.
      *
      * @param zoneId Unique id of a zone
      * @param revision Revision of an event that has triggered this method.
      * @param dataNodes Data nodes.
      */
-    private void saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+    private void initDataNodesAndTriggerKeysInMetaStorage(
             int zoneId,
             long revision,
             Set<Node> dataNodes
@@ -915,7 +920,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             metaStorageManager.invoke(iif).thenAccept(res -> {
                 if (res.getAsBoolean()) {
-                    LOG.debug("Delete zones' dataNodes key [zoneId = {}", zoneId);
+                    LOG.debug("Delete zones' dataNodes key [zoneId = {}]", zoneId);
                 } else {
                     LOG.debug("Failed to delete zones' dataNodes key [zoneId = {}]", zoneId);
                 }
@@ -1141,7 +1146,11 @@ public class DistributionZoneManager implements IgniteComponent {
 
                     zoneIds.add(defaultZoneView.zoneId());
 
-                    updateLogicalTopologyNodeAttributesAndSaveToVault(newLogicalTopology, revision, zoneIds);
+                    newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
+
+                    logicalTopology = newLogicalTopology;
+
+                    saveStatesToVault(newLogicalTopology, revision, zoneIds);
 
                     return completedFuture(null);
                 } finally {
@@ -1157,32 +1166,25 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Updates local representation of logical topology and nodes' attributes map and saves it to vault atomically in one batch.
+     * Saves states of the Distribution Zone Manager to vault atomically in one batch.
      * After restart it could be used to restore these fields.
      *
      * @param newLogicalTopology Logical topology.
      * @param revision Revision of the event, which triggers update.
+     * @param zoneIds Set of zone id's, whose states will be staved in the Vault
      */
-    private void updateLogicalTopologyNodeAttributesAndSaveToVault(
-            Set<NodeWithAttributes> newLogicalTopology,
-            long revision,
-            Set<Integer> zoneIds
-    ) {
-        newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
-
-        logicalTopology = newLogicalTopology;
-
-        Map<ByteArray, byte[]> batch = IgniteUtils.newHashMap(2);
+    private void saveStatesToVault(Set<NodeWithAttributes> newLogicalTopology, long revision, Set<Integer> zoneIds) {
+        Map<ByteArray, byte[]> batch = IgniteUtils.newHashMap(3 + zoneIds.size());
 
         batch.put(zonesLogicalTopologyVault(), toBytes(newLogicalTopology));
 
         batch.put(zonesNodesAttributesVault(), toBytes(nodesAttributes()));
 
-        batch.put(zonesGlobalStateRevision(), longToBytes(revision));
-
         for (Integer zoneId : zoneIds) {
             batch.put(zoneTopologyAugmentationVault(zoneId), toBytes(zonesState.get(zoneId).topologyAugmentationMap));
         }
+
+        batch.put(zonesGlobalStateRevision(), longToBytes(revision));
 
         vaultMgr.putAll(batch).join();
     }

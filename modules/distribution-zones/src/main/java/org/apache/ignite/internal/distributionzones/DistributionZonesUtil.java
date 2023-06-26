@@ -202,7 +202,7 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * The key that represents {@link ZoneState#topologyAugmentationMap()} in the Vault.
+     * The key prefix needed for processing an event about zone's data nodes.
      */
     static ByteArray zonesDataNodesPrefix() {
         return DISTRIBUTION_ZONES_DATA_NODES_KEY;
@@ -231,8 +231,7 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * The key needed for processing an event about zone's data node propagation on scale down.
-     * With this key we can be sure that event was triggered only once.
+     * The key that represents {@link ZoneState#topologyAugmentationMap()} in the Vault.
      */
     static ByteArray zoneTopologyAugmentationVault(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONES_TOPOLOGY_AUGMENTATION_VAULT_PREFIX + zoneId);
