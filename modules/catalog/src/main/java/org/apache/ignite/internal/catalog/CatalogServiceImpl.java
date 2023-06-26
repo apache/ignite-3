@@ -196,7 +196,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         return catalog(catalogVersion).table(tableId);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CatalogIndexDescriptor index(String indexName, long timestamp) {
         return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).index(indexName);

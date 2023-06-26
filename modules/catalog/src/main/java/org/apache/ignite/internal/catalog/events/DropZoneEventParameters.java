@@ -28,6 +28,7 @@ public class DropZoneEventParameters extends CatalogEventParameters {
      * Constructor.
      *
      * @param causalityToken Causality token.
+     * @param catalogVersion Catalog version.
      * @param zoneId An id of dropped distribution zone.
      */
     public DropZoneEventParameters(long causalityToken, int catalogVersion, int zoneId) {

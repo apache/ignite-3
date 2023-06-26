@@ -1286,7 +1286,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.createIndex(createIndexParams), willThrow(TableNotFoundException.class));
         verifyNoInteractions(eventListener);
 
-        // Create table with pk index.
+        // Create table with PK index.
         assertThat(service.createTable(createTableParams), willCompleteSuccessfully());
         verify(eventListener).notify(any(CreateIndexEventParameters.class), isNull());
 
@@ -1730,7 +1730,7 @@ public class CatalogServiceSelfTest {
                 willBe(nullValue())
         );
 
-        // Let's make sure that the pk index has been deleted.
+        // Let's make sure that the PK index has been deleted.
         eventParameters = captor.getValue();
 
         assertEquals(3L, eventParameters.indexId());
