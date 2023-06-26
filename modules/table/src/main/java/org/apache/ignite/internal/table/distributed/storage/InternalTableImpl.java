@@ -446,7 +446,7 @@ public class InternalTableImpl implements InternalTable {
                                         requestFunction.apply(tx.commitPartition(), primaryReplicaAndTerm.get2())
                                 );
                             } catch (PrimaryReplicaMissException e) {
-                                throw new TransactionException( e);
+                                throw new TransactionException(e);
                             } catch (Throwable e) {
                                 throw new TransactionException(
                                         INTERNAL_ERR,
