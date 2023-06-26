@@ -106,7 +106,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
                 result,
                 willThrow(
                         ClassNotFoundException.class,
-                        "org.example.ConcatJob. Deployment unit non-existing:1.0.0 doesn’t exist"
+                        "org.example.ConcatJob. Deployment unit non-existing:1.0.0 doesn't exist"
                 )
         );
     }
