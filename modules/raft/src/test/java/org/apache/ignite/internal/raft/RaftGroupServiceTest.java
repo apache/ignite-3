@@ -85,7 +85,6 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadLeaderMetadataRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.jetbrains.annotations.Nullable;
