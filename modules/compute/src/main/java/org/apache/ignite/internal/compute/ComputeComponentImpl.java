@@ -240,7 +240,10 @@ public class ComputeComponentImpl implements ComputeComponent {
             mapClassLoaderExceptions(jobClassLoader(units), executeRequest.jobClassName())
                     .whenComplete((context, err) -> {
                         if (err != null) {
-                            context.close();
+                            if (context != null) {
+                                context.close();
+                            }
+
                             sendExecuteResponse(null, err, senderConsistentId, correlationId);
                         }
 
