@@ -50,10 +50,10 @@ public class SqlTestUtils {
      * an {@link SqlException} with expected error code and return the exception.
      *
      * @param expectedCode Expected error code of {@link SqlException}
-     * @param executable supplier to execute and check thrown exception.
+     * @param executable Supplier to execute and check thrown exception.
      * @return Thrown the {@link SqlException}.
      */
-    public static SqlException assertSqlExceptionThrows(int expectedCode, Executable executable) {
+    public static SqlException assertThrowsSqlException(int expectedCode, Executable executable) {
         SqlException ex = assertThrows(SqlException.class, executable);
         assertEquals(expectedCode, ex.code());
 

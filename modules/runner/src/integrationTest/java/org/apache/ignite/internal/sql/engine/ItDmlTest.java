@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.sql.util.SqlTestUtils.assertSqlExceptionThrows;
+import static org.apache.ignite.internal.sql.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -73,9 +73,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(1)
                 .check();
 
-        {
-            assertSqlExceptionThrows(Sql.DUPLICATE_KEYS_ERR, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 2));
-        }
+        assertThrowsSqlException(Sql.DUPLICATE_KEYS_ERR, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 2));
 
         assertQuery("DELETE FROM my WHERE id=?")
                 .withParams(0)
@@ -91,9 +89,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(2)
                 .check();
 
-        {
-            assertSqlExceptionThrows(Sql.DUPLICATE_KEYS_ERR, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 3));
-        }
+        assertThrowsSqlException(Sql.DUPLICATE_KEYS_ERR, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 3));
     }
 
     @Test
@@ -119,7 +115,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(1L)
                 .check();
 
-        assertSqlExceptionThrows(
+        assertThrowsSqlException(
                 Sql.DUPLICATE_KEYS_ERR,
                 () -> sql("INSERT INTO test VALUES (0, 0), (1, 1), (2, 2)")
         );
@@ -167,7 +163,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .map(Object::toString)
                 .collect(Collectors.joining("), (", "(", ")"));
 
-        assertSqlExceptionThrows(
+        assertThrowsSqlException(
                 Sql.DUPLICATE_KEYS_ERR,
                 () -> sql(insertStatement)
         );
@@ -375,7 +371,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE TABLE test2 (k int PRIMARY KEY, a int, b int)");
 
-        assertSqlExceptionThrows(Sql.DUPLICATE_KEYS_ERR, () -> sql(
+        assertThrowsSqlException(Sql.DUPLICATE_KEYS_ERR, () -> sql(
                 "MERGE INTO test2 USING test1 ON test1.a = test2.a "
                         + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
                         + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));

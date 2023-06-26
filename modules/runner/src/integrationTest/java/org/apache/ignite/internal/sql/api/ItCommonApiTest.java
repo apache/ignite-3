@@ -132,7 +132,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         Session ses = sql.sessionBuilder().property(PLANNING_TIMEOUT.name, 1L).build();
 
-        SqlTestUtils.assertSqlExceptionThrows(PLANNING_TIMEOUTED_ERR,
+        SqlTestUtils.assertThrowsSqlException(PLANNING_TIMEOUTED_ERR,
                 () -> ses.execute(null, "SELECT * FROM TST1 t, TST1 t1, TST1 t2"));
 
         ses.close();

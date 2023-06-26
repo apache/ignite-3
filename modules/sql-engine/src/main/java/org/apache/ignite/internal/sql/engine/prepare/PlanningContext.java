@@ -39,10 +39,8 @@ import org.jetbrains.annotations.NotNull;
  * Planning context.
  */
 public final class PlanningContext implements Context {
-    /** Parent context. */
     private final Context parentCtx;
 
-    /** SQL query. */
     private final String qry;
 
     /** CancelFlag is used to post and check cancellation requests. */
@@ -51,7 +49,6 @@ public final class PlanningContext implements Context {
     /** Rules which should be excluded for planning. */
     private Function<RuleSet, RuleSet> rulesFilter;
 
-    /** Query planner .*/
     private IgnitePlanner planner;
 
     /** Start planning timestamp in millis. */
