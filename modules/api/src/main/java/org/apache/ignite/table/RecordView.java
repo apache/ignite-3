@@ -18,6 +18,7 @@
 package org.apache.ignite.table;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -55,18 +56,20 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param keyRecs Records with key columns set. The records cannot be {@code null}.
      * @return Records with all columns filled from the table. The order of collection elements is
      *     guaranteed to be the same as the order of {@code keyRecs}. If a record does not exist, the
-     *     element at the corresponding index of the resulting collection is null.
+     *     element at the corresponding index of the resulting collection is {@code null}.
      */
-    Collection<R> getAll(@Nullable Transaction tx, @NotNull Collection<R> keyRecs);
+    List<R> getAll(@Nullable Transaction tx, Collection<R> keyRecs);
 
     /**
      * Asynchronously gets records from a table.
      *
      * @param tx      Transaction or {@code null} to auto-commit.
      * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation.
+     * @return Future that will return records with all columns filled from the table. The order of collection elements is
+     *      guaranteed to be the same as the order of {@code keyRecs}. If a record does not exist, the
+     *      element at the corresponding index of the resulting collection is {@code null}.
      */
-    @NotNull CompletableFuture<Collection<R>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs);
+    CompletableFuture<List<R>> getAllAsync(@Nullable Transaction tx, Collection<R> keyRecs);
 
     /**
      * Inserts a record into a table, if it does not exist, or replaces an existing one.
