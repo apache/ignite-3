@@ -28,6 +28,7 @@ import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -54,8 +55,7 @@ public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest 
                 Version.parseVersion("1.0.0"),
                 false,
                 List.of(files.bigFile()),
-                null,
-                List.of(node.name()),
+                new NodesToDeploy(List.of(node.name())),
                 cmgNode
         );
 
@@ -74,9 +74,11 @@ public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest 
         String id = "id1";
         Version version = Version.parseVersion("1.0.0");
         Unit unit = files.deployAndVerify(
-                id, version, false,
+                id,
+                version,
+                false,
                 List.of(files.smallFile()),
-                null, List.of(node(nodeIndex).name()),
+                new NodesToDeploy(List.of(node(nodeIndex).name())),
                 node(0)
         );
 

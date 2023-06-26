@@ -1550,7 +1550,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         finishReplay();
     }
 
-    private HybridTimestamp timestampByRevision(long revision) {
+    @Override
+    public HybridTimestamp timestampByRevision(long revision) {
         try {
             byte[] tsBytes = revisionToTs.get(longToBytes(revision));
 
