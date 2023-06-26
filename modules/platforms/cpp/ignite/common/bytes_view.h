@@ -57,6 +57,8 @@ struct bytes_view : std::basic_string_view<std::byte> {
     bytes_view(const std::vector<std::byte> &v) noexcept // NOLINT(google-explicit-constructor)
         : base_type(v.data(), v.size()) {}
 
+    explicit operator std::string() const { return {reinterpret_cast<const char *>(data()), size()}; }
+
     explicit operator std::vector<std::byte>() const { return {begin(), end()}; }
 };
 

@@ -35,7 +35,6 @@
 #include <cassert>
 #include <cstring>
 #include <limits>
-#include <optional>
 #include <type_traits>
 
 namespace ignite {
@@ -62,8 +61,6 @@ class binary_tuple_builder {
     const tuple_num_t element_count; /**< Total number of elements. */
 
     tuple_num_t element_index; /**< Index of the next element to add. */
-
-    tuple_num_t null_elements; /**< The number of null elements. */
 
     tuple_size_t value_area_size; /**< Total size of all values. */
 
@@ -93,21 +90,8 @@ public:
     /**
      * @brief Assigns a null value for the next element.
      */
-    void claim(std::nullopt_t /*null*/) noexcept {
-        assert(element_index < element_count);
-        null_elements++;
-        element_index++;
-    }
-
-    /**
-     * @brief Assigns a binary value for the next element.
-     *
-     * @param size required size for the value
-     */
-    void claim(tuple_size_t size) noexcept {
-        assert(element_index < element_count);
-        value_area_size += size;
-        element_index++;
+    void claim_null() noexcept {
+        claim(0);
     }
 
     /**
@@ -115,14 +99,13 @@ public:
      *
      * @param value Element value.
      */
-    void claim_bytes(const bytes_view &value) noexcept { claim(tuple_size_t(value.size())); }
-
-    /**
-     * @brief Assigns a binary value for the next element.
-     *
-     * @param value Element value.
-     */
-    void claim_string(const std::string &value) noexcept { claim(tuple_size_t(value.size())); }
+    void claim_varlen(const bytes_view &value) noexcept { 
+        auto size = value.size();
+        if (size == 0 || value[0] == binary_tuple_common::VARLEN_EMPTY_BYTE) {
+            size++;
+        }
+        claim(tuple_size_t(size));
+    }
 
     /**
      * @brief Assigns a binary value for the next element.
@@ -242,13 +225,10 @@ public:
     void layout();
 
     /**
-     * @brief Appends a null value for the next element.
+     * @brief Appends a null value as the next element.
      */
-    void append(std::nullopt_t /*null*/) {
-        assert(null_elements > 0);
+    void append_null() {
         assert(element_index < element_count);
-        binary_tuple[binary_tuple_common::get_null_offset(element_index)] |=
-            binary_tuple_common::get_null_mask(element_index);
         append_entry();
     }
 
@@ -257,14 +237,7 @@ public:
      *
      * @param bytes Binary element value.
      */
-    void append_bytes(bytes_view bytes);
-
-    /**
-     * @brief Appends a string as the next element.
-     *
-     * @param value Element value.
-     */
-    void append_string(const std::string &value) { append_bytes(value); }
+    void append_varlen(bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
@@ -368,8 +341,6 @@ public:
     /**
      * @brief Writes binary value of specified element.
      *
-     * The written value may differ from the original because of value compression.
-     *
      * @param value Big integer value.
      */
     void append_number(const big_integer &value);
@@ -377,16 +348,12 @@ public:
     /**
      * @brief Writes binary value of specified element.
      *
-     * The written value may differ from the original because of value compression.
-     *
      * @param value Big decimal value.
      */
     void append_number(const big_decimal &value);
 
     /**
      * @brief Writes specified element.
-     *
-     * The written value may differ from the original because of value compression.
      *
      * @param value Element value.
      */
@@ -482,7 +449,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static tuple_size_t gauge_bool(bool value) noexcept { return !value ? 0 : sizeof(std::int8_t); }
+    static tuple_size_t gauge_bool(bool /*value*/) noexcept { return sizeof(std::int8_t); }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -490,7 +457,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static tuple_size_t gauge_int8(std::int8_t value) noexcept { return value == 0 ? 0 : sizeof(std::int8_t); }
+    static tuple_size_t gauge_int8(std::int8_t /*value*/) noexcept { return sizeof(std::int8_t); }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -512,11 +479,8 @@ private:
      * @return Required size.
      */
     static tuple_size_t gauge_int32(std::int32_t value) noexcept {
-        if (fits<std::int8_t>(value)) {
-            return gauge_int8(std::int8_t(value));
-        }
         if (fits<std::int16_t>(value)) {
-            return sizeof(std::int16_t);
+            return gauge_int16(std::int16_t(value));
         }
         return sizeof(std::int32_t);
     }
@@ -543,7 +507,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static tuple_size_t gauge_float(float value) noexcept { return value == 0.0f ? 0 : sizeof(float); }
+    static tuple_size_t gauge_float(float /*value*/) noexcept { return sizeof(float); }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -552,8 +516,8 @@ private:
      * @return Required size.
      */
     static tuple_size_t gauge_double(double value) noexcept {
-        auto floatValue = static_cast<float>(value);
-        return floatValue == value ? gauge_float(floatValue) : sizeof(double);
+        const auto float_value = static_cast<float>(value);
+        return float_value == value ? gauge_float(float_value) : sizeof(double);
     }
 
     /**
@@ -563,7 +527,7 @@ private:
      * @return Required size.
      */
     static tuple_size_t gauge_number(const big_integer &value) noexcept {
-        return tuple_size_t(value.is_zero() ? 0 : value.byte_size());
+        return tuple_size_t(value.byte_size());
     }
 
     /**
@@ -573,7 +537,7 @@ private:
      * @return Required size.
      */
     static tuple_size_t gauge_number(const big_decimal &value) noexcept {
-        return tuple_size_t(value.is_zero() ? 0 : value.get_unscaled_value().byte_size());
+        return tuple_size_t(value.get_unscaled_value().byte_size());
     }
 
     /**
@@ -582,7 +546,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static tuple_size_t gauge_uuid(const uuid &value) noexcept { return value == uuid() ? 0 : 16; }
+    static tuple_size_t gauge_uuid(const uuid &/*value*/) noexcept { return 16; }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -590,7 +554,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static tuple_size_t gauge_date(const ignite_date &value) noexcept { return value == ignite_date() ? 0 : 3; }
+    static tuple_size_t gauge_date(const ignite_date &/*value*/) noexcept { return 3; }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -599,10 +563,6 @@ private:
      * @return Required size.
      */
     static tuple_size_t gauge_time(const ignite_time &value) noexcept {
-        if (value == ignite_time()) {
-            return 0;
-        }
-
         auto nanos = value.get_nano();
         if ((nanos % 1000) != 0) {
             return 6;
@@ -620,10 +580,6 @@ private:
      * @return Required size.
      */
     static tuple_size_t gauge_date_time(const ignite_date_time &value) noexcept {
-        if (value == ignite_date_time()) {
-            return 0;
-        }
-
         auto nanos = value.get_nano();
         if ((nanos % 1000) != 0) {
             return 9;
@@ -641,7 +597,7 @@ private:
      * @return Required size.
      */
     static tuple_size_t gauge_timestamp(const ignite_timestamp &value) noexcept {
-        return value == ignite_timestamp() ? 0 : value.get_nano() == 0 ? 8 : 12;
+        return value.get_nano() == 0 ? 8 : 12;
     }
 
     /**
@@ -655,9 +611,6 @@ private:
         const auto m = value.get_months();
         const auto d = value.get_days();
         if (fits<std::int8_t>(y) && fits<std::int8_t>(m) && fits<std::int8_t>(d)) {
-            if (value == ignite_period()) {
-                return 0;
-            }
             return 3;
         }
         if (fits<std::int16_t>(y) && fits<std::int16_t>(m) && fits<std::int16_t>(d)) {
@@ -673,8 +626,26 @@ private:
      * @return Required size.
      */
     static tuple_size_t gauge_duration(const ignite_duration &value) noexcept {
-        return value == ignite_duration() ? 0 : value.get_nano() == 0 ? 8 : 12;
+        return value.get_nano() == 0 ? 8 : 12;
     }
+
+    /**
+     * @brief Reserves space for the next element.
+     *
+     * @param size Required size for the element.
+     */
+    void claim(tuple_size_t size) noexcept {
+        assert(element_index < element_count);
+        value_area_size += size;
+        element_index++;
+    }
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * @param bytes Binary element value.
+     */
+    void append_bytes(bytes_view bytes);
 
     /**
      * @brief Adds an entry to the offset table.

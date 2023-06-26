@@ -60,8 +60,8 @@ std::optional<primitive> read_primitive_from_binary_tuple(protocol::reader &read
     auto tuple_data = reader.read_binary();
     binary_tuple_parser parser(3, tuple_data);
 
-    auto typ = static_cast<ignite_type>(binary_tuple_parser::get_int32(parser.get_next().value()));
-    auto scale = binary_tuple_parser::get_int32(parser.get_next().value());
+    auto typ = static_cast<ignite_type>(binary_tuple_parser::get_int32(parser.get_next()));
+    auto scale = binary_tuple_parser::get_int32(parser.get_next());
     return read_next_column(parser, typ, scale);
 }
 

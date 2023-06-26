@@ -39,9 +39,9 @@ void store_date(std::byte *dest, const ignite_date &value) {
 }
 
 void store_time(std::byte *dest, const ignite_time &value, std::size_t size) {
-    std::uint64_t hour = value.get_hour();
-    std::uint64_t minute = value.get_minute();
-    std::uint64_t second = value.get_second();
+    std::uint64_t hour = value.get_hour(); // NOLINT(cert-str34-c)
+    std::uint64_t minute = value.get_minute(); // NOLINT(cert-str34-c)
+    std::uint64_t second = value.get_second(); // NOLINT(cert-str34-c)
     std::uint64_t nanos = value.get_nano();
 
     if (size == 6) {
@@ -66,44 +66,39 @@ binary_tuple_builder::binary_tuple_builder(tuple_num_t element_count) noexcept
 
 void binary_tuple_builder::start() noexcept {
     element_index = 0;
-    null_elements = 0;
     value_area_size = 0;
     entry_size = 0;
 }
 
 void binary_tuple_builder::layout() {
+    using namespace ignite::binary_tuple_common;
+
     assert(element_index == element_count);
 
     binary_tuple_common::header header;
-
-    size_t nullmapSize = 0;
-    if (null_elements) {
-        header.set_nullmap_flag();
-        nullmapSize = binary_tuple_common::get_nullmap_size(element_count);
-    }
 
     entry_size = header.set_entry_size(value_area_size);
 
     std::size_t tableSize = entry_size * element_count;
 
     binary_tuple.clear();
-    binary_tuple.resize(binary_tuple_common::HEADER_SIZE + nullmapSize + tableSize + value_area_size);
+    binary_tuple.resize(HEADER_SIZE + tableSize + value_area_size);
 
     binary_tuple[0] = header.flags;
 
-    next_entry = binary_tuple.data() + binary_tuple_common::HEADER_SIZE + nullmapSize;
+    next_entry = binary_tuple.data() + HEADER_SIZE;
     value_base = next_entry + tableSize;
     next_value = value_base;
 
     element_index = 0;
 }
 
-void binary_tuple_builder::append_bytes(bytes_view bytes) {
-    assert(element_index < element_count);
-    assert(next_value + bytes.size() <= value_base + value_area_size);
-    std::memcpy(next_value, bytes.data(), bytes.size());
-    next_value += bytes.size();
-    append_entry();
+void binary_tuple_builder::append_varlen(bytes_view bytes) {
+    if (bytes.empty() || bytes.front() == binary_tuple_common::VARLEN_EMPTY_BYTE) {
+        *next_value++ = binary_tuple_common::VARLEN_EMPTY_BYTE;
+    }
+
+    append_bytes(bytes);
 }
 
 void binary_tuple_builder::append_bool(bool value) {
@@ -133,6 +128,7 @@ void binary_tuple_builder::append_int16(std::int16_t value) {
 
 void binary_tuple_builder::append_int16_ptr(std::int16_t *bytes) {
     auto value = *bytes;
+
     const tuple_size_t size = gauge_int16(value);
 
     if constexpr (is_little_endian_platform()) {
@@ -154,6 +150,7 @@ void binary_tuple_builder::append_int32(std::int32_t value) {
 
 void binary_tuple_builder::append_int32_ptr(std::int32_t *bytes) {
     auto value = *bytes;
+
     const tuple_size_t size = gauge_int32(value);
 
     if constexpr (is_little_endian_platform()) {
@@ -175,6 +172,7 @@ void binary_tuple_builder::append_int64(std::int64_t value) {
 
 void binary_tuple_builder::append_int64_ptr(std::int64_t *bytes) {
     auto value = *bytes;
+
     const tuple_size_t size = gauge_int64(value);
 
     if constexpr (is_little_endian_platform()) {
@@ -186,179 +184,168 @@ void binary_tuple_builder::append_int64_ptr(std::int64_t *bytes) {
 }
 
 void binary_tuple_builder::append_float(float value) {
-    tuple_size_t size = gauge_float(value);
-
+    const tuple_size_t size = gauge_float(value);
+    assert(size == sizeof(float));
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
-    if (size != 0) {
-        assert(size == sizeof(float));
-        bytes::store<endian::LITTLE>(next_value, value);
-        next_value += size;
-    }
+    bytes::store<endian::LITTLE>(next_value, value);
+    next_value += size;
 
     append_entry();
 }
 
 void binary_tuple_builder::append_double(double value) {
-    tuple_size_t size = gauge_double(value);
+    const tuple_size_t size = gauge_double(value);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
-    if (size != 0) {
-        if (size == sizeof(float)) {
-            float floatValue = static_cast<float>(value);
-            bytes::store<endian::LITTLE>(next_value, floatValue);
-        } else {
-            assert(size == sizeof(double));
-            bytes::store<endian::LITTLE>(next_value, value);
-        }
-        next_value += size;
+    if (size == sizeof(float)) {
+        const auto float_value = static_cast<float>(value);
+        bytes::store<endian::LITTLE>(next_value, float_value);
+    } else {
+        assert(size == sizeof(double));
+        bytes::store<endian::LITTLE>(next_value, value);
     }
+    next_value += size;
 
     append_entry();
 }
 
 void binary_tuple_builder::append_number(const big_integer &value) {
-    tuple_size_t size = gauge_number(value);
+    const tuple_size_t size = gauge_number(value);
+    assert(size != 0);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
-    if (size != 0) {
-        value.store_bytes(next_value);
-        next_value += size;
-    }
+    value.store_bytes(next_value);
+    next_value += size;
 
     append_entry();
 }
 
 void binary_tuple_builder::append_number(const big_decimal &value) {
-    tuple_size_t size = gauge_number(value);
+    const tuple_size_t size = gauge_number(value);
+    assert(size != 0);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
-    if (size != 0) {
-        value.get_unscaled_value().store_bytes(next_value);
-        next_value += size;
-    }
+    value.get_unscaled_value().store_bytes(next_value);
+    next_value += size;
 
     append_entry();
 }
 
 void binary_tuple_builder::append_uuid(uuid value) {
-    tuple_size_t size = gauge_uuid(value);
+    const tuple_size_t size = gauge_uuid(value);
+    assert(size == 16);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
-    if (size != 0) {
-        assert(size == 16);
-        bytes::store<endian::LITTLE>(next_value, value.get_most_significant_bits());
-        bytes::store<endian::LITTLE>(next_value + 8, value.get_least_significant_bits());
-        next_value += size;
-    }
+    bytes::store<endian::LITTLE>(next_value, value.get_most_significant_bits());
+    bytes::store<endian::LITTLE>(next_value + 8, value.get_least_significant_bits());
+    next_value += size;
 
     append_entry();
 }
 
 void binary_tuple_builder::append_date(const ignite_date &value) {
-    tuple_size_t size = gauge_date(value);
+    const tuple_size_t size = gauge_date(value);
+    assert(size == 3);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
-    if (size != 0) {
-        assert(size == 3);
-        store_date(next_value, value);
-        next_value += size;
-    }
+    store_date(next_value, value);
+    next_value += size;
 
     append_entry();
 }
 
 void binary_tuple_builder::append_time(const ignite_time &value) {
-    tuple_size_t size = gauge_time(value);
+    const tuple_size_t size = gauge_time(value);
+    assert(4 <= size && size <= 6);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
-    if (size != 0) {
-        assert(4 <= size && size <= 6);
-        store_time(next_value, value, size);
-        next_value += size;
-    }
+    store_time(next_value, value, size);
+    next_value += size;
 
     append_entry();
 }
 
 void binary_tuple_builder::append_date_time(const ignite_date_time &value) {
-    tuple_size_t size = gauge_date_time(value);
+    const tuple_size_t size = gauge_date_time(value);
+    assert(7 <= size && size <= 9);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
-    if (size != 0) {
-        assert(7 <= size && size <= 9);
-        store_date(next_value, value.date());
-        store_time(next_value + 3, value.time(), size - 3);
-        next_value += size;
-    }
+    store_date(next_value, value.date());
+    store_time(next_value + 3, value.time(), size - 3);
+    next_value += size;
 
     append_entry();
 }
 
 void binary_tuple_builder::append_timestamp(const ignite_timestamp &value) {
-    tuple_size_t size = gauge_timestamp(value);
+    const tuple_size_t size = gauge_timestamp(value);
+    assert(size == 8 || size == 12);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
-    if (size != 0) {
-        assert(size == 8 || size == 12);
-        bytes::store<endian::LITTLE>(next_value, value.get_epoch_second());
-        if (size == 12) {
-            bytes::store<endian::LITTLE>(next_value + 8, value.get_nano());
-        }
-        next_value += size;
+    bytes::store<endian::LITTLE>(next_value, value.get_epoch_second());
+    if (size == 12) {
+        bytes::store<endian::LITTLE>(next_value + 8, value.get_nano());
     }
+    next_value += size;
 
     append_entry();
 }
 
 void binary_tuple_builder::append_period(const ignite_period &value) {
-    tuple_size_t size = gauge_period(value);
+    const tuple_size_t size = gauge_period(value);
+    assert(size == 3 || size == 6 || size == 12);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
-    if (size != 0) {
-        assert(size == 3 || size == 6 || size == 12);
-        if (size == 3) {
-            bytes::store<endian::LITTLE>(next_value, std::uint8_t(value.get_years()));
-            bytes::store<endian::LITTLE>(next_value + 1, std::uint8_t(value.get_months()));
-            bytes::store<endian::LITTLE>(next_value + 2, std::uint8_t(value.get_days()));
-        } else if (size == 6) {
-            bytes::store<endian::LITTLE>(next_value, std::uint16_t(value.get_years()));
-            bytes::store<endian::LITTLE>(next_value + 2, std::uint16_t(value.get_months()));
-            bytes::store<endian::LITTLE>(next_value + 4, std::uint16_t(value.get_days()));
-        } else {
-            bytes::store<endian::LITTLE>(next_value, value.get_years());
-            bytes::store<endian::LITTLE>(next_value + 4, value.get_months());
-            bytes::store<endian::LITTLE>(next_value + 8, value.get_days());
-        }
-        next_value += size;
+    if (size == 3) {
+        bytes::store<endian::LITTLE>(next_value, std::uint8_t(value.get_years()));
+        bytes::store<endian::LITTLE>(next_value + 1, std::uint8_t(value.get_months()));
+        bytes::store<endian::LITTLE>(next_value + 2, std::uint8_t(value.get_days()));
+    } else if (size == 6) {
+        bytes::store<endian::LITTLE>(next_value, std::uint16_t(value.get_years()));
+        bytes::store<endian::LITTLE>(next_value + 2, std::uint16_t(value.get_months()));
+        bytes::store<endian::LITTLE>(next_value + 4, std::uint16_t(value.get_days()));
+    } else {
+        bytes::store<endian::LITTLE>(next_value, value.get_years());
+        bytes::store<endian::LITTLE>(next_value + 4, value.get_months());
+        bytes::store<endian::LITTLE>(next_value + 8, value.get_days());
     }
+    next_value += size;
 
     append_entry();
 }
 
 void binary_tuple_builder::append_duration(const ignite_duration &value) {
-    tuple_size_t size = gauge_duration(value);
+    const tuple_size_t size = gauge_duration(value);
+    assert(size == 8 || size == 12);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
-    if (size != 0) {
-        assert(size == 8 || size == 12);
-        bytes::store<endian::LITTLE>(next_value, value.get_seconds());
-        if (size == 12) {
-            bytes::store<endian::LITTLE>(next_value + 8, value.get_nano());
-        }
-        next_value += size;
+    bytes::store<endian::LITTLE>(next_value, value.get_seconds());
+    if (size == 12) {
+        bytes::store<endian::LITTLE>(next_value + 8, value.get_nano());
     }
+    next_value += size;
+
+    append_entry();
+}
+
+void binary_tuple_builder::append_bytes(bytes_view bytes) {
+    assert(element_index < element_count);
+    assert(next_value + bytes.size() <= value_base + value_area_size);
+
+    std::memcpy(next_value, bytes.data(), bytes.size());
+    next_value += bytes.size();
 
     append_entry();
 }
