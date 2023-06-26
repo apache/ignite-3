@@ -19,7 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogService.PUBLIC;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
@@ -46,6 +46,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
@@ -56,7 +57,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
@@ -98,7 +98,7 @@ public class IndexManagerTest {
     )
     private TablesConfiguration tablesConfig;
 
-    private final HybridClock clock = new HybridClockImpl();
+    private ClockWaiter clockWaiter;
 
     private VaultManager vaultManager;
 
@@ -134,16 +134,21 @@ public class IndexManagerTest {
 
         when(schManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(null));
 
+        String nodeName = "test";
+
         vaultManager = new VaultManager(new InMemoryVaultService());
 
-        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, new SimpleInMemoryKeyValueStorage("test"));
+        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, new SimpleInMemoryKeyValueStorage(nodeName));
 
-        catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageManager, vaultManager), clock);
+        clockWaiter = new ClockWaiter(nodeName, new HybridClockImpl());
+
+        catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageManager), clockWaiter);
 
         indexManager = new IndexManager(tablesConfig, schManager, tableManagerMock, catalogManager);
 
         vaultManager.start();
         metaStorageManager.start();
+        clockWaiter.start();
         catalogManager.start();
         indexManager.start();
 
@@ -152,7 +157,7 @@ public class IndexManagerTest {
         assertThat(
                 catalogManager.createTable(
                         CreateTableParams.builder()
-                                .schemaName(PUBLIC)
+                                .schemaName(DEFAULT_SCHEMA_NAME)
                                 .zone(DEFAULT_ZONE_NAME)
                                 .tableName(TABLE_NAME)
                                 .columns(List.of(
@@ -172,6 +177,7 @@ public class IndexManagerTest {
         IgniteUtils.closeAll(
                 vaultManager == null ? null : vaultManager::stop,
                 metaStorageManager == null ? null : metaStorageManager::stop,
+                clockWaiter == null ? null : clockWaiter::stop,
                 catalogManager == null ? null : catalogManager::stop,
                 indexManager == null ? null : indexManager::stop
         );
@@ -184,7 +190,7 @@ public class IndexManagerTest {
         assertThat(
                 indexManager.createIndexAsync(
                         CreateSortedIndexParams.builder()
-                                .schemaName(PUBLIC)
+                                .schemaName(DEFAULT_SCHEMA_NAME)
                                 .indexName(indexName)
                                 .tableName("tName")
                                 .columns(List.of("c1", "c2"))
@@ -223,7 +229,7 @@ public class IndexManagerTest {
         assertThat(
                 indexManager.createIndexAsync(
                         CreateHashIndexParams.builder()
-                                .schemaName(PUBLIC)
+                                .schemaName(DEFAULT_SCHEMA_NAME)
                                 .indexName("")
                                 .tableName("tName")
                                 .build(),
@@ -235,7 +241,7 @@ public class IndexManagerTest {
 
     @Test
     public void dropNonExistingIndex() {
-        String schemaName = PUBLIC;
+        String schemaName = DEFAULT_SCHEMA_NAME;
         String indexName = "nonExisting";
 
         assertThat(
@@ -272,7 +278,7 @@ public class IndexManagerTest {
         assertThat(
                 indexManager.createIndexAsync(
                         CreateSortedIndexParams.builder()
-                                .schemaName(PUBLIC)
+                                .schemaName(DEFAULT_SCHEMA_NAME)
                                 .indexName(indexName)
                                 .tableName("tName")
                                 .columns(List.of("c2"))
@@ -298,7 +304,7 @@ public class IndexManagerTest {
 
         assertThat(
                 indexManager.dropIndexAsync(
-                        DropIndexParams.builder().schemaName(PUBLIC).indexName(indexName).build(),
+                        DropIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(indexName).build(),
                         true
                 ),
                 willBe(true)

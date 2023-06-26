@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
-import static org.apache.ignite.internal.catalog.CatalogService.PUBLIC;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -76,7 +77,7 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
         assertThat(
                 indexManager.createIndexAsync(
                         CreateHashIndexParams.builder()
-                                .schemaName(PUBLIC)
+                                .schemaName(DEFAULT_SCHEMA_NAME)
                                 .indexName("INAME")
                                 .tableName("TNAME")
                                 .columns(List.of("C3", "C2"))
@@ -103,7 +104,7 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
         CompletableFuture<IndexEventParameters> indexDroppedFuture = registerListener(indexManager, IndexEvent.DROP);
 
         assertThat(
-                indexManager.dropIndexAsync(DropIndexParams.builder().schemaName(PUBLIC).indexName("INAME").build(), true),
+                indexManager.dropIndexAsync(DropIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName("INAME").build(), true),
                 willBe(true)
         );
 

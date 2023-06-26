@@ -358,7 +358,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
-            CatalogTableDescriptor tableDescriptor = catalogManager.table(indexDescriptor.tableId(), parameters.version());
+            CatalogTableDescriptor tableDescriptor = catalogManager.table(indexDescriptor.tableId(), parameters.catalogVersion());
 
             return createIndexLocally(causalityToken, tableDescriptor, indexDescriptor)
                     .thenApply(unused -> false);
