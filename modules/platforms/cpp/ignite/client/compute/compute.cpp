@@ -44,7 +44,7 @@ void compute::execute_async(const std::vector<cluster_node> &nodes, const std::v
     detail::arg_check::container_non_empty(nodes, "Nodes container");
     detail::arg_check::container_non_empty(job_class_name, "Job class name");
 
-    m_impl->execute_on_one_node(get_random_element(nodes), job_class_name, args, std::move(callback));
+    m_impl->execute_on_one_node(get_random_element(nodes), units, job_class_name, args, std::move(callback));
 }
 
 void compute::broadcast_async(const std::set<cluster_node> &nodes, const std::vector<deployment_unit> &units,
@@ -69,7 +69,7 @@ void compute::broadcast_async(const std::set<cluster_node> &nodes, const std::ve
     auto shared_res = std::make_shared<result_group>(std::int32_t(nodes.size()), std::move(callback));
 
     for (const auto &node : nodes) {
-        m_impl->execute_on_one_node(node, job_class_name, args, [node, shared_res](auto &&res) {
+        m_impl->execute_on_one_node(node, units, job_class_name, args, [node, shared_res](auto &&res) {
             auto &val = *shared_res;
 
             std::lock_guard<std::mutex> lock(val.m_mutex);
@@ -88,7 +88,7 @@ void compute::execute_colocated_async(std::string_view table_name, const ignite_
     detail::arg_check::tuple_non_empty(key, "Key tuple");
     detail::arg_check::container_non_empty(job_class_name, "Job class name");
 
-    m_impl->execute_colocated_async(table_name, key, job_class_name, args, std::move(callback));
+    m_impl->execute_colocated_async(table_name, key, units, job_class_name, args, std::move(callback));
 }
 
 } // namespace ignite

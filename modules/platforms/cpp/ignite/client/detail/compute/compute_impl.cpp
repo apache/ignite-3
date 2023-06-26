@@ -65,8 +65,9 @@ std::optional<primitive> read_primitive_from_binary_tuple(protocol::reader &read
     return read_next_column(parser, typ, scale);
 }
 
-void compute_impl::execute_on_one_node(cluster_node node, std::string_view job_class_name,
-    const std::vector<primitive> &args, ignite_callback<std::optional<primitive>> callback) {
+void compute_impl::execute_on_one_node(cluster_node node, const std::vector<deployment_unit> &units,
+    std::string_view job_class_name, const std::vector<primitive> &args,
+    ignite_callback<std::optional<primitive>> callback) {
 
     auto writer_func = [&node, job_class_name, args](protocol::writer &writer) {
         writer.write(node.get_name());
@@ -86,8 +87,9 @@ void compute_impl::execute_on_one_node(cluster_node node, std::string_view job_c
         client_operation::COMPUTE_EXECUTE, writer_func, std::move(reader_func), std::move(callback));
 }
 
-void compute_impl::execute_colocated_async(std::string_view table_name, const ignite_tuple &key, std::string_view job,
-    const std::vector<primitive> &args, ignite_callback<std::optional<primitive>> callback) {
+void compute_impl::execute_colocated_async(std::string_view table_name, const ignite_tuple &key,
+    const std::vector<deployment_unit> &units, std::string_view job, const std::vector<primitive> &args,
+    ignite_callback<std::optional<primitive>> callback) {
     m_tables->get_table_async(table_name,
         [table_name = std::string(table_name), callback = std::move(callback), key, job = std::string(job), args,
             conn = m_connection](auto &&res) mutable {
