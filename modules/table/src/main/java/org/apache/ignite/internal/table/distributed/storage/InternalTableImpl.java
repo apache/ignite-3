@@ -446,7 +446,7 @@ public class InternalTableImpl implements InternalTable {
                                         requestFunction.apply(tx.commitPartition(), primaryReplicaAndTerm.get2())
                                 );
                             } catch (PrimaryReplicaMissException e) {
-                                throw new TransactionException(INTERNAL_ERR, e);
+                                throw new TransactionException( e);
                             } catch (Throwable e) {
                                 throw new TransactionException(
                                         INTERNAL_ERR,
@@ -1275,8 +1275,8 @@ public class InternalTableImpl implements InternalTable {
             ClusterNode node = clusterNodeResolver.apply(consistentId);
 
             if (node == null) {
-                throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node, consistentId="
-                        + consistentId);
+                throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node [consistentId="
+                        + consistentId + ']');
             }
 
             TablePartitionId partGroupId = new TablePartitionId(tableId, partId);

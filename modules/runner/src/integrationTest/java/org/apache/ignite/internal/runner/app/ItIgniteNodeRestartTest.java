@@ -1227,13 +1227,16 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         assertNotNull(table);
 
-        for (int i = 0; i < 100; i++) {
+        int i = 0;
+        while (i < 100) {
             Tuple row;
 
             try {
                 row = table.keyValueView().get(null, Tuple.create().set("id", i));
 
                 assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));
+
+                i++;
             } catch (TransactionException te) {
                 try {
                     // There may be an exception if the primary replica node was stopped. We should wait for a new primary to appear.
