@@ -211,7 +211,8 @@ TEST_F(transactions_test, record_view_upsert_all) {
 
     auto values2 = record_view.get_all(nullptr, {get_tuple(42)});
 
-    ASSERT_TRUE(values2.empty());
+    ASSERT_EQ(1, values2.size());
+    EXPECT_FALSE(values2.front().has_value());
 }
 
 TEST_F(transactions_test, record_view_get_and_upsert) {
@@ -279,7 +280,8 @@ TEST_F(transactions_test, record_view_insert_all) {
 
     auto values2 = record_view.get_all(nullptr, {get_tuple(42)});
 
-    ASSERT_TRUE(values2.empty());
+    ASSERT_EQ(1, values2.size());
+    EXPECT_FALSE(values2.front().has_value());
 }
 
 TEST_F(transactions_test, record_view_replace) {

@@ -17,9 +17,11 @@
 
 namespace Apache.Ignite.Tests.Compute
 {
+    using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
+    using Ignite.Compute;
     using Internal.Proto;
     using NUnit.Framework;
 
@@ -45,8 +47,11 @@ namespace Apache.Ignite.Tests.Compute
             // ReSharper disable once AccessToDisposedClosure
             TestUtils.WaitForCondition(() => client.GetConnections().Count == 3, 5000);
 
-            var res2 = await client.Compute.ExecuteAsync<string>(nodes: new[] { server2.Node }, jobClassName: string.Empty);
-            var res3 = await client.Compute.ExecuteAsync<string>(nodes: new[] { server3.Node }, jobClassName: string.Empty);
+            var res2 = await client.Compute.ExecuteAsync<string>(
+                new[] { server2.Node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
+
+            var res3 = await client.Compute.ExecuteAsync<string>(
+                new[] { server3.Node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
 
             Assert.AreEqual("s2", res2);
             Assert.AreEqual("s3", res3);
@@ -66,8 +71,11 @@ namespace Apache.Ignite.Tests.Compute
 
             using var client = await server1.ConnectClientAsync();
 
-            var res2 = await client.Compute.ExecuteAsync<string>(nodes: new[] { server2.Node }, jobClassName: string.Empty);
-            var res3 = await client.Compute.ExecuteAsync<string>(nodes: new[] { server3.Node }, jobClassName: string.Empty);
+            var res2 = await client.Compute.ExecuteAsync<string>(
+                new[] { server2.Node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
+
+            var res3 = await client.Compute.ExecuteAsync<string>(
+                new[] { server3.Node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
 
             Assert.AreEqual("s1", res2);
             Assert.AreEqual("s1", res3);
@@ -101,7 +109,9 @@ namespace Apache.Ignite.Tests.Compute
             for (int i = 0; i < 100; i++)
             {
                 var node = i % 2 == 0 ? server1.Node : server2.Node;
-                var res = await client.Compute.ExecuteAsync<string>(nodes: new[] { node }, jobClassName: string.Empty);
+                var res = await client.Compute.ExecuteAsync<string>(
+                    new[] { node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
+
                 nodeNames.Add(res);
             }
 

@@ -37,6 +37,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.InitialDeployMode;
+import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -230,7 +231,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         String id = "test";
         Unit smallUnit = files.deployAndVerify(
                 id, Version.parseVersion("1.1.0"), false, List.of(files.smallFile()),
-                null, List.of(node(1).name()),
+                new NodesToDeploy(List.of(node(1).name())),
                 node(0)
         );
 
@@ -244,7 +245,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         String id = "test";
         Unit smallUnit = files.deployAndVerify(
                 id, Version.parseVersion("1.1.0"), false, List.of(files.smallFile()),
-                InitialDeployMode.ALL, List.of(),
+                new NodesToDeploy(InitialDeployMode.ALL),
                 node(0)
         );
 
