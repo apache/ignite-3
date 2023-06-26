@@ -24,6 +24,7 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
@@ -74,8 +75,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import org.apache.ignite.configuration.ConfigurationChangeException;
@@ -282,12 +281,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
         nodesAttributes = new ConcurrentHashMap<>();
 
-        // Use a single thread executor to avoid concurrent executing several tasks for the same zone.
-        // TODO: IGNITE-19783 Need to use a striped executor.
-        executor = new ScheduledThreadPoolExecutor(
-                1,
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, DISTRIBUTION_ZONE_MANAGER_POOL_NAME), LOG),
-                new ThreadPoolExecutor.DiscardPolicy()
+        executor = createZoneManagerExecutor(
+                new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, DISTRIBUTION_ZONE_MANAGER_POOL_NAME), LOG)
         );
 
         // It's safe to leak with partially initialised object here, because rebalanceEngine is only accessible through this or by

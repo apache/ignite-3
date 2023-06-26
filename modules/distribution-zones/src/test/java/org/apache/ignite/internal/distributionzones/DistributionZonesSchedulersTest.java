@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,8 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -45,10 +44,8 @@ import org.junit.jupiter.api.Test;
 public class DistributionZonesSchedulersTest {
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZonesSchedulersTest.class);
 
-    private static final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(
-            1,
-            new NamedThreadFactory("test-dst-zones-scheduler", LOG),
-            new ThreadPoolExecutor.DiscardPolicy()
+    private static ScheduledExecutorService executor = createZoneManagerExecutor(
+            new NamedThreadFactory("test-dst-zones-scheduler", LOG)
     );
 
     @AfterAll
@@ -96,7 +93,10 @@ public class DistributionZonesSchedulersTest {
         testReScheduling(state::rescheduleScaleDown);
     }
 
-    /** Tests that scaleUp/scaleDown tasks with a delay grater then zero will be canceled by tasks with a zero delay. */
+    /**
+     * Tests that scaleUp/scaleDown tasks with a zero delay will not be canceled by other tasks.
+     * Tests that scaleUp/scaleDown tasks with a delay grater then zero will be canceled by other tasks.
+     */
     private static void testReScheduling(BiConsumer<Long, Runnable> fn) throws InterruptedException {
         AtomicInteger counter = new AtomicInteger();
 
