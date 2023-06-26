@@ -40,7 +40,7 @@ import org.reactivestreams.Publisher;
 /** Filters out endpoints that are not allowed to be accessed before cluster is initialized. */
 @Filter(Filter.MATCH_ALL_PATTERN)
 @Requires(property = "ignite.endpoints.filter-non-initialized", value = "true", defaultValue = "false")
-// TODO: https://issues.apache.org/jira/browse/IGNITE-19077
+// TODO: https://issues.apache.org/jira/browse/IGNITE-19365
 public class NodeOnlyEndpointsFilter implements HttpServerFilter {
     private static final String[] ENABLED_ENDPOINTS = {
             "/management/v1/configuration/node",

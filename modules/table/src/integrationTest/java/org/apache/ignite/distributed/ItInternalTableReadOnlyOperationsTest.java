@@ -17,10 +17,14 @@
 
 package org.apache.ignite.distributed;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -30,6 +34,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -144,8 +149,36 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
     public void testReadOnlyGetAllNonExistingKeysWithReadTimestamp() {
         mockReadOnlyMultiRowRequest();
 
-        assertEquals(0,
-                internalTbl.getAll(Collections.singleton(createKeyRow(0)), CLOCK.now(), mock(ClusterNode.class)).join().size()
+        assertThat(
+                internalTbl.getAll(List.of(createKeyRow(0)), CLOCK.now(), mock(ClusterNode.class)),
+                willBe(contains(nullValue()))
+        );
+    }
+
+    @Test
+    public void testReadOnlyGetAllMixExistingKeysWithTx() {
+        mockReadOnlyMultiRowRequest();
+
+        assertThat(
+                internalTbl.getAll(
+                        List.of(createKeyRow(0), createKeyRow(1), createKeyRow(2), createKeyRow(3)),
+                        readOnlyTx
+                ),
+                willBe(contains(nullValue(), equalTo(ROW_1), equalTo(ROW_2), nullValue()))
+        );
+    }
+
+    @Test
+    public void testReadOnlyGetAllMixExistingKeysWithReadTimestamp() {
+        mockReadOnlyMultiRowRequest();
+
+        assertThat(
+                internalTbl.getAll(
+                        List.of(createKeyRow(0), createKeyRow(1), createKeyRow(2), createKeyRow(3)),
+                        CLOCK.now(),
+                        mock(ClusterNode.class)
+                ),
+                willBe(contains(nullValue(), equalTo(ROW_1), equalTo(ROW_2), nullValue()))
         );
     }
 
@@ -153,8 +186,9 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
     public void testReadOnlyGetAllNonExistingKeysWithTx() {
         mockReadOnlyMultiRowRequest();
 
-        assertEquals(0,
-                internalTbl.getAll(Collections.singleton(createKeyRow(0)), readOnlyTx).join().size()
+        assertThat(
+                internalTbl.getAll(List.of(createKeyRow(0)), readOnlyTx),
+                willBe(contains(nullValue()))
         );
     }
 
@@ -268,16 +302,22 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
         List<BinaryRow> rowStore = List.of(ROW_1, ROW_2);
 
         when(replicaService.invoke(any(ClusterNode.class), any(ReadOnlyMultiRowReplicaRequest.class))).thenAnswer(args -> {
-            List<BinaryRow> result = new ArrayList<>();
+            Collection<BinaryRow> requestedRows = args.getArgument(1, ReadOnlyMultiRowReplicaRequest.class).binaryRows();
 
-            for (BinaryRow row : rowStore) {
-                for (BinaryRow searchRow : args.getArgument(1, ReadOnlyMultiRowReplicaRequest.class).binaryRows()) {
+            List<BinaryRow> result = new ArrayList<>(requestedRows.size());
+
+            for (BinaryRow searchRow : requestedRows) {
+                BinaryRow resultRow = null;
+
+                for (BinaryRow row : rowStore) {
                     if (KEY_EXTRACTOR.apply(row).byteBuffer().equals(KEY_EXTRACTOR.apply(searchRow).byteBuffer())) {
-                        result.add(row);
+                        resultRow = row;
 
                         break;
                     }
                 }
+
+                result.add(resultRow);
             }
 
             return CompletableFuture.completedFuture(result);

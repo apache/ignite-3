@@ -78,7 +78,7 @@ public class AbstractOneNodeBenchmark {
 
         var fut =  TestIgnitionManager.start(NODE_NAME, config, workDir.resolve(NODE_NAME));
 
-        IgnitionManager.init(new InitParametersBuilder()
+        TestIgnitionManager.init(new InitParametersBuilder()
                 .clusterName("cluster")
                 .destinationNodeName(NODE_NAME)
                 .cmgNodeNames(List.of(NODE_NAME))

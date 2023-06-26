@@ -161,7 +161,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                 .metaStorageNodeNames(List.of(metaStorageNodeName))
                 .clusterName("cluster")
                 .build();
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 
+import io.netty.util.ResourceLeakDetector;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -175,6 +176,7 @@ public class PlatformTestNodeRunner {
      */
     public static void main(String[] args) throws Exception {
         System.out.println("Starting test node runner...");
+        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
         for (int i = 0; i < args.length; i++) {
             System.out.println("Arg " + i + ": " + args[i]);
@@ -241,7 +243,7 @@ public class PlatformTestNodeRunner {
                 .metaStorageNodeNames(List.of(metaStorageNodeName))
                 .clusterName("cluster")
                 .build();
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         System.out.println("Initialization complete");
 

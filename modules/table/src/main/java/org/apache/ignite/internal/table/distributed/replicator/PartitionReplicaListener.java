@@ -575,9 +575,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 for (CompletableFuture<BinaryRow> resolutionFut : resolutionFuts) {
                     BinaryRow resolvedReadResult = resolutionFut.join();
 
-                    if (resolvedReadResult != null) {
-                        result.add(resolvedReadResult);
-                    }
+                    result.add(resolvedReadResult);
                 }
 
                 return result;

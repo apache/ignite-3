@@ -70,6 +70,7 @@ void compute_impl::execute_on_one_node(cluster_node node, std::string_view job_c
 
     auto writer_func = [&node, job_class_name, args](protocol::writer &writer) {
         writer.write(node.get_name());
+        writer.write_nil(); // DeploymentUnits
         writer.write(job_class_name);
         write_primitives_as_binary_tuple(writer, args);
     };
@@ -109,6 +110,7 @@ void compute_impl::execute_colocated_async(std::string_view table_name, const ig
                         writer.write(table->get_id());
                         writer.write(sch.version);
                         write_tuple(writer, sch, key, true);
+                        writer.write_nil(); // DeploymentUnits
                         writer.write(job);
                         write_primitives_as_binary_tuple(writer, args);
                     };

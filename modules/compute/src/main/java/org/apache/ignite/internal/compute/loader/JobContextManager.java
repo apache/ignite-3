@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.DeploymentUnitAccessor;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
@@ -36,7 +37,6 @@ import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundExc
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.util.RefCountedObjectPool;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteInternalException;

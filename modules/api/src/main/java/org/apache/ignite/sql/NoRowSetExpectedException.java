@@ -19,8 +19,6 @@ package org.apache.ignite.sql;
 
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_NO_RESULT_SET_ERR;
 
-import java.util.UUID;
-
 /**
  * Exception is thrown when a query doesn't intend to return any rows (e.g. a DML or a DDL query).
  */
@@ -30,17 +28,5 @@ public class NoRowSetExpectedException extends SqlException {
      */
     public NoRowSetExpectedException() {
         super(QUERY_NO_RESULT_SET_ERR, "Query has no result set");
-    }
-
-    /**
-     * Creates an exception with the given trace ID, error code, detailed message, and cause.
-     *
-     * @param traceId Unique identifier of the exception.
-     * @param code Full error code.
-     * @param message Detailed message.
-     * @param cause Optional nested exception (can be {@code null}).
-     */
-    public NoRowSetExpectedException(UUID traceId, int code, String message, Throwable cause) {
-        super(traceId, code, message, cause);
     }
 }

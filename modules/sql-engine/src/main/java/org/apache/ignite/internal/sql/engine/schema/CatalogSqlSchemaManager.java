@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -75,7 +77,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     public SchemaPlus schema(String name, int version) {
-        String schemaName = name == null ? CatalogService.PUBLIC : name;
+        String schemaName = name == null ? DEFAULT_SCHEMA_NAME : name;
 
         Entry<String, Integer> entry = Map.entry(schemaName, version);
         return cache.computeIfAbsent(entry, (e) -> createSqlSchema(e.getValue(), catalogManager.schema(e.getKey(), e.getValue())));
@@ -97,7 +99,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     public SchemaPlus activeSchema(@Nullable String name, long timestamp) {
-        String schemaName = name == null ? CatalogService.PUBLIC : name;
+        String schemaName = name == null ? DEFAULT_SCHEMA_NAME : name;
 
         int version = catalogManager.activeCatalogVersion(timestamp);
 

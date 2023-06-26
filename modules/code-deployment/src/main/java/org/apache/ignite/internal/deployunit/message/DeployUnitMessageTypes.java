@@ -36,22 +36,12 @@ public class DeployUnitMessageTypes {
     public static final short DOWNLOAD_UNIT_RESPONSE = 1;
 
     /**
-     * Message type for {@link UndeployUnitRequest}.
-     */
-    public static final short UNDEPLOY_UNIT_REQUEST = 2;
-
-    /**
-     * Message type for {@link UndeployUnitResponse}.
-     */
-    public static final short UNDEPLOY_UNIT_RESPONSE = 3;
-
-    /**
      * Message type for {@link StopDeployRequest}.
      */
-    public static final short STOP_DEPLOY_REQUEST = 4;
+    public static final short STOP_DEPLOY_REQUEST = 2;
 
     /**
      * Message type for {@link StopDeployResponse}.
      */
-    public static final short STOP_DEPLOY_RESPONSE = 5;
+    public static final short STOP_DEPLOY_RESPONSE = 3;
 }
