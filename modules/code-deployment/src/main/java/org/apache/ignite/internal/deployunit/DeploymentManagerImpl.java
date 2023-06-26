@@ -25,13 +25,11 @@ import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 
 import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -42,7 +40,6 @@ import org.apache.ignite.internal.deployunit.configuration.DeploymentConfigurati
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitAlreadyExistsException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
-import org.apache.ignite.internal.deployunit.exception.InvalidNodesArgumentException;
 import org.apache.ignite.internal.deployunit.metastore.ClusterEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.ClusterEventCallbackImpl;
 import org.apache.ignite.internal.deployunit.metastore.ClusterStatusWatchListener;
@@ -53,7 +50,6 @@ import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
 
@@ -162,40 +158,17 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             String id,
             Version version,
             boolean force,
-            DeploymentUnit deploymentUnit,
-            InitialDeployMode deployMode
+            CompletableFuture<DeploymentUnit> deploymentUnit,
+            NodesToDeploy deployedNodes
     ) {
         checkId(id);
         Objects.requireNonNull(version);
         Objects.requireNonNull(deploymentUnit);
 
-        LOG.info("Deploying {}:{} on {}", id, version, deployMode);
-        return extractNodes(deployMode)
+        LOG.info("Deploying {}:{} on {}", id, version, deployedNodes);
+        return deployedNodes.extractNodes(cmgManager)
                 .thenCompose(nodesToDeploy ->
-                        doDeploy(id, version, force, deploymentUnit, nodesToDeploy,
-                                undeployed -> deployAsync(id, version, deploymentUnit, deployMode)
-                        )
-                );
-    }
-
-    @Override
-    public CompletableFuture<Boolean> deployAsync(
-            String id,
-            Version version,
-            boolean force,
-            DeploymentUnit deploymentUnit,
-            List<String> nodes
-    ) {
-        checkId(id);
-        Objects.requireNonNull(version);
-        Objects.requireNonNull(deploymentUnit);
-
-        LOG.info("Deploying {}:{} on {}", id, version, nodes);
-        return extractNodes(nodes)
-                .thenCompose(nodesToDeploy ->
-                        doDeploy(id, version, force, deploymentUnit, nodesToDeploy,
-                                undeployed -> deployAsync(id, version, deploymentUnit, nodes)
-                        )
+                        doDeploy(id, version, force, deploymentUnit, nodesToDeploy)
                 );
     }
 
@@ -203,18 +176,17 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             String id,
             Version version,
             boolean force,
-            DeploymentUnit deploymentUnit,
-            Set<String> nodesToDeploy,
-            Function<Boolean, CompletableFuture<Boolean>> retryDeploy
+            CompletableFuture<DeploymentUnit> unitFuture,
+            Set<String> nodesToDeploy
     ) {
         return deploymentUnitStore.createClusterStatus(id, version, nodesToDeploy)
-                .thenCompose(clusterStatus -> {
+                .thenCompose(clusterStatus -> unitFuture.thenCompose(deploymentUnit -> {
                     if (clusterStatus != null) {
                         return doDeploy(clusterStatus, deploymentUnit, nodesToDeploy);
                     } else {
                         if (force) {
                             return undeployAsync(id, version)
-                                    .thenCompose(retryDeploy);
+                                    .thenCompose(u -> doDeploy(id, version, false, unitFuture, nodesToDeploy));
                         }
                         LOG.warn("Failed to deploy meta of unit " + id + ":" + version + " to metastore. "
                                 + "Already exists.");
@@ -222,10 +194,14 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                                 new DeploymentUnitAlreadyExistsException(id,
                                         "Unit " + id + ":" + version + " already exists"));
                     }
-                });
+                }));
     }
 
-    private CompletableFuture<Boolean> doDeploy(UnitClusterStatus clusterStatus, DeploymentUnit deploymentUnit, Set<String> nodesToDeploy) {
+    private CompletableFuture<Boolean> doDeploy(
+            UnitClusterStatus clusterStatus,
+            DeploymentUnit deploymentUnit,
+            Set<String> nodesToDeploy
+    ) {
         UnitContent unitContent;
         try {
             unitContent = UnitContent.readContent(deploymentUnit);
@@ -376,11 +352,15 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     public CompletableFuture<Version> detectLatestDeployedVersion(String id) {
         return clusterStatusesAsync(id)
                 .thenApply(statuses -> {
-                    return statuses.versions()
-                            .stream()
-                            .filter(version -> statuses.status(version) == DEPLOYED)
-                            .max(Version::compareTo)
-                            .orElseThrow(() -> new DeploymentUnitNotFoundException(id));
+                    if (statuses == null) {
+                        throw new DeploymentUnitNotFoundException(id, Version.LATEST);
+                    }
+
+                    return statuses.versionStatuses().stream()
+                            .filter(e -> e.getStatus() == DEPLOYED)
+                            .reduce((first, second) -> second)
+                            .orElseThrow(() -> new DeploymentUnitNotFoundException(id, Version.LATEST))
+                            .getVersion();
                 });
     }
 
@@ -395,6 +375,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
     @Override
     public void stop() throws Exception {
+        deployer.stop();
         tracker.cancelAll();
         deploymentUnitStore.unregisterNodeStatusListener(nodeStatusWatchListener);
         deploymentUnitStore.unregisterClusterStatusListener(clusterStatusWatchListener);
@@ -438,46 +419,5 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
     public DeploymentUnitAccessor deploymentUnitAccessor() {
         return deploymentUnitAccessor;
-    }
-
-    private CompletableFuture<Set<String>> extractNodes(InitialDeployMode deployMode) {
-        switch (deployMode) {
-            case ALL:
-                return cmgManager.logicalTopology()
-                        .thenApply(snapshot -> snapshot.nodes().stream()
-                                .map(ClusterNode::name)
-                                .collect(Collectors.toUnmodifiableSet()));
-            case MAJORITY:
-            default:
-                return cmgManager.majority();
-        }
-    }
-
-    /**
-     * Gets a list of nodes for initial deployment. Always contains at least a majority of CMG nodes.
-     *
-     * @param nodes List of consistent IDs of nodes to add to the majority.
-     * @return Completed future with a set of consistent IDs, or a future, completed exceptionally with
-     *         {@link InvalidNodesArgumentException} if any of the nodes are not present in the logical topology.
-     */
-    private CompletableFuture<Set<String>> extractNodes(List<String> nodes) {
-        return cmgManager.majority()
-                .thenCompose(majority -> cmgManager.logicalTopology()
-                        .thenApply(snapshot -> snapshot.nodes().stream()
-                                .map(ClusterNode::name)
-                                .collect(Collectors.toUnmodifiableSet()))
-                        .thenApply(allNodes -> {
-                            Set<String> result = new HashSet<>(majority);
-                            for (String node : nodes) {
-                                if (!allNodes.contains(node)) {
-                                    throw new InvalidNodesArgumentException(
-                                            "Node \"" + node + "\" is not present in the logical topology"
-                                    );
-                                }
-                                result.add(node);
-                            }
-                            return result;
-                        })
-                );
     }
 }

@@ -91,7 +91,8 @@ public class DeploymentUnitFailover {
         String id = unitNodeStatus.id();
         Version version = unitNodeStatus.version();
 
-        if (checkClusterNullStatus(id, version, unitClusterStatus)) {
+        if (unitClusterStatus == null) {
+            undeploy(id, version);
             return;
         }
 
@@ -125,17 +126,13 @@ public class DeploymentUnitFailover {
         }
     }
 
-    private boolean checkClusterNullStatus(String id, Version version, UnitClusterStatus clusterStatus) {
-        if (clusterStatus == null) {
-            deployer.undeploy(id, version)
-                    .thenAccept(success -> {
-                        if (success) {
-                            deploymentUnitStore.removeNodeStatus(nodeName, id, version);
-                        }
-                    });
-            return true;
-        }
-        return false;
+    private void undeploy(String id, Version version) {
+        deployer.undeploy(id, version)
+                .thenAccept(success -> {
+                    if (success) {
+                        deploymentUnitStore.removeNodeStatus(nodeName, id, version);
+                    }
+                });
     }
 
     private boolean checkAbaProblem(UnitClusterStatus clusterStatus, UnitNodeStatus nodeStatus) {
@@ -143,11 +140,7 @@ public class DeploymentUnitFailover {
         Version version = nodeStatus.version();
         if (clusterStatus.opId() != nodeStatus.opId()) {
             if (nodeStatus.status() == DEPLOYED) {
-                deployer.undeploy(id, version).thenAccept(success -> {
-                    if (success) {
-                        deploymentUnitStore.removeNodeStatus(nodeName, id, version);
-                    }
-                });
+                undeploy(id, version);
             } else {
                 deploymentUnitStore.removeNodeStatus(nodeName, id, version);
             }

@@ -235,7 +235,9 @@ public class ItMetaStorageServiceTest {
             var raftNodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, peer);
 
             try {
-                return raftManager.startRaftGroupNode(raftNodeId, configuration, listener, RaftGroupEventsListener.noopLsnr);
+                return raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(
+                        raftNodeId, configuration, listener, RaftGroupEventsListener.noopLsnr
+                );
             } catch (NodeStoppingException e) {
                 throw new IllegalStateException(e);
             }

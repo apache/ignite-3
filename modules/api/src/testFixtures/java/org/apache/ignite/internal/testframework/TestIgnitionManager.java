@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.testframework;
 
+import com.typesafe.config.parser.ConfigDocument;
+import com.typesafe.config.parser.ConfigDocumentFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,6 +26,8 @@ import java.nio.file.StandardOpenOption;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -76,5 +80,40 @@ public class TestIgnitionManager {
         } catch (IOException e) {
             throw new IgniteException("Couldn't write node config.", e);
         }
+    }
+
+    /**
+     * Initializes a cluster using test defaults for cluster configuration values that are not
+     * specified explicitly.
+     *
+     * @param parameters Init parameters.
+     * @see IgnitionManager#init(InitParameters)
+     */
+    public static void init(InitParameters parameters) {
+        IgnitionManager.init(applyTestDefaultsToClusterConfig(parameters));
+    }
+
+    private static InitParameters applyTestDefaultsToClusterConfig(InitParameters params) {
+        InitParametersBuilder builder = new InitParametersBuilder()
+                .clusterName(params.clusterName())
+                .destinationNodeName(params.nodeName())
+                .metaStorageNodeNames(params.metaStorageNodeNames())
+                .cmgNodeNames(params.cmgNodeNames());
+
+        if (params.clusterConfiguration() == null) {
+            builder.clusterConfiguration("{ schemaSync.delayDuration: 0 }");
+        } else {
+            ConfigDocument configDocument = ConfigDocumentFactory.parseString(params.clusterConfiguration());
+
+            String delayDurationPath = "schemaSync.delayDuration";
+
+            if (!configDocument.hasPath(delayDurationPath)) {
+                ConfigDocument updatedDocument = configDocument.withValueText(delayDurationPath, "0");
+
+                builder.clusterConfiguration(updatedDocument.render());
+            }
+        }
+
+        return builder.build();
     }
 }
