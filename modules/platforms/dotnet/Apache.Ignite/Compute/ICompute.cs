@@ -31,7 +31,7 @@ public interface ICompute
     /// Executes a compute job represented by the given class on one of the specified nodes.
     /// </summary>
     /// <param name="nodes">Nodes to use for the job execution.</param>
-    /// <param name="units">Deployment units.</param>
+    /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="jobClassName">Java class name of the job to execute.</param>
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
@@ -47,7 +47,7 @@ public interface ICompute
     /// </summary>
     /// <param name="tableName">Name of the table to be used with <paramref name="key"/> to determine target node.</param>
     /// <param name="key">Table key to be used to determine the target node for job execution.</param>
-    /// <param name="units">Deployment units.</param>
+    /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="jobClassName">Java class name of the job to execute.</param>
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
@@ -64,7 +64,7 @@ public interface ICompute
     /// </summary>
     /// <param name="tableName">Name of the table to be used with <paramref name="key"/> to determine target node.</param>
     /// <param name="key">Table key to be used to determine the target node for job execution.</param>
-    /// <param name="units">Deployment units.</param>
+    /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="jobClassName">Java class name of the job to execute.</param>
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
@@ -82,7 +82,7 @@ public interface ICompute
     /// Executes a compute job represented by the given class on all of the specified nodes.
     /// </summary>
     /// <param name="nodes">Nodes to use for the job execution.</param>
-    /// <param name="units">Deployment units.</param>
+    /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="jobClassName">Java class name of the job to execute.</param>
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
