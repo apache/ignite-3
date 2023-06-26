@@ -33,6 +33,7 @@ import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
@@ -72,7 +73,7 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.Producer;
@@ -118,24 +119,31 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     private final PendingComparableValuesTracker<Integer, Void> versionTracker = new PendingComparableValuesTracker<>(0);
 
-    private final HybridClock clock;
+    private final ClockWaiter clockWaiter;
 
-    private final long delayDurationMs;
+    private final LongSupplier delayDurationMsSupplier;
 
     /**
      * Constructor.
      */
-    public CatalogServiceImpl(UpdateLog updateLog, HybridClock clock) {
-        this(updateLog, clock, DEFAULT_DELAY_DURATION);
+    public CatalogServiceImpl(UpdateLog updateLog, ClockWaiter clockWaiter) {
+        this(updateLog, clockWaiter, DEFAULT_DELAY_DURATION);
     }
 
     /**
      * Constructor.
      */
-    public CatalogServiceImpl(UpdateLog updateLog, HybridClock clock, long delayDurationMs) {
+    CatalogServiceImpl(UpdateLog updateLog, ClockWaiter clockWaiter, long delayDurationMs) {
+        this(updateLog, clockWaiter, () -> delayDurationMs);
+    }
+
+    /**
+     * Constructor.
+     */
+    public CatalogServiceImpl(UpdateLog updateLog, ClockWaiter clockWaiter, LongSupplier delayDurationMsSupplier) {
         this.updateLog = updateLog;
-        this.clock = clock;
-        this.delayDurationMs = delayDurationMs;
+        this.clockWaiter = clockWaiter;
+        this.delayDurationMsSupplier = delayDurationMsSupplier;
     }
 
     @Override
@@ -256,7 +264,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CompletableFuture<Void> createTable(CreateTableParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             if (schema.table(params.tableName()) != null) {
@@ -278,7 +286,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CompletableFuture<Void> dropTable(DropTableParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
@@ -301,7 +309,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             return completedFuture(null);
         }
 
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
@@ -328,7 +336,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             return completedFuture(null);
         }
 
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
@@ -343,7 +351,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CompletableFuture<Void> alterColumn(AlterColumnParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
@@ -369,7 +377,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CompletableFuture<Void> createIndex(CreateHashIndexParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             if (schema.index(params.indexName()) != null) {
@@ -391,7 +399,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CompletableFuture<Void> createIndex(CreateSortedIndexParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             if (schema.index(params.indexName()) != null) {
@@ -413,7 +421,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CompletableFuture<Void> dropIndex(DropIndexParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             CatalogIndexDescriptor index = schema.index(params.indexName());
@@ -430,7 +438,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CompletableFuture<Void> createDistributionZone(CreateZoneParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             validateCreateZoneParams(params);
 
             String zoneName = Objects.requireNonNull(params.zoneName(), "zone");
@@ -450,7 +458,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CompletableFuture<Void> dropDistributionZone(DropZoneParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             CatalogZoneDescriptor zone = getZone(catalog, params.zoneName());
 
             if (zone.name().equals(DEFAULT_ZONE_NAME)) {
@@ -476,7 +484,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CompletableFuture<Void> renameDistributionZone(RenameZoneParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             CatalogZoneDescriptor zone = getZone(catalog, params.zoneName());
 
             if (catalog.zone(params.newZoneName()) != null) {
@@ -507,7 +515,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CompletableFuture<Void> alterDistributionZone(AlterZoneParams params) {
-        return saveUpdate(catalog -> {
+        return saveUpdateAndWaitForActivation(catalog -> {
             CatalogZoneDescriptor zone = getZone(catalog, params.zoneName());
 
             Integer dataNodesAutoAdjust = params.dataNodesAutoAdjust();
@@ -552,11 +560,29 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         catalogByTs.put(newCatalog.time(), newCatalog);
     }
 
-    private CompletableFuture<Void> saveUpdate(UpdateProducer updateProducer) {
-        return saveUpdate(updateProducer, 0);
+    private CompletableFuture<Void> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
+        return saveUpdate(updateProducer, 0)
+                .thenCompose(newVersion -> {
+                    Catalog catalog = catalogByVer.get(newVersion);
+
+                    HybridTimestamp activationTs = HybridTimestamp.hybridTimestamp(catalog.time());
+                    HybridTimestamp clusterWideEnsuredActivationTs = activationTs.addPhysicalTime(
+                            HybridTimestamp.maxClockSkew()
+                    );
+
+                    return clockWaiter.waitFor(clusterWideEnsuredActivationTs);
+                });
     }
 
-    private CompletableFuture<Void> saveUpdate(UpdateProducer updateProducer, int attemptNo) {
+    /**
+     * Attempts to save a versioned update using a CAS-like logic. If the attempt fails, makes more attempts
+     * until the max retry count is reached.
+     *
+     * @param updateProducer Supplies simple updates to include into a versioned update to install.
+     * @param attemptNo Ordinal number of an attempt.
+     * @return Future that completes with the new Catalog version (if update was saved successfully) or an exception, otherwise.
+     */
+    private CompletableFuture<Integer> saveUpdate(UpdateProducer updateProducer, int attemptNo) {
         if (attemptNo >= MAX_RETRY_COUNT) {
             return failedFuture(new IgniteInternalException(Common.INTERNAL_ERR, "Max retry limit exceeded: " + attemptNo));
         }
@@ -571,18 +597,16 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         }
 
         if (updates.isEmpty()) {
-            return completedFuture(null);
+            return completedFuture(catalog.version());
         }
 
         int newVersion = catalog.version() + 1;
-        //TODO https://issues.apache.org/jira/browse/IGNITE-19209 Make activation time in the MS entry strictly equal to MS entry ts+DD
-        long activationTimestamp = activationTimestamp();
 
-        return updateLog.append(new VersionedUpdate(newVersion, activationTimestamp, updates))
+        return updateLog.append(new VersionedUpdate(newVersion, delayDurationMsSupplier.getAsLong(), updates))
                 .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
                 .thenCompose(result -> {
                     if (result) {
-                        return completedFuture(null);
+                        return completedFuture(newVersion);
                     }
 
                     return saveUpdate(updateProducer, attemptNo + 1);
@@ -591,7 +615,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     class OnUpdateHandlerImpl implements OnUpdateHandler {
         @Override
-        public void handle(VersionedUpdate update) {
+        public void handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp) {
             int version = update.version();
             Catalog catalog = catalogByVer.get(version - 1);
 
@@ -601,7 +625,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 catalog = entry.applyUpdate(catalog);
             }
 
-            catalog = applyUpdateFinal(catalog, update);
+            catalog = applyUpdateFinal(catalog, update, metaStorageUpdateTimestamp);
 
             registerCatalog(catalog);
 
@@ -630,13 +654,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         }
     }
 
-    /**
-     * Calculate catalog activation timestamp.
-     */
-    private long activationTimestamp() {
-        return clock.now().addPhysicalTime(delayDurationMs).longValue();
-    }
-
     private static void throwUnsupportedDdl(String msg, Object... params) {
         throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, msg, params);
     }
@@ -646,10 +663,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         List<UpdateEntry> get(Catalog catalog);
     }
 
-    private static Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update) {
+    private static Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp) {
+        long activationTimestamp = metaStorageUpdateTimestamp.addPhysicalTime(update.delayDurationMs()).longValue();
+
         return new Catalog(
                 update.version(),
-                update.activationTimestamp(),
+                activationTimestamp,
                 catalog.objectIdGenState(),
                 catalog.zones(),
                 catalog.schemas()
