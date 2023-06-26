@@ -365,6 +365,28 @@ namespace Apache.Ignite.Tests.Compute
             StringAssert.Contains("Deployment unit unit-latest:latest doesn’t exist", ex!.Message);
         }
 
+        [Test]
+        public void TestNullOrEmptyUnitNameThrows([Values(null, "")] string unitName)
+        {
+            var deploymentUnits = new DeploymentUnit[] { new(unitName) };
+
+            var ex = Assert.ThrowsAsync<ArgumentException>(
+                async () => await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
+
+            Assert.AreEqual("Deployment unit name can't be null or empty.", ex!.Message);
+        }
+
+        [Test]
+        public void TestNullOrEmptyUnitVersionThrows([Values(null, "")] string unitVersion)
+        {
+            var deploymentUnits = new DeploymentUnit[] { new("u", unitVersion) };
+
+            var ex = Assert.ThrowsAsync<ArgumentException>(
+                async () => await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
+
+            Assert.AreEqual("Deployment unit version can't be null or empty.", ex!.Message);
+        }
+
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
             (await Client.GetClusterNodesAsync()).OrderBy(n => n.Name).Skip(index).Take(1).ToList();
     }

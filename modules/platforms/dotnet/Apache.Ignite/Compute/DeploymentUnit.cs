@@ -20,8 +20,8 @@ namespace Apache.Ignite.Compute;
 /// <summary>
 /// Deployment unit identifier.
 /// </summary>
-/// <param name="Name">Name.</param>
-/// <param name="Version">Version.</param>
+/// <param name="Name">Unit name.</param>
+/// <param name="Version">Unit version. Defaults to <see cref="LatestVersion"/>.</param>
 public sealed record DeploymentUnit(
     string Name,
     string Version = DeploymentUnit.LatestVersion)

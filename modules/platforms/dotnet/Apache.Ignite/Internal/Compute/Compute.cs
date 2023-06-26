@@ -156,6 +156,16 @@ namespace Apache.Ignite.Internal.Compute
                 w.WriteArrayHeader(unitsCol.Count);
                 foreach (var unit in units)
                 {
+                    if (string.IsNullOrEmpty(unit.Name))
+                    {
+                        throw new ArgumentException("Deployment unit name can't be null or empty.");
+                    }
+
+                    if (string.IsNullOrEmpty(unit.Version))
+                    {
+                        throw new ArgumentException("Deployment unit version can't be null or empty.");
+                    }
+
                     w.Write(unit.Name);
                     w.Write(unit.Version);
                 }
