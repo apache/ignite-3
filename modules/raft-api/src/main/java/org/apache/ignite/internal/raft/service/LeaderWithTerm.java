@@ -41,4 +41,12 @@ public class LeaderWithTerm {
     public long term() {
         return term;
     }
+
+    @Override
+    public String toString() {
+        return "LeaderWithTerm{" +
+                "leader=" + leader +
+                ", term=" + term +
+                '}';
+    }
 }

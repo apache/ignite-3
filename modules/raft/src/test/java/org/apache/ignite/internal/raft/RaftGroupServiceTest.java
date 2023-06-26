@@ -54,6 +54,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.LeaderMetadata;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -567,11 +568,11 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         RaftGroupService service = startRaftGroupService(NODES, false);
         mockReadIndex(false);
 
-        CompletableFuture<Long> fut = service.readIndex();
+        CompletableFuture<LeaderMetadata> fut = service.readLeaderMetadata();
 
         assertThat(fut, willSucceedFast());
 
-        assertEquals(1L, fut.join());
+        assertEquals(1L, fut.join().getIndex());
     }
 
     @Test
@@ -579,7 +580,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         RaftGroupService service = startRaftGroupService(NODES, false);
         mockReadIndex(true);
 
-        CompletableFuture<Long> fut = service.readIndex();
+        CompletableFuture<LeaderMetadata> fut = service.readLeaderMetadata();
 
         assertThat(fut, willThrowFast(TimeoutException.class));
     }

@@ -71,4 +71,13 @@ public class LeaderMetadata {
     public long getIndex() {
         return index;
     }
+
+    @Override
+    public String toString() {
+        return "LeaderMetadata{" +
+                "leader=" + leader +
+                ", term=" + term +
+                ", index=" + index +
+                '}';
+    }
 }

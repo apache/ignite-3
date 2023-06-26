@@ -18,25 +18,29 @@
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
 import java.util.concurrent.Executor;
+import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetLeaderWithMetaRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadLeaderMetadataRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosureAdapter;
 
 /**
- * The processor handles {@link GetLeaderWithMetaRequest}.
+ * The processor handles {@link ReadLeaderMetadataRequest}.
  */
-public class GetLeaderWithMetadataProcessor extends NodeRequestProcessor<GetLeaderWithMetaRequest> {
+public class ReadLeaderMetadataProcessor extends NodeRequestProcessor<ReadLeaderMetadataRequest> {
     /**
      * The constructor.
      *
      * @param executor Executor.
      * @param msgFactory Raft message factory.
      */
-    public GetLeaderWithMetadataProcessor(
+    public ReadLeaderMetadataProcessor(
             Executor executor,
             RaftMessagesFactory msgFactory
     ) {
@@ -45,13 +49,13 @@ public class GetLeaderWithMetadataProcessor extends NodeRequestProcessor<GetLead
 
     @Override
     public String interest() {
-        return GetLeaderWithMetaRequest.class.getName();
+        return ReadLeaderMetadataRequest.class.getName();
     }
 
     @Override
     protected Message processRequest0(
             RaftServerService serviceService,
-            GetLeaderWithMetaRequest request,
+            ReadLeaderMetadataRequest request,
             RpcRequestClosure done
     ) {
         serviceService.handleReadLeaderIndexRequest(
@@ -61,6 +65,18 @@ public class GetLeaderWithMetadataProcessor extends NodeRequestProcessor<GetLead
                     public void run(Status status) {
                         if (getResponse() != null) {
                             done.sendResponse(getResponse());
+                        } else if (status.getRaftError() == RaftError.EPERM) {
+                            PeerId leaderPeer = ((Node) serviceService).getLeaderId();
+
+                            String redirect = leaderPeer == null ? null : leaderPeer.toString();
+
+                            done.sendResponse(RaftRpcFactory.DEFAULT
+                                    .newResponse(
+                                            redirect,
+                                            msgFactory(),
+                                            RaftError.EPERM,
+                                            status.getErrorMsg()
+                                    ));
                         } else {
                             done.run(status);
                         }
@@ -72,12 +88,12 @@ public class GetLeaderWithMetadataProcessor extends NodeRequestProcessor<GetLead
     }
 
     @Override
-    protected String getPeerId(GetLeaderWithMetaRequest request) {
+    protected String getPeerId(ReadLeaderMetadataRequest request) {
         return request.peerId();
     }
 
     @Override
-    protected String getGroupId(GetLeaderWithMetaRequest request) {
+    protected String getGroupId(ReadLeaderMetadataRequest request) {
         return request.groupId();
     }
 }

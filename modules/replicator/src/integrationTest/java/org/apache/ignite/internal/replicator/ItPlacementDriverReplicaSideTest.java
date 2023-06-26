@@ -23,8 +23,12 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromConsistentIds;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
@@ -47,8 +51,11 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverActorMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -89,6 +96,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     private static final TestReplicationGroupId GROUP_ID = new TestReplicationGroupId("group_1");
 
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     private static final TestReplicaMessagesFactory TEST_REPLICA_MESSAGES_FACTORY = new TestReplicaMessagesFactory();
 
@@ -347,6 +356,80 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
         stopReplicationGroup(GROUP_ID, grpNodes);
     }
 
+    @Test
+    public void testLeaseGrantWhenMajorityLoss() throws Exception {
+        Set<String> grpNodes = chooseRandomNodes(3);
+
+        log.info("Replication group is based on {}", grpNodes);
+        log.info("Placement driver driver is based on {}", placementDriverNodeNames);
+
+        var raftClientFut = createReplicationGroup(GROUP_ID, grpNodes);
+
+        var raftClient = raftClientFut.get();
+
+        raftClient.refreshLeader().get();
+
+        var leaderNodeName = raftClient.leader().consistentId();
+
+        var clusterService = clusterServices.get(randomPlacementDriverNode(Set.of()));
+
+        var leaseGrantMsgFut = clusterService.messagingService().invoke(
+                clusterService.topologyService().getByConsistentId(leaderNodeName),
+                PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessage()
+                        .groupId(GROUP_ID)
+                        .leaseStartTimeLong(clock.nowLong())
+                        .leaseExpirationTimeLong(new HybridTimestamp(clock.now().getPhysical() + 10_000, 0).longValue())
+                        .build(),
+                2_000
+        );
+
+        assertThat(leaseGrantMsgFut, willCompleteSuccessfully());
+
+        LeaseGrantedMessageResponse leaseGrantResp = (LeaseGrantedMessageResponse) leaseGrantMsgFut.get();
+
+        assertTrue(leaseGrantResp.accepted());
+        assertNull(leaseGrantResp.redirectProposal());
+
+        var grpNodesToStop = grpNodes.stream().filter(n -> !n.equals(leaderNodeName)).collect(toSet());
+
+        log.info(
+                "All nodes of the replication group will be unavailable except leader [leader={}, others={}]",
+                leaderNodeName,
+                grpNodesToStop
+        );
+
+        for (String nodeToStop : grpNodesToStop) {
+            var srvc = clusterServices.get(nodeToStop);
+
+            srvc.beforeNodeStop();
+            srvc.stop();
+        }
+
+        clusterService = clusterServices.get(randomPlacementDriverNode(grpNodesToStop));
+
+        log.info(
+                "Placement driver node tries to prolong a lease [pdNode={}, grpLeader={}]",
+                clusterService.topologyService().localMember(),
+                leaderNodeName
+        );
+
+        var prolongLeaseFut = clusterService.messagingService().invoke(
+                clusterService.topologyService().getByConsistentId(leaderNodeName),
+                PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessage()
+                        .groupId(GROUP_ID)
+                        .leaseStartTimeLong(clock.nowLong())
+                        .leaseExpirationTimeLong(new HybridTimestamp(clock.now().getPhysical() + 10_000, 0).longValue())
+                        .build(),
+                2_000
+        );
+
+        Thread.sleep(4_000);
+
+        assertFalse(prolongLeaseFut.isDone());
+
+        stopReplicationGroup(GROUP_ID, grpNodes);
+    }
+
     /**
      * Gets a node name randomly.
      *
@@ -354,6 +437,22 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
      */
     private String randomNode(Set<String> exceptNodes) {
         ArrayList<String> list = new ArrayList<>(nodeNames);
+
+        list.removeAll(exceptNodes);
+
+        Collections.shuffle(list);
+
+        return list.get(0);
+    }
+
+    /**
+     * Gets placement driver node name randomly.
+     *
+     * @param exceptNodes Nodes to skip.
+     * @return Node name.
+     */
+    private String randomPlacementDriverNode(Set<String> exceptNodes) {
+        ArrayList<String> list = new ArrayList<>(placementDriverNodeNames);
 
         list.removeAll(exceptNodes);
 
