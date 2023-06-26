@@ -410,6 +410,32 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
+    public Entry getLocally(byte[] key, long revUpperBound) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+
+        try {
+            return storage.get(key, revUpperBound);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
+    public HybridTimestamp timestampByRevision(long revision) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+
+        try {
+            return storage.timestampByRevision(revision);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());

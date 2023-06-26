@@ -15,23 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.server;
-
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metastorage.WatchEvent;
+package org.apache.ignite.internal.hlc;
 
 /**
- * Interface for declaring callbacks that get called after all Meta Storage watches have been notified of a particular revision.
+ * Used to track updates of a {@link HybridClock}: it gets notified each time the clock 'ticks', including
+ * adjustments caused by external events.
  */
 @FunctionalInterface
-public interface OnRevisionAppliedCallback {
+public interface ClockUpdateListener {
     /**
-     * Notifies of completion of processing of Meta Storage watches for a particular revision.
+     * Called when the clock's current time advances.
      *
-     * @param watchEvent Event with modified Meta Storage entries processed by at least one Watch.
-     * @param newSafeTime Safe time of the applied revision.
-     * @return Future that represents the state of the execution of the callback.
+     * @param newTs New timestamp on the clock (represented as a long value, see {@link HybridTimestamp#longValue()}.
      */
-    CompletableFuture<Void> onRevisionApplied(WatchEvent watchEvent, HybridTimestamp newSafeTime);
+    void onUpdate(long newTs);
 }

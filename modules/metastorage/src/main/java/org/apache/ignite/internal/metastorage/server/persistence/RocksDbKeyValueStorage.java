@@ -1046,26 +1046,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         return incrementPrefix(key);
     }
 
-    private long timestamp(long revision) {
-        if (revision == 0) {
-            return 0;
-        }
-
-        long ts;
-
-        try {
-            byte[] tsBytes = revisionToTs.get(longToBytes(revision));
-
-            assert tsBytes != null;
-
-            ts = bytesToLong(tsBytes);
-        } catch (RocksDBException e) {
-            throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        }
-
-        return ts;
-    }
-
     /**
      * Adds a key to a batch marking the value as a tombstone.
      *
@@ -1567,8 +1547,17 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         finishReplay();
     }
 
-    private HybridTimestamp timestampByRevision(long revision) {
-        return HybridTimestamp.hybridTimestamp(timestamp(revision));
+    @Override
+    public HybridTimestamp timestampByRevision(long revision) {
+        try {
+            byte[] tsBytes = revisionToTs.get(longToBytes(revision));
+
+            assert tsBytes != null;
+
+            return HybridTimestamp.hybridTimestamp(bytesToLong(tsBytes));
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        }
     }
 
     private void finishReplay() {

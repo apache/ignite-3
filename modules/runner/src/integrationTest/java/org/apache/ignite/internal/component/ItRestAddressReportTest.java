@@ -36,6 +36,7 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.app.IgniteRunner;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.runner.app.IgniteRunnerTest;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.DisplayName;
@@ -76,7 +77,7 @@ public class ItRestAddressReportTest extends IgniteIntegrationTest {
                 .clusterName("cluster")
                 .build();
 
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         // Then node is started
         assertThat(ign, willCompleteSuccessfully());

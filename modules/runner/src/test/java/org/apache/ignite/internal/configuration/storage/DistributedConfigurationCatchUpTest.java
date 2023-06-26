@@ -42,6 +42,7 @@ import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -214,7 +215,7 @@ public class DistributedConfigurationCatchUpTest {
                         new EntryEvent(null, new EntryImpl(MASTER_KEY.bytes(), null, newRevision, -1)),
                         // Add a mock entry to simulate a configuration update.
                         new EntryEvent(null, new EntryImpl((DISTRIBUTED_PREFIX + "foobar").getBytes(UTF_8), null, newRevision, -1))
-                ), newRevision));
+                ), newRevision, HybridTimestamp.MAX_VALUE));
 
                 return true;
             });

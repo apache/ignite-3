@@ -42,6 +42,8 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
@@ -276,6 +278,8 @@ public class IgniteImpl implements Ignite {
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
+    private final ClockWaiter clockWaiter;
+
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
     private final RestAddressReporter restAddressReporter;
@@ -345,6 +349,8 @@ public class IgniteImpl implements Ignite {
         );
 
         clock = new HybridClockImpl();
+
+        clockWaiter = new ClockWaiter(name, clock);
 
         RaftConfiguration raftConfiguration = nodeConfigRegistry.getConfiguration(RaftConfiguration.KEY);
 
@@ -485,7 +491,15 @@ public class IgniteImpl implements Ignite {
 
         outgoingSnapshotsManager = new OutgoingSnapshotsManager(clusterSvc.messagingService());
 
-        catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageMgr, vaultMgr), clock);
+        SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry.getConfiguration(
+                SchemaSynchronizationConfiguration.KEY
+        );
+
+        catalogManager = new CatalogServiceImpl(
+                new UpdateLogImpl(metaStorageMgr),
+                clockWaiter,
+                () -> schemaSyncConfig.delayDuration().value()
+        );
 
         distributedTblMgr = new TableManager(
                 name,
@@ -675,6 +689,7 @@ public class IgniteImpl implements Ignite {
 
             // Start the components that are required to join the cluster.
             lifecycleManager.startComponents(
+                    clockWaiter,
                     nettyBootstrapFactory,
                     clusterSvc,
                     restComponent,
