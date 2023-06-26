@@ -174,7 +174,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
                 assert targetRevision != null;
 
-                extracted(res, targetRevision);
+                listenForRecovery(res, targetRevision);
             });
 
             return res;
@@ -183,7 +183,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
     }
 
-    private void extracted(CompletableFuture<Long> res, Long targetRevision) {
+    private void listenForRecovery(CompletableFuture<Long> res, Long targetRevision) {
         storage.setRevisionListener(storageRevision -> {
             if (!busyLock.enterBusy()) {
                 res.completeExceptionally(new NodeStoppingException());
