@@ -86,6 +86,7 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadLeaderMetadataRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -600,10 +601,14 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
      * Mock read index request.
      */
     private void mockReadIndex(boolean timeout) {
-        when(messagingService.invoke(any(ClusterNode.class), any(ReadIndexRequest.class), anyLong()))
+        when(messagingService.invoke(any(ClusterNode.class), any(ReadLeaderMetadataRequest.class), anyLong()))
                 .then(invocation -> timeout
                         ? failedFuture(new TimeoutException())
-                        : completedFuture(FACTORY.readIndexResponse().index(1L).build())
+                        : completedFuture(FACTORY.readLeaderMetadataResponse()
+                                .leaderId(PeerId.fromPeer(leader).toString())
+                                .currentTerm(CURRENT_TERM)
+                                .index(1L)
+                                .build())
                 );
     }
 
