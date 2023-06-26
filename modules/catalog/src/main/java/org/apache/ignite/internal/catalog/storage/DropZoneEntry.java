@@ -53,8 +53,8 @@ public class DropZoneEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken) {
-        return new DropZoneEventParameters(causalityToken, zoneId);
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new DropZoneEventParameters(causalityToken, catalogVersion, zoneId);
     }
 
     @Override

@@ -32,11 +32,17 @@ public class AddColumnEventParameters extends CatalogEventParameters {
      * Constructor.
      *
      * @param causalityToken Causality token.
+     * @param catalogVersion Catalog version.
      * @param tableId An id of table, which columns are added to.
      * @param columnDescriptors New columns descriptors.
      */
-    public AddColumnEventParameters(long causalityToken, int tableId, List<CatalogTableColumnDescriptor> columnDescriptors) {
-        super(causalityToken);
+    public AddColumnEventParameters(
+            long causalityToken,
+            int catalogVersion,
+            int tableId,
+            List<CatalogTableColumnDescriptor> columnDescriptors
+    ) {
+        super(causalityToken, catalogVersion);
 
         this.tableId = tableId;
         this.columnDescriptors = columnDescriptors;
