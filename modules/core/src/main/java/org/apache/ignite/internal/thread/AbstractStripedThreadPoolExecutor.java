@@ -1,0 +1,204 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.thread;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.NotNull;
+
+public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorService> implements ExecutorService {
+    /** Executors. */
+    private final E[] execs;
+
+    AbstractStripedThreadPoolExecutor(E[] execs) {
+        this.execs = execs;
+    }
+
+    /**
+     * Executes the given command at some time in the future. The command with the same {@code index} will be executed in the same thread.
+     *
+     * @param task the runnable task
+     * @param idx  Striped index.
+     * @throws RejectedExecutionException if this task cannot be accepted for execution.
+     * @throws NullPointerException       If command is null
+     */
+    public void execute(Runnable task, int idx) {
+        commandExecutor(idx).execute(task);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void execute(Runnable cmd) {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Submits a {@link Runnable} task for execution and returns a {@link CompletableFuture} representing that task. The command with the
+     * same {@code index} will be executed in the same thread.
+     *
+     * @param task The task to submit.
+     * @param idx  Striped index.
+     * @return a {@link Future} representing pending completion of the task.
+     * @throws RejectedExecutionException if the task cannot be scheduled for execution.
+     * @throws NullPointerException       if the task is {@code null}.
+     */
+    public CompletableFuture<?> submit(Runnable task, int idx) {
+        return CompletableFuture.runAsync(task, commandExecutor(idx));
+    }
+
+    /** {@inheritDoc} */
+    @NotNull
+    @Override
+    public <T> Future<T> submit(Callable<T> task) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @NotNull
+    @Override
+    public <T> Future<T> submit(Runnable task, T res) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @NotNull
+    @Override
+    public Future<?> submit(Runnable task) {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Sets stripped thread ID.
+     *
+     * @param idx Index.
+     * @return Stripped thread ID.
+     */
+    public int threadId(int idx) {
+        return idx < execs.length ? idx : idx % execs.length;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void shutdown() {
+        for (E exec : execs) {
+            exec.shutdown();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<Runnable> shutdownNow() {
+        if (execs.length == 0) {
+            return Collections.emptyList();
+        }
+
+        List<Runnable> res = new ArrayList<>(execs.length);
+
+        for (E exec : execs) {
+            for (Runnable r : exec.shutdownNow()) {
+                res.add(r);
+            }
+        }
+
+        return res;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isShutdown() {
+        for (E exec : execs) {
+            if (!exec.isShutdown()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isTerminated() {
+        for (E exec : execs) {
+            if (!exec.isTerminated()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
+        boolean res = true;
+
+        for (E exec : execs) {
+            res &= exec.awaitTermination(timeout, unit);
+        }
+
+        return res;
+    }
+
+    /** {@inheritDoc} */
+    @NotNull
+    @Override
+    public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @NotNull
+    @Override
+    public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks,
+            long timeout,
+            TimeUnit unit) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @NotNull
+    @Override
+    public <T> T invokeAny(Collection<? extends Callable<T>> tasks) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> T invokeAny(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(AbstractStripedThreadPoolExecutor.class, this);
+    }
+
+    E commandExecutor(int idx) {
+        return execs[threadId(idx)];
+    }
+}
