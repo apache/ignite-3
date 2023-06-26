@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.cli.call.unit;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -27,31 +26,20 @@ import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.UnitStatus;
 
 /** List units call. */
-public abstract class ListUnitCall implements Call<ListUnitCallInput, List<UnitStatusRecord>> {
+public abstract class ListUnitCall implements Call<ListUnitCallInput, List<UnitStatus>> {
 
     @Override
-    public CallOutput<List<UnitStatusRecord>> execute(ListUnitCallInput input) {
+    public CallOutput<List<UnitStatus>> execute(ListUnitCallInput input) {
         try {
             List<UnitStatus> units = getStatuses(input);
             if (units.isEmpty()) {
                 return DefaultCallOutput.empty();
             }
-            return DefaultCallOutput.success(
-                    units.stream()
-                            .map(ListUnitCall::toRecord)
-                            .collect(Collectors.toList())
-            );
+            return DefaultCallOutput.success(units);
         } catch (ApiException e) {
             return DefaultCallOutput.failure(new IgniteCliApiException(e, input.url()));
         }
     }
 
     protected abstract List<UnitStatus> getStatuses(ListUnitCallInput input) throws ApiException;
-
-    private static UnitStatusRecord toRecord(UnitStatus unitStatus) {
-        return new UnitStatusRecord(
-                unitStatus.getId(),
-                unitStatus.getVersionToStatus()
-        );
-    }
 }

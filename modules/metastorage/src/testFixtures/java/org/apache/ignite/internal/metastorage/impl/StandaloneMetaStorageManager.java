@@ -118,7 +118,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         RaftGroupService raftGroupService = mock(RaftGroupService.class);
 
         try {
-            when(raftManager.startRaftGroupNode(
+            when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(
                     any(),
                     any(),
                     listenerCaptor.capture(),
