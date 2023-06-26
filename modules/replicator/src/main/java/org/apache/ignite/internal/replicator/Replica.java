@@ -168,8 +168,8 @@ public class Replica {
 
         return readyMajority.thenCompose(unused -> raftClient.readLeaderMetadata()).thenCompose(leaderMetadata -> {
             assert leaseExpirationTime == null || msg.leaseExpirationTime().after(leaseExpirationTime) :
-                    "Invalid lease expiration time in message [leaseExpirationTime=" + leaseExpirationTime +
-                            ", msgLeaseExpirationTime=" + msg.leaseExpirationTime() + ']';
+                    "Invalid lease expiration time in message [leaseExpirationTime=" + leaseExpirationTime
+                            + ", msgLeaseExpirationTime=" + msg.leaseExpirationTime() + ']';
 
             if (msg.force()) {
                 // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
