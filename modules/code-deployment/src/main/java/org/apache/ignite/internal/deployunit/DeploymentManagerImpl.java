@@ -339,11 +339,11 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     @Override
     public CompletableFuture<Version> detectLatestDeployedVersion(String id) {
         return clusterStatusesAsync(id)
-                .thenApply(statuses -> statuses.versions()
-                        .stream()
-                        .filter(version -> statuses.status(version) == DEPLOYED)
-                        .max(Version::compareTo)
-                        .orElseThrow(() -> new DeploymentUnitNotFoundException(id)));
+                .thenApply(statuses -> statuses.versionStatuses().stream()
+                        .filter(e -> e.getStatus() == DEPLOYED)
+                        .reduce((first, second) -> second)
+                        .orElseThrow(() -> new DeploymentUnitNotFoundException(id))
+                        .getVersion());
     }
 
     @Override
