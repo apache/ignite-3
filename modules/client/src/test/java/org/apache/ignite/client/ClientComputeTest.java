@@ -171,6 +171,7 @@ public class ClientComputeTest {
 
             assertEquals("", getUnits.apply(List.of()));
             assertEquals("u1:1.2.3", getUnits.apply(List.of(new DeploymentUnit("u1", "1.2.3"))));
+            assertEquals("u:latest", getUnits.apply(List.of(new DeploymentUnit("u", "LaTeSt"))));
             assertEquals(
                     "u1:1.2.3,unit2:latest",
                     getUnits.apply(List.of(new DeploymentUnit("u1", "1.2.3"), new DeploymentUnit("unit2", Version.LATEST))));
