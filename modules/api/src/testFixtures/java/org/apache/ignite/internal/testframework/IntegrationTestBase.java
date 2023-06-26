@@ -129,7 +129,7 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
 
         configureInitParameters(builder);
 
-        IgnitionManager.init(builder.build());
+        TestIgnitionManager.init(builder.build());
 
         awaitClusterInitialized();
     }

@@ -57,6 +57,7 @@ import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
@@ -323,7 +324,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new RaftGroupEventsClientListener()
         );
 
-        var catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageMgr, vault), hybridClock);
+        var clockWaiter = new ClockWaiter("test", hybridClock);
+
+        var catalogManager = new CatalogServiceImpl(
+                new UpdateLogImpl(metaStorageMgr),
+                clockWaiter
+        );
 
         TableManager tableManager = new TableManager(
                 name,
@@ -393,6 +399,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metaStorageMgr,
                 clusterCfgMgr,
                 dataStorageManager,
+                clockWaiter,
                 catalogManager,
                 schemaManager,
                 distributionZoneManager,
@@ -462,7 +469,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                     .metaStorageNodeNames(List.of(nodeName))
                     .clusterName("cluster")
                     .build();
-            IgnitionManager.init(initParameters);
+            TestIgnitionManager.init(initParameters);
         }
 
         assertThat(future, willCompleteSuccessfully());
@@ -523,7 +530,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                     .metaStorageNodeNames(List.of(nodeName))
                     .clusterName("cluster")
                     .build();
-            IgnitionManager.init(initParameters);
+            TestIgnitionManager.init(initParameters);
         }
 
         return futures.stream()
