@@ -31,10 +31,16 @@ import org.apache.ignite.lang.NodeStoppingException;
  * {@code startRaftGroupNodeAndWaitNodeReadyFuture} (and its overloads). When using {@code #startRaftGroupNode}, Raft log re-application
  * does not get performed and external synchronisation methods must be used to avoid observing a Raft node in inconsistent state. The other
  * group of methods synchronously waits for the Raft log to be re-applied, so no external synchronisation is required.
+ *
+ * <p>Usually Raft recovery is done synchronously, but sometimes there's an implicit dependency between Raft nodes, where the recovery of
+ * one node triggers the recovery of the other and vice versa. In this case, {@code #startRaftGroupNode} group of methods should be used
+ * to avoid deadlocks during Raft node startup.
  */
 public interface RaftManager extends IgniteComponent {
     /**
      * Starts a Raft group and a Raft service on the current node, using the given service factory.
+     *
+     * <p>Does not wait for the Raft log to be applied.
      *
      * @param nodeId Raft node ID.
      * @param configuration Peers and Learners of the Raft group.
