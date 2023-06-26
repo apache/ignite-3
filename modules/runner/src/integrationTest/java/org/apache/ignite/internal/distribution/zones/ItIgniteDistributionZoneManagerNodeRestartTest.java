@@ -495,8 +495,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                             .dataNodesAutoAdjustScaleDown(0)
                             .build()
             ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-
-            assertTrue(waitForCondition(() -> distributionZoneManager.zonesState().get(zoneId) != null, TIMEOUT_MILLIS));
         }
     }
 }

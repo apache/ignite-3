@@ -800,36 +800,13 @@ public class DistributionZoneManager implements IgniteComponent {
 
         // First creation of the zone
         if (topologyAugmentationMapFromVault == null) {
+            ZoneState zoneState = new ZoneState(executor);
+
+            zonesState.putIfAbsent(zoneId, zoneState);
+
             Set<Node> dataNodes = logicalTopology.stream().map(NodeWithAttributes::node).collect(toSet());
 
-            saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                    zoneId,
-                    revision,
-                    dataNodes
-            ).whenComplete((res, e) -> {
-                if (e != null) {
-                    LOG.error(
-                            "Failed to update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]",
-                            e,
-                            zoneId,
-                            dataNodes,
-                            revision
-                    );
-                } else if (res.getAsBoolean()) {
-                    LOG.debug("Update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]", zoneId, dataNodes, revision);
-
-                    ZoneState zoneState = new ZoneState(executor);
-
-                    zonesState.putIfAbsent(zoneId, zoneState);
-                } else {
-                    LOG.debug(
-                            "Failed to update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]",
-                            zoneId,
-                            dataNodes,
-                            revision
-                    );
-                }
-            });
+            saveDataNodesAndUpdateTriggerKeysInMetaStorage(zoneId, revision, dataNodes);
         } else {
             // Restart case
             ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap = fromBytes(topologyAugmentationMapFromVault.value());
@@ -875,7 +852,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param revision Revision of an event that has triggered this method.
      * @param dataNodes Data nodes.
      */
-    private CompletableFuture<StatementResult> saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+    private void saveDataNodesAndUpdateTriggerKeysInMetaStorage(
             int zoneId,
             long revision,
             Set<Node> dataNodes
@@ -893,7 +870,26 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Iif iif = iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
 
-            return metaStorageManager.invoke(iif);
+            metaStorageManager.invoke(iif).whenComplete((res, e) -> {
+                if (e != null) {
+                    LOG.error(
+                            "Failed to update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]",
+                            e,
+                            zoneId,
+                            dataNodes,
+                            revision
+                    );
+                } else if (res.getAsBoolean()) {
+                    LOG.debug("Update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]", zoneId, dataNodes, revision);
+                } else {
+                    LOG.debug(
+                            "Failed to update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]",
+                            zoneId,
+                            dataNodes,
+                            revision
+                    );
+                }
+            });
         } finally {
             busyLock.leaveBusy();
         }
