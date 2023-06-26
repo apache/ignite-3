@@ -59,7 +59,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Consumer;
+import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -176,7 +176,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * Revision listener for recovery only. Notifies {@link MetaStorageManagerImpl} of revision update.
      * Guarded by {@link #rwLock}.
      */
-    private Consumer<Long> revisionListener;
+    private LongConsumer revisionListener;
 
     /**
      * Revision. Will be incremented for each single-entry or multi-entry update operation.
@@ -1589,7 +1589,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void setRevisionListener(@Nullable Consumer<Long> listener) {
+    public void setRevisionListener(@Nullable LongConsumer listener) {
         rwLock.writeLock().lock();
 
         try {

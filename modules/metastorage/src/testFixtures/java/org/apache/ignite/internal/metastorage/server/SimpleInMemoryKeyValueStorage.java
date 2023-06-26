@@ -38,7 +38,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
+import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -93,7 +93,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
      * Revision listener for recovery only. Notifies {@link MetaStorageManagerImpl} of revision update.
      * Guarded by {@link #mux}.
      */
-    private Consumer<Long> revisionListener;
+    private LongConsumer revisionListener;
 
     public SimpleInMemoryKeyValueStorage(String nodeName) {
         this.watchProcessor = new WatchProcessor(nodeName, this::get);
@@ -433,7 +433,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void setRevisionListener(@Nullable Consumer<Long> listener) {
+    public void setRevisionListener(@Nullable LongConsumer listener) {
         synchronized (mux) {
             this.revisionListener = listener;
         }

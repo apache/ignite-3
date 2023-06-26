@@ -21,7 +21,7 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
+import java.util.function.LongConsumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -300,5 +300,5 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * @param listener Revision listener.
      */
-    void setRevisionListener(@Nullable Consumer<Long> listener);
+    void setRevisionListener(@Nullable LongConsumer listener);
 }
