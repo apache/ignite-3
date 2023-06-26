@@ -51,6 +51,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.awaitility.Awaitility;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -350,6 +351,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         assertThat(node.clusterManager().onJoinReady(), willCompleteSuccessfully());
     }
 
+    @RepeatedTest(100)
     @Test
     void testClusterConfigurationIsRemovedFromClusterStateAfterUpdating(TestInfo testInfo) throws Exception {
         // Start a cluster of 3 nodes so that the CMG leader node could be stopped later.
