@@ -188,7 +188,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             this.buf = buf;
 
             heapArr = buf.isDirect() ? null : buf.array();
-            baseOff = buf.isDirect() ? GridUnsafe.bufferAddress(buf) : BYTE_ARR_OFF;
+            baseOff = buf.isDirect() ? GridUnsafe.bufferAddress(buf) : BYTE_ARR_OFF + buf.arrayOffset();
         }
     }
 
