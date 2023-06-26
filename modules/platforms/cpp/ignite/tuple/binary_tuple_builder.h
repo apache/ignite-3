@@ -90,16 +90,14 @@ public:
     /**
      * @brief Assigns a null value for the next element.
      */
-    void claim_null() noexcept {
-        claim(0);
-    }
+    void claim_null() noexcept { claim(0); }
 
     /**
      * @brief Assigns a binary value for the next element.
      *
      * @param value Element value.
      */
-    void claim_varlen(const bytes_view &value) noexcept { 
+    void claim_varlen(const bytes_view &value) noexcept {
         auto size = value.size();
         if (size == 0 || value[0] == binary_tuple_common::VARLEN_EMPTY_BYTE) {
             size++;
@@ -526,9 +524,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static tuple_size_t gauge_number(const big_integer &value) noexcept {
-        return tuple_size_t(value.byte_size());
-    }
+    static tuple_size_t gauge_number(const big_integer &value) noexcept { return tuple_size_t(value.byte_size()); }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -546,7 +542,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static tuple_size_t gauge_uuid(const uuid &/*value*/) noexcept { return 16; }
+    static tuple_size_t gauge_uuid(const uuid & /*value*/) noexcept { return 16; }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -554,7 +550,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static tuple_size_t gauge_date(const ignite_date &/*value*/) noexcept { return 3; }
+    static tuple_size_t gauge_date(const ignite_date & /*value*/) noexcept { return 3; }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -625,9 +621,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static tuple_size_t gauge_duration(const ignite_duration &value) noexcept {
-        return value.get_nano() == 0 ? 8 : 12;
-    }
+    static tuple_size_t gauge_duration(const ignite_duration &value) noexcept { return value.get_nano() == 0 ? 8 : 12; }
 
     /**
      * @brief Reserves space for the next element.

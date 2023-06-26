@@ -425,8 +425,8 @@ TEST(tuple, VarlenNullableColumns) { // NOLINT(cert-err58-cpp)
     {
         auto values = std::make_tuple("abc"s, std::nullopt, "我愛Java"s, "yz"s, std::nullopt, "ascii"s);
 
-        int8_t binary[] = {0, 3, 3, 13, 15, 15, 20, 97, 98, 99, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
-            121, 122, 97, 115, 99, 105, 105};
+        int8_t binary[] = {0, 3, 3, 13, 15, 15, 20, 97, 98, 99, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 121,
+            122, 97, 115, 99, 105, 105};
 
         check_reader_writer_equality(values, binary);
     }
@@ -469,8 +469,8 @@ TEST(tuple, FixedAndVarlenNullableColumns) { // NOLINT(cert-err58-cpp)
         auto values = std::make_tuple(
             int8_t{11}, int16_t{22}, std::nullopt, "我愛Java"s, int8_t{55}, int16_t{66}, "yz"s, std::nullopt);
 
-        int8_t binary[] = {0, 1, 2, 2, 12, 13, 14, 16, 16, 11, 22, -26, -120, -111, -26, -124, -101, 74, 97, 118,
-            97, 55, 66, 121, 122};
+        int8_t binary[] = {0, 1, 2, 2, 12, 13, 14, 16, 16, 11, 22, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
+            55, 66, 121, 122};
 
         check_reader_writer_equality(values, binary);
     }
