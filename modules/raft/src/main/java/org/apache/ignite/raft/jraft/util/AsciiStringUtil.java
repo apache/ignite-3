@@ -21,6 +21,14 @@ package org.apache.ignite.raft.jraft.util;
  */
 public final class AsciiStringUtil {
 
+    public static byte[] unsafeEncode(final CharSequence in, byte[] out, int offset) {
+        final int len = in.length();
+        for (int i = 0; i < len; i++) {
+            out[i + offset] = (byte) in.charAt(i);
+        }
+        return out;
+    }
+
     public static byte[] unsafeEncode(final CharSequence in) {
         final int len = in.length();
         final byte[] out = new byte[len];

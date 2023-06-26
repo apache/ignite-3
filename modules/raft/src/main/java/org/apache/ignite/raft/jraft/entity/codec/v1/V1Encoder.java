@@ -26,6 +26,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 import org.apache.ignite.raft.jraft.util.AsciiStringUtil;
 import org.apache.ignite.raft.jraft.util.Bits;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * V1 log entry encoder
@@ -36,6 +37,7 @@ public final class V1Encoder implements LogEntryEncoder {
 
     public static final LogEntryEncoder INSTANCE = new V1Encoder();
 
+    // Refactored to look closer to Ignites code style.
     @Override
     public byte[] encode(final LogEntry log) {
         EntryType type = log.getType();
@@ -46,88 +48,42 @@ public final class V1Encoder implements LogEntryEncoder {
         List<PeerId> oldLearners = log.getOldLearners();
         ByteBuffer data = log.getData();
 
-        // magic number 1 byte
-        int totalLen = 1;
-        final int iType = type.getNumber();
-        final long index = id.getIndex();
-        final long term = id.getTerm();
-        // type + index + term + checksum(8)
-        totalLen += sizeInBytes(iType) + sizeInBytes(index) + sizeInBytes(term) + 8;
+        int totalLen = LogEntryV1CodecFactory.PAYLOAD_OFFSET;
+        int typeNumber = type.getNumber();
+        long index = id.getIndex();
+        long term = id.getTerm();
+
+        totalLen += sizeInBytes(typeNumber) + sizeInBytes(index) + sizeInBytes(term) + 8;
 
         List<String> peerStrs = null;
-        int peerCount = 0;
         List<String> oldPeerStrs = null;
-        int oldPeerCount = 0;
         List<String> learnerStrs = null;
-        int learnerCount = 0;
         List<String> oldLearnerStrs = null;
-        int oldLearnerCount = 0;
 
         if (type != EntryType.ENTRY_TYPE_DATA) {
             peerStrs = new ArrayList<>();
-            if (peers != null) {
-                peerCount = peers.size();
-                for (final PeerId peer : peers) {
-                    final String peerStr = peer.toString();
-                    // peer len (short in 2 bytes)
-                    // peer str
-                    totalLen += 2 + peerStr.length();
-                    peerStrs.add(peerStr);
-                }
-            }
-            totalLen += sizeInBytes(peerCount);
+            totalLen += nodesListSizeInBytes(peers, peerStrs);
 
             oldPeerStrs = new ArrayList<>();
-            if (oldPeers != null) {
-                oldPeerCount = oldPeers.size();
-                for (final PeerId peer : oldPeers) {
-                    final String peerStr = peer.toString();
-                    // peer len (short in 2 bytes)
-                    // peer str
-                    totalLen += 2 + peerStr.length();
-                    oldPeerStrs.add(peerStr);
-                }
-            }
-            totalLen += sizeInBytes(oldPeerCount);
+            totalLen += nodesListSizeInBytes(oldPeers, oldPeerStrs);
 
             learnerStrs = new ArrayList<>();
-            if (learners != null) {
-                learnerCount = learners.size();
-                for (final PeerId learner : learners) {
-                    final String learnerStr = learner.toString();
-                    // learner len (short in 2 bytes)
-                    // learner str
-                    totalLen += 2 + learnerStr.length();
-                    learnerStrs.add(learnerStr);
-                }
-            }
-            totalLen += sizeInBytes(learnerCount);
+            totalLen += nodesListSizeInBytes(learners, learnerStrs);
 
             oldLearnerStrs = new ArrayList<>();
-            if (oldLearners != null) {
-                oldLearnerCount = oldLearners.size();
-                for (final PeerId oldLearner : oldLearners) {
-                    final String learnerStr = oldLearner.toString();
-                    // oldLearner len (short in 2 bytes)
-                    // oldLearner str
-                    totalLen += 2 + learnerStr.length();
-                    oldLearnerStrs.add(learnerStr);
-                }
-            }
-            totalLen += sizeInBytes(oldLearnerCount);
+            totalLen += nodesListSizeInBytes(oldLearners, oldLearnerStrs);
         }
 
         if (type != EntryType.ENTRY_TYPE_CONFIGURATION) {
-            final int bodyLen = data != null ? data.remaining() : 0;
+            int bodyLen = data != null ? data.remaining() : 0;
             totalLen += bodyLen;
         }
 
-        final byte[] content = new byte[totalLen];
-        // {0} magic
+        byte[] content = new byte[totalLen];
         content[0] = LogEntryV1CodecFactory.MAGIC;
-        int pos = 1;
+        int pos = LogEntryV1CodecFactory.PAYLOAD_OFFSET;
 
-        pos = writeLong(iType, content, pos);
+        pos = writeLong(typeNumber, content, pos);
         pos = writeLong(index, content, pos);
         pos = writeLong(term, content, pos);
 
@@ -135,57 +91,54 @@ public final class V1Encoder implements LogEntryEncoder {
         pos += Long.BYTES;
 
         if (type != EntryType.ENTRY_TYPE_DATA) {
-            // peer count
-            pos = writeLong(peerCount, content, pos);
-            // peers
-            for (final String peerStr : peerStrs) {
-                final byte[] ps = AsciiStringUtil.unsafeEncode(peerStr);
-                Bits.putShort(content, pos, (short) peerStr.length());
-                System.arraycopy(ps, 0, content, pos + 2, ps.length);
-                pos += 2 + ps.length;
-            }
+            pos = writeNodesList(pos, content, peerStrs);
 
-            // old peers count
-            pos = writeLong(oldPeerCount, content, pos);
-            // old peers
-            for (final String peerStr : oldPeerStrs) {
-                final byte[] ps = AsciiStringUtil.unsafeEncode(peerStr);
-                Bits.putShort(content, pos, (short) peerStr.length());
-                System.arraycopy(ps, 0, content, pos + 2, ps.length);
-                pos += 2 + ps.length;
-            }
+            pos = writeNodesList(pos, content, oldPeerStrs);
 
-            // learners count
-            pos = writeLong(learnerCount, content, pos);
-            // learners
-            for (final String peerStr : learnerStrs) {
-                final byte[] ps = AsciiStringUtil.unsafeEncode(peerStr);
-                Bits.putShort(content, pos, (short) peerStr.length());
-                System.arraycopy(ps, 0, content, pos + 2, ps.length);
-                pos += 2 + ps.length;
-            }
+            pos = writeNodesList(pos, content, learnerStrs);
 
-            // old learners count
-            pos = writeLong(oldLearnerCount, content, pos);
-            // old learners
-            for (final String peerStr : oldLearnerStrs) {
-                final byte[] ps = AsciiStringUtil.unsafeEncode(peerStr);
-                Bits.putShort(content, pos, (short) peerStr.length());
-                System.arraycopy(ps, 0, content, pos + 2, ps.length);
-                pos += 2 + ps.length;
-            }
+            pos = writeNodesList(pos, content, oldLearnerStrs);
         }
 
-        if (type != EntryType.ENTRY_TYPE_CONFIGURATION) {
-            // data
-            if (data != null) {
-                System.arraycopy(data.array(), data.position(), content, pos, data.remaining());
-            }
+        if (type != EntryType.ENTRY_TYPE_CONFIGURATION && data != null) {
+            System.arraycopy(data.array(), data.position(), content, pos, data.remaining());
         }
 
         return content;
     }
 
+    private static int nodesListSizeInBytes(@Nullable List<PeerId> nodes, List<String> nodeStrs) {
+        int size = 0;
+
+        if (nodes != null) {
+            for (PeerId node : nodes) {
+                String nodeStr = node.toString();
+
+                nodeStrs.add(nodeStr);
+                size += 2 + nodeStr.length();
+            }
+        }
+
+        return size + sizeInBytes(nodeStrs.size());
+    }
+
+    private static int writeNodesList(int pos, byte[] content, List<String> nodeStrs) {
+        pos = writeLong(nodeStrs.size(), content, pos);
+
+        for (String nodeStr : nodeStrs) {
+            int length = nodeStr.length();
+
+            Bits.putShort(content, pos, (short) length);
+            pos += 2;
+
+            AsciiStringUtil.unsafeEncode(nodeStr, content, pos);
+            pos += length;
+        }
+
+        return pos;
+    }
+
+    // Based on DirectByteBufferStreamImplV1.
     private static int writeLong(long val, byte[] out, int pos) {
         while ((val & 0xFFFF_FFFF_FFFF_FF80L) != 0) {
             byte b = (byte) (val | 0x80);
@@ -200,6 +153,9 @@ public final class V1Encoder implements LogEntryEncoder {
         return pos;
     }
 
+    /**
+     * Returns the number of bytes, required by the {@link #writeLong(long, byte[], int)} to write the value.
+    */
     private static int sizeInBytes(long val) {
         if (val >= 0) {
             if (val < (1L << 7)) {

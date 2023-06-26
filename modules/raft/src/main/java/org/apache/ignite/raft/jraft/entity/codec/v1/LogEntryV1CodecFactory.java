@@ -28,6 +28,9 @@ public class LogEntryV1CodecFactory implements LogEntryCodecFactory {
     //"Beeep boop beep beep boop beeeeeep" -BB8
     public static final byte MAGIC = (byte) 0xB8;
 
+    // Size of the magic header.
+    public static final int PAYLOAD_OFFSET = 1;
+
     private LogEntryV1CodecFactory() {
     }
 
