@@ -23,12 +23,24 @@ import org.apache.ignite.internal.manager.EventParameters;
  * Base class for Catalog event parameters.
  */
 public abstract class CatalogEventParameters extends EventParameters {
+    private final int catalogVersion;
+
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
+     * @param catalogVersion Catalog version.
      */
-    public CatalogEventParameters(long causalityToken) {
+    public CatalogEventParameters(long causalityToken, int catalogVersion) {
         super(causalityToken);
+
+        this.catalogVersion = catalogVersion;
+    }
+
+    /**
+     * Returns catalog version.
+     */
+    public int catalogVersion() {
+        return catalogVersion;
     }
 }
