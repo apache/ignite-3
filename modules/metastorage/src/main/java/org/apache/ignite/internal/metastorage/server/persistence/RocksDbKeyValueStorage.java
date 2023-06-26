@@ -59,6 +59,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -70,6 +71,7 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -169,6 +171,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     /** Snapshot manager. */
     private volatile RocksSnapshotManager snapshotManager;
+
+    /**
+     * Revision listener for recovery only. Notifies {@link MetaStorageManagerImpl} of revision update.
+     * Guarded by {@link #rwLock}.
+     */
+    private Consumer<Long> revisionListener;
 
     /**
      * Revision. Will be incremented for each single-entry or multi-entry update operation.
@@ -311,6 +319,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
     }
 
+    private void notifyRevisionUpdate() {
+        if (revisionListener != null) {
+            revisionListener.accept(rev);
+        }
+    }
+
     /**
      * Clear the RocksDB instance. The major difference with directly deleting the DB directory manually is that destroyDB() will take care
      * of the case where the RocksDB database is stored in multiple directories. For instance, a single DB can be configured to store its
@@ -359,6 +373,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             rev = currentRevision;
 
             updCntr = bytesToLong(data.get(UPDATE_COUNTER_KEY));
+
+            notifyRevisionUpdate();
         } catch (Exception e) {
             throw new MetaStorageException(RESTORING_STORAGE_ERR, "Failed to restore snapshot", e);
         } finally {
@@ -461,6 +477,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         updatedEntries.ts = ts;
 
         queueWatchEvent();
+
+        notifyRevisionUpdate();
     }
 
     private static byte[] hybridTsToArray(HybridTimestamp ts) {
@@ -1577,6 +1595,17 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             }
 
             recoveryStatus.set(RecoveryStatus.DONE);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public void setRevisionListener(@Nullable Consumer<Long> listener) {
+        rwLock.writeLock().lock();
+
+        try {
+            this.revisionListener = listener;
         } finally {
             rwLock.writeLock().unlock();
         }

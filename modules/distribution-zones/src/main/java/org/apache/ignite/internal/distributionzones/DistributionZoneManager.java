@@ -1496,7 +1496,6 @@ public class DistributionZoneManager implements IgniteComponent {
                 return completedFuture(DEFAULT_ZONE_ID);
             }
 
-            // TODO: IGNITE-16288 directZoneId should use async configuration API
             return supplyAsync(() -> directZoneIdInternal(zoneName), executor)
                     .thenCompose(zoneId -> {
                         if (zoneId == null) {

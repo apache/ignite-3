@@ -30,8 +30,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.TimeUnit;
@@ -64,7 +62,6 @@ import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
@@ -166,47 +163,64 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         try {
             CompletableFuture<Long> res = new CompletableFuture<>();
 
-            ExecutorService recoveryExecutor = Executors.newSingleThreadExecutor(
-                    NamedThreadFactory.create(clusterService.nodeName(), "ms-start", LOG)
-            );
-
-            service.currentRevision().whenCompleteAsync((revision, throwable) -> {
+            service.currentRevision().whenComplete((targetRevision, throwable) -> {
                 if (throwable != null) {
                     res.completeExceptionally(throwable);
 
                     return;
                 }
 
-                LOG.info("Performing MetaStorage recovery from revision {} to {}", storage.revision(), revision);
+                LOG.info("Performing MetaStorage recovery from revision {} to {}", storage.revision(), targetRevision);
 
-                assert revision != null;
+                assert targetRevision != null;
 
-                // Busy wait is ok here, because other threads are not doing any real work,
-                // and for node to start we must wait until storage is up to this revision.
-                while (storage.revision() < revision) {
-                    if (!busyLock.enterBusy()) {
-                        res.completeExceptionally(new NodeStoppingException());
+                extracted(res, targetRevision);
+            });
 
-                        return;
-                    }
+            return res;
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
 
-                    try {
-                        Thread.sleep(10);
-                    } catch (InterruptedException ignored) {
-                        // Ignore. If we are being shut down, then busy lock will stop us.
-                    } finally {
-                        busyLock.leaveBusy();
-                    }
+    private void extracted(CompletableFuture<Long> res, Long targetRevision) {
+        storage.setRevisionListener(storageRevision -> {
+            if (!busyLock.enterBusy()) {
+                res.completeExceptionally(new NodeStoppingException());
+
+                return;
+            }
+
+            try {
+                if (storageRevision < targetRevision) {
+                    return;
                 }
 
-                LOG.info("Finished MetaStorage recovery");
+                storage.setRevisionListener(null);
 
-                res.complete(revision);
-            }, recoveryExecutor);
+                if (res.complete(targetRevision)) {
+                    LOG.info("Finished MetaStorage recovery");
+                }
+            } finally {
+                busyLock.leaveBusy();
+            }
+        });
 
-            return res.whenComplete((s, t) -> {
-                recoveryExecutor.shutdown();
-            });
+        if (!busyLock.enterBusy()) {
+            res.completeExceptionally(new NodeStoppingException());
+
+            return;
+        }
+
+        // Storage might be already up-to-date, so check here manually after setting the listener.
+        try {
+            if (storage.revision() >= targetRevision) {
+                storage.setRevisionListener(null);
+
+                if (res.complete(targetRevision)) {
+                    LOG.info("Finished MetaStorage recovery");
+                }
+            }
         } finally {
             busyLock.leaveBusy();
         }

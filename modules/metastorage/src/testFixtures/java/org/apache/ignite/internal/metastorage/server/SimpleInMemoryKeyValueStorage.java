@@ -38,6 +38,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -48,6 +49,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -86,6 +88,12 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private final WatchProcessor watchProcessor;
 
     private final List<Entry> updatedEntries = new ArrayList<>();
+
+    /**
+     * Revision listener for recovery only. Notifies {@link MetaStorageManagerImpl} of revision update.
+     * Guarded by {@link #mux}.
+     */
+    private Consumer<Long> revisionListener;
 
     public SimpleInMemoryKeyValueStorage(String nodeName) {
         this.watchProcessor = new WatchProcessor(nodeName, this::get);
@@ -128,6 +136,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         revToTsMap.put(rev, ts);
 
         notifyWatches();
+
+        notifyRevisionUpdate();
+    }
+
+    private void notifyRevisionUpdate() {
+        if (revisionListener != null) {
+            revisionListener.accept(rev);
+        }
     }
 
     @Override
@@ -413,6 +429,13 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     public HybridTimestamp timestampByRevision(long revision) {
         synchronized (mux) {
             return Objects.requireNonNull(revToTsMap.get(revision), "Revision " + revision + " not found");
+        }
+    }
+
+    @Override
+    public void setRevisionListener(@Nullable Consumer<Long> listener) {
+        synchronized (mux) {
+            this.revisionListener = listener;
         }
     }
 
