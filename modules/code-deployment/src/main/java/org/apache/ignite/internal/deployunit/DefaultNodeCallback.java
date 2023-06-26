@@ -56,8 +56,8 @@ public class DefaultNodeCallback extends NodeEventCallback {
      *
      * @param deploymentUnitStore Deployment units store.
      * @param messaging Deployment messaging service.
-     * @param undeployer Deployment unit undeployer.
      * @param deployer Deployment unit file system service.
+     * @param undeployer Deployment unit undeployer.
      * @param cmgManager Cluster management group manager.
      * @param nodeName Node consistent ID.
      */
