@@ -210,7 +210,7 @@ public class PrepareServiceImpl implements PrepareService {
         }
 
         return planCache.computeIfAbsent(createCacheKey(normalizedQuery, ctx), k ->
-                        supplyAsync(() -> parse(query, queryContext, ctx)).thenCompose(sqlNode -> prepareAsync(sqlNode, ctx)))
+                        supplyAsync(() -> parse(query, queryContext, ctx), planningPool).thenCompose(sqlNode -> prepareAsync(sqlNode, ctx)))
                 .thenApply(QueryPlan::copy);
     }
 
