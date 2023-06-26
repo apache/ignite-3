@@ -69,7 +69,8 @@ public interface UpdateLog extends IgniteComponent {
          *
          * @param update A new update.
          * @param metaStorageUpdateTimestamp Timestamp assigned to the update by the Metastorage.
+         * @param causalityToken Causality token.
          */
-        void handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp);
+        void handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken);
     }
 }

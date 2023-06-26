@@ -33,6 +33,7 @@ public interface Fireable {
      * Creates parameters of the fired event.
      *
      * @param causalityToken Causality token.
+     * @param catalogVersion Catalog version.
      */
-    CatalogEventParameters createEventParameters(long causalityToken);
+    CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion);
 }

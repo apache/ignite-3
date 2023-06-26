@@ -69,8 +69,8 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken) {
-        return new AlterColumnEventParameters(causalityToken, tableId, column);
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new AlterColumnEventParameters(causalityToken, catalogVersion, tableId, column);
     }
 
     @Override
