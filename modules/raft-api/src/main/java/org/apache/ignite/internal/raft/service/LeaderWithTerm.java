@@ -44,9 +44,11 @@ public class LeaderWithTerm {
 
     @Override
     public String toString() {
-        return "LeaderWithTerm{" +
-                "leader=" + leader +
-                ", term=" + term +
-                '}';
+        return "LeaderWithTerm{"
+                + "leader="
+                + leader
+                + ", term="
+                + term
+                + '}';
     }
 }

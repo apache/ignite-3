@@ -74,10 +74,10 @@ public class LeaderMetadata {
 
     @Override
     public String toString() {
-        return "LeaderMetadata{" +
-                "leader=" + leader +
-                ", term=" + term +
-                ", index=" + index +
-                '}';
+        return "LeaderMetadata{"
+                + "leader=" + leader
+                + ", term=" + term
+                + ", index=" + index
+                + '}';
     }
 }
