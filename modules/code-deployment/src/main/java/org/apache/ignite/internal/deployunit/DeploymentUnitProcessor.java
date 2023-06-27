@@ -29,13 +29,13 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 
 /**
- * Undeploys deployment units that are not acquired by any class loader. This class is thread-safe.
+ * Executes action on the deployment unit if it is not acquired. Otherwise, puts it to the queue.
  */
-class DeploymentUnitUndeployer {
-    private static final IgniteLogger LOG = Loggers.forClass(DeploymentUnitUndeployer.class);
+class DeploymentUnitProcessor {
+    private static final IgniteLogger LOG = Loggers.forClass(DeploymentUnitProcessor.class);
 
     /** Deployment units to undeploy. */
-    private final Queue<DeploymentUnit> unitsToUndeploy = new ConcurrentLinkedDeque<>();
+    private final Queue<DeploymentUnit> unitsToProcess = new ConcurrentLinkedDeque<>();
 
     /** Deployment unit accessor. */
     private final DeploymentUnitAccessor deploymentUnitAccessor;
@@ -43,63 +43,61 @@ class DeploymentUnitUndeployer {
     /** Executor. */
     private final ScheduledExecutorService executor;
 
-    /** Undeploy function. */
-    private final Consumer<DeploymentUnit> undeploy;
+    /** Action. */
+    private final Consumer<DeploymentUnit> action;
 
     /**
-     * Creates undeployer.
+     * Creates processor.
      *
      * @param nodeName node name.
      * @param deploymentUnitAccessor deployment unit accessor.
-     * @param undeploy undeploy function.
+     * @param action action.
      */
-    DeploymentUnitUndeployer(
+    DeploymentUnitProcessor(
             String nodeName,
             DeploymentUnitAccessor deploymentUnitAccessor,
-            Consumer<DeploymentUnit> undeploy) {
+            Consumer<DeploymentUnit> action) {
         this.deploymentUnitAccessor = deploymentUnitAccessor;
         this.executor = Executors.newScheduledThreadPool(
                 1, NamedThreadFactory.create(nodeName, "deployment-unit-undeployer", LOG));
-        this.undeploy = undeploy;
+        this.action = action;
     }
 
     /**
-     * Starts the undeployer.
+     * Starts the processor.
      *
      * @param delay delay between undeploy attempts.
      * @param unit time unit of the delay.
      */
     public void start(long delay, TimeUnit unit) {
-        executor.scheduleWithFixedDelay(this::undeployUnits, 0, delay, unit);
+        executor.scheduleWithFixedDelay(this::processUnits, 0, delay, unit);
     }
 
     /**
-     * Stops the undeployer.
+     * Stops the processor.
      */
     public void stop() {
         executor.shutdown();
     }
 
     /**
-     * Undeploys deployment units that are not acquired by any class loader. If a deployment unit is acquired, it is put back to the queue.
+     * Processes all deployment units in the queue.
      */
-    private void undeployUnits() {
-        int size = unitsToUndeploy.size();
+    private void processUnits() {
+        int size = unitsToProcess.size();
         for (int i = 0; i < size; i++) {
-            undeploy(unitsToUndeploy.remove());
+            process(unitsToProcess.remove());
         }
     }
 
     /**
-     * Undeploys deployment unit. If the unit is acquired by any class loader, it is put to the queue.
+     * Executes action on the deployment unit if it is not acquired. Otherwise, puts it to the queue.
      *
      * @param unit deployment unit to undeploy.
      */
-    public void undeploy(DeploymentUnit unit) {
-        if (!deploymentUnitAccessor.isAcquired(unit)) {
-            undeploy.accept(unit);
-        } else {
-            unitsToUndeploy.offer(unit);
+    public void process(DeploymentUnit unit) {
+        if (!deploymentUnitAccessor.computeIfNotAcquired(unit, action)) {
+            unitsToProcess.offer(unit);
         }
     }
 }

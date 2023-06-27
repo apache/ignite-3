@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +61,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public class DeploymentManagerImpl implements IgniteDeployment {
     private static final IgniteLogger LOG = Loggers.forClass(DeploymentManagerImpl.class);
+
+    /**
+     * Delay for undeployer.
+     */
+    private static final Duration UNDEPLOYER_DELAY = Duration.ofSeconds(5);
 
     /**
      * Node working directory.
@@ -106,7 +112,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
      */
     private final DeploymentUnitAccessor deploymentUnitAccessor;
 
-    private final DeploymentUnitUndeployer undeployer;
+    private final DeploymentUnitProcessor undeployer;
 
     private final String nodeName;
 
@@ -145,7 +151,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         tracker = new DownloadTracker();
         deployer = new FileDeployerService();
         deploymentUnitAccessor = new DeploymentUnitAccessorImpl(deployer);
-        undeployer = new DeploymentUnitUndeployer(
+        undeployer = new DeploymentUnitProcessor(
                 nodeName,
                 deploymentUnitAccessor,
                 unit -> deploymentUnitStore.updateNodeStatus(nodeName, unit.name(), unit.version(), REMOVING)
@@ -369,7 +375,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         deploymentUnitStore.registerClusterStatusListener(clusterStatusWatchListener);
         messaging.subscribe();
         failover.registerTopologyChangeCallback(nodeStatusCallback, clusterEventCallback);
-        undeployer.start(5, TimeUnit.SECONDS);
+        undeployer.start(UNDEPLOYER_DELAY.getSeconds(), TimeUnit.SECONDS);
     }
 
     @Override

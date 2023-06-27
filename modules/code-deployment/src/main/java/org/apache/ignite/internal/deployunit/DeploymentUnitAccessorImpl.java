@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.deployunit;
 
+import java.util.function.Consumer;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.util.RefCountedObjectPool;
 
@@ -36,7 +37,7 @@ public class DeploymentUnitAccessorImpl implements DeploymentUnitAccessor {
      * {@inheritDoc}
      */
     @Override
-    public DisposableDeploymentUnit acquire(DeploymentUnit unit) {
+    public synchronized DisposableDeploymentUnit acquire(DeploymentUnit unit) {
         return pool.acquire(unit, ignored -> new DisposableDeploymentUnit(
                         unit,
                         deployer.unitPath(unit.name(), unit.version(), true),
@@ -49,7 +50,12 @@ public class DeploymentUnitAccessorImpl implements DeploymentUnitAccessor {
      * {@inheritDoc}
      */
     @Override
-    public boolean isAcquired(DeploymentUnit unit) {
-        return pool.isAcquired(unit);
+    public synchronized boolean computeIfNotAcquired(DeploymentUnit unit, Consumer<DeploymentUnit> consumer) {
+        if (pool.isAcquired(unit)) {
+            return false;
+        } else {
+            consumer.accept(unit);
+            return true;
+        }
     }
 }

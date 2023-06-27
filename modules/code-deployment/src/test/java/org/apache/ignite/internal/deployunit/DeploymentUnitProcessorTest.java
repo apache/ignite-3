@@ -19,10 +19,13 @@ package org.apache.ignite.internal.deployunit;
 
 import static java.util.function.Predicate.isEqual;
 import static org.awaitility.Awaitility.await;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.emptyIterable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 
 import java.util.Set;
@@ -33,24 +36,30 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class DeploymentUnitUndeployerTest {
+class DeploymentUnitProcessorTest {
     private static final int DELAY_IN_MILLIS = 500;
 
     private final Set<DeploymentUnit> removingUnits = new CopyOnWriteArraySet<>();
 
     @Mock
-    private DeploymentUnitAccessor deploymentUnitAccessor;
+    private FileDeployerService deployerService;
+
+    @Spy
+    @InjectMocks
+    private DeploymentUnitAccessorImpl deploymentUnitAccessor;
 
 
-    private DeploymentUnitUndeployer undeployer;
+    private DeploymentUnitProcessor undeployer;
 
     @BeforeEach
     void setUp() {
-        undeployer = new DeploymentUnitUndeployer(
+        undeployer = new DeploymentUnitProcessor(
                 "testNode",
                 deploymentUnitAccessor,
                 removingUnits::add
@@ -64,18 +73,12 @@ class DeploymentUnitUndeployerTest {
         DeploymentUnit unit2 = new DeploymentUnit("unit2", "1.0.0");
         DeploymentUnit unit3 = new DeploymentUnit("unit3", "1.0.0");
 
-        // all units are released.
-        doReturn(false).when(deploymentUnitAccessor).isAcquired(any());
+        undeployer.process(unit1);
+        undeployer.process(unit2);
+        undeployer.process(unit3);
 
-        undeployer.undeploy(unit1);
-        undeployer.undeploy(unit2);
-        undeployer.undeploy(unit3);
-
-        // check all units are removed.
-        // 101 due to the fact that timeout must be greater than the poll delay (100 milliseconds).
-        await().timeout(101, TimeUnit.MILLISECONDS).until(() -> removingUnits.contains(unit1));
-        await().timeout(101, TimeUnit.MILLISECONDS).until(() -> removingUnits.contains(unit2));
-        await().timeout(101, TimeUnit.MILLISECONDS).until(() -> removingUnits.contains(unit3));
+        // check all units are removed instantly.
+        assertThat(removingUnits, contains(unit1, unit2, unit3));
     }
 
     @Test
@@ -85,14 +88,16 @@ class DeploymentUnitUndeployerTest {
         DeploymentUnit unit3 = new DeploymentUnit("unit3", "1.0.0");
 
         // all units are acquired and will not be released in the future.
-        doReturn(true).when(deploymentUnitAccessor).isAcquired(any());
+        deploymentUnitAccessor.acquire(unit1);
+        deploymentUnitAccessor.acquire(unit2);
+        deploymentUnitAccessor.acquire(unit3);
 
-        undeployer.undeploy(unit1);
-        undeployer.undeploy(unit2);
-        undeployer.undeploy(unit3);
+        undeployer.process(unit1);
+        undeployer.process(unit2);
+        undeployer.process(unit3);
 
         // check all units are still not removed.
-        await().during(2, TimeUnit.SECONDS).until(
+        await().during(DELAY_IN_MILLIS * 5, TimeUnit.MILLISECONDS).until(
                 () -> removingUnits.contains(unit1) && removingUnits.contains(unit2) && removingUnits.contains(unit3),
                 isEqual(false)
         );
@@ -105,32 +110,43 @@ class DeploymentUnitUndeployerTest {
         DeploymentUnit unit3 = new DeploymentUnit("unit3", "1.0.0");
 
         // unit1 and unit3 will be released in the future.
-        doReturn(true, true, false).when(deploymentUnitAccessor).isAcquired(eq(unit1));
-        doReturn(true, true, true).when(deploymentUnitAccessor).isAcquired(eq(unit2));
-        doReturn(true, false, false).when(deploymentUnitAccessor).isAcquired(eq(unit3));
+        DisposableDeploymentUnit deploymentUnit1 = deploymentUnitAccessor.acquire(unit1);
+        DisposableDeploymentUnit deploymentUnit2 = deploymentUnitAccessor.acquire(unit2);
+        DisposableDeploymentUnit deploymentUnit3 = deploymentUnitAccessor.acquire(unit3);
 
-        undeployer.undeploy(unit1);
-        undeployer.undeploy(unit2);
-        undeployer.undeploy(unit3);
+        undeployer.process(unit1);
+        undeployer.process(unit2);
+        undeployer.process(unit3);
+
+        verify(deploymentUnitAccessor, atLeastOnce()).computeIfNotAcquired(eq(unit1), any());
+        verify(deploymentUnitAccessor, atLeastOnce()).computeIfNotAcquired(eq(unit2), any());
+        verify(deploymentUnitAccessor, atLeastOnce()).computeIfNotAcquired(eq(unit3), any());
+
+        assertThat(removingUnits, emptyIterable());
+
+        deploymentUnit1.release();
+        deploymentUnit3.release();
 
         // check unit1 and unit3 were removed.
-        await().timeout(2, TimeUnit.SECONDS).until(() -> removingUnits.contains(unit1));
-        await().timeout(2, TimeUnit.SECONDS).until(() -> removingUnits.contains(unit3));
+        await().timeout(DELAY_IN_MILLIS * 4, TimeUnit.MILLISECONDS).until(() -> removingUnits.contains(unit1));
+        await().timeout(DELAY_IN_MILLIS * 4, TimeUnit.MILLISECONDS).until(() -> removingUnits.contains(unit3));
 
         // check unit2 is still not removed.
-        await().during(2, TimeUnit.SECONDS).until(() -> removingUnits.contains(unit2), isEqual(false));
+        await().during(DELAY_IN_MILLIS * 4, TimeUnit.MILLISECONDS)
+                .until(() -> removingUnits.contains(unit2), isEqual(false));
     }
 
     @Test
     void notInfinityLoop() {
         DeploymentUnit unit1 = new DeploymentUnit("unit1", "1.0.0");
 
-        doReturn(true).when(deploymentUnitAccessor).isAcquired(any());
+        deploymentUnitAccessor.acquire(unit1);
 
-        undeployer.undeploy(unit1);
+        undeployer.process(unit1);
 
         // check delay between attempts to undeploy the unit.
-        verify(deploymentUnitAccessor, timeout(DELAY_IN_MILLIS * 2).times(2)).isAcquired(eq(unit1));
+        verify(deploymentUnitAccessor, after(DELAY_IN_MILLIS * 5).atMost(5))
+                .computeIfNotAcquired(eq(unit1), any());
     }
 
     @AfterEach
