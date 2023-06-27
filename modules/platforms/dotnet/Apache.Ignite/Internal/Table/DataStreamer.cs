@@ -91,9 +91,11 @@ internal static class DataStreamer
 
             await foreach (var item in data.WithCancellation(cancellationToken))
             {
+                // WithCancellation passes the token to the producer.
+                // However, not all producers support cancellation, so we need to check it here as well.
                 cancellationToken.ThrowIfCancellationRequested();
-                var (batch, partition) = Add(item);
 
+                var (batch, partition) = Add(item);
                 if (batch.Count >= options.BatchSize)
                 {
                     await SendAsync(batch, partition).ConfigureAwait(false);
