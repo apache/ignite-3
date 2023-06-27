@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.LongConsumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -293,6 +294,14 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @return Timestamp corresponding to the revision.
      */
     HybridTimestamp timestampByRevision(long revision);
+
+    /**
+     * Sets the revision listener. This is needed only for the recovery, after that listener must be set to {@code null}.
+     * {@code null} means that we no longer must be notified of revision updates for recovery, because recovery is finished.
+     *
+     * @param listener Revision listener.
+     */
+    void setRecoveryRevisionListener(@Nullable LongConsumer listener);
 
     /** Registers a Meta Storage revision update listener. */
     void registerRevisionUpdateListener(RevisionUpdateListener listener);

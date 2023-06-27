@@ -217,6 +217,12 @@ public interface MetaStorageManager extends IgniteComponent {
      */
     ClusterTime clusterTime();
 
+    /**
+     * Returns a future which completes when MetaStorage manager finished local recovery.
+     * The value of the future is the revision which must be used for state recovery by other components.
+     */
+    CompletableFuture<Long> recoveryFinishedFuture();
+
     /** Registers a Meta Storage revision update listener. */
     void registerRevisionUpdateListener(RevisionUpdateListener listener);
 
