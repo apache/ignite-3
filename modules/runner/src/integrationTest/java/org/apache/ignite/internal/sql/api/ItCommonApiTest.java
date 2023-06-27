@@ -40,13 +40,13 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnType.Tempora
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -94,9 +94,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         ResultSet rs1 = ses1.execute(null, "SELECT id FROM TST");
         ResultSet rs2 = ses2.execute(null, "SELECT id FROM TST");
 
-        waitForCondition(() -> {
-            return queryProcessor().liveSessions().size() == 1;
-        }, 10_000);
+        waitForCondition(() -> queryProcessor().liveSessions().size() == 1, 10_000);
 
         // first session should be expired for the moment
         SqlException ex = assertThrows(SqlException.class, () -> ses1.execute(null, "SELECT 1 + 1"));
@@ -107,7 +105,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
             while (rs1.hasNext()) {
                 rs1.next();
             }
-        }, ExecutionCancelledException.class);
+        }, CursorClosedException.class);
 
         rs1.close();
 

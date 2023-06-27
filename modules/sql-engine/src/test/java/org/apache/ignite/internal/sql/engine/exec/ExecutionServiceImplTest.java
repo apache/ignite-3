@@ -68,6 +68,7 @@ import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
@@ -182,6 +183,9 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 4, TIMEOUT_IN_MS));
 
+        List<AbstractNode<?>> execNodes = executionServices.stream()
+                .flatMap(s -> s.localFragments(ctx.queryId()).stream()).collect(Collectors.toList());
+
         CompletionStage<?> batchFut = cursor.requestNextAsync(1);
 
         await(cursor.closeAsync());
@@ -189,6 +193,10 @@ public class ExecutionServiceImplTest {
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
+
+        for (AbstractNode<?> node : execNodes) {
+            assertTrue(node.context().isCancelled());
+        }
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
@@ -204,7 +212,7 @@ public class ExecutionServiceImplTest {
      */
     @Test
     public void testCancelOnInitiator() throws InterruptedException {
-        ExecutionService execService = executionServices.get(0);
+        ExecutionServiceImpl<?> execService = executionServices.get(0);
         BaseQueryContext ctx = createContext();
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
@@ -217,13 +225,20 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 4, TIMEOUT_IN_MS));
 
+        List<AbstractNode<?>> execNodes = executionServices.stream()
+                .flatMap(s -> s.localFragments(ctx.queryId()).stream()).collect(Collectors.toList());
+
         CompletionStage<?> batchFut = cursor.requestNextAsync(1);
 
-        await(executionServices.get(0).cancel(ctx.queryId()));
+        await(execService.cancel(ctx.queryId()));
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
+
+        for (AbstractNode<?> node : execNodes) {
+            assertTrue(node.context().isCancelled());
+        }
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
@@ -269,9 +284,17 @@ public class ExecutionServiceImplTest {
 
         assertTrue(waitForCondition(() -> batchFut.toCompletableFuture().isDone(), TIMEOUT_IN_MS));
 
+        // try gather all possible nodes.
+        List<AbstractNode<?>> execNodes = executionServices.stream()
+                .flatMap(s -> s.localFragments(ctx.queryId()).stream()).collect(Collectors.toList());
+
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
+
+        for (AbstractNode<?> node : execNodes) {
+            assertTrue(node.context().isCancelled());
+        }
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
@@ -330,6 +353,9 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 4, TIMEOUT_IN_MS));
 
+        List<AbstractNode<?>> execNodes = executionServices.stream()
+                .flatMap(s -> s.localFragments(ctx.queryId()).stream()).collect(Collectors.toList());
+
         var batchFut = cursor.requestNextAsync(1);
 
         await(executionServices.get(1).cancel(ctx.queryId()));
@@ -337,6 +363,10 @@ public class ExecutionServiceImplTest {
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
+
+        for (AbstractNode<?> node : execNodes) {
+            assertTrue(node.context().isCancelled());
+        }
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
