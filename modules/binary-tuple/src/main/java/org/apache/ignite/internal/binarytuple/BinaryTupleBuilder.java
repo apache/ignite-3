@@ -112,9 +112,7 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendByte(byte value) {
-        if (value != 0) {
-            putByte(value);
-        }
+        putByte(value);
         return proceed();
     }
 
@@ -215,9 +213,7 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendFloat(float value) {
-        if (value != 0.0F) {
-            putFloat(value);
-        }
+        putFloat(value);
         return proceed();
     }
 

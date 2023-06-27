@@ -312,6 +312,7 @@ public class BinaryTupleParser {
 
         if (buffer.get(begin) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
             begin++;
+            len--;
         }
 
         byte[] bytes;
