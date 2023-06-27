@@ -32,6 +32,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -79,11 +80,13 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
         ClusterService clusterService = mock(ClusterService.class);
         LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
         RaftManager raftManager = mock(RaftManager.class);
+        RaftGroupService raftGroupService = mock(RaftGroupService.class);
 
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of(mcNodeName)));
         when(clusterService.nodeName()).thenReturn(mcNodeName);
-        when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any())).thenReturn(completedFuture(mock(
-                RaftGroupService.class)));
+        when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any()))
+                .thenReturn(completedFuture(raftGroupService));
+        when(raftGroupService.run(any(GetCurrentRevisionCommand.class))).thenAnswer(invocation -> completedFuture(0L));
 
         return Stream.of(
                 new MetaStorageManagerImpl(
