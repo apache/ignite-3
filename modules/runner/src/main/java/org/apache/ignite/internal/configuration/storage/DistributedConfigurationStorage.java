@@ -347,13 +347,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
             }
 
             @Override
-            public CompletableFuture<Void> onRevisionUpdated(long revision) {
-                assert revision > changeId;
-
-                return lsnr.onRevisionUpdated(revision);
-            }
-
-            @Override
             public void onError(Throwable e) {
                 // TODO: need to handle this case and there should some mechanism for registering new watch as far as
                 // TODO: onError unregisters failed watch https://issues.apache.org/jira/browse/IGNITE-14604

@@ -68,16 +68,6 @@ public class Watch {
     }
 
     /**
-     * Notifies the event listener about a Meta Storage revision update.
-     *
-     * @see WatchListener#onRevisionUpdated
-     */
-    // TODO: IGNITE-19801 удалить
-    CompletableFuture<Void> onRevisionUpdated(long revision) {
-        return listener.onRevisionUpdated(revision);
-    }
-
-    /**
      * Callback that gets called if an error has occurred during the event processing.
      */
     void onError(Throwable e) {

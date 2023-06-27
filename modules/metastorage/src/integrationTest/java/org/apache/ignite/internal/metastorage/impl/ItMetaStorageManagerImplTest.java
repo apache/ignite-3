@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -25,6 +26,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -34,7 +36,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
@@ -48,6 +49,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.UpdateRevisionListener;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
@@ -136,7 +138,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
      */
     @Test
     void testPrefixOverflow() {
-        byte[] value = "value".getBytes(StandardCharsets.UTF_8);
+        byte[] value = "value".getBytes(UTF_8);
 
         var key1 = new ByteArray(new byte[]{1, (byte) 0xFF, 0});
         var key2 = new ByteArray(new byte[]{1, (byte) 0xFF, 1});
@@ -172,7 +174,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
      */
     @Test
     void testWatchEventsPersistence() throws InterruptedException {
-        byte[] value = "value".getBytes(StandardCharsets.UTF_8);
+        byte[] value = "value".getBytes(UTF_8);
 
         var key1 = new ByteArray("foo");
         var key2 = new ByteArray("bar");
@@ -215,7 +217,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         assertThat(metaStorageManager.appliedRevision(), is(2L));
 
-        byte[] newValue = "newValue".getBytes(StandardCharsets.UTF_8);
+        byte[] newValue = "newValue".getBytes(UTF_8);
 
         invokeFuture = metaStorageManager.invoke(
                 Conditions.exists(new ByteArray("foo")),
@@ -283,5 +285,25 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         cmgFut.complete(msNodes);
 
         assertThat(metaStorageManager.metaStorageServiceFuture(), willThrowFast(CancellationException.class));
+    }
+
+    @Test
+    void testUpdateRevisionListener() {
+        // I'm using the future because mock+verify doesn't work.
+        CompletableFuture<Long> listenerFuture = new CompletableFuture<>();
+
+        UpdateRevisionListener listener = revision -> {
+            listenerFuture.complete(revision);
+
+            return completedFuture(null);
+        };
+
+        long revision = metaStorageManager.appliedRevision();
+
+        metaStorageManager.registerUpdateRevisionListener(listener);
+
+        assertThat(metaStorageManager.put(ByteArray.fromString("test"), "test".getBytes(UTF_8)), willSucceedFast());
+
+        assertThat(listenerFuture, willBe(revision + 1));
     }
 }

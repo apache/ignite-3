@@ -88,9 +88,6 @@ public class WatchProcessorTest {
         verify(listener1, timeout(1_000)).onUpdate(new WatchEvent(entryEvent1));
         verify(listener2, timeout(1_000)).onUpdate(new WatchEvent(entryEvent2));
 
-        verify(listener1, never()).onRevisionUpdated(anyLong());
-        verify(listener2, never()).onRevisionUpdated(anyLong());
-
         var watchEventCaptor = ArgumentCaptor.forClass(WatchEvent.class);
 
         verify(revisionCallback, timeout(1_000)).onRevisionApplied(watchEventCaptor.capture(), any());
@@ -122,7 +119,6 @@ public class WatchProcessorTest {
         var event = new WatchEvent(new EntryEvent(oldEntry(entry1), entry1));
 
         verify(listener1, timeout(1_000)).onUpdate(event);
-        verify(listener2, timeout(1_000)).onRevisionUpdated(1);
 
         verify(revisionCallback, timeout(1_000)).onRevisionApplied(event, ts);
 
@@ -132,7 +128,6 @@ public class WatchProcessorTest {
 
         event = new WatchEvent(new EntryEvent(oldEntry(entry2), entry2));
 
-        verify(listener1, timeout(1_000)).onRevisionUpdated(2);
         verify(listener2, timeout(1_000)).onUpdate(event);
 
         verify(revisionCallback, timeout(1_000)).onRevisionApplied(event, ts);
@@ -214,7 +209,6 @@ public class WatchProcessorTest {
         var listener = mock(WatchListener.class);
 
         when(listener.onUpdate(any())).thenReturn(completedFuture(null));
-        when(listener.onRevisionUpdated(anyLong())).thenReturn(completedFuture(null));
 
         return listener;
     }
