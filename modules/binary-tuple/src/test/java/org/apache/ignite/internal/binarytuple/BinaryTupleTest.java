@@ -19,7 +19,6 @@ package org.apache.ignite.internal.binarytuple;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -99,7 +98,7 @@ public class BinaryTupleTest {
     public void shortTest() {
         short[] values = {Byte.MIN_VALUE, -1, 0, 1, Byte.MAX_VALUE};
         for (short value : values) {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1,1);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 1);
             ByteBuffer bytes = builder.appendShort(value).build();
             assertEquals(1, bytes.get(1));
             assertEquals(3, bytes.limit());
@@ -110,7 +109,7 @@ public class BinaryTupleTest {
 
         values = new short[]{Short.MIN_VALUE, Byte.MIN_VALUE - 1, Byte.MAX_VALUE + 1, Short.MAX_VALUE};
         for (short value : values) {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1,2);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 2);
             ByteBuffer bytes = builder.appendShort(value).build();
             assertEquals(2, bytes.get(1));
             assertEquals(4, bytes.limit());
@@ -376,8 +375,9 @@ public class BinaryTupleTest {
                     assertEquals(0, e - b);
                 } else {
                     int length = values[i].length;
-                    if (length == 0 || values[i][0] == BinaryTupleCommon.VARLEN_EMPTY_BYTE)
+                    if (length == 0 || values[i][0] == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
                         length++;
+                    }
                     assertEquals(length, e - b);
                 }
             });

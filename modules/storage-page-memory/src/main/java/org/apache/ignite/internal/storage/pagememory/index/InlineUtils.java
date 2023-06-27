@@ -102,8 +102,6 @@ public class InlineUtils {
 
         assert !columns.isEmpty();
 
-        boolean hasNullColumns = columns.stream().anyMatch(StorageColumnDescriptor::nullable);
-
         // Let's calculate the inline size for all columns.
         int columnsInlineSize = columns.stream().map(StorageColumnDescriptor::type).mapToInt(InlineUtils::inlineSize).sum();
 

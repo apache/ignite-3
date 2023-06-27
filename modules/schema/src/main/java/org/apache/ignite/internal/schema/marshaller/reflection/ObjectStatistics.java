@@ -61,7 +61,10 @@ class ObjectStatistics {
             NativeType colType = cols.column(i).type();
 
             if (val == null) {
-            } else if (colType.spec().fixedLength()) {
+                continue;
+            }
+
+            if (colType.spec().fixedLength()) {
                 estimatedValueSize += colType.sizeInBytes();
             } else {
                 estimatedValueSize += getValueSize(val, colType);

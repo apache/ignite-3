@@ -48,8 +48,9 @@ public final class MarshallerUtil {
             case BYTES:
                 if (val instanceof byte[]) {
                     byte[] bytes = (byte[]) val;
-                    if (bytes.length == 0 || bytes[0] == BinaryTupleCommon.VARLEN_EMPTY_BYTE)
+                    if (bytes.length == 0 || bytes[0] == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
                         return bytes.length + 1;
+                    }
                     return bytes.length;
                 }
                 // Return zero for pojo as they are not serialized yet.
