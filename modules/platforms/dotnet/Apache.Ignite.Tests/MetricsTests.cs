@@ -22,6 +22,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -216,14 +217,14 @@ public class MetricsTests
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         var view = table!.RecordBinaryView;
 
-        await view.StreamDataAsync(GetTuples(), DataStreamerOptions.Default with { BatchSize = 2 });
+        await view.StreamDataAsync(GetTuples().ToAsyncEnumerable(), DataStreamerOptions.Default with { BatchSize = 2 });
 
         Assert.AreEqual(1, _listener.GetMetric("streamer-batches-sent"), "streamer-batches-sent");
         Assert.AreEqual(2, _listener.GetMetric("streamer-items-sent"), "streamer-items-sent");
         Assert.AreEqual(0, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
         Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
 
-        async IAsyncEnumerable<IIgniteTuple> GetTuples()
+        IEnumerable<IIgniteTuple> GetTuples()
         {
             Assert.AreEqual(0, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
             Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
@@ -238,11 +239,10 @@ public class MetricsTests
             Assert.AreEqual(2, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
             Assert.AreEqual(2, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
 
-            await Task.Delay(50);
+            TestUtils.WaitForCondition(() => _listener.GetMetric("streamer-batches-sent") == 1);
 
             Assert.AreEqual(1, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
             Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
-            Assert.AreEqual(1, _listener.GetMetric("streamer-batches-sent"), "streamer-batches-sent");
             Assert.AreEqual(2, _listener.GetMetric("streamer-items-sent"), "streamer-items-sent");
         }
     }
@@ -280,7 +280,7 @@ public class MetricsTests
 
                 if (i == 40)
                 {
-                    await Task.Delay(500, ct);
+                    await Task.Delay(1000, ct);
                 }
             }
         }
