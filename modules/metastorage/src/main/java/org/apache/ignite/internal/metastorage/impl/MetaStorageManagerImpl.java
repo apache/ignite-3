@@ -677,7 +677,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 saveToVaultFuture = vaultMgr.putAll(batch);
             }
 
-            return saveToVaultFuture.thenRun(() -> appliedRevision = watchEvent.revision());
+            return saveToVaultFuture
+                    .thenRun(() -> appliedRevision = watchEvent.revision())
+                    .thenCompose(unused -> notifyUpdateRevisionListeners(watchEvent.revision()));
         } finally {
             busyLock.leaveBusy();
         }
