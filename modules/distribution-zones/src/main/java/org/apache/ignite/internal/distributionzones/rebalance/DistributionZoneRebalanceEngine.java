@@ -175,9 +175,9 @@ public class DistributionZoneRebalanceEngine {
                         return completedFuture(null);
                     }
 
-                    for (TableView tableView : findTablesByZoneId(zoneId)) {
+                    for (TableView tableConfig : findTablesByZoneId(zoneId)) {
                         CompletableFuture<?>[] partitionFutures = triggerAllTablePartitionsRebalance(
-                                tableView,
+                                tableConfig,
                                 zoneConfig,
                                 filteredDataNodes,
                                 evt.entryEvent().newEntry().revision()
@@ -190,8 +190,8 @@ public class DistributionZoneRebalanceEngine {
                             partitionFutures[partId].exceptionally(e -> {
                                 if (exceptions.add(e)) {
                                     LOG.error(
-                                            "Exception on updating assignments for [table={}/{}, partition={}]", e, tableView.id(),
-                                            tableView.name(), finalPartId
+                                            "Exception on updating assignments for [table={}/{}, partition={}]", e,
+                                            tableConfig.id(), tableConfig.name(), finalPartId
                                     );
                                 }
 
@@ -246,12 +246,12 @@ public class DistributionZoneRebalanceEngine {
 
             List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableViews.size());
 
-            for (TableView tableView : tableViews) {
-                LOG.info("Received update for replicas number [table={}, oldNumber={}, newNumber={}]",
-                        tableView.name(), replicasCtx.oldValue(), replicasCtx.newValue());
+            for (TableView tableCfg : tableViews) {
+                LOG.info("Received update for replicas number [table={}/{}, oldNumber={}, newNumber={}]",
+                        tableCfg.id(), tableCfg.name(), replicasCtx.oldValue(), replicasCtx.newValue());
 
                 CompletableFuture<?>[] partitionFutures = triggerAllTablePartitionsRebalance(
-                        tableView,
+                        tableCfg,
                         zoneCfg,
                         dataNodes,
                         replicasCtx.storageRevision()
@@ -267,27 +267,43 @@ public class DistributionZoneRebalanceEngine {
     }
 
     private CompletableFuture<?>[] triggerAllTablePartitionsRebalance(
-            TableView tableView,
+            TableView tableCfg,
             DistributionZoneView zoneCfg,
             Set<String> dataNodes,
             long storageRevision
     ) {
+        return triggerAllTablePartitionsRebalance(
+                tableCfg,
+                zoneCfg,
+                dataNodes,
+                storageRevision,
+                metaStorageManager
+        );
+    }
+
+    private static CompletableFuture<?>[] triggerAllTablePartitionsRebalance(
+            TableView tableCfg,
+            DistributionZoneView zoneCfg,
+            Set<String> dataNodes,
+            long storageRevision,
+            MetaStorageManager metaStorageManager
+    ) {
         CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = tableAssignments(
                 metaStorageManager,
-                tableView.id(),
+                tableCfg.id(),
                 zoneCfg.partitions()
         );
 
         CompletableFuture<?>[] futures = new CompletableFuture[zoneCfg.partitions()];
 
         for (int partId = 0; partId < zoneCfg.partitions(); partId++) {
-            TablePartitionId replicaGrpId = new TablePartitionId(tableView.id(), partId);
+            TablePartitionId replicaGrpId = new TablePartitionId(tableCfg.id(), partId);
 
             int finalPartId = partId;
 
             futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments ->
                     updatePendingAssignmentsKeys(
-                            tableView,
+                            tableCfg,
                             replicaGrpId,
                             dataNodes,
                             zoneCfg.replicas(),
