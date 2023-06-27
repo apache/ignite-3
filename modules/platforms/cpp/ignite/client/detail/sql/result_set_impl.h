@@ -154,7 +154,7 @@ public:
      *
      * @return @c true if there are more pages with results and @c false otherwise.
      */
-    [[nodiscard]] IGNITE_API bool has_more_pages() { return m_resource_id.has_value() && m_has_more_pages; }
+    [[nodiscard]] bool has_more_pages() { return m_resource_id.has_value() && m_has_more_pages; }
 
     /**
      * Fetch the next page of results asynchronously.
@@ -162,7 +162,7 @@ public:
      *
      * @param callback Callback to call on completion.
      */
-    IGNITE_API void fetch_next_page_async(std::function<void(ignite_result<void>)> callback) {
+    void fetch_next_page_async(std::function<void(ignite_result<void>)> callback) {
         require_result_set();
 
         if (!m_resource_id)

@@ -24,6 +24,9 @@
 namespace ignite
 {
 
+class cursor;
+class result_page;
+
 /**
  * Data query.
  */
@@ -51,21 +54,21 @@ public:
     /**
      * Destructor.
      */
-    virtual ~data_query();
+    ~data_query() override;
 
     /**
      * Execute query.
      *
      * @return True on success.
      */
-    virtual sql_result execute();
+    sql_result execute() override;
 
     /**
      * Get column metadata.
      *
      * @return Column metadata.
      */
-    virtual const column_meta_vector *get_meta();
+    const column_meta_vector *get_meta() override;
 
     /**
      * Fetch next result row to application buffers.
@@ -73,7 +76,7 @@ public:
      * @param column_bindings Application buffers to put data to.
      * @return Operation result.
      */
-    virtual sql_result fetch_next_row(column_binding_map &column_bindings);
+    sql_result fetch_next_row(column_binding_map &column_bindings) override;
 
     /**
      * Get data of the specified column in the result set.
@@ -82,42 +85,42 @@ public:
      * @param buffer Buffer to put column data to.
      * @return Operation result.
      */
-    virtual sql_result get_column(std::uint16_t column_idx, application_data_buffer &buffer);
+    sql_result get_column(std::uint16_t column_idx, application_data_buffer &buffer) override;
 
     /**
      * Close query.
      *
      * @return Result.
      */
-    virtual sql_result close();
+    sql_result close() override;
 
     /**
      * Check if data is available.
      *
      * @return True if data is available.
      */
-    virtual bool data_available() const;
+    [[nodiscard]] bool is_data_available() const override;
 
     /**
      * Get number of rows affected by the statement.
      *
      * @return Number of rows affected by the statement.
      */
-    virtual std::int64_t affected_rows() const;
+    [[nodiscard]] std::int64_t affected_rows() const override;
 
     /**
      * Move to the next result set.
      *
      * @return Operation result.
      */
-    virtual sql_result next_result_set();
+    sql_result next_result_set() override;
 
     /**
      * Get SQL query string.
      *
      * @return SQL query string.
      */
-    const std::string& get_sql() const
+    [[nodiscard]] const std::string& get_sql() const
     {
         return m_sql;
     }
@@ -128,15 +131,7 @@ private:
      *
      * @return true, if all cursors closed remotely.
      */
-    bool is_closed_remotely() const;
-
-    /**
-     * Make query prepare request and use response to set internal
-     * state.
-     *
-     * @return Result.
-     */
-    sql_result make_request_prepare();
+    [[nodiscard]] bool is_closed_remotely() const;
 
     /**
      * Make query execute request and use response to set internal
@@ -159,13 +154,6 @@ private:
      * @return Result.
      */
     sql_result make_request_fetch();
-
-    /**
-     * Make next result set request and use response to set internal state.
-     *
-     * @return Result.
-     */
-    sql_result make_request_more_results();
 
     /**
      * Make result set metadata request.
@@ -213,14 +201,11 @@ private:
     /** Result set metadata. */
     column_meta_vector m_result_meta;
 
+    /** Number of rows affected. */
+    std::int64_t m_rows_affected{-1};
+
     /** Cursor. */
     std::unique_ptr<cursor> m_cursor;
-
-    /** Number of rows affected. */
-    std::vector<std::int64_t> m_rows_affected;
-
-    /** Rows affected index. */
-    std::size_t m_rows_affected_idx{0};
 
     /** Cached next result page. */
     std::unique_ptr<result_page> m_cached_next_page;

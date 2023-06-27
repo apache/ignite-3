@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
+#include <memory>
 #include <utility>
 
 #include "ignite/odbc/log.h"
 #include "ignite/odbc/odbc_error.h"
 #include "ignite/odbc/query/data_query.h"
+#include "ignite/odbc/query/cursor.h"
+#include "ignite/odbc/query/result_page.h"
 
 namespace ignite
 {
@@ -39,18 +42,15 @@ data_query::~data_query()
 
 sql_result data_query::execute()
 {
-    if (m_cursor.get())
-        internal_close();
+    internal_close();
 
     return make_request_execute();
 }
 
 const column_meta_vector *data_query::get_meta()
 {
-    if (!m_result_meta_available)
-    {
+    if (!m_result_meta_available) {
         make_request_resultset_meta();
-
         if (!m_result_meta_available)
             return nullptr;
     }
@@ -60,84 +60,16 @@ const column_meta_vector *data_query::get_meta()
 
 sql_result data_query::fetch_next_row(column_binding_map &column_bindings)
 {
-    if (!m_cursor.get())
-    {
-        m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
-
-        return sql_result::AI_ERROR;
-    }
-
-    if (!m_cursor->HasData())
-        return sql_result::AI_NO_DATA;
-
-    m_cursor->Increment();
-
-    if (m_cursor->NeedDataUpdate())
-    {
-        if (m_cached_next_page.get())
-            m_cursor->UpdateData(m_cached_next_page);
-        else
-        {
-            sql_result result = make_request_fetch();
-
-            if (result != sql_result::AI_SUCCESS)
-                return result;
-        }
-    }
-
-    if (!m_cursor->HasData())
-        return sql_result::AI_NO_DATA;
-
-    auto *row = m_cursor->get_row();
-
-    if (!row)
-    {
-        m_diag.add_status_record("Unknown error.");
-
-        return sql_result::AI_ERROR;
-    }
-
-    for (std::int32_t i = 1; i < row->get_size() + 1; ++i)
-    {
-        auto it = column_bindings.find(i);
-
-        if (it == column_bindings.end())
-            continue;
-
-        conversion_result conv_res = row->read_column_to_buffer(i, it->second);
-
-        sql_result result = process_conversion_result(conv_res, 0, i);
-
-        if (result == sql_result::AI_ERROR)
-            return sql_result::AI_ERROR;
-    }
-
-    return sql_result::AI_SUCCESS;
+    // TODO: IGNITE-19213 Implement data fetching
+    m_diag.add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Data fetching is not implemented");
+    return sql_result::AI_ERROR;
 }
 
-sql_result data_query::get_column(uint16_t column_idx, application_data_buffer& buffer)
+sql_result data_query::get_column(std::uint16_t column_idx, application_data_buffer &buffer)
 {
-    if (!m_cursor.get())
-    {
-        m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
-
-        return sql_result::AI_ERROR;
-    }
-
-    auto *row = m_cursor->get_row();
-
-    if (!row)
-    {
-        m_diag.add_status_record(sql_state::S24000_INVALID_CURSOR_STATE, "Cursor has reached end of the result set.");
-
-        return sql_result::AI_ERROR;
-    }
-
-    conversion_result conv_res = row->read_column_to_buffer(column_idx, buffer);
-
-    sql_result result = process_conversion_result(conv_res, 0, column_idx);
-
-    return result;
+    // TODO: IGNITE-19213 Implement data fetching
+    m_diag.add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Data fetching is not implemented");
+    return sql_result::AI_ERROR;
 }
 
 sql_result data_query::close()
@@ -147,7 +79,7 @@ sql_result data_query::close()
 
 sql_result data_query::internal_close()
 {
-    if (!m_cursor.get())
+    if (!m_cursor)
         return sql_result::AI_SUCCESS;
 
     sql_result result = sql_result::AI_SUCCESS;
@@ -158,56 +90,32 @@ sql_result data_query::internal_close()
     if (result == sql_result::AI_SUCCESS)
     {
         m_cursor.reset();
-
-        m_rows_affected_idx = 0;
-
-        m_rows_affected.clear();
+        m_rows_affected = -1;
     }
 
     return result;
 }
 
-bool data_query::data_available() const
+bool data_query::is_data_available() const
 {
     return m_cursor.get() && m_cursor->has_data();
 }
 
 std::int64_t data_query::affected_rows() const
 {
-    int64_t affected = m_rows_affected_idx < m_rows_affected.size() ? m_rows_affected[m_rows_affected_idx] : 0;
-
-    if (affected >= 0)
-        return affected;
-
-    return m_connection.get_configuration().get_page_size().get_value();
+    return m_rows_affected;
 }
 
 sql_result data_query::next_result_set()
 {
-    if (m_rows_affected_idx + 1 >= m_rows_affected.size())
-    {
-        internal_close();
-
-        return sql_result::AI_NO_DATA;
-    }
-
-    sql_result res = make_request_more_results();
-
-    if (res == sql_result::AI_SUCCESS)
-        ++m_rows_affected_idx;
-
-    return res;
+    // TODO: IGNITE-19855 Multiple queries execution is not supported.
+    internal_close();
+    return sql_result::AI_NO_DATA;
 }
 
 bool data_query::is_closed_remotely() const
 {
-    for (long long i : m_rows_affected)
-    {
-        if (i < 0)
-            return false;
-    }
-
-    return true;
+    return m_rows_affected < 0 || m_cursor->is_closed_remotely();
 }
 
 sql_result data_query::make_request_execute()
@@ -247,11 +155,9 @@ sql_result data_query::make_request_execute()
     set_resultset_meta(rsp.get_meta());
 
     LOG_MSG("Query id: " << rsp.get_query_id());
-    LOG_MSG("Affected Rows list size: " << m_rows_affected.size());
+    LOG_MSG("Affected Rows: " << m_rows_affected);
 
-    m_cursor.reset(new cursor(rsp.get_query_id()));
-
-    m_rows_affected_idx = 0;
+    m_cursor = std::make_unique<cursor>(rsp.get_query_id());
 
     return sql_result::AI_SUCCESS;
 }
@@ -294,123 +200,18 @@ sql_result data_query::make_request_close()
 
 sql_result data_query::make_request_fetch()
 {
-    std::unique_ptr<result_page> resultPage(new result_page());
-
-    query_fetch_request req(m_cursor->get_query_id(), m_connection.get_configuration().get_page_size());
-    query_fetch_response rsp(*result_page);
-
-    try
-    {
-        m_connection.sync_message(req, rsp);
-    }
-    catch (const odbc_error& err)
-    {
-        m_diag.add_status_record(err);
-
-        return sql_result::AI_ERROR;
-    }
-    catch (const ignite_error& err)
-    {
-        m_diag.add_status_record(err.get_text());
-
-        return sql_result::AI_ERROR;
-    }
-
-    if (rsp.get_status() != response_status::SUCCESS)
-    {
-        LOG_MSG("Error: " << rsp.get_error());
-
-        m_diag.add_status_record(response_status_to_sql_state(rsp.get_status()), rsp.get_error());
-
-        return sql_result::AI_ERROR;
-    }
-
-    LOG_MSG("Page size:    " << result_page->get_size());
-    LOG_MSG("Page is last: " << result_page->is_last());
-
-    m_cursor->update_data(result_page);
-
-    return sql_result::AI_SUCCESS;
-}
-
-sql_result data_query::make_request_more_results()
-{
-    std::unique_ptr<result_page> resultPage(new result_page());
-
-    query_more_results_request req(m_cursor->get_query_id(), m_connection.get_configuration().get_page_size());
-    query_more_results_response rsp(*result_page);
-
-    try
-    {
-        m_connection.sync_message(req, rsp);
-    }
-    catch (const odbc_error& err)
-    {
-        m_diag.add_status_record(err);
-
-        return sql_result::AI_ERROR;
-    }
-    catch (const ignite_error& err)
-    {
-        m_diag.add_status_record(err.get_text());
-
-        return sql_result::AI_ERROR;
-    }
-
-    if (rsp.GetStatus() != response_status::SUCCESS)
-    {
-        LOG_MSG("Error: " << rsp.get_error());
-
-        m_diag.add_status_record(response_status_to_sql_state(rsp.get_status()), rsp.get_error());
-
-        return sql_result::AI_ERROR;
-    }
-
-    LOG_MSG("Page size:    " << result_page->get_size());
-    LOG_MSG("Page is last: " << result_page->is_last());
-
-    m_cached_next_page = result_page;
-    m_cursor.reset(new cursor(rsp.get_query_id()));
-
-    return sql_result::AI_SUCCESS;
+    // TODO: IGNITE-19213 Implement data fetching
+    m_diag.add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Data fetching is not implemented");
+    return sql_result::AI_ERROR;
 }
 
 sql_result data_query::make_request_resultset_meta()
 {
-    const std::string& schema = m_connection.get_schema();
+    // TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
+    m_diag.add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+        "Metadata for non-executed queries is not supported");
 
-    query_get_resultset_meta_request req(schema, sql);
-    query_get_resultset_meta_response rsp;
-
-    try
-    {
-        m_connection.sync_message(req, rsp);
-    }
-    catch (const odbc_error& err)
-    {
-        m_diag.add_status_record(err);
-
-        return sql_result::AI_ERROR;
-    }
-    catch (const ignite_error& err)
-    {
-        m_diag.add_status_record(err.get_text());
-
-        return sql_result::AI_ERROR;
-    }
-
-    if (rsp.get_status() != response_status::SUCCESS)
-    {
-        LOG_MSG("Error: " << rsp.get_error());
-
-        m_diag.add_status_record(response_status_to_sql_state(rsp.get_status()), rsp.get_error());
-
-        return sql_result::AI_ERROR;
-    }
-
-    set_resultset_meta(rsp.get_meta());
-
-    return sql_result::AI_SUCCESS;
+    return sql_result::AI_ERROR;
 }
 
 sql_result data_query::process_conversion_result(conversion_result conv_res, std::int32_t row_idx,
