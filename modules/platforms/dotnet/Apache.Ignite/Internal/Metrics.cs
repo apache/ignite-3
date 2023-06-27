@@ -199,4 +199,24 @@ internal static class Metrics
     /// Decrements active requests.
     /// </summary>
     public static void RequestsActiveDecrement() => Interlocked.Decrement(ref _requestsActive);
+
+    /// <summary>
+    /// Increments active streamer batches.
+    /// </summary>
+    public static void StreamerBatchesActiveIncrement() => Interlocked.Increment(ref _streamerBatchesActive);
+
+    /// <summary>
+    /// Decrements active streamer batches.
+    /// </summary>
+    public static void StreamerBatchesActiveDecrement() => Interlocked.Decrement(ref _streamerBatchesActive);
+
+    /// <summary>
+    /// Increments streamer items queued.
+    /// </summary>
+    public static void StreamerItemsQueuedIncrement() => Interlocked.Increment(ref _streamerItemsQueued);
+
+    /// <summary>
+    /// Decrements streamer items queued.
+    /// </summary>
+    public static void StreamerItemsQueuedDecrement() => Interlocked.Decrement(ref _streamerItemsQueued);
 }
