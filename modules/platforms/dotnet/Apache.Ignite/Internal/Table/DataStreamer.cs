@@ -121,6 +121,9 @@ internal static class DataStreamer
             foreach (var batch in batches.Values)
             {
                 batch.Buffer.Dispose();
+
+                Metrics.StreamerItemsQueuedDecrement(batch.Count);
+                Metrics.StreamerBatchesActiveDecrement();
             }
         }
 
@@ -163,6 +166,8 @@ internal static class DataStreamer
                 batch.Buffer.MessageWriter.Write(tupleBuilder.Build().Span);
             }
 
+            Metrics.StreamerItemsQueuedIncrement();
+
             return (batch, partition);
         }
 
@@ -174,6 +179,8 @@ internal static class DataStreamer
             {
                 batchRef = new Batch();
                 InitBuffer(batchRef);
+
+                Metrics.StreamerBatchesActiveIncrement();
             }
 
             return batchRef;
@@ -200,7 +207,7 @@ internal static class DataStreamer
                 buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
                 buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
-                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task);
+                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Count);
 
                 batch.Count = 0;
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
@@ -209,17 +216,23 @@ internal static class DataStreamer
             }
         }
 
-        async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition, Task oldTask)
+        async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition, Task oldTask, int count)
         {
             try
             {
                 // Wait for the previous batch for this node to preserve item order.
                 await oldTask.ConfigureAwait(false);
                 await sender(buf, partition, retryPolicy).ConfigureAwait(false);
+
+                Metrics.StreamerBatchesSent.Add(1);
+                Metrics.StreamerItemsSent.Add(count);
             }
             finally
             {
                 buf.Dispose();
+
+                Metrics.StreamerItemsQueuedDecrement(count);
+                Metrics.StreamerBatchesActiveDecrement();
             }
         }
 

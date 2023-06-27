@@ -218,5 +218,6 @@ internal static class Metrics
     /// <summary>
     /// Decrements streamer items queued.
     /// </summary>
-    public static void StreamerItemsQueuedDecrement() => Interlocked.Decrement(ref _streamerItemsQueued);
+    /// <param name="count">The count.</param>
+    public static void StreamerItemsQueuedDecrement(int count) => Interlocked.Add(ref _streamerItemsQueued, -count);
 }
