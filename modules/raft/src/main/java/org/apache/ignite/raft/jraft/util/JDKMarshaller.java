@@ -20,6 +20,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.nio.ByteBuffer;
 
 /**
  *
@@ -44,9 +45,9 @@ public class JDKMarshaller implements Marshaller {
     /**
      * {@inheritDoc}
      */
-    @Override public <T> T unmarshall(byte[] raw) {
+    @Override public <T> T unmarshall(ByteBuffer raw) {
         try {
-            ByteArrayInputStream bais = new ByteArrayInputStream(raw);
+            ByteArrayInputStream bais = new ByteArrayInputStream(raw.array(), raw.arrayOffset() + raw.position(), raw.remaining());
             ObjectInputStream oos = new ObjectInputStream(bais);
             return (T) oos.readObject();
         }

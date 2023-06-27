@@ -22,7 +22,7 @@ import org.apache.ignite.table.Tuple;
 /**
  * Partition awareness provider for data streamer.
  */
-class TupleStreamerPartitionAwarenessProvider extends AbstractStreamerPartitionAwarenessProvider<Tuple> {
+class TupleStreamerPartitionAwarenessProvider extends AbstractClientStreamerPartitionAwarenessProvider<Tuple> {
     TupleStreamerPartitionAwarenessProvider(ClientTable tbl) {
         super(tbl);
     }

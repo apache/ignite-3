@@ -75,6 +75,7 @@ import org.apache.ignite.rest.client.model.MetricSource;
 import org.apache.ignite.rest.client.model.NodeState;
 import org.apache.ignite.rest.client.model.Problem;
 import org.apache.ignite.rest.client.model.UnitStatus;
+import org.apache.ignite.rest.client.model.UnitVersionStatus;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -95,6 +96,8 @@ public class ItGeneratedRestClientTest {
 
     /** Start rest server port. */
     private static final int BASE_REST_PORT = 10300;
+
+    private static final int BASE_CLIENT_PORT = 10800;
 
     @WorkDirectory
     private static Path WORK_DIR;
@@ -134,7 +137,8 @@ public class ItGeneratedRestClientTest {
                 + "    nodeFinder: {\n"
                 + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ] \n"
                 + "    }\n"
-                + "  }\n"
+                + "  },\n"
+                + "  clientConnector.port: " + (BASE_CLIENT_PORT + nodeIdx) + "\n"
                 + "}";
     }
 
@@ -152,7 +156,7 @@ public class ItGeneratedRestClientTest {
                 .clusterName("cluster")
                 .build();
 
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());
@@ -396,7 +400,8 @@ public class ItGeneratedRestClientTest {
 
         new DeployUnitClient(apiClient).deployUnit(unitId, List.of(emptyFile()), unitVersion, DeployMode.MAJORITY, List.of());
 
-        UnitStatus expectedStatus = new UnitStatus().id(unitId).putVersionToStatusItem(unitVersion, DEPLOYED);
+        UnitStatus expectedStatus = new UnitStatus().id(unitId)
+                .addVersionToStatusItem((new UnitVersionStatus()).version(unitVersion).status(DEPLOYED));
 
         await().untilAsserted(() -> assertThat(deploymentApi.listClusterStatuses(null), contains(expectedStatus)));
 

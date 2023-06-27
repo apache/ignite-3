@@ -17,18 +17,19 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.client.RetryLimitPolicy;
-import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -77,19 +78,17 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRec));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Collection<Tuple> getAll(@Nullable Transaction tx, @NotNull Collection<Tuple> keyRecs) {
+    public List<Tuple> getAll(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         return sync(getAllAsync(tx, keyRecs));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<Tuple>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keyRecs) {
+    public CompletableFuture<List<Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
         if (keyRecs.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
+            return completedFuture(Collections.emptyList());
         }
 
         return tbl.doSchemaOutInOpAsync(
@@ -97,7 +96,8 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 (s, w) -> ser.writeTuples(tx, keyRecs, s, w, true),
                 ClientTupleSerializer::readTuplesNullable,
                 Collections.emptyList(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRecs.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRecs.iterator().next())
+        );
     }
 
     /** {@inheritDoc} */
@@ -378,11 +378,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 PartitionAwarenessProvider.of(nodeId),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
-        //noinspection resource
-        IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
-        StreamerSubscriber<Tuple, String> subscriber = new StreamerSubscriber<>(batchSender, provider, opts, log);
-        publisher.subscribe(subscriber);
-
-        return subscriber.completionFuture();
+        return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 }

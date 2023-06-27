@@ -159,15 +159,6 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    public long persistedIndex() {
-        return busy(() -> {
-            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
-
-            return lastAppliedIndex;
-        });
-    }
-
-    @Override
     public byte @Nullable [] committedGroupConfiguration() {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);

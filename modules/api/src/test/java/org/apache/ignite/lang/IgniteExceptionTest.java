@@ -40,7 +40,7 @@ public class IgniteExceptionTest {
 
         var originalEx = new CustomTestException(originalTraceId, Table.TABLE_NOT_FOUND_ERR, originalMessage, null);
         var wrappedEx = new CompletionException(originalEx);
-        var res = IgniteException.wrap(wrappedEx);
+        IgniteException res = IgniteExceptionUtils.wrap(wrappedEx);
 
         assertEquals(originalEx.traceId(), res.traceId());
         assertEquals(originalEx.code(), res.code());
@@ -59,7 +59,7 @@ public class IgniteExceptionTest {
 
         var originalEx = new IgniteCheckedException(originalTraceId, Table.COLUMN_ALREADY_EXISTS_ERR, originalMessage);
         var wrappedEx = new CompletionException(originalEx);
-        var res = IgniteException.wrap(wrappedEx);
+        IgniteException res = IgniteExceptionUtils.wrap(wrappedEx);
 
         assertEquals(originalEx.traceId(), res.traceId());
         assertEquals(originalEx.code(), res.code());
@@ -75,7 +75,7 @@ public class IgniteExceptionTest {
 
         var originalEx = new IgniteInternalException(originalTraceId, Common.INTERNAL_ERR, originalMessage);
         var wrappedEx = new CompletionException(originalEx);
-        var res = IgniteException.wrap(wrappedEx);
+        IgniteException res = IgniteExceptionUtils.wrap(wrappedEx);
 
         assertEquals(Common.INTERNAL_ERR, res.code());
         assertSame(originalEx, res.getCause());
@@ -89,7 +89,7 @@ public class IgniteExceptionTest {
 
         var originalEx = new IgniteInternalCheckedException(originalTraceId, Common.INTERNAL_ERR, originalMessage);
         var wrappedEx = new CompletionException(originalEx);
-        var res = IgniteException.wrap(wrappedEx);
+        IgniteException res = IgniteExceptionUtils.wrap(wrappedEx);
 
         assertEquals(Common.INTERNAL_ERR, res.code());
         assertSame(originalEx, res.getCause());

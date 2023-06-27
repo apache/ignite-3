@@ -36,6 +36,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
@@ -43,15 +44,12 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -61,9 +59,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * These tests check in-memory node restart scenarios.
  */
-public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
-    /** Default node port. */
-    private static final int DEFAULT_NODE_PORT = 3344;
+public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
     /** Value producer for table data, is used to create data and check it later. */
     private static final IntFunction<String> VALUE_PRODUCER = i -> "val " + i;
@@ -71,16 +67,8 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
     /** Test table name. */
     private static final String TABLE_NAME = "Table1";
 
-    /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG = "{\n"
-            + "  network.port: {},\n"
-            + "  network.nodeFinder.netClusterNodes: {}\n"
-            + "}";
-
     /** Cluster nodes. */
     private static final List<Ignite> CLUSTER_NODES = new ArrayList<>();
-
-    private static final List<String> CLUSTER_NODES_NAMES = new ArrayList<>();
 
     /**
      * Stops all started nodes.
@@ -98,7 +86,6 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
         IgniteUtils.closeAll(closeables);
 
         CLUSTER_NODES.clear();
-        CLUSTER_NODES_NAMES.clear();
     }
 
     /**
@@ -124,7 +111,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
                     .clusterName("cluster")
                     .build();
 
-            IgnitionManager.init(initParameters);
+            TestIgnitionManager.init(initParameters);
         }
 
         assertThat(future, willCompleteSuccessfully());
@@ -149,21 +136,6 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
         String cfgString = configurationString(idx);
 
         return startNode(idx, nodeName, cfgString, workDir.resolve(nodeName));
-    }
-
-    /**
-     * Build a configuration string.
-     *
-     * @param idx Node index.
-     * @return Configuration string.
-     */
-    private static String configurationString(int idx) {
-        int port = DEFAULT_NODE_PORT + idx;
-
-        // The address of the first node.
-        @Language("HOCON") String connectAddr = "[localhost\":\"" + DEFAULT_NODE_PORT + "]";
-
-        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, port, connectAddr);
     }
 
     /**

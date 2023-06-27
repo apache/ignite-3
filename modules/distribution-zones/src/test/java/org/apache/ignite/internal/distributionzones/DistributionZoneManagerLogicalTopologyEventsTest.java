@@ -41,27 +41,13 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testMetaStorageKeysInitializedOnStartWhenTopVerEmpty() throws Exception {
-        topology.putNode(NODE_1);
-
         distributionZoneManager.start();
+
+        topology.putNode(NODE_1);
 
         assertLogicalTopologyVersion(1L, keyValueStorage);
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
-    }
-
-    @Test
-    void testMetaStorageKeysInitializedOnStartWhenTopVerIsLessThanCmgTopVer() throws Exception {
-        topology.putNode(NODE_1);
-        topology.putNode(NODE_2);
-
-        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(1L), HybridTimestamp.MIN_VALUE);
-
-        distributionZoneManager.start();
-
-        assertLogicalTopologyVersion(2L, keyValueStorage);
-
-        assertLogicalTopology(Set.of(NODE_1, NODE_2), keyValueStorage);
     }
 
     @Test
@@ -88,9 +74,9 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testNodeAddingUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        topology.putNode(NODE_1);
-
         distributionZoneManager.start();
+
+        topology.putNode(NODE_1);
 
         topology.putNode(NODE_2);
 
@@ -103,11 +89,11 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testNodeStaleAddingDoNotUpdatesLogicalTopologyInMetaStorage() throws Exception {
+        distributionZoneManager.start();
+
         topology.putNode(NODE_1);
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
-
-        distributionZoneManager.start();
 
         // Wait for Zone Manager to initialize Meta Storage on start.
         assertLogicalTopologyVersion(1L, keyValueStorage);
@@ -125,13 +111,13 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testNodeRemovingUpdatesLogicalTopologyInMetaStorage() throws Exception {
+        distributionZoneManager.start();
+
         topology.putNode(NODE_1);
 
         topology.putNode(NODE_2);
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
-
-        distributionZoneManager.start();
 
         assertLogicalTopology(clusterNodes, keyValueStorage);
 
@@ -146,6 +132,8 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testNodeStaleRemovingDoNotUpdatesLogicalTopologyInMetaStorage() throws Exception {
+        distributionZoneManager.start();
+
         topology.putNode(NODE_1);
 
         topology.putNode(NODE_2);
@@ -153,8 +141,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
         assertEquals(2L, topology.getLogicalTopology().version());
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
-
-        distributionZoneManager.start();
 
         // Wait for Zone Manager to initialize Meta Storage on start.
         assertLogicalTopologyVersion(2L, keyValueStorage);
@@ -170,11 +156,11 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testTopologyLeapUpdatesLogicalTopologyInMetaStorage() throws Exception {
+        distributionZoneManager.start();
+
         topology.putNode(NODE_1);
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
-
-        distributionZoneManager.start();
 
         assertLogicalTopology(clusterNodes, keyValueStorage);
 
@@ -191,11 +177,11 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testStaleTopologyLeapDoNotUpdatesLogicalTopologyInMetaStorage() throws Exception {
+        distributionZoneManager.start();
+
         topology.putNode(NODE_1);
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
-
-        distributionZoneManager.start();
 
         assertLogicalTopology(clusterNodes, keyValueStorage);
 

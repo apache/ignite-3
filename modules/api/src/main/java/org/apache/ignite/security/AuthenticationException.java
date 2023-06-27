@@ -17,7 +17,6 @@
 
 package org.apache.ignite.security;
 
-import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Authentication;
 import org.apache.ignite.lang.IgniteException;
 
@@ -25,19 +24,12 @@ import org.apache.ignite.lang.IgniteException;
  * The general authentication exception.
  */
 public class AuthenticationException extends IgniteException {
+    /**
+     * Creates a new authentication exception.
+     *
+     * @param message Detailed message.
+     */
     public AuthenticationException(String message) {
         super(Authentication.COMMON_AUTHENTICATION_ERR, message);
-    }
-
-    /**
-     * Creates an exception with the given trace ID, error code, detailed message, and cause.
-     *
-     * @param traceId Unique identifier of the exception.
-     * @param code Full error code.
-     * @param message Detailed message.
-     * @param cause Optional nested exception (can be {@code null}).
-     */
-    public AuthenticationException(UUID traceId, int code, String message, Throwable cause) {
-        super(traceId, code, message, cause);
     }
 }

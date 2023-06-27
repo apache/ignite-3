@@ -83,7 +83,7 @@ public class ItLozaTest {
 
         var nodeId = new RaftNodeId(groupId, configuration.peer(node.name()));
 
-        return loza.startRaftGroupNode(nodeId, configuration, raftGroupListener, RaftGroupEventsListener.noopLsnr)
+        return loza.startRaftGroupNodeAndWaitNodeReadyFuture(nodeId, configuration, raftGroupListener, RaftGroupEventsListener.noopLsnr)
                 .get(10, TimeUnit.SECONDS);
     }
 

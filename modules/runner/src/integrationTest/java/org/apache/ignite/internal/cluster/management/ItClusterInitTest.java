@@ -67,12 +67,12 @@ public class ItClusterInitTest extends IgniteAbstractTest {
                 .clusterName("cluster")
                 .build();
 
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         assertThat(allOf(nodesByName.values().toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
 
         // init is idempotent
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         InitParameters initParametersWithWrongNodesList1 = InitParameters.builder()
                 .destinationNodeName(nodeName)
@@ -107,6 +107,7 @@ public class ItClusterInitTest extends IgniteAbstractTest {
         for (int port : ports) {
             String config = "{"
                     + " network.port: " + port + ","
+                    + " clientConnector.port: " + (port + 8000) + ","
                     + " network.nodeFinder.netClusterNodes: " + nodeFinderConfig
                     + "}";
 

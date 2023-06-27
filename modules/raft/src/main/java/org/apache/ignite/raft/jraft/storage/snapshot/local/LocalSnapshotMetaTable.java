@@ -83,7 +83,7 @@ public class LocalSnapshotMetaTable {
             return false;
         }
         try {
-            final LocalSnapshotPbMeta pbMeta = Marshaller.DEFAULT.unmarshall(buf.array());
+            final LocalSnapshotPbMeta pbMeta = Marshaller.DEFAULT.unmarshall(buf);
             if (pbMeta == null) {
                 LOG.error("Fail to load meta from buffer.");
                 return false;

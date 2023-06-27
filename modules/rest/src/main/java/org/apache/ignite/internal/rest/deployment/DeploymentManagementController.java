@@ -19,25 +19,25 @@ package org.apache.ignite.internal.rest.deployment;
 
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.multipart.CompletedFileUpload;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.rest.api.deployment.InitialDeployMode;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
+import org.apache.ignite.internal.rest.api.deployment.UnitVersionStatus;
 import org.jetbrains.annotations.Nullable;
 import org.reactivestreams.Publisher;
 
@@ -63,13 +63,9 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     ) {
         CompletableFuture<DeploymentUnit> result = new CompletableFuture<>();
         unitContent.subscribe(new CompletedFileUploadSubscriber(result));
-        return result.thenCompose(deploymentUnit -> {
-            if (initialNodes.isPresent()) {
-                return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit, initialNodes.get());
-            } else {
-                return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit, fromInitialDeployMode(deployMode));
-            }
-        });
+        NodesToDeploy nodesToDeploy = initialNodes.map(NodesToDeploy::new)
+                .orElseGet(() -> new NodesToDeploy(fromInitialDeployMode(deployMode)));
+        return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), result, nodesToDeploy);
     }
 
     @Override
@@ -158,18 +154,18 @@ public class DeploymentManagementController implements DeploymentCodeApi {
      * @return Unit statuses DTO.
      */
     private static @Nullable UnitStatus fromUnitStatuses(UnitStatuses statuses, Predicate<DeploymentStatus> statusFilter) {
-        Map<String, DeploymentStatus> versionToDeploymentStatus = new HashMap<>();
-        Set<Version> versions = statuses.versions();
-        for (Version version : versions) {
-            DeploymentStatus status = statuses.status(version);
-            if (statusFilter.test(status)) {
-                versionToDeploymentStatus.put(version.render(), status);
+        List<UnitVersionStatus> versionStatuses = new ArrayList<>();
+        for (org.apache.ignite.internal.deployunit.UnitVersionStatus versionStatus : statuses.versionStatuses()) {
+            DeploymentStatus deploymentStatus = fromDeploymentStatus(versionStatus.getStatus());
+            if (statusFilter.test(deploymentStatus)) {
+                versionStatuses.add(new UnitVersionStatus(versionStatus.getVersion().render(), deploymentStatus));
             }
         }
-        if (versionToDeploymentStatus.isEmpty()) {
+
+        if (versionStatuses.isEmpty()) {
             return null;
         }
-        return new UnitStatus(statuses.id(), versionToDeploymentStatus);
+        return new UnitStatus(statuses.id(), versionStatuses);
     }
 
     private static Predicate<DeploymentStatus> createStatusFilter(Optional<List<DeploymentStatus>> statuses) {
@@ -193,5 +189,9 @@ public class DeploymentManagementController implements DeploymentCodeApi {
             default:
                 return org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
         }
+    }
+
+    private static DeploymentStatus fromDeploymentStatus(org.apache.ignite.internal.deployunit.DeploymentStatus status) {
+        return DeploymentStatus.valueOf(status.name());
     }
 }

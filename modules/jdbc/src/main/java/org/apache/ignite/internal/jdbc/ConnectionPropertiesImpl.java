@@ -26,7 +26,7 @@ import java.util.StringTokenizer;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.IgniteClientConfiguration;
-import org.apache.ignite.internal.client.HostAndPortRange;
+import org.apache.ignite.internal.client.HostAndPort;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -53,7 +53,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private String url;
 
     /** Addresses. */
-    private HostAndPortRange[] addrs;
+    private HostAndPort[] addrs;
 
     /** Schema name. Hidden property. Is used to set default schema name part of the URL. */
     private final StringProperty schema = new StringProperty(PROP_SCHEMA,
@@ -157,7 +157,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
             StringBuilder sbUrl = new StringBuilder(URL_PREFIX);
 
-            HostAndPortRange[] addrs = getAddresses();
+            HostAndPort[] addrs = getAddresses();
 
             for (int i = 0; i < addrs.length; i++) {
                 if (i > 0) {
@@ -185,13 +185,13 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     /** {@inheritDoc} */
     @Override
-    public HostAndPortRange[] getAddresses() {
+    public HostAndPort[] getAddresses() {
         return addrs;
     }
 
     /** {@inheritDoc} */
     @Override
-    public void setAddresses(HostAndPortRange[] addrs) {
+    public void setAddresses(HostAndPort[] addrs) {
         this.addrs = addrs;
     }
 
@@ -497,14 +497,14 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         String[] endpoints = endpointStr.split(",");
 
         if (endpoints.length > 0) {
-            addrs = new HostAndPortRange[endpoints.length];
+            addrs = new HostAndPort[endpoints.length];
         }
 
         for (int i = 0; i < endpoints.length; ++i) {
             try {
-                addrs[i] = HostAndPortRange.parse(endpoints[i],
-                        IgniteClientConfiguration.DFLT_PORT, IgniteClientConfiguration.DFLT_PORT,
-                        "Invalid endpoint format (should be \"host[:portRangeFrom[..portRangeTo]]\")");
+                addrs[i] = HostAndPort.parse(endpoints[i],
+                        IgniteClientConfiguration.DFLT_PORT,
+                        "Invalid endpoint format (should be \"host:port\")");
             } catch (IgniteException e) {
                 throw new SQLException(e.getMessage(), SqlStateCode.CLIENT_CONNECTION_FAILED, e);
             }

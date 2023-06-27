@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.storage;
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
@@ -33,6 +34,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.net.ConnectException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
@@ -283,7 +285,7 @@ public class InternalTableImpl implements InternalTable {
             Collection<BinaryRowEx> keyRows,
             @Nullable InternalTransaction tx,
             IgniteFiveFunction<TablePartitionId, Collection<BinaryRow>, InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> op,
-            Function<CompletableFuture<Object>[], CompletableFuture<T>> reducer
+            Function<Collection<RowBatch>, CompletableFuture<T>> reducer
     ) {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
         // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
@@ -306,14 +308,13 @@ public class InternalTableImpl implements InternalTable {
 
         final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
 
-        Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(keyRows);
+        Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
-        CompletableFuture<Object>[] futures = new CompletableFuture[keyRowsByPartition.size()];
+        for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
+            int partitionId = partitionRowBatch.getIntKey();
+            RowBatch rowBatch = partitionRowBatch.getValue();
 
-        int batchNum = 0;
-
-        for (Int2ObjectOpenHashMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
+            TablePartitionId partGroupId = new TablePartitionId(tableId, partitionId);
 
             IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx0.enlistedNodeAndTerm(partGroupId);
 
@@ -322,7 +323,7 @@ public class InternalTableImpl implements InternalTable {
             if (primaryReplicaAndTerm != null) {
                 TablePartitionId commitPart = tx.commitPartition();
 
-                ReplicaRequest request = op.apply(commitPart, partToRows.getValue(), tx0, partGroupId, primaryReplicaAndTerm.get2());
+                ReplicaRequest request = op.apply(commitPart, rowBatch.requestedRows, tx0, partGroupId, primaryReplicaAndTerm.get2());
 
                 try {
                     fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
@@ -334,16 +335,16 @@ public class InternalTableImpl implements InternalTable {
             } else {
                 fut = enlistWithRetry(
                         tx0,
-                        partToRows.getIntKey(),
-                        (commitPart, term) -> op.apply(commitPart, partToRows.getValue(), tx0, partGroupId, term),
+                        partitionId,
+                        (commitPart, term) -> op.apply(commitPart, rowBatch.requestedRows, tx0, partGroupId, term),
                         ATTEMPTS_TO_ENLIST_PARTITION
                 );
             }
 
-            futures[batchNum++] = fut;
+            rowBatch.resultFuture = fut;
         }
 
-        CompletableFuture<T> fut = reducer.apply(futures);
+        CompletableFuture<T> fut = reducer.apply(rowBatchByPartitionId.values());
 
         return postEnlist(fut, implicit, tx0);
     }
@@ -558,7 +559,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
+    public CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
         if (tx != null && tx.isReadOnly()) {
             BinaryRowEx firstRow = keyRows.iterator().next();
 
@@ -581,41 +582,38 @@ public class InternalTableImpl implements InternalTable {
                             .requestType(RequestType.RW_GET_ALL)
                             .timestampLong(clock.nowLong())
                             .build(),
-                    this::collectMultiRowsResponses);
+                    InternalTableImpl::collectMultiRowsResponsesWithRestoreOrder
+            );
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> getAll(
+    public CompletableFuture<List<BinaryRow>> getAll(
             Collection<BinaryRowEx> keyRows,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
     ) {
-        Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(keyRows);
+        Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
-        CompletableFuture<Object>[] futures = new CompletableFuture[keyRowsByPartition.size()];
-
-        int batchNum = 0;
-
-        for (Int2ObjectOpenHashMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
-            ReplicationGroupId partGroupId = raftGroupServiceByPartitionId.get(partToRows.getIntKey()).groupId();
+        for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
+            ReplicationGroupId partGroupId = raftGroupServiceByPartitionId.get(partitionRowBatch.getIntKey()).groupId();
 
             CompletableFuture<Object> fut = replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlyMultiRowReplicaRequest()
                     .groupId(partGroupId)
-                    .binaryRowsBytes(serializeBinaryRows(partToRows.getValue()))
+                    .binaryRowsBytes(serializeBinaryRows(partitionRowBatch.getValue().requestedRows))
                     .requestType(RequestType.RO_GET_ALL)
                     .readTimestampLong(readTimestamp.longValue())
                     .build()
             );
 
-            futures[batchNum++] = fut;
+            partitionRowBatch.getValue().resultFuture = fut;
         }
 
-        return collectMultiRowsResponses(futures);
+        return collectMultiRowsResponsesWithRestoreOrder(rowBatchByPartitionId.values());
     }
 
-    private static List<ByteBuffer> serializeBinaryRows(Collection<BinaryRow> rows) {
+    private static List<ByteBuffer> serializeBinaryRows(Collection<? extends BinaryRow> rows) {
         var result = new ArrayList<ByteBuffer>(rows.size());
 
         for (BinaryRow row : rows) {
@@ -648,16 +646,25 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
-                        .groupId(groupId)
-                        .commitPartitionId(commitPart)
-                        .binaryRowsBytes(serializeBinaryRows(keyRows0))
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RequestType.RW_UPSERT_ALL)
-                        .timestampLong(clock.nowLong())
-                        .build(),
-                CompletableFuture::allOf);
+                this::upsertAllInternal,
+                RowBatch::allResultFutures
+        );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
+        InternalTransaction tx = txManager.begin();
+        TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
+
+        CompletableFuture<Void> fut = enlistWithRetry(
+                tx,
+                partition,
+                (commitPart, term) -> upsertAllInternal(commitPart, rows, tx, partGroupId, term),
+                ATTEMPTS_TO_ENLIST_PARTITION
+        );
+
+        return postEnlist(fut, true, tx);
     }
 
     /** {@inheritDoc} */
@@ -711,7 +718,8 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_INSERT_ALL)
                         .timestampLong(clock.nowLong())
                         .build(),
-                this::collectMultiRowsResponses);
+                InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder
+        );
     }
 
     /** {@inheritDoc} */
@@ -838,7 +846,8 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_DELETE_ALL)
                         .timestampLong(clock.nowLong())
                         .build(),
-                this::collectMultiRowsResponses);
+                InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder
+        );
     }
 
     /** {@inheritDoc} */
@@ -859,7 +868,8 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_DELETE_EXACT_ALL)
                         .timestampLong(clock.nowLong())
                         .build(),
-                this::collectMultiRowsResponses);
+                InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder
+        );
     }
 
     @Override
@@ -1069,19 +1079,20 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Map rows to partitions.
+     * Creates batches of rows for processing, grouped by partition ID.
      *
      * @param rows Rows.
-     * @return Partition -%gt; rows mapping.
      */
-    private Int2ObjectOpenHashMap<List<BinaryRow>> mapRowsToPartitions(Collection<BinaryRowEx> rows) {
-        Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = new Int2ObjectOpenHashMap<>();
+    Int2ObjectMap<RowBatch> toRowBatchByPartitionId(Collection<BinaryRowEx> rows) {
+        Int2ObjectMap<RowBatch> rowBatchByPartitionId = new Int2ObjectOpenHashMap<>();
 
-        for (BinaryRowEx keyRow : rows) {
-            keyRowsByPartition.computeIfAbsent(partitionId(keyRow), k -> new ArrayList<>()).add(keyRow);
+        int i = 0;
+
+        for (BinaryRowEx row : rows) {
+            rowBatchByPartitionId.computeIfAbsent(partitionId(row), partitionId -> new RowBatch()).add(row, i++);
         }
 
-        return keyRowsByPartition;
+        return rowBatchByPartitionId;
     }
 
     /** {@inheritDoc} */
@@ -1198,25 +1209,59 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * TODO asch keep the same order as for keys Collects multirow responses from multiple futures into a single collection IGNITE-16004.
+     * Gathers the result of batch processing into a single resulting collection of rows.
      *
-     * @param futs Futures.
-     * @return Row collection.
+     * @param rowBatches Row batches.
+     * @return Future of collecting results.
      */
-    private CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponses(CompletableFuture<Object>[] futs) {
-        return CompletableFuture.allOf(futs)
+    static CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponsesWithoutRestoreOrder(Collection<RowBatch> rowBatches) {
+        return allResultFutures(rowBatches)
                 .thenApply(response -> {
-                    Collection<BinaryRow> list = new ArrayList<>(futs.length);
+                    var result = new ArrayList<BinaryRow>(rowBatches.size());
 
-                    for (CompletableFuture<Object> future : futs) {
-                        Collection<BinaryRow> values = (Collection<BinaryRow>) future.join();
+                    for (RowBatch rowBatch : rowBatches) {
+                        Collection<BinaryRow> batchResult = (Collection<BinaryRow>) rowBatch.getCompletedResult();
 
-                        if (values != null) {
-                            list.addAll(values);
+                        if (batchResult == null) {
+                            continue;
+                        }
+
+                        result.addAll(batchResult);
+                    }
+
+                    return result;
+                });
+    }
+
+    /**
+     * Gathers the result of batch processing into a single resulting collection of rows, restoring order as in the requested collection of
+     * rows.
+     *
+     * @param rowBatches Row batches by partition ID.
+     * @return Future of collecting results.
+     */
+    static CompletableFuture<List<BinaryRow>> collectMultiRowsResponsesWithRestoreOrder(Collection<RowBatch> rowBatches) {
+        return allResultFutures(rowBatches)
+                .thenApply(response -> {
+                    var result = new BinaryRow[RowBatch.getTotalRequestedRowSize(rowBatches)];
+
+                    for (RowBatch rowBatch : rowBatches) {
+                        Collection<BinaryRow> batchResult = (Collection<BinaryRow>) rowBatch.getCompletedResult();
+
+                        assert batchResult != null;
+
+                        assert batchResult.size() == rowBatch.requestedRows.size() :
+                                "batchResult=" + batchResult.size() + ", requestedRows=" + rowBatch.requestedRows.size();
+
+                        int i = 0;
+
+                        for (BinaryRow resultRow : batchResult) {
+                            result[rowBatch.getOriginalRowIndex(i++)] = resultRow;
                         }
                     }
 
-                    return list;
+                    // Use Arrays#asList to avoid copying the array.
+                    return Arrays.asList(result);
                 });
     }
 
@@ -1253,6 +1298,8 @@ public class InternalTableImpl implements InternalTable {
      */
     protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
         RaftGroupService svc = raftGroupServiceByPartitionId.get(partId);
+        assert svc != null : "No raft group service for partition " + partId;
+
         tx.assignCommitPartition(new TablePartitionId(tableId, partId));
 
         // TODO: IGNITE-17256 Use a placement driver for getting a primary replica.
@@ -1552,5 +1599,22 @@ public class InternalTableImpl implements InternalTable {
         if (previousStorageIndexTracker != null) {
             previousStorageIndexTracker.close();
         }
+    }
+
+    private ReplicaRequest upsertAllInternal(
+            TablePartitionId commitPart,
+            Collection<? extends BinaryRow> keyRows0,
+            InternalTransaction txo,
+            ReplicationGroupId groupId,
+            Long term) {
+        return tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                .groupId(groupId)
+                .commitPartitionId(commitPart)
+                .binaryRowsBytes(serializeBinaryRows(keyRows0))
+                .transactionId(txo.id())
+                .term(term)
+                .requestType(RequestType.RW_UPSERT_ALL)
+                .timestampLong(clock.nowLong())
+                .build();
     }
 }

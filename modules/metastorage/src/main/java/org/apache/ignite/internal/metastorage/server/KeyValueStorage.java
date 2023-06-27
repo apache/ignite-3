@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.LongConsumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -69,6 +70,18 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @return Value corresponding to the given key.
      */
     Entry get(byte[] key, long revUpperBound);
+
+    /**
+     * Returns all entries corresponding to the given key and bounded by given revisions.
+     * All these entries are ordered by revisions and have the same key.
+     * The lower bound and the upper bound are inclusive.
+     *
+     * @param key The key.
+     * @param revLowerBound The lower bound of revision.
+     * @param revUpperBound The upper bound of revision.
+     * @return Entries corresponding to the given key.
+     */
+    List<Entry> get(byte[] key, long revLowerBound, long revUpperBound);
 
     /**
      * Returns all entries corresponding to given keys.
@@ -232,10 +245,11 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * <p>Before calling this method, watches will not receive any updates.
      *
+     * @param startRevision Revision to start processing updates from.
      * @param revisionCallback Callback that will be invoked after all watches of a particular revision are processed, with the
      *         revision and modified entries (processed by at least one watch) as its argument.
      */
-    void startWatches(OnRevisionAppliedCallback revisionCallback);
+    void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback);
 
     /**
      * Unregisters a watch listener.
@@ -272,4 +286,20 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * present in the storage.
      */
     byte @Nullable [] nextKey(byte[] key);
+
+    /**
+     * Looks up a timestamp by a revision.
+     *
+     * @param revision Revision by which to do a lookup.
+     * @return Timestamp corresponding to the revision.
+     */
+    HybridTimestamp timestampByRevision(long revision);
+
+    /**
+     * Sets the revision listener. This is needed only for the recovery, after that listener must be set to {@code null}.
+     * {@code null} means that we no longer must be notified of revision updates for recovery, because recovery is finished.
+     *
+     * @param listener Revision listener.
+     */
+    void setRecoveryRevisionListener(@Nullable LongConsumer listener);
 }
