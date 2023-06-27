@@ -46,6 +46,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -93,7 +94,7 @@ public class RebalanceUtil {
     /**
      * Update keys that related to rebalance algorithm in Meta Storage. Keys are specific for partition.
      *
-     * @param tableName Table name.
+     * @param tableView Table config view.
      * @param partId Unique identifier of a partition.
      * @param dataNodes Data nodes.
      * @param replicas Number of replicas for a table.
@@ -104,7 +105,7 @@ public class RebalanceUtil {
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
     public static @NotNull CompletableFuture<Void> updatePendingAssignmentsKeys(
-            String tableName,
+            TableView tableView,
             TablePartitionId partId,
             Collection<String> dataNodes,
             int replicas,
@@ -183,39 +184,39 @@ public class RebalanceUtil {
                 case PENDING_KEY_UPDATED:
                     LOG.info(
                             "Update metastore pending partitions key [key={}, partition={}, table={}, newVal={}]",
-                            partAssignmentsPendingKey.toString(), partNum, tableName,
+                            partAssignmentsPendingKey.toString(), partNum, tableView.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
                 case PLANNED_KEY_UPDATED:
                     LOG.info(
                             "Update metastore planned partitions key [key={}, partition={}, table={}, newVal={}]",
-                            partAssignmentsPlannedKey, partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
+                            partAssignmentsPlannedKey, partNum, tableView.name(), ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
                 case PLANNED_KEY_REMOVED_EQUALS_PENDING:
                     LOG.info(
                             "Remove planned key because current pending key has the same value [key={}, partition={}, table={}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
+                            partAssignmentsPlannedKey.toString(), partNum, tableView.name(), ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
                 case PLANNED_KEY_REMOVED_EMPTY_PENDING:
                     LOG.info(
                             "Remove planned key because pending is empty and calculated assignments are equal to current assignments "
                                     + "[key={}, partition={}, table={}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
+                            partAssignmentsPlannedKey.toString(), partNum, tableView.name(), ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
                 case ASSIGNMENT_NOT_UPDATED:
                     LOG.debug(
                             "Assignments are not updated [key={}, partition={}, table={}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
+                            partAssignmentsPlannedKey.toString(), partNum, tableView.name(), ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
                 case OUTDATED_UPDATE_RECEIVED:
                     LOG.debug(
                             "Received outdated rebalance trigger event [revision={}, partition={}, table={}]",
-                            revision, partNum, tableName);
+                            revision, partNum, tableView.name());
 
                     break;
                 default:
