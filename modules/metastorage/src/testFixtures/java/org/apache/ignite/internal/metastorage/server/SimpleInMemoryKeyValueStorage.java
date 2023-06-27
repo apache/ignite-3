@@ -93,7 +93,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
      * Revision listener for recovery only. Notifies {@link MetaStorageManagerImpl} of revision update.
      * Guarded by {@link #mux}.
      */
-    private LongConsumer revisionListener;
+    private @Nullable LongConsumer recoveryRevisionListener;
 
     public SimpleInMemoryKeyValueStorage(String nodeName) {
         this.watchProcessor = new WatchProcessor(nodeName, this::get);
@@ -140,9 +140,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         notifyRevisionUpdate();
     }
 
+    /**
+     * Notifies of revision update.
+     * Must be called under the {@link #mux} lock.
+     */
     private void notifyRevisionUpdate() {
-        if (revisionListener != null) {
-            revisionListener.accept(rev);
+        if (recoveryRevisionListener != null) {
+            // Listener must be invoked only on recovery, after recovery listener must be null.
+            recoveryRevisionListener.accept(rev);
         }
     }
 
@@ -433,9 +438,9 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void setRevisionListener(@Nullable LongConsumer listener) {
+    public void setRecoveryRevisionListener(@Nullable LongConsumer listener) {
         synchronized (mux) {
-            this.revisionListener = listener;
+            this.recoveryRevisionListener = listener;
         }
     }
 

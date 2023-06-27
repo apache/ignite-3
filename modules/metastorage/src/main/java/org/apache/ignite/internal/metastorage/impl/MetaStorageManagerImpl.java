@@ -67,7 +67,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
@@ -161,11 +160,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            CompletableFuture<Long> res = new CompletableFuture<>();
-
             service.currentRevision().whenComplete((targetRevision, throwable) -> {
                 if (throwable != null) {
-                    res.completeExceptionally(throwable);
+                    recoveryFinishedFuture.completeExceptionally(throwable);
 
                     return;
                 }
@@ -174,17 +171,17 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
                 assert targetRevision != null;
 
-                listenForRecovery(res, targetRevision);
+                listenForRecovery(recoveryFinishedFuture, targetRevision);
             });
 
-            return res;
+            return recoveryFinishedFuture;
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    private void listenForRecovery(CompletableFuture<Long> res, Long targetRevision) {
-        storage.setRevisionListener(storageRevision -> {
+    private void listenForRecovery(CompletableFuture<Long> res, long targetRevision) {
+        storage.setRecoveryRevisionListener(storageRevision -> {
             if (!busyLock.enterBusy()) {
                 res.completeExceptionally(new NodeStoppingException());
 
@@ -196,7 +193,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                     return;
                 }
 
-                storage.setRevisionListener(null);
+                storage.setRecoveryRevisionListener(null);
 
                 if (res.complete(targetRevision)) {
                     LOG.info("Finished MetaStorage recovery");
@@ -215,7 +212,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         // Storage might be already up-to-date, so check here manually after setting the listener.
         try {
             if (storage.revision() >= targetRevision) {
-                storage.setRevisionListener(null);
+                storage.setRecoveryRevisionListener(null);
 
                 if (res.complete(targetRevision)) {
                     LOG.info("Finished MetaStorage recovery");
@@ -295,22 +292,14 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         busyLock.leaveBusy();
                     }
                 })
-                .thenCompose(service -> recover(service)
-                        .thenApply(rev -> new IgniteBiTuple<>(service, rev))
-                )
-                .whenComplete((res, e) -> {
+                .thenCompose(service -> recover(service).thenApply(rev -> service))
+                .whenComplete((service, e) -> {
                     if (e != null) {
                         metaStorageSvcFut.completeExceptionally(e);
-                        recoveryFinishedFuture.completeExceptionally(e);
                     } else {
-                        MetaStorageServiceImpl service = res.get1();
-                        Long revision = res.get2();
-
                         assert service != null;
-                        assert revision != null;
 
                         metaStorageSvcFut.complete(service);
-                        recoveryFinishedFuture.complete(revision);
                     }
                 });
     }

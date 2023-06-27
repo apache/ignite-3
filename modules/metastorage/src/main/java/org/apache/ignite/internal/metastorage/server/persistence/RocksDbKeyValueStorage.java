@@ -176,7 +176,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * Revision listener for recovery only. Notifies {@link MetaStorageManagerImpl} of revision update.
      * Guarded by {@link #rwLock}.
      */
-    private LongConsumer revisionListener;
+    private @Nullable LongConsumer recoveryRevisionListener;
 
     /**
      * Revision. Will be incremented for each single-entry or multi-entry update operation.
@@ -318,9 +318,14 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
     }
 
+    /**
+     * Notifies of revision update.
+     * Must be called under the {@link #rwLock}.
+     */
     private void notifyRevisionUpdate() {
-        if (revisionListener != null) {
-            revisionListener.accept(rev);
+        if (recoveryRevisionListener != null) {
+            // Listener must be invoked only on recovery, after recovery listener must be null.
+            recoveryRevisionListener.accept(rev);
         }
     }
 
@@ -1589,11 +1594,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void setRevisionListener(@Nullable LongConsumer listener) {
+    public void setRecoveryRevisionListener(@Nullable LongConsumer listener) {
         rwLock.writeLock().lock();
 
         try {
-            this.revisionListener = listener;
+            this.recoveryRevisionListener = listener;
         } finally {
             rwLock.writeLock().unlock();
         }

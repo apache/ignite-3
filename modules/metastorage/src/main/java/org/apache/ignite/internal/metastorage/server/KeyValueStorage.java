@@ -297,8 +297,9 @@ public interface KeyValueStorage extends ManuallyCloseable {
 
     /**
      * Sets the revision listener. This is needed only for the recovery, after that listener must be set to {@code null}.
+     * {@code null} means that we no longer must be notified of revision updates for recovery, because recovery is finished.
      *
      * @param listener Revision listener.
      */
-    void setRevisionListener(@Nullable LongConsumer listener);
+    void setRecoveryRevisionListener(@Nullable LongConsumer listener);
 }
