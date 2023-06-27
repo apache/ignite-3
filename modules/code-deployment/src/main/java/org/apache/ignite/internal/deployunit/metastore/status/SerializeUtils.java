@@ -53,6 +53,7 @@ public final class SerializeUtils {
 
         for (Object arg : args) {
             if (arg == null) {
+                sb.append(SEPARATOR);
                 continue;
             }
 
@@ -103,5 +104,9 @@ public final class SerializeUtils {
 
     static String decode(String s) {
         return new String(Base64.getDecoder().decode(s), UTF_8);
+    }
+
+    public static boolean checkElement(String[] arr, int index) {
+        return arr.length > index && arr[index] != null && !arr[index].isBlank();
     }
 }
