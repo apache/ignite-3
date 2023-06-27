@@ -408,6 +408,26 @@ public class TestCluster {
         }
     }
 
+    /**
+     * Wait until a leader is elected.
+     * @throws InterruptedException
+     * @return Leader
+     */
+    public Node waitAndGetLeader() throws InterruptedException {
+        Node node;
+
+        while (true) {
+            node = getLeader();
+
+            if (node != null) {
+                return node;
+            }
+            else {
+                Thread.sleep(10);
+            }
+        }
+    }
+
     public List<Node> getFollowers() {
         List<Node> ret = new ArrayList<>();
         this.lock.lock();
