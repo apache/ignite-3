@@ -208,8 +208,6 @@ public class IgniteSqlFunctions {
     /**
      * Converts the given {@code BigDecimal} to a decimal with the given {@code precision} and {@code scale}
      * according to SQL spec for CAST specification: General Rules, 8.
-     *
-     * <p><b>Parameter is not typed because it is invoked for dynamic parameters.</b>
      */
     public static BigDecimal convertDecimal(BigDecimal value, int precision, int scale) {
         assert precision > 0 : "Invalid precision: " + precision;
@@ -225,8 +223,6 @@ public class IgniteSqlFunctions {
         boolean nonZero = !value.unscaledValue().equals(BigInteger.ZERO);
 
         if (nonZero && scale > precision) {
-            System.err.println("TARGET SCALE " + scale + " TARGET PREC " + precision);
-
             throw new SqlException(QUERY_INVALID_ERR, "Numeric overflow");
         }
 

@@ -76,9 +76,11 @@ public class IgniteSqlDecimalLiteralTest extends AbstractPlannerTest {
     @ParameterizedTest
     @CsvSource({
             "-0.01",
+            "-0.1",
             "-10.0",
             "-10.122",
             "0.0",
+            "0.1",
             "0.01",
             "10.0",
             "10.122",

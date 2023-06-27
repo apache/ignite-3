@@ -40,8 +40,6 @@ public final class IgniteSqlDecimalLiteral extends SqlNumericLiteral {
      * Constructor.
      */
     private IgniteSqlDecimalLiteral(BigDecimal value, SqlParserPos pos) {
-        // We are using precision/scale from BigDecimal because calcite's values
-        // for those are not incorrect as they include an additional digit in precision for negative numbers.
         super(value, getPrecision(value), value.scale(), true, pos);
     }
 
@@ -104,7 +102,9 @@ public final class IgniteSqlDecimalLiteral extends SqlNumericLiteral {
         int scale = value.scale();
 
         if (value.precision() == 1 && value.compareTo(BigDecimal.ONE) < 0) {
-            // 0.10 = BigDecimal precision=1, scale=2, Calcite: precision=2, scale=2
+            // For numbers less than 1 we have different precision between Java's BigDecimal and Calcite:
+            // 0.01 - BigDecimal precision=1, scale=2, Calcite: precision=3, scale=2
+
             return 1 + scale;
         } else {
             return value.precision();
