@@ -163,7 +163,7 @@ internal static class Metrics
         description: "Total number of data streamer items sent.");
 
     /// <summary>
-    /// Data streamer batches.
+    /// Data streamer batches active.
     /// </summary>
     public static readonly ObservableCounter<int> StreamerBatchesActive = Meter.CreateObservableCounter(
         name: "streamer-batches-active",
@@ -172,7 +172,7 @@ internal static class Metrics
         description: "Total number of existing data streamer batches.");
 
     /// <summary>
-    /// Data streamer batches.
+    /// Data streamer items (rows) queued.
     /// </summary>
     public static readonly ObservableCounter<int> StreamerItemsQueued = Meter.CreateObservableCounter(
         name: "streamer-items-queued",
