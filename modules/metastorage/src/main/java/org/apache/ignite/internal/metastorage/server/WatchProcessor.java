@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.server;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 import java.util.ArrayList;
@@ -154,9 +155,19 @@ public class WatchProcessor implements ManuallyCloseable {
         int i = 0;
 
         for (WatchAndEvents watchAndEvents : watchAndEventsList) {
-            notifyWatchFutures[i++] = watchAndEvents.events.isEmpty()
-                    ? completedFuture(null)
-                    : watchAndEvents.watch.onUpdate(new WatchEvent(watchAndEvents.events, revision, time));
+            CompletableFuture<Void> notifyWatchFuture;
+
+            try {
+                notifyWatchFuture = watchAndEvents.events.isEmpty()
+                        ? completedFuture(null)
+                        : watchAndEvents.watch.onUpdate(new WatchEvent(watchAndEvents.events, revision, time));
+            } catch (Throwable throwable) {
+                watchAndEvents.watch.onError(throwable);
+
+                notifyWatchFuture = failedFuture(throwable);
+            }
+
+            notifyWatchFutures[i++] = notifyWatchFuture;
         }
 
         return allOf(notifyWatchFutures);
