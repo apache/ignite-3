@@ -164,6 +164,7 @@ public class WatchProcessor implements ManuallyCloseable {
         return eventFuture
                 .thenCompose(entryEvents -> {
                     CompletableFuture<Void> eventNotificationFuture = entryEvents.isEmpty()
+                            // TODO: IGNITE-19801 If entryEvents.isEmpty() then just return completedFuture(null)
                             ? watch.onRevisionUpdated(revision)
                             : watch.onUpdate(new WatchEvent(entryEvents, revision, time));
 

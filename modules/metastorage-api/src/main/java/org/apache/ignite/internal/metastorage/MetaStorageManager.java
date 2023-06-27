@@ -216,4 +216,10 @@ public interface MetaStorageManager extends IgniteComponent {
      * @return Cluster time.
      */
     ClusterTime clusterTime();
+
+    /** Registers a Meta Storage revision update listener. */
+    void registerUpdateRevisionListener(UpdateRevisionListener listener);
+
+    /** Unregisters a Meta Storage revision update listener. */
+    void unregisterUpdateRevisionListener(UpdateRevisionListener listener);
 }

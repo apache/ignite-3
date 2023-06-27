@@ -30,5 +30,6 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD, ElementType.PARAMETER})
+// TODO: IGNITE-19853 Get rid of
 public @interface InjectRevisionListenerHolder {
 }

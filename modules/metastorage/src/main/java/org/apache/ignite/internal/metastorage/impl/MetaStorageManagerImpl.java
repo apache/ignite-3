@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
@@ -24,11 +25,13 @@ import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_ERR;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
@@ -43,6 +46,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.UpdateRevisionListener;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
@@ -118,6 +122,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     private final ClusterTimeImpl clusterTime;
 
     private volatile long appliedRevision;
+
+    private final List<UpdateRevisionListener> updateRevisionListeners = new CopyOnWriteArrayList<>();
 
     /**
      * The constructor.
@@ -721,5 +727,31 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @TestOnly
     public MetaStorageServiceImpl getService() {
         return metaStorageSvcFut.join();
+    }
+
+
+    @Override
+    public void registerUpdateRevisionListener(UpdateRevisionListener listener) {
+        updateRevisionListeners.add(listener);
+    }
+
+    @Override
+    public void unregisterUpdateRevisionListener(UpdateRevisionListener listener) {
+        updateRevisionListeners.remove(listener);
+    }
+
+    private CompletableFuture<Void> notifyUpdateRevisionListeners(long newRevision) {
+        // Lazy set.
+        List<CompletableFuture<Void>> futures = null;
+
+        for (UpdateRevisionListener listener : updateRevisionListeners) {
+            if (futures == null) {
+                futures = new ArrayList<>();
+            }
+
+            futures.add(listener.onUpdated(newRevision));
+        }
+
+        return futures == null ? completedFuture(null) : allOf(futures.toArray(CompletableFuture[]::new));
     }
 }
