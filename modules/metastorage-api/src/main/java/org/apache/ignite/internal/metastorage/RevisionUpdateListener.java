@@ -23,7 +23,7 @@ import java.util.concurrent.CompletableFuture;
  * The listener which receives and handles the Meta Storage revision update.
  */
 @FunctionalInterface
-public interface UpdateRevisionListener {
+public interface RevisionUpdateListener {
     /**
      * Callback that will be invoked if a Meta Storage revision update has been received.
      *

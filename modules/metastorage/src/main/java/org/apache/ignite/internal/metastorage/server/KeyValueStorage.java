@@ -24,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
@@ -292,4 +293,10 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @return Timestamp corresponding to the revision.
      */
     HybridTimestamp timestampByRevision(long revision);
+
+    /** Registers a Meta Storage revision update listener. */
+    void registerRevisionUpdateListener(RevisionUpdateListener listener);
+
+    /** Unregisters a Meta Storage revision update listener. */
+    void unregisterRevisionUpdateListener(RevisionUpdateListener listener);
 }

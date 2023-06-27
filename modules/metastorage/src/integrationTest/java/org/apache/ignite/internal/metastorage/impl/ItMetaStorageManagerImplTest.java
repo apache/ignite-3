@@ -49,7 +49,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.UpdateRevisionListener;
+import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
@@ -292,7 +292,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         // I'm using the future because mock+verify doesn't work.
         CompletableFuture<Long> listenerFuture = new CompletableFuture<>();
 
-        UpdateRevisionListener listener = revision -> {
+        RevisionUpdateListener listener = revision -> {
             listenerFuture.complete(revision);
 
             return completedFuture(null);
@@ -300,7 +300,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         long revision = metaStorageManager.appliedRevision();
 
-        metaStorageManager.registerUpdateRevisionListener(listener);
+        metaStorageManager.registerRevisionUpdateListener(listener);
 
         assertThat(metaStorageManager.put(ByteArray.fromString("test"), "test".getBytes(UTF_8)), willSucceedFast());
 

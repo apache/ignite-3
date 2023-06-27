@@ -37,6 +37,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
+import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -76,6 +77,9 @@ public class WatchProcessor implements ManuallyCloseable {
 
     /** Executor for processing watch events. */
     private final ExecutorService watchExecutor;
+
+    /** Meta Storage revision update listeners. */
+    private final List<RevisionUpdateListener> revisionUpdateListeners = new CopyOnWriteArrayList<>();
 
     /**
      * Creates a new instance.
@@ -128,14 +132,68 @@ public class WatchProcessor implements ManuallyCloseable {
                     // Revision must be the same for all entries.
                     long newRevision = updatedEntries.get(0).revision();
 
-                    // Notify all watches in parallel, then aggregate the entries that they have processed.
-                    CompletableFuture<List<EntryEvent>>[] notificationFutures = watches.stream()
-                            .map(watch -> notifyWatch(watch, updatedEntries, newRevision, time))
-                            .toArray(CompletableFuture[]::new);
+                    // Collect all the events for each watch.
+                    CompletableFuture<List<WatchAndEvents>> watchAndEventsFuture = collectWatchAndEvents(updatedEntries, newRevision);
 
-                    return allOf(notificationFutures)
-                            .thenComposeAsync(ignored -> invokeOnRevisionCallback(notificationFutures, newRevision, time), watchExecutor);
+                    return watchAndEventsFuture
+                            .thenComposeAsync(watchAndEvents -> allOf(
+                                    notifyWatches(watchAndEvents, newRevision, time),
+                                    notifyUpdateRevisionListeners(newRevision)
+                            ), watchExecutor)
+                            .thenComposeAsync(ignored -> invokeOnRevisionCallback(watchAndEventsFuture, newRevision, time), watchExecutor);
                 }, watchExecutor);
+    }
+
+    private CompletableFuture<List<WatchAndEvents>> collectWatchAndEvents(List<Entry> updatedEntries, long revision) {
+        return supplyAsync(() -> {
+            List<WatchAndEvents> watchAndEvents = List.of();
+
+            for (Watch watch : watches) {
+                List<EntryEvent> events = List.of();
+
+                for (Entry newEntry : updatedEntries) {
+                    byte[] newKey = newEntry.key();
+
+                    assert newEntry.revision() == revision;
+
+                    if (watch.matches(newKey, revision)) {
+                        Entry oldEntry = entryReader.get(newKey, revision - 1);
+
+                        if (events.isEmpty()) {
+                            events = new ArrayList<>();
+                        }
+
+                        events.add(new EntryEvent(oldEntry, newEntry));
+                    }
+                }
+
+                if (watchAndEvents.isEmpty()) {
+                    watchAndEvents = new ArrayList<>();
+                }
+
+                watchAndEvents.add(new WatchAndEvents(watch, events));
+            }
+
+            return watchAndEvents;
+        }, watchExecutor);
+    }
+
+    private static CompletableFuture<Void> notifyWatches(List<WatchAndEvents> watchAndEventsList, long revision, HybridTimestamp time) {
+        if (watchAndEventsList.isEmpty()) {
+            return completedFuture(null);
+        }
+
+        CompletableFuture<?>[] notifyWatchFutures = new CompletableFuture[watchAndEventsList.size()];
+
+        int i = 0;
+
+        for (WatchAndEvents watchAndEvents : watchAndEventsList) {
+            notifyWatchFutures[i++] = watchAndEvents.events.isEmpty()
+                    ? completedFuture(null)
+                    : watchAndEvents.watch.onUpdate(new WatchEvent(watchAndEvents.events, revision, time));
+        }
+
+        return allOf(notifyWatchFutures);
     }
 
     private CompletableFuture<List<EntryEvent>> notifyWatch(Watch watch, List<Entry> updatedEntries, long revision, HybridTimestamp time) {
@@ -165,7 +223,7 @@ public class WatchProcessor implements ManuallyCloseable {
                 .thenCompose(entryEvents -> {
                     CompletableFuture<Void> eventNotificationFuture = entryEvents.isEmpty()
                             // TODO: IGNITE-19801 If entryEvents.isEmpty() then just return completedFuture(null)
-                            ? watch.onRevisionUpdated(revision)
+                            ? completedFuture(null)
                             : watch.onUpdate(new WatchEvent(entryEvents, revision, time));
 
                     return eventNotificationFuture.thenApply(v -> entryEvents);
@@ -185,7 +243,7 @@ public class WatchProcessor implements ManuallyCloseable {
     }
 
     private CompletableFuture<Void> invokeOnRevisionCallback(
-            CompletableFuture<List<EntryEvent>>[] notificationFutures,
+            CompletableFuture<List<WatchAndEvents>> watchAndEventsFuture,
             long revision,
             HybridTimestamp time
     ) {
@@ -193,11 +251,10 @@ public class WatchProcessor implements ManuallyCloseable {
             // Only notify about entries that have been accepted by at least one Watch.
             var acceptedEntries = new HashSet<EntryEvent>();
 
-            for (CompletableFuture<List<EntryEvent>> future : notificationFutures) {
-                // This method must only be invoked when all passed futures have been completed.
-                assert future.isDone();
+            assert watchAndEventsFuture.isDone();
 
-                acceptedEntries.addAll(future.join());
+            for (WatchAndEvents watchAndEvents : watchAndEventsFuture.join()) {
+                acceptedEntries.addAll(watchAndEvents.events);
             }
 
             var event = new WatchEvent(acceptedEntries, revision, time);
@@ -220,5 +277,30 @@ public class WatchProcessor implements ManuallyCloseable {
         notificationFuture.cancel(true);
 
         IgniteUtils.shutdownAndAwaitTermination(watchExecutor, 10, TimeUnit.SECONDS);
+    }
+
+    /** Registers a Meta Storage revision update listener. */
+    public void registerRevisionUpdateListener(RevisionUpdateListener listener) {
+        revisionUpdateListeners.add(listener);
+    }
+
+    /** Unregisters a Meta Storage revision update listener. */
+    public void unregisterRevisionUpdateListener(RevisionUpdateListener listener) {
+        revisionUpdateListeners.remove(listener);
+    }
+
+    private CompletableFuture<Void> notifyUpdateRevisionListeners(long newRevision) {
+        // Lazy set.
+        List<CompletableFuture<Void>> futures = List.of();
+
+        for (RevisionUpdateListener listener : revisionUpdateListeners) {
+            if (futures.isEmpty()) {
+                futures = new ArrayList<>();
+            }
+
+            futures.add(listener.onUpdated(newRevision));
+        }
+
+        return futures.isEmpty() ? completedFuture(null) : allOf(futures.toArray(CompletableFuture[]::new));
     }
 }

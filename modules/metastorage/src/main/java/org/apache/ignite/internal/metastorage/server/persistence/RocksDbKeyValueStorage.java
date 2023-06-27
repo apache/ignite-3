@@ -64,6 +64,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
@@ -1628,5 +1629,15 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             return transferredValue;
         }
+    }
+
+    @Override
+    public void registerRevisionUpdateListener(RevisionUpdateListener listener) {
+        watchProcessor.registerRevisionUpdateListener(listener);
+    }
+
+    @Override
+    public void unregisterRevisionUpdateListener(RevisionUpdateListener listener) {
+        watchProcessor.unregisterRevisionUpdateListener(listener);
     }
 }
