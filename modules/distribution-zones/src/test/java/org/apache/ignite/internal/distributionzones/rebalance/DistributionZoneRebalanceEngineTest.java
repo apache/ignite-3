@@ -23,13 +23,16 @@ import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignm
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -100,7 +103,7 @@ import org.mockito.quality.Strictness;
 public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     private SimpleInMemoryKeyValueStorage keyValueStorage;
 
-    @Mock()
+    @Mock
     private ClusterService clusterService;
 
     private MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
@@ -231,14 +234,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     ) {
         assignTableIds(tablesConfiguration);
 
-        rebalanceEngine = new DistributionZoneRebalanceEngine(
-                new AtomicBoolean(),
-                new IgniteSpinBusyLock(),
-                distributionZonesConfiguration,
-                tablesConfiguration,
-                metaStorageManager,
-                distributionZoneManager
-        );
+        createRebalanceEngine(tablesConfiguration);
 
         rebalanceEngine.start();
 
@@ -273,14 +269,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     ) {
         assignTableIds(tablesConfiguration);
 
-        rebalanceEngine = new DistributionZoneRebalanceEngine(
-                new AtomicBoolean(),
-                new IgniteSpinBusyLock(),
-                distributionZonesConfiguration,
-                tablesConfiguration,
-                metaStorageManager,
-                distributionZoneManager
-        );
+        createRebalanceEngine(tablesConfiguration);
 
         rebalanceEngine.start();
 
@@ -314,14 +303,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     ) {
         assignTableIds(tablesConfiguration);
 
-        rebalanceEngine = new DistributionZoneRebalanceEngine(
-                new AtomicBoolean(),
-                new IgniteSpinBusyLock(),
-                distributionZonesConfiguration,
-                tablesConfiguration,
-                metaStorageManager,
-                distributionZoneManager
-        );
+        createRebalanceEngine(tablesConfiguration);
 
         rebalanceEngine.start();
 
@@ -357,14 +339,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     ) {
         assignTableIds(tablesConfiguration);
 
-        rebalanceEngine = new DistributionZoneRebalanceEngine(
-                new AtomicBoolean(),
-                new IgniteSpinBusyLock(),
-                distributionZonesConfiguration,
-                tablesConfiguration,
-                metaStorageManager,
-                distributionZoneManager
-        );
+        createRebalanceEngine(tablesConfiguration);
 
         rebalanceEngine.start();
 
@@ -391,6 +366,72 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         assertNull(keyValueStorage.get(RebalanceUtil.plannedPartAssignmentsKey(partId).bytes()).value());
 
         verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
+    }
+
+    @Test
+    void replicasTriggersAssignmentsChangingOnNonDefaultZones(
+            @InjectConfiguration
+                    ("mock.tables {"
+                            + "table0 = { zoneId = 1 },"
+                            + "table1 = { zoneId = 1 },"
+                            + "table2 = { zoneId = 2 }}")
+            TablesConfiguration tablesConfiguration
+    ) {
+        assignTableIds(tablesConfiguration);
+
+        when(distributionZoneManager.dataNodes(anyInt())).thenReturn(Set.of("node0"));
+
+        createRebalanceEngine(tablesConfiguration);
+
+        rebalanceEngine.start();
+
+        CompletableFuture<Void> changeFuture = distributionZonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(
+                zoneListChange -> zoneListChange.update("zone0", zoneChange -> zoneChange.changeReplicas(2))
+        ));
+        assertThat(changeFuture, willCompleteSuccessfully());
+
+        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
+    }
+
+    @Test
+    void replicasTriggersAssignmentsChangingOnDefaultZone(
+            @InjectConfiguration
+                    ("mock.tables {"
+                            + "table0 = { zoneId = 0 },"
+                            + "table1 = { zoneId = 0 },"
+                            + "table2 = { zoneId = 2 }}")
+            TablesConfiguration tablesConfiguration
+    ) {
+        assignTableIds(tablesConfiguration);
+
+        when(distributionZoneManager.dataNodes(anyInt())).thenReturn(Set.of("node0"));
+
+        createRebalanceEngine(tablesConfiguration);
+
+        rebalanceEngine.start();
+
+        CompletableFuture<Void> changeFuture = distributionZonesConfiguration.change(zonesChange ->
+                zonesChange.changeDefaultDistributionZone(zoneChange -> {
+                    zoneChange.changeReplicas(2);
+
+                    // Also change partitions to be independent from the defaults.
+                    zoneChange.changePartitions(1);
+                })
+        );
+        assertThat(changeFuture, willCompleteSuccessfully());
+
+        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
+    }
+
+    private void createRebalanceEngine(TablesConfiguration tablesConfiguration) {
+        rebalanceEngine = new DistributionZoneRebalanceEngine(
+                new AtomicBoolean(),
+                new IgniteSpinBusyLock(),
+                distributionZonesConfiguration,
+                tablesConfiguration,
+                metaStorageManager,
+                distributionZoneManager
+        );
     }
 
     private void checkAssignments(

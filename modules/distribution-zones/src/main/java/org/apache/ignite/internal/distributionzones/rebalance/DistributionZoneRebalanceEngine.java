@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
@@ -30,12 +31,12 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.configuration.NamedConfigurationTree;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -85,6 +86,8 @@ public class DistributionZoneRebalanceEngine {
     /** Meta storage listener for data nodes changes. */
     private final WatchListener dataNodesListener;
 
+    private final ConfigurationListener<Integer> onUpdateReplicas = this::onUpdateReplicas;
+
     /**
      * The constructor.
      *
@@ -122,7 +125,8 @@ public class DistributionZoneRebalanceEngine {
         }
 
         try {
-            zonesConfiguration.distributionZones().any().replicas().listen(this::onUpdateReplicas);
+            zonesConfiguration.defaultDistributionZone().replicas().listen(onUpdateReplicas);
+            zonesConfiguration.distributionZones().any().replicas().listen(onUpdateReplicas);
 
             // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
             metaStorageManager.registerPrefixWatch(zoneDataNodesKey(), dataNodesListener);
@@ -142,6 +146,9 @@ public class DistributionZoneRebalanceEngine {
         busyLock.block();
 
         metaStorageManager.unregisterWatch(dataNodesListener);
+
+        zonesConfiguration.defaultDistributionZone().replicas().stopListen(onUpdateReplicas);
+        zonesConfiguration.distributionZones().any().replicas().stopListen(onUpdateReplicas);
     }
 
     private WatchListener createDistributionZonesDataNodesListener() {
@@ -213,7 +220,7 @@ public class DistributionZoneRebalanceEngine {
                                             evt.entryEvent().newEntry().revision(),
                                             metaStorageManager,
                                             partId,
-                                            tableAssignments.isEmpty() ? Collections.emptySet() : tableAssignments.get(partId)
+                                            tableAssignments.isEmpty() ? emptySet() : tableAssignments.get(partId)
                                     ).exceptionally(e -> {
                                         LOG.error(
                                                 "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(),
@@ -311,7 +318,7 @@ public class DistributionZoneRebalanceEngine {
                                         replicasCtx.storageRevision(),
                                         metaStorageManager,
                                         partId,
-                                        tableAssignments.get(partId)
+                                        tableAssignments.isEmpty() ? emptySet() : tableAssignments.get(partId)
                                 ));
                     }
                 }
