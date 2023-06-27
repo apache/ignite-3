@@ -733,7 +733,7 @@ public class ItRebalanceDistributedTest {
             ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
             Consumer<LongFunction<CompletableFuture<?>>> registry = (LongFunction<CompletableFuture<?>> function) ->
-                    clusterConfigRegistry.listenUpdateStorageRevision(function::apply);
+                    metaStorageManager.registerRevisionUpdateListener(revision -> (CompletableFuture<Void>) function.apply(revision));
 
             TablesConfiguration tablesCfg = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
