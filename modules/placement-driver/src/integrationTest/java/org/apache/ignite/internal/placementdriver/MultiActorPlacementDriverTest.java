@@ -23,8 +23,10 @@ import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.
 import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.lang.ByteArray.fromString;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -238,7 +240,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     ) {
         var res = new ArrayList<Closeable>(placementDriverNodeNames.size());
 
-        CompletableFuture[] all = new CompletableFuture[placementDriverNodeNames.size()];
+        var msFutures = new CompletableFuture[placementDriverNodeNames.size()];
 
         for (int i = 0; i < placementDriverNodeNames.size(); i++) {
             String nodeName = placementDriverNodeNames.get(i);
@@ -308,7 +310,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
             metaStorageManager.start();
             placementDriverManager.start();
 
-            all[i] = metaStorageManager.deployWatches();
+            msFutures[i] = metaStorageManager.deployWatches();
 
             res.add(() -> {
                         try {
@@ -330,7 +332,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
             );
         }
 
-        CompletableFuture.allOf(all).join();
+        assertThat("Nodes were not started", CompletableFuture.allOf(msFutures), willCompleteSuccessfully());
 
         return res;
     }
