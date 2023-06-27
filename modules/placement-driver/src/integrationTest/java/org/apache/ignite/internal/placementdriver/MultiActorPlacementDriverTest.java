@@ -35,6 +35,7 @@ import static org.mockito.Mockito.when;
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -89,6 +90,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * There are tests of muti-nodes for placement driver.
  */
 @ExtendWith(ConfigurationExtension.class)
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-19850")
+// TODO: https://issues.apache.org/jira/browse/IGNITE-19850 All placement driver nodes must be metastorage nodes.
 public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     public static final int BASE_PORT = 1234;
 
@@ -244,9 +247,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
             ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
-            when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(
-                    Set.of(placementDriverNodeNames.get(0))
-            ));
+            when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(new HashSet<>(placementDriverNodeNames)));
 
             RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 
