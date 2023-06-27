@@ -22,7 +22,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
-using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Table;
 using NUnit.Framework;
@@ -207,10 +206,10 @@ public class MetricsTests
         using var server = new FakeServer();
         using var client = await server.ConnectClientAsync();
 
-        Assert.AreEqual(0, _listener.GetMetric("streamer-batches-sent"));
-        Assert.AreEqual(0, _listener.GetMetric("streamer-items-sent"));
-        Assert.AreEqual(0, _listener.GetMetric("streamer-batches-active"));
-        Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"));
+        Assert.AreEqual(0, _listener.GetMetric("streamer-batches-sent"), "streamer-batches-sent");
+        Assert.AreEqual(0, _listener.GetMetric("streamer-items-sent"), "streamer-items-sent");
+        Assert.AreEqual(0, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
+        Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
 
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         var view = table!.RecordBinaryView;
@@ -236,6 +235,8 @@ public class MetricsTests
 
             Assert.AreEqual(1, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
             Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
+            Assert.AreEqual(1, _listener.GetMetric("streamer-batches-sent"), "streamer-batches-sent");
+            Assert.AreEqual(2, _listener.GetMetric("streamer-items-sent"), "streamer-items-sent");
         }
     }
 
