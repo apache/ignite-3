@@ -26,7 +26,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -194,52 +193,6 @@ public class WatchProcessor implements ManuallyCloseable {
         }
 
         return allOf(notifyWatchFutures);
-    }
-
-    private CompletableFuture<List<EntryEvent>> notifyWatch(Watch watch, List<Entry> updatedEntries, long revision, HybridTimestamp time) {
-        CompletableFuture<List<EntryEvent>> eventFuture = supplyAsync(() -> {
-            List<EntryEvent> entryEvents = List.of();
-
-            for (Entry newEntry : updatedEntries) {
-                byte[] newKey = newEntry.key();
-
-                assert newEntry.revision() == revision;
-
-                if (watch.matches(newKey, revision)) {
-                    Entry oldEntry = entryReader.get(newKey, revision - 1);
-
-                    if (entryEvents.isEmpty()) {
-                        entryEvents = new ArrayList<>();
-                    }
-
-                    entryEvents.add(new EntryEvent(oldEntry, newEntry));
-                }
-            }
-
-            return entryEvents;
-        }, watchExecutor);
-
-        return eventFuture
-                .thenCompose(entryEvents -> {
-                    CompletableFuture<Void> eventNotificationFuture = entryEvents.isEmpty()
-                            // TODO: IGNITE-19801 If entryEvents.isEmpty() then just return completedFuture(null)
-                            ? completedFuture(null)
-                            : watch.onUpdate(new WatchEvent(entryEvents, revision, time));
-
-                    return eventNotificationFuture.thenApply(v -> entryEvents);
-                })
-                .whenComplete((v, e) -> {
-                    if (e != null) {
-                        if (e instanceof CompletionException) {
-                            e = e.getCause();
-                        }
-
-                        // TODO: IGNITE-14693 Implement Meta storage exception handling logic.
-                        LOG.error("Error occurred when processing a watch event", e);
-
-                        watch.onError(e);
-                    }
-                });
     }
 
     private CompletableFuture<Void> invokeOnRevisionCallback(
