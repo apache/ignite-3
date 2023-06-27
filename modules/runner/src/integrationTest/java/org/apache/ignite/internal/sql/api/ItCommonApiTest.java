@@ -129,13 +129,18 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE TABLE TST1(id INTEGER PRIMARY KEY, val INTEGER)");
 
-        IgniteTestUtils.setFieldValue(queryProcessor(), "plannerTimeout", 1L);
+        Long oldPlannerTimeout = (Long) IgniteTestUtils.getFieldValue(queryProcessor(), SqlQueryProcessor.class, "plannerTimeout");
+        try {
+            IgniteTestUtils.setFieldValue(queryProcessor(), "plannerTimeout", 1L);
 
-        Session ses = sql.sessionBuilder().build();
-        SqlTestUtils.assertThrowsSqlException(PLANNING_TIMEOUTED_ERR,
-                () -> ses.execute(null, "SELECT * FROM TST1 t, TST1 t1, TST1 t2"));
+            Session ses = sql.sessionBuilder().build();
+            SqlTestUtils.assertThrowsSqlException(PLANNING_TIMEOUTED_ERR,
+                    () -> ses.execute(null, "SELECT * FROM TST1 t, TST1 t1, TST1 t2"));
 
-        ses.close();
+            ses.close();
+        } finally {
+            IgniteTestUtils.setFieldValue(queryProcessor(), "plannerTimeout", oldPlannerTimeout);
+        }
     }
 
     /** Check timestamp type operations correctness using sql and kv api. */
