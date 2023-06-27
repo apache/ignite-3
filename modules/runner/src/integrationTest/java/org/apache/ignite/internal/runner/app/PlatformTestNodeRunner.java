@@ -243,7 +243,7 @@ public class PlatformTestNodeRunner {
                 .metaStorageNodeNames(List.of(metaStorageNodeName))
                 .clusterName("cluster")
                 .build();
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         System.out.println("Initialization complete");
 

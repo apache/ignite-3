@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.metastorage;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
@@ -59,6 +61,39 @@ public interface MetaStorageManager extends IgniteComponent {
      * Retrieves an entry for the given key and the revision upper bound.
      */
     CompletableFuture<Entry> get(ByteArray key, long revUpperBound);
+
+    /**
+     * Returns all entries corresponding to the given key and bounded by given revisions.
+     * All these entries are ordered by revisions and have the same key.
+     * The lower bound and the upper bound are inclusive.
+     * TODO: IGNITE-19735 move this method to another interface for interaction with local KeyValueStorage.
+     *
+     * @param key The key.
+     * @param revLowerBound The lower bound of revision.
+     * @param revUpperBound The upper bound of revision.
+     * @return Entries corresponding to the given key.
+     */
+    @Deprecated
+    List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound);
+
+    /**
+     * Returns an entry by the given key and bounded by the given revision. The entry is obtained
+     * from the local storage.
+     *
+     * @param key The key.
+     * @param revUpperBound The upper bound of revision.
+     * @return Value corresponding to the given key.
+     */
+    Entry getLocally(byte[] key, long revUpperBound);
+
+    /**
+     * Looks up a timestamp by a revision. This should only be invoked if it is guaranteed that the
+     * revision is available in the local storage. This method always operates locally.
+     *
+     * @param revision Revision by which to do a lookup.
+     * @return Timestamp corresponding to the revision.
+     */
+    HybridTimestamp timestampByRevision(long revision);
 
     /**
      * Retrieves entries for given keys.
@@ -181,4 +216,10 @@ public interface MetaStorageManager extends IgniteComponent {
      * @return Cluster time.
      */
     ClusterTime clusterTime();
+
+    /**
+     * Returns a future which completes when MetaStorage manager finished local recovery.
+     * The value of the future is the revision which must be used for state recovery by other components.
+     */
+    CompletableFuture<Long> recoveryFinishedFuture();
 }

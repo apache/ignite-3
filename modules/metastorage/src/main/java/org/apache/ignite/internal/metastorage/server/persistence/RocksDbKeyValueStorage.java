@@ -46,6 +46,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -58,6 +59,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -69,6 +71,7 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -170,6 +173,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     private volatile RocksSnapshotManager snapshotManager;
 
     /**
+     * Revision listener for recovery only. Notifies {@link MetaStorageManagerImpl} of revision update.
+     * Guarded by {@link #rwLock}.
+     */
+    private @Nullable LongConsumer recoveryRevisionListener;
+
+    /**
      * Revision. Will be incremented for each single-entry or multi-entry update operation.
      *
      * <p>Multi-threaded access is guarded by {@link #rwLock}.
@@ -189,7 +198,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /** Status of the watch recovery process. */
     private enum RecoveryStatus {
         INITIAL,
-        PENDING,
         IN_PROGRESS,
         DONE
     }
@@ -311,6 +319,17 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     /**
+     * Notifies of revision update.
+     * Must be called under the {@link #rwLock}.
+     */
+    private void notifyRevisionUpdate() {
+        if (recoveryRevisionListener != null) {
+            // Listener must be invoked only on recovery, after recovery listener must be null.
+            recoveryRevisionListener.accept(rev);
+        }
+    }
+
+    /**
      * Clear the RocksDB instance. The major difference with directly deleting the DB directory manually is that destroyDB() will take care
      * of the case where the RocksDB database is stored in multiple directories. For instance, a single DB can be configured to store its
      * data in multiple directories by specifying different paths to DBOptions::db_paths, DBOptions::db_log_dir, and DBOptions::wal_dir.
@@ -358,15 +377,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             rev = currentRevision;
 
             updCntr = bytesToLong(data.get(UPDATE_COUNTER_KEY));
+
+            notifyRevisionUpdate();
         } catch (Exception e) {
             throw new MetaStorageException(RESTORING_STORAGE_ERR, "Failed to restore snapshot", e);
         } finally {
             rwLock.writeLock().unlock();
-        }
-
-        // Replay updates if startWatches() has already been called.
-        if (recoveryStatus.compareAndSet(RecoveryStatus.PENDING, RecoveryStatus.IN_PROGRESS)) {
-            replayUpdates(currentRevision);
         }
     }
 
@@ -465,6 +481,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         updatedEntries.ts = ts;
 
         queueWatchEvent();
+
+        notifyRevisionUpdate();
     }
 
     private static byte[] hybridTsToArray(HybridTimestamp ts) {
@@ -569,6 +587,17 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         try {
             return doGet(key, revUpperBound);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public List<Entry> get(byte[] key, long revLowerBound, long revUpperBound) {
+        rwLock.readLock().lock();
+
+        try {
+            return doGet(key, revLowerBound, revUpperBound);
         } finally {
             rwLock.readLock().unlock();
         }
@@ -961,7 +990,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void startWatches(OnRevisionAppliedCallback revisionCallback) {
+    public void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback) {
         long currentRevision;
 
         rwLock.readLock().lock();
@@ -974,9 +1003,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             // We update the recovery status under the read lock in order to avoid races between starting watches and applying a snapshot
             // or concurrent writes. Replay of events can be done outside of the read lock relying on RocksDB snapshot isolation.
             if (currentRevision == 0) {
-                // Revision can be 0 if there's no data in the storage. We set the status to PENDING expecting that it will be further
-                // updated either by applying a snapshot or by the first write to the storage.
-                recoveryStatus.set(RecoveryStatus.PENDING);
+                recoveryStatus.set(RecoveryStatus.DONE);
             } else {
                 // If revision is not 0, we need to replay updates that match the existing data.
                 recoveryStatus.set(RecoveryStatus.IN_PROGRESS);
@@ -986,7 +1013,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
 
         if (currentRevision != 0) {
-            replayUpdates(currentRevision);
+            replayUpdates(startRevision, currentRevision);
         }
     }
 
@@ -1216,6 +1243,52 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     /**
+     * Returns all entries corresponding to the given key and bounded by given revisions.
+     * All these entries are ordered by revisions and have the same key.
+     * The lower bound and the upper bound are inclusive.
+     *
+     * @param key The key.
+     * @param revLowerBound The lower bound of revision.
+     * @param revUpperBound The upper bound of revision.
+     * @return Entries corresponding to the given key.
+     */
+    private List<Entry> doGet(byte[] key, long revLowerBound, long revUpperBound) {
+        assert revLowerBound >= 0 : "Invalid arguments: [revLowerBound=" + revLowerBound + ']';
+        assert revUpperBound >= 0 : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
+        assert revUpperBound >= revLowerBound
+                : "Invalid arguments: [revLowerBound=" + revLowerBound + ", revUpperBound=" + revUpperBound + ']';
+        // TODO: IGNITE-19782 throw CompactedException if revLowerBound is compacted.
+
+        long[] revs;
+
+        try {
+            revs = getRevisions(key);
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        }
+
+        if (revs.length == 0) {
+            return Collections.emptyList();
+        }
+
+        int firstRevIndex = minRevisionIndex(revs, revLowerBound);
+        int lastRevIndex = maxRevisionIndex(revs, revUpperBound);
+
+        // firstRevIndex can be -1 if minRevisionIndex return -1. lastRevIndex can be -1 if maxRevisionIndex return -1.
+        if (firstRevIndex == -1 || lastRevIndex == -1) {
+            return Collections.emptyList();
+        }
+
+        List<Entry> entries = new ArrayList<>();
+
+        for (int i = firstRevIndex; i <= lastRevIndex; i++) {
+            entries.add(doGetValue(key, revs[i]));
+        }
+
+        return entries;
+    }
+
+    /**
      * Get a list of the revisions of the entry corresponding to the key.
      *
      * @param key Key.
@@ -1246,6 +1319,46 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             if (rev <= upperBoundRev) {
                 return rev;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Returns index of minimum revision which must be greater or equal to {@code lowerBoundRev}.
+     * If there is no such revision then {@code -1} will be returned.
+     *
+     * @param revs          Revisions list.
+     * @param lowerBoundRev Revision lower bound.
+     * @return Index of minimum revision or {@code -1} if there is no such revision.
+     */
+    private static int minRevisionIndex(long[] revs, long lowerBoundRev) {
+        for (int i = 0; i < revs.length; i++) {
+            long rev = revs[i];
+
+            if (rev >= lowerBoundRev) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Returns index of maximum revision which must be less or equal to {@code upperBoundRev}.
+     * If there is no such revision then {@code -1} will be returned.
+     *
+     * @param revs          Revisions list.
+     * @param upperBoundRev Revision upper bound.
+     * @return Index of maximum revision or {@code -1} if there is no such revision.
+     */
+    private static int maxRevisionIndex(long[] revs, long upperBoundRev) {
+        for (int i = revs.length - 1; i >= 0; i--) {
+            long rev = revs[i];
+
+            if (rev <= upperBoundRev) {
+                return i;
             }
         }
 
@@ -1356,15 +1469,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
                 break;
 
-            case PENDING:
-                // Watches have been enabled, but no event replay happened because there was no data in the
-                // storage. We need to finish the recovery process (by simply updating the status) and process the events as usual.
-                recoveryStatus.set(RecoveryStatus.DONE);
-
-                notifyWatches();
-
-                break;
-
             case IN_PROGRESS:
                 // Buffer the event while event replay is still in progress.
                 if (eventCache == null) {
@@ -1390,8 +1494,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         watchProcessor.notifyWatches(copy.updatedEntries, copy.ts);
     }
 
-    private void replayUpdates(long upperRevision) {
-        long minWatchRevision = watchProcessor.minWatchRevision().orElse(-1);
+    private void replayUpdates(long lowerRevision, long upperRevision) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19778 Should be Math.max, so we start from the revision that
+        // components restored their state to (lowerRevision).
+        long minWatchRevision = Math.min(lowerRevision, watchProcessor.minWatchRevision().orElse(-1));
 
         if (minWatchRevision == -1 || minWatchRevision > upperRevision) {
             // No events to replay, we can start processing more recent events from the event queue.
@@ -1452,7 +1558,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         finishReplay();
     }
 
-    private HybridTimestamp timestampByRevision(long revision) {
+    @Override
+    public HybridTimestamp timestampByRevision(long revision) {
         try {
             byte[] tsBytes = revisionToTs.get(longToBytes(revision));
 
@@ -1481,6 +1588,17 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             }
 
             recoveryStatus.set(RecoveryStatus.DONE);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public void setRecoveryRevisionListener(@Nullable LongConsumer listener) {
+        rwLock.writeLock().lock();
+
+        try {
+            this.recoveryRevisionListener = listener;
         } finally {
             rwLock.writeLock().unlock();
         }
