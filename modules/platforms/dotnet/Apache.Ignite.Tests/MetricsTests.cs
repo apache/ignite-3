@@ -22,6 +22,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Ignite.Table;
@@ -265,21 +266,21 @@ public class MetricsTests
 
         TestUtils.WaitForCondition(() => _listener.GetMetric("streamer-batches-sent") > 0);
         cts.Cancel();
-        Assert.ThrowsAsync<OperationCanceledException>(async () => await task);
+        Assert.ThrowsAsync<TaskCanceledException>(async () => await task);
 
         Assert.GreaterOrEqual(_listener.GetMetric("streamer-batches-sent"), 1, "streamer-batches-sent");
         Assert.AreEqual(0, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
         Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
 
-        async IAsyncEnumerable<IIgniteTuple> GetTuples()
+        static async IAsyncEnumerable<IIgniteTuple> GetTuples([EnumeratorCancellation] CancellationToken ct = default)
         {
             for (int i = 0; i < 50; i++)
             {
                 yield return new IgniteTuple { ["ID"] = i };
 
-                if (i % 20 == 0)
+                if (i == 40)
                 {
-                    await Task.Delay(500);
+                    await Task.Delay(500, ct);
                 }
             }
         }
