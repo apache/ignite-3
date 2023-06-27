@@ -36,7 +36,6 @@ import org.apache.calcite.sql2rel.SqlRexContext;
 import org.apache.calcite.sql2rel.SqlRexConvertlet;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
 import org.apache.calcite.sql2rel.StandardConvertletTable;
-import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 
 /**
  * Implementation of {@link SqlRexConvertletTable}.
