@@ -454,7 +454,7 @@ public class IgniteImpl implements Ignite {
         );
 
         Consumer<LongFunction<CompletableFuture<?>>> registry =
-                c -> clusterConfigRegistry.listenUpdateStorageRevision(c::apply);
+                c -> metaStorageMgr.registerUpdateRevisionListener(revision -> (CompletableFuture<Void>) c.apply(revision));
 
         DataStorageModules dataStorageModules = new DataStorageModules(
                 ServiceLoader.load(DataStorageModule.class, serviceProviderClassLoader)

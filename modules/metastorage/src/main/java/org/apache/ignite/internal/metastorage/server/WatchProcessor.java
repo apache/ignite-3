@@ -164,7 +164,7 @@ public class WatchProcessor implements ManuallyCloseable {
         return eventFuture
                 .thenCompose(entryEvents -> {
                     CompletableFuture<Void> eventNotificationFuture = entryEvents.isEmpty()
-                            ? watch.onRevisionUpdated(revision)
+                            ? completedFuture(null)
                             : watch.onUpdate(new WatchEvent(entryEvents, revision, time));
 
                     return eventNotificationFuture.thenApply(v -> entryEvents);

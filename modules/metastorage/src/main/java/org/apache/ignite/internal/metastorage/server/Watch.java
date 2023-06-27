@@ -72,6 +72,7 @@ public class Watch {
      *
      * @see WatchListener#onRevisionUpdated
      */
+    // TODO: IGNITE-19801 удалить
     CompletableFuture<Void> onRevisionUpdated(long revision) {
         return listener.onRevisionUpdated(revision);
     }

@@ -37,6 +37,7 @@ public interface WatchListener {
      * @param revision Meta Storage revision.
      * @return Future that will be completed when the event is processed.
      */
+    // TODO: IGNITE-19801 избавиться
     default CompletableFuture<Void> onRevisionUpdated(long revision) {
         return CompletableFuture.completedFuture(null);
     }

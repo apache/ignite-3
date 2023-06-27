@@ -29,6 +29,7 @@ public interface ConfigurationStorageRevisionListenerHolder {
      *
      * @param listener Listener.
      */
+    // TODO: IGNITE-19801 избавиться
     void listenUpdateStorageRevision(ConfigurationStorageRevisionListener listener);
 
     /**
@@ -38,5 +39,6 @@ public interface ConfigurationStorageRevisionListenerHolder {
      *
      * @param listener Listener.
      */
+    // TODO: IGNITE-19801 избавиться
     void stopListenUpdateStorageRevision(ConfigurationStorageRevisionListener listener);
 }

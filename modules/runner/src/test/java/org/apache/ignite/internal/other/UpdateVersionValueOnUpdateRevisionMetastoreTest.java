@@ -54,6 +54,7 @@ import org.junit.jupiter.api.Test;
  * This class checks that updating the versioned value will only happen when the revision is updated by the metastore and not by the
  * configuration.
  */
+// TODO: IGNITE-19801 подумать на счет теста скорее наверное нужен другой
 public class UpdateVersionValueOnUpdateRevisionMetastoreTest {
     @ConfigurationRoot(rootName = "vv_test", type = DISTRIBUTED)
     public static class VvConfigurationSchema {
@@ -128,7 +129,7 @@ public class UpdateVersionValueOnUpdateRevisionMetastoreTest {
     }
 
     private Consumer<LongFunction<CompletableFuture<?>>> createObservableRevisionUpdater() {
-        return c -> configManager.configurationRegistry().listenUpdateStorageRevision(c::apply);
+        return c -> metaStorageManager.registerUpdateRevisionListener(revision -> (CompletableFuture<Void>) c.apply(revision));
     }
 
     private static WatchListener createWatchListener(
