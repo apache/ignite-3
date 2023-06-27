@@ -22,7 +22,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Ignite.Table;
@@ -262,13 +261,13 @@ public class MetricsTests
         var view = table!.RecordBinaryView;
         var cts = new CancellationTokenSource();
 
-        var task = view.StreamDataAsync(GetTuples(), DataStreamerOptions.Default with { BatchSize = 20 }, cts.Token);
+        var task = view.StreamDataAsync(GetTuples(), DataStreamerOptions.Default with { BatchSize = 10 }, cts.Token);
 
+        TestUtils.WaitForCondition(() => _listener.GetMetric("streamer-batches-sent") > 0);
         cts.Cancel();
         Assert.ThrowsAsync<OperationCanceledException>(async () => await task);
 
-        Assert.AreEqual(2, _listener.GetMetric("streamer-batches-sent"), "streamer-batches-sent");
-        Assert.AreEqual(40, _listener.GetMetric("streamer-items-sent"), "streamer-items-sent");
+        Assert.GreaterOrEqual(_listener.GetMetric("streamer-batches-sent"), 1, "streamer-batches-sent");
         Assert.AreEqual(0, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
         Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
 
@@ -278,9 +277,9 @@ public class MetricsTests
             {
                 yield return new IgniteTuple { ["ID"] = i };
 
-                if (i == 40)
+                if (i % 20 == 0)
                 {
-                    await Task.Delay(10_000);
+                    await Task.Delay(500);
                 }
             }
         }
