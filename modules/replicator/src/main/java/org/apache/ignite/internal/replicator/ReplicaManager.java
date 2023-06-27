@@ -407,8 +407,7 @@ public class ReplicaManager implements IgniteComponent {
 
             if (!removed.isCompletedExceptionally()) {
                 return removed
-                        .join()
-                        .shutdown()
+                        .thenCompose(Replica::shutdown)
                         .handle((notUsed, throwable) -> {
                             if (throwable == null) {
                                 return true;
