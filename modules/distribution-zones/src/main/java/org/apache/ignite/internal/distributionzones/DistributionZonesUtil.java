@@ -46,6 +46,7 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
+import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
@@ -113,9 +114,11 @@ public class DistributionZonesUtil {
 
     /**
      * The initial value of trigger revision in case when it is not initialized in the meta storage.
-     * The trigger revision in the meta storage can be uninitialized for the default distribution zone.
+     * It is possible because invoke to metastorage with the initialisation is async, and scale up/down propagation could be
+     * propagated first. Initial value is -1, because for default zone, we initialise trigger keys with metastorage's applied revision,
+     * which is 0 on a start.
      */
-    private static final long INITIAL_TRIGGER_REVISION_VALUE = 0;
+    private static final long INITIAL_TRIGGER_REVISION_VALUE = -1;
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}. */
     private static final ByteArray DISTRIBUTION_ZONES_DATA_NODES_KEY =
@@ -260,11 +263,24 @@ public class DistributionZonesUtil {
      * @param zoneId Zone id.
      * @return Update condition.
      */
-    static CompoundCondition triggerScaleUpScaleDownKeysCondition(long scaleUpTriggerRevision, long scaleDownTriggerRevision, int zoneId) {
-        return and(
-                value(zoneScaleUpChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleUpTriggerRevision)),
-                value(zoneScaleDownChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleDownTriggerRevision))
-        );
+    static CompoundCondition triggerScaleUpScaleDownKeysCondition(long scaleUpTriggerRevision, long scaleDownTriggerRevision,  int zoneId) {
+        SimpleCondition scaleUpCondition;
+
+        if (scaleUpTriggerRevision != INITIAL_TRIGGER_REVISION_VALUE) {
+            scaleUpCondition = value(zoneScaleUpChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleUpTriggerRevision));
+        } else {
+            scaleUpCondition = notExists(zoneScaleUpChangeTriggerKey(zoneId));
+        }
+
+        SimpleCondition scaleDownCondition;
+
+        if (scaleDownTriggerRevision != INITIAL_TRIGGER_REVISION_VALUE) {
+            scaleDownCondition = value(zoneScaleDownChangeTriggerKey(zoneId)).eq(ByteUtils.longToBytes(scaleDownTriggerRevision));
+        } else {
+            scaleDownCondition = notExists(zoneScaleDownChangeTriggerKey(zoneId));
+        }
+
+        return and(scaleUpCondition, scaleDownCondition);
     }
 
     /**

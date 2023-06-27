@@ -802,7 +802,9 @@ public class DistributionZoneManager implements IgniteComponent {
         if (topologyAugmentationMapFromVault == null) {
             ZoneState zoneState = new ZoneState(executor);
 
-            zonesState.putIfAbsent(zoneId, zoneState);
+            ZoneState prevZoneState = zonesState.putIfAbsent(zoneId, zoneState);
+
+            assert prevZoneState == null : "Zone's state was created twice [zoneId = " + zoneId + "]";
 
             Set<Node> dataNodes = logicalTopology.stream().map(NodeWithAttributes::node).collect(toSet());
 
@@ -821,7 +823,9 @@ public class DistributionZoneManager implements IgniteComponent {
                 zoneState.nodes(filterDataNodes(DistributionZonesUtil.dataNodes(fromBytes(dataNodes.value())), filter, nodesAttributes()));
             }
 
-            zonesState.putIfAbsent(zoneId, zoneState);
+            ZoneState prevZoneState = zonesState.putIfAbsent(zoneId, zoneState);
+
+            assert prevZoneState == null : "Zone's state was created twice [zoneId = " + zoneId + "]";
 
             Optional<Long> maxScaleUpRevision = zoneState.highestRevision(true);
 
@@ -918,11 +922,18 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Iif iif = iif(triggerKeyCondition, removeKeysUpd, ops().yield(false));
 
-            metaStorageManager.invoke(iif).thenAccept(res -> {
-                if (res.getAsBoolean()) {
-                    LOG.debug("Delete zones' dataNodes key [zoneId = {}]", zoneId);
+            metaStorageManager.invoke(iif).whenComplete((res, e) -> {
+                if (e != null) {
+                    LOG.error(
+                            "Failed to delete zone's dataNodes keys [zoneId = {}, revision = {}]",
+                            e,
+                            zoneId,
+                            revision
+                    );
+                } else if (res.getAsBoolean()) {
+                    LOG.debug("Delete zone's dataNodes keys [zoneId = {}, revision = {}]", zoneId, revision);
                 } else {
-                    LOG.debug("Failed to delete zones' dataNodes key [zoneId = {}]", zoneId);
+                    LOG.debug("Failed to delete zone's dataNodes keys [zoneId = {}, revision = {}]", zoneId, revision);
                 }
             });
         } finally {

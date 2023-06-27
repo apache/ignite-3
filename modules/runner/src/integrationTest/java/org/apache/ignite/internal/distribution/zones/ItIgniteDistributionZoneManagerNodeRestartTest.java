@@ -32,7 +32,6 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -358,12 +357,36 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
+    public void testLocalDataNodesAreRestoredAfterRestart(int zoneId, String zoneName) throws Exception {
+        PartialNode partialNode = startPartialNode(0);
+
+        DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+
+        createZoneOrAlterDefaultZone(distributionZoneManager, zoneName);
+
+        partialNode.logicalTopology().putNode(A);
+        partialNode.logicalTopology().putNode(B);
+        partialNode.logicalTopology().removeNodes(Set.of(B));
+
+        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A.name()), TIMEOUT_MILLIS);
+
+        partialNode.stop();
+
+        partialNode = startPartialNode(0);
+
+        distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+
+        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A.name()), TIMEOUT_MILLIS);
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideArgumentsRestartTests")
     public void testScaleUpTimerIsRestoredAfterRestart(int zoneId, String zoneName) throws Exception {
         PartialNode partialNode = startPartialNode(0);
 
         DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
 
-        createZoneOrAlterDefaultZone(distributionZoneManager, zoneName, zoneId);
+        createZoneOrAlterDefaultZone(distributionZoneManager, zoneName);
 
         partialNode.logicalTopology().putNode(A);
         partialNode.logicalTopology().putNode(B);
@@ -418,9 +441,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         MetaStorageManager metaStorageManager = findComponent(partialNode.startedComponents(), MetaStorageManager.class);
 
-        when(metaStorageManager.getAll(any())).thenCallRealMethod();
-
-        createZoneOrAlterDefaultZone(distributionZoneManager, zoneName, zoneId);
+        createZoneOrAlterDefaultZone(distributionZoneManager, zoneName);
 
         when(metaStorageManager.invoke(argThat(iif -> {
             If iif1 = MetaStorageWriteHandler.toIf(iif);
@@ -439,7 +460,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 distributionZoneManager,
                 zoneId,
                 Set.of(A, B, C).stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                20_000L
+                TIMEOUT_MILLIS
         );
 
         partialNode.stop();
@@ -467,8 +488,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     private static void createZoneOrAlterDefaultZone(
             DistributionZoneManager distributionZoneManager,
-            String zoneName,
-            int zoneId
+            String zoneName
     ) throws Exception {
         if (zoneName.equals(DEFAULT_ZONE_NAME)) {
             distributionZoneManager.alterZone(
@@ -481,6 +501,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
             ZoneState zoneState = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID);
 
+            // This is needed because we want to wait for the end of scale up/down triggered by altering delays.
             if (zoneState.scaleUpTask() != null) {
                 assertTrue(waitForCondition(() -> zoneState.scaleUpTask().isDone(), TIMEOUT_MILLIS));
             }
