@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
-import static java.util.Collections.emptySet;
 import static java.util.Collections.newSetFromMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -28,8 +27,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.updatePendingAssignmentsKeys;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.ArrayList;
@@ -39,7 +36,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
@@ -176,11 +172,12 @@ public class DistributionZoneRebalanceEngine {
                     }
 
                     for (TableView tableConfig : findTablesByZoneId(zoneId)) {
-                        CompletableFuture<?>[] partitionFutures = triggerAllTablePartitionsRebalance(
+                        CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
                                 tableConfig,
                                 zoneConfig,
                                 filteredDataNodes,
-                                evt.entryEvent().newEntry().revision()
+                                evt.entryEvent().newEntry().revision(),
+                                metaStorageManager
                         );
 
                         Set<Throwable> exceptions = newSetFromMap(new ConcurrentHashMap<>());
@@ -250,11 +247,12 @@ public class DistributionZoneRebalanceEngine {
                 LOG.info("Received update for replicas number [table={}/{}, oldNumber={}, newNumber={}]",
                         tableCfg.id(), tableCfg.name(), replicasCtx.oldValue(), replicasCtx.newValue());
 
-                CompletableFuture<?>[] partitionFutures = triggerAllTablePartitionsRebalance(
+                CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
                         tableCfg,
                         zoneCfg,
                         dataNodes,
-                        replicasCtx.storageRevision()
+                        replicasCtx.storageRevision(),
+                        metaStorageManager
                 );
 
                 tableFutures.add(allOf(partitionFutures));
@@ -264,57 +262,6 @@ public class DistributionZoneRebalanceEngine {
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    private CompletableFuture<?>[] triggerAllTablePartitionsRebalance(
-            TableView tableCfg,
-            DistributionZoneView zoneCfg,
-            Set<String> dataNodes,
-            long storageRevision
-    ) {
-        return triggerAllTablePartitionsRebalance(
-                tableCfg,
-                zoneCfg,
-                dataNodes,
-                storageRevision,
-                metaStorageManager
-        );
-    }
-
-    private static CompletableFuture<?>[] triggerAllTablePartitionsRebalance(
-            TableView tableCfg,
-            DistributionZoneView zoneCfg,
-            Set<String> dataNodes,
-            long storageRevision,
-            MetaStorageManager metaStorageManager
-    ) {
-        CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = tableAssignments(
-                metaStorageManager,
-                tableCfg.id(),
-                zoneCfg.partitions()
-        );
-
-        CompletableFuture<?>[] futures = new CompletableFuture[zoneCfg.partitions()];
-
-        for (int partId = 0; partId < zoneCfg.partitions(); partId++) {
-            TablePartitionId replicaGrpId = new TablePartitionId(tableCfg.id(), partId);
-
-            int finalPartId = partId;
-
-            futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments ->
-                    updatePendingAssignmentsKeys(
-                            tableCfg,
-                            replicaGrpId,
-                            dataNodes,
-                            zoneCfg.replicas(),
-                            storageRevision,
-                            metaStorageManager,
-                            finalPartId,
-                            tableAssignments.isEmpty() ? emptySet() : tableAssignments.get(finalPartId)
-                    ));
-        }
-
-        return futures;
     }
 
     private List<TableView> findTablesByZoneId(int zoneId) {

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static java.util.Collections.emptySet;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -42,6 +43,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -229,6 +231,56 @@ public class RebalanceUtil {
                     throw new IllegalStateException("Unknown return code for rebalance metastore multi-invoke");
             }
         });
+    }
+
+    /**
+     * Triggers rebalance on all partitions of the provided table: that is, reads table assignments from
+     * the MetaStorage, computes new ones based on the current properties of the table, its zone and the
+     * provided data nodes, and, if the calculated assignments are different from the ones loaded from the
+     * MetaStorages, writes them as pending assignments.
+     *
+     * @param tableCfg Table configuration snapshot.
+     * @param zoneCfg Zone configuration snapshot.
+     * @param dataNodes Data nodes to use.
+     * @param storageRevision MetaStorage revision corresponding to this request.
+     * @param metaStorageManager MetaStorage manager used to read/write assignments.
+     * @return Array of futures, one per partition of the table; the futures complete when the described
+     * rebalance triggering completes.
+     */
+    public static CompletableFuture<?>[] triggerAllTablePartitionsRebalance(
+            TableView tableCfg,
+            DistributionZoneView zoneCfg,
+            Set<String> dataNodes,
+            long storageRevision,
+            MetaStorageManager metaStorageManager
+    ) {
+        CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = tableAssignments(
+                metaStorageManager,
+                tableCfg.id(),
+                zoneCfg.partitions()
+        );
+
+        CompletableFuture<?>[] futures = new CompletableFuture[zoneCfg.partitions()];
+
+        for (int partId = 0; partId < zoneCfg.partitions(); partId++) {
+            TablePartitionId replicaGrpId = new TablePartitionId(tableCfg.id(), partId);
+
+            int finalPartId = partId;
+
+            futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments ->
+                    updatePendingAssignmentsKeys(
+                            tableCfg,
+                            replicaGrpId,
+                            dataNodes,
+                            zoneCfg.replicas(),
+                            storageRevision,
+                            metaStorageManager,
+                            finalPartId,
+                            tableAssignments.isEmpty() ? emptySet() : tableAssignments.get(finalPartId)
+                    ));
+        }
+
+        return futures;
     }
 
     /** Key prefix for pending assignments. */
