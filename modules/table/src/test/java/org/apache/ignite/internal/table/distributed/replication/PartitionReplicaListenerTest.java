@@ -625,7 +625,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             TestValue testValue = new TestValue(indexedVal, "val" + i);
 
             BinaryTuple indexedValue = new BinaryTuple(1,
-                    new BinaryTupleBuilder(1, false).appendInt(indexedVal).build());
+                    new BinaryTupleBuilder(1).appendInt(indexedVal).build());
             BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
 
             testMvPartitionStorage.addWrite(rowId, storeRow, txId, tblId, partId);
@@ -732,7 +732,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             TestValue testValue = new TestValue(indexedVal, "val" + i);
 
             BinaryTuple indexedValue = new BinaryTuple(1,
-                    new BinaryTupleBuilder(1, false).appendInt(indexedVal).build());
+                    new BinaryTupleBuilder(1).appendInt(indexedVal).build());
             BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
 
             testMvPartitionStorage.addWrite(rowId, storeRow, txId, tblId, partId);
@@ -834,7 +834,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             TestValue testValue = new TestValue(indexedVal, "val" + i);
 
             BinaryTuple indexedValue = new BinaryTuple(1,
-                    new BinaryTupleBuilder(1, false).appendInt(indexedVal).build());
+                    new BinaryTupleBuilder(1).appendInt(indexedVal).build());
             BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
 
             testMvPartitionStorage.addWrite(rowId, storeRow, txId, tblId, partId);
@@ -1419,7 +1419,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         var rowId = new RowId(partId);
 
         BinaryTuple indexedValue = new BinaryTuple(1,
-                new BinaryTupleBuilder(1, false).appendInt(FUTURE_SCHEMA_ROW_INDEXED_VALUE).build()
+                new BinaryTupleBuilder(1).appendInt(FUTURE_SCHEMA_ROW_INDEXED_VALUE).build()
         );
 
         pkStorage().put(futureSchemaVersionRow, rowId);
@@ -1595,7 +1595,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private BinaryTupleMessage toIndexKey(int val) {
-        ByteBuffer tuple = new BinaryTupleBuilder(1, true).appendInt(val).build();
+        ByteBuffer tuple = new BinaryTupleBuilder(1).appendInt(val).build();
 
         return TABLE_MESSAGES_FACTORY.binaryTupleMessage()
                 .tuple(tuple)

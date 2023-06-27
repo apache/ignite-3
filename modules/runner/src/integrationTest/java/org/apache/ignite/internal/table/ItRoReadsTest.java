@@ -480,7 +480,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
     }
 
     private static Row createKeyValueRow(long id, int value, String str) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA_1, false, -1);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA_1, -1);
 
         rowBuilder.appendLong(id);
         rowBuilder.appendInt(value);

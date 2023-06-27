@@ -48,15 +48,13 @@ public class BinaryTupleTest {
      */
     @Test
     public void nullValueTest() {
-        // Header: 1 byte with null map flag.
-        // NullMap: 1 byte with first bit set.
+        // Header: 1 zero byte.
         // Offset table: 1 zero byte
-        byte[] bytes = { BinaryTupleCommon.NULLMAP_FLAG, 1, 0 };
+        byte[] bytes = { 0, 0 };
 
         var reader = new BinaryTupleReader(1, bytes);
         assertEquals(bytes.length, reader.size());
         assertEquals(1, reader.elementCount());
-        assertTrue(reader.hasNullMap());
 
         assertTrue(reader.hasNullValue(0));
         assertNull(reader.byteValueBoxed(0));
@@ -86,10 +84,9 @@ public class BinaryTupleTest {
         // Offset table: 1 zero byte.
         byte[] bytes1 = { 0, 0 };
 
-        // Header: 1 byte with null map flag.
-        // NullMap: 1 byte with no bit set.
+        // Header: 1 zero byte.
         // Offset table: 1 zero byte
-        byte[] bytes2 = { BinaryTupleCommon.NULLMAP_FLAG, 0, 0 };
+        byte[] bytes2 = { 0, 0, 0 };
 
         byte[][] bytesArray = { bytes1, bytes2 };
 
@@ -97,11 +94,6 @@ public class BinaryTupleTest {
             var reader = new BinaryTupleReader(1, bytes);
             assertEquals(bytes.length, reader.size());
             assertEquals(1, reader.elementCount());
-            if (bytes.length == bytes1.length) {
-                assertFalse(reader.hasNullMap());
-            } else {
-                assertTrue(reader.hasNullMap());
-            }
 
             assertFalse(reader.hasNullValue(0));
             assertEquals(0, reader.byteValue(0));
@@ -116,10 +108,6 @@ public class BinaryTupleTest {
             assertEquals(Float.valueOf(0.0F), reader.floatValueBoxed(0));
             assertEquals(0.0, reader.doubleValue(0));
             assertEquals(Double.valueOf(0.0), reader.doubleValueBoxed(0));
-            /* We do not support default values for big numbers:
-            assertEquals(_NO_SUCH_VALUE_, reader.numberValue(0));
-            assertEquals(_NO_SUCH_VALUE_, reader.decimalValue(0, 0));
-            */
             assertEquals("", reader.stringValue(0));
             assertArrayEquals(new byte[0], reader.bytesValue(0));
             assertEquals(new UUID(0, 0), reader.uuidValue(0));
@@ -138,7 +126,7 @@ public class BinaryTupleTest {
     public void byteTest() {
         byte[] values = {Byte.MIN_VALUE, -1, 0, 1, Byte.MAX_VALUE};
         for (byte value : values) {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false, 1);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 1);
             ByteBuffer bytes = builder.appendByte(value).build();
             assertEquals(value != 0 ? 1 : 0, bytes.get(1));
             assertEquals(value != 0 ? 3 : 2, bytes.limit());
@@ -155,7 +143,7 @@ public class BinaryTupleTest {
     public void shortTest() {
         short[] values = {Byte.MIN_VALUE, -1, 0, 1, Byte.MAX_VALUE};
         for (short value : values) {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false, 1);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1,1);
             ByteBuffer bytes = builder.appendShort(value).build();
             assertEquals(value != 0 ? 1 : 0, bytes.get(1));
             assertEquals(value != 0 ? 3 : 2, bytes.limit());
@@ -166,7 +154,7 @@ public class BinaryTupleTest {
 
         values = new short[]{Short.MIN_VALUE, Byte.MIN_VALUE - 1, Byte.MAX_VALUE + 1, Short.MAX_VALUE};
         for (short value : values) {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false, 2);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1,2);
             ByteBuffer bytes = builder.appendShort(value).build();
             assertEquals(2, bytes.get(1));
             assertEquals(4, bytes.limit());
@@ -183,7 +171,7 @@ public class BinaryTupleTest {
     public void intTest() {
         int[] values = {Byte.MIN_VALUE, -1, 0, 1, Byte.MAX_VALUE};
         for (int value : values) {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false, 1);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 1);
             ByteBuffer bytes = builder.appendInt(value).build();
             assertEquals(value != 0 ? 1 : 0, bytes.get(1));
             assertEquals(value != 0 ? 3 : 2, bytes.limit());
@@ -194,7 +182,7 @@ public class BinaryTupleTest {
 
         values = new int[]{Short.MIN_VALUE, Byte.MIN_VALUE - 1, Byte.MAX_VALUE + 1, Short.MAX_VALUE};
         for (int value : values) {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false, 2);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 2);
             ByteBuffer bytes = builder.appendInt(value).build();
             assertEquals(2, bytes.get(1));
             assertEquals(4, bytes.limit());
@@ -205,7 +193,7 @@ public class BinaryTupleTest {
 
         values = new int[]{Integer.MIN_VALUE, Short.MIN_VALUE - 1, Short.MAX_VALUE + 1, Integer.MAX_VALUE};
         for (int value : values) {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false, 4);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 4);
             ByteBuffer bytes = builder.appendInt(value).build();
             assertEquals(4, bytes.get(1));
             assertEquals(6, bytes.limit());
@@ -222,7 +210,7 @@ public class BinaryTupleTest {
     public void longTest() {
         long[] values = {Byte.MIN_VALUE, -1, 0, 1, Byte.MAX_VALUE};
         for (long value : values) {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false, 1);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 1);
             ByteBuffer bytes = builder.appendLong(value).build();
             assertEquals(value != 0 ? 1 : 0, bytes.get(1));
             assertEquals(value != 0 ? 3 : 2, bytes.limit());
@@ -233,7 +221,7 @@ public class BinaryTupleTest {
 
         values = new long[]{Short.MIN_VALUE, Byte.MIN_VALUE - 1, Byte.MAX_VALUE + 1, Short.MAX_VALUE};
         for (long value : values) {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false, 2);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 2);
             ByteBuffer bytes = builder.appendLong(value).build();
             assertEquals(2, bytes.get(1));
             assertEquals(4, bytes.limit());
@@ -244,7 +232,7 @@ public class BinaryTupleTest {
 
         values = new long[]{Integer.MIN_VALUE, Short.MIN_VALUE - 1, Short.MAX_VALUE + 1, Integer.MAX_VALUE};
         for (long value : values) {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false, 4);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 4);
             ByteBuffer bytes = builder.appendLong(value).build();
             assertEquals(4, bytes.get(1));
             assertEquals(6, bytes.limit());
@@ -255,7 +243,7 @@ public class BinaryTupleTest {
 
         values = new long[]{Long.MIN_VALUE, Integer.MIN_VALUE - 1L, Integer.MAX_VALUE + 1L, Long.MAX_VALUE};
         for (long value : values) {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false, 8);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 8);
             ByteBuffer bytes = builder.appendLong(value).build();
             assertEquals(8, bytes.get(1));
             assertEquals(10, bytes.limit());
@@ -273,7 +261,7 @@ public class BinaryTupleTest {
         {
             float value = 0.0F;
 
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false, 0);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 0);
             ByteBuffer bytes = builder.appendFloat(value).build();
             assertEquals(0, bytes.get(1));
             assertEquals(2, bytes.limit());
@@ -284,7 +272,7 @@ public class BinaryTupleTest {
         {
             float value = 0.5F;
 
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false, 4);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 4);
             ByteBuffer bytes = builder.appendFloat(value).build();
             assertEquals(4, bytes.get(1));
             assertEquals(6, bytes.limit());
@@ -302,7 +290,7 @@ public class BinaryTupleTest {
         {
             double value = 0.0;
 
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false, 0);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 0);
             ByteBuffer bytes = builder.appendDouble(value).build();
             assertEquals(0, bytes.get(1));
             assertEquals(2, bytes.limit());
@@ -313,7 +301,7 @@ public class BinaryTupleTest {
         {
             double value = 0.5;
 
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false, 4);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 4);
             ByteBuffer bytes = builder.appendDouble(value).build();
             assertEquals(4, bytes.get(1));
             assertEquals(6, bytes.limit());
@@ -324,7 +312,7 @@ public class BinaryTupleTest {
         {
             double value = 0.1;
 
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false, 8);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 8);
             ByteBuffer bytes = builder.appendDouble(value).build();
             assertEquals(8, bytes.get(1));
             assertEquals(10, bytes.limit());
@@ -341,7 +329,7 @@ public class BinaryTupleTest {
     public void numberTest() {
         BigInteger value = BigInteger.valueOf(12345);
 
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
         ByteBuffer bytes = builder.appendNumber(value).build();
 
         BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
@@ -355,7 +343,7 @@ public class BinaryTupleTest {
     public void decimalTest() {
         BigDecimal value = new BigDecimal(BigInteger.valueOf(12345), 100);
 
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
         ByteBuffer bytes = builder.appendDecimal(value, 100).build();
 
         BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
@@ -371,7 +359,7 @@ public class BinaryTupleTest {
         int valueScale = 3;
         BigDecimal value = BigDecimal.valueOf(123456, valueScale);
 
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
         ByteBuffer bytes = builder.appendDecimal(value, schemaScale).build();
 
         BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
@@ -387,7 +375,7 @@ public class BinaryTupleTest {
     public void stringTest() {
         String[] values = {"ascii", "我愛Java", "", "a string with a bit more characters"};
 
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(values.length, false);
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(values.length);
         for (String value : values) {
             builder.appendString(value);
         }
@@ -413,7 +401,7 @@ public class BinaryTupleTest {
                 values[i] = generateBytes(rnd);
             }
 
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(values.length, true);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(values.length);
             for (byte[] value : values) {
                 builder.appendBytes(value);
             }
@@ -441,7 +429,7 @@ public class BinaryTupleTest {
     public void uuidTest() {
         UUID value = UUID.randomUUID();
 
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
         ByteBuffer bytes = builder.appendUuid(value).build();
 
         BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
@@ -460,7 +448,7 @@ public class BinaryTupleTest {
             if (valueBytes != null) {
                 BitSet value = BitSet.valueOf(valueBytes);
 
-                BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+                BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
                 ByteBuffer bytes = builder.appendBitmask(value).build();
 
                 BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
@@ -476,7 +464,7 @@ public class BinaryTupleTest {
     public void dateTest() {
         LocalDate value = LocalDate.now();
 
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
         ByteBuffer bytes = builder.appendDate(value).build();
         assertEquals(3, bytes.get(1));
         assertEquals(5, bytes.limit());
@@ -493,7 +481,7 @@ public class BinaryTupleTest {
         LocalTime value = LocalTime.now();
 
         {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
             ByteBuffer bytes = builder.appendTime(value).build();
 
             BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
@@ -503,7 +491,7 @@ public class BinaryTupleTest {
         value = LocalTime.of(value.getHour(), value.getMinute(), value.getSecond(), 1_000_000);
 
         {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
             ByteBuffer bytes = builder.appendTime(value).build();
             assertEquals(4, bytes.get(1));
             assertEquals(6, bytes.limit());
@@ -515,7 +503,7 @@ public class BinaryTupleTest {
         value = LocalTime.of(value.getHour(), value.getMinute(), value.getSecond(), 1_001_000);
 
         {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
             ByteBuffer bytes = builder.appendTime(value).build();
             assertEquals(5, bytes.get(1));
             assertEquals(7, bytes.limit());
@@ -527,7 +515,7 @@ public class BinaryTupleTest {
         value = LocalTime.of(value.getHour(), value.getMinute(), value.getSecond(), 1_001_001);
 
         {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
             ByteBuffer bytes = builder.appendTime(value).build();
             assertEquals(6, bytes.get(1));
             assertEquals(8, bytes.limit());
@@ -545,7 +533,7 @@ public class BinaryTupleTest {
         LocalDateTime value = LocalDateTime.now();
 
         {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
             ByteBuffer bytes = builder.appendDateTime(value).build();
 
             BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
@@ -556,7 +544,7 @@ public class BinaryTupleTest {
                 LocalTime.of(value.getHour(), value.getMinute(), value.getSecond(), 1_000_000));
 
         {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
             ByteBuffer bytes = builder.appendDateTime(value).build();
             assertEquals(7, bytes.get(1));
             assertEquals(9, bytes.limit());
@@ -569,7 +557,7 @@ public class BinaryTupleTest {
                 LocalTime.of(value.getHour(), value.getMinute(), value.getSecond(), 1_001_000));
 
         {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
             ByteBuffer bytes = builder.appendDateTime(value).build();
             assertEquals(8, bytes.get(1));
             assertEquals(10, bytes.limit());
@@ -582,7 +570,7 @@ public class BinaryTupleTest {
                 LocalTime.of(value.getHour(), value.getMinute(), value.getSecond(), 1_001_001));
 
         {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
             ByteBuffer bytes = builder.appendDateTime(value).build();
             assertEquals(9, bytes.get(1));
             assertEquals(11, bytes.limit());
@@ -601,7 +589,7 @@ public class BinaryTupleTest {
         Instant value = Instant.now();
 
         {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
             ByteBuffer bytes = builder.appendTimestamp(value).build();
 
             BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
@@ -611,7 +599,7 @@ public class BinaryTupleTest {
         value = Instant.ofEpochSecond(value.getEpochSecond());
 
         {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
             ByteBuffer bytes = builder.appendTimestamp(value).build();
             assertEquals(8, bytes.get(1));
             assertEquals(10, bytes.limit());
@@ -623,7 +611,7 @@ public class BinaryTupleTest {
         value = Instant.ofEpochSecond(value.getEpochSecond(), 1);
 
         {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
             ByteBuffer bytes = builder.appendTimestamp(value).build();
             assertEquals(12, bytes.get(1));
             assertEquals(14, bytes.limit());
@@ -647,7 +635,7 @@ public class BinaryTupleTest {
 
     /** Test duration value roundtrip. */
     private static void durationTest(Duration value) {
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
         ByteBuffer bytes = builder.appendDuration(value).build();
 
         BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
@@ -670,7 +658,7 @@ public class BinaryTupleTest {
 
     /** Test period value roundtrip. */
     private static void periodTest(Period value) {
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
         ByteBuffer bytes = builder.appendPeriod(value).build();
 
         BinaryTupleReader reader = new BinaryTupleReader(1, bytes);

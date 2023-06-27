@@ -108,7 +108,6 @@ public class InlineUtils {
         int columnsInlineSize = columns.stream().map(StorageColumnDescriptor::type).mapToInt(InlineUtils::inlineSize).sum();
 
         int inlineSize = BinaryTupleCommon.HEADER_SIZE
-                + (hasNullColumns ? BinaryTupleCommon.nullMapSize(columns.size()) : 0)
                 + columns.size() * Math.min(MAX_BINARY_TUPLE_OFFSET_TABLE_ENTRY_SIZE, valueSizeToEntrySize(columnsInlineSize))
                 + columnsInlineSize;
 

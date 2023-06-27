@@ -137,7 +137,7 @@ public class ClientTupleSerializer {
         var columns = schema.columns();
         var count = keyOnly ? schema.keyColumnCount() : columns.length;
 
-        var builder = new BinaryTupleBuilder(count, true);
+        var builder = new BinaryTupleBuilder(count);
         var noValueSet = new BitSet(count);
 
         for (var i = 0; i < count; i++) {
@@ -175,7 +175,7 @@ public class ClientTupleSerializer {
 
         var columns = schema.columns();
         var noValueSet = new BitSet(columns.length);
-        var builder = new BinaryTupleBuilder(columns.length, true);
+        var builder = new BinaryTupleBuilder(columns.length);
 
         for (ClientColumn col : columns) {
             Object v = col.key()
@@ -322,7 +322,7 @@ public class ClientTupleSerializer {
 
         if (v == NO_VALUE) {
             noValueSet.set(col.schemaIndex());
-            builder.appendDefault();
+            builder.appendNull();
             return;
         }
 
