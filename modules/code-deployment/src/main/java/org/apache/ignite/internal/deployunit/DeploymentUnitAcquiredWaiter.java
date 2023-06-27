@@ -31,11 +31,11 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 /**
  * Executes action on the deployment unit if it is not acquired. Otherwise, puts it to the queue.
  */
-class DeploymentUnitProcessor {
-    private static final IgniteLogger LOG = Loggers.forClass(DeploymentUnitProcessor.class);
+class DeploymentUnitAcquiredWaiter {
+    private static final IgniteLogger LOG = Loggers.forClass(DeploymentUnitAcquiredWaiter.class);
 
     /** Deployment units to undeploy. */
-    private final Queue<DeploymentUnit> unitsToProcess = new ConcurrentLinkedDeque<>();
+    private final Queue<DeploymentUnit> queue = new ConcurrentLinkedDeque<>();
 
     /** Deployment unit accessor. */
     private final DeploymentUnitAccessor deploymentUnitAccessor;
@@ -53,13 +53,13 @@ class DeploymentUnitProcessor {
      * @param deploymentUnitAccessor deployment unit accessor.
      * @param action action.
      */
-    DeploymentUnitProcessor(
+    DeploymentUnitAcquiredWaiter(
             String nodeName,
             DeploymentUnitAccessor deploymentUnitAccessor,
             Consumer<DeploymentUnit> action) {
         this.deploymentUnitAccessor = deploymentUnitAccessor;
         this.executor = Executors.newScheduledThreadPool(
-                1, NamedThreadFactory.create(nodeName, "deployment-unit-undeployer", LOG));
+                1, NamedThreadFactory.create(nodeName, "deployment-unit-acquired-waiter", LOG));
         this.action = action;
     }
 
@@ -70,7 +70,7 @@ class DeploymentUnitProcessor {
      * @param unit time unit of the delay.
      */
     public void start(long delay, TimeUnit unit) {
-        executor.scheduleWithFixedDelay(this::processUnits, 0, delay, unit);
+        executor.scheduleWithFixedDelay(this::processQueue, 0, delay, unit);
     }
 
     /**
@@ -83,21 +83,21 @@ class DeploymentUnitProcessor {
     /**
      * Processes all deployment units in the queue.
      */
-    private void processUnits() {
-        int size = unitsToProcess.size();
+    private void processQueue() {
+        int size = queue.size();
         for (int i = 0; i < size; i++) {
-            process(unitsToProcess.remove());
+            submitToAcquireRelease(queue.remove());
         }
     }
 
     /**
-     * Executes action on the deployment unit if it is not acquired. Otherwise, puts it to the queue.
+     * Executes the action on the deployment unit if it is not acquired. Otherwise, puts it to the queue.
      *
      * @param unit deployment unit to undeploy.
      */
-    public void process(DeploymentUnit unit) {
+    public void submitToAcquireRelease(DeploymentUnit unit) {
         if (!deploymentUnitAccessor.computeIfNotAcquired(unit, action)) {
-            unitsToProcess.offer(unit);
+            queue.offer(unit);
         }
     }
 }

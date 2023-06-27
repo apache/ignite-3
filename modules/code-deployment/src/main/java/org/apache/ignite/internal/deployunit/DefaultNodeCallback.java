@@ -43,7 +43,7 @@ public class DefaultNodeCallback extends NodeEventCallback {
 
     private final FileDeployerService deployer;
 
-    private final DeploymentUnitProcessor undeployer;
+    private final DeploymentUnitAcquiredWaiter undeployer;
 
     private final DownloadTracker tracker;
 
@@ -65,7 +65,7 @@ public class DefaultNodeCallback extends NodeEventCallback {
             DeploymentUnitStore deploymentUnitStore,
             DeployMessagingService messaging,
             FileDeployerService deployer,
-            DeploymentUnitProcessor undeployer,
+            DeploymentUnitAcquiredWaiter undeployer,
             DownloadTracker tracker,
             ClusterManagementGroupManager cmgManager,
             String nodeName
@@ -108,7 +108,7 @@ public class DefaultNodeCallback extends NodeEventCallback {
 
     @Override
     public void onObsolete(String id, Version version, List<UnitNodeStatus> holders) {
-        undeployer.process(new DeploymentUnit(id, version));
+        undeployer.submitToAcquireRelease(new DeploymentUnit(id, version));
     }
 
     @Override

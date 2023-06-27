@@ -42,7 +42,7 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class DeploymentUnitProcessorTest {
+class DeploymentUnitAcquiredWaiterTest {
     private static final int DELAY_IN_MILLIS = 500;
 
     private final Set<DeploymentUnit> removingUnits = new CopyOnWriteArraySet<>();
@@ -54,12 +54,11 @@ class DeploymentUnitProcessorTest {
     @InjectMocks
     private DeploymentUnitAccessorImpl deploymentUnitAccessor;
 
-
-    private DeploymentUnitProcessor undeployer;
+    private DeploymentUnitAcquiredWaiter undeployer;
 
     @BeforeEach
     void setUp() {
-        undeployer = new DeploymentUnitProcessor(
+        undeployer = new DeploymentUnitAcquiredWaiter(
                 "testNode",
                 deploymentUnitAccessor,
                 removingUnits::add
@@ -73,9 +72,9 @@ class DeploymentUnitProcessorTest {
         DeploymentUnit unit2 = new DeploymentUnit("unit2", "1.0.0");
         DeploymentUnit unit3 = new DeploymentUnit("unit3", "1.0.0");
 
-        undeployer.process(unit1);
-        undeployer.process(unit2);
-        undeployer.process(unit3);
+        undeployer.submitToAcquireRelease(unit1);
+        undeployer.submitToAcquireRelease(unit2);
+        undeployer.submitToAcquireRelease(unit3);
 
         // check all units are removed instantly.
         assertThat(removingUnits, contains(unit1, unit2, unit3));
@@ -92,9 +91,9 @@ class DeploymentUnitProcessorTest {
         deploymentUnitAccessor.acquire(unit2);
         deploymentUnitAccessor.acquire(unit3);
 
-        undeployer.process(unit1);
-        undeployer.process(unit2);
-        undeployer.process(unit3);
+        undeployer.submitToAcquireRelease(unit1);
+        undeployer.submitToAcquireRelease(unit2);
+        undeployer.submitToAcquireRelease(unit3);
 
         // check all units are still not removed.
         await().during(DELAY_IN_MILLIS * 5, TimeUnit.MILLISECONDS).until(
@@ -114,9 +113,9 @@ class DeploymentUnitProcessorTest {
         DisposableDeploymentUnit deploymentUnit2 = deploymentUnitAccessor.acquire(unit2);
         DisposableDeploymentUnit deploymentUnit3 = deploymentUnitAccessor.acquire(unit3);
 
-        undeployer.process(unit1);
-        undeployer.process(unit2);
-        undeployer.process(unit3);
+        undeployer.submitToAcquireRelease(unit1);
+        undeployer.submitToAcquireRelease(unit2);
+        undeployer.submitToAcquireRelease(unit3);
 
         verify(deploymentUnitAccessor, atLeastOnce()).computeIfNotAcquired(eq(unit1), any());
         verify(deploymentUnitAccessor, atLeastOnce()).computeIfNotAcquired(eq(unit2), any());
@@ -142,7 +141,7 @@ class DeploymentUnitProcessorTest {
 
         deploymentUnitAccessor.acquire(unit1);
 
-        undeployer.process(unit1);
+        undeployer.submitToAcquireRelease(unit1);
 
         // check delay between attempts to undeploy the unit.
         verify(deploymentUnitAccessor, after(DELAY_IN_MILLIS * 5).atMost(6))

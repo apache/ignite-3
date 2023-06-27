@@ -113,7 +113,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
      */
     private final DeploymentUnitAccessor deploymentUnitAccessor;
 
-    private final DeploymentUnitProcessor undeployer;
+    private final DeploymentUnitAcquiredWaiter undeployer;
 
     private final String nodeName;
 
@@ -152,7 +152,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         tracker = new DownloadTracker();
         deployer = new FileDeployerService();
         deploymentUnitAccessor = new DeploymentUnitAccessorImpl(deployer);
-        undeployer = new DeploymentUnitProcessor(
+        undeployer = new DeploymentUnitAcquiredWaiter(
                 nodeName,
                 deploymentUnitAccessor,
                 unit -> deploymentUnitStore.updateNodeStatus(nodeName, unit.name(), unit.version(), REMOVING)
