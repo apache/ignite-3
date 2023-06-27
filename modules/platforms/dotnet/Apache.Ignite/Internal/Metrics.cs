@@ -36,6 +36,10 @@ internal static class Metrics
 
     private static int _requestsActive;
 
+    private static int _streamerBatchesActive;
+
+    private static int _streamerItemsQueued;
+
     /// <summary>
     /// Currently active connections.
     /// </summary>
@@ -141,6 +145,40 @@ internal static class Metrics
         name: "bytes-received",
         unit: "bytes",
         description: "Total number of bytes received");
+
+    /// <summary>
+    /// Data streamer batches sent.
+    /// </summary>
+    public static readonly Counter<long> StreamerBatchesSent = Meter.CreateCounter<long>(
+        name: "streamer-batches-sent",
+        unit: "batches",
+        description: "Total number of data streamer batches sent.");
+
+    /// <summary>
+    /// Data streamer items sent.
+    /// </summary>
+    public static readonly Counter<long> StreamerItemsSent = Meter.CreateCounter<long>(
+        name: "streamer-items-sent",
+        unit: "batches",
+        description: "Total number of data streamer items sent.");
+
+    /// <summary>
+    /// Data streamer batches.
+    /// </summary>
+    public static readonly ObservableCounter<int> StreamerBatchesActive = Meter.CreateObservableCounter(
+        name: "streamer-batches-active",
+        observeValue: () => Interlocked.CompareExchange(ref _streamerBatchesActive, 0, 0),
+        unit: "batches",
+        description: "Total number of existing data streamer batches.");
+
+    /// <summary>
+    /// Data streamer batches.
+    /// </summary>
+    public static readonly ObservableCounter<int> StreamerItemsQueued = Meter.CreateObservableCounter(
+        name: "streamer-items-queued",
+        observeValue: () => Interlocked.CompareExchange(ref _streamerItemsQueued, 0, 0),
+        unit: "items",
+        description: "Total number of queued data streamer items (rows).");
 
     /// <summary>
     /// Increments active connections.
