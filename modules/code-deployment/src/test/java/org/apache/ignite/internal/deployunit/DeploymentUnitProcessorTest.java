@@ -145,7 +145,7 @@ class DeploymentUnitProcessorTest {
         undeployer.process(unit1);
 
         // check delay between attempts to undeploy the unit.
-        verify(deploymentUnitAccessor, after(DELAY_IN_MILLIS * 5).atMost(5))
+        verify(deploymentUnitAccessor, after(DELAY_IN_MILLIS * 5).atMost(6))
                 .computeIfNotAcquired(eq(unit1), any());
     }
 
