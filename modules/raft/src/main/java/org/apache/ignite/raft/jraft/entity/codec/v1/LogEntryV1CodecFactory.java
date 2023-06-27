@@ -16,12 +16,29 @@
  */
 package org.apache.ignite.raft.jraft.entity.codec.v1;
 
+import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 
 /**
- * Log entry codec implementation.
+ * Log entry codec implementation. Data format description:
+ * <ul>
+ *     <li>Magic header, 1 byte. {@link #MAGIC}</li>
+ *     <li>Log entry type, formally a var-long, effectively 1 byte. {@link EntryType}</li>
+ *     <li>Log index, var-long, from 1 to 9 bytes.</li>
+ *     <li>Log term, var-long, from 1 to 9 bytes.</li>
+ *     <li>Checksum, 8 bytes, Big Endian.</li>
+ *     <li>If type is not {@link EntryType#ENTRY_TYPE_DATA}:<ul>
+ *         <li>Number of peers, val-long. Following it is the array of peers:</li>
+ *         <li>Length of the peer name, 2 bytes, Big Endian.</li>
+ *         <li>ASCII characters of the peer name, according to the read count.</li>
+ *         <li>... same block repeats for "oldPeers", "learners" and "oldLearners".</li>
+ *     </ul></li>
+ *     <li>If type is not {@link EntryType#ENTRY_TYPE_DATA}:<ul>
+ *         <li>The rest of the {@code byte[]} is the data payload.</li>
+ *     </ul></li>
+ * </ul>
  */
 public class LogEntryV1CodecFactory implements LogEntryCodecFactory {
 

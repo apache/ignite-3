@@ -130,7 +130,7 @@ public final class V1Decoder implements LogEntryDecoder {
     }
 
     private static int readNodesList(int pos, byte[] content, int count, List<PeerId> nodes) {
-        while (count --> 0) {
+        for(int i = 0; i < count; i++) {
             short len = Bits.getShort(content, pos);
             pos += 2;
 
