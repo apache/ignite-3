@@ -18,50 +18,51 @@
 package org.apache.ignite.internal.deployunit.metastore;
 
 import java.util.List;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 
 /**
  * Listener of deployment unit node status changes.
  */
-public interface NodeEventCallback {
+public abstract class NodeEventCallback {
     /**
      * Change event.
      *
      * @param status Deployment unit status.
-     * @param holders Nodes consistent id.
+     * @param holders Node statuses.
      */
-    default void onUpdate(UnitNodeStatus status, List<String> holders) {
+    public void onUpdate(UnitNodeStatus status, List<UnitNodeStatus> holders) {
         switch (status.status()) {
             case UPLOADING:
-                onUploading(status, holders);
+                onUploading(status.id(), status.version(), holders);
                 break;
             case DEPLOYED:
-                onDeploy(status, holders);
+                onDeploy(status.id(), status.version(), holders);
                 break;
             case REMOVING:
-                onRemoving(status, holders);
+                onRemoving(status.id(), status.version(), holders);
                 break;
             case OBSOLETE:
-                onObsolete(status, holders);
+                onObsolete(status.id(), status.version(), holders);
                 break;
             default:
                 break;
         }
     }
 
-    default void onUploading(UnitNodeStatus status, List<String> holders) {
+    protected void onUploading(String id, Version version, List<UnitNodeStatus> holders) {
 
     }
 
-    default void onDeploy(UnitNodeStatus status, List<String> holders) {
+    protected void onDeploy(String id, Version version, List<UnitNodeStatus> holders) {
 
     }
 
-    default void onObsolete(UnitNodeStatus status, List<String> holders) {
+    protected void onObsolete(String id, Version version, List<UnitNodeStatus> holders) {
 
     }
 
-    default void onRemoving(UnitNodeStatus status, List<String> holders) {
+    protected void onRemoving(String id, Version version, List<UnitNodeStatus> holders) {
 
     }
 }

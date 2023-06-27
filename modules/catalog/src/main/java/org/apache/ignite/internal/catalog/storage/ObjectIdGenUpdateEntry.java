@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -41,7 +42,17 @@ public class ObjectIdGenUpdateEntry implements UpdateEntry {
         return delta;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public Catalog applyUpdate(Catalog catalog) {
+        return new Catalog(
+                catalog.version(),
+                catalog.time(),
+                catalog.objectIdGenState() + delta,
+                catalog.zones(),
+                catalog.schemas()
+        );
+    }
+
     @Override
     public String toString() {
         return S.toString(this);

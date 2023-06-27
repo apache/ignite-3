@@ -17,16 +17,22 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -244,6 +250,33 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
                         .build(), tableChange));
 
         assertThrows(TableAlreadyExistsException.class, () -> futureResult(tableFut2));
+    }
+
+    @Test
+    public void testGetAll() {
+        RecordView<Tuple> tbl = ignite.tables().table(TABLE_NAME).recordView();
+
+        assertThat(
+                tbl.getAll(null, List.of(Tuple.create().set("name", "id_0"))),
+                contains(nullValue())
+        );
+
+        var recs = IntStream.range(0, 5)
+                .mapToObj(i -> Tuple.create().set("name", "id_" + i * 2).set("balance", i * 2))
+                .collect(toList());
+
+        tbl.upsertAll(null, recs);
+
+        var keys = IntStream.range(0, 10)
+                .mapToObj(i -> Tuple.create().set("name", "id_" + i))
+                .collect(toList());
+
+        List<Tuple> res = tbl.getAll(null, keys);
+
+        assertThat(
+                res.stream().map(tuple -> tuple == null ? null : tuple.stringValue(0)).collect(toList()),
+                contains("id_0", null, "id_2", null, "id_4", null, "id_6", null, "id_8", null)
+        );
     }
 
     private TableManager tableManager() {

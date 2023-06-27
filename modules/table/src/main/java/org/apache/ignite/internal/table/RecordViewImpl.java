@@ -80,18 +80,16 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         return tbl.get(keyRow, (InternalTransaction) tx).thenApply(this::unmarshal);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Collection<R> getAll(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
+    public List<R> getAll(@Nullable Transaction tx, Collection<R> keyRecs) {
         return sync(getAllAsync(tx, keyRecs));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
+    public CompletableFuture<List<R>> getAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return tbl.getAll(marshalKeys(keyRecs), (InternalTransaction) tx).thenApply(this::unmarshal);
+        return tbl.getAll(marshalKeys(keyRecs), (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, true));
     }
 
     /** {@inheritDoc} */
@@ -161,7 +159,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<Collection<R>> insertAllAsync(@Nullable Transaction tx, @NotNull Collection<R> recs) {
         Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(recs));
 
-        return tbl.insertAll(rows, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return tbl.insertAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, false));
     }
 
     /** {@inheritDoc} */
@@ -260,7 +258,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
         Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(keyRecs));
 
-        return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, false));
     }
 
     /** {@inheritDoc} */
@@ -274,7 +272,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
         Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(keyRecs));
 
-        return tbl.deleteAllExact(rows, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return tbl.deleteAllExact(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, false));
     }
 
     /**
@@ -410,20 +408,25 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * Unmarshal records.
      *
      * @param rows Row collection.
+     * @param addNull {@code true} if {@code null} is added for missing rows.
      * @return Records collection.
      */
-    private Collection<R> unmarshal(Collection<BinaryRow> rows) {
+    private List<R> unmarshal(Collection<BinaryRow> rows, boolean addNull) {
         if (rows.isEmpty()) {
             return Collections.emptyList();
         }
 
         RecordMarshaller<R> marsh = marshaller();
 
-        List<R> recs = new ArrayList<>(rows.size());
+        var recs = new ArrayList<R>(rows.size());
 
         try {
             for (Row row : schemaReg.resolve(rows)) {
-                recs.add(marsh.unmarshal(row));
+                if (row != null) {
+                    recs.add(marsh.unmarshal(row));
+                } else if (addNull) {
+                    recs.add(null);
+                }
             }
 
             return recs;

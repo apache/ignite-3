@@ -15,27 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.message;
+package org.apache.ignite.internal.catalog.storage;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 
 /**
- * Undeploy unit request.
+ * Interface for updates that require firing events.
  */
-@Transferable(DeployUnitMessageTypes.UNDEPLOY_UNIT_REQUEST)
-public interface UndeployUnitRequest extends NetworkMessage {
+public interface Fireable {
     /**
-     * Returns id of deployment unit.
-     *
-     * @return id of deployment unit.
+     * Returns the type of the fired event.
      */
-    String id();
+    CatalogEvent eventType();
 
     /**
-     * Returns version of deployment unit.
+     * Creates parameters of the fired event.
      *
-     * @return version of deployment unit.
+     * @param causalityToken Causality token.
      */
-    String version();
+    CatalogEventParameters createEventParameters(long causalityToken);
 }

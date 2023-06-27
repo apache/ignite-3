@@ -71,6 +71,18 @@ public interface KeyValueStorage extends ManuallyCloseable {
     Entry get(byte[] key, long revUpperBound);
 
     /**
+     * Returns all entries corresponding to the given key and bounded by given revisions.
+     * All these entries are ordered by revisions and have the same key.
+     * The lower bound and the upper bound are inclusive.
+     *
+     * @param key The key.
+     * @param revLowerBound The lower bound of revision.
+     * @param revUpperBound The upper bound of revision.
+     * @return Entries corresponding to the given key.
+     */
+    List<Entry> get(byte[] key, long revLowerBound, long revUpperBound);
+
+    /**
      * Returns all entries corresponding to given keys.
      *
      * @param keys Keys collection.
@@ -272,4 +284,12 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * present in the storage.
      */
     byte @Nullable [] nextKey(byte[] key);
+
+    /**
+     * Looks up a timestamp by a revision.
+     *
+     * @param revision Revision by which to do a lookup.
+     * @return Timestamp corresponding to the revision.
+     */
+    HybridTimestamp timestampByRevision(long revision);
 }

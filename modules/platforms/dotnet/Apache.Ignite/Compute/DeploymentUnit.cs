@@ -15,14 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.message;
+namespace Apache.Ignite.Compute;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
-
-/**
- * Undeploy unit response.
- */
-@Transferable(DeployUnitMessageTypes.UNDEPLOY_UNIT_RESPONSE)
-public interface UndeployUnitResponse extends NetworkMessage {
+/// <summary>
+/// Deployment unit identifier.
+/// </summary>
+/// <param name="Name">Unit name.</param>
+/// <param name="Version">Unit version. Defaults to <see cref="LatestVersion"/>.</param>
+public sealed record DeploymentUnit(
+    string Name,
+    string Version = DeploymentUnit.LatestVersion)
+{
+    /// <summary>
+    /// Latest version.
+    /// </summary>
+    public const string LatestVersion = "latest";
 }

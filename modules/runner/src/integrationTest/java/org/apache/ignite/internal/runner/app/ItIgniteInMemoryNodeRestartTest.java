@@ -111,7 +111,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
                     .clusterName("cluster")
                     .build();
 
-            IgnitionManager.init(initParameters);
+            TestIgnitionManager.init(initParameters);
         }
 
         assertThat(future, willCompleteSuccessfully());
