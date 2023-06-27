@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
@@ -76,19 +78,17 @@ public class ClientRecordView<R> implements RecordView<R> {
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRec));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Collection<R> getAll(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
+    public List<R> getAll(@Nullable Transaction tx, Collection<R> keyRecs) {
         return sync(getAllAsync(tx, keyRecs));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
+    public CompletableFuture<List<R>> getAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
         if (keyRecs.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
+            return completedFuture(Collections.emptyList());
         }
 
         return tbl.doSchemaOutInOpAsync(
@@ -96,7 +96,8 @@ public class ClientRecordView<R> implements RecordView<R> {
                 (s, w) -> ser.writeRecs(tx, keyRecs, s, w, TuplePart.KEY),
                 (s, r) -> ser.readRecs(s, r, true, TuplePart.KEY_AND_VAL),
                 Collections.emptyList(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRecs.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRecs.iterator().next())
+        );
     }
 
     /** {@inheritDoc} */

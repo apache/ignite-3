@@ -15,28 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.unit;
+package org.apache.ignite.internal.deployunit;
 
-import java.util.List;
-import java.util.Objects;
-import org.apache.ignite.rest.client.model.UnitVersionStatus;
+import org.apache.ignite.compute.version.Version;
 
-/** Unit status record. */
-public class UnitStatusRecord {
-    private final String id;
-    private final List<UnitVersionStatus> versionToStatus;
+/**
+ * Unit version and status.
+ */
+public class UnitVersionStatus {
+    private final Version version;
 
-    UnitStatusRecord(String id, List<UnitVersionStatus> versionToStatus) {
-        this.id = id;
-        this.versionToStatus = versionToStatus;
+    private final DeploymentStatus status;
+
+    /**
+     * Constructor.
+     *
+     * @param version Unit version.
+     * @param status Unit status.
+     */
+    public UnitVersionStatus(Version version, DeploymentStatus status) {
+        this.version = version;
+        this.status = status;
     }
 
-    public String id() {
-        return id;
+    public Version getVersion() {
+        return version;
     }
 
-    public List<UnitVersionStatus> versionToStatus() {
-        return versionToStatus;
+    public DeploymentStatus getStatus() {
+        return status;
     }
 
     @Override
@@ -47,20 +54,27 @@ public class UnitStatusRecord {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        UnitStatusRecord that = (UnitStatusRecord) o;
-        return Objects.equals(id, that.id) && Objects.equals(versionToStatus, that.versionToStatus);
+
+        UnitVersionStatus that = (UnitVersionStatus) o;
+
+        if (version != null ? !version.equals(that.version) : that.version != null) {
+            return false;
+        }
+        return status == that.status;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, versionToStatus);
+        int result = version != null ? version.hashCode() : 0;
+        result = 31 * result + (status != null ? status.hashCode() : 0);
+        return result;
     }
 
     @Override
     public String toString() {
-        return "UnitStatusRecord{"
-                + "id='" + id + '\''
-                + ", versionToStatus=" + versionToStatus
+        return "UnitVersionStatus{"
+                + "version=" + version
+                + ", status=" + status
                 + '}';
     }
 }

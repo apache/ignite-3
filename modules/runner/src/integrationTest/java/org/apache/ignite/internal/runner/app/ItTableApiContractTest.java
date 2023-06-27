@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationCon
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -255,6 +256,11 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
     public void testGetAll() {
         RecordView<Tuple> tbl = ignite.tables().table(TABLE_NAME).recordView();
 
+        assertThat(
+                tbl.getAll(null, List.of(Tuple.create().set("name", "id_0"))),
+                contains(nullValue())
+        );
+
         var recs = IntStream.range(0, 5)
                 .mapToObj(i -> Tuple.create().set("name", "id_" + i * 2).set("balance", i * 2))
                 .collect(toList());
@@ -265,12 +271,11 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
                 .mapToObj(i -> Tuple.create().set("name", "id_" + i))
                 .collect(toList());
 
-        List<Tuple> res = (List<Tuple>) tbl.getAll(null, keys);
+        List<Tuple> res = tbl.getAll(null, keys);
 
-        // TODO: IGNITE-19693 should be: "id_0", null, "id_2", null, "id_4", null, "id_6", null, "id_8", null
         assertThat(
-                res.stream().map(tuple -> tuple.stringValue(0)).collect(toList()),
-                contains("id_0", "id_2", "id_4", "id_6", "id_8")
+                res.stream().map(tuple -> tuple == null ? null : tuple.stringValue(0)).collect(toList()),
+                contains("id_0", null, "id_2", null, "id_4", null, "id_6", null, "id_8", null)
         );
     }
 

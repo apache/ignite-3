@@ -21,8 +21,10 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
@@ -73,9 +75,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import org.apache.ignite.configuration.ConfigurationChangeException;
@@ -282,10 +281,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
         nodesAttributes = new ConcurrentHashMap<>();
 
-        executor = new ScheduledThreadPoolExecutor(
-                Math.min(Runtime.getRuntime().availableProcessors() * 3, 20),
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, DISTRIBUTION_ZONE_MANAGER_POOL_NAME), LOG),
-                new ThreadPoolExecutor.DiscardPolicy()
+        executor = createZoneManagerExecutor(
+                new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, DISTRIBUTION_ZONE_MANAGER_POOL_NAME), LOG)
         );
 
         // It's safe to leak with partially initialised object here, because rebalanceEngine is only accessible through this or by
@@ -361,7 +358,7 @@ public class DistributionZoneManager implements IgniteComponent {
         metaStorageManager.unregisterWatch(topologyWatchListener);
         metaStorageManager.unregisterWatch(dataNodesWatchListener);
 
-        shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(executor, 10, SECONDS);
     }
 
     /**
@@ -1496,7 +1493,6 @@ public class DistributionZoneManager implements IgniteComponent {
                 return completedFuture(DEFAULT_ZONE_ID);
             }
 
-            // TODO: IGNITE-16288 directZoneId should use async configuration API
             return supplyAsync(() -> directZoneIdInternal(zoneName), executor)
                     .thenCompose(zoneId -> {
                         if (zoneId == null) {
@@ -1610,6 +1606,12 @@ public class DistributionZoneManager implements IgniteComponent {
         /** Schedule task for a scale down process. */
         private ScheduledFuture<?> scaleDownTask;
 
+        /** The delay for the scale up task. */
+        private long scaleUpTaskDelay;
+
+        /** The delay for the scale down task. */
+        private long scaleDownTaskDelay;
+
         /**
          * Map that stores pairs revision -> {@link Augmentation} for a zone. With this map we can track which nodes
          * should be added or removed in the processes of scale up or scale down. Revision helps to track visibility of the events
@@ -1644,56 +1646,64 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         /**
-         * Reschedules existing scale up task, if it is not started yet, or schedules new one, if the current task cannot be canceled.
+         * Reschedules existing scale up task, if it is not started yet and the delay of this task is not immediate,
+         * or schedules new one, if the current task cannot be canceled.
          *
          * @param delay Delay to start runnable in seconds.
          * @param runnable Custom logic to run.
          */
         synchronized void rescheduleScaleUp(long delay, Runnable runnable) {
-            if (scaleUpTask != null) {
-                scaleUpTask.cancel(false);
-            }
+            stopScaleUp();
 
-            scaleUpTask = executor.schedule(runnable, delay, TimeUnit.SECONDS);
+            scaleUpTask = executor.schedule(runnable, delay, SECONDS);
+
+            scaleUpTaskDelay = delay;
         }
 
         /**
-         * Reschedules existing scale down task, if it is not started yet, or schedules new one, if the current task cannot be canceled.
+         * Reschedules existing scale down task, if it is not started yet and the delay of this task is not immediate,
+         * or schedules new one, if the current task cannot be canceled.
          *
          * @param delay Delay to start runnable in seconds.
          * @param runnable Custom logic to run.
          */
         synchronized void rescheduleScaleDown(long delay, Runnable runnable) {
+            stopScaleDown();
+
+            scaleDownTask = executor.schedule(runnable, delay, SECONDS);
+
+            scaleDownTaskDelay = delay;
+        }
+
+        /**
+         * Cancels task for scale up and scale down. Used on {@link ZonesConfigurationListener#onDelete(ConfigurationNotificationEvent)}.
+         * Not need to check {@code scaleUpTaskDelay} and {@code scaleDownTaskDelay} because after timer stopping on zone delete event
+         * the data nodes value will be updated.
+         */
+        synchronized void stopTimers() {
+            if (scaleUpTask != null) {
+                scaleUpTask.cancel(false);
+            }
+
             if (scaleDownTask != null) {
                 scaleDownTask.cancel(false);
             }
-
-            scaleDownTask = executor.schedule(runnable, delay, TimeUnit.SECONDS);
         }
 
         /**
-         * Cancels task for scale up and scale down.
-         */
-        synchronized void stopTimers() {
-            stopScaleUp();
-
-            stopScaleDown();
-        }
-
-        /**
-         * Cancels task for scale up.
+         * Cancels task for scale up if it is not started yet and the delay of this task is not immediate.
          */
         synchronized void stopScaleUp() {
-            if (scaleUpTask != null) {
+            if (scaleUpTask != null && scaleUpTaskDelay > 0) {
                 scaleUpTask.cancel(false);
             }
         }
 
         /**
-         * Cancels task for scale down.
+         * Cancels task for scale down if it is not started yet and the delay of this task is not immediate.
          */
         synchronized void stopScaleDown() {
-            if (scaleDownTask != null) {
+            if (scaleDownTask != null && scaleDownTaskDelay > 0) {
                 scaleDownTask.cancel(false);
             }
         }

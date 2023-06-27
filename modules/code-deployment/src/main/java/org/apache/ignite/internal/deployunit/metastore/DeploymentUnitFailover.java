@@ -53,8 +53,12 @@ public class DeploymentUnitFailover {
      * @param deployer Deployment unit file system service.
      * @param nodeName Node consistent ID.
      */
-    public DeploymentUnitFailover(LogicalTopologyService logicalTopology, DeploymentUnitStore deploymentUnitStore,
-            FileDeployerService deployer, String nodeName) {
+    public DeploymentUnitFailover(
+            LogicalTopologyService logicalTopology,
+            DeploymentUnitStore deploymentUnitStore,
+            FileDeployerService deployer,
+            String nodeName
+    ) {
         this.logicalTopology = logicalTopology;
         this.deploymentUnitStore = deploymentUnitStore;
         this.deployer = deployer;
@@ -86,18 +90,18 @@ public class DeploymentUnitFailover {
     private void processStatus(UnitClusterStatus unitClusterStatus, UnitNodeStatus unitNodeStatus, NodeEventCallback nodeEventCallback) {
         String id = unitNodeStatus.id();
         Version version = unitNodeStatus.version();
+
         if (unitClusterStatus == null) {
-            deployer.undeploy(id, version)
-                    .thenAccept(success -> {
-                        if (success) {
-                            deploymentUnitStore.removeNodeStatus(nodeName, id, version);
-                        }
-                    });
+            undeploy(id, version);
             return;
         }
-        DeploymentStatus clusterStatus = unitClusterStatus.status();
+
+        if (checkAbaProblem(unitClusterStatus, unitNodeStatus)) {
+            return;
+        }
+
         DeploymentStatus nodeStatus = unitNodeStatus.status();
-        switch (clusterStatus) {
+        switch (unitClusterStatus.status()) {
             case UPLOADING: // fallthrough
             case DEPLOYED:
                 if (nodeStatus == UPLOADING) {
@@ -113,12 +117,35 @@ public class DeploymentUnitFailover {
             case REMOVING:
                 deploymentUnitStore.getAllNodeStatuses(id, version)
                         .thenAccept(nodes -> {
-                            UnitNodeStatus status = new UnitNodeStatus(id, version, REMOVING, nodeName);
+                            UnitNodeStatus status = new UnitNodeStatus(id, version, REMOVING, unitClusterStatus.opId(), nodeName);
                             nodeEventCallback.onUpdate(status, nodes);
                         });
                 break;
             default:
                 break;
         }
+    }
+
+    private void undeploy(String id, Version version) {
+        deployer.undeploy(id, version)
+                .thenAccept(success -> {
+                    if (success) {
+                        deploymentUnitStore.removeNodeStatus(nodeName, id, version);
+                    }
+                });
+    }
+
+    private boolean checkAbaProblem(UnitClusterStatus clusterStatus, UnitNodeStatus nodeStatus) {
+        String id = nodeStatus.id();
+        Version version = nodeStatus.version();
+        if (clusterStatus.opId() != nodeStatus.opId()) {
+            if (nodeStatus.status() == DEPLOYED) {
+                undeploy(id, version);
+            } else {
+                deploymentUnitStore.removeNodeStatus(nodeName, id, version);
+            }
+            return true;
+        }
+        return false;
     }
 }

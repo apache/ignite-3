@@ -39,6 +39,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -239,7 +240,10 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     ) {
         var res = new ArrayList<Closeable>(placementDriverNodeNames.size());
 
-        for (String nodeName : placementDriverNodeNames) {
+        var msFutures = new CompletableFuture[placementDriverNodeNames.size()];
+
+        for (int i = 0; i < placementDriverNodeNames.size(); i++) {
+            String nodeName = placementDriverNodeNames.get(i);
             var vaultManager = new VaultManager(new InMemoryVaultService());
             var clusterService = services.get(nodeName);
 
@@ -306,7 +310,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
             metaStorageManager.start();
             placementDriverManager.start();
 
-            assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
+            msFutures[i] = metaStorageManager.deployWatches();
 
             res.add(() -> {
                         try {
@@ -327,6 +331,8 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
                     }
             );
         }
+
+        assertThat("Nodes were not started", CompletableFuture.allOf(msFutures), willCompleteSuccessfully());
 
         return res;
     }
