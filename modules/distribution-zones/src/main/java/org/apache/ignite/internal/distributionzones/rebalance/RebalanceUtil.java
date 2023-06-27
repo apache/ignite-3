@@ -193,7 +193,9 @@ public class RebalanceUtil {
                 case PLANNED_KEY_UPDATED:
                     LOG.info(
                             "Update metastore planned partitions key [key={}, partition={}, table={}/{}, newVal={}]",
-                            partAssignmentsPlannedKey, partNum, tableView.id(), tableView.name(), ByteUtils.fromBytes(partAssignmentsBytes));
+                            partAssignmentsPlannedKey, partNum, tableView.id(), tableView.name(),
+                            ByteUtils.fromBytes(partAssignmentsBytes)
+                    );
 
                     break;
                 case PLANNED_KEY_REMOVED_EQUALS_PENDING:
@@ -245,7 +247,7 @@ public class RebalanceUtil {
      * @param storageRevision MetaStorage revision corresponding to this request.
      * @param metaStorageManager MetaStorage manager used to read/write assignments.
      * @return Array of futures, one per partition of the table; the futures complete when the described
-     * rebalance triggering completes.
+     *     rebalance triggering completes.
      */
     public static CompletableFuture<?>[] triggerAllTablePartitionsRebalance(
             TableView tableCfg,
