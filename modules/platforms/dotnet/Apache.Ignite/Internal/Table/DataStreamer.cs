@@ -213,6 +213,8 @@ internal static class DataStreamer
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
                 InitBuffer(batch);
                 batch.LastFlush = Stopwatch.GetTimestamp();
+
+                Metrics.StreamerBatchesActiveIncrement();
             }
         }
 
