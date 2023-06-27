@@ -91,6 +91,7 @@ internal static class DataStreamer
 
             await foreach (var item in data.WithCancellation(cancellationToken))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var (batch, partition) = Add(item);
 
                 if (batch.Count >= options.BatchSize)
