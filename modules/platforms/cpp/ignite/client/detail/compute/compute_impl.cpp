@@ -17,6 +17,7 @@
 
 #include "compute_impl.h"
 
+#include "ignite/client/detail/argument_check_utils.h"
 #include "ignite/client/detail/utils.h"
 
 #include "ignite/tuple/binary_tuple_builder.h"
@@ -65,11 +66,30 @@ std::optional<primitive> read_primitive_from_binary_tuple(protocol::reader &read
     return read_next_column(parser, typ, scale);
 }
 
-void compute_impl::execute_on_one_node(cluster_node node, std::string_view job_class_name,
-    const std::vector<primitive> &args, ignite_callback<std::optional<primitive>> callback) {
+/**
+ * Write units.
+ *
+ * @param writer Writer to use.
+ * @param units Units to write.
+ */
+void write_units(protocol::writer &writer, const std::vector<deployment_unit> &units) {
+    writer.write_array_header(units.size());
+    for (const auto &unit : units) {
+        detail::arg_check::container_non_empty(unit.get_name(), "Deployment unit name");
+        detail::arg_check::container_non_empty(unit.get_version(), "Deployment unit version");
 
-    auto writer_func = [&node, job_class_name, args](protocol::writer &writer) {
+        writer.write(unit.get_name());
+        writer.write(unit.get_version());
+    }
+}
+
+void compute_impl::execute_on_one_node(cluster_node node, const std::vector<deployment_unit> &units,
+    std::string_view job_class_name, const std::vector<primitive> &args,
+    ignite_callback<std::optional<primitive>> callback) {
+
+    auto writer_func = [&node, job_class_name, &units, args](protocol::writer &writer) {
         writer.write(node.get_name());
+        write_units(writer, units);
         writer.write(job_class_name);
         write_primitives_as_binary_tuple(writer, args);
     };
@@ -85,11 +105,12 @@ void compute_impl::execute_on_one_node(cluster_node node, std::string_view job_c
         client_operation::COMPUTE_EXECUTE, writer_func, std::move(reader_func), std::move(callback));
 }
 
-void compute_impl::execute_colocated_async(std::string_view table_name, const ignite_tuple &key, std::string_view job,
-    const std::vector<primitive> &args, ignite_callback<std::optional<primitive>> callback) {
+void compute_impl::execute_colocated_async(const std::string &table_name, const ignite_tuple &key,
+    const std::vector<deployment_unit> &units, const std::string &job, const std::vector<primitive> &args,
+    ignite_callback<std::optional<primitive>> callback) {
     m_tables->get_table_async(table_name,
-        [table_name = std::string(table_name), callback = std::move(callback), key, job = std::string(job), args,
-            conn = m_connection](auto &&res) mutable {
+        [table_name, key, units, job, args, conn = m_connection, callback = std::move(callback)]
+        (auto &&res) mutable {
             if (res.has_error()) {
                 callback({std::move(res.error())});
                 return;
@@ -102,13 +123,12 @@ void compute_impl::execute_colocated_async(std::string_view table_name, const ig
 
             auto table = table_impl::from_facade(*table_opt);
             table->template with_latest_schema_async<std::optional<primitive>>(std::move(callback),
-                [table, key = std::move(key), job = std::move(job), args = std::move(args),
-                    conn] // NOLINT(performance-move-const-arg)
-                (const schema &sch, auto callback) mutable {
-                    auto writer_func = [&key, &sch, &table, &job, &args](protocol::writer &writer) {
+                [table, key, units, job, args, conn] (const schema &sch, auto callback) mutable {
+                    auto writer_func = [&key, &units, &sch, &table, &job, &args](protocol::writer &writer) {
                         writer.write(table->get_id());
                         writer.write(sch.version);
                         write_tuple(writer, sch, key, true);
+                        write_units(writer, units);
                         writer.write(job);
                         write_primitives_as_binary_tuple(writer, args);
                     };

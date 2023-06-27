@@ -590,7 +590,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         try {
             return raftManager
-                    .startRaftGroupNode(
+                    .startRaftGroupNodeAndWaitNodeReadyFuture(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             raftConfiguration,
                             new CmgRaftGroupListener(clusterStateStorage, logicalTopology, this::onLogicalTopologyChanged),

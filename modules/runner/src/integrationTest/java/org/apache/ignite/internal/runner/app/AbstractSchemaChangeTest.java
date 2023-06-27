@@ -189,7 +189,7 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
                 .clusterName("cluster")
                 .build();
 
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         await(CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])));
 
