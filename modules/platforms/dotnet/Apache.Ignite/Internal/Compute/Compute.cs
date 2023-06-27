@@ -151,9 +151,9 @@ namespace Apache.Ignite.Internal.Compute
         {
             var w = buf.MessageWriter;
 
-            if (units is ICollection<DeploymentUnit> unitsCol)
+            if (units.TryGetNonEnumeratedCount(out var count))
             {
-                w.WriteArrayHeader(unitsCol.Count);
+                w.WriteArrayHeader(count);
                 foreach (var unit in units)
                 {
                     if (string.IsNullOrEmpty(unit.Name))
@@ -174,7 +174,7 @@ namespace Apache.Ignite.Internal.Compute
             }
 
             // Enumerable without known count - enumerate first, write count later.
-            var count = 0;
+            count = 0;
             var countSpan = buf.GetSpan(5);
             buf.Advance(5);
 
