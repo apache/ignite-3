@@ -230,5 +230,5 @@ public interface MetaStorageManager extends IgniteComponent {
     void unregisterRevisionUpdateListener(RevisionUpdateListener listener);
 
     /** Explicitly notifies revision update listeners. */
-    CompletableFuture<Void> notifyRevisionUpdateListenerOnStart();
+    CompletableFuture<Void> notifyRevisionUpdateListenerOnStart(long newRevision);
 }

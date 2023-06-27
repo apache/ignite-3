@@ -69,6 +69,7 @@ import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
 import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -753,9 +754,28 @@ public class IgniteImpl implements Ignite {
                                 fut -> new ConfigurationCatchUpListener(cfgStorage, fut, LOG)
                         );
 
-                        CompletableFuture<Void> startupConfigurationUpdate = notifyConfigurationListeners();
+                        // Temporary workaround.
+                        // In order to avoid making a public getter for configuration revision, I read it from the startup notification.
+                        // It should be removed once we start using up-to-date meta-storage revision for node startup.
+                        var configurationRevisionFuture = new CompletableFuture<Long>();
 
-                        CompletableFuture<Void> startupRevisionUpdate = metaStorageMgr.notifyRevisionUpdateListenerOnStart();
+                        ConfigurationStorageRevisionListener revisionListener = newStorageRevision -> {
+                            configurationRevisionFuture.complete(newStorageRevision);
+
+                            return CompletableFuture.completedFuture(null);
+                        };
+
+                        clusterConfiguration().listenUpdateStorageRevision(revisionListener);
+                        configurationRevisionFuture.thenRun(() ->
+                                clusterConfiguration().stopListenUpdateStorageRevision(revisionListener)
+                        );
+
+                        CompletableFuture<Void> startupRevisionUpdate = configurationRevisionFuture.thenCompose(
+                                metaStorageMgr::notifyRevisionUpdateListenerOnStart
+                        );
+
+                        // End of the workaround.
+                        CompletableFuture<Void> startupConfigurationUpdate = notifyConfigurationListeners();
 
                         return CompletableFuture.allOf(startupConfigurationUpdate, startupRevisionUpdate)
                                 .thenComposeAsync(t -> {

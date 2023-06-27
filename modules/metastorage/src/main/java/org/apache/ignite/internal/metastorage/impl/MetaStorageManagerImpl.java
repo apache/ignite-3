@@ -818,7 +818,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public CompletableFuture<Void> notifyRevisionUpdateListenerOnStart() {
-        return storage.notifyRevisionUpdateListenerOnStart(appliedRevision);
+    public CompletableFuture<Void> notifyRevisionUpdateListenerOnStart(long newRevision) {
+        return storage.notifyRevisionUpdateListenerOnStart(newRevision);
     }
 }
