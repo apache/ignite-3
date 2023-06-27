@@ -30,6 +30,7 @@ import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Schema object representing an Index.
@@ -86,6 +87,20 @@ public class IgniteIndex {
         this.columns = index.descriptor().columns();
         this.collations = deriveCollations(index);
         this.type = index instanceof SortedIndex ? Type.SORTED : Type.HASH;
+    }
+
+    /**
+     * Constructs the Index object.
+     */
+    @TestOnly
+    public IgniteIndex(Type type, List<String> columns, @Nullable List<Collation> collations) {
+        assert type == Type.HASH ^ collations == null;
+
+        this.columns = columns;
+        this.collations = collations;
+        this.type = type;
+
+        index = null;
     }
 
     /** Returns a list of names of indexed columns. */
