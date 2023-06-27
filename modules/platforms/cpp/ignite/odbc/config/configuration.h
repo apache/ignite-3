@@ -48,6 +48,9 @@ public:
 
         /** Default value for address attribute. */
         static inline const std::vector<end_point> address{{host, port}};
+
+        /** Default value for Driver attribute. */
+        static inline const std::string schema{"PUBLIC"};
     };
 
     // Default.
@@ -72,6 +75,15 @@ public:
     }
 
     /**
+     * Get schema.
+     *
+     * @return Schema.
+     */
+    [[nodiscard]] value_with_default<std::string> get_schema() const {
+        return m_schema;
+    }
+
+    /**
      * Fill from configuration params.
      *
      * @throw odbc_error On parsing error.
@@ -81,10 +93,13 @@ public:
 
 private:
     /** Request and response page size. */
-    value_with_default<int32_t> m_page_size{default_value::page_size, false};
+    value_with_default<std::int32_t> m_page_size{default_value::page_size, false};
 
     /** Connection end-points. */
     value_with_default<std::vector<end_point>> m_end_points{default_value::address, false};
+
+    /** Schema. */
+    value_with_default<std::string> m_schema{default_value::schema, false};
 };
 
 } // namespace ignite
