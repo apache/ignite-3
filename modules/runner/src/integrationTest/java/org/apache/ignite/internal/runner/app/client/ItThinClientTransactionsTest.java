@@ -188,10 +188,15 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testAccessLockedKeyTimesOut() {
+    void testAccessLockedKeyTimesOut() throws Exception {
         KeyValueView<Integer, String> kvView = kvView();
 
         Transaction tx1 = client().transactions().begin();
+
+        // Here we guarantee that tx2 will strictly after tx2 even if the transactions start in different server nodes.
+        // TODO:IGNITE-19849 Generate transaction id in client side
+        Thread.sleep(50);
+
         Transaction tx2 = client().transactions().begin();
 
         kvView.put(tx2, -100, "1");
