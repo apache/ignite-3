@@ -15,25 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.server;
+package org.apache.ignite.internal.metastorage.command;
 
-import java.nio.file.Path;
-import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.apache.ignite.internal.raft.ReadCommand;
+import org.apache.ignite.network.annotations.Transferable;
 
-/**
- * Tests for RocksDB key-value storage implementation.
- */
-@ExtendWith(WorkDirectoryExtension.class)
-public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTest {
-    @WorkDirectory
-    private Path workDir;
-
-    /** {@inheritDoc} */
-    @Override
-    public KeyValueStorage createStorage() {
-        return new RocksDbKeyValueStorage("test", workDir.resolve("storage"));
-    }
+/** Get command for MetaStorageCommandListener that retrieves current revision. */
+@Transferable(MetastorageCommandsMessageGroup.GET_CURRENT_REVISION)
+public interface GetCurrentRevisionCommand extends ReadCommand {
 }

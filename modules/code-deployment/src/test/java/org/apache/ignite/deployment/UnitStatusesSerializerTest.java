@@ -39,19 +39,19 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class UnitStatusesSerializerTest {
     private static List<Arguments> nodeStatusProvider() {
         return List.of(
-                arguments(null, null, null, null),
-                arguments("id", null, null, null),
-                arguments("id", Version.LATEST, null, null),
-                arguments("id", Version.LATEST, UPLOADING, "node1")
+                arguments(null, null, null, 0, null),
+                arguments("id", null, null, 0, null),
+                arguments("id", Version.LATEST, null, 0, null),
+                arguments("id", Version.LATEST, UPLOADING, 10, "node1")
         );
     }
 
     private static List<Arguments> clusterStatusProvider() {
         return List.of(
-                arguments("id", Version.LATEST, UPLOADING, Set.of()),
-                arguments("id", Version.LATEST, UPLOADING, Set.of("node1")),
-                arguments("id", Version.LATEST, UPLOADING, Set.of("node1", "node2")),
-                arguments("id", Version.LATEST, UPLOADING, Set.of("node1", "node2", "node3"))
+                arguments("id", Version.LATEST, UPLOADING, 0, Set.of()),
+                arguments("id", Version.LATEST, UPLOADING, 1, Set.of("node1")),
+                arguments("id", Version.LATEST, UPLOADING, 1, Set.of("node1", "node2")),
+                arguments("id", Version.LATEST, UPLOADING, 1, Set.of("node1", "node2", "node3"))
         );
     }
 
@@ -61,9 +61,10 @@ public class UnitStatusesSerializerTest {
             String id,
             Version version,
             DeploymentStatus status,
+            long opId,
             String nodeId
     ) {
-        UnitNodeStatus nodeStatus = new UnitNodeStatus(id, version, status, nodeId);
+        UnitNodeStatus nodeStatus = new UnitNodeStatus(id, version, status, opId, nodeId);
 
         byte[] serialize = UnitNodeStatus.serialize(nodeStatus);
 
@@ -76,9 +77,10 @@ public class UnitStatusesSerializerTest {
             String id,
             Version version,
             DeploymentStatus status,
+            long opId,
             Set<String> consistentIdLocation
     ) {
-        UnitClusterStatus nodeStatus = new UnitClusterStatus(id, version, status, consistentIdLocation);
+        UnitClusterStatus nodeStatus = new UnitClusterStatus(id, version, status, opId, consistentIdLocation);
 
         byte[] serialize = UnitClusterStatus.serialize(nodeStatus);
 

@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -202,9 +203,9 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             Set<String> nodesToDeploy
     ) {
         return deploymentUnitStore.createClusterStatus(id, version, nodesToDeploy)
-                .thenCompose(success -> unitFuture.thenCompose(deploymentUnit -> {
-                    if (success) {
-                        return doDeploy(id, version, deploymentUnit, nodesToDeploy);
+                .thenCompose(clusterStatus -> unitFuture.thenCompose(deploymentUnit -> {
+                    if (clusterStatus != null) {
+                        return doDeploy(clusterStatus, deploymentUnit, nodesToDeploy);
                     } else {
                         if (force) {
                             return undeployAsync(id, version)
@@ -220,8 +221,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     }
 
     private CompletableFuture<Boolean> doDeploy(
-            String id,
-            Version version,
+            UnitClusterStatus clusterStatus,
             DeploymentUnit deploymentUnit,
             Set<String> nodesToDeploy
     ) {
@@ -232,12 +232,18 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             LOG.error("Error reading deployment unit content", e);
             return failedFuture(e);
         }
-        return deployToLocalNode(id, version, unitContent)
+        return deployToLocalNode(clusterStatus, unitContent)
                 .thenApply(completed -> {
                     if (completed) {
                         nodesToDeploy.forEach(node -> {
                             if (!node.equals(nodeName)) {
-                                deploymentUnitStore.createNodeStatus(node, id, version);
+                                deploymentUnitStore.createNodeStatus(
+                                        node,
+                                        clusterStatus.id(),
+                                        clusterStatus.version(),
+                                        clusterStatus.opId(),
+                                        UPLOADING
+                                );
                             }
                         });
                     }
@@ -245,11 +251,17 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                 });
     }
 
-    private CompletableFuture<Boolean> deployToLocalNode(String id, Version version, UnitContent unitContent) {
-        return deployer.deploy(id, version, unitContent)
+    private CompletableFuture<Boolean> deployToLocalNode(UnitClusterStatus clusterStatus, UnitContent unitContent) {
+        return deployer.deploy(clusterStatus.id(), clusterStatus.version(), unitContent)
                 .thenCompose(deployed -> {
                     if (deployed) {
-                        return deploymentUnitStore.createNodeStatus(nodeName, id, version, DEPLOYED);
+                        return deploymentUnitStore.createNodeStatus(
+                                nodeName,
+                                clusterStatus.id(),
+                                clusterStatus.version(),
+                                clusterStatus.opId(),
+                                DEPLOYED
+                        );
                     }
                     return completedFuture(false);
                 });
@@ -354,18 +366,26 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                         return completedFuture(true);
                     }
                     return messaging.downloadUnitContent(id, version, nodes)
-                            .thenCompose(unitContent -> deployToLocalNode(id, version, unitContent));
+                            .thenCompose(content -> deploymentUnitStore.getClusterStatus(id, version)
+                                    .thenCompose(status -> deployToLocalNode(status, content)));
+
                 });
     }
 
     @Override
     public CompletableFuture<Version> detectLatestDeployedVersion(String id) {
         return clusterStatusesAsync(id)
-                .thenApply(statuses -> statuses.versions()
-                        .stream()
-                        .filter(version -> statuses.status(version) == DEPLOYED)
-                        .max(Version::compareTo)
-                        .orElseThrow(() -> new DeploymentUnitNotFoundException(id)));
+                .thenApply(statuses -> {
+                    if (statuses == null) {
+                        throw new DeploymentUnitNotFoundException(id, Version.LATEST);
+                    }
+
+                    return statuses.versionStatuses().stream()
+                            .filter(e -> e.getStatus() == DEPLOYED)
+                            .reduce((first, second) -> second)
+                            .orElseThrow(() -> new DeploymentUnitNotFoundException(id, Version.LATEST))
+                            .getVersion();
+                });
     }
 
     @Override
