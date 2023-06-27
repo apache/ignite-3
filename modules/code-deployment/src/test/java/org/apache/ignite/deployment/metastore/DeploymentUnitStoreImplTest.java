@@ -145,7 +145,7 @@ public class DeploymentUnitStoreImplTest {
         assertThat(metastore.getClusterStatus(id, version),
                 willBe(new UnitClusterStatus(id, version, UPLOADING, opId, Set.of(node1, node2, node3))));
 
-        assertThat(metastore.createNodeStatus(node1, id, version, opId), willBe(true));
+        assertThat(metastore.createNodeStatus(node1, id, version, opId, UPLOADING), willBe(true));
         assertThat(metastore.getNodeStatus(node1, id, version),
                 willBe(new UnitNodeStatus(id, version, UPLOADING, opId, node1)));
 
@@ -153,11 +153,11 @@ public class DeploymentUnitStoreImplTest {
         assertThat(metastore.getNodeStatus(node1, id, version),
                 willBe(new UnitNodeStatus(id, version, DEPLOYED, opId, node1)));
 
-        assertThat(metastore.createNodeStatus(node2, id, version, opId), willBe(true));
+        assertThat(metastore.createNodeStatus(node2, id, version, opId, UPLOADING), willBe(true));
         assertThat(metastore.getNodeStatus(node2, id, version),
                 willBe(new UnitNodeStatus(id, version, UPLOADING, opId, node2)));
 
-        assertThat(metastore.createNodeStatus(node3, id, version, opId), willBe(true));
+        assertThat(metastore.createNodeStatus(node3, id, version, opId, UPLOADING), willBe(true));
 
         assertThat(metastore.updateClusterStatus(id, version, DEPLOYED), willBe(true));
         assertThat(metastore.getClusterStatus(id, version),
@@ -181,7 +181,7 @@ public class DeploymentUnitStoreImplTest {
         Version version = Version.parseVersion("1.1.1");
         String node1 = LOCAL_NODE;
 
-        assertThat(metastore.createNodeStatus(node1, id, version, 0), willBe(true));
+        assertThat(metastore.createNodeStatus(node1, id, version, 0, UPLOADING), willBe(true));
         assertThat(metastore.updateNodeStatus(node1, id, version, DEPLOYED), willBe(true));
         assertThat(metastore.updateNodeStatus(node1, id, version, OBSOLETE), willBe(true));
         assertThat(metastore.updateNodeStatus(node1, id, version, REMOVING), willBe(true));

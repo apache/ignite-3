@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -218,7 +219,8 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                                         node,
                                         clusterStatus.id(),
                                         clusterStatus.version(),
-                                        clusterStatus.opId()
+                                        clusterStatus.opId(),
+                                        UPLOADING
                                 );
                             }
                         });
