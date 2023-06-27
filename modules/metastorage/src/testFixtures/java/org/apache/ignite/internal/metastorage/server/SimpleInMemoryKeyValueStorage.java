@@ -883,4 +883,9 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     public void unregisterRevisionUpdateListener(RevisionUpdateListener listener) {
         watchProcessor.unregisterRevisionUpdateListener(listener);
     }
+
+    @Override
+    public CompletableFuture<Void> notifyRevisionUpdateListenerOnStart(long newRevision) {
+        return watchProcessor.notifyUpdateRevisionListeners(newRevision);
+    }
 }

@@ -122,7 +122,6 @@ public class WatchProcessor implements ManuallyCloseable {
     /**
      * Notifies registered watch about an update event.
      */
-    @SuppressWarnings("unchecked")
     public void notifyWatches(List<Entry> updatedEntries, HybridTimestamp time) {
         assert time != null;
 
@@ -155,7 +154,7 @@ public class WatchProcessor implements ManuallyCloseable {
 
         for (WatchAndEvents watchAndEvents : watchAndEventsList) {
             notifyWatchFutures[i++] = watchAndEvents.events.isEmpty()
-                    ? completedFuture(null)
+                    ? watchAndEvents.watch.onRevisionUpdated(revision)
                     : watchAndEvents.watch.onUpdate(new WatchEvent(watchAndEvents.events, revision, time));
         }
 
@@ -243,9 +242,10 @@ public class WatchProcessor implements ManuallyCloseable {
         revisionUpdateListeners.remove(listener);
     }
 
-    private CompletableFuture<Void> notifyUpdateRevisionListeners(long newRevision) {
+    /** Explicitly notifies revision update listeners. */
+    public CompletableFuture<Void> notifyUpdateRevisionListeners(long newRevision) {
         // Lazy set.
-        List<CompletableFuture<Void>> futures = List.of();
+        List<CompletableFuture<?>> futures = List.of();
 
         for (RevisionUpdateListener listener : revisionUpdateListeners) {
             if (futures.isEmpty()) {

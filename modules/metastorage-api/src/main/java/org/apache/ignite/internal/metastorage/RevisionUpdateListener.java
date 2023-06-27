@@ -30,5 +30,5 @@ public interface RevisionUpdateListener {
      * @param revision Meta Storage revision.
      * @return Future that will be completed when the event is processed.
      */
-    CompletableFuture<Void> onUpdated(long revision);
+    CompletableFuture<?> onUpdated(long revision);
 }

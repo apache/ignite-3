@@ -309,4 +309,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
 
     /** Unregisters a Meta Storage revision update listener. */
     void unregisterRevisionUpdateListener(RevisionUpdateListener listener);
+
+    /** Explicitly notifies revision update listeners. */
+    CompletableFuture<Void> notifyRevisionUpdateListenerOnStart(long newRevision);
 }

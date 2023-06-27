@@ -453,8 +453,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc
         );
 
-        Consumer<LongFunction<CompletableFuture<?>>> registry =
-                c -> metaStorageMgr.registerRevisionUpdateListener(revision -> (CompletableFuture<Void>) c.apply(revision));
+        Consumer<LongFunction<CompletableFuture<?>>> registry = c -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
         DataStorageModules dataStorageModules = new DataStorageModules(
                 ServiceLoader.load(DataStorageModule.class, serviceProviderClassLoader)
@@ -754,7 +753,11 @@ public class IgniteImpl implements Ignite {
                                 fut -> new ConfigurationCatchUpListener(cfgStorage, fut, LOG)
                         );
 
-                        return notifyConfigurationListeners()
+                        CompletableFuture<Void> startupConfigurationUpdate = notifyConfigurationListeners();
+
+                        CompletableFuture<Void> startupRevisionUpdate = metaStorageMgr.notifyRevisionUpdateListenerOnStart();
+
+                        return CompletableFuture.allOf(startupConfigurationUpdate, startupRevisionUpdate)
                                 .thenComposeAsync(t -> {
                                     // Deploy all registered watches because all components are ready and have registered their listeners.
                                     return metaStorageMgr.deployWatches().thenCompose(unused -> recoveryFuture);
