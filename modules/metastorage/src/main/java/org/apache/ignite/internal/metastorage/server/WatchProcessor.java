@@ -143,6 +143,25 @@ public class WatchProcessor implements ManuallyCloseable {
                 }, watchExecutor);
     }
 
+
+    private static CompletableFuture<Void> notifyWatches(List<WatchAndEvents> watchAndEventsList, long revision, HybridTimestamp time) {
+        if (watchAndEventsList.isEmpty()) {
+            return completedFuture(null);
+        }
+
+        CompletableFuture<?>[] notifyWatchFutures = new CompletableFuture[watchAndEventsList.size()];
+
+        int i = 0;
+
+        for (WatchAndEvents watchAndEvents : watchAndEventsList) {
+            notifyWatchFutures[i++] = watchAndEvents.events.isEmpty()
+                    ? completedFuture(null)
+                    : watchAndEvents.watch.onUpdate(new WatchEvent(watchAndEvents.events, revision, time));
+        }
+
+        return allOf(notifyWatchFutures);
+    }
+
     private CompletableFuture<List<WatchAndEvents>> collectWatchAndEvents(List<Entry> updatedEntries, long revision) {
         return supplyAsync(() -> {
             List<WatchAndEvents> watchAndEvents = List.of();
@@ -175,24 +194,6 @@ public class WatchProcessor implements ManuallyCloseable {
 
             return watchAndEvents;
         }, watchExecutor);
-    }
-
-    private static CompletableFuture<Void> notifyWatches(List<WatchAndEvents> watchAndEventsList, long revision, HybridTimestamp time) {
-        if (watchAndEventsList.isEmpty()) {
-            return completedFuture(null);
-        }
-
-        CompletableFuture<?>[] notifyWatchFutures = new CompletableFuture[watchAndEventsList.size()];
-
-        int i = 0;
-
-        for (WatchAndEvents watchAndEvents : watchAndEventsList) {
-            notifyWatchFutures[i++] = watchAndEvents.events.isEmpty()
-                    ? completedFuture(null)
-                    : watchAndEvents.watch.onUpdate(new WatchEvent(watchAndEvents.events, revision, time));
-        }
-
-        return allOf(notifyWatchFutures);
     }
 
     private CompletableFuture<Void> invokeOnRevisionCallback(
