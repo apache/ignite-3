@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.sql.engine.QueryProperty.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -130,8 +129,9 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE TABLE TST1(id INTEGER PRIMARY KEY, val INTEGER)");
 
-        Session ses = sql.sessionBuilder().property(PLANNING_TIMEOUT.name, 1L).build();
+        IgniteTestUtils.setFieldValue(queryProcessor(), "plannerTimeout", 1L);
 
+        Session ses = sql.sessionBuilder().build();
         SqlTestUtils.assertThrowsSqlException(PLANNING_TIMEOUTED_ERR,
                 () -> ses.execute(null, "SELECT * FROM TST1 t, TST1 t1, TST1 t2"));
 
@@ -206,11 +206,8 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         TxManager txManagerInternal =
                 (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
 
-        SqlQueryProcessor queryProc =
-                (SqlQueryProcessor) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "qryEngine");
-
         SqlSchemaManager oldManager =
-                (SqlSchemaManager) IgniteTestUtils.getFieldValue(queryProc, SqlQueryProcessor.class, "sqlSchemaManager");
+                (SqlSchemaManager) IgniteTestUtils.getFieldValue(queryProcessor(), SqlQueryProcessor.class, "sqlSchemaManager");
 
         int txPrevCnt = txManagerInternal.finished();
 
@@ -236,7 +233,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         var schemaManager = new ErroneousSchemaManager();
 
         // TODO: refactor after https://issues.apache.org/jira/browse/IGNITE-17694
-        IgniteTestUtils.setFieldValue(queryProc, "sqlSchemaManager", schemaManager);
+        IgniteTestUtils.setFieldValue(queryProcessor(), "sqlSchemaManager", schemaManager);
 
         try {
             sql("SELECT a FROM NOTEXIST.TEST");
@@ -252,7 +249,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         assertEquals(2, txManagerInternal.finished() - txPrevCnt);
 
-        IgniteTestUtils.setFieldValue(queryProc, "sqlSchemaManager", oldManager);
+        IgniteTestUtils.setFieldValue(queryProcessor(), "sqlSchemaManager", oldManager);
     }
 
     private static class ErroneousSchemaManager implements SqlSchemaManager {

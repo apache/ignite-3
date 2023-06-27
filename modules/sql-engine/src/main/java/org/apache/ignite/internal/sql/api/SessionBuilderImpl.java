@@ -59,7 +59,7 @@ public class SessionBuilderImpl implements SessionBuilder {
      */
     SessionBuilderImpl(QueryProcessor qryProc, Map<String, Object> props) {
         this.qryProc = qryProc;
-        this.props = new HashMap<>(props);
+        this.props = props;
     }
 
     /** {@inheritDoc} */
@@ -135,8 +135,7 @@ public class SessionBuilderImpl implements SessionBuilder {
     /** {@inheritDoc} */
     @Override
     public Session build() {
-        Builder propBuilder = PropertiesHelper
-                .newBuilder(props)
+        Builder propBuilder = PropertiesHelper.newBuilder()
                 .set(SessionProperty.IDLE_TIMEOUT, sessionTimeout)
                 .set(QueryProperty.QUERY_TIMEOUT, queryTimeout)
                 .set(QueryProperty.DEFAULT_SCHEMA, schema);

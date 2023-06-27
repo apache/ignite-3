@@ -62,7 +62,7 @@ import org.mockito.Mockito;
 public class PreparedStatementParamsTest {
 
     /** Values for supported JDBC types. */
-    private static final Map<JDBCType, Object> SUPPORTED_TYPES = new HashMap();
+    private static final Map<JDBCType, Object> SUPPORTED_TYPES = new HashMap<>();
 
     static {
         SUPPORTED_TYPES.put(JDBCType.BOOLEAN, true);

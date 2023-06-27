@@ -28,7 +28,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class QueryProperty {
     public static final Property<Long> QUERY_TIMEOUT = new Property<>("query_timeout", Long.class);
-    public static final Property<Long> PLANNING_TIMEOUT = new Property<>("planning_timeout", Long.class);
     public static final Property<String> DEFAULT_SCHEMA = new Property<>("default_schema", String.class);
 
     private static final Map<String, Property<?>> propsByName = createPropsByNameMap(QueryProperty.class);

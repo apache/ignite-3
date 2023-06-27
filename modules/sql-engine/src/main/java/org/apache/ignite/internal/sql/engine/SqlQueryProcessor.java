@@ -182,6 +182,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Distributed catalog manager. */
     private final CatalogManager catalogManager;
 
+    private long plannerTimeout = DEFAULT_PLANNER_TIMEOUT;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
@@ -452,7 +454,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .query(sql)
                             .build();
 
-                    Long plannerTimeout = session.properties().getOrDefault(QueryProperty.PLANNING_TIMEOUT, DEFAULT_PLANNER_TIMEOUT);
                     return prepareSvc.prepareAsync(sqlNode, ctx, plannerTimeout)
                             .thenApply(plan -> {
                                 var dataCursor = executionSrvc.executePlan(tx.get(), plan, ctx);
