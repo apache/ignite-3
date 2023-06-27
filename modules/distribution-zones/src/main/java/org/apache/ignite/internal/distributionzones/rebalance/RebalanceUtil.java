@@ -183,40 +183,46 @@ public class RebalanceUtil {
             switch (sr.getAsInt()) {
                 case PENDING_KEY_UPDATED:
                     LOG.info(
-                            "Update metastore pending partitions key [key={}, partition={}, table={}, newVal={}]",
-                            partAssignmentsPendingKey.toString(), partNum, tableView.name(),
+                            "Update metastore pending partitions key [key={}, partition={}, table={}/{}, newVal={}]",
+                            partAssignmentsPendingKey.toString(), partNum, tableView.id(), tableView.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
                 case PLANNED_KEY_UPDATED:
                     LOG.info(
-                            "Update metastore planned partitions key [key={}, partition={}, table={}, newVal={}]",
-                            partAssignmentsPlannedKey, partNum, tableView.name(), ByteUtils.fromBytes(partAssignmentsBytes));
+                            "Update metastore planned partitions key [key={}, partition={}, table={}/{}, newVal={}]",
+                            partAssignmentsPlannedKey, partNum, tableView.id(), tableView.name(), ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
                 case PLANNED_KEY_REMOVED_EQUALS_PENDING:
                     LOG.info(
-                            "Remove planned key because current pending key has the same value [key={}, partition={}, table={}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partNum, tableView.name(), ByteUtils.fromBytes(partAssignmentsBytes));
+                            "Remove planned key because current pending key has the same value [key={}, partition={}, table={}/{}, val={}]",
+                            partAssignmentsPlannedKey.toString(), partNum, tableView.id(), tableView.name(),
+                            ByteUtils.fromBytes(partAssignmentsBytes)
+                    );
 
                     break;
                 case PLANNED_KEY_REMOVED_EMPTY_PENDING:
                     LOG.info(
                             "Remove planned key because pending is empty and calculated assignments are equal to current assignments "
-                                    + "[key={}, partition={}, table={}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partNum, tableView.name(), ByteUtils.fromBytes(partAssignmentsBytes));
+                                    + "[key={}, partition={}, table={}/{}, val={}]",
+                            partAssignmentsPlannedKey.toString(), partNum, tableView.id(), tableView.name(),
+                            ByteUtils.fromBytes(partAssignmentsBytes)
+                    );
 
                     break;
                 case ASSIGNMENT_NOT_UPDATED:
                     LOG.debug(
-                            "Assignments are not updated [key={}, partition={}, table={}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partNum, tableView.name(), ByteUtils.fromBytes(partAssignmentsBytes));
+                            "Assignments are not updated [key={}, partition={}, table={}/{}, val={}]",
+                            partAssignmentsPlannedKey.toString(), partNum, tableView.id(), tableView.name(),
+                            ByteUtils.fromBytes(partAssignmentsBytes)
+                    );
 
                     break;
                 case OUTDATED_UPDATE_RECEIVED:
                     LOG.debug(
-                            "Received outdated rebalance trigger event [revision={}, partition={}, table={}]",
-                            revision, partNum, tableView.name());
+                            "Received outdated rebalance trigger event [revision={}, partition={}, table={}/{}]",
+                            revision, partNum, tableView.id(), tableView.name());
 
                     break;
                 default:
