@@ -23,10 +23,8 @@ import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.
 import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.lang.ByteArray.fromString;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -39,6 +37,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -90,8 +89,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * There are tests of muti-nodes for placement driver.
  */
 @ExtendWith(ConfigurationExtension.class)
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-19850")
-// TODO: https://issues.apache.org/jira/browse/IGNITE-19850 All placement driver nodes must be metastorage nodes.
 public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     public static final int BASE_PORT = 1234;
 
@@ -241,7 +238,10 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     ) {
         var res = new ArrayList<Closeable>(placementDriverNodeNames.size());
 
-        for (String nodeName : placementDriverNodeNames) {
+        CompletableFuture[] all = new CompletableFuture[placementDriverNodeNames.size()];
+
+        for (int i = 0; i < placementDriverNodeNames.size(); i++) {
+            String nodeName = placementDriverNodeNames.get(i);
             var vaultManager = new VaultManager(new InMemoryVaultService());
             var clusterService = services.get(nodeName);
 
@@ -308,7 +308,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
             metaStorageManager.start();
             placementDriverManager.start();
 
-            assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
+            all[i] = metaStorageManager.deployWatches();
 
             res.add(() -> {
                         try {
@@ -329,6 +329,8 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
                     }
             );
         }
+
+        CompletableFuture.allOf(all).join();
 
         return res;
     }
