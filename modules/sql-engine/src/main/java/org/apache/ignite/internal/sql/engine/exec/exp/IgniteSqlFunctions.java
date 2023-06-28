@@ -144,13 +144,13 @@ public class IgniteSqlFunctions {
 
     /** CAST(java short AS DECIMAL). */
     public static BigDecimal toBigDecimal(short val, int precision, int scale) {
-        BigDecimal decimal = new BigDecimal(String.valueOf(val));
+        BigDecimal decimal = new BigDecimal(val);
         return convertDecimal(decimal, precision, scale);
     }
 
     /** CAST(java byte AS DECIMAL). */
     public static BigDecimal toBigDecimal(byte val, int precision, int scale) {
-        BigDecimal decimal = new BigDecimal(String.valueOf(val));
+        BigDecimal decimal = new BigDecimal(val);
         return convertDecimal(decimal, precision, scale);
     }
 
