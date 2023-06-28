@@ -15,21 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.testframework;
+package org.apache.ignite.internal.metastorage.server;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
+import java.util.List;
+import org.apache.ignite.internal.metastorage.EntryEvent;
 
-/**
- * Annotation for injecting {@link ConfigurationStorageRevisionListenerHolder} into tests.
- *
- * <p>This annotation should be used on either fields or method parameters, one instance per test.
- */
-@Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.FIELD, ElementType.PARAMETER})
-// TODO: IGNITE-19853 Get rid of this annotation.
-public @interface InjectRevisionListenerHolder {
+class WatchAndEvents {
+    final Watch watch;
+
+    final List<EntryEvent> events;
+
+    WatchAndEvents(Watch watch, List<EntryEvent> events) {
+        this.watch = watch;
+        this.events = events;
+    }
 }

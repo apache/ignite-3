@@ -20,32 +20,18 @@ package org.apache.ignite.internal.metastorage;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * The listener which receives and handles watch updates.
+ * The listener which receives and handles the Meta Storage revision update. No listeners for revision {@code N+1} will be invoked until
+ * all listeners for revision {@code N} are completed.
+ * Also, this listener is only triggered strictly after all {@link WatchListener#onUpdate(WatchEvent)} are invoked (but the returned futures
+ * might not still be completed completed), for the specified revision.
  */
-public interface WatchListener {
+@FunctionalInterface
+public interface RevisionUpdateListener {
     /**
-     * The method will be called on each meta storage update.
-     *
-     * @param event A single event or a batch. The batch always contains updates for specific revision.
-     * @return Future that will be completed when the event is processed.
-     */
-    CompletableFuture<Void> onUpdate(WatchEvent event);
-
-    /**
-     * Callback that will be invoked if a Meta Storage update has been received, but the modified entries do not match the given Watch.
+     * Callback that will be invoked when a Meta Storage revision update has been received.
      *
      * @param revision Meta Storage revision.
      * @return Future that will be completed when the event is processed.
      */
-    // TODO: IGNITE-19801 Get rid of this method.
-    default CompletableFuture<Void> onRevisionUpdated(long revision) {
-        return CompletableFuture.completedFuture(null);
-    }
-
-    /**
-     * The method will be called in case of an error occurred. The listener and corresponding watch will be unregistered.
-     *
-     * @param e Exception.
-     */
-    void onError(Throwable e);
+    CompletableFuture<?> onUpdated(long revision);
 }
