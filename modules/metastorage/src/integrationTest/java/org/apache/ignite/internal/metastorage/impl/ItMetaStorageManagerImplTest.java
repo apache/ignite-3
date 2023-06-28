@@ -33,7 +33,10 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -72,6 +75,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 
 /**
  * Integration tests for {@link MetaStorageManagerImpl}.
@@ -289,14 +293,11 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
     @Test
     void testUpdateRevisionListener() {
-        // I'm using the future because mock+verify doesn't work.
-        CompletableFuture<Long> listenerFuture = new CompletableFuture<>();
+        ArgumentCaptor<Long> revisionCapture = ArgumentCaptor.forClass(Long.class);
 
-        RevisionUpdateListener listener = revision -> {
-            listenerFuture.complete(revision);
+        RevisionUpdateListener listener = mock(RevisionUpdateListener.class);
 
-            return completedFuture(null);
-        };
+        when(listener.onUpdated(revisionCapture.capture())).thenReturn(completedFuture(null));
 
         long revision = metaStorageManager.appliedRevision();
 
@@ -304,6 +305,10 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         assertThat(metaStorageManager.put(ByteArray.fromString("test"), "test".getBytes(UTF_8)), willSucceedFast());
 
-        assertThat(listenerFuture, willBe(revision + 1));
+        // Watches are processed asynchronously.
+        // Timeout is big just in case there's a GC pause. Test's duration doesn't really depend on it.
+        verify(listener, timeout(5000).atLeast(1)).onUpdated(anyLong());
+
+        assertThat(revisionCapture.getAllValues(), is(List.of(revision + 1)));
     }
 }

@@ -880,7 +880,9 @@ public class ItRebalanceDistributedTest {
                             nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                             clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                             // Why "-1"? I don't know, it just works like that.
-                            metaStorageManager.notifyRevisionUpdateListenerOnStart(metaStorageManager.appliedRevision() - 1)
+                            ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart(
+                                    metaStorageManager.appliedRevision() - 1
+                            )
                     ),
                     willSucceedIn(1, TimeUnit.MINUTES)
             );

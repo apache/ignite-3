@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -132,14 +133,20 @@ public class WatchProcessor implements ManuallyCloseable {
                     long newRevision = updatedEntries.get(0).revision();
 
                     // Collect all the events for each watch.
-                    CompletableFuture<List<WatchAndEvents>> watchAndEventsFuture = collectWatchAndEvents(updatedEntries, newRevision);
+                    CompletableFuture<List<WatchAndEvents>> watchesAndEventsFuture = collectWatchesAndEvents(updatedEntries, newRevision);
 
-                    return watchAndEventsFuture
-                            .thenComposeAsync(watchAndEvents -> allOf(
-                                    notifyWatches(watchAndEvents, newRevision, time),
-                                    notifyUpdateRevisionListeners(newRevision)
-                            ), watchExecutor)
-                            .thenComposeAsync(ignored -> invokeOnRevisionCallback(watchAndEventsFuture, newRevision, time), watchExecutor);
+                    return watchesAndEventsFuture
+                            .thenComposeAsync(watchAndEvents -> {
+                                CompletableFuture<Void> notifyWatchesFuture = notifyWatches(watchAndEvents, newRevision, time);
+
+                                // Revision update is triggered strictly after all watch listeners have been notified.
+                                CompletableFuture<Void> notifyUpdateRevisionFuture = notifyUpdateRevisionListeners(newRevision);
+
+                                return allOf(notifyWatchesFuture, notifyUpdateRevisionFuture);
+                            }, watchExecutor)
+                            .thenComposeAsync(ignored ->
+                                    invokeOnRevisionCallback(watchesAndEventsFuture, newRevision, time), watchExecutor
+                            );
                 }, watchExecutor);
     }
 
@@ -157,9 +164,23 @@ public class WatchProcessor implements ManuallyCloseable {
             CompletableFuture<Void> notifyWatchFuture;
 
             try {
-                notifyWatchFuture = watchAndEvents.events.isEmpty()
-                        ? completedFuture(null)
-                        : watchAndEvents.watch.onUpdate(new WatchEvent(watchAndEvents.events, revision, time));
+                if (watchAndEvents.events.isEmpty()) {
+                    notifyWatchFuture = completedFuture(null);
+                } else {
+                    notifyWatchFuture = watchAndEvents.watch.onUpdate(new WatchEvent(watchAndEvents.events, revision, time))
+                            .whenComplete((v, e) -> {
+                                if (e != null) {
+                                    if (e instanceof CompletionException) {
+                                        e = e.getCause();
+                                    }
+
+                                    // TODO: IGNITE-14693 Implement Meta storage exception handling
+                                    LOG.error("Error occurred when processing a watch event", e);
+
+                                    watchAndEvents.watch.onError(e);
+                                }
+                            });
+                }
             } catch (Throwable throwable) {
                 watchAndEvents.watch.onError(throwable);
 
@@ -172,7 +193,7 @@ public class WatchProcessor implements ManuallyCloseable {
         return allOf(notifyWatchFutures);
     }
 
-    private CompletableFuture<List<WatchAndEvents>> collectWatchAndEvents(List<Entry> updatedEntries, long revision) {
+    private CompletableFuture<List<WatchAndEvents>> collectWatchesAndEvents(List<Entry> updatedEntries, long revision) {
         return supplyAsync(() -> {
             List<WatchAndEvents> watchAndEvents = List.of();
 
