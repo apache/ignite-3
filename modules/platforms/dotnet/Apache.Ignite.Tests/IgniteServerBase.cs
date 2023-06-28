@@ -74,21 +74,13 @@ public abstract class IgniteServerBase : IDisposable
         }
     }
 
-    protected virtual void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            // No-op.
-        }
-    }
-
-    protected static int ReceiveMessageSize(Socket handler)
+    internal static int ReceiveMessageSize(Socket handler)
     {
         using var buf = ReceiveBytes(handler, 4);
         return IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buf.AsMemory().Span));
     }
 
-    protected internal static PooledBuffer ReceiveBytes(Socket socket, int size)
+    internal static PooledBuffer ReceiveBytes(Socket socket, int size)
     {
         int received = 0;
         var buf = ByteArrayPool.Rent(size);
@@ -106,6 +98,19 @@ public abstract class IgniteServerBase : IDisposable
         }
 
         return new PooledBuffer(buf, 0, size);
+    }
+
+    protected virtual void Handle(Socket handler)
+    {
+        // No-op.
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            // No-op.
+        }
     }
 
     private void ListenLoop()
@@ -136,10 +141,8 @@ public abstract class IgniteServerBase : IDisposable
             _handler = handler;
             handler.NoDelay = true;
 
-            // Read handshake.
-            using var magic = ReceiveBytes(handler, 4);
-            var msgSize = ReceiveMessageSize(handler);
-            using var handshake = ReceiveBytes(handler, msgSize);
+            Handle(handler, _cts.Token);
+            handler.Disconnect(true);
         }
     }
 
