@@ -43,7 +43,6 @@ import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlExplainLevel;
-import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -203,9 +202,11 @@ public class PrepareServiceImpl implements PrepareService {
                 return prepareAsync(sqlNode, ctx);
             }
 
-            normalizedQueryCache.putIfAbsent(cacheKey, sqlNode.toString());
+            normalizedQuery = sqlNode.toString();
 
-            return planCache.computeIfAbsent(createCacheKey(sqlNode.toString(), ctx), k -> prepareAsync(sqlNode, ctx))
+            normalizedQueryCache.putIfAbsent(cacheKey, normalizedQuery);
+
+            return planCache.computeIfAbsent(createCacheKey(normalizedQuery, ctx), k -> prepareAsync(sqlNode, ctx))
                     .thenApply(QueryPlan::copy);
         }
 
@@ -376,15 +377,9 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private static boolean skipCache(SqlNode sqlNode) {
-        SqlKind kind = sqlNode.getKind();
+        SqlQueryType queryType = Commons.getQueryType(sqlNode);
 
-        switch (kind) {
-            case SELECT:
-            case INSERT:
-                return false;
-            default:
-                return true;
-        }
+        return queryType != SqlQueryType.QUERY && queryType != SqlQueryType.DML;
     }
 
     /** Performs additional validation of a parsed statement. **/

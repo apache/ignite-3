@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.planner;
 import static org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.validateParsedStatement;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -82,22 +83,36 @@ public class PrepareServiceSelfTest extends AbstractPlannerTest {
         service.stop();
     }
 
+    @SuppressWarnings("WeakerAccess")
     static Stream<Arguments> queries() {
         return Stream.of(
                 // Query
-                Arguments.of("SELECT * FROM tbl WHERE id > 0", "SELECT * /* a comment. */ FROM tbl WHERE id > 0", new Object[]{}),
+                Arguments.of("SELECT * FROM tbl WHERE id > 0", OBJECT_EMPTY_ARRAY),
                 // Query with args
-                Arguments.of("SELECT * FROM tbl WHERE id > ?", "SELECT * /* a comment. */ FROM tbl WHERE id > ?", new Object[]{1}),
+                Arguments.of("SELECT * FROM tbl WHERE id > ?", new Object[]{1}),
                 // DML
-                Arguments.of("INSERT INTO tbl VALUES (1, '42')", "INSERT INTO /* a comment. */ tbl VALUES (1, '42')", new Object[]{}),
+                Arguments.of("INSERT INTO tbl VALUES (1, '42')", OBJECT_EMPTY_ARRAY),
+                Arguments.of("UPDATE tbl SET VAL = '42' WHERE id = 1", OBJECT_EMPTY_ARRAY),
+                // TODO IGNITE-19866: uncomment DELETE statement
+                // Arguments.of("DELETE FROM tbl WHERE id = 1", OBJECT_EMPTY_ARRAY),
+                Arguments.of("MERGE INTO tbl2 dst USING tbl src ON src.ID = dst.ID WHEN MATCHED THEN UPDATE SET val = src.val "
+                        + "WHEN NOT MATCHED THEN INSERT VALUES (src.id, src.val)", OBJECT_EMPTY_ARRAY),
                 // DML with args
-                Arguments.of("INSERT INTO tbl VALUES (?, ?)", "INSERT INTO /* a comment. */ tbl VALUES (?, ?)", new Object[]{1, "42"})
-        );
+                Arguments.of("INSERT INTO tbl VALUES (?, ?)", new Object[]{1, "42"}),
+                Arguments.of("UPDATE tbl SET VAL = ? WHERE id = ?", new Object[]{"42", 1}),
+                // TODO IGNITE-19866: uncomment DELETE statement
+                // Arguments.of("DELETE FROM tbl WHERE id = ?", new Object[]{1}),
+                Arguments.of("MERGE INTO tbl2 dst USING tbl src ON src.ID = dst.ID WHEN MATCHED THEN UPDATE SET val = src.val "
+                        + "WHEN NOT MATCHED THEN INSERT VALUES (src.id, ?)", new Object[]{"42"})
+                );
+
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("queries")
-    public void queryCache(String query1, String query2, Object[] params) {
+    public void queryCache(String query1, Object[] params) {
+        String query2 = query1 + " /* some comment */";
+
         // Preparing query caches plan for both query and normalized query.
         assertThat(service.prepareAsync(query1, queryCtx, createContext(params)), willBe(notNullValue()));
         assertEquals(1, service.parseCacheSize());
@@ -153,7 +168,7 @@ public class PrepareServiceSelfTest extends AbstractPlannerTest {
         assertEquals(0, service.planCacheSize());
         Mockito.verifyNoInteractions(queryPlannerSpy);
 
-        query = "SELECT * FROM tbl2 WHERE id > 0"; // Invalid table name.
+        query = "SELECT * FROM invalid WHERE id > 0"; // Invalid table name.
 
         assertThat(service.prepareAsync(query, queryCtx, createContext()), willThrow(CalciteContextException.class));
         assertEquals(1, service.planCacheSize());
@@ -193,7 +208,7 @@ public class PrepareServiceSelfTest extends AbstractPlannerTest {
         String explainQuery = "EXPLAIN PLAN FOR SELECT * FROM tbl WHERE id > 0";
         String explainQuery2 = "EXPLAIN PLAN FOR SELECT * /* comment */ FROM tbl WHERE id > 0";
 
-        // Ensure explain don't cache anything.
+        // Ensure explain doesn't cache anything.
         assertThat(service.prepareAsync(explainQuery, queryCtx, createContext()), willBe(notNullValue()));
         assertEquals(0, service.planCacheSize());
         Mockito.verify(queryPlannerSpy, Mockito.times(1)).apply(Mockito.any(), Mockito.any());
@@ -254,6 +269,12 @@ public class PrepareServiceSelfTest extends AbstractPlannerTest {
                 List.of(createSchema(
                         TestBuilders.table()
                                 .name("TBL")
+                                .distribution(IgniteDistributions.broadcast())
+                                .addColumn("ID", NativeTypes.INT32)
+                                .addColumn("VAL", NativeTypes.STRING)
+                                .build(),
+                        TestBuilders.table()
+                                .name("TBL2")
                                 .distribution(IgniteDistributions.broadcast())
                                 .addColumn("ID", NativeTypes.INT32)
                                 .addColumn("VAL", NativeTypes.STRING)

@@ -82,7 +82,7 @@ public class CacheKey {
     @Override
     public int hashCode() {
         int result = Long.hashCode(catalogVersion);
-        result = 32 * result + schemaName.hashCode();
+        result = 31 * result + schemaName.hashCode();
         result = 31 * result + query.hashCode();
         result = 31 * result + Arrays.hashCode(paramTypes);
         return result;

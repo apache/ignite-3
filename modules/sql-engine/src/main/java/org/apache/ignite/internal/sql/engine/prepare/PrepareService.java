@@ -29,5 +29,5 @@ public interface PrepareService extends LifecycleAware {
     /**
      * Prepare query plan.
      */
-    CompletableFuture<QueryPlan> prepareAsync(String query,  QueryContext queryContext, BaseQueryContext ctx);
+    CompletableFuture<QueryPlan> prepareAsync(String query, QueryContext queryContext, BaseQueryContext ctx);
 }
