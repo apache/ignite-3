@@ -552,7 +552,7 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Index must contain at least one column");
             }
 
-            assert collations == null :"Collation is not supported.";
+            assert collations == null : "Collation is not supported.";
 
             return new TestIndex(name, tableName, Type.HASH, columns, null, dataProviders);
         }
