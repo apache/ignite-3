@@ -22,8 +22,8 @@ import java.util.concurrent.CompletableFuture;
 /**
  * The listener which receives and handles the Meta Storage revision update. No listeners for revision {@code N+1} will be invoked until
  * all listeners for revision {@code N} are completed.
- * Also, this listeners is only triggered strictly after all {@link WatchListener#onUpdate(WatchEvent)} are executed, but not necessarily
- * completed, for the specified revision.
+ * Also, this listener is only triggered strictly after all {@link WatchListener#onUpdate(WatchEvent)} are invoked (but the returned futures
+ * might not still be completed completed), for the specified revision.
  */
 @FunctionalInterface
 public interface RevisionUpdateListener {
