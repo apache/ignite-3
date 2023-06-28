@@ -18,17 +18,34 @@
 namespace Apache.Ignite.Tests;
 
 using System.Net;
+using System.Net.Sockets;
+using Internal.Proto;
 
 /// <summary>
 /// Proxy for Ignite server with request logging and interception.
 /// </summary>
 public sealed class IgniteProxy : IgniteServerBase
 {
+    private readonly Socket _socket;
+
     public IgniteProxy(IPEndPoint endPoint)
     {
-        // TODO: Connect.
         EndPoint = endPoint;
+
+        _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        _socket.Connect(endPoint);
+        _socket.Send(ProtoCommon.MagicBytes);
     }
 
     public IPEndPoint EndPoint { get; private init; }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+
+        if (disposing)
+        {
+            _socket.Dispose();
+        }
+    }
 }
