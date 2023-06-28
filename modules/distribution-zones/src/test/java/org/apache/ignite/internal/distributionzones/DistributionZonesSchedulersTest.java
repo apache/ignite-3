@@ -17,21 +17,20 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.after;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -45,10 +44,8 @@ import org.junit.jupiter.api.Test;
 public class DistributionZonesSchedulersTest {
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZonesSchedulersTest.class);
 
-    private static final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(
-            Math.min(Runtime.getRuntime().availableProcessors() * 3, 20),
-            new NamedThreadFactory("test-dst-zones-scheduler", LOG),
-            new ThreadPoolExecutor.DiscardPolicy()
+    private static ScheduledExecutorService executor = createZoneManagerExecutor(
+            new NamedThreadFactory("test-dst-zones-scheduler", LOG)
     );
 
     @AfterAll
@@ -83,27 +80,118 @@ public class DistributionZonesSchedulersTest {
     }
 
     @Test
-    void testScaleUpReScheduleNotStartedTask() {
+    void testScaleUpReScheduling() throws InterruptedException {
         ZoneState state = new DistributionZoneManager.ZoneState(executor);
 
-        testReScheduleNotStartedTask(state::rescheduleScaleUp);
+        testReScheduling(state::rescheduleScaleUp);
     }
 
     @Test
-    void testScaleDownReScheduleNotStartedTask() {
+    void testScaleDownReScheduling() throws InterruptedException {
         ZoneState state = new DistributionZoneManager.ZoneState(executor);
 
-        testReScheduleNotStartedTask(state::rescheduleScaleDown);
+        testReScheduling(state::rescheduleScaleDown);
     }
 
-    private static void testReScheduleNotStartedTask(BiConsumer<Long, Runnable> fn) {
-        Runnable runnable = mock(Runnable.class);
+    /**
+     * Tests that scaleUp/scaleDown tasks with a zero delay will not be canceled by other tasks.
+     * Tests that scaleUp/scaleDown tasks with a delay grater then zero will be canceled by other tasks.
+     */
+    private static void testReScheduling(BiConsumer<Long, Runnable> fn) throws InterruptedException {
+        AtomicInteger counter = new AtomicInteger();
 
-        fn.accept(1L, runnable);
+        CountDownLatch firstTaskLatch = new CountDownLatch(1);
 
-        fn.accept(0L, runnable);
+        CountDownLatch lastTaskLatch = new CountDownLatch(1);
 
-        verify(runnable, after(1200).times(1)).run();
+        fn.accept(0L, () -> {
+            try {
+                assertTrue(firstTaskLatch.await(3, TimeUnit.SECONDS));
+
+                counter.incrementAndGet();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        fn.accept(1L, counter::incrementAndGet);
+
+        fn.accept(0L, counter::incrementAndGet);
+
+        fn.accept(0L, counter::incrementAndGet);
+
+        fn.accept(1L, counter::incrementAndGet);
+
+        fn.accept(1L, counter::incrementAndGet);
+
+        fn.accept(0L, counter::incrementAndGet);
+
+        fn.accept(0L, () -> {
+            counter.incrementAndGet();
+
+            lastTaskLatch.countDown();
+        });
+
+        firstTaskLatch.countDown();
+
+        assertTrue(lastTaskLatch.await(3, TimeUnit.SECONDS));
+
+        assertEquals(5, counter.get());
+    }
+
+    @Test
+    void testScaleUpOrdering() throws InterruptedException {
+        ZoneState state = new DistributionZoneManager.ZoneState(executor);
+
+        testOrdering(state::rescheduleScaleUp);
+    }
+
+    @Test
+    void testScaleDownOrdering() throws InterruptedException {
+        ZoneState state = new DistributionZoneManager.ZoneState(executor);
+
+        testOrdering(state::rescheduleScaleDown);
+    }
+
+    private static void testOrdering(BiConsumer<Long, Runnable> fn) throws InterruptedException {
+        AtomicInteger counter = new AtomicInteger();
+
+        CountDownLatch latch = new CountDownLatch(1);
+
+        AtomicBoolean sequentialOrder = new AtomicBoolean(true);
+
+        fn.accept(0L, () -> {
+            try {
+                assertTrue(latch.await(3, TimeUnit.SECONDS));
+
+                counter.incrementAndGet();
+
+                if (counter.get() != 1) {
+                    sequentialOrder.set(false);
+                }
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        for (int i = 2; i < 11; i++) {
+            int j = i;
+
+            fn.accept(0L, () -> {
+                counter.incrementAndGet();
+
+                if (counter.get() != j) {
+                    sequentialOrder.set(false);
+                }
+            });
+        }
+
+        latch.countDown();
+
+        waitForCondition(() -> counter.get() == 10, 3000);
+        assertEquals(10, counter.get(), "Not all tasks were executed.");
+
+        assertTrue(sequentialOrder.get(), "The order of tasks execution is not sequential.");
     }
 
     @Test
@@ -131,11 +219,156 @@ public class DistributionZonesSchedulersTest {
 
         latch.await(1000, TimeUnit.MILLISECONDS);
 
-        fn.accept(0L, () -> {
-            flag.set(true);
-        });
+        fn.accept(0L, () -> flag.set(true));
 
         assertTrue(waitForCondition(() -> 0L == latch.getCount(), 1500));
         assertTrue(waitForCondition(flag::get, 1500));
+    }
+
+    @Test
+    void testCancelScaleUpTaskOnStopScaleUp() {
+        ZoneState state = new DistributionZoneManager.ZoneState(executor);
+
+        testCancelTask(state::rescheduleScaleUp, state::stopScaleUp, () -> state.scaleUpTask().isCancelled());
+    }
+
+    @Test
+    void testCancelScaleDownTaskOnStopScaleDown() {
+        ZoneState state = new ZoneState(executor);
+
+        testCancelTask(state::rescheduleScaleDown, state::stopScaleDown, () -> state.scaleDownTask().isCancelled());
+    }
+
+    @Test
+    void testCancelScaleUpTasksOnStopTimers() {
+        ZoneState state = new ZoneState(executor);
+
+        testCancelTask(state::rescheduleScaleUp, state::stopTimers, () -> state.scaleUpTask().isCancelled());
+    }
+
+    @Test
+    void testCancelScaleDownTasksOnStopTimers() {
+        ZoneState state = new ZoneState(executor);
+
+        testCancelTask(state::rescheduleScaleDown, state::stopTimers, () -> state.scaleDownTask().isCancelled());
+    }
+
+    /**
+     * {@link ZoneState#stopScaleUp()}, {@link ZoneState#stopScaleDown()} and {@link ZoneState#stopTimers()} cancel task
+     * if it is not started and has a delay greater than zero.
+     */
+    private static void testCancelTask(
+            BiConsumer<Long, Runnable> fn,
+            Runnable stopTask,
+            Supplier<Boolean> isTaskCancelled
+    ) {
+        CountDownLatch latch = new CountDownLatch(1);
+
+        fn.accept(0L, () -> {
+            try {
+                assertTrue(latch.await(3, TimeUnit.SECONDS));
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        fn.accept(1L, () -> {});
+
+        assertFalse(isTaskCancelled.get());
+
+        stopTask.run();
+
+        assertTrue(isTaskCancelled.get());
+
+        latch.countDown();
+    }
+
+    @Test
+    void testNotCancelScaleUpTaskOnStopScaleUp() {
+        ZoneState state = new DistributionZoneManager.ZoneState(executor);
+
+        testNotCancelTask(state::rescheduleScaleUp, state::stopScaleUp, () -> state.scaleUpTask().isCancelled());
+    }
+
+    @Test
+    void testNotCancelScaleDownTaskOnStopScaleDown() {
+        ZoneState state = new ZoneState(executor);
+
+        testNotCancelTask(state::rescheduleScaleDown, state::stopScaleDown, () -> state.scaleDownTask().isCancelled());
+
+    }
+
+    /**
+     * {@link ZoneState#stopScaleUp()} and {@link ZoneState#stopScaleDown()} doesn't cancel task
+     * if it is not started and has a delay equal to zero.
+     */
+    private static void testNotCancelTask(
+            BiConsumer<Long, Runnable> fn,
+            Runnable stopTask,
+            Supplier<Boolean> isTaskCancelled
+    ) {
+        CountDownLatch latch = new CountDownLatch(1);
+
+        fn.accept(0L, () -> {
+            try {
+                assertTrue(latch.await(3, TimeUnit.SECONDS));
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        fn.accept(0L, () -> {});
+
+        assertFalse(isTaskCancelled.get());
+
+        stopTask.run();
+
+        assertFalse(isTaskCancelled.get());
+
+        latch.countDown();
+    }
+
+    /**
+     * {@link ZoneState#stopTimers()} cancel task if it is not started and has a delay equal to zero.
+     */
+    @Test
+    public void testCancelTasksOnStopTimersAndImmediateTimerValues() {
+        ZoneState state = new DistributionZoneManager.ZoneState(executor);
+
+        CountDownLatch scaleUpTaskLatch = new CountDownLatch(1);
+
+        state.rescheduleScaleUp(0L, () -> {
+            try {
+                assertTrue(scaleUpTaskLatch.await(3, TimeUnit.SECONDS));
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        state.rescheduleScaleUp(0L, () -> {});
+
+        assertFalse(state.scaleUpTask().isCancelled());
+
+        CountDownLatch scaleDownTaskLatch = new CountDownLatch(1);
+
+        state.rescheduleScaleDown(0L, () -> {
+            try {
+                assertTrue(scaleDownTaskLatch.await(3, TimeUnit.SECONDS));
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        state.rescheduleScaleDown(0L, () -> {});
+
+        assertFalse(state.scaleDownTask().isCancelled());
+
+        state.stopTimers();
+
+        assertTrue(state.scaleUpTask().isCancelled());
+        assertTrue(state.scaleDownTask().isCancelled());
+
+        scaleUpTaskLatch.countDown();
+        scaleDownTaskLatch.countDown();
     }
 }

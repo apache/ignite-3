@@ -1216,7 +1216,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                     : (insertFirst ? allRows : Set.of());
             Set<BinaryRow> res = new HashSet<>(roGetAll(allRows, clock.nowLong()));
 
-            assertEquals(expected.size(), res.size());
+            assertEquals(allRows.size(), res.size());
             for (BinaryRow e : expected) {
                 // TODO: IGNITE-19430 - should there be an assertion in the next line?
                 res.contains(e);

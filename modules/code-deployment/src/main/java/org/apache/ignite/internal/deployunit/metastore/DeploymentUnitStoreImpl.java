@@ -139,17 +139,26 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     }
 
     @Override
-    public CompletableFuture<Boolean> createClusterStatus(String id, Version version, Set<String> nodes) {
+    public CompletableFuture<UnitClusterStatus> createClusterStatus(String id, Version version, Set<String> nodes) {
         ByteArray key = ClusterStatusKey.builder().id(id).version(version).build().toByteArray();
-        byte[] value = UnitClusterStatus.serialize(new UnitClusterStatus(id, version, UPLOADING, nodes));
+        long revision = metaStorage.appliedRevision();
+        UnitClusterStatus clusterStatus = new UnitClusterStatus(id, version, UPLOADING, revision, nodes);
+        byte[] value = UnitClusterStatus.serialize(clusterStatus);
 
-        return metaStorage.invoke(notExists(key), put(key, value), noop());
+        return metaStorage.invoke(notExists(key), put(key, value), noop())
+                .thenApply(deployed -> deployed ? clusterStatus : null);
     }
 
     @Override
-    public CompletableFuture<Boolean> createNodeStatus(String nodeId, String id, Version version, DeploymentStatus status) {
+    public CompletableFuture<Boolean> createNodeStatus(
+            String nodeId,
+            String id,
+            Version version,
+            long opId,
+            DeploymentStatus status
+    ) {
         ByteArray key = NodeStatusKey.builder().id(id).version(version).nodeId(nodeId).build().toByteArray();
-        byte[] value = UnitNodeStatus.serialize(new UnitNodeStatus(id, version, status, nodeId));
+        byte[] value = UnitNodeStatus.serialize(new UnitNodeStatus(id, version, status, opId, nodeId));
         return metaStorage.invoke(notExists(key), put(key, value), noop());
     }
 

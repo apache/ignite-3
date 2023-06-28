@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -299,7 +300,7 @@ public class ClientTupleSerializer {
         return res;
     }
 
-    static Collection<Tuple> readTuplesNullable(ClientSchema schema, ClientMessageUnpacker in) {
+    static List<Tuple> readTuplesNullable(ClientSchema schema, ClientMessageUnpacker in) {
         var cnt = in.unpackInt();
         var res = new ArrayList<Tuple>(cnt);
 
