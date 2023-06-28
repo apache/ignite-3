@@ -42,4 +42,18 @@ public interface HybridClock {
      * @return The hybrid timestamp.
      */
     HybridTimestamp update(HybridTimestamp requestTime);
+
+    /**
+     * Adds an update listener to self.
+     *
+     * @param listener Update listener to add.
+     */
+    void addUpdateListener(ClockUpdateListener listener);
+
+    /**
+     * Removes an update listener from self.
+     *
+     * @param listener Listener to remove.
+     */
+    void removeUpdateListener(ClockUpdateListener listener);
 }

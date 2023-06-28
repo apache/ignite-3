@@ -33,11 +33,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.OptionalLong;
+import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -48,6 +49,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -86,6 +88,12 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private final WatchProcessor watchProcessor;
 
     private final List<Entry> updatedEntries = new ArrayList<>();
+
+    /**
+     * Revision listener for recovery only. Notifies {@link MetaStorageManagerImpl} of revision update.
+     * Guarded by {@link #mux}.
+     */
+    private @Nullable LongConsumer recoveryRevisionListener;
 
     public SimpleInMemoryKeyValueStorage(String nodeName) {
         this.watchProcessor = new WatchProcessor(nodeName, this::get);
@@ -128,6 +136,19 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         revToTsMap.put(rev, ts);
 
         notifyWatches();
+
+        notifyRevisionUpdate();
+    }
+
+    /**
+     * Notifies of revision update.
+     * Must be called under the {@link #mux} lock.
+     */
+    private void notifyRevisionUpdate() {
+        if (recoveryRevisionListener != null) {
+            // Listener must be invoked only on recovery, after recovery listener must be null.
+            recoveryRevisionListener.accept(rev);
+        }
     }
 
     @Override
@@ -410,6 +431,20 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
+    public HybridTimestamp timestampByRevision(long revision) {
+        synchronized (mux) {
+            return Objects.requireNonNull(revToTsMap.get(revision), "Revision " + revision + " not found");
+        }
+    }
+
+    @Override
+    public void setRecoveryRevisionListener(@Nullable LongConsumer listener) {
+        synchronized (mux) {
+            this.recoveryRevisionListener = listener;
+        }
+    }
+
+    @Override
     public void watchRange(byte[] keyFrom, byte @Nullable [] keyTo, long rev, WatchListener listener) {
         assert keyFrom != null : "keyFrom couldn't be null.";
         assert rev > 0 : "rev must be positive.";
@@ -446,24 +481,26 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void startWatches(OnRevisionAppliedCallback revisionCallback) {
+    public void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback) {
         synchronized (mux) {
             areWatchesEnabled = true;
 
             watchProcessor.setRevisionCallback(revisionCallback);
 
-            replayUpdates();
+            replayUpdates(startRevision);
         }
     }
 
-    private void replayUpdates() {
-        OptionalLong minWatchRevision = watchProcessor.minWatchRevision();
+    private void replayUpdates(long startRevision) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19778 Should be Math.max, so we start from the revision that
+        // components restored their state to (lowerRevision).
+        long minWatchRevision = Math.min(startRevision, watchProcessor.minWatchRevision().orElse(-1));
 
-        if (minWatchRevision.isEmpty()) {
+        if (minWatchRevision <= 0) {
             return;
         }
 
-        revsIdx.tailMap(minWatchRevision.getAsLong())
+        revsIdx.tailMap(minWatchRevision)
                 .forEach((revision, entries) -> {
                     entries.forEach((key, value) -> {
                         var entry = new EntryImpl(key, value.bytes(), revision, value.updateCounter());

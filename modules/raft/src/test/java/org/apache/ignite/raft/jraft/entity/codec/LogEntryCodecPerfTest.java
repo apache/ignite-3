@@ -16,7 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.entity.codec;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -80,7 +79,7 @@ public class LogEntryCodecPerfTest {
             this.logSize.addAndGet(content.length);
             LogEntry nLog = decoder.decode(content);
             assertEquals(2, nLog.getPeers().size());
-            assertArrayEquals(DATA, nLog.getData().array());
+            assertEquals(ByteBuffer.wrap(DATA), nLog.getData());
             assertEquals(i, nLog.getId().getIndex());
             assertEquals(i, nLog.getId().getTerm());
         }
