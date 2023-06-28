@@ -43,6 +43,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
+import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverActorMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
@@ -327,20 +328,13 @@ public class LeaseUpdater {
                 List<Lease> renewedLeasesList = renewedLeases.entrySet().stream().map(Map.Entry::getValue).sorted().collect(
                         Collectors.toList());
 
-                byte[] renewedValue = collectionToBytes(renewedLeasesList, Lease::bytes);
+                byte[] renewedValue = new LeaseBatch(renewedLeasesList).bytes();
 
-                if (renewedLeasesList.size() > 50) {
-                    LOG.info("qqq Leases count=" + renewedLeasesList.size() + ", size=" + renewedValue.length);
-                }
-
-                long start = System.currentTimeMillis();
                 msManager.invoke(
-                        or(notExists(leasesKey), value(leasesKey).eq(collectionToBytes(leasesCurrent, Lease::bytes))),
+                        or(notExists(leasesKey), value(leasesKey).eq(new LeaseBatch(leasesCurrent).bytes())),
                         put(leasesKey, renewedValue),
                         noop()
-                );
-                long duration = System.currentTimeMillis() - start;
-                LOG.info("qqq invoke call duration: " + duration + ", leases count=" + renewedLeasesList.size());
+                ).thenAccept(b -> System.out.println("qqq invoke " + b));
 
                 try {
                     Thread.sleep(UPDATE_LEASE_MS);

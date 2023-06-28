@@ -20,15 +20,11 @@ package org.apache.ignite.internal.metastorage.server.raft;
 import static java.util.Objects.requireNonNull;
 
 import java.io.Serializable;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.function.Consumer;
-import java.util.logging.Logger;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
@@ -56,8 +52,6 @@ public class MetaStorageListener implements RaftGroupListener {
 
     /** Storage. */
     private final KeyValueStorage storage;
-
-    private IgniteLogger log = Loggers.forClass(MetaStorageListener.class);
 
     /**
      * Constructor.
@@ -94,7 +88,6 @@ public class MetaStorageListener implements RaftGroupListener {
 
                     clo.result((Serializable) entries);
                 } else if (command instanceof GetRangeCommand) {
-                    long start = System.currentTimeMillis();
                     var rangeCmd = (GetRangeCommand) command;
 
                     byte[] previousKey = rangeCmd.previousKey();
@@ -103,12 +96,7 @@ public class MetaStorageListener implements RaftGroupListener {
                             ? rangeCmd.keyFrom()
                             : requireNonNull(storage.nextKey(previousKey));
 
-                    BatchResponse b = handlePaginationCommand(keyFrom, rangeCmd.keyTo(), rangeCmd);
-                    clo.result(b);
-                    long duration = System.currentTimeMillis() - start;
-                    long bytesSize = b.entries().stream().mapToInt(e -> e.key().length + (e.value() == null ? 0 : e.value().length)).sum();
-                    System.out.println("qqq get range command, keyFrom: " + (new String(keyFrom, StandardCharsets.UTF_8) +
-                            ", time: " + duration + ", batch size: " + b.entries().size() + ", size in bytes: " + bytesSize));
+                    clo.result(handlePaginationCommand(keyFrom, rangeCmd.keyTo(), rangeCmd));
                 } else if (command instanceof GetPrefixCommand) {
                     var prefixCmd = (GetPrefixCommand) command;
 
@@ -137,26 +125,15 @@ public class MetaStorageListener implements RaftGroupListener {
                 ? storage.range(keyFrom, keyTo)
                 : storage.range(keyFrom, keyTo, command.revUpperBound());
 
-        long nextDuration = 0;
-        long hnDuration = 0;
-        int tombstonesCount = 0;
-        int iterations = 0;
         try (cursor) {
             var entries = new ArrayList<Entry>();
 
             while (true) {
-                long st = System.currentTimeMillis();
                 boolean hasNext = cursor.hasNext();
-                hnDuration += (System.currentTimeMillis() - st);
                 if (!hasNext)
                     break;
-                iterations++;
 
-                st = System.currentTimeMillis();
                 Entry entry = cursor.next();
-                nextDuration += (System.currentTimeMillis() - st);
-                if (entry.tombstone())
-                    tombstonesCount++;
 
                 if (command.includeTombstones() || !entry.tombstone()) {
                     entries.add(entry);
@@ -167,14 +144,6 @@ public class MetaStorageListener implements RaftGroupListener {
                 }
             }
 
-            System.out.println("qqq range next total duration: " + nextDuration + ", hasNext total duration: " + hnDuration + ", iterations=" + iterations + ", tombstones=" + tombstonesCount);
-
-            if (hnDuration > 1000) {
-                Cursor<Entry> cur = storage.range("0".getBytes(StandardCharsets.UTF_8), "z".getBytes(StandardCharsets.UTF_8));
-                for (Entry e : cur) {
-                    System.out.println(new String(e.key(), StandardCharsets.UTF_8));
-                }
-            }
             return new BatchResponse(entries, cursor.hasNext());
         }
     }

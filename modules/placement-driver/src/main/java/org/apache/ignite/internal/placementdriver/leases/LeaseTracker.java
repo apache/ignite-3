@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.EMPTY_LEASE;
-import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.bytesToList;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
@@ -49,7 +48,6 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.placementdriver.LeaseMeta;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
@@ -175,7 +173,7 @@ public class LeaseTracker implements PlacementDriver {
 
                 ByteBuffer buf = ByteBuffer.wrap(msEntry.value()).order(ByteOrder.LITTLE_ENDIAN);
 
-                List<Lease> renewedLeasesList = bytesToList(buf.array(), Lease::fromBytes);
+                List<Lease> renewedLeasesList = LeaseBatch.fromBytes(buf.array()).leases();
 
                 Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>();
                 renewedLeasesList.forEach(lease -> renewedLeases.put(lease.replicationGroupId(), lease));

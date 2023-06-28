@@ -432,12 +432,12 @@ public class ReplicaManager implements IgniteComponent {
         clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, handler);
         clusterNetSvc.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, placementDriverMessageHandler);
         messageGroupsToHandle.forEach(mg -> clusterNetSvc.messagingService().addMessageHandler(mg, handler));
-        /*scheduledIdleSafeTimeSyncExecutor.scheduleAtFixedRate(
+        scheduledIdleSafeTimeSyncExecutor.scheduleAtFixedRate(
                 this::idleSafeTimeSync,
                 0,
                 IDLE_SAFE_TIME_PROPAGATION_PERIOD_SECONDS,
                 TimeUnit.SECONDS
-        );*/
+        );
 
         cmgMgr.metaStorageNodes().whenComplete((nodes, e) -> {
                     if (e != null) {

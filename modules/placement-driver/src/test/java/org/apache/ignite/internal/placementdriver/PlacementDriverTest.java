@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
+import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
@@ -55,7 +57,7 @@ public class PlacementDriverTest {
 
     private static final TablePartitionId GROUP_1 = new TablePartitionId(1000, 0);
 
-    private static final ByteArray MS_LEASE_KEY = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + GROUP_1);
+    private static final ByteArray MS_LEASE_KEY = ByteArray.fromString(PLACEMENTDRIVER_PREFIX);
 
     private static final String LEASEHOLDER_1 = "leaseholder1";
     private static final Lease LEASE_FROM_1_TO_5_000 = new Lease(
@@ -334,7 +336,7 @@ public class PlacementDriverTest {
     private void publishLease(Lease lease) {
         metastore.invoke(
                 Conditions.notExists(FAKE_KEY),
-                put(MS_LEASE_KEY, lease.bytes()),
+                put(MS_LEASE_KEY, new LeaseBatch(List.of(lease)).bytes()),
                 noop()
         );
     }

@@ -141,7 +141,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @Tag(value = "sqllogic")
 @ExtendWith(SystemPropertiesExtension.class)
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql", nodes = 1)
+@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql")
 public class ItSqlLogicTest extends IgniteIntegrationTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
 
@@ -206,54 +206,7 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
         stopNodes();
     }
 
-    private static final int COLUMNS_COUNT = 2;
-    private static final int TABLES_COUNT = 200;
     private static final int SLEEP = 10_000;
-
-    @Test
-    public void createTables() {
-        System.out.println("Test started");
-        Ignite ignite = CLUSTER_NODES.get(0);
-        for (int j = 0; j < 1000; j++) {
-            for (int i = 0; i < TABLES_COUNT; i++) {
-                String createTableQuery = createTableQuery("table_" + i + "_" + j, COLUMNS_COUNT);
-                String selectQuery = "select * from table_" + i + "_" + j;
-                long timestampBefore = System.currentTimeMillis();
-                try (Session session = ignite.sql().createSession()) {
-                    session.execute(null, createTableQuery);
-                    //session.execute(null, selectQuery);
-                }
-                long timestampAfter = System.currentTimeMillis();
-                System.out.println("Create table " + i + "_" + j + " took " + (timestampAfter - timestampBefore) + " ms");
-            }
-            sleep();
-        }
-    }
-
-    public static String createTableQuery(String tableName, int columnsAmount){
-        StringBuilder sb = new StringBuilder();
-        sb.append("CREATE TABLE ").append(tableName).append("(");
-        for (int i = 0; i < columnsAmount; i++) {
-            if (i == 0){
-                sb.append("id INT PRIMARY KEY");
-            } else {
-                sb.append("column_").append(i).append(" VARCHAR");
-            }
-
-            if (i != columnsAmount - 1){
-                sb.append(", ");
-            }
-        }
-        sb.append(")");
-        return sb.toString();
-    }
-
-    public static void sleep(){
-        try {
-            Thread.sleep(SLEEP);
-        } catch (InterruptedException ignored) {
-        }
-    }
 
     @TestFactory
     public Stream<DynamicNode> sql() {

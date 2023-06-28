@@ -58,6 +58,7 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManagerTest.LogicalTopologyServiceTestImpl;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
+import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
@@ -278,7 +279,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
                     eventsClientListener
             );
 
-            var storage = new RocksDbKeyValueStorage(nodeName, workDir.resolve(nodeName + "-ms"));
+            var storage = new SimpleInMemoryKeyValueStorage(nodeName);
 
             var metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
@@ -517,9 +518,15 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         var leaseRenewRef = new AtomicReference<Lease>();
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart));
+            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
 
-            Lease leaseRenew = fromBytes(fut.join().value());
+            LeaseBatch leaseBatch = LeaseBatch.fromBytes(fut.join().value());
+
+            Lease leaseRenew = leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(grpPart)).findAny().orElse(null);
+
+            if (lease == null) {
+                return false;
+            }
 
             if (!lease.getLeaseholder().equals(leaseRenew.getLeaseholder())) {
                 leaseRenewRef.set(leaseRenew);
@@ -547,9 +554,15 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         var leaseRenewRef = new AtomicReference<Lease>();
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart));
+            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
 
-            Lease leaseRenew = fromBytes(fut.join().value());
+            LeaseBatch leaseBatch = LeaseBatch.fromBytes(fut.join().value());
+
+            Lease leaseRenew = leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(grpPart)).findAny().orElse(null);
+
+            if (lease == null) {
+                return false;
+            }
 
             if (lease.getExpirationTime().compareTo(leaseRenew.getExpirationTime()) < 0) {
                 leaseRenewRef.set(leaseRenew);
@@ -577,12 +590,18 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         AtomicReference<Lease> leaseRef = new AtomicReference<>();
 
         assertTrue(waitForCondition(() -> {
-            var leaseFut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPartId));
+            var leaseFut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
 
             var leaseEntry = leaseFut.join();
 
             if (leaseEntry != null && !leaseEntry.empty()) {
-                Lease lease = fromBytes(leaseEntry.value());
+                LeaseBatch leaseBatch = LeaseBatch.fromBytes(leaseEntry.value());
+
+                Lease lease = leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(grpPartId)).findAny().orElse(null);
+
+                if (lease == null) {
+                    return false;
+                }
 
                 if (!waitAccept) {
                     leaseRef.set(lease);

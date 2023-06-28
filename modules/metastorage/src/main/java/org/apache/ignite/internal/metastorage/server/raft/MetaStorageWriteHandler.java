@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.metastorage.server.raft;
 
 import java.io.Serializable;
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -31,7 +29,6 @@ import org.apache.ignite.internal.metastorage.command.GetAndPutCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndRemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndRemoveCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
-import org.apache.ignite.internal.metastorage.command.InvokeCommandImpl;
 import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.command.PutAllCommand;
@@ -40,11 +37,9 @@ import org.apache.ignite.internal.metastorage.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveCommand;
 import org.apache.ignite.internal.metastorage.command.SyncTimeCommand;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
-import org.apache.ignite.internal.metastorage.dsl.CompoundConditionImpl;
 import org.apache.ignite.internal.metastorage.dsl.ConditionType;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
-import org.apache.ignite.internal.metastorage.dsl.SimpleConditionImpl;
 import org.apache.ignite.internal.metastorage.dsl.Statement.IfStatement;
 import org.apache.ignite.internal.metastorage.dsl.Statement.UpdateStatement;
 import org.apache.ignite.internal.metastorage.server.AndCondition;
@@ -173,20 +168,7 @@ class MetaStorageWriteHandler {
         } else if (command instanceof InvokeCommand) {
             InvokeCommand cmd = (InvokeCommand) command;
 
-            long start = System.currentTimeMillis();
             clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime));
-            long duration = System.currentTimeMillis() - start;
-
-            if (command instanceof InvokeCommandImpl && ((InvokeCommandImpl) command).condition() instanceof CompoundCondition) {
-                CompoundCondition cond = (CompoundCondition) ((InvokeCommandImpl) command).condition();
-                if (cond.leftCondition() instanceof SimpleCondition) {
-                    SimpleCondition simpleCondition = (SimpleCondition) cond.leftCondition();
-                    //System.out.println("qqqq " + new String(simpleCondition.key(), StandardCharsets.UTF_8));
-                    if (new String(simpleCondition.key(), StandardCharsets.UTF_8).equals("placementdriver.lease.")) {
-                        LOG.info("qqq invoke handler duration: " + duration);
-                    }
-                }
-            }
         } else if (command instanceof MultiInvokeCommand) {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 

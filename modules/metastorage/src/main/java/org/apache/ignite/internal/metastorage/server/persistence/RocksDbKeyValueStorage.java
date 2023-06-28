@@ -860,29 +860,17 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                         return true;
                     }
 
-                    long start = System.currentTimeMillis();
-                    long nextTime = 0;
-                    int iterations = 0;
-
                     while (next == null && super.hasNext()) {
                         Entry nextCandidate = decodeEntry(it.key(), it.value());
 
-                        long st = System.currentTimeMillis();
                         it.next();
-                        nextTime += (System.currentTimeMillis() - st);
-                        iterations++;
 
                         if (!nextCandidate.empty()) {
                             next = nextCandidate;
 
-                            //System.out.println("qqq range single hasNext time: " + (System.currentTimeMillis() - start) +
-                            //        ", iterations: " + iterations + ", nextTime: " + nextTime);
                             return true;
                         }
                     }
-
-                    //System.out.println("qqq range single hasNext time: " + (System.currentTimeMillis() - start) +
-                    //        ", iterations: " + iterations + ", nextTime: " + nextTime);
 
                     return false;
                 }

@@ -435,9 +435,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         }
 
         // Data from the storage.
-        long start = System.currentTimeMillis();
         Map<String, ? extends Serializable> storageData = get(storage.readAllLatest(prefix));
-        System.out.println("qqq read storageData time: " + (System.currentTimeMillis() - start));
 
         // Data to be converted into the tree.
         Map<String, Serializable> mergedData = new HashMap<>();
