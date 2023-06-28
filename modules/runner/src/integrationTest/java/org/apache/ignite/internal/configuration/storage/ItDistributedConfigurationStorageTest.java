@@ -157,7 +157,7 @@ public class ItDistributedConfigurationStorageTest {
 
             deployWatchesFut = metaStorageManager.deployWatches();
 
-            cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
+            cfgStorage = new DistributedConfigurationStorage(metaStorageManager);
         }
 
         /**
@@ -231,8 +231,6 @@ public class ItDistributedConfigurationStorageTest {
             node.waitWatches();
 
             assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
-
-            node.cfgStorage.writeConfigurationRevision(0, 1);
 
             assertTrue(waitForCondition(
                     () -> node.metaStorageManager.appliedRevision() != 0,

@@ -181,7 +181,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 new TestRocksDbKeyValueStorage(name, workDir.resolve("metastorage"))
         ));
 
-        var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vault);
+        var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr);
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),

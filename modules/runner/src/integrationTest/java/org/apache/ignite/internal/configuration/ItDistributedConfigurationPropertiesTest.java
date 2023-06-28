@@ -184,7 +184,7 @@ public class ItDistributedConfigurationPropertiesTest {
             deployWatchesFut = metaStorageManager.deployWatches();
 
             // create a custom storage implementation that is able to "lose" some storage updates
-            var distributedCfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager) {
+            var distributedCfgStorage = new DistributedConfigurationStorage(metaStorageManager) {
                 /** {@inheritDoc} */
                 @Override
                 public synchronized void registerConfigurationListener(ConfigurationStorageListener listener) {

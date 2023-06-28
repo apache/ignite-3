@@ -50,10 +50,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultEntry;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Distributed configuration storage.
@@ -71,11 +68,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     private static final ByteArray MASTER_KEY = new ByteArray(DISTRIBUTED_PREFIX + "$master$key");
 
     /**
-     * Vault's key for a value of previous and current configuration's MetaStorage revision.
-     */
-    private static final ByteArray CONFIGURATION_REVISIONS_KEY = new ByteArray("$revisions");
-
-    /**
      * Prefix for all keys in the distributed storage. This key is expected to be the first key in lexicographical order of distributed
      * configuration keys.
      */
@@ -90,9 +82,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
-
-    /** Vault manager. */
-    private final VaultManager vaultMgr;
 
     /** Configuration changes listener. */
     private volatile ConfigurationStorageListener lsnr;
@@ -123,12 +112,9 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      * Constructor.
      *
      * @param metaStorageMgr Meta storage manager.
-     * @param vaultMgr Vault manager.
      */
-    public DistributedConfigurationStorage(MetaStorageManager metaStorageMgr, VaultManager vaultMgr) {
+    public DistributedConfigurationStorage(MetaStorageManager metaStorageMgr) {
         this.metaStorageMgr = metaStorageMgr;
-
-        this.vaultMgr = vaultMgr;
     }
 
     @Override
@@ -206,60 +192,40 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
     @Override
     public CompletableFuture<Data> readDataOnRecovery() throws StorageException {
-        CompletableFuture<Data> future = vaultMgr.get(CONFIGURATION_REVISIONS_KEY)
-                .thenApplyAsync(entry -> {
-                    long revision = resolveRevision(metaStorageMgr.appliedRevision(), entry);
-
-                    return readDataOnRecovery0(revision);
-                }, threadPool);
+        CompletableFuture<Data> future = metaStorageMgr.recoveryFinishedFuture()
+                .thenApplyAsync(this::readDataOnRecovery0);
 
         return registerFuture(future);
-    }
-
-    /**
-     * Resolves current configuration revision based on the saved in the Vault revision of the metastorage and also previous and current
-     * revisions of the configuration saved in the Vault.
-     *
-     * @param metaStorageRevision Meta Storage revision.
-     * @param revisionsEntry Configuration revisions entry.
-     * @return Configuration revision.
-     */
-    private static long resolveRevision(long metaStorageRevision, @Nullable VaultEntry revisionsEntry) {
-        if (revisionsEntry != null) {
-            byte[] value = revisionsEntry.value();
-            long prevMasterKeyRevision = ByteUtils.bytesToLong(value, 0);
-            long curMasterKeyRevision = ByteUtils.bytesToLong(value, Long.BYTES);
-
-            // If current master key revision is higher than applied revision, then node failed
-            // before applied revision changed, so we have to use previous master key revision
-            return curMasterKeyRevision <= metaStorageRevision ? curMasterKeyRevision : prevMasterKeyRevision;
-        } else {
-            // Configuration has not been updated yet, so it is safe to return 0 as the revision for the master key.
-            return 0L;
-        }
     }
 
     private Data readDataOnRecovery0(long cfgRevision) {
         var data = new HashMap<String, Serializable>();
 
-        try (Cursor<VaultEntry> entries = storedDistributedConfigKeys()) {
-            for (VaultEntry entry : entries) {
-                ByteArray key = entry.key();
+        byte[] masterKey = MASTER_KEY.bytes();
+        boolean sawMasterKey = false;
+
+        try (Cursor<Entry> cursor = metaStorageMgr.getLocally(DST_KEYS_START_RANGE, DST_KEYS_END_RANGE, cfgRevision)) {
+            for (Entry entry : cursor) {
+                byte[] key = entry.key();
                 byte[] value = entry.value();
 
-                // vault iterator should not return nulls as values
+                // MetaStorage iterator should not return nulls as values.
                 assert value != null;
 
-                if (key.equals(MASTER_KEY)) {
+                if (!sawMasterKey && Arrays.equals(masterKey, key)) {
+                    sawMasterKey = true;
+
                     continue;
                 }
 
-                String dataKey = key.toString().substring(DISTRIBUTED_PREFIX.length());
+                byte[] keyWithoutPrefix = Arrays.copyOfRange(key, DST_KEYS_START_RANGE.length(), key.length);
+
+                var dataKey = new String(keyWithoutPrefix, UTF_8);
 
                 data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
             }
         } catch (Exception e) {
-            throw new StorageException("Exception when closing a Vault cursor", e);
+            throw new StorageException("Exception reading data on recovery", e);
         }
 
         assert data.isEmpty() || cfgRevision > 0;
@@ -372,29 +338,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override
     public CompletableFuture<Long> lastRevision() {
         return metaStorageMgr.get(MASTER_KEY).thenApply(Entry::revision);
-    }
-
-    @Override
-    public void writeConfigurationRevision(long prevRevision, long currentRevision) {
-        byte[] value = new byte[Long.BYTES * 2];
-
-        ByteUtils.putLongToBytes(prevRevision, value, 0);
-        ByteUtils.putLongToBytes(currentRevision, value, Long.BYTES);
-
-        vaultMgr.put(CONFIGURATION_REVISIONS_KEY, value).join();
-    }
-
-    /**
-     * Method that returns all distributed configuration keys from the meta storage that were stored in the vault filtered out by the
-     * current applied revision as an upper bound. Applied revision is a revision of the last successful vault update.
-     *
-     * <p>This is possible to distinguish cfg keys from meta storage because we add a special prefix {@link
-     * DistributedConfigurationStorage#DISTRIBUTED_PREFIX} to all configuration keys that we put to the meta storage.
-     *
-     * @return Iterator built upon all distributed configuration entries stored in vault.
-     */
-    private Cursor<VaultEntry> storedDistributedConfigKeys() {
-        return vaultMgr.range(DST_KEYS_START_RANGE, DST_KEYS_END_RANGE);
     }
 
     /**

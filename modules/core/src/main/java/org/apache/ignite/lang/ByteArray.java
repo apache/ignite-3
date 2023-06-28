@@ -77,6 +77,10 @@ public final class ByteArray implements Comparable<ByteArray> {
         return arr;
     }
 
+    public int length() {
+        return arr.length;
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {

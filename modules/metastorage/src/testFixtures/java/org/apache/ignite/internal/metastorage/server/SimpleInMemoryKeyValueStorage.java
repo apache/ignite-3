@@ -493,9 +493,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     private void replayUpdates(long startRevision) {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19778 Should be Math.max, so we start from the revision that
-        // components restored their state to (lowerRevision).
-        long minWatchRevision = Math.min(startRevision, watchProcessor.minWatchRevision().orElse(-1));
+        long minWatchRevision = Math.max(startRevision, watchProcessor.minWatchRevision().orElse(-1));
 
         if (minWatchRevision <= 0) {
             return;

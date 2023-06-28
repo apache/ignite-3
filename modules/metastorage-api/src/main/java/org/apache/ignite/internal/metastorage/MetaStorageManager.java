@@ -33,6 +33,7 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
@@ -85,6 +86,8 @@ public interface MetaStorageManager extends IgniteComponent {
      * @return Value corresponding to the given key.
      */
     Entry getLocally(byte[] key, long revUpperBound);
+
+    Cursor<Entry> getLocally(ByteArray startKey, ByteArray endKey, long revision);
 
     /**
      * Looks up a timestamp by a revision. This should only be invoked if it is guaranteed that the

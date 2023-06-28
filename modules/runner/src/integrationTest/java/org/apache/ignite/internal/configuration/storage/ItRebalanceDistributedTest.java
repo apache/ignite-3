@@ -711,7 +711,7 @@ public class ItRebalanceDistributedTest {
                     metaStorageConfiguration
             );
 
-            cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
+            cfgStorage = new DistributedConfigurationStorage(metaStorageManager);
 
             clusterCfgGenerator = new ConfigurationTreeGenerator(
                     List.of(
