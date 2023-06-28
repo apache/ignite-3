@@ -29,15 +29,15 @@ public sealed class IgniteProxy : IgniteServerBase
 {
     private readonly Socket _socket;
 
-    public IgniteProxy(IPEndPoint endPoint)
+    public IgniteProxy(IPEndPoint targetEndpoint)
     {
-        EndPoint = endPoint;
+        TargetEndpoint = targetEndpoint;
 
         _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        _socket.Connect(endPoint);
+        _socket.Connect(targetEndpoint);
     }
 
-    public IPEndPoint EndPoint { get; private init; }
+    public IPEndPoint TargetEndpoint { get; private init; }
 
     protected override void Handle(Socket handler, CancellationToken cancellationToken)
     {
