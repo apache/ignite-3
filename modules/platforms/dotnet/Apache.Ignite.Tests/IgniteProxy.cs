@@ -17,9 +17,10 @@
 
 namespace Apache.Ignite.Tests;
 
+using System;
 using System.Net;
 using System.Net.Sockets;
-using Internal.Proto;
+using System.Threading;
 
 /// <summary>
 /// Proxy for Ignite server with request logging and interception.
@@ -34,10 +35,37 @@ public sealed class IgniteProxy : IgniteServerBase
 
         _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         _socket.Connect(endPoint);
-        _socket.Send(ProtoCommon.MagicBytes);
     }
 
     public IPEndPoint EndPoint { get; private init; }
+
+    protected override void Handle(Socket handler, CancellationToken cancellationToken)
+    {
+        using var magic = ReceiveBytes(handler, 4);
+        _socket.Send(magic.AsMemory().Span);
+
+        using var serverMagic = ReceiveBytes(_socket, 4);
+        handler.Send(serverMagic.AsMemory().Span);
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            // Receive from client.
+            var msgSize = ReceiveMessageSize(handler);
+            using var msg = ReceiveBytes(handler, msgSize);
+
+            // Forward to server.
+            _socket.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(msgSize)));
+            _socket.Send(msg.AsMemory().Span);
+
+            // Receive from server.
+            var serverMsgSize = ReceiveMessageSize(_socket);
+            using var serverMsg = ReceiveBytes(_socket, serverMsgSize);
+
+            // Forward to client.
+            handler.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(serverMsgSize)));
+            handler.Send(serverMsg.AsMemory().Span);
+        }
+    }
 
     protected override void Dispose(bool disposing)
     {
