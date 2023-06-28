@@ -719,7 +719,7 @@ public class RexUtils {
 
         if (op instanceof RexSlot) {
             RelDataType operandType = call.getOperands().get(operandNum).getType();
-            if (!TypeUtils.needCast(Commons.typeFactory(), op.getType(), operandType)) {
+            if (!typeCoercion.needToCastInIndex(op.getType(), operandType)) {
                 return (RexSlot) op;
             }
         }
