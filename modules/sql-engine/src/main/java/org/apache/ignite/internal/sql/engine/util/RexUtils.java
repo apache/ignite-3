@@ -951,7 +951,7 @@ public class RexUtils {
 
         if (saturated != null) {
             return saturated;
-        } else if (typeCoercion.needToCast(node.getType(), type)) {
+        } else if (typeCoercion.needToCastInIndex(node.getType(), type)) {
             return builder.makeCast(type, node);
         } else {
             return node;

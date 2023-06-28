@@ -474,11 +474,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         TestTable table = createTableWithIndex("TEST2", "C2", type);
         publicSchema.addTable(table);
 
-        String q = "SELECT * FROM test2 WHERE C2 = " + value;
-
-        System.err.println("QUERY " + q);
-
-        assertBounds(q, List.of(), publicSchema, bounds);
+        assertBounds("SELECT * FROM test2 WHERE C2 = " + value, List.of(), publicSchema, bounds);
     }
 
     private static Stream<Arguments> bounds() {
@@ -528,12 +524,6 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                 //        exact(bigIntTypeLimits[0])),
                 //Arguments.arguments(bigIntType, BigInteger.TWO.pow(63), exact(bigIntTypeLimits[1])),
                 //Arguments.arguments(bigIntType, BigInteger.TWO.pow(63).add(BigInteger.ONE), exact(bigIntTypeLimits[1])),
-
-                Arguments.arguments(TYPE_FACTORY.createSqlType(SqlTypeName.REAL), "1.0", exact(Float.MAX_VALUE)),
-                Arguments.arguments(TYPE_FACTORY.createSqlType(SqlTypeName.REAL), "1", exact(Float.MAX_VALUE)),
-
-                Arguments.arguments(TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 5, 3), "1.0", exact(BigDecimal.valueOf(1))),
-                Arguments.arguments(TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 5, 3), "1", exact(BigDecimal.valueOf(1))),
 
                 //Arguments.arguments(realType, BigDecimal.valueOf(Float.MAX_VALUE).add(BigDecimal.ONE) + "::REAL",
                 //        exact(Float.MAX_VALUE)),

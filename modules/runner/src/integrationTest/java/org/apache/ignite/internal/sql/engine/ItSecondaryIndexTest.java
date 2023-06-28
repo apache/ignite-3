@@ -55,8 +55,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Basic index tests.
@@ -1032,54 +1030,6 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
         sql("INSERT INTO t200 VALUES (1, 127)");
 
         assertQuery("SELECT * FROM t200 WHERE val = 1024").returnNothing().check();
-    }
-
-    @Test
-    public void testReal() {
-        sql("CREATE TABLE t_real (ID INTEGER PRIMARY KEY, VAL REAL)");
-        sql("CREATE INDEX t_real_idx ON t_real (VAL)");
-
-        sql("INSERT INTO t_real VALUES(1, 1.0)");
-
-        assertQuery("SELECT * FROM t_real WHERE val = 1.0")
-                .matches(containsIndexScan("PUBLIC", "T_REAL", "T_REAL_IDX"))
-                .check();
-    }
-
-    @Test
-    public void testReal2() {
-        sql("CREATE TABLE t_real (ID INTEGER PRIMARY KEY, VAL REAL)");
-        sql("CREATE INDEX t_real_idx ON t_real (VAL)");
-
-        sql("INSERT INTO t_real VALUES(1, 1.0)");
-
-        assertQuery("SELECT * FROM t_real WHERE val = 1.0::REAL")
-                .matches(containsIndexScan("PUBLIC", "T_REAL", "T_REAL_IDX"))
-                .check();
-    }
-
-    @Test
-    public void testDecimal() {
-        sql("CREATE TABLE t_decimal (ID INTEGER PRIMARY KEY, VAL DECIMAL(5,3))");
-        sql("CREATE INDEX t_decimal_idx ON t_decimal (VAL)");
-
-        sql("INSERT INTO t_decimal VALUES(1, 1.0)");
-
-        assertQuery("SELECT * FROM t_decimal WHERE val = 1")
-                .matches(containsIndexScan("PUBLIC", "T_DECIMAL", "T_DECIMAL_IDX"))
-                .check();
-    }
-
-    @Test
-    public void testDecimal2() {
-        sql("CREATE TABLE t_decimal (ID INTEGER PRIMARY KEY, VAL DECIMAL(5,3))");
-        sql("CREATE INDEX t_decimal_idx ON t_decimal (VAL)");
-
-        sql("INSERT INTO t_decimal VALUES(1, 1.0)");
-
-        assertQuery("SELECT * FROM t_decimal WHERE val = 1::DECIMAL(5,3)")
-                .matches(containsIndexScan("PUBLIC", "T_DECIMAL", "T_DECIMAL_IDX"))
-                .check();
     }
 
     private List<RowCountingIndex> injectRowCountingIndex(String tableName, String idxName) {

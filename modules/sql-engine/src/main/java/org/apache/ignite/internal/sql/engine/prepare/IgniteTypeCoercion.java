@@ -283,8 +283,10 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     /**
      * Checks whether {@code CAST} operation can be used to convert {@code fromType} to {@code toType}.
      * This method returns {@code false} if type are the same.
+     *
+     * <p>This method should be only used for index bound checks.
      */
-    public boolean needToCast(RelDataType fromType, RelDataType toType) {
+    public boolean needToCastInIndex(RelDataType fromType, RelDataType toType) {
         if (fromType == null) {
             return false;
         }
