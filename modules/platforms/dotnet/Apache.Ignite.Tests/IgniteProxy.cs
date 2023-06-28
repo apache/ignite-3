@@ -1,86 +1,34 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 namespace Apache.Ignite.Tests;
 
-using System;
 using System.Net;
-using System.Net.Sockets;
-using System.Threading;
-using System.Threading.Tasks;
 
 /// <summary>
 /// Proxy for Ignite server with request logging and interception.
 /// </summary>
-public sealed class IgniteProxy : IDisposable
+public sealed class IgniteProxy : IgniteServerBase
 {
     private readonly IPEndPoint _endPoint;
-    private readonly Socket _listener;
-    private readonly CancellationTokenSource _cts = new();
-    private readonly object _disposeSyncRoot = new();
-    private volatile Socket? _handler;
-    private bool _disposed;
 
     public IgniteProxy(IPEndPoint endPoint)
     {
+        // TODO: Connect.
         _endPoint = endPoint;
-        _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-        _listener.NoDelay = true;
-
-        _listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
-        _listener.Listen(backlog: 1);
-        Task.Run(ListenLoop);
-    }
-
-    public void Dispose()
-    {
-        // TODO: Extract IgniteServerBase class.
-        lock (_disposeSyncRoot)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            _cts.Cancel();
-            _handler?.Dispose();
-            _listener.Disconnect(false);
-            _listener.Dispose();
-            _cts.Dispose();
-
-            _disposed = true;
-        }
-    }
-
-    private void ListenLoop()
-    {
-        while (!_cts.IsCancellationRequested)
-        {
-            try
-            {
-                ListenLoopInternal();
-            }
-            catch (Exception e)
-            {
-                if (e is SocketException)
-                {
-                    continue;
-                }
-
-                Console.WriteLine("Error in FakeServer: " + e);
-            }
-        }
-    }
-
-    private void ListenLoopInternal()
-    {
-        while (!_cts.IsCancellationRequested)
-        {
-            using Socket handler = _listener.Accept();
-            _handler = handler;
-            handler.NoDelay = true;
-
-            // Read handshake.
-            using var magic = ReceiveBytes(handler, 4);
-            var msgSize = ReceiveMessageSize(handler);
-            using var handshake = ReceiveBytes(handler, msgSize);
-        }
     }
 }
