@@ -348,12 +348,8 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendUuidNotNull(UUID value) {
-        long lsb = value.getLeastSignificantBits();
-        long msb = value.getMostSignificantBits();
-        if ((lsb | msb) != 0L) {
-            putLong(msb);
-            putLong(lsb);
-        }
+        putLong(value.getMostSignificantBits());
+        putLong(value.getLeastSignificantBits());
         return proceed();
     }
 
