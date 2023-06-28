@@ -45,6 +45,7 @@ import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
@@ -134,6 +135,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
+import org.awaitility.Awaitility;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -1227,24 +1229,26 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         assertNotNull(table);
 
-        int i = 0;
-        while (i < 100) {
-            Tuple row;
+        for (int i = 0; i < 100; i++) {
+            int fi = i;
 
-            try {
-                row = table.keyValueView().get(null, Tuple.create().set("id", i));
+            Awaitility.with()
+                    .await()
+                    .pollInterval(100, TimeUnit.MILLISECONDS)
+                    .pollDelay(0, TimeUnit.MILLISECONDS)
+                    .atMost(30, TimeUnit.SECONDS)
+                    .until(() -> {
+                        try {
+                            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", fi));
 
-                assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));
+                            assertEquals(VALUE_PRODUCER.apply(fi), row.stringValue("name"));
 
-                i++;
-            } catch (TransactionException te) {
-                try {
-                    // There may be an exception if the primary replica node was stopped. We should wait for a new primary to appear.
-                    Thread.sleep(100);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
+                            return true;
+                        } catch (TransactionException te) {
+                            // There may be an exception if the primary replica node was stopped. We should wait for new primary to appear.
+                            return false;
+                        }
+                    });
         }
     }
 
