@@ -36,5 +36,5 @@ public class MetaStorageConfigurationSchema {
      */
     @Value(hasDefault = true)
     @Range(min = 1)
-    public long idleSyncTimeInterval = 1000;
+    public long idleSyncTimeInterval = 500;
 }

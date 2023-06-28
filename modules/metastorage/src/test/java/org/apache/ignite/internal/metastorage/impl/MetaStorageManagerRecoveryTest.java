@@ -86,10 +86,9 @@ public class MetaStorageManagerRecoveryTest {
                 raftManager,
                 kvs,
                 clock,
-                mock(TopologyAwareRaftGroupServiceFactory.class)
+                mock(TopologyAwareRaftGroupServiceFactory.class),
+                metaStorageConfiguration
         );
-
-        metaStorageManager.configure(metaStorageConfiguration);
     }
 
     private RaftManager raftManager(long remoteRevision) throws Exception {

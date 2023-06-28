@@ -35,6 +35,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -200,8 +201,12 @@ public class ClusterTimeImpl implements ClusterTime, ManuallyCloseable {
                 try {
                     syncTimeAction.syncTime(clock.now())
                             .whenComplete((v, e) -> {
-                                if (e != null && !(unwrapCause(e) instanceof CancellationException)) {
-                                    LOG.error("Unable to perform idle time sync", e);
+                                if (e != null) {
+                                    Throwable cause = unwrapCause(e);
+
+                                    if (!(cause instanceof CancellationException) && !(cause instanceof NodeStoppingException)) {
+                                        LOG.error("Unable to perform idle time sync", e);
+                                    }
                                 }
                             });
 
