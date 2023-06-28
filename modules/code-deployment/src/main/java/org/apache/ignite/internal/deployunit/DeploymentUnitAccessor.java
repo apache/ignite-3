@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.deployunit;
 
+import java.util.function.Consumer;
 import org.apache.ignite.compute.DeploymentUnit;
 
 /**
@@ -33,10 +34,11 @@ public interface DeploymentUnitAccessor {
     DisposableDeploymentUnit acquire(DeploymentUnit unit);
 
     /**
-     * Checks if the deployment unit is acquired.
+     * Executes the consumer if the deployment unit is not acquired.
      *
      * @param unit Deployment unit.
-     * @return {@code true} if the deployment unit is acquired.
+     * @param consumer Consumer.
+     * @return {@code true} if the consumer was executed.
      */
-    boolean isAcquired(DeploymentUnit unit);
+    boolean computeIfNotAcquired(DeploymentUnit unit, Consumer<DeploymentUnit> consumer);
 }

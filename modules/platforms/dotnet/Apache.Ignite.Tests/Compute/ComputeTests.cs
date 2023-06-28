@@ -350,7 +350,7 @@ namespace Apache.Ignite.Tests.Compute
             var ex = Assert.ThrowsAsync<IgniteException>(
                 async () => await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
 
-            StringAssert.Contains("Deployment unit unit-latest:latest doesn’t exist", ex!.Message);
+            StringAssert.Contains("Deployment unit unit-latest:latest doesn't exist", ex!.Message);
         }
 
         [Test]
@@ -362,7 +362,7 @@ namespace Apache.Ignite.Tests.Compute
             var ex = Assert.ThrowsAsync<IgniteException>(
                 async () => await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, deploymentUnits, NodeNameJob));
 
-            StringAssert.Contains("Deployment unit unit-latest:latest doesn’t exist", ex!.Message);
+            StringAssert.Contains("Deployment unit unit-latest:latest doesn't exist", ex!.Message);
         }
 
         [Test]
