@@ -71,7 +71,7 @@ public class IgniteSqlDecimalLiteralTest extends AbstractPlannerTest {
     }
 
     /**
-     * Type of numeric literal and type of decimal literal should match.
+     * Type of numeric decimal literal and type of decimal literal should match.
      */
     @ParameterizedTest
     @CsvSource({
