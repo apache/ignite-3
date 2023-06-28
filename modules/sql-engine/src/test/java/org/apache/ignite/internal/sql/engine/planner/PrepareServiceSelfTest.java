@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiFunction;
 import java.util.stream.Stream;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.SqlNode;
