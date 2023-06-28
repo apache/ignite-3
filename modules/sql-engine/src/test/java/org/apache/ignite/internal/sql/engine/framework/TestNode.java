@@ -59,6 +59,7 @@ import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.metadata.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
+import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
@@ -80,7 +81,7 @@ import org.apache.ignite.network.TopologyService;
 public class TestNode implements LifecycleAware {
     private final String nodeName;
     private final SchemaPlus schema;
-    private final PrepareServiceImpl prepareService;
+    private final PrepareService prepareService;
     private final ExecutionService executionService;
 
     private final List<LifecycleAware> services = new ArrayList<>();

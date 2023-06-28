@@ -17,23 +17,24 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.ignite.internal.sql.engine.QueryContext;
-import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 
 /**
- * Preparation service that accepts an AST of the query and returns a prepared query plan.
+ * Preparation service that accepts an AST of the query and returns a optimized query plan.
  */
-public interface PrepareService extends LifecycleAware {
+@FunctionalInterface
+public interface QueryOptimizer {
     /**
-     * Prepare query plan from SQL string.
+     * Optimizes a given query.
+     *
+     * <p>That is, it passes a given AST through the optimization pipeline,
+     * applying different rule sets step by step, and returns the optimized
+     * physical tree of Ignite relations.
+     *
+     * @param sqlNode Validated AST of the query to optimize.
+     * @param planner A planner used to apply a rule set to the query tree.
+     * @return An optimized physical tree of Ignite relations.
      */
-    CompletableFuture<QueryPlan> prepareAsync(String query, QueryContext queryContext, BaseQueryContext ctx);
-
-    /**
-     * Prepare query plan from AST tree representing a query.
-     */
-    CompletableFuture<QueryPlan> prepareAsync(SqlNode queryAst, BaseQueryContext context);
+    IgniteRel optimize(SqlNode sqlNode, IgnitePlanner planner);
 }

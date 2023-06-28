@@ -35,7 +35,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiFunction;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -84,11 +83,11 @@ public class PrepareServiceImpl implements PrepareService {
     private final DdlSqlToCommandConverter ddlConverter;
 
     private final ConcurrentMap<CacheKey, CompletableFuture<QueryPlan>> planCache;
-    private final ConcurrentMap<CacheKey, String> normalizedQueryCache;
+    private final ConcurrentMap<CacheKey, CacheKey> normalizedQueryCache;
 
     private final String nodeName;
 
-    private final BiFunction<SqlNode, IgnitePlanner, IgniteRel> queryOptimizer;
+    private final QueryOptimizer queryOptimizer;
 
     private volatile ThreadPoolExecutor planningPool;
 
@@ -126,7 +125,7 @@ public class PrepareServiceImpl implements PrepareService {
             String nodeName,
             int cacheSize,
             DdlSqlToCommandConverter ddlConverter,
-            BiFunction<SqlNode, IgnitePlanner, IgniteRel> queryOptimizer
+            QueryOptimizer queryOptimizer
     ) {
         this.nodeName = nodeName;
         this.ddlConverter = ddlConverter;
@@ -138,7 +137,7 @@ public class PrepareServiceImpl implements PrepareService {
                 .asMap();
         normalizedQueryCache = Caffeine.newBuilder()
                 .maximumSize(cacheSize)
-                .<CacheKey, String>build()
+                .<CacheKey, CacheKey>build()
                 .asMap();
     }
 
@@ -188,9 +187,9 @@ public class PrepareServiceImpl implements PrepareService {
     public CompletableFuture<QueryPlan> prepareAsync(String query, QueryContext queryContext, BaseQueryContext ctx) {
         CacheKey cacheKey = createCacheKey(query, ctx);
 
-        String normalizedQuery = normalizedQueryCache.get(cacheKey);
+        CacheKey normalizedCacheKey = normalizedQueryCache.get(cacheKey);
 
-        if (normalizedQuery == null) {
+        if (normalizedCacheKey == null) {
             SqlNode sqlNode;
             try {
                 sqlNode = parse(query, queryContext, ctx);
@@ -202,15 +201,15 @@ public class PrepareServiceImpl implements PrepareService {
                 return prepareAsync(sqlNode, ctx);
             }
 
-            normalizedQuery = sqlNode.toString();
+            normalizedCacheKey = createCacheKey(sqlNode.toString(), ctx);
 
-            normalizedQueryCache.putIfAbsent(cacheKey, normalizedQuery);
+            normalizedQueryCache.putIfAbsent(cacheKey, normalizedCacheKey);
 
-            return planCache.computeIfAbsent(createCacheKey(normalizedQuery, ctx), k -> prepareAsync(sqlNode, ctx))
+            return planCache.computeIfAbsent(normalizedCacheKey, k -> prepareAsync(sqlNode, ctx))
                     .thenApply(QueryPlan::copy);
         }
 
-        return planCache.computeIfAbsent(createCacheKey(normalizedQuery, ctx), k ->
+        return planCache.computeIfAbsent(normalizedCacheKey, k ->
                         supplyAsync(() -> parse(query, queryContext, ctx), planningPool).thenCompose(sqlNode -> prepareAsync(sqlNode, ctx)))
                 .thenApply(QueryPlan::copy);
     }
@@ -218,6 +217,7 @@ public class PrepareServiceImpl implements PrepareService {
     /**
      * Prepares and caches normalized query plan.
      */
+    @Override
     public CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx) {
         try {
             assert single(sqlNode);
@@ -280,7 +280,7 @@ public class PrepareServiceImpl implements PrepareService {
             SqlNode validNode = planner.validate(sqlNode);
 
             // Convert to Relational operators graph
-            IgniteRel igniteRel = queryOptimizer.apply(validNode, planner);
+            IgniteRel igniteRel = queryOptimizer.optimize(validNode, planner);
 
             String plan = RelOptUtil.toString(igniteRel, SqlExplainLevel.ALL_ATTRIBUTES);
 
@@ -301,7 +301,7 @@ public class PrepareServiceImpl implements PrepareService {
 
             SqlNode validatedNode = validated.sqlNode();
 
-            IgniteRel igniteRel = queryOptimizer.apply(validatedNode, planner);
+            IgniteRel igniteRel = queryOptimizer.optimize(validatedNode, planner);
 
             // Split query plan to query fragments.
             List<Fragment> fragments = new Splitter().go(igniteRel);
@@ -321,7 +321,7 @@ public class PrepareServiceImpl implements PrepareService {
             SqlNode validatedNode = planner.validate(sqlNode);
 
             // Convert to Relational operators graph
-            IgniteRel igniteRel = queryOptimizer.apply(validatedNode, planner);
+            IgniteRel igniteRel = queryOptimizer.optimize(validatedNode, planner);
 
             // Split query plan to query fragments.
             List<Fragment> fragments = new Splitter().go(igniteRel);
