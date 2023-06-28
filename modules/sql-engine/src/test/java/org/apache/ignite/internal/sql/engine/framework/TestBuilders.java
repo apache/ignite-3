@@ -452,8 +452,6 @@ public class TestBuilders {
     private static class ClusterTableBuilderImpl extends AbstractTableBuilderImpl<ClusterTableBuilder> implements ClusterTableBuilder {
         private final ClusterBuilderImpl parent;
 
-        private DataProvider<?> defaultDataProvider = null;
-
         private ClusterTableBuilderImpl(ClusterBuilderImpl parent) {
             this.parent = parent;
         }
@@ -461,14 +459,6 @@ public class TestBuilders {
         /** {@inheritDoc} */
         @Override
         protected ClusterTableBuilder self() {
-            return this;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public ClusterTableBuilder defaultDataProvider(DataProvider<?> dataProvider) {
-            this.defaultDataProvider = dataProvider;
-
             return this;
         }
 
