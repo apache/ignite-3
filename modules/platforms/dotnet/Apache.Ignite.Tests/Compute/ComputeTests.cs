@@ -239,15 +239,29 @@ namespace Apache.Ignite.Tests.Compute
         [TestCase(11, "_2")]
         public async Task TestExecuteColocated(long key, string nodeName)
         {
+            // TODO: Dispose proxies. Move to field?
+            var proxies = Client.GetConnections().ToDictionary(c => c.Node.Name, c => new IgniteProxy(c.Node.Address));
+            var cfg = new IgniteClientConfiguration();
+            foreach (var proxy in proxies.Values)
+            {
+                cfg.Endpoints.Add(proxy.Endpoint);
+            }
+
+            using var client = await IgniteClient.StartAsync(cfg);
+
+            // ReSharper disable once AccessToDisposedClosure
+            TestUtils.WaitForCondition(() => client.GetConnections().Count == proxies.Count);
+
             var keyTuple = new IgniteTuple { [KeyCol] = key };
-            var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, Units, NodeNameJob);
+            var resNodeName = await client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, Units, NodeNameJob);
 
             var keyPoco = new Poco { Key = key };
-            var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string, Poco>(TableName, keyPoco, Units.Reverse(), NodeNameJob);
+            var resNodeName2 = await client.Compute.ExecuteColocatedAsync<string, Poco>(TableName, keyPoco, Units.Reverse(), NodeNameJob);
 
             var keyPocoStruct = new PocoStruct(key, null);
-            var resNodeName3 = await Client.Compute.ExecuteColocatedAsync<string, PocoStruct>(TableName, keyPocoStruct, Units, NodeNameJob);
+            var resNodeName3 = await client.Compute.ExecuteColocatedAsync<string, PocoStruct>(TableName, keyPocoStruct, Units, NodeNameJob);
 
+            // TODO: Check actual node name from proxy.
             var expectedNodeName = PlatformTestNodeRunner + nodeName;
             Assert.AreEqual(expectedNodeName, resNodeName);
             Assert.AreEqual(expectedNodeName, resNodeName2);
