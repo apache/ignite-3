@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
+import static org.apache.calcite.runtime.SqlFunctions.charLength;
+import static org.apache.calcite.runtime.SqlFunctions.octetLength;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 
 import java.math.BigDecimal;
@@ -120,6 +122,16 @@ public class IgniteSqlFunctions {
         return b == null ? null : new String(b.getBytes(), Commons.typeFactory().getDefaultCharset());
     }
 
+    /** LENGTH(VARBINARY|VARCHAR). */
+    public static int length(Object b) {
+        return b instanceof ByteString ? octetLength((ByteString) b) : charLength((String) b);
+    }
+
+    private static BigDecimal setScale(int precision, int scale, BigDecimal decimal) {
+        return precision == IgniteTypeSystem.INSTANCE.getDefaultPrecision(SqlTypeName.DECIMAL)
+            ? decimal : decimal.setScale(scale, RoundingMode.HALF_UP);
+    }
+
     /** CAST(DOUBLE AS DECIMAL). */
     public static BigDecimal toBigDecimal(double val, int precision, int scale) {
         return toBigDecimal((Double) val, precision, scale);
@@ -201,7 +213,7 @@ public class IgniteSqlFunctions {
         }
 
         return o instanceof Number ? toBigDecimal((Number) o, precision, scale)
-                : toBigDecimal(o.toString(), precision, scale);
+               : toBigDecimal(o.toString(), precision, scale);
     }
 
     /**

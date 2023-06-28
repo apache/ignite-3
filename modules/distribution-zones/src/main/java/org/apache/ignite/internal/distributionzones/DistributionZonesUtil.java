@@ -40,13 +40,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
@@ -91,6 +96,9 @@ public class DistributionZonesUtil {
     /** Key prefix, needed for processing the event about zone's update was triggered only once. */
     private static final String DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY_PREFIX = "distributionZones.change.trigger.";
 
+    /** Key prefix that represents {@link ZoneState#topologyAugmentationMap()} in the Vault.*/
+    private static final String DISTRIBUTION_ZONES_TOPOLOGY_AUGMENTATION_VAULT_PREFIX = "vault.distributionZones.topologyAugmentation.";
+
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_KEY = new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY);
 
@@ -101,7 +109,7 @@ public class DistributionZonesUtil {
     private static final ByteArray DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT_KEY = new ByteArray(DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT);
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT}. */
-    public static final ByteArray DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT_KEY =
+    private static final ByteArray DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT_KEY =
             new ByteArray(DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT);
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION}. */
@@ -110,9 +118,11 @@ public class DistributionZonesUtil {
 
     /**
      * The initial value of trigger revision in case when it is not initialized in the meta storage.
-     * The trigger revision in the meta storage can be uninitialized for the default distribution zone.
+     * It is possible because invoke to metastorage with the initialisation is async, and scale up/down propagation could be
+     * propagated first. Initial value is -1, because for default zone, we initialise trigger keys with metastorage's applied revision,
+     * which is 0 on a start.
      */
-    private static final long INITIAL_TRIGGER_REVISION_VALUE = 0;
+    private static final long INITIAL_TRIGGER_REVISION_VALUE = -1;
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}. */
     private static final ByteArray DISTRIBUTION_ZONES_DATA_NODES_KEY =
@@ -199,6 +209,13 @@ public class DistributionZonesUtil {
     }
 
     /**
+     * The key prefix needed for processing an event about zone's data nodes.
+     */
+    static ByteArray zonesDataNodesPrefix() {
+        return DISTRIBUTION_ZONES_DATA_NODES_KEY;
+    }
+
+    /**
      * The key that represents logical topology nodes in vault.
      */
     public static ByteArray zonesLogicalTopologyVault() {
@@ -221,10 +238,10 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * The key prefix needed for processing an event about zone's data nodes.
+     * The key that represents {@link ZoneState#topologyAugmentationMap()} in the Vault.
      */
-    static ByteArray zonesDataNodesPrefix() {
-        return DISTRIBUTION_ZONES_DATA_NODES_KEY;
+    static ByteArray zoneTopologyAugmentationVault(int zoneId) {
+        return new ByteArray(DISTRIBUTION_ZONES_TOPOLOGY_AUGMENTATION_VAULT_PREFIX + zoneId);
     }
 
     /**
@@ -531,5 +548,23 @@ public class DistributionZonesUtil {
                 .filter(n -> filter(nodesAttributes.get(n.nodeId()), filter))
                 .map(Node::nodeName)
                 .collect(toSet());
+    }
+
+    /**
+     * Create an executor for the zone manager.
+     * Used a single thread executor to avoid concurrent executing several tasks for the same zone.
+     * ScheduledThreadPoolExecutor guarantee that tasks scheduled for exactly the same
+     * execution time are enabled in first-in-first-out (FIFO) order of submission.
+     * // TODO: IGNITE-19783 Need to use a striped executor.
+     *
+     * @param namedThreadFactory Named thread factory.
+     * @return Executor.
+     */
+    static ScheduledExecutorService createZoneManagerExecutor(NamedThreadFactory namedThreadFactory) {
+        return new ScheduledThreadPoolExecutor(
+                1,
+                namedThreadFactory,
+                new ThreadPoolExecutor.DiscardPolicy()
+        );
     }
 }

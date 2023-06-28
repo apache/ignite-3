@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema;
 
 import java.util.Collection;
+import java.util.List;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.jetbrains.annotations.Nullable;
@@ -93,7 +94,7 @@ public interface SchemaRegistry {
      * Resolves batch of binary row against the latest schema.
      *
      * @param rows Binary rows.
-     * @return Schema-aware rows.
+     * @return Schema-aware rows. Contains {@code null} at the same positions as in {@code rows}.
      */
-    Collection<Row> resolve(Collection<BinaryRow> rows);
+    List<Row> resolve(Collection<BinaryRow> rows);
 }

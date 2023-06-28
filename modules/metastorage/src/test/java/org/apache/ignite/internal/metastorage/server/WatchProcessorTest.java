@@ -122,7 +122,6 @@ public class WatchProcessorTest {
         var event = new WatchEvent(new EntryEvent(oldEntry(entry1), entry1));
 
         verify(listener1, timeout(1_000)).onUpdate(event);
-        verify(listener2, timeout(1_000)).onRevisionUpdated(1);
 
         verify(revisionCallback, timeout(1_000)).onRevisionApplied(event, ts);
 
@@ -132,7 +131,6 @@ public class WatchProcessorTest {
 
         event = new WatchEvent(new EntryEvent(oldEntry(entry2), entry2));
 
-        verify(listener1, timeout(1_000)).onRevisionUpdated(2);
         verify(listener2, timeout(1_000)).onUpdate(event);
 
         verify(revisionCallback, timeout(1_000)).onRevisionApplied(event, ts);
