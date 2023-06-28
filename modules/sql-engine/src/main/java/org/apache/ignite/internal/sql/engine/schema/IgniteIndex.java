@@ -94,7 +94,7 @@ public class IgniteIndex {
      */
     @TestOnly
     public IgniteIndex(Type type, List<String> columns, @Nullable List<Collation> collations) {
-        assert type == Type.HASH ^ collations == null;
+        assert type == Type.SORTED ^ collations == null;
 
         this.columns = columns;
         this.collations = collations;

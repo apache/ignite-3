@@ -612,7 +612,7 @@ public class TestBuilders {
     private abstract static class AbstractIndexBuilderImpl<ChildT> extends AbstractDataSourceBuilderImpl<ChildT>
             implements SortedIndexBuilderBase<ChildT>, HashIndexBuilderBase<ChildT> {
         protected final List<String> columns = new ArrayList<>();
-        protected List<Collation> collations = new ArrayList<>();
+        protected List<Collation> collations;
         protected String tableName;
 
         /** {@inheritDoc} */
@@ -634,6 +634,10 @@ public class TestBuilders {
         /** {@inheritDoc} */
         @Override
         public ChildT addColumn(String columnName, Collation collation) {
+            if (collations == null) {
+                collations = new ArrayList<>();
+            }
+
             columns.add(columnName);
             collations.add(collation);
 

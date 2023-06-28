@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,12 @@ public class TestClusterTest {
             .addColumn("VAL", NativeTypes.stringOf(64))
             .defaultDataProvider(dataProvider)
             .end()
+            .addHashIndex()
+            .name("IDX_ID")
+            .table("T1")
+            .addColumn("ID")
+            .defaultDataProvider(dataProvider)
+            .end()
             .build();
     // @formatter:on
 
@@ -64,6 +71,21 @@ public class TestClusterTest {
         var plan = gatewayNode.prepare("SELECT * FROM t1");
 
         for (var row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
+            assertNotNull(row);
+        }
+    }
+
+    /**
+     * Runs a SELECT query with condition.
+     */
+    @Test
+    public void testQueryWithCondition() {
+        cluster.start();
+
+        TestNode gatewayNode = cluster.node("N1");
+        QueryPlan plan = gatewayNode.prepare("SELECT * FROM t1 WHERE ID > 1");
+
+        for (List<?> row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
             assertNotNull(row);
         }
     }
