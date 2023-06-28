@@ -987,8 +987,8 @@ public class IgniteImpl implements Ignite {
         var configurationRevisionFuture = new CompletableFuture<Void>();
 
         ConfigurationStorageRevisionListener revisionListener = newStorageRevision ->
-            ((MetaStorageManagerImpl) metaStorageMgr).notifyRevisionUpdateListenerOnStart(newStorageRevision)
-                    .thenRun(() -> configurationRevisionFuture.complete(null));
+                ((MetaStorageManagerImpl) metaStorageMgr).notifyRevisionUpdateListenerOnStart(newStorageRevision)
+                        .thenRun(() -> configurationRevisionFuture.complete(null));
 
         clusterConfiguration().listenUpdateStorageRevision(revisionListener);
 
