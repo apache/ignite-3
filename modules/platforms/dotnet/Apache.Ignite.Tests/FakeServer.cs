@@ -118,6 +118,8 @@ namespace Apache.Ignite.Tests
 
         public bool SendInvalidMagic { get; set; }
 
+        public int RequestCount { get; set; }
+
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
@@ -164,8 +166,6 @@ namespace Apache.Ignite.Tests
 
             handler.Send(handshakeMem.Span);
 
-            int requestCount = 0;
-
             while (!cancellationToken.IsCancellationRequested)
             {
                 msgSize = ReceiveMessageSize(handler);
@@ -180,7 +180,7 @@ namespace Apache.Ignite.Tests
                 var opCode = (ClientOp)reader.ReadInt32();
                 var requestId = reader.ReadInt64();
 
-                if (_shouldDropConnection(new RequestContext(++requestCount, opCode, requestId)))
+                if (_shouldDropConnection(new RequestContext(++RequestCount, opCode, requestId)))
                 {
                     DroppedConnectionCount++;
                     break;
