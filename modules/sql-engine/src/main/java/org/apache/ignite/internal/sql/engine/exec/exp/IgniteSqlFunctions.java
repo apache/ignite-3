@@ -62,6 +62,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class IgniteSqlFunctions {
     private static final DateTimeFormatter ISO_LOCAL_DATE_TIME_EX;
+    private static final String NUMERIC_FIELD_OVERFLOW_ERROR = "Numeric field overflow";
 
     static {
         ISO_LOCAL_DATE_TIME_EX = new DateTimeFormatterBuilder()
@@ -235,13 +236,13 @@ public class IgniteSqlFunctions {
 
         if (nonZero) {
             if (scale > precision) {
-                throw new SqlException(QUERY_INVALID_ERR, "Numeric overflow");
+                throw new SqlException(QUERY_INVALID_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
             } else {
                 int currentSignificantDigits = value.precision() - value.scale();
                 int expectedSignificantDigits = precision - scale;
 
                 if (currentSignificantDigits > expectedSignificantDigits) {
-                    throw new SqlException(QUERY_INVALID_ERR, "Numeric overflow");
+                    throw new SqlException(QUERY_INVALID_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
                 }
             }
         }

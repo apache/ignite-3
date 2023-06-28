@@ -50,7 +50,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
 
-    private static final String NUMERIC_OVERFLOW_ERROR = "Numeric overflow";
+    private static final String NUMERIC_OVERFLOW_ERROR = "Numeric field overflow";
 
     private static final String NUMERIC_FORMAT_ERROR = "neither a decimal digit number";
 
@@ -361,6 +361,8 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
                 arguments(CaseStatus.RUN, varcharType, "100", decimalType(3), bigDecimalVal("100")),
                 arguments(CaseStatus.RUN, varcharType, "100.12", decimalType(5, 1), bigDecimalVal("100.1")),
                 arguments(CaseStatus.RUN, varcharType, "lame", decimalType(5, 1), error(NUMERIC_FORMAT_ERROR)),
+                arguments(CaseStatus.RUN, varcharType, "12345", decimalType(5, 1), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(CaseStatus.RUN, varcharType, "1234", decimalType(5, 1), bigDecimalVal("1234.0")),
                 // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
                 arguments(CaseStatus.SKIP, varcharType, "100.12", decimalType(1, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
