@@ -47,6 +47,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -59,6 +60,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 /**
  * Thin client compute integration test.
  */
+@SuppressWarnings("resource")
 public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     /** Test trace id. */
     private static final UUID TRACE_ID = UUID.randomUUID();
@@ -201,6 +203,39 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         String expectedNode = "itcct_n_" + port;
         assertEquals(expectedNode, tupleRes);
         assertEquals(expectedNode, pojoRes);
+    }
+
+    @Test
+    void testExecuteOnUnknownUnitWithLatestVersionThrows() {
+        CompletionException ex = assertThrows(
+                CompletionException.class,
+                () -> client().compute().<String>execute(
+                        Set.of(node(0)),
+                        List.of(new DeploymentUnit("u", "latest")),
+                        NodeNameJob.class.getName()).join());
+
+        var cause = (IgniteException) ex.getCause();
+        assertThat(cause.getMessage(), containsString("Deployment unit u:latest doesn't exist"));
+
+        // TODO IGNITE-19823 DeploymentUnitNotFoundException is internal, does not propagate to client.
+        assertEquals(INTERNAL_ERR, cause.code());
+    }
+
+    @Test
+    void testExecuteColocatedOnUnknownUnitWithLatestVersionThrows() {
+        CompletionException ex = assertThrows(
+                CompletionException.class,
+                () -> client().compute().<String>executeColocated(
+                        TABLE_NAME,
+                        Tuple.create().set(COLUMN_KEY, 1),
+                        List.of(new DeploymentUnit("u", "latest")),
+                        NodeNameJob.class.getName()).join());
+
+        var cause = (IgniteException) ex.getCause();
+        assertThat(cause.getMessage(), containsString("Deployment unit u:latest doesn't exist"));
+
+        // TODO IGNITE-19823 DeploymentUnitNotFoundException is internal, does not propagate to client.
+        assertEquals(INTERNAL_ERR, cause.code());
     }
 
     @Test
