@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
+import static org.apache.calcite.runtime.SqlFunctions.charLength;
+import static org.apache.calcite.runtime.SqlFunctions.octetLength;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 
 import java.math.BigDecimal;
@@ -117,6 +119,11 @@ public class IgniteSqlFunctions {
     /** CAST(VARBINARY AS VARCHAR). */
     public static String toString(ByteString b) {
         return b == null ? null : new String(b.getBytes(), Commons.typeFactory().getDefaultCharset());
+    }
+
+    /** LENGTH(VARBINARY|VARCHAR). */
+    public static int length(Object b) {
+        return b instanceof ByteString ? octetLength((ByteString) b) : charLength((String) b);
     }
 
     private static BigDecimal setScale(int precision, int scale, BigDecimal decimal) {
