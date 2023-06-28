@@ -27,6 +27,7 @@ namespace Apache.Ignite.Tests.Compute
     using Ignite.Compute;
     using Ignite.Table;
     using Internal.Network;
+    using Internal.Proto;
     using Network;
     using NodaTime;
     using NUnit.Framework;
@@ -255,6 +256,11 @@ namespace Apache.Ignite.Tests.Compute
             var keyTuple = new IgniteTuple { [KeyCol] = key };
             var resNodeName = await client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, Units, NodeNameJob);
 
+            var requestNodeName = proxies
+                .Where(x => x.Value.ClientOps.Contains(ClientOp.ComputeExecuteColocated))
+                .Select(x => x.Key)
+                .Single();
+
             var keyPoco = new Poco { Key = key };
             var resNodeName2 = await client.Compute.ExecuteColocatedAsync<string, Poco>(TableName, keyPoco, Units.Reverse(), NodeNameJob);
 
@@ -266,6 +272,7 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreEqual(expectedNodeName, resNodeName);
             Assert.AreEqual(expectedNodeName, resNodeName2);
             Assert.AreEqual(expectedNodeName, resNodeName3);
+            Assert.AreEqual(expectedNodeName, requestNodeName);
         }
 
         [Test]
