@@ -53,7 +53,7 @@ public class TestIndex extends IgniteIndex {
     private final Map<String, DataProvider<?>> dataProviders;
 
     /** Constructor. */
-    private TestIndex(
+    TestIndex(
             String name,
             String tableName,
             Type type,

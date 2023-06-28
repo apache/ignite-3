@@ -43,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -68,6 +69,16 @@ public class TestBuilders {
         return new TableBuilderImpl();
     }
 
+    /** Returns a builder of the test sorted-index object. */
+    public static SortedIndexBuilder sortedIndex() {
+        return new SortedIndexBuilderImpl();
+    }
+
+    /** Returns a builder of the test hash-index object. */
+    public static HashIndexBuilder hashIndex() {
+        return new HashIndexBuilderImpl();
+    }
+
     /** Returns a builder of the execution context. */
     public static ExecutionContextBuilder executionContext() {
         return new ExecutionContextBuilderImpl();
@@ -87,8 +98,8 @@ public class TestBuilders {
         /**
          * Sets desired names for the cluster nodes.
          *
-         * @param firstNodeName A name of the first node. There is no difference in what node should be first. This parameter was
-         *         introduced to force user to provide at least one node name.
+         * @param firstNodeName A name of the first node. There is no difference in what node should be first. This parameter was introduced
+         *     to force user to provide at least one node name.
          * @param otherNodeNames An array of rest of the names to create cluster from.
          * @return {@code this} for chaining.
          */
@@ -101,14 +112,24 @@ public class TestBuilders {
          */
         ClusterTableBuilder addTable();
 
+        /**
+         * Creates a sorted-index builder to add to the cluster.
+         *
+         * @return An instance of sorted-index builder.
+         */
         ClusterSortedIndexBuilder addSortedIndex();
 
+        /**
+         * Creates a hash-index builder to add to the cluster.
+         *
+         * @return An instance of hash builder.
+         */
         ClusterHashIndexBuilder addHashIndex();
 
         /**
          * When specified the given factory is used to create instances of
-         * {@link ClusterTableBuilder#defaultDataProvider(DataProvider) default data providers} for tables that have no
-         * {@link ClusterTableBuilder#defaultDataProvider(DataProvider) default data provider} set.
+         * {@link ClusterTableBuilder#defaultDataProvider(DataProvider) default data providers} for tables
+         * that have no {@link ClusterTableBuilder#defaultDataProvider(DataProvider) default data provider} set.
          *
          * <p>Note: when a table has default data provider this method has no effect.
          *
@@ -477,6 +498,66 @@ public class TestBuilders {
         }
     }
 
+    private static class SortedIndexBuilderImpl extends AbstractIndexBuilderImpl<SortedIndexBuilder>
+            implements SortedIndexBuilder {
+        /** {@inheritDoc} */
+        @Override
+        SortedIndexBuilder self() {
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public TestIndex build() {
+            if (name == null) {
+                throw new IllegalArgumentException("Name is not specified");
+            }
+
+            if (tableName == null) {
+                throw new IllegalArgumentException("Table name is not specified");
+            }
+
+            if (columns.isEmpty()) {
+                throw new IllegalArgumentException("Index must contain at least one column");
+            }
+
+            if (collations.size() == columns.size()) {
+                throw new IllegalArgumentException("Collation must be specified for each of columns.");
+            }
+
+            return new TestIndex(name, tableName, Type.SORTED, columns, collations, dataProviders);
+        }
+    }
+
+    private static class HashIndexBuilderImpl extends AbstractIndexBuilderImpl<HashIndexBuilder>
+            implements HashIndexBuilder {
+        /** {@inheritDoc} */
+        @Override
+        HashIndexBuilder self() {
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public TestIndex build() {
+            if (name == null) {
+                throw new IllegalArgumentException("Name is not specified");
+            }
+
+            if (tableName == null) {
+                throw new IllegalArgumentException("Table name is not specified");
+            }
+
+            if (columns.isEmpty()) {
+                throw new IllegalArgumentException("Index must contain at least one column");
+            }
+
+            assert collations == null :"Collation is not supported.";
+
+            return new TestIndex(name, tableName, Type.HASH, columns, null, dataProviders);
+        }
+    }
+
     private static class ClusterSortedIndexBuilderImpl extends AbstractIndexBuilderImpl<ClusterSortedIndexBuilder>
             implements ClusterSortedIndexBuilder {
         private final ClusterBuilderImpl parent;
@@ -766,7 +847,8 @@ public class TestBuilders {
     @FunctionalInterface
     private interface NestedBuilder<ParentT> {
         /**
-         * Notifies the builder's chain of the nested builder that we need to return back to the previous layer.
+         * Notifies the builder's chain of the nested builder that we need to return back to the
+         * previous layer.
          *
          * @return An instance of the parent builder.
          */
