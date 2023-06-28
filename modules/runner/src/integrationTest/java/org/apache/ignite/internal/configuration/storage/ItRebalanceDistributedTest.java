@@ -749,7 +749,7 @@ public class ItRebalanceDistributedTest {
             ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
             Consumer<LongFunction<CompletableFuture<?>>> registry = (LongFunction<CompletableFuture<?>> function) ->
-                    clusterConfigRegistry.listenUpdateStorageRevision(function::apply);
+                    metaStorageManager.registerRevisionUpdateListener(function::apply);
 
             TablesConfiguration tablesCfg = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
@@ -887,7 +887,11 @@ public class ItRebalanceDistributedTest {
             assertThat(
                     allOf(
                             nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                            clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
+                            clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
+                            // Why "-1"? I don't know, it just works like that.
+                            ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart(
+                                    metaStorageManager.appliedRevision() - 1
+                            )
                     ),
                     willSucceedIn(1, TimeUnit.MINUTES)
             );
