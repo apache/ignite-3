@@ -56,6 +56,8 @@ import org.jetbrains.annotations.Nullable;
  * Util class for Distribution Zones flow.
  */
 public class DistributionZonesUtil {
+    private static final String DISTRIBUTION_ZONE_PREFIX = "distributionZone.";
+
     /** Key prefix for zone's data nodes and trigger keys. */
     private static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = "distributionZone.dataNodes.";
 
@@ -84,6 +86,8 @@ public class DistributionZonesUtil {
 
     /** Key prefix for zones' logical topology nodes in vault. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT = "vault." + DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY;
+
+    private static final String DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT = "vault." + DISTRIBUTION_ZONE_PREFIX + "versionedConfiguration.";
 
     /** Key prefix for zones' logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "version";
@@ -135,6 +139,14 @@ public class DistributionZonesUtil {
      */
     public static ByteArray zoneDataNodesKey() {
         return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX);
+    }
+
+    public static ByteArray zoneVersionedConfigurationKey(int zoneId) {
+        return new ByteArray(DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT + zoneId);
+    }
+
+    public static ByteArray zoneVersionedConfigurationKey() {
+        return new ByteArray(DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT);
     }
 
     /**
