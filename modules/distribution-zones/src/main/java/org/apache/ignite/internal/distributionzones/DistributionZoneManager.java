@@ -787,7 +787,7 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Creates or restores zone's state depending of the {@link ZoneState#topologyAugmentationMap()} existence in the Vault.
+     * Creates or restores zone's state depending on the {@link ZoneState#topologyAugmentationMap()} existence in the Vault.
      * We save {@link ZoneState#topologyAugmentationMap()} in the Vault every time we receive logical topology changes from the metastore.
      *
      * @param zone Zone's view.
@@ -804,7 +804,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             ZoneState prevZoneState = zonesState.putIfAbsent(zoneId, zoneState);
 
-            assert prevZoneState == null : "Zone's state was created twice [zoneId = " + zoneId + "]";
+            assert prevZoneState == null : "Zone's state was created twice [zoneId = " + zoneId + ']';
 
             Set<Node> dataNodes = logicalTopology.stream().map(NodeWithAttributes::node).collect(toSet());
 
@@ -825,7 +825,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             ZoneState prevZoneState = zonesState.putIfAbsent(zoneId, zoneState);
 
-            assert prevZoneState == null : "Zone's state was created twice [zoneId = " + zoneId + "]";
+            assert prevZoneState == null : "Zone's state was created twice [zoneId = " + zoneId + ']';
 
             Optional<Long> maxScaleUpRevision = zoneState.highestRevision(true);
 
