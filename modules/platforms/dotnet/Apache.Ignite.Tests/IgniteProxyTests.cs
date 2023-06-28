@@ -34,5 +34,6 @@ public class IgniteProxyTests : IgniteTestsBase
         using var client = await IgniteClient.StartAsync(new IgniteClientConfiguration(proxy.Endpoint));
 
         var tables = await client.Tables.GetTablesAsync();
+        Assert.Greater(tables.Count, 1);
     }
 }

@@ -41,14 +41,17 @@ public sealed class IgniteProxy : IgniteServerBase
 
     protected override void Handle(Socket handler, CancellationToken cancellationToken)
     {
-        using var magic = ReceiveBytes(handler, 4);
-        _socket.Send(magic.AsMemory().Span);
-
-        using var serverMagic = ReceiveBytes(_socket, 4);
-        handler.Send(serverMagic.AsMemory().Span);
+        int messageCount = 0;
 
         while (!cancellationToken.IsCancellationRequested)
         {
+            if (messageCount == 0)
+            {
+                // Forward magic from client to server.
+                using var magic = ReceiveBytes(handler, 4);
+                _socket.Send(magic.AsMemory().Span);
+            }
+
             // Receive from client.
             var msgSize = ReceiveMessageSize(handler);
             using var msg = ReceiveBytes(handler, msgSize);
@@ -58,12 +61,21 @@ public sealed class IgniteProxy : IgniteServerBase
             _socket.Send(msg.AsMemory().Span);
 
             // Receive from server.
+            if (messageCount == 0)
+            {
+                // Forward magic from server to client.
+                using var serverMagic = ReceiveBytes(_socket, 4);
+                handler.Send(serverMagic.AsMemory().Span);
+            }
+
             var serverMsgSize = ReceiveMessageSize(_socket);
             using var serverMsg = ReceiveBytes(_socket, serverMsgSize);
 
             // Forward to client.
             handler.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(serverMsgSize)));
             handler.Send(serverMsg.AsMemory().Span);
+
+            messageCount++;
         }
     }
 
