@@ -253,7 +253,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     private CompletableFuture<MetaStorageServiceImpl> initializeMetaStorage(
-            Set<String> metaStorageNodes, MetaStorageConfiguration metaStorageConfig
+            Set<String> metaStorageNodes,
+            MetaStorageConfiguration metaStorageConfig
     ) {
         assert metaStorageConfig != null : "Meta Storage configuration has not been set";
 
@@ -273,7 +274,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     private CompletableFuture<? extends RaftGroupService> startFollowerNode(
-            Set<String> metaStorageNodes, RaftNodeDisruptorConfiguration disruptorConfig, MetaStorageConfiguration metaStorageConfig
+            Set<String> metaStorageNodes,
+            RaftNodeDisruptorConfiguration disruptorConfig,
+            MetaStorageConfiguration metaStorageConfig
     ) throws NodeStoppingException {
         String thisNodeName = clusterService.nodeName();
 

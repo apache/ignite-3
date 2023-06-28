@@ -205,7 +205,7 @@ public class ClusterTimeImpl implements ClusterTime, ManuallyCloseable {
                                 }
                             });
 
-                    // re-schedule the task again.
+                    // Re-schedule the task again.
                     schedule();
                 } finally {
                     busyLock.leaveBusy();
