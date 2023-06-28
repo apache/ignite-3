@@ -24,11 +24,11 @@ using System.Net;
 /// </summary>
 public sealed class IgniteProxy : IgniteServerBase
 {
-    private readonly IPEndPoint _endPoint;
-
     public IgniteProxy(IPEndPoint endPoint)
     {
         // TODO: Connect.
-        _endPoint = endPoint;
+        EndPoint = endPoint;
     }
+
+    public IPEndPoint EndPoint { get; private init; }
 }

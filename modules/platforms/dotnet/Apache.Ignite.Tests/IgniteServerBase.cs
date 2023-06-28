@@ -29,10 +29,16 @@ using Internal.Buffers;
 public abstract class IgniteServerBase : IDisposable
 {
     private readonly Socket _listener;
+
     private readonly CancellationTokenSource _cts = new();
+
     private readonly object _disposeSyncRoot = new();
+
     private volatile Socket? _handler;
+
     private bool _disposed;
+
+    private volatile bool _dropNewConnections;
 
     protected IgniteServerBase()
     {
@@ -47,6 +53,12 @@ public abstract class IgniteServerBase : IDisposable
     public int Port => ((IPEndPoint)Listener.LocalEndPoint!).Port;
 
     public string Endpoint => "127.0.0.1:" + Port;
+
+    public bool DropNewConnections
+    {
+        get => _dropNewConnections;
+        set => _dropNewConnections = value;
+    }
 
     protected Socket Listener => _listener;
 
@@ -100,7 +112,7 @@ public abstract class IgniteServerBase : IDisposable
         return new PooledBuffer(buf, 0, size);
     }
 
-    protected virtual void Handle(Socket handler)
+    protected virtual void Handle(Socket handler, CancellationToken cancellationToken)
     {
         // No-op.
     }
@@ -138,11 +150,20 @@ public abstract class IgniteServerBase : IDisposable
         while (!_cts.IsCancellationRequested)
         {
             using Socket handler = _listener.Accept();
+            if (DropNewConnections)
+            {
+                handler.Disconnect(true);
+                _handler = null;
+
+                continue;
+            }
+
             _handler = handler;
             handler.NoDelay = true;
 
             Handle(handler, _cts.Token);
             handler.Disconnect(true);
+            _handler = null;
         }
     }
 
