@@ -107,8 +107,8 @@ public class OptimizedMarshaller implements Marshaller {
 
     @SuppressWarnings("unchecked")
     @Override
-    public <T> T unmarshall(byte[] bytes) {
-        stream.setBuffer(ByteBuffer.wrap(bytes).order(ORDER));
+    public <T> T unmarshall(ByteBuffer bytes) {
+        stream.setBuffer(bytes.duplicate().order(ORDER));
 
         return stream.readMessage(messageReader);
     }

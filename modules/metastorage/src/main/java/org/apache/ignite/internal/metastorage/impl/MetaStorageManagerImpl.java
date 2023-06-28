@@ -118,6 +118,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /** Prevents double stopping of the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
 
+    /**
+     * Future which completes when MetaStorage manager finished local recovery.
+     * The value of the future is the revision which must be used for state recovery by other components.
+     */
+    private final CompletableFuture<Long> recoveryFinishedFuture = new CompletableFuture<>();
+
     private final ClusterTimeImpl clusterTime;
 
     private final TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory;
@@ -175,6 +181,75 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this(vaultMgr, clusterService, cmgMgr, logicalTopologyService, raftMgr, storage, clock, topologyAwareRaftGroupServiceFactory);
 
         configure(configuration);
+    }
+
+    private CompletableFuture<Long> recover(MetaStorageServiceImpl service) {
+        if (!busyLock.enterBusy()) {
+            return CompletableFuture.failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            service.currentRevision().whenComplete((targetRevision, throwable) -> {
+                if (throwable != null) {
+                    recoveryFinishedFuture.completeExceptionally(throwable);
+
+                    return;
+                }
+
+                LOG.info("Performing MetaStorage recovery from revision {} to {}", storage.revision(), targetRevision);
+
+                assert targetRevision != null;
+
+                listenForRecovery(recoveryFinishedFuture, targetRevision);
+            });
+
+            return recoveryFinishedFuture;
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private void listenForRecovery(CompletableFuture<Long> res, long targetRevision) {
+        storage.setRecoveryRevisionListener(storageRevision -> {
+            if (!busyLock.enterBusy()) {
+                res.completeExceptionally(new NodeStoppingException());
+
+                return;
+            }
+
+            try {
+                if (storageRevision < targetRevision) {
+                    return;
+                }
+
+                storage.setRecoveryRevisionListener(null);
+
+                if (res.complete(targetRevision)) {
+                    LOG.info("Finished MetaStorage recovery");
+                }
+            } finally {
+                busyLock.leaveBusy();
+            }
+        });
+
+        if (!busyLock.enterBusy()) {
+            res.completeExceptionally(new NodeStoppingException());
+
+            return;
+        }
+
+        // Storage might be already up-to-date, so check here manually after setting the listener.
+        try {
+            if (storage.revision() >= targetRevision) {
+                storage.setRecoveryRevisionListener(null);
+
+                if (res.complete(targetRevision)) {
+                    LOG.info("Finished MetaStorage recovery");
+                }
+            }
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     private CompletableFuture<MetaStorageServiceImpl> initializeMetaStorage(
@@ -281,10 +356,14 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         busyLock.leaveBusy();
                     }
                 })
+                .thenCompose(service -> recover(service).thenApply(rev -> service))
                 .whenComplete((service, e) -> {
                     if (e != null) {
                         metaStorageSvcFut.completeExceptionally(e);
+                        recoveryFinishedFuture.completeExceptionally(e);
                     } else {
+                        assert service != null;
+
                         metaStorageSvcFut.complete(service);
                     }
                 });
@@ -350,9 +429,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            return metaStorageSvcFut.thenRun(() -> inBusyLock(busyLock, () -> {
+            return recoveryFinishedFuture.thenAccept(revision -> inBusyLock(busyLock, () -> {
                 // Meta Storage contract states that all updated entries under a particular revision must be stored in the Vault.
-                storage.startWatches(this::onRevisionApplied);
+                storage.startWatches(revision + 1, this::onRevisionApplied);
             }));
         } finally {
             busyLock.leaveBusy();
@@ -744,6 +823,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public ClusterTime clusterTime() {
         return clusterTime;
+    }
+
+    @Override
+    public CompletableFuture<Long> recoveryFinishedFuture() {
+        return recoveryFinishedFuture;
     }
 
     @TestOnly

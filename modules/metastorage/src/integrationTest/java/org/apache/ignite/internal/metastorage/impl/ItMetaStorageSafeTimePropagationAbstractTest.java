@@ -45,7 +45,7 @@ public abstract class ItMetaStorageSafeTimePropagationAbstractTest extends Abstr
 
     @BeforeEach
     public void startWatches() {
-        storage.startWatches((e, t) -> {
+        storage.startWatches(0, (e, t) -> {
             time.updateSafeTime(t);
 
             return CompletableFuture.completedFuture(null);
