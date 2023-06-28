@@ -17,15 +17,22 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.sql.Date;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Stream;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -35,8 +42,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Dynamic parameters checks. */
 public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
@@ -231,6 +240,43 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
 
         assertUnexpectedNumberOfParameters("SELECT * FROM t1 OFFSET 1", 1);
         assertUnexpectedNumberOfParameters("SELECT * FROM t1 OFFSET ?", 1, 2);
+    }
+
+    /** varchar casts - literals. */
+    @ParameterizedTest
+    @MethodSource("varcharCasts")
+    public void testVarcharCastsLiterals(String value, RelDataType type, String result) {
+        String query = format("SELECT CAST('{}' AS {})", value, type);
+        assertQuery(query).returns(result).check();
+    }
+
+    /** varchar casts - dynamic params. */
+    @ParameterizedTest
+    @MethodSource("varcharCasts")
+    public void testVarcharCastsDynamicParams(String value, RelDataType type, String result) {
+        String query = format("SELECT CAST(? AS {})", type);
+        assertQuery(query).withParams(value).returns(result).check();
+    }
+
+    private static Stream<Arguments> varcharCasts() {
+        IgniteTypeFactory typeFactory = Commons.typeFactory();
+
+        return Stream.of(
+                // varchar
+                arguments("abcde", typeFactory.createSqlType(SqlTypeName.VARCHAR, 3), "abc"),
+                arguments("abcde", typeFactory.createSqlType(SqlTypeName.VARCHAR, 5), "abcde"),
+                arguments("abcde", typeFactory.createSqlType(SqlTypeName.VARCHAR, 6), "abcde"),
+                arguments("abcde", typeFactory.createSqlType(SqlTypeName.VARCHAR), "abcde"),
+
+                // char
+                arguments("abcde", typeFactory.createSqlType(SqlTypeName.CHAR), "a"),
+                arguments("abcde", typeFactory.createSqlType(SqlTypeName.CHAR, 3), "abc")
+        );
+    }
+
+    @Override
+    protected int nodes() {
+        return 1;
     }
 
     private static void assertUnexpectedNumberOfParameters(String query, Object... params) {
