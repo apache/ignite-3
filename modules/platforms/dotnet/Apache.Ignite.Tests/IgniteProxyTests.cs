@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests;
 
 using System.Linq;
 using System.Threading.Tasks;
+using Internal.Proto;
 using NUnit.Framework;
 
 /// <summary>
@@ -34,6 +35,10 @@ public class IgniteProxyTests : IgniteTestsBase
         using var client = await IgniteClient.StartAsync(new IgniteClientConfiguration(proxy.Endpoint));
 
         var tables = await client.Tables.GetTablesAsync();
+        var table = await client.Tables.GetTableAsync(TableName);
+
         Assert.Greater(tables.Count, 1);
+        Assert.IsNotNull(table);
+        Assert.AreEqual(new[] { ClientOp.TablesGet, ClientOp.TableGet }, proxy.ClientOps);
     }
 }

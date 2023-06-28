@@ -18,9 +18,13 @@
 namespace Apache.Ignite.Tests;
 
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using Internal.Proto;
 
 /// <summary>
 /// Proxy for Ignite server with request logging and interception.
@@ -28,6 +32,8 @@ using System.Threading;
 public sealed class IgniteProxy : IgniteServerBase
 {
     private readonly Socket _socket;
+
+    private readonly ConcurrentQueue<ClientOp> _ops = new();
 
     public IgniteProxy(IPEndPoint targetEndpoint)
     {
@@ -38,6 +44,8 @@ public sealed class IgniteProxy : IgniteServerBase
     }
 
     public IPEndPoint TargetEndpoint { get; private init; }
+
+    internal IList<ClientOp> ClientOps => _ops.ToList();
 
     protected override void Handle(Socket handler, CancellationToken cancellationToken)
     {
@@ -55,6 +63,11 @@ public sealed class IgniteProxy : IgniteServerBase
             // Receive from client.
             var msgSize = ReceiveMessageSize(handler);
             using var msg = ReceiveBytes(handler, msgSize);
+
+            if (messageCount > 0)
+            {
+                _ops.Enqueue((ClientOp)msg.GetReader().ReadInt32());
+            }
 
             // Forward to server.
             _socket.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(msgSize)));

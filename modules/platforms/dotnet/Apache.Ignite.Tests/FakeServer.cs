@@ -176,7 +176,7 @@ namespace Apache.Ignite.Tests
                     Thread.Sleep(OperationDelay);
                 }
 
-                var reader = new MsgPackReader(msg.AsMemory().Span);
+                var reader = msg.GetReader();
                 var opCode = (ClientOp)reader.ReadInt32();
                 var requestId = reader.ReadInt64();
 
