@@ -4,6 +4,7 @@ using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 
 /// <summary>
 /// Proxy for Ignite server with request logging and interception.
@@ -20,6 +21,12 @@ public sealed class IgniteProxy : IDisposable
     public IgniteProxy(IPEndPoint endPoint)
     {
         _endPoint = endPoint;
+        _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+        _listener.NoDelay = true;
+
+        _listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+        _listener.Listen(backlog: 1);
+        Task.Run(ListenLoop);
     }
 
     public void Dispose()
@@ -42,4 +49,38 @@ public sealed class IgniteProxy : IDisposable
         }
     }
 
+    private void ListenLoop()
+    {
+        while (!_cts.IsCancellationRequested)
+        {
+            try
+            {
+                ListenLoopInternal();
+            }
+            catch (Exception e)
+            {
+                if (e is SocketException)
+                {
+                    continue;
+                }
+
+                Console.WriteLine("Error in FakeServer: " + e);
+            }
+        }
+    }
+
+    private void ListenLoopInternal()
+    {
+        while (!_cts.IsCancellationRequested)
+        {
+            using Socket handler = _listener.Accept();
+            _handler = handler;
+            handler.NoDelay = true;
+
+            // Read handshake.
+            using var magic = ReceiveBytes(handler, 4);
+            var msgSize = ReceiveMessageSize(handler);
+            using var handshake = ReceiveBytes(handler, msgSize);
+        }
+    }
 }
