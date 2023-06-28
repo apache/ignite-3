@@ -39,7 +39,7 @@ namespace Apache.Ignite.Tests
     /// <summary>
     /// Fake Ignite server for test purposes.
     /// </summary>
-    public sealed class FakeServer : IDisposable
+    public sealed class FakeServer : IgniteServerBase
     {
         public const string Err = "Err!";
 
@@ -57,19 +57,9 @@ namespace Apache.Ignite.Tests
 
         private const int CustomColocationKeyTableId = 1003;
 
-        private readonly Socket _listener;
-
-        private readonly CancellationTokenSource _cts = new();
-
         private readonly Func<RequestContext, bool> _shouldDropConnection;
 
         private readonly ConcurrentQueue<ClientOp>? _ops;
-
-        private readonly object _disposeSyncRoot = new();
-
-        private bool _disposed;
-
-        private volatile Socket? _handler;
 
         private volatile bool _dropNewConnections;
 
@@ -91,13 +81,8 @@ namespace Apache.Ignite.Tests
             bool disableOpsTracking = false)
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
-            _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-            _listener.NoDelay = true;
 
-            _listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
-            _listener.Listen(backlog: 1);
-
-            Node = new ClusterNode("id-" + nodeName, nodeName, (IPEndPoint)_listener.LocalEndPoint!);
+            Node = new ClusterNode("id-" + nodeName, nodeName, (IPEndPoint)Listener.LocalEndPoint!);
             PartitionAssignment = new[] { Node.Id };
 
             if (!disableOpsTracking)
@@ -123,10 +108,6 @@ namespace Apache.Ignite.Tests
         public TimeSpan MultiRowOperationDelayPerRow { get; set; }
 
         public TimeSpan HeartbeatDelay { get; set; }
-
-        public int Port => ((IPEndPoint)_listener.LocalEndPoint!).Port;
-
-        public string Endpoint => "127.0.0.1:" + Port;
 
         public string LastSql { get; set; } = string.Empty;
 
@@ -161,27 +142,6 @@ namespace Apache.Ignite.Tests
         }
 
         public void ClearOps() => _ops?.Clear();
-
-        public void DropExistingConnection() => _handler?.Dispose();
-
-        public void Dispose()
-        {
-            lock (_disposeSyncRoot)
-            {
-                if (_disposed)
-                {
-                    return;
-                }
-
-                _cts.Cancel();
-                _handler?.Dispose();
-                _listener.Disconnect(false);
-                _listener.Dispose();
-                _cts.Dispose();
-
-                _disposed = true;
-            }
-        }
 
         private static int ReceiveMessageSize(Socket handler)
         {

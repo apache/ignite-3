@@ -44,6 +44,14 @@ public abstract class IgniteServerBase : IDisposable
         Task.Run(ListenLoop);
     }
 
+    public int Port => ((IPEndPoint)Listener.LocalEndPoint!).Port;
+
+    public string Endpoint => "127.0.0.1:" + Port;
+
+    protected Socket Listener => _listener;
+
+    public void DropExistingConnection() => _handler?.Dispose();
+
     public void Dispose()
     {
         lock (_disposeSyncRoot)
@@ -74,13 +82,13 @@ public abstract class IgniteServerBase : IDisposable
         }
     }
 
-    private static int ReceiveMessageSize(Socket handler)
+    protected static int ReceiveMessageSize(Socket handler)
     {
         using var buf = ReceiveBytes(handler, 4);
         return IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buf.AsMemory().Span));
     }
 
-    private static PooledBuffer ReceiveBytes(Socket socket, int size)
+    protected internal static PooledBuffer ReceiveBytes(Socket socket, int size)
     {
         int received = 0;
         var buf = ByteArrayPool.Rent(size);
