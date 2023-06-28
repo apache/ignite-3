@@ -198,11 +198,10 @@ public class IgniteSqlFunctions {
 
         if (o instanceof Boolean) {
             throw new UnsupportedOperationException();
-        } else if (o instanceof Number) {
-            return toBigDecimal((Number) o, precision, scale);
-        } else {
-            return toBigDecimal(o.toString(), precision, scale);
         }
+
+        return o instanceof Number ? toBigDecimal((Number) o, precision, scale)
+                : toBigDecimal(o.toString(), precision, scale);
     }
 
     /**
@@ -222,15 +221,17 @@ public class IgniteSqlFunctions {
 
         boolean nonZero = !value.unscaledValue().equals(BigInteger.ZERO);
 
-        if (nonZero && scale > precision) {
-            throw new SqlException(QUERY_INVALID_ERR, "Numeric overflow");
-        }
+        if (nonZero) {
+            if (scale > precision) {
+                throw new SqlException(QUERY_INVALID_ERR, "Numeric overflow");
+            } else {
+                int currentSignificantDigits = value.precision() - value.scale();
+                int expectedSignificantDigits = precision - scale;
 
-        int currentSignificantDigits = value.precision() - value.scale();
-        int expectedSignificantDigits = precision - scale;
-
-        if (nonZero && currentSignificantDigits > expectedSignificantDigits) {
-            throw new SqlException(QUERY_INVALID_ERR, "Numeric overflow");
+                if (currentSignificantDigits > expectedSignificantDigits) {
+                    throw new SqlException(QUERY_INVALID_ERR, "Numeric overflow");
+                }
+            }
         }
 
         return value.setScale(scale, RoundingMode.HALF_UP);
