@@ -158,7 +158,7 @@ public class WatchProcessor implements ManuallyCloseable {
 
             try {
                 notifyWatchFuture = watchAndEvents.events.isEmpty()
-                        ? watchAndEvents.watch.onRevisionUpdated(revision)
+                        ? completedFuture(null)
                         : watchAndEvents.watch.onUpdate(new WatchEvent(watchAndEvents.events, revision, time));
             } catch (Throwable throwable) {
                 watchAndEvents.watch.onError(throwable);
