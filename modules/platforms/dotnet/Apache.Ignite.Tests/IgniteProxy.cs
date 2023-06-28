@@ -28,6 +28,7 @@ using Internal.Proto;
 
 /// <summary>
 /// Proxy for Ignite server with request logging and interception.
+/// Provides a way to test request routing while using real Ignite cluster.
 /// </summary>
 public sealed class IgniteProxy : IgniteServerBase
 {
