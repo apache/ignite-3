@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
