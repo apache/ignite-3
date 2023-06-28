@@ -184,6 +184,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
@@ -271,18 +272,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final Map<Integer, CompletableFuture<Table>> tableCreateFuts = new ConcurrentHashMap<>();
 
     /**
-     * Versioned store for tables by id. Only table instances are created here, RAFT groups may not be initialized yet.
+     * Versioned store for tables by id. Only table instances are created here, local storages and RAFT groups may not be initialized yet.
      *
+     * @see #localPartsByTableIdVv
      * @see #assignmentsUpdatedVv
      */
     private final IncrementalVersionedValue<Map<Integer, TableImpl>> tablesByIdVv;
 
-    /** Versioned store for local partition set by table id. */
+    /**
+     * Versioned store for local partition set by table id.
+     * Completed strictly after {@link #tablesByIdVv} and strictly before {@link #assignmentsUpdatedVv}.
+     */
     private final IncrementalVersionedValue<Map<Integer, PartitionSet>> localPartsByTableIdVv;
 
     /**
      * Versioned store for tracking RAFT groups initialization and starting completion.
      * Only explicitly updated in {@link #createTablePartitionsLocally(long, List, int, TableImpl)}.
+     * Completed strictly after {@link #localPartsByTableIdVv}.
      */
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
 
@@ -442,7 +448,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
-        localPartsByTableIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
+        localPartsByTableIdVv = new IncrementalVersionedValue<>(dependingOn(tablesByIdVv), HashMap::new);
 
         assignmentsUpdatedVv = new IncrementalVersionedValue<>(dependingOn(localPartsByTableIdVv));
 
@@ -1655,7 +1661,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             ex = t;
         }
 
-        return (ex instanceof IgniteException) ? (IgniteException) ex : IgniteException.wrap(ex);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19539
+        return (ex instanceof IgniteException) ? (IgniteException) ex : IgniteExceptionUtils.wrap(ex);
     }
 
     /**
@@ -1747,7 +1754,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<List<Table>> tablesAsyncInternal() {
-        // TODO: IGNITE-16288 directTableIds should use async configuration API
         return supplyAsync(() -> inBusyLock(busyLock, this::directTableIds), ioExecutor)
                 .thenCompose(tableIds -> inBusyLock(busyLock, () -> {
                     var tableFuts = new CompletableFuture[tableIds.size()];
@@ -1828,8 +1834,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         } else {
             CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(latestCausalityToken);
 
-            // "tablesByIdVv" is always completed strictly before the "assignmentsUpdatedVv".
-            assert tablesByIdFuture.isDone();
+            assert tablesByIdFuture.isDone()
+                    : "'tablesByIdVv' is always completed strictly before the 'assignmentsUpdatedVv'";
 
             return tablesByIdFuture.join();
         }
@@ -1937,7 +1943,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
-            // TODO: IGNITE-16288 directTableId should use async configuration API
             return supplyAsync(() -> inBusyLock(busyLock, () -> directTableId(name)), ioExecutor)
                     .thenCompose(tableId -> inBusyLock(busyLock, () -> {
                         if (tableId == null) {
@@ -1961,7 +1966,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     public CompletableFuture<TableImpl> tableAsyncInternal(int id, boolean checkConfiguration) {
         CompletableFuture<Boolean> tblCfgFut = checkConfiguration
-                // TODO: IGNITE-16288 isTableConfigured should use async configuration API
                 ? supplyAsync(() -> inBusyLock(busyLock, () -> isTableConfigured(id)), ioExecutor)
                 : completedFuture(true);
 

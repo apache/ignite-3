@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.deployunit.metastore.status.NodeStatusKey;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -42,7 +41,7 @@ public class NodeStatusWatchListener implements WatchListener {
 
     private final DeploymentUnitStore deploymentUnitStore;
 
-    private final Supplier<String> localNodeProvider;
+    private final String nodeName;
 
     private final NodeEventCallback callback;
 
@@ -53,14 +52,12 @@ public class NodeStatusWatchListener implements WatchListener {
      * Constructor.
      *
      * @param deploymentUnitStore Unit statuses store.
-     * @param localNodeProvider Node consistent identifier provider.
+     * @param nodeName Node consistent ID.
      * @param callback Node event callback.
      */
-    public NodeStatusWatchListener(DeploymentUnitStore deploymentUnitStore,
-            Supplier<String> localNodeProvider,
-            NodeEventCallback callback) {
+    public NodeStatusWatchListener(DeploymentUnitStore deploymentUnitStore, String nodeName, NodeEventCallback callback) {
         this.deploymentUnitStore = deploymentUnitStore;
-        this.localNodeProvider = localNodeProvider;
+        this.nodeName = nodeName;
         this.callback = callback;
     }
 
@@ -74,15 +71,14 @@ public class NodeStatusWatchListener implements WatchListener {
 
             NodeStatusKey nodeStatusKey = NodeStatusKey.fromBytes(key);
 
-            if (!Objects.equals(localNodeProvider.get(), nodeStatusKey.nodeId())
-                    || value == null) {
+            if (!Objects.equals(nodeName, nodeStatusKey.nodeId()) || value == null) {
                 continue;
             }
 
             UnitNodeStatus nodeStatus = UnitNodeStatus.deserialize(value);
 
             CompletableFuture.supplyAsync(() -> nodeStatus, executor)
-                    .thenComposeAsync(status -> deploymentUnitStore.getAllNodes(status.id(), status.version()), executor)
+                    .thenComposeAsync(status -> deploymentUnitStore.getAllNodeStatuses(status.id(), status.version()), executor)
                     .thenAccept(nodes -> callback.onUpdate(nodeStatus, nodes));
         }
         return completedFuture(null);

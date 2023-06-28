@@ -22,6 +22,7 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 
+import io.netty.util.ResourceLeakDetector;
 import java.io.IOError;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -111,6 +112,8 @@ public class TestServer implements AutoCloseable {
             @Nullable AuthenticationConfiguration authenticationConfiguration,
             @Nullable Integer port
     ) {
+        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
+
         generator = new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY);
         cfg = new ConfigurationRegistry(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),

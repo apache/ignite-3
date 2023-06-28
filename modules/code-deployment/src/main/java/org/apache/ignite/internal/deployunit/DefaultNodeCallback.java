@@ -17,28 +17,39 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
-import org.apache.ignite.network.ClusterService;
 
 /**
  * Default implementation of {@link NodeEventCallback}.
  */
-public class DefaultNodeCallback implements NodeEventCallback {
+public class DefaultNodeCallback extends NodeEventCallback {
     private final DeploymentUnitStore deploymentUnitStore;
 
     private final DeployMessagingService messaging;
 
     private final FileDeployerService deployer;
 
-    private final ClusterService clusterService;
+    private final DeploymentUnitAcquiredWaiter undeployer;
 
     private final DownloadTracker tracker;
+
+    private final ClusterManagementGroupManager cmgManager;
+
+    private final String nodeName;
 
     /**
      * Constructor.
@@ -46,34 +57,36 @@ public class DefaultNodeCallback implements NodeEventCallback {
      * @param deploymentUnitStore Deployment units store.
      * @param messaging Deployment messaging service.
      * @param deployer Deployment unit file system service.
-     * @param clusterService Cluster service.
+     * @param undeployer Deployment unit undeployer.
+     * @param cmgManager Cluster management group manager.
+     * @param nodeName Node consistent ID.
      */
     public DefaultNodeCallback(
             DeploymentUnitStore deploymentUnitStore,
             DeployMessagingService messaging,
             FileDeployerService deployer,
-            ClusterService clusterService,
-            DownloadTracker tracker
+            DeploymentUnitAcquiredWaiter undeployer,
+            DownloadTracker tracker,
+            ClusterManagementGroupManager cmgManager,
+            String nodeName
     ) {
         this.deploymentUnitStore = deploymentUnitStore;
         this.messaging = messaging;
         this.deployer = deployer;
-        this.clusterService = clusterService;
+        this.undeployer = undeployer;
         this.tracker = tracker;
+        this.cmgManager = cmgManager;
+        this.nodeName = nodeName;
     }
 
     @Override
-    public void onUploading(UnitNodeStatus status, List<String> holders) {
-        tracker.track(status.id(), status.version(),
-                () -> messaging.downloadUnitContent(status.id(), status.version(), holders)
-                        .thenCompose(content -> deployer.deploy(status.id(), status.version(), content))
+    public void onUploading(String id, Version version, List<UnitNodeStatus> holders) {
+        tracker.track(id, version,
+                () -> messaging.downloadUnitContent(id, version, new ArrayList<>(getDeployedNodeIds(holders)))
+                        .thenCompose(content -> deployer.deploy(id, version, content))
                         .thenApply(deployed -> {
                             if (deployed) {
-                                return deploymentUnitStore.updateNodeStatus(
-                                        getLocalNodeId(),
-                                        status.id(),
-                                        status.version(),
-                                        DEPLOYED);
+                                return deploymentUnitStore.updateNodeStatus(nodeName, id, version, DEPLOYED);
                             }
                             return deployed;
                         })
@@ -81,18 +94,47 @@ public class DefaultNodeCallback implements NodeEventCallback {
     }
 
     @Override
-    public void onDeploy(UnitNodeStatus status, List<String> holders) {
-        deploymentUnitStore.getClusterStatus(status.id(), status.version())
+    public void onDeploy(String id, Version version, List<UnitNodeStatus> holders) {
+        Set<String> nodeIds = getDeployedNodeIds(holders);
+        deploymentUnitStore.getClusterStatus(id, version)
                 .thenApply(UnitClusterStatus::initialNodesToDeploy)
-                .thenApply(holders::containsAll)
+                .thenApply(nodeIds::containsAll)
                 .thenAccept(allRequiredDeployed -> {
                     if (allRequiredDeployed) {
-                        deploymentUnitStore.updateClusterStatus(status.id(), status.version(), DEPLOYED);
+                        deploymentUnitStore.updateClusterStatus(id, version, DEPLOYED);
                     }
                 });
     }
 
-    private String getLocalNodeId() {
-        return clusterService.topologyService().localMember().name();
+    @Override
+    public void onObsolete(String id, Version version, List<UnitNodeStatus> holders) {
+        undeployer.submitToAcquireRelease(new DeploymentUnit(id, version));
+    }
+
+    @Override
+    public void onRemoving(String id, Version version, List<UnitNodeStatus> holders) {
+        cmgManager.logicalTopology()
+                .thenAccept(snapshot -> {
+                    Set<String> nodes = snapshot.nodes().stream().map(LogicalNode::name).collect(Collectors.toSet());
+                    boolean allRemoved = holders.stream()
+                            .filter(nodeStatus -> nodes.contains(nodeStatus.nodeId()))
+                            .allMatch(nodeStatus -> nodeStatus.status() == REMOVING);
+                    if (allRemoved) {
+                        deploymentUnitStore.updateClusterStatus(id, version, REMOVING);
+                    }
+                });
+    }
+
+    /**
+     * Returns a set of node IDs where unit is deployed.
+     *
+     * @param holders List of unit node statuses.
+     * @return Set of node IDs where unit is deployed.
+     */
+    private static Set<String> getDeployedNodeIds(List<UnitNodeStatus> holders) {
+        return holders.stream()
+                .filter(status -> status.status() == DEPLOYED)
+                .map(UnitNodeStatus::nodeId)
+                .collect(Collectors.toSet());
     }
 }

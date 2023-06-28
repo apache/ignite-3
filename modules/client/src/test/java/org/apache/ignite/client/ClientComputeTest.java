@@ -30,8 +30,11 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
+import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -155,6 +158,23 @@ public class ClientComputeTest {
 
             String res2 = client.compute().<Long, String>executeColocated(tableName, 1L, Mapper.of(Long.class), List.of(), "job").join();
             assertEquals("s3", res2);
+        }
+    }
+
+    @Test
+    void testUnitsPropagation() throws Exception {
+        initServers(reqId -> false);
+
+        try (var client = getClient(server1)) {
+            Function<List<DeploymentUnit>, String> getUnits = units ->
+                    client.compute().<String>execute(getClusterNodes("s1"), units, FakeCompute.GET_UNITS).join();
+
+            assertEquals("", getUnits.apply(List.of()));
+            assertEquals("u1:1.2.3", getUnits.apply(List.of(new DeploymentUnit("u1", "1.2.3"))));
+            assertEquals("u:latest", getUnits.apply(List.of(new DeploymentUnit("u", "LaTeSt"))));
+            assertEquals(
+                    "u1:1.2.3,unit2:latest",
+                    getUnits.apply(List.of(new DeploymentUnit("u1", "1.2.3"), new DeploymentUnit("unit2", Version.LATEST))));
         }
     }
 

@@ -25,6 +25,7 @@ using System.Linq;
 using System.Numerics;
 using System.Reflection;
 using System.Threading.Tasks;
+using Ignite.Compute;
 using Ignite.Sql;
 using Ignite.Table;
 using Internal.Buffers;
@@ -279,7 +280,14 @@ public class ColocationHashTests : IgniteTestsBase
     {
         var nodes = await Client.GetClusterNodesAsync();
 
-        return await Client.Compute.ExecuteAsync<int>(nodes, ColocationHashJob, count, bytes, timePrecision, timestampPrecision);
+        return await Client.Compute.ExecuteAsync<int>(
+            nodes,
+            Array.Empty<DeploymentUnit>(),
+            ColocationHashJob,
+            count,
+            bytes,
+            timePrecision,
+            timestampPrecision);
     }
 
     private record TestIndexProvider(Func<int, bool> Delegate) : IHashedColumnIndexProvider

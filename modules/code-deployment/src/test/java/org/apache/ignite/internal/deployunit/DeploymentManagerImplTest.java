@@ -32,7 +32,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
-import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.network.ClusterService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -66,11 +65,11 @@ class DeploymentManagerImplTest {
     @Test
     public void detectLatestDeployedVersion() {
         List<UnitClusterStatus> unitClusterStatuses = List.of(
-                new UnitClusterStatus("unit", Version.parseVersion("1.0.0"), DeploymentStatus.DEPLOYED, Set.of("node1", "node2")),
-                new UnitClusterStatus("unit", Version.parseVersion("1.0.1"), DeploymentStatus.OBSOLETE, Set.of("node1", "node2")),
-                new UnitClusterStatus("unit", Version.parseVersion("1.0.2"), DeploymentStatus.DEPLOYED, Set.of("node1", "node2")),
-                new UnitClusterStatus("unit", Version.parseVersion("1.0.3"), DeploymentStatus.UPLOADING, Set.of("node1", "node2")),
-                new UnitClusterStatus("unit", Version.parseVersion("1.0.4"), DeploymentStatus.REMOVING, Set.of("node1", "node2"))
+                new UnitClusterStatus("unit", Version.parseVersion("1.0.0"), DeploymentStatus.DEPLOYED, 0, Set.of("node1", "node2")),
+                new UnitClusterStatus("unit", Version.parseVersion("1.0.1"), DeploymentStatus.OBSOLETE, 0, Set.of("node1", "node2")),
+                new UnitClusterStatus("unit", Version.parseVersion("1.0.2"), DeploymentStatus.DEPLOYED, 0, Set.of("node1", "node2")),
+                new UnitClusterStatus("unit", Version.parseVersion("1.0.3"), DeploymentStatus.UPLOADING, 0,  Set.of("node1", "node2")),
+                new UnitClusterStatus("unit", Version.parseVersion("1.0.4"), DeploymentStatus.REMOVING, 0, Set.of("node1", "node2"))
         );
 
         doReturn(completedFuture(unitClusterStatuses)).when(deploymentUnitStore).getClusterStatuses("unit");

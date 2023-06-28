@@ -36,6 +36,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Exception utils.
+ * TODO: https://issues.apache.org/jira/browse/IGNITE-19566 this class should be merged with ExceptionUtils.
  */
 public final class ExceptionUtils {
     /**

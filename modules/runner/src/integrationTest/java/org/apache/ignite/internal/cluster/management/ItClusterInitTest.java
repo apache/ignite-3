@@ -67,12 +67,12 @@ public class ItClusterInitTest extends IgniteAbstractTest {
                 .clusterName("cluster")
                 .build();
 
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         assertThat(allOf(nodesByName.values().toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
 
         // init is idempotent
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         InitParameters initParametersWithWrongNodesList1 = InitParameters.builder()
                 .destinationNodeName(nodeName)

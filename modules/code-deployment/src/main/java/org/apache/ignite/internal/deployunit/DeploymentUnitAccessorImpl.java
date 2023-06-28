@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.deployunit;
 
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.util.RefCountedObjectPool;
 
@@ -25,6 +29,8 @@ import org.apache.ignite.internal.util.RefCountedObjectPool;
  */
 public class DeploymentUnitAccessorImpl implements DeploymentUnitAccessor {
     private final RefCountedObjectPool<DeploymentUnit, DisposableDeploymentUnit> pool = new RefCountedObjectPool<>();
+
+    private final RefCountedObjectPool<DeploymentUnit, Lock> locks = new RefCountedObjectPool<>();
 
     private final FileDeployerService deployer;
 
@@ -37,19 +43,36 @@ public class DeploymentUnitAccessorImpl implements DeploymentUnitAccessor {
      */
     @Override
     public DisposableDeploymentUnit acquire(DeploymentUnit unit) {
-        return pool.acquire(unit, ignored -> new DisposableDeploymentUnit(
-                        unit,
-                        deployer.unitPath(unit.name(), unit.version(), true),
-                        () -> pool.release(unit)
-                )
-        );
+        return executeWithLock(unit, it -> pool.acquire(it, ignored -> new DisposableDeploymentUnit(
+                it,
+                deployer.unitPath(it.name(), it.version(), true),
+                () -> pool.release(it)
+        )));
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public boolean isAcquired(DeploymentUnit unit) {
-        return pool.isAcquired(unit);
+    public boolean computeIfNotAcquired(DeploymentUnit unit, Consumer<DeploymentUnit> consumer) {
+        return executeWithLock(unit, it -> {
+            if (pool.isAcquired(it)) {
+                return false;
+            } else {
+                consumer.accept(it);
+                return true;
+            }
+        });
+    }
+
+    private <O> O executeWithLock(DeploymentUnit unit, Function<DeploymentUnit, O> function) {
+        Lock lock = locks.acquire(unit, ignored -> new ReentrantLock());
+        lock.lock();
+        try {
+            return function.apply(unit);
+        } finally {
+            lock.unlock();
+            locks.release(unit);
+        }
     }
 }

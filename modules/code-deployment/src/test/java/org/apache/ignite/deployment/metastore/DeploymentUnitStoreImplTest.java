@@ -17,12 +17,13 @@
 
 package org.apache.ignite.deployment.metastore;
 
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.OBSOLETE;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -33,7 +34,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.deployunit.metastore.ClusterEventCallback;
+import org.apache.ignite.internal.deployunit.metastore.ClusterStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
@@ -47,7 +51,6 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -61,12 +64,21 @@ public class DeploymentUnitStoreImplTest {
 
     private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
 
-    private final List<UnitNodeStatus> history = Collections.synchronizedList(new ArrayList<>());
+    private final List<UnitNodeStatus> nodeHistory = Collections.synchronizedList(new ArrayList<>());
 
-    private final NodeEventCallback listener = new NodeEventCallback() {
+    private final NodeEventCallback nodeEventCallback = new NodeEventCallback() {
         @Override
-        public void onUpdate(UnitNodeStatus status, List<String> holders) {
-            history.add(status);
+        public void onUpdate(UnitNodeStatus status, List<UnitNodeStatus> holders) {
+            nodeHistory.add(status);
+        }
+    };
+
+    private final List<UnitClusterStatus> clusterHistory = Collections.synchronizedList(new ArrayList<>());
+
+    private final ClusterEventCallback clusterEventCallback = new ClusterEventCallback() {
+        @Override
+        public void onUpdate(UnitClusterStatus status) {
+            clusterHistory.add(status);
         }
     };
 
@@ -77,12 +89,14 @@ public class DeploymentUnitStoreImplTest {
 
     @BeforeEach
     public void setup() {
-        history.clear();
+        nodeHistory.clear();
+        clusterHistory.clear();
         KeyValueStorage storage = new RocksDbKeyValueStorage("test", workDir);
 
         MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, storage);
         metastore = new DeploymentUnitStoreImpl(metaStorageManager);
-        metastore.registerListener(new NodeStatusWatchListener(metastore, () -> LOCAL_NODE, listener));
+        metastore.registerNodeStatusListener(new NodeStatusWatchListener(metastore, LOCAL_NODE, nodeEventCallback));
+        metastore.registerClusterStatusListener(new ClusterStatusWatchListener(clusterEventCallback));
 
         vaultManager.start();
         metaStorageManager.start();
@@ -91,26 +105,30 @@ public class DeploymentUnitStoreImplTest {
     }
 
     @Test
-    public void clusterStatusTest() {
+    public void clusterStatusTest() throws Exception {
         String id = "id1";
         Version version = Version.parseVersion("1.1.1");
 
-        assertThat(metastore.createClusterStatus(id, version, Set.of()), willBe(true));
+        CompletableFuture<UnitClusterStatus> clusterStatusFuture = metastore.createClusterStatus(id, version, Set.of());
+        assertThat(clusterStatusFuture, willCompleteSuccessfully());
+
+        UnitClusterStatus clusterStatus = clusterStatusFuture.get();
+        long opId = clusterStatus.opId();
 
         assertThat(metastore.getClusterStatus(id, version),
-                willBe(new UnitClusterStatus(id, version, UPLOADING, Set.of())));
+                willBe(new UnitClusterStatus(id, version, UPLOADING, opId, Set.of())));
 
         assertThat(metastore.updateClusterStatus(id, version, DEPLOYED), willBe(true));
         assertThat(metastore.getClusterStatus(id, version),
-                willBe(new UnitClusterStatus(id, version, DEPLOYED, Set.of())));
+                willBe(new UnitClusterStatus(id, version, DEPLOYED, opId, Set.of())));
 
-        assertThat(metastore.remove(id, version), willBe(true));
+        assertThat(metastore.removeClusterStatus(id, version), willBe(true));
 
         assertThat(metastore.getClusterStatus(id, version), willBe(nullValue()));
     }
 
     @Test
-    public void nodeStatusTest() {
+    public void nodeStatusTest() throws Exception {
         String id = "id2";
         Version version = Version.parseVersion("1.1.1");
 
@@ -118,53 +136,86 @@ public class DeploymentUnitStoreImplTest {
         String node2 = "node2";
         String node3 = "node3";
 
-        assertThat(metastore.createClusterStatus(id, version, Set.of(node1, node2, node3)), willBe(true));
-        assertThat(metastore.getClusterStatus(id, version),
-                willBe(new UnitClusterStatus(id, version, UPLOADING, Set.of(node1, node2, node3))));
+        CompletableFuture<UnitClusterStatus> clusterStatusFuture = metastore.createClusterStatus(id, version, Set.of(node1, node2, node3));
+        assertThat(clusterStatusFuture, willCompleteSuccessfully());
 
-        assertThat(metastore.createNodeStatus(node1, id, version), willBe(true));
+        UnitClusterStatus clusterStatus = clusterStatusFuture.get();
+        long opId = clusterStatus.opId();
+
+        assertThat(metastore.getClusterStatus(id, version),
+                willBe(new UnitClusterStatus(id, version, UPLOADING, opId, Set.of(node1, node2, node3))));
+
+        assertThat(metastore.createNodeStatus(node1, id, version, opId, UPLOADING), willBe(true));
         assertThat(metastore.getNodeStatus(node1, id, version),
-                willBe(new UnitNodeStatus(id, version, UPLOADING, node1)));
+                willBe(new UnitNodeStatus(id, version, UPLOADING, opId, node1)));
 
         assertThat(metastore.updateNodeStatus(node1, id, version, DEPLOYED), willBe(true));
         assertThat(metastore.getNodeStatus(node1, id, version),
-                willBe(new UnitNodeStatus(id, version, DEPLOYED, node1)));
+                willBe(new UnitNodeStatus(id, version, DEPLOYED, opId, node1)));
 
-        assertThat(metastore.createNodeStatus(node2, id, version), willBe(true));
+        assertThat(metastore.createNodeStatus(node2, id, version, opId, UPLOADING), willBe(true));
         assertThat(metastore.getNodeStatus(node2, id, version),
-                willBe(new UnitNodeStatus(id, version, UPLOADING, node2)));
+                willBe(new UnitNodeStatus(id, version, UPLOADING, opId, node2)));
 
-        assertThat(metastore.createNodeStatus(node3, id, version), willBe(true));
+        assertThat(metastore.createNodeStatus(node3, id, version, opId, UPLOADING), willBe(true));
 
         assertThat(metastore.updateClusterStatus(id, version, DEPLOYED), willBe(true));
         assertThat(metastore.getClusterStatus(id, version),
-                willBe(new UnitClusterStatus(id, version, DEPLOYED, Set.of(node1, node2, node3))));
+                willBe(new UnitClusterStatus(id, version, DEPLOYED, opId, Set.of(node1, node2, node3))));
 
         assertThat(metastore.getClusterStatuses(id),
-                willBe(contains((new UnitClusterStatus(id, version, DEPLOYED, Set.of(node1, node2, node3)))))
+                willBe(contains((new UnitClusterStatus(id, version, DEPLOYED, opId, Set.of(node1, node2, node3)))))
         );
 
-        assertThat(metastore.remove(id, version), willBe(true));
+        assertThat(metastore.removeClusterStatus(id, version), willBe(true));
+        assertThat(metastore.getNodeStatus(node1, id, version),
+                willBe(new UnitNodeStatus(id, version, DEPLOYED, opId, node1)));
+
+        assertThat(metastore.removeNodeStatus(node1, id, version), willBe(true));
         assertThat(metastore.getNodeStatus(node1, id, version), willBe(nullValue()));
     }
 
     @Test
-    public void testNodeEventListener() throws InterruptedException {
+    public void testNodeEventListener() {
         String id = "id5";
         Version version = Version.parseVersion("1.1.1");
         String node1 = LOCAL_NODE;
 
-        assertThat(metastore.createNodeStatus(node1, id, version), willBe(true));
+        assertThat(metastore.createNodeStatus(node1, id, version, 0, UPLOADING), willBe(true));
         assertThat(metastore.updateNodeStatus(node1, id, version, DEPLOYED), willBe(true));
         assertThat(metastore.updateNodeStatus(node1, id, version, OBSOLETE), willBe(true));
         assertThat(metastore.updateNodeStatus(node1, id, version, REMOVING), willBe(true));
 
-        Awaitility.await().untilAsserted(() ->
-                assertThat(history, containsInAnyOrder(
-                        new UnitNodeStatus(id, version, UPLOADING, node1),
-                        new UnitNodeStatus(id, version, DEPLOYED, node1),
-                        new UnitNodeStatus(id, version, OBSOLETE, node1),
-                        new UnitNodeStatus(id, version, REMOVING, node1)
+        await().untilAsserted(() ->
+                assertThat(nodeHistory, containsInAnyOrder(
+                        new UnitNodeStatus(id, version, UPLOADING, 0, node1),
+                        new UnitNodeStatus(id, version, DEPLOYED, 0, node1),
+                        new UnitNodeStatus(id, version, OBSOLETE, 0, node1),
+                        new UnitNodeStatus(id, version, REMOVING, 0, node1)
+                )));
+    }
+
+    @Test
+    public void testClusterEventListener() throws Exception {
+        String id = "id6";
+        Version version = Version.parseVersion("1.1.1");
+
+        CompletableFuture<UnitClusterStatus> clusterStatusFuture = metastore.createClusterStatus(id, version, Set.of());
+        assertThat(clusterStatusFuture, willCompleteSuccessfully());
+
+        UnitClusterStatus clusterStatus = clusterStatusFuture.get();
+        long opId = clusterStatus.opId();
+
+        assertThat(metastore.updateClusterStatus(id, version, DEPLOYED), willBe(true));
+        assertThat(metastore.updateClusterStatus(id, version, OBSOLETE), willBe(true));
+        assertThat(metastore.updateClusterStatus(id, version, REMOVING), willBe(true));
+
+        await().untilAsserted(() ->
+                assertThat(clusterHistory, containsInAnyOrder(
+                        new UnitClusterStatus(id, version, UPLOADING, opId, Set.of()),
+                        new UnitClusterStatus(id, version, DEPLOYED, opId, Set.of()),
+                        new UnitClusterStatus(id, version, OBSOLETE, opId, Set.of()),
+                        new UnitClusterStatus(id, version, REMOVING, opId, Set.of())
                 )));
     }
 }
