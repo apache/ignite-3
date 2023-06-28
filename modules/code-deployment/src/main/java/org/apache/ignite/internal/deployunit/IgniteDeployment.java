@@ -86,7 +86,7 @@ public interface IgniteDeployment extends IgniteComponent {
      * Lists all versions of the unit.
      *
      * @param id Unit identifier.
-     * @return Future with the unit statuses.
+     * @return Future with the unit statuses. Result of the future can be null when the specified unit does not exist.
      */
     CompletableFuture<UnitStatuses> clusterStatusesAsync(String id);
 

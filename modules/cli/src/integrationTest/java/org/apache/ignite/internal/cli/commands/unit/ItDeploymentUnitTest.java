@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -268,16 +269,62 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
         assertDeployed("test-unit");
     }
 
+    @Test
+    @DisplayName("Should display * marker for latest version in list command")
+    void deployTwoVersionsAndCheckLatestMark() {
+        execute("cluster", "unit", "deploy", "test-unit", "--version", "1.0.0", "--path", testFile);
+
+        await().untilAsserted(() -> {
+            resetOutput();
+            execute("cluster", "unit", "list", "--plain", "test-unit");
+
+            assertDeployed("test-unit");
+        });
+
+        execute("cluster", "unit", "deploy", "test-unit", "--version", "2.0.0", "--path", testFile);
+
+        await().untilAsserted(() -> {
+            resetOutput();
+            execute("cluster", "unit", "list", "--plain", "test-unit");
+
+            assertDeployed(List.of(new UnitIdVersion("test-unit", "1.0.0"), new UnitIdVersion("test-unit", "*2.0.0")));
+        });
+    }
+
     private void assertDeployed(String id) {
-        assertDeployed(id, "1.0.0");
+        assertDeployed(id, "*1.0.0");
     }
 
     private void assertDeployed(String id, String version) {
+        assertDeployed(List.of(new UnitIdVersion(id, version)));
+    }
+
+    private void assertDeployed(List<UnitIdVersion> units) {
+        StringBuilder sb = new StringBuilder();
+        for (UnitIdVersion unit : units) {
+            sb.append(unit.id)
+                    .append("\t")
+                    .append(unit.version)
+                    .append("\tDEPLOYED")
+                    .append(System.lineSeparator());
+        }
+
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputIs("id\tversion\tstatus" + System.lineSeparator()
-                        + id + "\t" + version + "\tDEPLOYED" + System.lineSeparator())
+                () -> assertOutputIs("id\tversion\tstatus" + System.lineSeparator() + sb)
         );
+    }
+
+    private static class UnitIdVersion {
+        final String id;
+        final String version;
+
+        private UnitIdVersion(String id, String version) {
+            this.id = id;
+            this.version = version;
+
+        }
+
     }
 }

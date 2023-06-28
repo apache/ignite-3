@@ -26,6 +26,7 @@ namespace Apache.Ignite.Tests
     using System.Net.Sockets;
     using System.Threading;
     using System.Threading.Tasks;
+    using Ignite.Compute;
     using Ignite.Sql;
     using Internal.Buffers;
     using Internal.Network;
@@ -47,6 +48,8 @@ namespace Apache.Ignite.Tests
         public const string CompositeKeyTableName = "tbl2";
 
         public const string CustomColocationKeyTableName = "tbl3";
+
+        public const string GetDetailsJob = "get-details";
 
         private const int ExistingTableId = 1001;
 
@@ -619,14 +622,8 @@ namespace Apache.Ignite.Tests
 
                         case ClientOp.ComputeExecute:
                         {
-                            using var arrayBufferWriter = new PooledArrayBuffer();
-                            var writer = new MsgPackWriter(arrayBufferWriter);
-
-                            using var builder = new BinaryTupleBuilder(3);
-                            builder.AppendObjectWithType(Node.Name);
-                            writer.Write(builder.Build().Span);
-
-                            Send(handler, requestId, arrayBufferWriter);
+                            using var pooledArrayBuffer = ComputeExecute(reader);
+                            Send(handler, requestId, pooledArrayBuffer);
                             continue;
                         }
 
@@ -644,8 +641,11 @@ namespace Apache.Ignite.Tests
                             continue;
 
                         case ClientOp.ComputeExecuteColocated:
-                            Send(handler, requestId, new byte[] { 1, MessagePackCode.Nil }.AsMemory());
+                        {
+                            using var pooledArrayBuffer = ComputeExecute(reader, colocated: true);
+                            Send(handler, requestId, pooledArrayBuffer);
                             continue;
+                        }
                     }
 
                     // Fake error message for any other op code.
@@ -662,6 +662,46 @@ namespace Apache.Ignite.Tests
 
                 handler.Disconnect(true);
             }
+        }
+
+        private PooledArrayBuffer ComputeExecute(MsgPackReader reader, bool colocated = false)
+        {
+            // Colocated: table id, schema version, key.
+            // Else: node name.
+            reader.Skip(colocated ? 4 : 1);
+
+            var unitsCount = reader.TryReadNil() ? 0 : reader.ReadArrayHeader();
+            var units = new List<DeploymentUnit>(unitsCount);
+            for (int i = 0; i < unitsCount; i++)
+            {
+                units.Add(new DeploymentUnit(reader.ReadString(), reader.ReadString()));
+            }
+
+            var jobClassName = reader.ReadString();
+
+            object? resObj = jobClassName == GetDetailsJob
+                ? new
+                {
+                    NodeName = Node.Name,
+                    Units = string.Join(", ", units.Select(u => $"{u.Name}|{u.Version}")),
+                    jobClassName
+                }.ToString()
+                : Node.Name;
+
+            using var builder = new BinaryTupleBuilder(3);
+            builder.AppendObjectWithType(resObj);
+
+            var arrayBufferWriter = new PooledArrayBuffer();
+            var writer = new MsgPackWriter(arrayBufferWriter);
+
+            if (colocated)
+            {
+                writer.Write(1); // Latest schema.
+            }
+
+            writer.Write(builder.Build().Span);
+
+            return arrayBufferWriter;
         }
 
         internal record struct RequestContext(int RequestCount, ClientOp OpCode, long RequestId);
