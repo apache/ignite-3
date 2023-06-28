@@ -61,13 +61,6 @@ public class IgniteExceptionMapperUtil {
                     "Failed to register exception mapper, duplicate found [class=" + mapper.mappingFrom().getCanonicalName() + ']');
         }
 
-        if (isJavaStandardException(mapper.mappingFrom())) {
-            throw new IgniteException(
-                    INTERNAL_ERR,
-                    "Failed to register exception mapper. "
-                            + "Mapping for this class is prohibited [class=" + mapper.mappingFrom().getCanonicalName() + ']');
-        }
-
         registeredMappings.put(mapper.mappingFrom(), mapper);
     }
 
@@ -78,7 +71,6 @@ public class IgniteExceptionMapperUtil {
      * <ul>
      *     <li>any instance of {@link Error} is returned as is, except {@link AssertionError}
      *     that will always be mapped to {@link IgniteException} with the {@link ErrorGroups.Common#INTERNAL_ERR} error code.</li>
-     *     <li>any instance of Java standard exception like {@link NullPointerException} is returned as is.</li>
      *     <li>any instance of {@link IgniteException} or {@link IgniteCheckedException} is returned as is.</li>
      *     <li>if there are no any mappers that can do a mapping from the given error to a public exception,
      *     then {@link IgniteException} with the {@link ErrorGroups.Common#INTERNAL_ERR} error code is returned.</li>
@@ -97,10 +89,6 @@ public class IgniteExceptionMapperUtil {
         }
 
         if (origin instanceof IgniteException || origin instanceof IgniteCheckedException) {
-            return origin;
-        }
-
-        if (isJavaStandardException(origin)) {
             return origin;
         }
 
@@ -148,23 +136,5 @@ public class IgniteExceptionMapperUtil {
      */
     private static <T extends Exception, R extends Exception> Exception map(IgniteExceptionMapper<T, R> mapper, Throwable t) {
         return mapper.map(mapper.mappingFrom().cast(t));
-    }
-
-    /**
-     * Returns {@code true} if the given exception {@code t} is instance of {@link NullPointerException}, {@link IllegalArgumentException}.
-     *
-     * @return {@code true} if the given exception is Java standard exception.
-     */
-    private static boolean isJavaStandardException(Throwable t) {
-        return t instanceof NullPointerException || t instanceof IllegalArgumentException;
-    }
-
-    /**
-     * Returns {@code true} if the given exception {@code t} is instance of {@link NullPointerException}, {@link IllegalArgumentException}.
-     *
-     * @return {@code true} if the given exception is Java standard exception.
-     */
-    private static boolean isJavaStandardException(Class<? extends Throwable> clazz) {
-        return NullPointerException.class.isAssignableFrom(clazz) || IllegalArgumentException.class.isAssignableFrom(clazz);
     }
 }

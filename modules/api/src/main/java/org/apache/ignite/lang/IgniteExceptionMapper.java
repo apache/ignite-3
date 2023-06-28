@@ -52,11 +52,11 @@ public class IgniteExceptionMapper<T extends Exception, R extends Exception> {
     /**
      * Maps the provided internal exception to a public one.
      *
-     * @param error Exception instance to be mapped.
+     * @param exception Exception instance to be mapped.
      * @return Public exception instance.
      */
-    public R map(T error) {
-        return mapper.apply(error);
+    public R map(T exception) {
+        return mapper.apply(exception);
     }
 
     /**

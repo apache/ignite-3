@@ -177,7 +177,8 @@ public class IgniteExceptionUtils {
         return INTERNAL_ERR;
     }
 
-    // TODO: This method should be removed or re-worked and usages should be changed to IgniteExceptionMapperUtil.mapToPublicException.
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19870
+    // This method should be removed or re-worked and usages should be changed to IgniteExceptionMapperUtil.mapToPublicException.
     /**
      * Wraps an exception in an IgniteException, extracting trace identifier and error code when the specified exception or one of its
      * causes is an IgniteException itself.

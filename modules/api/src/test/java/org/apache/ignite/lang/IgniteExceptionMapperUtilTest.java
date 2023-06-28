@@ -32,12 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Stream;
-import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests mapping internal exceptions to public ones.
@@ -60,23 +55,6 @@ public class IgniteExceptionMapperUtilTest {
         registerMapping(m2, mappers);
 
         assertThat("Failed to register both exception mappers.", mappers.size(), is(2));
-    }
-
-    /**
-     * Tests that is not possible to register a mapping for java standard exceptions.
-     *
-     * @param clazz Class of standard exception.
-     */
-    @ParameterizedTest
-    @MethodSource("predefinedExceptionClasses")
-    public <T extends RuntimeException> void testRegisterInvalidMapper(Class<T> clazz) {
-        IgniteExceptionMapper<T, IgniteException> m =
-                unchecked(clazz, err -> new IgniteException(NODE_STOPPING_ERR, "test"));
-
-        IgniteException e = assertThrows(IgniteException.class, () -> registerMapping(m, mappers));
-
-        assertThat("Unexpected error group code, it should be COMMON_ERR_GROUP.", e.groupCode(), is(COMMON_ERR_GROUP.code()));
-        assertThat("Unexpected error code, it should be INTERNAL_ERR.", e.code(), is(INTERNAL_ERR));
     }
 
     /**
@@ -168,18 +146,6 @@ public class IgniteExceptionMapperUtilTest {
 
         assertThat("Unexpected error group code, it should be COMMON_ERR_GROUP.", mapped.groupCode(), is(COMMON_ERR_GROUP.code()));
         assertThat("Unexpected error code, it should be INTERNAL_ERR.", mapped.code(), is(INTERNAL_ERR));
-    }
-
-    /**
-     * Returns a list of classes that cannot be used for mapping.
-     *
-     * @return List of classes that cannot be used for mapping.
-     */
-    private static Stream<Arguments> predefinedExceptionClasses() {
-        return Stream.of(
-                Arguments.of(Named.of("NullPointer", NullPointerException.class)),
-                Arguments.of(Named.of("IllegalArgument", IllegalArgumentException.class))
-        );
     }
 
     /**
