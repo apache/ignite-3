@@ -232,7 +232,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         assert old == null;
 
-        ctx.cancel().add(queryManager::close);
+        ctx.cancel().add(() -> queryManager.close(true));
 
         return queryManager.execute(tx, plan);
     }
@@ -287,7 +287,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             return CompletableFuture.completedFuture(null);
         }
 
-        return mgr.close();
+        return mgr.close(true);
     }
 
     private AsyncCursor<List<Object>> executeDdl(DdlPlan plan) {
@@ -379,7 +379,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         DistributedQueryManager dqm = queryManagerMap.get(msg.queryId());
 
         if (dqm != null) {
-            dqm.close();
+            dqm.close(true);
         }
     }
 
@@ -388,7 +388,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     public void stop() throws Exception {
         CompletableFuture<Void> f = CompletableFuture.allOf(queryManagerMap.values().stream()
                 .filter(mgr -> mgr.rootFragmentId != null)
-                .map(mgr -> mgr.close())
+                .map(mgr -> mgr.close(true))
                 .toArray(CompletableFuture[]::new)
         );
         f.join();
@@ -458,7 +458,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             var root = new CompletableFuture<AsyncRootNode<RowT, List<Object>>>();
 
             root.exceptionally(t -> {
-                this.close();
+                this.close(true);
 
                 return null;
             });
@@ -508,7 +508,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     root.thenAccept(root -> {
                         root.onError(ex);
 
-                        close();
+                        close(true);
                     });
                 }
             }
@@ -520,7 +520,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             root.thenAccept(root -> {
                 root.onError(ex);
 
-                close();
+                close(true);
             });
         }
 
@@ -635,7 +635,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             } catch (Exception e) {
                 LOG.info("Unable to send error message", e);
 
-                close();
+                close(true);
             }
         }
 
@@ -755,7 +755,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                         fut.thenAccept(batch -> {
                             if (!batch.hasMore()) {
-                                DistributedQueryManager.this.close();
+                                DistributedQueryManager.this.close(false);
                             }
                         });
 
@@ -765,7 +765,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 @Override
                 public CompletableFuture<Void> closeAsync() {
-                    return root.thenCompose(none -> DistributedQueryManager.this.close());
+                    return root.thenCompose(none -> DistributedQueryManager.this.close(false));
                 }
             };
         }
@@ -824,15 +824,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }.visit(fragment.root());
         }
 
-        private CompletableFuture<Void> close() {
+        private CompletableFuture<Void> close(boolean cancel) {
             if (!cancelled.compareAndSet(false, true)) {
                 return cancelFut;
             }
 
-            CompletableFuture<Void> start = closeExecNode();
+            CompletableFuture<Void> start = closeExecNode(cancel);
 
-            start
-            .thenCompose(tmp -> {
+            start.thenCompose(tmp -> {
                 CompletableFuture<Void> cancelResult = coordinator
                         ? awaitFragmentInitialisationAndClose()
                         : closeLocalFragments();
@@ -860,15 +859,25 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             return cancelFut;
         }
 
-        private CompletableFuture<Void> closeExecNode() {
+        /**
+         * Synchronously closes the tree's execution iterator.
+         *
+         * @param cancel Forces execution to terminate with {@link ExecutionCancelledException}.
+         * @return Completable future that should run asynchronously.
+         */
+        private CompletableFuture<Void> closeExecNode(boolean cancel) {
             CompletableFuture<Void> start = new CompletableFuture<>();
 
             if (!root.completeExceptionally(new ExecutionCancelledException()) && !root.isCompletedExceptionally()) {
                 AsyncRootNode<RowT, List<Object>> node = root.getNow(null);
 
-                CompletableFuture<Void> closeFut = node.closeAsync();
+                if (!cancel) {
+                    CompletableFuture<Void> closeFut = node.closeAsync();
 
-                return start.thenCompose(v -> closeFut);
+                    return start.thenCompose(v -> closeFut);
+                }
+
+                node.onError(new ExecutionCancelledException());
             }
 
             return start;
