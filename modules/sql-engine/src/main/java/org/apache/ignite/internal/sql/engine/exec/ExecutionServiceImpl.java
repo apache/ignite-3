@@ -889,6 +889,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 cancelFuts.add(
                         CompletableFuture.allOf(entry.getValue().toArray(new CompletableFuture[0]))
+                                .handle((none2, t) -> {
+                                    // Some fragments may be completed exceptionally, and that is fine.
+                                    // Here we need to make sure that all query initialisation requests
+                                    // have been processed before sending a cancellation request. That's
+                                    // why we just ignore any exception.
+
+                                    return null;
+                                })
                                 .thenCompose(ignored -> {
                                     // for local fragments don't send the message, just close the fragments
                                     if (localNode.name().equals(nodeId)) {

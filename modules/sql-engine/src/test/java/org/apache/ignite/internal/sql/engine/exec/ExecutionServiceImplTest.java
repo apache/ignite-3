@@ -79,6 +79,7 @@ import org.apache.ignite.internal.sql.engine.message.ExecutionContextAwareMessag
 import org.apache.ignite.internal.sql.engine.message.MessageListener;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
+import org.apache.ignite.internal.sql.engine.message.QueryStartResponseImpl;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteFragmentExecutionException;
@@ -144,6 +145,8 @@ public class ExecutionServiceImplTest {
     private List<ExecutionServiceImpl<?>> executionServices;
     private PrepareService prepareService;
     private RuntimeException mappingException;
+
+    private ClusterNode firstNode;
 
     @BeforeEach
     public void init() {
@@ -428,6 +431,65 @@ public class ExecutionServiceImplTest {
     }
 
     /**
+     * One node fail while reading data from cursor, check all fragments still correctly closed.
+     */
+    @Test
+    public void testCursorIsClosedAfterAllDataReadWithNodeFailure() throws InterruptedException {
+        ExecutionServiceImpl execService = executionServices.get(0);
+        BaseQueryContext ctx = createContext();
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
+
+        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+
+        // node failed trigger
+        CountDownLatch nodeFailedLatch = new CountDownLatch(1);
+        // start response trigger
+        CountDownLatch startResponse = new CountDownLatch(1);
+
+        nodeNames.stream().map(testCluster::node).forEach(node -> node.interceptor((senderNodeName, msg, original) -> {
+            if (node.nodeName.equals(nodeNames.get(0))) {
+                // On node_1, hang until an exception from another node fails the query to make sure that the root fragment does not execute
+                // before other fragments.
+                node.taskExecutor.execute(() -> {
+                    try {
+                        if (msg instanceof QueryStartResponseImpl) {
+                            startResponse.countDown();
+                            nodeFailedLatch.await();
+                        }
+                    } catch (InterruptedException e) {
+                        // No-op.
+                    }
+
+                    original.onMessage(senderNodeName, msg);
+                });
+
+                return CompletableFuture.completedFuture(null);
+            } else {
+                original.onMessage(senderNodeName, msg);
+
+                return CompletableFuture.completedFuture(null);
+            }
+        }));
+
+        CompletableFuture<BatchedResult<List<Object>>> resFut = cursor.requestNextAsync(9);
+
+        startResponse.await();
+        execService.onDisappeared(firstNode);
+
+        nodeFailedLatch.countDown();
+
+        BatchedResult<List<Object>> res0 = await(resFut);
+        assertNotNull(res0);
+        assertFalse(res0.hasMore());
+        assertEquals(9, res0.items().size());
+
+        assertTrue(waitForCondition(
+                () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
+                        .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
+    }
+
+    /**
      * The following scenario is tested:
      *
      * <ol>
@@ -509,6 +571,10 @@ public class ExecutionServiceImplTest {
         var schemaManagerMock = mock(SqlSchemaManager.class);
 
         var clusterNode = new ClusterNode(UUID.randomUUID().toString(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
+
+        if (nodeName.equals(nodeNames.get(0))) {
+            firstNode = clusterNode;
+        }
 
         var topologyService = mock(TopologyService.class);
 
