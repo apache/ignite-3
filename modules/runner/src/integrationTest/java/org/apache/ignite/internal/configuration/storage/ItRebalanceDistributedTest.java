@@ -901,19 +901,19 @@ public class ItRebalanceDistributedTest {
         void start() {
             nodeComponents = new CopyOnWriteArrayList<>();
 
-            List<IgniteComponent> compsPre = List.of(
+            List<IgniteComponent> firstComponents = List.of(
                     vaultManager,
                     nodeCfgMgr,
                     clusterService,
                     raftManager
             );
 
-            compsPre.forEach(IgniteComponent::start);
+            firstComponents.forEach(IgniteComponent::start);
 
-            nodeComponents.addAll(compsPre);
+            nodeComponents.addAll(firstComponents);
 
             deployWatchesFut = CompletableFuture.supplyAsync(() -> {
-                List<IgniteComponent> compsPost = List.of(
+                List<IgniteComponent> secondComponents = List.of(
                         cmgManager,
                         metaStorageManager,
                         clusterCfgMgr,
@@ -928,11 +928,11 @@ public class ItRebalanceDistributedTest {
                         tableManager
                 );
 
-                compsPost.forEach(IgniteComponent::start);
+                secondComponents.forEach(IgniteComponent::start);
 
-                nodeComponents.addAll(compsPost);
+                nodeComponents.addAll(secondComponents);
 
-                var fff = metaStorageManager.recoveryFinishedFuture().thenCompose(rev -> {
+                var configurationNotificationFut = metaStorageManager.recoveryFinishedFuture().thenCompose(rev -> {
                     return allOf(
                             nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                             clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
@@ -940,7 +940,7 @@ public class ItRebalanceDistributedTest {
                     );
                 });
 
-                assertThat(fff, willSucceedIn(1, TimeUnit.MINUTES));
+                assertThat(configurationNotificationFut, willSucceedIn(1, TimeUnit.MINUTES));
 
                 return metaStorageManager.deployWatches();
             }).thenCompose(fut -> fut);

@@ -228,7 +228,7 @@ public class ItDistributedConfigurationPropertiesTest {
             Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
                     .forEach(IgniteComponent::start);
 
-            distributedCfgManager.start();
+            CompletableFuture.runAsync(distributedCfgManager::start);
         }
 
         /**
