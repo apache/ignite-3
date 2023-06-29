@@ -120,10 +120,15 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     private final AtomicBoolean isStopped = new AtomicBoolean();
 
     /**
-     * Future which completes when MetaStorage manager finished local recovery.
-     * The value of the future is the revision which must be used for state recovery by other components.
+     * Future which completes when MetaStorage manager finished local recovery. The value of the future is the revision which must be used
+     * for state recovery by other components.
      */
     private final CompletableFuture<Long> recoveryFinishedFuture = new CompletableFuture<>();
+
+    /**
+     * Future that gets completed after {@link #deployWatches} method has been called.
+     */
+    private final CompletableFuture<Void> deployWatchesFuture = new CompletableFuture<>();
 
     private final ClusterTimeImpl clusterTime;
 
@@ -253,19 +258,14 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
     }
 
-    private CompletableFuture<MetaStorageServiceImpl> initializeMetaStorage(
-            Set<String> metaStorageNodes,
-            MetaStorageConfiguration metaStorageConfig
-    ) {
-        assert metaStorageConfig != null : "Meta Storage configuration has not been set";
-
+    private CompletableFuture<MetaStorageServiceImpl> initializeMetaStorage(Set<String> metaStorageNodes) {
         try {
             String thisNodeName = clusterService.nodeName();
 
             var disruptorConfig = new RaftNodeDisruptorConfiguration("metastorage", 1);
 
             CompletableFuture<? extends RaftGroupService> raftServiceFuture = metaStorageNodes.contains(thisNodeName)
-                    ? startFollowerNode(metaStorageNodes, disruptorConfig, metaStorageConfig)
+                    ? startFollowerNode(metaStorageNodes, disruptorConfig)
                     : startLearnerNode(metaStorageNodes, disruptorConfig);
 
             return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(thisNodeName, raftService, busyLock, clusterTime));
@@ -276,8 +276,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     private CompletableFuture<? extends RaftGroupService> startFollowerNode(
             Set<String> metaStorageNodes,
-            RaftNodeDisruptorConfiguration disruptorConfig,
-            MetaStorageConfiguration metaStorageConfig
+            RaftNodeDisruptorConfiguration disruptorConfig
     ) throws NodeStoppingException {
         String thisNodeName = clusterService.nodeName();
 
@@ -287,15 +286,18 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         assert localPeer != null;
 
-        CompletableFuture<TopologyAwareRaftGroupService> raftServiceFuture =
-                raftMgr.startRaftGroupNodeAndWaitNodeReadyFuture(
-                        new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
-                        configuration,
-                        new MetaStorageListener(storage, clusterTime),
-                        RaftGroupEventsListener.noopLsnr,
-                        disruptorConfig,
-                        topologyAwareRaftGroupServiceFactory
-                );
+        MetaStorageConfiguration localMetaStorageConfiguration = metaStorageConfiguration;
+
+        assert localMetaStorageConfiguration != null : "Meta Storage configuration has not been set";
+
+        CompletableFuture<TopologyAwareRaftGroupService> raftServiceFuture = raftMgr.startRaftGroupNodeAndWaitNodeReadyFuture(
+                new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
+                configuration,
+                new MetaStorageListener(storage, clusterTime),
+                RaftGroupEventsListener.noopLsnr,
+                disruptorConfig,
+                topologyAwareRaftGroupServiceFactory
+        );
 
         raftServiceFuture
                 .thenAccept(service -> service.subscribeLeader(new MetaStorageLeaderElectionListener(
@@ -304,8 +306,16 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         logicalTopologyService,
                         metaStorageSvcFut,
                         clusterTime,
-                        metaStorageConfig
-                )));
+                        // We use the "deployWatchesFuture" to guarantee that the Configuration Manager will be started
+                        // when the underlying code tries to read Meta Storage configuration. This is a consequence of having a circular
+                        // dependency between these two components.
+                        deployWatchesFuture.thenApply(v -> localMetaStorageConfiguration)
+                )))
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.error("Unable to register MetaStorageLeaderElectionListener", e);
+                    }
+                });
 
         return raftServiceFuture;
     }
@@ -355,7 +365,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                     }
 
                     try {
-                        return initializeMetaStorage(metaStorageNodes, metaStorageConfiguration);
+                        return initializeMetaStorage(metaStorageNodes);
                     } finally {
                         busyLock.leaveBusy();
                     }
@@ -391,13 +401,15 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         busyLock.block();
 
-        clusterTime.close();
+        deployWatchesFuture.cancel(true);
 
-        cancelOrConsume(metaStorageSvcFut, MetaStorageServiceImpl::close);
+        recoveryFinishedFuture.cancel(true);
 
-        IgniteUtils.closeAll(
+        IgniteUtils.closeAllManually(
+                clusterTime,
+                () -> cancelOrConsume(metaStorageSvcFut, MetaStorageServiceImpl::close),
                 () -> raftMgr.stopRaftNodes(MetastorageGroupId.INSTANCE),
-                storage::close
+                storage
         );
     }
 
@@ -433,10 +445,18 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            return recoveryFinishedFuture.thenAccept(revision -> inBusyLock(busyLock, () -> {
-                // Meta Storage contract states that all updated entries under a particular revision must be stored in the Vault.
-                storage.startWatches(revision + 1, this::onRevisionApplied);
-            }));
+            return recoveryFinishedFuture
+                    .thenAccept(revision -> inBusyLock(busyLock, () -> {
+                        // Meta Storage contract states that all updated entries under a particular revision must be stored in the Vault.
+                        storage.startWatches(revision + 1, this::onRevisionApplied);
+                    }))
+                    .whenComplete((v, e) -> {
+                        if (e == null) {
+                            deployWatchesFuture.complete(null);
+                        } else {
+                            deployWatchesFuture.completeExceptionally(e);
+                        }
+                    });
         } finally {
             busyLock.leaveBusy();
         }

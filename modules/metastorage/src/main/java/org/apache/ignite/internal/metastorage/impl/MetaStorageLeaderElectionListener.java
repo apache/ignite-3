@@ -75,7 +75,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
     private final LogicalTopologyEventListener logicalTopologyEventListener = new MetaStorageLogicalTopologyEventListener();
 
-    private final MetaStorageConfiguration metaStorageConfiguration;
+    private final CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture;
 
     /**
      * Leader term if this node is a leader, {@code null} otherwise.
@@ -91,14 +91,14 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
             LogicalTopologyService logicalTopologyService,
             CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut,
             ClusterTimeImpl clusterTime,
-            MetaStorageConfiguration metaStorageConfiguration
+            CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture
     ) {
         this.busyLock = busyLock;
         this.nodeName = clusterService.nodeName();
         this.logicalTopologyService = logicalTopologyService;
         this.metaStorageSvcFut = metaStorageSvcFut;
         this.clusterTime = clusterTime;
-        this.metaStorageConfiguration = metaStorageConfiguration;
+        this.metaStorageConfigurationFuture = metaStorageConfigurationFuture;
     }
 
     @Override
@@ -111,15 +111,20 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
                 logicalTopologyService.addEventListener(logicalTopologyEventListener);
 
-                // Update learner configuration (in case we missed some topology updates between elections).
-                serializationFuture = metaStorageSvcFut.thenCompose(service -> {
-                    clusterTime.startSafeTimeScheduler(
-                            safeTime -> service.syncTime(safeTime, term),
-                            metaStorageConfiguration
-                    );
+                metaStorageSvcFut
+                        .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) ->
+                                clusterTime.startSafeTimeScheduler(
+                                        safeTime -> service.syncTime(safeTime, term),
+                                        metaStorageConfiguration
+                                ))
+                        .whenComplete((v, e) -> {
+                            if (e != null) {
+                                LOG.error("Unable to start Idle Safe Time scheduler", e);
+                            }
+                        });
 
-                    return resetLearners(service.raftGroupService(), term);
-                });
+                // Update learner configuration (in case we missed some topology updates between elections).
+                serializationFuture = metaStorageSvcFut.thenCompose(service -> resetLearners(service.raftGroupService(), term));
             } else if (serializationFuture != null) {
                 LOG.info("Node has lost the leadership, stopping Idle Safe Time scheduler");
 
