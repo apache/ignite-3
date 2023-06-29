@@ -466,18 +466,18 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * Index bound checks.
+     * Index bound checks - search ket lies out of value range.
      */
     @ParameterizedTest
-    @MethodSource("bounds")
-    public void testBoundsLimits(RelDataType type, Object value, Predicate<SearchBounds> bounds) throws Exception {
+    @MethodSource("boundsTypeLimits")
+    public void testBoundsTypeLimits(RelDataType type, Object value, Predicate<SearchBounds> bounds) throws Exception {
         TestTable table = createTableWithIndex("TEST2", "C2", type);
         publicSchema.addTable(table);
 
         assertBounds("SELECT * FROM test2 WHERE C2 = " + value, List.of(), publicSchema, bounds);
     }
 
-    private static Stream<Arguments> bounds() {
+    private static Stream<Arguments> boundsTypeLimits() {
         RelDataType tinyintType = TYPE_FACTORY.createSqlType(SqlTypeName.TINYINT);
         byte[] tinyIntTypeLimits = {Byte.MIN_VALUE, Byte.MAX_VALUE};
 
