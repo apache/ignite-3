@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
-import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
@@ -96,7 +95,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests for checking {@link DistributionZoneManager} behavior after node's restart.
  */
-@WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
 @ExtendWith(ConfigurationExtension.class)
 public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRestartTest {
     private static final LogicalNode A = new LogicalNode(

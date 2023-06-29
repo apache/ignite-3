@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -149,7 +148,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * These tests check node restart scenarios.
  */
-@WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
 @ExtendWith(ConfigurationExtension.class)
 @Timeout(120)
 public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
@@ -1020,7 +1018,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
-    @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
     public void testCfgGapWithoutData() throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(3);
 
@@ -1052,7 +1049,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     @Test
     @Disabled(value = "https://issues.apache.org/jira/browse/IGNITE-18919")
-    @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
     public void testMetastorageStop() throws InterruptedException {
         int cfgGap = 4;
 
