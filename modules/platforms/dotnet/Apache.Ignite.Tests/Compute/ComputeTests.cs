@@ -251,20 +251,17 @@ namespace Apache.Ignite.Tests.Compute
             // ReSharper disable once AccessToDisposedClosure
             TestUtils.WaitForCondition(() => client.GetConnections().Count == proxies.Count);
 
-            ClearOps();
             var keyTuple = new IgniteTuple { [KeyCol] = key };
             var resNodeName = await client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, Units, NodeNameJob);
-            var requestTargetNodeName = GetRequestTargetNodeName();
+            var requestTargetNodeName = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
-            ClearOps();
             var keyPoco = new Poco { Key = key };
             var resNodeName2 = await client.Compute.ExecuteColocatedAsync<string, Poco>(TableName, keyPoco, Units.Reverse(), NodeNameJob);
-            var requestTargetNodeName2 = GetRequestTargetNodeName();
+            var requestTargetNodeName2 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
-            ClearOps();
             var keyPocoStruct = new PocoStruct(key, null);
             var resNodeName3 = await client.Compute.ExecuteColocatedAsync<string, PocoStruct>(TableName, keyPocoStruct, Units, NodeNameJob);
-            var requestTargetNodeName3 = GetRequestTargetNodeName();
+            var requestTargetNodeName3 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var nodeName = nodeIdx == 1 ? string.Empty : "_" + nodeIdx;
             var expectedNodeName = PlatformTestNodeRunner + nodeName;
@@ -280,14 +277,6 @@ namespace Apache.Ignite.Tests.Compute
                 Assert.AreEqual(expectedNodeName, requestTargetNodeName2);
                 Assert.AreEqual(expectedNodeName, requestTargetNodeName3);
             }
-
-            void ClearOps() => proxies.ForEach(p => p.ClearOps());
-
-            string GetRequestTargetNodeName() =>
-                proxies
-                    .Where(x => x.ClientOps.Contains(ClientOp.ComputeExecuteColocated))
-                    .Select(x => x.NodeName)
-                    .Single();
         }
 
         [Test]

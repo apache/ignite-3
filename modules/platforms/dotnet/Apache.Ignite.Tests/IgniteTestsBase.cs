@@ -22,6 +22,7 @@ namespace Apache.Ignite.Tests
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
+    using Internal.Proto;
     using Log;
     using NUnit.Framework;
     using Table;
@@ -129,6 +130,22 @@ namespace Apache.Ignite.Tests
 
             _disposables.ForEach(x => x.Dispose());
             _disposables.Clear();
+        }
+
+        internal static string GetRequestTargetNodeName(IEnumerable<IgniteProxy> proxies, ClientOp op)
+        {
+            foreach (var proxy in proxies)
+            {
+                var ops = proxy.ClientOps;
+                proxy.ClearOps();
+
+                if (ops.Contains(op))
+                {
+                    return proxy.NodeName;
+                }
+            }
+
+            return string.Empty;
         }
 
         protected static IIgniteTuple GetTuple(long id) => new IgniteTuple { [KeyCol] = id };
