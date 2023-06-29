@@ -831,56 +831,33 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             CompletableFuture<Void> start = closeExecNode(cancel);
 
-            start.thenCompose(tmp -> {
-                CompletableFuture<Void> cancelResult = coordinator
-                        ? awaitFragmentInitialisationAndClose()
-                        : closeLocalFragments();
+            start
+                    .thenCompose(tmp -> {
+                        CompletableFuture<Void> cancelResult = coordinator
+                                ? awaitFragmentInitialisationAndClose()
+                                : closeLocalFragments();
 
-                var finalStepFut = cancelResult.whenComplete((r, e) -> {
-                    if (e != null) {
-                        Throwable ex = unwrapCause(e);
+                        var finalStepFut = cancelResult.whenComplete((r, e) -> {
+                            if (e != null) {
+                                Throwable ex = unwrapCause(e);
 
-                        LOG.warn("Exception raised during close", ex);
-                    }
+                                LOG.warn("Exception raised during close", ex);
+                            }
 
-                    queryManagerMap.remove(ctx.queryId());
+                            queryManagerMap.remove(ctx.queryId());
 
-                    ctx.cancel().cancel();
+                            ctx.cancel().cancel();
 
-                    cancelFut.complete(null);
-                });
+                            cancelFut.complete(null);
+                        });
 
-                return cancelResult.thenCombine(finalStepFut, (none1, none2) -> null);
-            })
+                        return cancelResult.thenCombine(finalStepFut, (none1, none2) -> null);
+                    })
                     .thenRun(() -> localFragments.forEach(f -> f.context().cancel()));
 
             start.completeAsync(() -> null, taskExecutor);
 
             return cancelFut;
-        }
-
-        /**
-         * Synchronously closes the tree's execution iterator.
-         *
-         * @param cancel Forces execution to terminate with {@link ExecutionCancelledException}.
-         * @return Completable future that should run asynchronously.
-         */
-        private CompletableFuture<Void> closeExecNode(boolean cancel) {
-            CompletableFuture<Void> start = new CompletableFuture<>();
-
-            if (!root.completeExceptionally(new ExecutionCancelledException()) && !root.isCompletedExceptionally()) {
-                AsyncRootNode<RowT, List<Object>> node = root.getNow(null);
-
-                if (!cancel) {
-                    CompletableFuture<Void> closeFut = node.closeAsync();
-
-                    return start.thenCompose(v -> closeFut);
-                }
-
-                node.onError(new ExecutionCancelledException());
-            }
-
-            return start;
         }
 
         private CompletableFuture<Void> closeLocalFragments() {
@@ -929,6 +906,30 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
 
             return CompletableFuture.allOf(cancelFuts.toArray(new CompletableFuture[0]));
+        }
+
+        /**
+         * Synchronously closes the tree's execution iterator.
+         *
+         * @param cancel Forces execution to terminate with {@link ExecutionCancelledException}.
+         * @return Completable future that should run asynchronously.
+         */
+        private CompletableFuture<Void> closeExecNode(boolean cancel) {
+            CompletableFuture<Void> start = new CompletableFuture<>();
+
+            if (!root.completeExceptionally(new ExecutionCancelledException()) && !root.isCompletedExceptionally()) {
+                AsyncRootNode<RowT, List<Object>> node = root.getNow(null);
+
+                if (!cancel) {
+                    CompletableFuture<Void> closeFut = node.closeAsync();
+
+                    return start.thenCompose(v -> closeFut);
+                }
+
+                node.onError(new ExecutionCancelledException());
+            }
+
+            return start;
         }
     }
 
