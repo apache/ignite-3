@@ -24,6 +24,7 @@ namespace Apache.Ignite.Tests.Compute
     using System.Net;
     using System.Numerics;
     using System.Threading.Tasks;
+    using Common;
     using Ignite.Compute;
     using Ignite.Table;
     using Internal.Network;
@@ -63,11 +64,7 @@ namespace Apache.Ignite.Tests.Compute
         [TearDown]
         public void DisposeProxies()
         {
-            foreach (var disposable in _disposables)
-            {
-                disposable.Dispose();
-            }
-
+            _disposables.ForEach(x => x.Dispose());
             _disposables.Clear();
         }
 
@@ -257,35 +254,46 @@ namespace Apache.Ignite.Tests.Compute
             _disposables.AddRange(proxies.Values);
 
             var cfg = new IgniteClientConfiguration();
-            foreach (var proxy in proxies.Values)
-            {
-                cfg.Endpoints.Add(proxy.Endpoint);
-            }
+            proxies.Values.Select(x => x.Endpoint).ForEach(cfg.Endpoints.Add);
 
             using var client = await IgniteClient.StartAsync(cfg);
 
             // ReSharper disable once AccessToDisposedClosure
             TestUtils.WaitForCondition(() => client.GetConnections().Count == proxies.Count);
 
+            ClearOps();
             var keyTuple = new IgniteTuple { [KeyCol] = key };
             var resNodeName = await client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, Units, NodeNameJob);
+            var requestTargetNodeName = GetRequestTargetNodeName();
 
-            var requestTargetNodeName = proxies
-                .Where(x => x.Value.ClientOps.Contains(ClientOp.ComputeExecuteColocated))
-                .Select(x => x.Key)
-                .Single();
-
+            ClearOps();
             var keyPoco = new Poco { Key = key };
             var resNodeName2 = await client.Compute.ExecuteColocatedAsync<string, Poco>(TableName, keyPoco, Units.Reverse(), NodeNameJob);
+            var requestTargetNodeName2 = GetRequestTargetNodeName();
 
+            ClearOps();
             var keyPocoStruct = new PocoStruct(key, null);
             var resNodeName3 = await client.Compute.ExecuteColocatedAsync<string, PocoStruct>(TableName, keyPocoStruct, Units, NodeNameJob);
+            var requestTargetNodeName3 = GetRequestTargetNodeName();
 
             var expectedNodeName = PlatformTestNodeRunner + nodeName;
             Assert.AreEqual(expectedNodeName, resNodeName);
             Assert.AreEqual(expectedNodeName, resNodeName2);
             Assert.AreEqual(expectedNodeName, resNodeName3);
+
             Assert.AreEqual(expectedNodeName, requestTargetNodeName);
+            Assert.AreEqual(expectedNodeName, requestTargetNodeName2);
+            Assert.AreEqual(expectedNodeName, requestTargetNodeName3);
+
+            void ClearOps() => proxies.Values.ForEach(p => p.ClientOps.Clear());
+
+            string GetRequestTargetNodeName()
+            {
+                return proxies
+                    .Where(x => x.Value.ClientOps.Contains(ClientOp.ComputeExecuteColocated))
+                    .Select(x => x.Key)
+                    .Single();
+            }
         }
 
         [Test]

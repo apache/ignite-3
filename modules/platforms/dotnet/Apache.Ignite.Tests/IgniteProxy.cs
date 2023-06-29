@@ -48,6 +48,8 @@ public sealed class IgniteProxy : IgniteServerBase
 
     internal IList<ClientOp> ClientOps => _ops.ToList();
 
+    public void ClearOps() => _ops.Clear();
+
     protected override void Handle(Socket handler, CancellationToken cancellationToken)
     {
         int messageCount = 0;
