@@ -43,6 +43,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
@@ -804,5 +805,20 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @TestOnly
     public MetaStorageServiceImpl getService() {
         return metaStorageSvcFut.join();
+    }
+
+    @Override
+    public void registerRevisionUpdateListener(RevisionUpdateListener listener) {
+        storage.registerRevisionUpdateListener(listener);
+    }
+
+    @Override
+    public void unregisterRevisionUpdateListener(RevisionUpdateListener listener) {
+        storage.unregisterRevisionUpdateListener(listener);
+    }
+
+    /** Explicitly notifies revision update listeners. */
+    public CompletableFuture<Void> notifyRevisionUpdateListenerOnStart(long newRevision) {
+        return storage.notifyRevisionUpdateListenerOnStart(newRevision);
     }
 }

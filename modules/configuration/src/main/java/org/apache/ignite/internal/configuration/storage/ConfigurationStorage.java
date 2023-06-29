@@ -86,9 +86,8 @@ public interface ConfigurationStorage extends ManuallyCloseable {
      *
      * @param prevRevision Previous revision.
      * @param currentRevision Current revision.
-     * @return A future that will be completed when revisions are written to the storage.
      */
-    CompletableFuture<Void> writeConfigurationRevision(long prevRevision, long currentRevision);
+    void writeConfigurationRevision(long prevRevision, long currentRevision);
 
     /**
      * Closes the storage.

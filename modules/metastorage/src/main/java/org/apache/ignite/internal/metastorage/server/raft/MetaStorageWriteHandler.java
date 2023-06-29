@@ -61,7 +61,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 /**
  * Class containing some common logic for Meta Storage Raft group listeners.
  */
-class MetaStorageWriteHandler {
+public class MetaStorageWriteHandler {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageWriteHandler.class);
 
@@ -176,7 +176,7 @@ class MetaStorageWriteHandler {
         }
     }
 
-    private static If toIf(Iif iif) {
+    public static If toIf(Iif iif) {
         return new If(toCondition(iif.condition()), toConditionBranch(iif.andThen()), toConditionBranch(iif.orElse()));
     }
 
