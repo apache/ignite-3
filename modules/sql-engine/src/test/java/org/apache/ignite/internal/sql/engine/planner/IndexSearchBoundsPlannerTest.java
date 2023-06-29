@@ -466,7 +466,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * Index bound checks - search ket lies out of value range.
+     * Index bound checks - search key lies out of value range.
      */
     @ParameterizedTest
     @MethodSource("boundsTypeLimits")
@@ -520,6 +520,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                 Arguments.arguments(decimal53Type, "(100.000)::DECIMAL(5, 3)",  exact(decimal53TypeLimits[1])),
 
                 // TODO https://issues.apache.org/jira/browse/IGNITE-19858
+                //  Cause serialization/deserialization mismatch in AbstractPlannerTest::checkSplitAndSerialization
                 //Arguments.arguments(bigIntType, BigInteger.TWO.pow(63).add(BigInteger.ONE).negate(),
                 //        exact(bigIntTypeLimits[0])),
                 //Arguments.arguments(bigIntType, BigInteger.TWO.pow(63), exact(bigIntTypeLimits[1])),
