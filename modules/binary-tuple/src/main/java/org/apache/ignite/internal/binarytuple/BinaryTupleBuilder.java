@@ -710,9 +710,10 @@ public class BinaryTupleBuilder {
             result.throwException();
         }
 
-        // UTF-8 encoded strings should not start with 0xF0. We trust this but verify.
+        // UTF-8 encoded strings should not start with 0x80 (character codes larger than 127 have a multi-byte encoding).
+        // We trust this but verify.
         if (buffer.get(begin) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
-            throw new BinaryTupleFormatException("Failed to encode a string element");
+            throw new BinaryTupleFormatException("Failed to encode a string element: resulting payload starts with invalid 0x80 byte");
         }
     }
 

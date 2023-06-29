@@ -246,7 +246,7 @@ namespace Apache.Ignite.Tests
             writer.WriteArrayHeader(500); // Page size.
             for (int i = 0; i < 500; i++)
             {
-                using var tuple = new BinaryTupleBuilder(1, false);
+                using var tuple = new BinaryTupleBuilder(1);
                 tuple.AppendInt(i + 512);
                 writer.Write(tuple.Build().Span);
             }
@@ -329,7 +329,7 @@ namespace Apache.Ignite.Tests
                 writer.WriteArrayHeader(props.Count); // Page size.
                 foreach (var (key, val) in props)
                 {
-                    using var tuple = new BinaryTupleBuilder(2, false);
+                    using var tuple = new BinaryTupleBuilder(2);
                     tuple.AppendString(key);
                     tuple.AppendString(val?.ToString() ?? string.Empty);
                     writer.Write(tuple.Build().Span);
@@ -354,7 +354,7 @@ namespace Apache.Ignite.Tests
                 writer.WriteArrayHeader(512); // Page size.
                 for (int i = 0; i < 512; i++)
                 {
-                    using var tuple = new BinaryTupleBuilder(1, false);
+                    using var tuple = new BinaryTupleBuilder(1);
                     tuple.AppendInt(i);
                     writer.Write(tuple.Build().Span);
                 }
