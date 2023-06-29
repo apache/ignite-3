@@ -180,15 +180,26 @@ public class DistributionZoneRebalanceEngine {
                                 metaStorageManager
                         );
 
+                        // This set is used to deduplicate exceptions (if there is an exception from upstream, for instance,
+                        // when reading from MetaStorage, it will be encountered by every partition future) to avoid noise
+                        // in the logs.
                         Set<Throwable> exceptions = newSetFromMap(new ConcurrentHashMap<>());
+
                         for (int partId = 0; partId < partitionFutures.length; partId++) {
                             int finalPartId = partId;
 
                             partitionFutures[partId].exceptionally(e -> {
                                 if (exceptions.add(e)) {
+                                    // The exception is specific to this partition.
                                     LOG.error(
                                             "Exception on updating assignments for [table={}/{}, partition={}]", e,
                                             tableConfig.id(), tableConfig.name(), finalPartId
+                                    );
+                                } else {
+                                    // The exception is from upstream and not specific for this partition, so don't log the partition index.
+                                    LOG.error(
+                                            "Exception on updating assignments for [table={}/{}]", e,
+                                            tableConfig.id(), tableConfig.name()
                                     );
                                 }
 
