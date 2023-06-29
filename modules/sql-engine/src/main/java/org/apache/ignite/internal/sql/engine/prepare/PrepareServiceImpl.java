@@ -232,9 +232,8 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     /**
-     * Prepares and caches normalized query plan.
+     * Prepares normalized query plan.
      */
-    @Override
     public CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx) {
         try {
             assert single(sqlNode);
