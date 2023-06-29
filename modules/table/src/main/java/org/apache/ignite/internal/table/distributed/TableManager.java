@@ -2524,23 +2524,28 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         stopReplicaFut = completedFuture(true);
                     }
 
-                    CompletableFuture<Boolean> finalStopReplicaFut = stopReplicaFut;
-
-                    return tablesById(evt.revision())
-                            // TODO: IGNITE-18703 Destroy raft log and meta
-                            .thenCombine(mvGc.removeStorage(tablePartitionId), (tables, unused) -> {
-                                InternalTable internalTable = tables.get(tableId).internalTable();
-
-                                closePartitionTrackers(internalTable, partitionId);
-
-                                return allOf(
-                                        finalStopReplicaFut,
-                                        internalTable.storage().destroyPartition(partitionId),
-                                        runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
-                                );
-                            })
-                            .thenCompose(Function.identity());
+                    return destroyPartitionStorages(tableId, partitionId, evt.revision(), stopReplicaFut);
                 }, ioExecutor);
+    }
+
+    private CompletableFuture<Void> destroyPartitionStorages(int tableId, int partitionId,
+            long revision, CompletableFuture<Boolean> stopReplicaFut) {
+        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
+
+        return tablesById(revision)
+                // TODO: IGNITE-18703 Destroy raft log and meta
+                .thenCombine(mvGc.removeStorage(tablePartitionId), (tables, unused) -> {
+                    InternalTable internalTable = tables.get(tableId).internalTable();
+
+                    closePartitionTrackers(internalTable, partitionId);
+
+                    return allOf(
+                            stopReplicaFut,
+                            internalTable.storage().destroyPartition(partitionId),
+                            runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
+                    );
+                })
+                .thenCompose(Function.identity());
     }
 
     private static void handleExceptionOnCleanUpTablesResources(
