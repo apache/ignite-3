@@ -38,6 +38,9 @@ public class RocksDbStorageUtils {
     /** Index ID size in bytes. */
     public static final int INDEX_ID_SIZE = Integer.SIZE;
 
+    /** Table ID size in bytes. */
+    public static final int TABLE_ID_SIZE = Integer.BYTES;
+
     static void putRowIdUuid(ByteBuffer keyBuffer, UUID rowIdUuid) {
         assert keyBuffer.order() == KEY_BYTE_ORDER;
 

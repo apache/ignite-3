@@ -39,9 +39,10 @@ import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
-import org.apache.ignite.internal.table.distributed.HashIndexLocker;
+import org.apache.ignite.internal.table.IndexWrapper.HashIndexWrapper;
+import org.apache.ignite.internal.table.IndexWrapper.SortedIndexWrapper;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
-import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
+import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.tx.LockManager;
@@ -71,8 +72,7 @@ public class TableImpl implements Table {
 
     private final Map<Integer, CompletableFuture<?>> indexesToWait = new ConcurrentHashMap<>();
 
-    private final Map<Integer, IndexStorageAdapterFactory> indexStorageAdapterFactories = new ConcurrentHashMap<>();
-    private final Map<Integer, IndexLockerFactory> indexLockerFactories = new ConcurrentHashMap<>();
+    private final Map<Integer, IndexWrapper> indexWrapperById = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -229,12 +229,12 @@ public class TableImpl implements Table {
             public Map<Integer, TableSchemaAwareIndexStorage> get() {
                 awaitIndexes();
 
-                List<IndexStorageAdapterFactory> factories = new ArrayList<>(indexStorageAdapterFactories.values());
+                List<IndexWrapper> factories = new ArrayList<>(indexWrapperById.values());
 
                 Map<Integer, TableSchemaAwareIndexStorage> adapters = new HashMap<>();
 
-                for (IndexStorageAdapterFactory factory : factories) {
-                    TableSchemaAwareIndexStorage storage = factory.create(partId);
+                for (IndexWrapper factory : factories) {
+                    TableSchemaAwareIndexStorage storage = factory.getStorage(partId);
                     adapters.put(storage.id(), storage);
                 }
 
@@ -253,12 +253,12 @@ public class TableImpl implements Table {
         return () -> {
             awaitIndexes();
 
-            List<IndexLockerFactory> factories = new ArrayList<>(indexLockerFactories.values());
+            List<IndexWrapper> factories = new ArrayList<>(indexWrapperById.values());
 
             Map<Integer, IndexLocker> lockers = new HashMap<>(factories.size());
 
-            for (IndexLockerFactory factory : factories) {
-                IndexLocker locker = factory.create(partId);
+            for (IndexWrapper factory : factories) {
+                IndexLocker locker = factory.getLocker(partId);
                 lockers.put(locker.id(), locker);
             }
 
@@ -269,7 +269,7 @@ public class TableImpl implements Table {
     /**
      * The future completes when the primary key index is ready to use.
      *
-     * @return Future whcih complete when a primary index for the table is .
+     * @return Future which complete when a primary index for the table is .
      */
     public CompletableFuture<Void> pkIndexesReadyFuture() {
         var fut = new CompletableFuture<Void>();
@@ -289,27 +289,17 @@ public class TableImpl implements Table {
     public void registerHashIndex(
             StorageHashIndexDescriptor indexDescriptor,
             boolean unique,
-            Function<BinaryRow, BinaryTuple> searchRowResolver
+            Function<BinaryRow, BinaryTuple> searchRowResolver,
+            PartitionSet partitions
     ) {
         int indexId = indexDescriptor.id();
 
-        indexLockerFactories.put(
-                indexId,
-                partitionId -> new HashIndexLocker(
-                        indexId,
-                        unique,
-                        lockManager,
-                        searchRowResolver
-                )
-        );
-        indexStorageAdapterFactories.put(
-                indexId,
-                partitionId -> new TableSchemaAwareIndexStorage(
-                        indexId,
-                        tbl.storage().getOrCreateHashIndex(partitionId, indexDescriptor),
-                        searchRowResolver
-                )
-        );
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19112 Create storages once.
+        partitions.stream().forEach(partitionId -> {
+            tbl.storage().getOrCreateHashIndex(partitionId, indexDescriptor);
+        });
+
+        indexWrapperById.put(indexId, new HashIndexWrapper(tbl, lockManager, indexId, searchRowResolver, unique));
 
         completeWaitIndex(indexId);
     }
@@ -322,28 +312,17 @@ public class TableImpl implements Table {
      */
     public void registerSortedIndex(
             StorageSortedIndexDescriptor indexDescriptor,
-            Function<BinaryRow, BinaryTuple> searchRowResolver
+            Function<BinaryRow, BinaryTuple> searchRowResolver,
+            PartitionSet partitions
     ) {
         int indexId = indexDescriptor.id();
 
-        indexLockerFactories.put(
-                indexId,
-                partitionId -> new SortedIndexLocker(
-                        indexId,
-                        partitionId,
-                        lockManager,
-                        tbl.storage().getOrCreateSortedIndex(partitionId, indexDescriptor),
-                        searchRowResolver
-                )
-        );
-        indexStorageAdapterFactories.put(
-                indexId,
-                partitionId -> new TableSchemaAwareIndexStorage(
-                        indexId,
-                        tbl.storage().getOrCreateSortedIndex(partitionId, indexDescriptor),
-                        searchRowResolver
-                )
-        );
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19112 Create storages once.
+        partitions.stream().forEach(partitionId -> {
+            tbl.storage().getOrCreateSortedIndex(partitionId, indexDescriptor);
+        });
+
+        indexWrapperById.put(indexId, new SortedIndexWrapper(tbl, lockManager, indexId, searchRowResolver));
 
         completeWaitIndex(indexId);
     }
@@ -354,8 +333,7 @@ public class TableImpl implements Table {
      * @param indexId An index id to unregister.
      */
     public void unregisterIndex(int indexId) {
-        indexLockerFactories.remove(indexId);
-        indexStorageAdapterFactories.remove(indexId);
+        indexWrapperById.remove(indexId);
 
         completeWaitIndex(indexId);
 
@@ -386,18 +364,6 @@ public class TableImpl implements Table {
         indexesToWait.values().forEach(future -> future.completeExceptionally(closeTableException));
     }
 
-    @FunctionalInterface
-    private interface IndexLockerFactory {
-        /** Creates the index decorator for given partition. */
-        IndexLocker create(int partitionId);
-    }
-
-    @FunctionalInterface
-    private interface IndexStorageAdapterFactory {
-        /** Creates the index decorator for given partition. */
-        TableSchemaAwareIndexStorage create(int partitionId);
-    }
-
     /**
      * Adds indexes to wait, if not already created, before inserting data into the table.
      *
@@ -411,7 +377,7 @@ public class TableImpl implements Table {
                     return awaitIndexFuture;
                 }
 
-                if (indexStorageAdapterFactories.containsKey(indexId) && indexLockerFactories.containsKey(indexId)) {
+                if (indexWrapperById.containsKey(indexId)) {
                     // Index is already registered and created.
                     return null;
                 }

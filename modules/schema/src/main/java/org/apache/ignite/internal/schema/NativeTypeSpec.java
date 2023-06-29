@@ -119,6 +119,9 @@ public enum NativeTypeSpec {
      */
     TIMESTAMP("timestamp", true);
 
+    /** Cached array with all enum values. */
+    private static final NativeTypeSpec[] VALUES = values();
+
     /** Flag indicating whether this type specifies a fixed-length type. */
     private final boolean fixedSize;
 
@@ -134,6 +137,13 @@ public enum NativeTypeSpec {
     NativeTypeSpec(String desc, boolean fixedSize) {
         this.desc = desc;
         this.fixedSize = fixedSize;
+    }
+
+    /**
+     * Returns the spec instance by its ordinal. {@code null} if the ordinal is invalid.
+     */
+    public static @Nullable NativeTypeSpec fromOrdinal(byte ordinal) {
+        return ordinal < 0 || ordinal >= VALUES.length ? null : VALUES[ordinal];
     }
 
     /**

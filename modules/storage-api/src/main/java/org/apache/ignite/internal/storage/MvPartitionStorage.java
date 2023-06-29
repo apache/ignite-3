@@ -99,9 +99,8 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     <V> V runConsistently(WriteClosure<V> closure) throws StorageException;
 
     /**
-     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be
-     * completed when {@link #persistedIndex()} is higher than {@link #lastAppliedIndex()} at the moment of the method's call. This feature
-     * allows implementing a batch flush for several partitions at once.
+     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage.
+     * This feature allows implementing a batch flush for several partitions at once.
      *
      * @return Future that's completed when flushing of the data is completed.
      */
@@ -124,11 +123,6 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @param lastAppliedTerm Last applied term value.
      */
     void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException;
-
-    /**
-     * {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
-     */
-    long persistedIndex();
 
     /**
      * Byte representation of the committed replication protocol group configuration corresponding to the write command with the highest

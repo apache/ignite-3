@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStora
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.PARTITION_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.TABLE_ID_SIZE;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -50,7 +51,7 @@ import org.rocksdb.WriteBatchWithIndex;
  *
  * <p>Key:
  * <pre>{@code
- * | partId (2 bytes, BE) | timestamp (12 bytes, ASC) | rowId (16 bytes, BE) |
+ * | tableId (4 bytes, BE) | partId (2 bytes, BE) | timestamp (8 bytes, ASC) | rowId (16 bytes, BE) |
  * }</pre>
  * Value is an empty byte array.
  *
@@ -65,7 +66,7 @@ class GarbageCollector {
     private static final ByteBuffer EMPTY_DIRECT_BUFFER = allocateDirect(0);
 
     /** Garbage collector's queue key's timestamp offset. */
-    private static final int GC_KEY_TS_OFFSET = PARTITION_ID_SIZE;
+    private static final int GC_KEY_TS_OFFSET = TABLE_ID_SIZE + PARTITION_ID_SIZE;
 
     /** Garbage collector's queue key's row id offset. */
     private static final int GC_KEY_ROW_ID_OFFSET = GC_KEY_TS_OFFSET + HYBRID_TIMESTAMP_SIZE;

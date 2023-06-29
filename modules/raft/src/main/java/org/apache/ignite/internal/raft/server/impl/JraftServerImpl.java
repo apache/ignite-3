@@ -600,7 +600,7 @@ public class JraftServerImpl implements RaftServer {
                         @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) iter.done();
                         ByteBuffer data = iter.getData();
 
-                        WriteCommand command = done == null ? marshaller.unmarshall(data.array()) : done.command();
+                        WriteCommand command = done == null ? marshaller.unmarshall(data) : done.command();
 
                         long commandIndex = iter.getIndex();
                         long commandTerm = iter.getTerm();

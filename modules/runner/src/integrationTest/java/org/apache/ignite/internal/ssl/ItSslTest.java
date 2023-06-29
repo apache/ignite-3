@@ -35,7 +35,6 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConnectionException;
@@ -43,6 +42,7 @@ import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
@@ -84,12 +84,12 @@ public class ItSslTest extends IgniteIntegrationTest {
         String sslDisabledBoostrapConfig = "{\n"
                 + "  network: {\n"
                 + "    ssl.enabled: false,\n"
-                + "    port: 3355,\n"
-                + "    portRange: 2,\n"
+                + "    port: {},\n"
                 + "    nodeFinder:{\n"
-                + "      netClusterNodes: [ \"localhost:3355\", \"localhost:3356\" ]\n"
+                + "      netClusterNodes: [ {}, \"localhost:3355\", \"localhost:3356\" ]\n"
                 + "    }\n"
-                + "  }\n"
+                + "  },\n"
+                + "  clientConnector: { port: {} }\n"
                 + "}";
 
         @BeforeAll
@@ -176,12 +176,12 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "        path: \"" + escapeWindowsPath(keyStorePath) + "\""
                 + "      }\n"
                 + "    },\n"
-                + "    port: 3345,\n"
-                + "    portRange: 2,\n"
+                + "    port: {},\n"
                 + "    nodeFinder:{\n"
-                + "      netClusterNodes: [ \"localhost:3345\", \"localhost:3346\" ]\n"
+                + "      netClusterNodes: [ {}, \"localhost:3345\", \"localhost:3346\" ]\n"
                 + "    }\n"
                 + "  },\n"
+                + "  clientConnector: { port: {} },\n"
                 + "  clientConnector.ssl: {\n"
                 + "    enabled: true, "
                 + "    keyStore: {\n"
@@ -385,12 +385,13 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "        path: \"" + escapeWindowsPath(keyStorePath) + "\""
                 + "      }\n"
                 + "    },\n"
-                + "    port: 3365,\n"
+                + "    port: {},\n"
                 + "    portRange: 2,\n"
                 + "    nodeFinder:{\n"
-                + "      netClusterNodes: [ \"localhost:3365\", \"localhost:3366\" ]\n"
+                + "      netClusterNodes: [ {}, \"localhost:3365\", \"localhost:3366\" ]\n"
                 + "    }\n"
                 + "  },\n"
+                + "  clientConnector: { port: {} },\n"
                 + "  clientConnector.ssl: {\n"
                 + "    enabled: true, "
                 + "    clientAuth: \"require\", "
@@ -516,7 +517,7 @@ public class ItSslTest extends IgniteIntegrationTest {
                 .clusterName("cluster")
                 .build();
 
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         // First node will initialize the cluster with single node successfully since the second node can't connect to it.
         assertThat(node1, willCompleteSuccessfully());
@@ -543,12 +544,13 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "        path: \"" + escapeWindowsPath(keyStorePath) + "\""
                 + "      }\n"
                 + "    },\n"
-                + "    port: 3345,\n"
+                + "    port: {},\n"
                 + "    portRange: 2,\n"
                 + "    nodeFinder:{\n"
-                + "      netClusterNodes: [ \"localhost:3345\", \"localhost:3346\" ]\n"
+                + "      netClusterNodes: [ {}, \"localhost:3345\", \"localhost:3346\" ]\n"
                 + "    }\n"
                 + "  },\n"
+                + "  clientConnector.port: {},\n"
                 + "  clientConnector.ssl: {\n"
                 + "    enabled: true, "
                 + "    ciphers: " + ciphers + ",\n"

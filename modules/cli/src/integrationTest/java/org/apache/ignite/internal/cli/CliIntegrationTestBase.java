@@ -62,7 +62,8 @@ public abstract class CliIntegrationTestBase extends IntegrationTestBase {
             + "        gossipInterval: 10\n"
             + "      },\n"
             + "    }\n"
-            + "  }\n"
+            + "  },\n"
+            + "  clientConnector: { port:{} }\n"
             + "}";
 
 

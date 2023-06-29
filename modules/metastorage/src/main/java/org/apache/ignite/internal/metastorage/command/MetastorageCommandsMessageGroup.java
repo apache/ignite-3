@@ -50,6 +50,9 @@ public interface MetastorageCommandsMessageGroup {
     /** Message type for {@link GetAndRemoveAllCommand}. */
     short GET_AND_REMOVE_ALL = 32;
 
+    /** Message type for {@link GetCurrentRevisionCommand}. */
+    short GET_CURRENT_REVISION = 33;
+
     /** Message type for {@link PutCommand}. */
     short PUT = 40;
 
@@ -68,9 +71,6 @@ public interface MetastorageCommandsMessageGroup {
     /** Message type for {@link GetPrefixCommand}. */
     short GET_PREFIX = 61;
 
-    /** Message type for {@link HybridTimestampMessage}. */
-    short HYBRID_TS = 70;
-
     /** Message type for {@link SyncTimeCommand}. */
-    short SYNC_TIME = 71;
+    short SYNC_TIME = 70;
 }

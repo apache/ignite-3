@@ -85,7 +85,8 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
                         + "    nodeFinder: {\n"
                         + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "    }\n"
-                        + "  }\n"
+                        + "  },\n"
+                        + "  clientConnector: { port:10901 }\n"
                         + "}"
         );
 
@@ -97,7 +98,8 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
                         + "    nodeFinder: {\n"
                         + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "    }\n"
-                        + "  }\n"
+                        + "  },\n"
+                        + "  clientConnector: { port:10902 }\n"
                         + "}"
         );
 
@@ -109,7 +111,8 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
                         + "    nodeFinder: {\n"
                         + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "    }\n"
-                        + "  }\n"
+                        + "  },\n"
+                        + "  clientConnector: { port:10903 }\n"
                         + "}"
         );
     }
@@ -186,7 +189,7 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
                 .clusterName("cluster")
                 .build();
 
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         await(CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])));
 

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "ignite/client/compute/deployment_unit.h"
 #include "ignite/client/detail/cluster_connection.h"
 #include "ignite/client/detail/table/tables_impl.h"
 #include "ignite/client/network/cluster_node.h"
@@ -49,11 +50,13 @@ public:
      * Executes a compute job represented by the given class on the specified node asynchronously.
      *
      * @param node Node to use for the job execution.
+     * @param units Deployment units. Can be empty.
      * @param job_class_name Java class name of the job to execute.
      * @param args Job arguments.
      * @param callback A callback called on operation completion with job execution result.
      */
-    void execute_on_one_node(cluster_node node, std::string_view job_class_name, const std::vector<primitive> &args,
+    void execute_on_one_node(cluster_node node, const std::vector<deployment_unit> &units,
+        std::string_view job_class_name, const std::vector<primitive> &args,
         ignite_callback<std::optional<primitive>> callback);
 
     /**
@@ -61,11 +64,13 @@ public:
      *
      * @param table_name Name of the table to be used with @c key to determine target node.
      * @param key Table key to be used to determine the target node for job execution.
+     * @param units Deployment units. Can be empty.
      * @param job_class_name Java class name of the job to execute.
      * @param args Job arguments.
      * @param callback A callback called on operation completion with job execution result.
      */
-    void execute_colocated_async(std::string_view table_name, const ignite_tuple &key, std::string_view job_class_name,
+    void execute_colocated_async(const std::string &table_name, const ignite_tuple &key,
+        const std::vector<deployment_unit> &units, const std::string &job_class_name,
         const std::vector<primitive> &args, ignite_callback<std::optional<primitive>> callback);
 
 private:

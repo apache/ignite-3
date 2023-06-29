@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.storage;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -30,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -55,9 +57,7 @@ class UpdateLogImplTest {
     void setUp() {
         vault = new VaultManager(new InMemoryVaultService());
 
-        metastore = StandaloneMetaStorageManager.create(
-                vault, new SimpleInMemoryKeyValueStorage("test")
-        );
+        metastore = StandaloneMetaStorageManager.create(vault, new SimpleInMemoryKeyValueStorage("test"));
 
         vault.start();
         metastore.start();
@@ -72,14 +72,14 @@ class UpdateLogImplTest {
     @Test
     public void logReplayedOnStart() throws Exception {
         // first, let's append a few entries to the log
-        UpdateLogImpl updateLog = new UpdateLogImpl(metastore, vault);
+        UpdateLogImpl updateLog = createUpdateLogImpl();
 
         long revisionBefore = metastore.appliedRevision();
 
-        updateLog.registerUpdateHandler(update -> {/* no-op */});
+        updateLog.registerUpdateHandler((update, ts) -> {/* no-op */});
         updateLog.start();
 
-        metastore.deployWatches();
+        assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 
         List<VersionedUpdate> expectedLog = List.of(
                 new VersionedUpdate(1, 1L, List.of(new TestUpdateEntry("foo"))),
@@ -102,18 +102,22 @@ class UpdateLogImplTest {
 
         // now let's create new component over a stuffed vault/metastore
         // and check if log is replayed on start
-        updateLog = new UpdateLogImpl(metastore, vault);
+        updateLog = createUpdateLogImpl();
 
         List<VersionedUpdate> actualLog = new ArrayList<>();
-        updateLog.registerUpdateHandler(actualLog::add);
+        updateLog.registerUpdateHandler((update, ts) -> actualLog.add(update));
         updateLog.start();
 
         assertEquals(expectedLog, actualLog);
     }
 
+    private UpdateLogImpl createUpdateLogImpl() {
+        return new UpdateLogImpl(metastore);
+    }
+
     @Test
     public void exceptionIsThrownOnStartIfHandlerHasNotBeenRegistered() {
-        UpdateLogImpl updateLog = new UpdateLogImpl(metastore, vault);
+        UpdateLogImpl updateLog = createUpdateLogImpl();
 
         IgniteInternalException ex = assertThrows(
                 IgniteInternalException.class,
@@ -129,16 +133,16 @@ class UpdateLogImplTest {
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 4, 8})
     public void appendAcceptsUpdatesInOrder(int startVersion) throws Exception {
-        UpdateLogImpl updateLog = new UpdateLogImpl(metastore, vault);
+        UpdateLogImpl updateLog = createUpdateLogImpl();
 
         List<Integer> appliedVersions = new ArrayList<>();
-        updateLog.registerUpdateHandler(update -> appliedVersions.add(update.version()));
+        updateLog.registerUpdateHandler((update, ts) -> appliedVersions.add(update.version()));
 
         updateLog.start();
 
         long revisionBefore = metastore.appliedRevision();
 
-        metastore.deployWatches();
+        assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 
         // first update should always be successful
         assertTrue(await(updateLog.append(singleEntryUpdateOfVersion(startVersion))));
@@ -172,7 +176,7 @@ class UpdateLogImplTest {
     }
 
     private static VersionedUpdate singleEntryUpdateOfVersion(int version) {
-        return new VersionedUpdate(version, version, List.of(new TestUpdateEntry("foo_" + version)));
+        return new VersionedUpdate(version, 1, List.of(new TestUpdateEntry("foo_" + version)));
     }
 
     static class TestUpdateEntry implements UpdateEntry {
@@ -182,6 +186,11 @@ class UpdateLogImplTest {
 
         TestUpdateEntry(String payload) {
             this.payload = payload;
+        }
+
+        @Override
+        public Catalog applyUpdate(Catalog catalog) {
+            return catalog;
         }
 
         @Override

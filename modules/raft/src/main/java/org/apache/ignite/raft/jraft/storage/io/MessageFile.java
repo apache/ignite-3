@@ -23,6 +23,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.util.Bits;
 import org.apache.ignite.raft.jraft.util.Marshaller;
@@ -59,7 +60,7 @@ public class MessageFile {
             }
             final byte[] nameBytes = new byte[len];
             readBytes(nameBytes, input);
-            return Marshaller.DEFAULT.unmarshall(nameBytes);
+            return Marshaller.DEFAULT.unmarshall(ByteBuffer.wrap(nameBytes));
         }
     }
 

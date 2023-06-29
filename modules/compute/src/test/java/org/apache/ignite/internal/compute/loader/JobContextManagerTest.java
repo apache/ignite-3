@@ -19,8 +19,8 @@ package org.apache.ignite.internal.compute.loader;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.version.Version.LATEST;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.OBSOLETE;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertSame;

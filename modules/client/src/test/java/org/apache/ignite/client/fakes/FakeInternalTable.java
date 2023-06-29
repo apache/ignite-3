@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.fakes;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -123,7 +125,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows,
+    public CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows,
             @Nullable InternalTransaction tx) {
         var res = new ArrayList<BinaryRow>();
 
@@ -132,15 +134,17 @@ public class FakeInternalTable implements InternalTable {
 
             if (val != null) {
                 res.add(val.getNow(null));
+            } else {
+                res.add(null);
             }
         }
 
         onDataAccess("getAll", keyRows);
-        return CompletableFuture.completedFuture(res);
+        return completedFuture(res);
     }
 
     @Override
-    public CompletableFuture<Collection<BinaryRow>> getAll(
+    public CompletableFuture<List<BinaryRow>> getAll(
             Collection<BinaryRowEx> keyRows,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
@@ -167,6 +171,12 @@ public class FakeInternalTable implements InternalTable {
 
         onDataAccess("upsertAll", rows);
         return CompletableFuture.completedFuture(null);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */

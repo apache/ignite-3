@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -299,7 +300,7 @@ public class ClientTupleSerializer {
         return res;
     }
 
-    static Collection<Tuple> readTuplesNullable(ClientSchema schema, ClientMessageUnpacker in) {
+    static List<Tuple> readTuplesNullable(ClientSchema schema, ClientMessageUnpacker in) {
         var cnt = in.unpackInt();
         var res = new ArrayList<Tuple>(cnt);
 
@@ -444,6 +445,7 @@ public class ClientTupleSerializer {
         var hashCalc = new HashCalculator();
 
         for (ClientColumn col : schema.colocationColumns()) {
+            // Colocation columns are always part of the key and can't be missing; serializer will check this.
             Object value = rec.valueOrDefault(col.name(), null);
             hashCalc.append(value, col.scale(), col.precision());
         }

@@ -85,7 +85,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "    }\n"
-                    + "  }\n"
+                    + "  },\n"
+                    + "  clientConnector: { port:10801 }\n"
                     + "}",
 
             "node2", "{\n"
@@ -94,7 +95,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "    }\n"
-                    + "  }\n"
+                    + "  },\n"
+                    + "  clientConnector: { port:10802 }\n"
                     + "}"
     );
 
@@ -120,7 +122,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                 .clusterName("cluster")
                 .build();
 
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());
