@@ -252,6 +252,7 @@ namespace Apache.Ignite.Tests.Compute
         [TestCase(8, 2)]
         [TestCase(9, 3)]
         [TestCase(10, 1)]
+        [TestCase(11, 2)]
         public async Task TestExecuteColocated(long key, int nodeIdx)
         {
             var proxies = Client.GetConnections().ToDictionary(c => c.Node.Name, c => new IgniteProxy(c.Node.Address));
@@ -287,8 +288,7 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreEqual(expectedNodeName, resNodeName2);
             Assert.AreEqual(expectedNodeName, resNodeName3);
 
-            // TODO: Why requests go to a wrong node? Because we don't have direct connection to all of them!
-            // And we can't connect to all because of different auth settings.
+            // We only connect to 2 of 4 nodes because of different auth settings.
             if (nodeIdx < 3)
             {
                 Assert.AreEqual(expectedNodeName, requestTargetNodeName);
