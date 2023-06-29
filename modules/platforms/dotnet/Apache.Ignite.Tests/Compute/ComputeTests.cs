@@ -38,11 +38,11 @@ namespace Apache.Ignite.Tests.Compute
     /// </summary>
     public class ComputeTests : IgniteTestsBase
     {
+        public const string NodeNameJob = ItThinClientComputeTest + "$NodeNameJob";
+
         private const string ItThinClientComputeTest = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest";
 
         private const string ConcatJob = ItThinClientComputeTest + "$ConcatJob";
-
-        private const string NodeNameJob = ItThinClientComputeTest + "$NodeNameJob";
 
         private const string ErrorJob = ItThinClientComputeTest + "$IgniteExceptionJob";
 

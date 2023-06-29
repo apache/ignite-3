@@ -17,7 +17,12 @@
 
 namespace Apache.Ignite.Tests;
 
+using System;
 using System.Threading.Tasks;
+using Compute;
+using Ignite.Compute;
+using Ignite.Table;
+using Internal.Proto;
 using NUnit.Framework;
 
 /// <summary>
@@ -25,23 +30,32 @@ using NUnit.Framework;
 /// </summary>
 public class PartitionAwarenessRealClusterTests : IgniteTestsBase
 {
-    // TODO:
-    // 1. Use Proxy to check actual routing.
-    // 2. Use Compute to get the primary node for the given key.
     [Test]
-    public async Task TestPutRoutesRequestToPrimaryNode()
+    [TestCase(4, 2)]
+    [TestCase(5, 2)]
+    [TestCase(6, 1)]
+    [TestCase(10, 1)]
+    [TestCase(11, 2)]
+    public async Task TestPutRoutesRequestToPrimaryNode(long key, int nodeIdx)
     {
         var proxies = GetProxies();
         using var client = await IgniteClient.StartAsync(GetConfig(proxies));
-        var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
+        var recordView = (await client.Tables.GetTableAsync(TableName))!.RecordBinaryView;
+        var keyTuple = new IgniteTuple { ["KEY"] = key };
 
         // Warm up.
-        await recordView.UpsertAsync(null, 1);
+        await recordView.GetAsync(null, keyTuple);
 
         // Check.
-        // await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2, _server1);
-        // await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 3), ClientOp.TupleUpsert, _server1, _server2);
-        // await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 4), ClientOp.TupleUpsert, _server2, _server1);
-        // await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 5), ClientOp.TupleUpsert, _server1, _server2);
+        await recordView.UpsertAsync(null, keyTuple);
+        var requestTargetNodeName = GetRequestTargetNodeName(proxies, ClientOp.TupleUpsert);
+
+        var primaryNodeName = await client.Compute.ExecuteColocatedAsync<string>(
+            TableName,
+            keyTuple,
+            Array.Empty<DeploymentUnit>(),
+            ComputeTests.NodeNameJob);
+
+        Assert.AreEqual(primaryNodeName, requestTargetNodeName);
     }
 }
