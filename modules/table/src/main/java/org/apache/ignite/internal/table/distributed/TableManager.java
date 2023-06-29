@@ -2212,8 +2212,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         InternalTable internalTable = tbl.internalTable();
 
         LOG.info("Received update on pending assignments. Check if new raft group should be started"
-                        + " [key={}, partition={}, table={}, localMemberAddress={}, causalityToken={}]",
-                new String(pendingAssignmentsEntry.key(), StandardCharsets.UTF_8), partId, tbl.name(), localMember.address(), causalityToken);
+                        + " [key={}, partition={}, table={}, localMemberAddress={}]",
+                new String(pendingAssignmentsEntry.key(), StandardCharsets.UTF_8), partId, tbl.name(), localMember.address());
 
         CompletableFuture<Void> localServicesStartFuture;
 

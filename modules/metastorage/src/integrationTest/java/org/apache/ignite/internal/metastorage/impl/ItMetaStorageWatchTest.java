@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -218,6 +219,12 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         String name = nodes.get(0).name();
 
         nodes.get(0).cmgManager.initCluster(List.of(name), List.of(name), "test");
+
+        CompletableFuture<Void> startFut = allOf(
+                nodes.stream().map(node -> node.metaStorageManager.recoveryFinishedFuture()).toArray(CompletableFuture[]::new)
+        );
+
+        assertThat(startFut, willCompleteSuccessfully());
     }
 
     @Test
