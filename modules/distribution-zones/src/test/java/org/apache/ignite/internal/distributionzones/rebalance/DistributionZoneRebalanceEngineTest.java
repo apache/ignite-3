@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignm
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
@@ -61,6 +62,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -71,6 +73,7 @@ import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
+import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
@@ -374,55 +377,77 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     void replicasTriggersAssignmentsChangingOnNonDefaultZones(
             @InjectConfiguration
                     ("mock.tables {"
-                            + "table0 = { zoneId = 1 },"
-                            + "table1 = { zoneId = 2 },"
-                            + "table2 = { zoneId = 2 }}")
+                            + "table0 = { zoneId = 1, id = 1 }}")
             TablesConfiguration tablesConfiguration
     ) throws Exception {
-        assignTableIds(tablesConfiguration);
-
         when(distributionZoneManager.dataNodes(anyInt())).thenReturn(Set.of("node0"));
 
-        createRebalanceEngine(tablesConfiguration);
+        keyValueStorage.put(stablePartAssignmentsKey(new TablePartitionId(1, 0)).bytes(), toBytes(Set.of("node0")), someTimestamp());
 
-        rebalanceEngine.start();
+        MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(vaultManager, keyValueStorage);
 
-        CompletableFuture<Void> changeFuture = distributionZonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(
-                zoneListChange -> zoneListChange.update("zone0", zoneChange -> zoneChange.changeReplicas(2))
-        ));
-        assertThat(changeFuture, willCompleteSuccessfully());
+        realMetaStorageManager.start();
 
-        assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
+        try {
+            createRebalanceEngine(tablesConfiguration, realMetaStorageManager);
+
+            rebalanceEngine.start();
+
+            CompletableFuture<Void> changeFuture = distributionZonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(
+                    zoneListChange -> zoneListChange.update("zone0", zoneChange -> zoneChange.changeReplicas(2))
+            ));
+            assertThat(changeFuture, willCompleteSuccessfully());
+
+            assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
+        } finally {
+            realMetaStorageManager.stop();
+        }
+    }
+
+    private static HybridTimestamp someTimestamp() {
+        return new HybridTimestamp(System.currentTimeMillis(), 0);
     }
 
     @Test
     void replicasTriggersAssignmentsChangingOnDefaultZone(
             @InjectConfiguration
                     ("mock.tables {"
-                            + "table0 = { zoneId = 0 },"
-                            + "table1 = { zoneId = 1 },"
-                            + "table2 = { zoneId = 2 }}")
+                            + "table0 = { zoneId = 0, id = 1 }}")
             TablesConfiguration tablesConfiguration
     ) throws Exception {
-        assignTableIds(tablesConfiguration);
-
         when(distributionZoneManager.dataNodes(anyInt())).thenReturn(Set.of("node0"));
 
-        createRebalanceEngine(tablesConfiguration);
+        for (int i = 0; i < 25; i++) {
+            keyValueStorage.put(stablePartAssignmentsKey(new TablePartitionId(1, i)).bytes(), toBytes(Set.of("node0")), someTimestamp());
+        }
 
-        rebalanceEngine.start();
+        MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(vaultManager, keyValueStorage);
 
-        CompletableFuture<Void> changeFuture = distributionZonesConfiguration.change(zonesChange ->
-                zonesChange.changeDefaultDistributionZone(zoneChange -> {
-                    zoneChange.changeReplicas(2);
-                })
-        );
-        assertThat(changeFuture, willCompleteSuccessfully());
+        realMetaStorageManager.start();
 
-        assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
+        try {
+            createRebalanceEngine(tablesConfiguration, realMetaStorageManager);
+
+            rebalanceEngine.start();
+
+            CompletableFuture<Void> changeFuture = distributionZonesConfiguration.change(zonesChange ->
+                    zonesChange.changeDefaultDistributionZone(zoneChange -> {
+                        zoneChange.changeReplicas(2);
+                    })
+            );
+            assertThat(changeFuture, willCompleteSuccessfully());
+
+            assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
+        } finally {
+            realMetaStorageManager.stop();
+        }
     }
 
     private void createRebalanceEngine(TablesConfiguration tablesConfiguration) {
+        createRebalanceEngine(tablesConfiguration, metaStorageManager);
+    }
+
+    private void createRebalanceEngine(TablesConfiguration tablesConfiguration, MetaStorageManager metaStorageManager) {
         rebalanceEngine = new DistributionZoneRebalanceEngine(
                 new AtomicBoolean(),
                 new IgniteSpinBusyLock(),

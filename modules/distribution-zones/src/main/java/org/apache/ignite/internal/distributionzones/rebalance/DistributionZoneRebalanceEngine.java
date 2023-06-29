@@ -318,7 +318,7 @@ public class DistributionZoneRebalanceEngine {
                                         replicasCtx.storageRevision(),
                                         metaStorageManager,
                                         partId,
-                                        tableAssignments.isEmpty() ? emptySet() : tableAssignments.get(partId)
+                                        tableAssignments.get(partId)
                                 ));
                     }
                 }
