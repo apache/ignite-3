@@ -39,7 +39,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     SqlKind.OTHER_FUNCTION,
                     ReturnTypes.INTEGER_NULLABLE,
                     null,
-                    OperandTypes.CHARACTER,
+                    OperandTypes.CHARACTER.or(OperandTypes.BINARY),
                     SqlFunctionCategory.NUMERIC);
 
     public static final SqlFunction SYSTEM_RANGE = new SqlSystemRangeFunction();

@@ -645,27 +645,28 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                 }
 
                 // Save revisions for recovery.
-                return storage.writeConfigurationRevision(oldStorageRoots.version, newStorageRoots.version)
-                        .thenCompose(unused -> {
-                            long notificationNumber = notificationListenerCnt.incrementAndGet();
+                // We execute synchronously to avoid a race between notifications about updating the Meta Storage and updating the revision
+                // of the Meta Storage.
+                storage.writeConfigurationRevision(oldStorageRoots.version, newStorageRoots.version);
 
-                            CompletableFuture<Void> notificationFuture;
+                long notificationNumber = notificationListenerCnt.incrementAndGet();
 
-                            if (dataValuesPrefixMap.isEmpty()) {
-                                notificationFuture = configurationUpdateListener.onRevisionUpdated(newChangeId, notificationNumber);
-                            } else {
-                                notificationFuture = configurationUpdateListener
-                                        .onConfigurationUpdated(oldSuperRoot, newSuperRoot, newChangeId, notificationNumber);
-                            }
+                CompletableFuture<Void> notificationFuture;
 
-                            return notificationFuture.whenComplete((v, t) -> {
-                                if (t == null) {
-                                    oldStorageRoots.changeFuture.complete(null);
-                                } else {
-                                    oldStorageRoots.changeFuture.completeExceptionally(t);
-                                }
-                            });
-                        });
+                if (dataValuesPrefixMap.isEmpty()) {
+                    notificationFuture = configurationUpdateListener.onRevisionUpdated(newChangeId, notificationNumber);
+                } else {
+                    notificationFuture = configurationUpdateListener
+                            .onConfigurationUpdated(oldSuperRoot, newSuperRoot, newChangeId, notificationNumber);
+                }
+
+                return notificationFuture.whenComplete((v, t) -> {
+                    if (t == null) {
+                        oldStorageRoots.changeFuture.complete(null);
+                    } else {
+                        oldStorageRoots.changeFuture.completeExceptionally(t);
+                    }
+                });
             }
 
             @Override

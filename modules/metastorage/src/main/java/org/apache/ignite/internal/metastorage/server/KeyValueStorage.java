@@ -25,6 +25,7 @@ import java.util.function.LongConsumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
@@ -302,4 +303,13 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param listener Revision listener.
      */
     void setRecoveryRevisionListener(@Nullable LongConsumer listener);
+
+    /** Registers a Meta Storage revision update listener. */
+    void registerRevisionUpdateListener(RevisionUpdateListener listener);
+
+    /** Unregisters a Meta Storage revision update listener. */
+    void unregisterRevisionUpdateListener(RevisionUpdateListener listener);
+
+    /** Explicitly notifies revision update listeners. */
+    CompletableFuture<Void> notifyRevisionUpdateListenerOnStart(long newRevision);
 }

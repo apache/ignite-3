@@ -222,4 +222,10 @@ public interface MetaStorageManager extends IgniteComponent {
      * The value of the future is the revision which must be used for state recovery by other components.
      */
     CompletableFuture<Long> recoveryFinishedFuture();
+
+    /** Registers a Meta Storage revision update listener. */
+    void registerRevisionUpdateListener(RevisionUpdateListener listener);
+
+    /** Unregisters a Meta Storage revision update listener. */
+    void unregisterRevisionUpdateListener(RevisionUpdateListener listener);
 }

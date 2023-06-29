@@ -18,11 +18,14 @@
 package org.apache.ignite.internal.compute;
 
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -49,7 +52,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        deployJar(node(0), unit.name(), unit.version(), "ignite-jobs-1.0-SNAPSHOT.jar");
+        deployJar(node(0), unit.name(), unit.version(), "ignite-it-jobs-1.0-SNAPSHOT.jar");
     }
 
     @Override
@@ -103,7 +106,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
                 result,
                 willThrow(
                         ClassNotFoundException.class,
-                        "org.example.ConcatJob. Deployment unit non-existing:1.0.0 doesn’t exist"
+                        "org.example.ConcatJob. Deployment unit non-existing:1.0.0 doesn't exist"
                 )
         );
     }
@@ -115,18 +118,56 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         IgniteImpl entryNode = node(0);
 
         DeploymentUnit firstVersion = new DeploymentUnit("latest-unit", Version.parseVersion("1.0.0"));
-        deployJar(entryNode, firstVersion.name(), firstVersion.version(), "unit1-1.0-SNAPSHOT.jar");
+        deployJar(entryNode, firstVersion.name(), firstVersion.version(), "ignite-ut-job1-1.0-SNAPSHOT.jar");
 
         CompletableFuture<Integer> result1 = entryNode.compute()
                 .execute(Set.of(entryNode.node()), jobUnits, "org.my.job.compute.unit.UnitJob");
         assertThat(result1, willBe(1));
 
         DeploymentUnit secondVersion = new DeploymentUnit("latest-unit", Version.parseVersion("1.0.1"));
-        deployJar(entryNode, secondVersion.name(), secondVersion.version(), "unit2-1.0-SNAPSHOT.jar");
+        deployJar(entryNode, secondVersion.name(), secondVersion.version(), "ignite-ut-job2-1.0-SNAPSHOT.jar");
 
         CompletableFuture<String> result2 = entryNode.compute()
                 .execute(Set.of(entryNode.node()), jobUnits, "org.my.job.compute.unit.UnitJob");
         assertThat(result2, willBe("Hello World!"));
+    }
+
+    @Test
+    void undeployAcquiredUnit() {
+        IgniteImpl entryNode = node(0);
+        CompletableFuture<Void> job = entryNode.compute().execute(Set.of(entryNode.node()), units, "org.example.SleepJob", 3L);
+
+        assertThat(entryNode.deployment().undeployAsync(unit.name(), unit.version()), willCompleteSuccessfully());
+
+        assertThat(entryNode.deployment().clusterStatusAsync(unit.name(), unit.version()), willBe(OBSOLETE));
+        assertThat(entryNode.deployment().nodeStatusAsync(unit.name(), unit.version()), willBe(OBSOLETE));
+
+        await().failFast("The unit must not be removed until the job is completed", () -> {
+            assertThat(entryNode.deployment().clusterStatusAsync(unit.name(), unit.version()), willBe(OBSOLETE));
+            assertThat(entryNode.deployment().nodeStatusAsync(unit.name(), unit.version()), willBe(OBSOLETE));
+        }).until(() -> job, willCompleteSuccessfully());
+
+        await().until(
+                () -> entryNode.deployment().clusterStatusAsync(unit.name(), unit.version()),
+                willBe(nullValue())
+        );
+    }
+
+    @Test
+    void executeJobWithObsoleteUnit() {
+        IgniteImpl entryNode = node(0);
+        CompletableFuture<Void> successJob = entryNode.compute().execute(Set.of(entryNode.node()), units, "org.example.SleepJob", 2L);
+
+        assertThat(entryNode.deployment().undeployAsync(unit.name(), unit.version()), willCompleteSuccessfully());
+
+        CompletableFuture<Void> failedJob = entryNode.compute().execute(Set.of(entryNode.node()), units, "org.example.SleepJob", 2L);
+
+        assertThat(failedJob, willThrow(
+                ClassNotFoundException.class,
+                "org.example.SleepJob. Deployment unit jobs:1.0.0 can't be used: "
+                        + "[clusterStatus = OBSOLETE, nodeStatus = OBSOLETE]")
+        );
+        assertThat(successJob, willCompleteSuccessfully());
     }
 
     private static void deployJar(IgniteImpl node, String unitId, Version unitVersion, String jarName) throws IOException {

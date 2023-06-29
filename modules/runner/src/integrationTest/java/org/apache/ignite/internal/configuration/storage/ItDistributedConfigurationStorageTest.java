@@ -212,7 +212,8 @@ public class ItDistributedConfigurationStorageTest {
             node.waitWatches();
 
             assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
-            assertThat(node.cfgStorage.writeConfigurationRevision(0, 1), willCompleteSuccessfully());
+
+            node.cfgStorage.writeConfigurationRevision(0, 1);
 
             assertTrue(waitForCondition(
                     () -> node.metaStorageManager.appliedRevision() != 0,

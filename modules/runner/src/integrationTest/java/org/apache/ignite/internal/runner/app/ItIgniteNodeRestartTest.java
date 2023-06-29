@@ -135,6 +135,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
+import org.awaitility.Awaitility;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
@@ -1092,7 +1093,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17770")
     public void testCfgGap() throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(4);
 
@@ -1150,9 +1150,25 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         assertNotNull(table);
 
         for (int i = 0; i < 100; i++) {
-            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i));
+            int fi = i;
 
-            assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));
+            Awaitility.with()
+                    .await()
+                    .pollInterval(100, TimeUnit.MILLISECONDS)
+                    .pollDelay(0, TimeUnit.MILLISECONDS)
+                    .atMost(30, TimeUnit.SECONDS)
+                    .until(() -> {
+                        try {
+                            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", fi));
+
+                            assertEquals(VALUE_PRODUCER.apply(fi), row.stringValue("name"));
+
+                            return true;
+                        } catch (TransactionException te) {
+                            // There may be an exception if the primary replica node was stopped. We should wait for new primary to appear.
+                            return false;
+                        }
+                    });
         }
     }
 

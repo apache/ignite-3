@@ -19,8 +19,10 @@ package org.apache.ignite.internal.distribution.zones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY;
@@ -30,18 +32,22 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -59,12 +65,15 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStateIds;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -77,6 +86,9 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests for checking {@link DistributionZoneManager} behavior after node's restart.
@@ -100,6 +112,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     );
 
     private static final String ZONE_NAME = "zone1";
+
+    private static final int ZONE_ID = 1;
 
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
@@ -159,10 +173,10 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(logicalTopology.getLogicalTopology()));
 
-        var metaStorageMgr = StandaloneMetaStorageManager.create(
+        var metaStorageMgr = spy(StandaloneMetaStorageManager.create(
                 vault,
-                new TestRocksDbKeyValueStorage("test", workDir.resolve("metastorage"))
-        );
+                new TestRocksDbKeyValueStorage(name, workDir.resolve("metastorage"))
+        ));
 
         var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vault);
 
@@ -339,5 +353,169 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         long globalStateRevision = bytesToLong(vaultManager.get(zonesGlobalStateRevision()).join().value());
 
         assertEquals(scaleUpChangeTriggerRevision, globalStateRevision);
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideArgumentsRestartTests")
+    public void testLocalDataNodesAreRestoredAfterRestart(int zoneId, String zoneName) throws Exception {
+        PartialNode partialNode = startPartialNode(0);
+
+        DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+
+        createZoneOrAlterDefaultZone(distributionZoneManager, zoneName);
+
+        partialNode.logicalTopology().putNode(A);
+        partialNode.logicalTopology().putNode(B);
+        partialNode.logicalTopology().removeNodes(Set.of(B));
+
+        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A.name()), TIMEOUT_MILLIS);
+
+        partialNode.stop();
+
+        partialNode = startPartialNode(0);
+
+        distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+
+        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A.name()), TIMEOUT_MILLIS);
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideArgumentsRestartTests")
+    public void testScaleUpTimerIsRestoredAfterRestart(int zoneId, String zoneName) throws Exception {
+        PartialNode partialNode = startPartialNode(0);
+
+        DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+
+        createZoneOrAlterDefaultZone(distributionZoneManager, zoneName);
+
+        partialNode.logicalTopology().putNode(A);
+        partialNode.logicalTopology().putNode(B);
+
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                zoneId,
+                Set.of(A, B).stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                TIMEOUT_MILLIS
+        );
+
+        MetaStorageManager metaStorageManager = findComponent(partialNode.startedComponents(), MetaStorageManager.class);
+
+        when(metaStorageManager.invoke(argThat(iif -> {
+            If iif1 = MetaStorageWriteHandler.toIf(iif);
+
+            byte[] keyScaleUp = zoneScaleUpChangeTriggerKey(zoneId).bytes();
+
+            return iif1.andThen().update().operations().stream().anyMatch(op -> Arrays.equals(keyScaleUp, op.key()));
+        }))).thenThrow(new RuntimeException("Expected"));
+
+        partialNode.logicalTopology().putNode(C);
+        partialNode.logicalTopology().removeNodes(Set.of(B));
+
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                zoneId,
+                Set.of(A).stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                TIMEOUT_MILLIS
+        );
+
+        partialNode.stop();
+
+        partialNode = startPartialNode(0);
+
+        distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                zoneId,
+                Set.of(A, C).stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                TIMEOUT_MILLIS
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideArgumentsRestartTests")
+    public void testScaleDownTimerIsRestoredAfterRestart(int zoneId, String zoneName) throws Exception {
+        PartialNode partialNode = startPartialNode(0);
+
+        DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+
+        MetaStorageManager metaStorageManager = findComponent(partialNode.startedComponents(), MetaStorageManager.class);
+
+        createZoneOrAlterDefaultZone(distributionZoneManager, zoneName);
+
+        when(metaStorageManager.invoke(argThat(iif -> {
+            If iif1 = MetaStorageWriteHandler.toIf(iif);
+
+            byte[] keyScaleDown = zoneScaleDownChangeTriggerKey(zoneId).bytes();
+
+            return iif1.andThen().update().operations().stream().anyMatch(op -> Arrays.equals(keyScaleDown, op.key()));
+        }))).thenThrow(new RuntimeException("Expected"));
+
+        partialNode.logicalTopology().putNode(A);
+        partialNode.logicalTopology().putNode(B);
+        partialNode.logicalTopology().removeNodes(Set.of(B));
+        partialNode.logicalTopology().putNode(C);
+
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                zoneId,
+                Set.of(A, B, C).stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                TIMEOUT_MILLIS
+        );
+
+        partialNode.stop();
+
+        partialNode = startPartialNode(0);
+
+        distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                zoneId,
+                Set.of(A, C).stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                TIMEOUT_MILLIS
+        );
+    }
+
+    private static Stream<Arguments> provideArgumentsRestartTests() {
+        List<Arguments> args = new ArrayList<>();
+
+        args.add(Arguments.of(DEFAULT_ZONE_ID, DEFAULT_ZONE_NAME));
+        args.add(Arguments.of(ZONE_ID, ZONE_NAME));
+
+        return args.stream();
+    }
+
+    private static void createZoneOrAlterDefaultZone(
+            DistributionZoneManager distributionZoneManager,
+            String zoneName
+    ) throws Exception {
+        if (zoneName.equals(DEFAULT_ZONE_NAME)) {
+            distributionZoneManager.alterZone(
+                    DEFAULT_ZONE_NAME,
+                    new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                            .dataNodesAutoAdjustScaleUp(0)
+                            .dataNodesAutoAdjustScaleDown(0)
+                            .build()
+            ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+
+            ZoneState zoneState = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID);
+
+            // This is needed because we want to wait for the end of scale up/down triggered by altering delays.
+            if (zoneState.scaleUpTask() != null) {
+                assertTrue(waitForCondition(() -> zoneState.scaleUpTask().isDone(), TIMEOUT_MILLIS));
+            }
+
+            if (zoneState.scaleDownTask() != null) {
+                assertTrue(waitForCondition(() -> zoneState.scaleDownTask().isDone(), TIMEOUT_MILLIS));
+            }
+        } else {
+            distributionZoneManager.createZone(
+                    new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+                            .dataNodesAutoAdjustScaleUp(0)
+                            .dataNodesAutoAdjustScaleDown(0)
+                            .build()
+            ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        }
     }
 }

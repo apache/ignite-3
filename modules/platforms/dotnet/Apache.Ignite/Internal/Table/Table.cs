@@ -200,9 +200,9 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var partition = Math.Abs(colocationHash % assignment.Length);
-            var nodeId = assignment[partition];
+            var nodeConsistentId = assignment[partition];
 
-            return PreferredNode.FromId(nodeId);
+            return PreferredNode.FromName(nodeConsistentId);
         }
 
         /// <summary>
