@@ -588,7 +588,7 @@ public class ItNodeTest {
         LOG.info("Transfer leadership from {} to {}", leader, targetPeer);
         assertTrue(leader.transferLeadershipTo(targetPeer).isOk());
         Thread.sleep(1000);
-        cluster.waitLeader();
+        cluster.waitAndGetLeader();
 
         assertTrue(waitForCondition(() -> startedCounter.get() == 4, 5_000), startedCounter.get() + "");
 
@@ -1880,7 +1880,7 @@ public class ItNodeTest {
         assertTrue(cluster.stop(leaderAddr));
 
         // restart leader
-        cluster.waitLeader();
+        cluster.waitAndGetLeader();
         assertEquals(0, cluster.getLeaderFsm().getLoadSnapshotTimes());
         assertTrue(cluster.start(findById(peers, leaderAddr)));
         cluster.ensureSame();
@@ -1956,7 +1956,7 @@ public class ItNodeTest {
         PeerId followerAddr = followers.get(0).getNodeId().getPeerId();
         assertTrue(cluster.stop(followerAddr));
 
-        cluster.waitLeader();
+        cluster.waitAndGetLeader();
 
         // apply something more
         sendTestTaskAndWait(leader, 10, RaftError.SUCCESS);
@@ -2311,7 +2311,7 @@ public class ItNodeTest {
         leader.apply(task);
         waitLatch(latch);
 
-        cluster.waitLeader();
+        cluster.waitAndGetLeader();
 
         assertTrue(cluster.start(findById(peers, targetPeer)));
 
@@ -2463,7 +2463,7 @@ public class ItNodeTest {
         for (TestPeer peer : peers)
             assertTrue(cluster.start(peer));
 
-        cluster.waitLeader();
+        cluster.waitAndGetLeader();
 
         // Ensure the quorum before removing a leader, otherwise removePeer can be rejected.
         for (Node follower : cluster.getFollowers())
@@ -2958,7 +2958,7 @@ public class ItNodeTest {
             }
         }
 
-        cluster.waitLeader();
+        cluster.waitAndGetLeader();
 
         for (MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(10, fsm.getLogs().size());
@@ -3061,19 +3061,19 @@ public class ItNodeTest {
             assertTrue(cluster.start(p, false, 300));
         }
 
-        cluster.waitLeader();
+        cluster.waitAndGetLeader();
 
         verify(raftGrpEvtsLsnr, times(1)).onLeaderElected(anyLong());
 
         cluster.stop(cluster.getLeader().getLeaderId());
 
-        cluster.waitLeader();
+        cluster.waitAndGetLeader();
 
         verify(raftGrpEvtsLsnr, times(2)).onLeaderElected(anyLong());
 
         cluster.stop(cluster.getLeader().getLeaderId());
 
-        cluster.waitLeader();
+        cluster.waitAndGetLeader();
 
         verify(raftGrpEvtsLsnr, times(3)).onLeaderElected(anyLong());
     }
@@ -3212,7 +3212,6 @@ public class ItNodeTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19688")
     public void testChangePeersStepsDownInJointConsensus() throws Exception {
         List<TestPeer> peers = new ArrayList<>();
 

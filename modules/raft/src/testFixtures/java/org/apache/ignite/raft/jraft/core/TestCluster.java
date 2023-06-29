@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.core;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
@@ -390,42 +392,20 @@ public class TestCluster {
     }
 
     /**
-     * Wait until a leader is elected.
+     * Wait until a leader is elected and return it.
      * @throws InterruptedException
-     */
-    public void waitLeader() throws InterruptedException {
-        Node node;
-
-        while (true) {
-            node = getLeader();
-
-            if (node != null) {
-                break;
-            }
-            else {
-                Thread.sleep(10);
-            }
-        }
-    }
-
-    /**
-     * Wait until a leader is elected.
-     * @throws InterruptedException
-     * @return Leader
+     * @return Leader.
      */
     public Node waitAndGetLeader() throws InterruptedException {
-        Node node;
+        AtomicReference<Node> node = new AtomicReference<>();
 
-        while (true) {
-            node = getLeader();
+        assertTrue(waitForCondition(() -> {
+            node.set(getLeader());
 
-            if (node != null) {
-                return node;
-            }
-            else {
-                Thread.sleep(10);
-            }
-        }
+            return node.get() != null;
+        }, 10_000L));
+
+        return node.get();
     }
 
     public List<Node> getFollowers() {
