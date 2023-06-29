@@ -122,7 +122,6 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
-import org.awaitility.Awaitility;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
@@ -1057,7 +1056,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         Table table = ignite.tables().table(name);
 
         assertNotNull(table);
-        Awaitility.
 
         for (int i = 0; i < 100; i++) {
             Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i));
