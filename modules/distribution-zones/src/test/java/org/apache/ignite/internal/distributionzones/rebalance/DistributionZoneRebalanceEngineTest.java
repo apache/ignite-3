@@ -215,7 +215,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     }
 
     @AfterEach
-    public void tearDown() throws Exception {
+    public void tearDown() {
         keyValueStorage.close();
         rebalanceEngine.stop();
     }
