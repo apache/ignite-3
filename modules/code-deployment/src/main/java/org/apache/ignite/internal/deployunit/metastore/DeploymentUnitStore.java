@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.deployunit.metastore;
 
-import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
-
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -118,20 +116,7 @@ public interface DeploymentUnitStore {
      * @return Future with {@code true} result if status created successfully
      *          or with {@code false} if status with provided {@param id} and {@param version} already existed.
      */
-    CompletableFuture<Boolean> createClusterStatus(String id, Version version, Set<String> nodesToDeploy);
-
-    /**
-     * Create new node status for deployment unit with {@link DeploymentStatus#UPLOADING} deployment status.
-     *
-     * @param nodeId Node consistent identifier.
-     * @param id Deployment unit identifier.
-     * @param version Deployment unit version.
-     * @return Future with {@code true} result if status created successfully or with {@code false} if status with provided {@param id} and
-     *         {@param version} and {@param nodeId} already existed.
-     */
-    default CompletableFuture<Boolean> createNodeStatus(String nodeId, String id, Version version) {
-        return createNodeStatus(nodeId, id, version, UPLOADING);
-    }
+    CompletableFuture<UnitClusterStatus> createClusterStatus(String id, Version version, Set<String> nodesToDeploy);
 
     /**
      * Create new node status for deployment unit.
@@ -139,11 +124,17 @@ public interface DeploymentUnitStore {
      * @param nodeId Node consistent identifier.
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
+     * @param opId Deployment unit creation operation identifier.
      * @param status Initial deployment status.
      * @return Future with {@code true} result if status created successfully or with {@code false} if status with provided {@param id} and
      *         {@param version} and {@param nodeId} already existed.
      */
-    CompletableFuture<Boolean> createNodeStatus(String nodeId, String id, Version version, DeploymentStatus status);
+    CompletableFuture<Boolean> createNodeStatus(
+            String nodeId,
+            String id,
+            Version version,
+            long opId,
+            DeploymentStatus status);
 
     /**
      * Updates cluster status for deployment unit.

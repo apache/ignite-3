@@ -374,15 +374,14 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         return metaStorageMgr.get(MASTER_KEY).thenApply(Entry::revision);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> writeConfigurationRevision(long prevRevision, long currentRevision) {
+    public void writeConfigurationRevision(long prevRevision, long currentRevision) {
         byte[] value = new byte[Long.BYTES * 2];
 
         ByteUtils.putLongToBytes(prevRevision, value, 0);
         ByteUtils.putLongToBytes(currentRevision, value, Long.BYTES);
 
-        return vaultMgr.put(CONFIGURATION_REVISIONS_KEY, value);
+        vaultMgr.put(CONFIGURATION_REVISIONS_KEY, value).join();
     }
 
     /**
