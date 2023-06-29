@@ -85,7 +85,7 @@ public interface MetaStorageManager extends IgniteComponent {
      * @param revUpperBound The upper bound of revision.
      * @return Value corresponding to the given key.
      */
-    Entry getLocally(byte[] key, long revUpperBound);
+    Entry getLocally(ByteArray key, long revUpperBound);
 
     Cursor<Entry> getLocally(ByteArray startKey, ByteArray endKey, long revision);
 
