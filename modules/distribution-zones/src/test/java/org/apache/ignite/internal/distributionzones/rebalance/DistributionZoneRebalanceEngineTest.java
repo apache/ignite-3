@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -106,11 +108,11 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     @Mock
     private ClusterService clusterService;
 
-    private MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
+    private final MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
 
-    private DistributionZoneManager distributionZoneManager = mock(DistributionZoneManager.class);
+    private final DistributionZoneManager distributionZoneManager = mock(DistributionZoneManager.class);
 
-    private VaultManager vaultManager = mock(VaultManager.class);
+    private final VaultManager vaultManager = mock(VaultManager.class);
 
     private DistributionZoneRebalanceEngine rebalanceEngine;
 
@@ -373,10 +375,10 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             @InjectConfiguration
                     ("mock.tables {"
                             + "table0 = { zoneId = 1 },"
-                            + "table1 = { zoneId = 1 },"
+                            + "table1 = { zoneId = 2 },"
                             + "table2 = { zoneId = 2 }}")
             TablesConfiguration tablesConfiguration
-    ) {
+    ) throws Exception {
         assignTableIds(tablesConfiguration);
 
         when(distributionZoneManager.dataNodes(anyInt())).thenReturn(Set.of("node0"));
@@ -390,7 +392,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         ));
         assertThat(changeFuture, willCompleteSuccessfully());
 
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
+        assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
     }
 
     @Test
@@ -398,10 +400,10 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             @InjectConfiguration
                     ("mock.tables {"
                             + "table0 = { zoneId = 0 },"
-                            + "table1 = { zoneId = 0 },"
+                            + "table1 = { zoneId = 1 },"
                             + "table2 = { zoneId = 2 }}")
             TablesConfiguration tablesConfiguration
-    ) {
+    ) throws Exception {
         assignTableIds(tablesConfiguration);
 
         when(distributionZoneManager.dataNodes(anyInt())).thenReturn(Set.of("node0"));
@@ -417,7 +419,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         );
         assertThat(changeFuture, willCompleteSuccessfully());
 
-        verify(keyValueStorage, timeout(1000).times(50)).invoke(any(), any());
+        assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
     }
 
     private void createRebalanceEngine(TablesConfiguration tablesConfiguration) {
