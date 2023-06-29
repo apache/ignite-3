@@ -20,7 +20,8 @@ package org.apache.ignite.internal.replicator;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -31,9 +32,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -42,6 +41,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.service.LeaderMetadata;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
@@ -66,8 +66,6 @@ public class PlacementDriverReplicaSideTest {
 
     private PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
-    private AtomicLong indexOnLeader = new AtomicLong(0);
-
     private Peer currentLeader = null;
 
     private int countOfTimeoutExceptionsOnReadIndexToThrow = 0;
@@ -89,12 +87,12 @@ public class PlacementDriverReplicaSideTest {
             return completedFuture(null);
         });
 
-        when(raftClient.readIndex()).thenAnswer(invocationOnMock -> {
+        when(raftClient.readLeaderMetadata()).thenAnswer(invocationOnMock -> {
             if (countOfTimeoutExceptionsOnReadIndexToThrow > 0) {
                 countOfTimeoutExceptionsOnReadIndexToThrow--;
                 return failedFuture(new TimeoutException());
             } else {
-                return completedFuture(indexOnLeader.get());
+                return completedFuture(new LeaderMetadata(currentLeader, 1L, 1L));
             }
         });
 
@@ -113,7 +111,6 @@ public class PlacementDriverReplicaSideTest {
     @BeforeEach
     public void beforeEach() {
         storageIndexTracker = new PendingComparableValuesTracker<>(0L);
-        indexOnLeader.set(1L);
         currentLeader = null;
         countOfTimeoutExceptionsOnReadIndexToThrow = 0;
         replica = startReplica();
@@ -125,6 +122,8 @@ public class PlacementDriverReplicaSideTest {
      * @param leader The leader.
      */
     private void leaderElection(ClusterNode leader) {
+        currentLeader = new Peer(leader.name());
+
         if (callbackHolder.get() != null) {
             callbackHolder.get().accept(leader, 1L);
         }
@@ -225,8 +224,8 @@ public class PlacementDriverReplicaSideTest {
         assertTrue(respFut1.isDone());
 
         LeaseGrantedMessageResponse resp1 = respFut1.join();
-        assertFalse(resp1.accepted());
-        assertEquals(ANOTHER_NODE.name(), resp1.redirectProposal());
+        assertTrue(resp1.accepted());
+        assertNull(resp0.redirectProposal());
     }
 
     @Test
@@ -323,12 +322,17 @@ public class PlacementDriverReplicaSideTest {
 
     @Test
     public void testLongReadIndexWait() {
-        countOfTimeoutExceptionsOnReadIndexToThrow = 100;
+        countOfTimeoutExceptionsOnReadIndexToThrow = 1;
         updateIndex(1L);
         leaderElection(LOCAL_NODE);
+
         CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(1), hts(10), false);
-        // Actually, it completes faster because TimeoutException is thrown from mock instantly.
-        assertThat(respFut0, willSucceedIn(5, TimeUnit.SECONDS));
+
+        assertThat(respFut0, willThrow(TimeoutException.class));
         assertEquals(0, countOfTimeoutExceptionsOnReadIndexToThrow);
+
+        CompletableFuture<LeaseGrantedMessageResponse> respFut1 = sendLeaseGranted(hts(1), hts(10), false);
+
+        assertThat(respFut1, willCompleteSuccessfully());
     }
 }

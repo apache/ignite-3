@@ -42,6 +42,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.FSMCaller.LastAppliedLogIndexListener;
@@ -98,6 +99,8 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexResponse;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadLeaderMetadataRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadLeaderMetadataResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.RequestVoteRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.RequestVoteResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowRequest;
@@ -1739,6 +1742,53 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
+    @Override
+    public void handleReadLeaderIndexRequest(
+            ReadLeaderMetadataRequest request,
+            RpcResponseClosure<ReadLeaderMetadataResponse> done
+    ) {
+        long startMs = Utils.monotonicMs();
+
+        this.readLock.lock();
+
+        try {
+            switch (this.state) {
+                case STATE_LEADER:
+                    readLeader(
+                            null,
+                            new RpcResponseClosureAdapter<>() {
+                                @Override
+                                public void run(Status status) {
+                                    if (getResponse() != null) {
+                                        done.setResponse(raftOptions.getRaftMessagesFactory().readLeaderMetadataResponse()
+                                                .leaderId(leaderId.toString())
+                                                .currentTerm(currTerm)
+                                                .index(getResponse().index())
+                                                .build());
+                                    }
+
+                                    done.run(status);
+                                }
+                            }
+                    );
+                    break;
+
+                case STATE_TRANSFERRING:
+                    done.run(new Status(RaftError.EBUSY, "Is transferring leadership."));
+                    break;
+
+                default:
+                    done.run(new Status(RaftError.EPERM, "Invalid state for readIndex: %s.", this.state));
+                    break;
+            }
+        }
+        finally {
+            this.readLock.unlock();
+            this.metrics.recordLatency("handle-read-index", Utils.monotonicMs() - startMs);
+            this.metrics.recordSize("handle-read-index-entries", 0);
+        }
+    }
+
     private int getQuorum() {
         final Configuration c = this.conf.getConf();
         if (c.isEmpty()) {
@@ -1789,7 +1839,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
         respBuilder.index(lastCommittedIndex);
 
-        if (request.peerId() != null) {
+        if (request != null && request.peerId() != null) {
             // request from follower or learner, check if the follower/learner is in current conf.
             final PeerId peer = new PeerId();
             peer.parse(request.serverId());
@@ -2737,6 +2787,17 @@ public class NodeImpl implements Node, RaftServerService {
         this.readLock.lock();
         try {
             return this.leaderId.isEmpty() ? null : this.leaderId;
+        }
+        finally {
+            this.readLock.unlock();
+        }
+    }
+
+    @Override
+    public IgniteBiTuple<PeerId, Long> getLeaderWithTer() {
+        this.readLock.lock();
+        try {
+            return leaderId.isEmpty() ? null : new IgniteBiTuple<>(leaderId, currTerm);
         }
         finally {
             this.readLock.unlock();

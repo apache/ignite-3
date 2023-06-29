@@ -20,6 +20,8 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexResponse;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadLeaderMetadataRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadLeaderMetadataResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.RequestVoteRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowRequest;
 
@@ -78,4 +80,12 @@ public interface RaftServerService {
      * @param done callback
      */
     void handleReadIndexRequest(ReadIndexRequest request, RpcResponseClosure<ReadIndexResponse> done);
+
+    /**
+     * Handles an index request on leader.
+     *
+     * @param request Index request.
+     * @param done Callback.
+     */
+    void handleReadLeaderIndexRequest(ReadLeaderMetadataRequest request, RpcResponseClosure<ReadLeaderMetadataResponse> done);
 }

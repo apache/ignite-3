@@ -20,12 +20,12 @@ package org.apache.ignite.internal.replicator;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -69,11 +69,8 @@ public class Replica {
     /** Instance of the local node. */
     private final ClusterNode localNode;
 
-    // TODO IGNITE-19120 after replica inoperability logic is introduced, this future should be replaced with something like
-    //     VersionedValue (so that PlacementDriverMessages would wait for new leader election)
-    private CompletableFuture<AtomicReference<ClusterNode>> leaderFuture = new CompletableFuture<>();
-
-    private AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
+    // TODO:IGNITE-19120 Raft client should get leader metadata along while getting leader itself
+    private CompletableFuture<Void> readyMajority = new CompletableFuture<>();
 
     /** Latest lease expiration time. */
     private volatile HybridTimestamp leaseExpirationTime = null;
@@ -140,17 +137,9 @@ public class Replica {
     }
 
     private void onLeaderElected(ClusterNode clusterNode, Long term) {
-        leaderRef.set(clusterNode);
-
-        if (!leaderFuture.isDone()) {
-            leaderFuture.complete(leaderRef);
-        }
+        readyMajority.complete(null);
 
         listener.onBecomePrimary(clusterNode);
-    }
-
-    private CompletableFuture<ClusterNode> leaderFuture() {
-        return leaderFuture.thenApply(AtomicReference::get);
     }
 
     /**
@@ -177,23 +166,24 @@ public class Replica {
     public CompletableFuture<LeaseGrantedMessageResponse> processLeaseGrantedMessage(LeaseGrantedMessage msg) {
         LOG.info("Received LeaseGrantedMessage for replica belonging to group=" + groupId() + ", force=" + msg.force());
 
-        return leaderFuture().thenCompose(leader -> {
-            HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
-
-            if (leaseExpirationTime != null) {
-                assert msg.leaseExpirationTime().after(leaseExpirationTime) : "Invalid lease expiration time in message, msg=" + msg;
-            }
+        return readyMajority.thenCompose(unused -> raftClient.readLeaderMetadata()).thenCompose(leaderMetadata -> {
+            assert leaseExpirationTime == null || msg.leaseExpirationTime().after(leaseExpirationTime) :
+                    "Invalid lease expiration time in message [leaseExpirationTime=" + leaseExpirationTime
+                            + ", msgLeaseExpirationTime=" + msg.leaseExpirationTime() + ']';
 
             if (msg.force()) {
                 // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
                 // group leader are received.
-
-                return waitForActualState(msg.leaseExpirationTime().getPhysical())
+                return waitForActualState(leaderMetadata.getIndex())
                         .thenCompose(v -> {
+                            if (msg.leaseExpirationTime().getPhysical() < currentTimeMillis()) {
+                                return failedFuture(new TimeoutException());
+                            }
+
                             CompletableFuture<LeaseGrantedMessageResponse> respFut =
                                     acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
 
-                            if (leader.equals(localNode)) {
+                            if (leaderMetadata.getLeader().consistentId().equals(localNode.name())) {
                                 return respFut;
                             } else {
                                 return raftClient.transferLeadership(new Peer(localNode.name()))
@@ -201,11 +191,17 @@ public class Replica {
                             }
                         });
             } else {
-                if (leader.equals(localNode)) {
-                    return waitForActualState(msg.leaseExpirationTime().getPhysical())
-                            .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
+                if (leaderMetadata.getLeader().consistentId().equals(localNode.name())) {
+                    return waitForActualState(leaderMetadata.getIndex())
+                            .thenCompose(v -> {
+                                if (msg.leaseExpirationTime().getPhysical() < currentTimeMillis()) {
+                                    return failedFuture(new TimeoutException());
+                                }
+
+                                return acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
+                            });
                 } else {
-                    return proposeLeaseRedirect(leader);
+                    return proposeLeaseRedirect(leaderMetadata.getLeader());
                 }
             }
         });
@@ -227,12 +223,26 @@ public class Replica {
         return completedFuture(resp);
     }
 
-    private CompletableFuture<LeaseGrantedMessageResponse> proposeLeaseRedirect(ClusterNode groupLeader) {
-        LOG.info("Proposing lease redirection, proposed node=" + groupLeader);
+    /**
+     * Checks this exception is caused of timeout or connectivity issue.
+     *
+     * @param ex An exception
+     * @return True if this exception has thrown due to timeout or connection problem, false otherwise.
+     */
+    private static boolean isConnectivityRelatedException(Throwable ex) {
+        if (ex instanceof ExecutionException || ex instanceof CompletionException) {
+            ex = ex.getCause();
+        }
+
+        return ex instanceof TimeoutException || ex instanceof IOException;
+    }
+
+    private CompletableFuture<LeaseGrantedMessageResponse> proposeLeaseRedirect(Peer groupLeader) {
+        LOG.info("Proposing lease redirection [peer={}]", groupLeader);
 
         LeaseGrantedMessageResponse resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
                 .accepted(false)
-                .redirectProposal(groupLeader.name())
+                .redirectProposal(groupLeader.consistentId())
                 .build();
 
         return completedFuture(resp);
@@ -243,20 +253,13 @@ public class Replica {
      * timeout exception, and in this case, replica would not answer to placement driver, because the response is useless. Placement driver
      * should handle this.
      *
-     * @param expirationTime Lease expiration time.
+     * @param index An index on leader.
      * @return Future that is completed when local storage catches up the index that is actual for leader on the moment of request.
      */
-    private CompletableFuture<Void> waitForActualState(long expirationTime) {
+    private CompletableFuture<Void> waitForActualState(long index) {
         LOG.info("Waiting for actual storage state, group=" + groupId());
 
-        long timeout = expirationTime - currentTimeMillis();
-        if (timeout <= 0) {
-            return failedFuture(new TimeoutException());
-        }
-
-        return retryOperationUntilSuccess(raftClient::readIndex, e -> currentTimeMillis() > expirationTime, Runnable::run)
-                .orTimeout(timeout, TimeUnit.MILLISECONDS)
-                .thenCompose(storageIndexTracker::waitFor);
+        return storageIndexTracker.waitFor(index);
     }
 
     /**

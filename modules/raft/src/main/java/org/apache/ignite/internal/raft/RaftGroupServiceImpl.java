@@ -56,6 +56,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.LeaderMetadata;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -73,7 +74,7 @@ import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.ActionResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexResponse;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadLeaderMetadataResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.SMErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.apache.ignite.raft.jraft.rpc.impl.SMCompactedThrowable;
@@ -464,16 +465,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Long> readIndex() {
-        Function<Peer, ? extends NetworkMessage> requestFactory = p -> factory.readIndexRequest()
+    public CompletableFuture<LeaderMetadata> readLeaderMetadata() {
+        Function<Peer, ? extends NetworkMessage> requestFactory = p -> factory.readLeaderMetadataRequest()
                 .groupId(groupId)
                 .peerId(p.consistentId())
                 .build();
 
         Peer leader = leader();
+
         Peer node = leader == null ? randomNode() : leader;
-        return this.<ReadIndexResponse>sendWithRetry(node, requestFactory)
-                .thenApply(ReadIndexResponse::index);
+
+        return this.<ReadLeaderMetadataResponse>sendWithRetry(node, requestFactory)
+                .thenApply(resp -> new LeaderMetadata(parsePeer(resp.leaderId()), resp.currentTerm(), resp.index()));
     }
 
     @Override

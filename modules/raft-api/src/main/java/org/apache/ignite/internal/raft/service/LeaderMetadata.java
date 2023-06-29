@@ -18,37 +18,66 @@
 package org.apache.ignite.internal.raft.service;
 
 import org.apache.ignite.internal.raft.Peer;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Class representing a Raft group leader and its term.
+ * The class represents a leader metadata.
  */
-public class LeaderWithTerm {
-    @Nullable
+public class LeaderMetadata {
+    /** Leader peer. */
     private final Peer leader;
 
+    /** Corresponding term to the leader. */
     private final long term;
 
-    public LeaderWithTerm(@Nullable Peer leader, long term) {
+    /** Index on the moment to formed the metadata. */
+    private final long index;
+
+    /**
+     * The constructor.
+     *
+     * @param leader Leader.
+     * @param term Leader term.
+     * @param index Raft index.
+     */
+    public LeaderMetadata(Peer leader, long term, long index) {
         this.leader = leader;
         this.term = term;
+        this.index = index;
     }
 
-    public @Nullable Peer leader() {
+    /**
+     * Get a leader peer.
+     *
+     * @return Leader peer.
+     */
+    public Peer getLeader() {
         return leader;
     }
 
-    public long term() {
+    /**
+     * Gets a term corresponding to the leader.
+     *
+     * @return Leader term.
+     */
+    public long getTerm() {
         return term;
+    }
+
+    /**
+     * Gets an index on the moment to formed the metadata.
+     *
+     * @return Raft index.
+     */
+    public long getIndex() {
+        return index;
     }
 
     @Override
     public String toString() {
-        return "LeaderWithTerm{"
-                + "leader="
-                + leader
-                + ", term="
-                + term
+        return "LeaderMetadata{"
+                + "leader=" + leader
+                + ", term=" + term
+                + ", index=" + index
                 + '}';
     }
 }

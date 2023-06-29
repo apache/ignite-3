@@ -19,8 +19,9 @@ package org.apache.ignite.raft.jraft.rpc.impl.cli;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.raft.jraft.Node;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -82,13 +83,13 @@ public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeader
             return RaftRpcFactory.DEFAULT //
                 .newResponse(msgFactory(), RaftError.ENOENT, "No nodes in group %s", groupId);
         }
-        for (final Node node : nodes) {
-            final PeerId leader = node.getLeaderId();
-            if (leader != null && !leader.isEmpty()) {
+        for (Node node : nodes) {
+            IgniteBiTuple<PeerId, Long> leaderWithTerm = node.getLeaderWithTer();
+            if (leaderWithTerm != null) {
                 return msgFactory().getLeaderResponse()
-                    .leaderId(leader.toString())
-                    .currentTerm(node.getCurrentTerm())
-                    .build();
+                        .leaderId(leaderWithTerm.get1().toString())
+                        .currentTerm(leaderWithTerm.get2())
+                        .build();
             }
         }
         return RaftRpcFactory.DEFAULT //

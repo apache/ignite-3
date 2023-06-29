@@ -19,12 +19,14 @@ package org.apache.ignite.raft.jraft.rpc;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
+import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcRequestsMessageGroup;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.EntryMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -246,5 +248,21 @@ public final class RpcRequests {
         long index();
 
         boolean success();
+    }
+
+    @Transferable(RpcRequestsMessageGroup.READ_LEADER_METADATA_REQUEST)
+    public interface ReadLeaderMetadataRequest extends Message {
+        String groupId();
+
+        String peerId();
+    }
+
+    @Transferable(RpcRequestsMessageGroup.READ_LEADER_METADATA_RESPONSE)
+    public interface ReadLeaderMetadataResponse extends Message {
+        String leaderId();
+
+        long currentTerm();
+
+        long index();
     }
 }

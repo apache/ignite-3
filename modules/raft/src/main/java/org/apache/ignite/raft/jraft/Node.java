@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft;
 
 import java.util.List;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.NodeMetrics;
@@ -40,6 +41,14 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * Get the leader peer id for redirect, null if absent.
      */
     PeerId getLeaderId();
+
+    /**
+     * Returns leader with their term concurrently.
+     * If the leader is not known, the method returns {@code null}.
+     *
+     * @return Leader peer with corresponding term.
+     */
+    IgniteBiTuple<PeerId, Long> getLeaderWithTer();
 
     /**
      * Get current node id.

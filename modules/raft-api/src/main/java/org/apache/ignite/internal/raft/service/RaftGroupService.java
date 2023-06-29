@@ -234,11 +234,11 @@ public interface RaftGroupService {
     void shutdown();
 
     /**
-     * Reads index from the group leader.
+     * Reads a metadata from leader.
      *
-     * @return Future containing the index.
+     * @return Future contains a leader metadata.
      */
-    CompletableFuture<Long> readIndex();
+    CompletableFuture<LeaderMetadata> readLeaderMetadata();
 
     /**
      * Returns a cluster service.

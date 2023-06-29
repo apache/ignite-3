@@ -54,6 +54,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.LeaderMetadata;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -84,7 +85,7 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadLeaderMetadataRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -567,11 +568,11 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         RaftGroupService service = startRaftGroupService(NODES, false);
         mockReadIndex(false);
 
-        CompletableFuture<Long> fut = service.readIndex();
+        CompletableFuture<LeaderMetadata> fut = service.readLeaderMetadata();
 
         assertThat(fut, willSucceedFast());
 
-        assertEquals(1L, fut.join());
+        assertEquals(1L, fut.join().getIndex());
     }
 
     @Test
@@ -579,7 +580,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         RaftGroupService service = startRaftGroupService(NODES, false);
         mockReadIndex(true);
 
-        CompletableFuture<Long> fut = service.readIndex();
+        CompletableFuture<LeaderMetadata> fut = service.readLeaderMetadata();
 
         assertThat(fut, willThrowFast(TimeoutException.class));
     }
@@ -599,10 +600,14 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
      * Mock read index request.
      */
     private void mockReadIndex(boolean timeout) {
-        when(messagingService.invoke(any(ClusterNode.class), any(ReadIndexRequest.class), anyLong()))
+        when(messagingService.invoke(any(ClusterNode.class), any(ReadLeaderMetadataRequest.class), anyLong()))
                 .then(invocation -> timeout
                         ? failedFuture(new TimeoutException())
-                        : completedFuture(FACTORY.readIndexResponse().index(1L).build())
+                        : completedFuture(FACTORY.readLeaderMetadataResponse()
+                                .leaderId(PeerId.fromPeer(leader).toString())
+                                .currentTerm(CURRENT_TERM)
+                                .index(1L)
+                                .build())
                 );
     }
 
