@@ -105,7 +105,7 @@ public:
     /**
      * Convert to double.
      */
-    explicit operator double() const { return ToDouble(); }
+    explicit operator double() const { return to_double(); }
 
     /**
      * Convert to int64_t.
@@ -117,7 +117,7 @@ public:
      *
      * @return Double value.
      */
-    [[nodiscard]] double ToDouble() const {
+    [[nodiscard]] double to_double() const {
         std::stringstream stream;
         stream << *this;
 
