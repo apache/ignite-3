@@ -574,9 +574,6 @@ public class TypeUtils {
                 format("Invalid argument. Expected at least one custom data type: " + fromType, toType);
 
         IgniteCustomTypeCoercionRules typeCoercionRules = factory.getCustomTypeCoercionRules();
-        // IgniteCustomType: whether we need implicit cast from one type to another.
-        // We can get toType to be a custom data type in case where e1 is part of CASE <e1> WHERE ... END expression.
-        // We can get fromType to be a custom data type in SELECT e1 UNION SELECT e2
         if (toType instanceof IgniteCustomType) {
             IgniteCustomType to = (IgniteCustomType) toType;
             return typeCoercionRules.needToCast(fromType, to);
