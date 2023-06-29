@@ -73,7 +73,7 @@ public class BinaryRowConverter {
         ByteBuffer tupleBuffer = binaryRow.tupleSlice();
         var parser = new BinaryTupleParser(srcSchema.elementCount(), tupleBuffer);
 
-        // See if there are any NULL values and estimate total data size.
+        // Estimate total data size.
         var stats = new Sink() {
             int estimatedValueSize = 0;
 
