@@ -413,14 +413,11 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         CompletableFuture<Void> changeFuture = distributionZonesConfiguration.change(zonesChange ->
                 zonesChange.changeDefaultDistributionZone(zoneChange -> {
                     zoneChange.changeReplicas(2);
-
-                    // Also change partitions to be independent from the defaults.
-                    zoneChange.changePartitions(1);
                 })
         );
         assertThat(changeFuture, willCompleteSuccessfully());
 
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(50)).invoke(any(), any());
     }
 
     private void createRebalanceEngine(TablesConfiguration tablesConfiguration) {
