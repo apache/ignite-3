@@ -58,6 +58,19 @@ namespace Apache.Ignite.Tests.Compute
 
         private static readonly IList<DeploymentUnit> Units = Array.Empty<DeploymentUnit>();
 
+        private readonly List<IDisposable> _disposables = new List<IDisposable>();
+
+        [TearDown]
+        public void DisposeProxies()
+        {
+            foreach (var disposable in _disposables)
+            {
+                disposable.Dispose();
+            }
+
+            _disposables.Clear();
+        }
+
         [Test]
         public async Task TestGetClusterNodes()
         {
@@ -240,8 +253,9 @@ namespace Apache.Ignite.Tests.Compute
         [TestCase(11, "_2")]
         public async Task TestExecuteColocated(long key, string nodeName)
         {
-            // TODO: Dispose proxies. Move to field?
             var proxies = Client.GetConnections().ToDictionary(c => c.Node.Name, c => new IgniteProxy(c.Node.Address));
+            _disposables.AddRange(proxies.Values);
+
             var cfg = new IgniteClientConfiguration();
             foreach (var proxy in proxies.Values)
             {
@@ -256,7 +270,7 @@ namespace Apache.Ignite.Tests.Compute
             var keyTuple = new IgniteTuple { [KeyCol] = key };
             var resNodeName = await client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, Units, NodeNameJob);
 
-            var requestNodeName = proxies
+            var requestTargetNodeName = proxies
                 .Where(x => x.Value.ClientOps.Contains(ClientOp.ComputeExecuteColocated))
                 .Select(x => x.Key)
                 .Single();
@@ -267,12 +281,11 @@ namespace Apache.Ignite.Tests.Compute
             var keyPocoStruct = new PocoStruct(key, null);
             var resNodeName3 = await client.Compute.ExecuteColocatedAsync<string, PocoStruct>(TableName, keyPocoStruct, Units, NodeNameJob);
 
-            // TODO: Check actual node name from proxy.
             var expectedNodeName = PlatformTestNodeRunner + nodeName;
             Assert.AreEqual(expectedNodeName, resNodeName);
             Assert.AreEqual(expectedNodeName, resNodeName2);
             Assert.AreEqual(expectedNodeName, resNodeName3);
-            Assert.AreEqual(expectedNodeName, requestNodeName);
+            Assert.AreEqual(expectedNodeName, requestTargetNodeName);
         }
 
         [Test]
