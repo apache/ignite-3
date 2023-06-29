@@ -100,7 +100,7 @@ public class TestNode implements LifecycleAware {
     ) {
         this.nodeName = nodeName;
         this.prepareService = registerService(
-                new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class), PlannerHelper::optimize)
+                new PrepareServiceImpl(nodeName, mock(DdlSqlToCommandConverter.class), PlannerHelper::optimize)
         );
         this.schema = schemaManager.schema("PUBLIC");
 

@@ -105,25 +105,35 @@ public class PrepareServiceImpl implements PrepareService {
             DataStorageManager dataStorageManager,
             Map<String, Map<String, Class<?>>> dataStorageFields
     ) {
+        ConcurrentMap<CacheKey, CompletableFuture<QueryPlan>> planCache = Caffeine.newBuilder()
+                .maximumSize(cacheSize)
+                .<CacheKey, CompletableFuture<QueryPlan>>build()
+                .asMap();
+
+        ConcurrentMap<CacheKey, CacheKey> normalizedQueryCache = Caffeine.newBuilder()
+                .maximumSize(cacheSize)
+                .<CacheKey, CacheKey>build()
+                .asMap();
+
         return new PrepareServiceImpl(
                 nodeName,
-                cacheSize,
                 new DdlSqlToCommandConverter(dataStorageFields, dataStorageManager::defaultDataStorage),
-                PlannerHelper::optimize
+                PlannerHelper::optimize,
+                normalizedQueryCache,
+                planCache
         );
     }
 
     /**
-     * Constructor.
+     * Creates PrepareService with disabled caching layer.
      *
      * @param nodeName Name of the current Ignite node. Will be used in thread factory as part of the thread name.
-     * @param cacheSize Size of the cache of query plans. Should be non negative.
      * @param ddlConverter A converter of the DDL-related AST to the actual command.
      * @param queryOptimizer Query optimizer.
      */
+    @TestOnly
     public PrepareServiceImpl(
             String nodeName,
-            int cacheSize,
             DdlSqlToCommandConverter ddlConverter,
             QueryOptimizer queryOptimizer
     ) {
@@ -131,14 +141,31 @@ public class PrepareServiceImpl implements PrepareService {
         this.ddlConverter = ddlConverter;
         this.queryOptimizer = queryOptimizer;
 
-        planCache = Caffeine.newBuilder()
-                .maximumSize(cacheSize)
-                .<CacheKey, CompletableFuture<QueryPlan>>build()
-                .asMap();
-        normalizedQueryCache = Caffeine.newBuilder()
-                .maximumSize(cacheSize)
-                .<CacheKey, CacheKey>build()
-                .asMap();
+        normalizedQueryCache = Caffeine.newBuilder().maximumSize(0).<CacheKey, CacheKey>build().asMap();
+        planCache = Caffeine.newBuilder().maximumSize(0).<CacheKey, CompletableFuture<QueryPlan>>build().asMap();
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param nodeName Name of the current Ignite node. Will be used in thread factory as part of the thread name.
+     * @param ddlConverter A converter of the DDL-related AST to the actual command.
+     * @param queryOptimizer Query optimizer.
+     * @param normalizedQueryCache Indirection layer for query plan cache.
+     * @param planCache Query plan cache.
+     */
+    PrepareServiceImpl(
+            String nodeName,
+            DdlSqlToCommandConverter ddlConverter,
+            QueryOptimizer queryOptimizer,
+            ConcurrentMap<CacheKey, CacheKey> normalizedQueryCache,
+            ConcurrentMap<CacheKey, CompletableFuture<QueryPlan>> planCache
+    ) {
+        this.nodeName = nodeName;
+        this.ddlConverter = ddlConverter;
+        this.queryOptimizer = queryOptimizer;
+        this.normalizedQueryCache = normalizedQueryCache;
+        this.planCache = planCache;
     }
 
     /** {@inheritDoc} */
@@ -170,16 +197,6 @@ public class PrepareServiceImpl implements PrepareService {
     @TestOnly
     public void invalidateParserCache() {
         normalizedQueryCache.clear();
-    }
-
-    @TestOnly
-    public int planCacheSize() {
-        return planCache.size();
-    }
-
-    @TestOnly
-    public int parseCacheSize() {
-        return normalizedQueryCache.size();
     }
 
     /** {@inheritDoc} */

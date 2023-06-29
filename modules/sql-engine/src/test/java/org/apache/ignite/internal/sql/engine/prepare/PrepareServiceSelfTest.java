@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.planner;
+package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.validateParsedStatement;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -25,8 +25,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Stream;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.SqlNode;
@@ -34,10 +37,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
-import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
-import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
-import org.apache.ignite.internal.sql.engine.prepare.QueryOptimizer;
+import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
@@ -57,22 +57,36 @@ import org.mockito.Mockito;
  * Prepare service self test.
  */
 public class PrepareServiceSelfTest extends AbstractPlannerTest {
+    private static final int CACHE_SIZE = 10;
     private final QueryContext queryCtx = QueryContext.create(SqlQueryType.ALL);
     private PrepareServiceImpl service;
 
     private QueryOptimizer queryPlannerSpy;
     private DdlSqlToCommandConverter ddlPlannerSpy;
+    private ConcurrentMap<CacheKey, CompletableFuture<QueryPlan>> planCache;
+    private ConcurrentMap<CacheKey, CacheKey> parserCache;
 
     @BeforeEach
     void setUp() {
         queryPlannerSpy = Mockito.spy(new TestQueryOptimizer());
         ddlPlannerSpy = Mockito.spy(new DdlSqlToCommandConverter(Map.of(), () -> "default"));
 
+        planCache = Caffeine.newBuilder()
+                .maximumSize(CACHE_SIZE)
+                .<CacheKey, CompletableFuture<QueryPlan>>build()
+                .asMap();
+
+        parserCache = Caffeine.newBuilder()
+                .maximumSize(CACHE_SIZE)
+                .<CacheKey, CacheKey>build()
+                .asMap();
+
         service = new PrepareServiceImpl(
                 "node",
-                10,
                 ddlPlannerSpy,
-                queryPlannerSpy
+                queryPlannerSpy,
+                parserCache,
+                planCache
         );
 
         service.start();
@@ -104,7 +118,7 @@ public class PrepareServiceSelfTest extends AbstractPlannerTest {
                 // Arguments.of("DELETE FROM tbl WHERE id = ?", new Object[]{1}),
                 Arguments.of("MERGE INTO tbl2 dst USING tbl src ON src.ID = dst.ID WHEN MATCHED THEN UPDATE SET val = src.val "
                         + "WHEN NOT MATCHED THEN INSERT VALUES (src.id, ?)", new Object[]{"42"})
-                );
+        );
 
     }
 
@@ -115,20 +129,20 @@ public class PrepareServiceSelfTest extends AbstractPlannerTest {
 
         // Preparing query caches plan for both query and normalized query.
         assertThat(service.prepareAsync(query1, queryCtx, createContext(params)), willBe(notNullValue()));
-        assertEquals(1, service.parseCacheSize());
-        assertEquals(1, service.planCacheSize());
+        assertEquals(1, parserCache.size());
+        assertEquals(1, planCache.size());
         Mockito.verify(queryPlannerSpy, Mockito.times(1)).optimize(Mockito.any(), Mockito.any());
 
         // Preparing same query returns plan from cache.
         assertThat(service.prepareAsync(query1, queryCtx, createContext(params)), willBe(notNullValue()));
-        assertEquals(1, service.parseCacheSize());
-        assertEquals(1, service.planCacheSize());
+        assertEquals(1, parserCache.size());
+        assertEquals(1, planCache.size());
         Mockito.verify(queryPlannerSpy, Mockito.times(1)).optimize(Mockito.any(), Mockito.any());
 
         // Preparing similar query returns cached plan and also cache the plan for the query.
         assertThat(service.prepareAsync(query2, queryCtx, createContext(params)), willBe(notNullValue()));
-        assertEquals(2, service.parseCacheSize());
-        assertEquals(1, service.planCacheSize());
+        assertEquals(2, parserCache.size());
+        assertEquals(1, planCache.size());
         Mockito.verify(queryPlannerSpy, Mockito.times(1)).optimize(Mockito.any(), Mockito.any());
     }
 
@@ -149,14 +163,14 @@ public class PrepareServiceSelfTest extends AbstractPlannerTest {
         String query = "CREATE TABLE tbl0(id INTEGER PRIMARY KEY, val VARCHAR);";
 
         assertThat(service.prepareAsync(query, queryCtx, createContext()), willBe(notNullValue()));
-        assertEquals(0, service.planCacheSize());
+        assertEquals(0, planCache.size());
         Mockito.verify(ddlPlannerSpy, Mockito.times(1)).convert(Mockito.any(), Mockito.any());
         // DDL goes a separate flow via ddl converter.
         Mockito.verifyNoInteractions(queryPlannerSpy);
 
         // Prepare DDL query once again.
         assertThat(service.prepareAsync(query, queryCtx, createContext()), willBe(notNullValue()));
-        assertEquals(0, service.planCacheSize());
+        assertEquals(0, planCache.size());
         Mockito.verify(ddlPlannerSpy, Mockito.times(2)).convert(Mockito.any(), Mockito.any());
     }
 
@@ -165,30 +179,31 @@ public class PrepareServiceSelfTest extends AbstractPlannerTest {
         String query = "invalid query"; // Invalid table name.
 
         assertThat(service.prepareAsync(query, queryCtx, createContext()), willThrow(SqlException.class));
-        assertEquals(0, service.planCacheSize());
+        assertEquals(0, planCache.size());
         Mockito.verifyNoInteractions(queryPlannerSpy);
 
         query = "SELECT * FROM invalid WHERE id > 0"; // Invalid table name.
 
         assertThat(service.prepareAsync(query, queryCtx, createContext()), willThrow(CalciteContextException.class));
-        assertEquals(1, service.planCacheSize());
+        assertEquals(1, planCache.size());
         Mockito.verifyNoInteractions(queryPlannerSpy);
     }
 
+    /**
+     * This test ensures the other tests use non-caching service.
+     */
     @Test
     public void disabledCache() {
-        PrepareServiceImpl service = new PrepareServiceImpl("node", 0, ddlPlannerSpy, queryPlannerSpy);
+        PrepareServiceImpl service = new PrepareServiceImpl("node", ddlPlannerSpy, queryPlannerSpy);
 
         service.start();
 
         String query = "SELECT * FROM tbl WHERE id > 0";
 
         assertThat(service.prepareAsync(query, queryCtx, createContext()), willBe(notNullValue()));
-        assertEquals(0, service.planCacheSize());
         Mockito.verify(queryPlannerSpy, Mockito.times(1)).optimize(Mockito.any(), Mockito.any());
 
         assertThat(service.prepareAsync(query, queryCtx, createContext()), willBe(notNullValue()));
-        assertEquals(0, service.planCacheSize());
         Mockito.verify(queryPlannerSpy, Mockito.times(2)).optimize(Mockito.any(), Mockito.any());
     }
 
@@ -199,7 +214,7 @@ public class PrepareServiceSelfTest extends AbstractPlannerTest {
         String normalizedQuery = queryAst.toString();
 
         assertThat(service.prepareAsync(normalizedQuery, queryCtx, createContext()), willBe(notNullValue()));
-        assertEquals(1, service.planCacheSize());
+        assertEquals(1, planCache.size());
     }
 
     @Test
@@ -210,48 +225,48 @@ public class PrepareServiceSelfTest extends AbstractPlannerTest {
 
         // Ensure explain doesn't cache anything.
         assertThat(service.prepareAsync(explainQuery, queryCtx, createContext()), willBe(notNullValue()));
-        assertEquals(0, service.planCacheSize());
+        assertEquals(0, planCache.size());
         Mockito.verify(queryPlannerSpy, Mockito.times(1)).optimize(Mockito.any(), Mockito.any());
 
         // Cache query plan.
         assertThat(service.prepareAsync(query, queryCtx, createContext()), willBe(notNullValue()));
-        assertEquals(1, service.planCacheSize());
+        assertEquals(1, planCache.size());
         Mockito.verify(queryPlannerSpy, Mockito.times(2)).optimize(Mockito.any(), Mockito.any());
 
         // Check explain gets plan from cache.
         assertThat(service.prepareAsync(explainQuery, queryCtx, createContext()), willBe(notNullValue()));
-        assertEquals(1, service.planCacheSize());
+        assertEquals(1, planCache.size());
         Mockito.verify(queryPlannerSpy, Mockito.times(2)).optimize(Mockito.any(), Mockito.any());
 
         // Check explain gets plan from cache for similar query.
         assertThat(service.prepareAsync(explainQuery2, queryCtx, createContext()), willBe(notNullValue()));
-        assertEquals(1, service.planCacheSize());
+        assertEquals(1, planCache.size());
         Mockito.verify(queryPlannerSpy, Mockito.times(2)).optimize(Mockito.any(), Mockito.any());
     }
 
     @Test
     public void resetCache() {
-        assertEquals(0, service.planCacheSize());
+        assertEquals(0, planCache.size());
 
         // Fill caches.
         assertThat(service.prepareAsync("SELECT * FROM tbl WHERE id > 0", queryCtx, createContext()), willBe(notNullValue()));
         assertThat(service.prepareAsync("SELECT * FROM tbl WHERE id > 1", queryCtx, createContext()), willBe(notNullValue()));
 
-        assertEquals(2, service.parseCacheSize());
-        assertEquals(2, service.planCacheSize());
+        assertEquals(2, parserCache.size());
+        assertEquals(2, planCache.size());
         Mockito.verify(queryPlannerSpy, Mockito.times(2)).optimize(Mockito.any(), Mockito.any());
 
         // Drop cached plans.
         service.invalidateCachedPlans();
 
-        assertEquals(2, service.parseCacheSize());
-        assertEquals(0, service.planCacheSize());
+        assertEquals(2, parserCache.size());
+        assertEquals(0, planCache.size());
 
         assertThat(service.prepareAsync("SELECT * FROM tbl WHERE id > 0", queryCtx, createContext()), willBe(notNullValue()));
         assertThat(service.prepareAsync("SELECT * FROM tbl WHERE id > 1", queryCtx, createContext()), willBe(notNullValue()));
 
-        assertEquals(2, service.parseCacheSize());
-        assertEquals(2, service.planCacheSize());
+        assertEquals(2, parserCache.size());
+        assertEquals(2, planCache.size());
         Mockito.verify(queryPlannerSpy, Mockito.times(4)).optimize(Mockito.any(), Mockito.any());
 
         // Invalidate parser cache and check reusing cached plans.
@@ -259,8 +274,8 @@ public class PrepareServiceSelfTest extends AbstractPlannerTest {
 
         assertThat(service.prepareAsync("SELECT * FROM tbl WHERE id > 0", queryCtx, createContext()), willBe(notNullValue()));
 
-        assertEquals(1, service.parseCacheSize());
-        assertEquals(2, service.planCacheSize());
+        assertEquals(1, parserCache.size());
+        assertEquals(2, planCache.size());
         Mockito.verify(queryPlannerSpy, Mockito.times(4)).optimize(Mockito.any(), Mockito.any());
     }
 

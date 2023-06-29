@@ -149,7 +149,7 @@ public class ExecutionServiceImplTest {
     public void init() {
         testCluster = new TestCluster();
         executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
-        prepareService = new PrepareServiceImpl("test", 0, null, PlannerHelper::optimize);
+        prepareService = new PrepareServiceImpl("test", null, PlannerHelper::optimize);
 
         prepareService.start();
     }
