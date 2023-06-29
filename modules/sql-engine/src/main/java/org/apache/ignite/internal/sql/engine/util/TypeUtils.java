@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.schema.VarlenNativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.sql.ColumnType;
@@ -533,6 +535,58 @@ public class TypeUtils {
         }
     }
 
+    /** Checks whether cast operation is necessary in {@code SearchBound}. */
+    public static boolean needCastInSearchBounds(IgniteTypeFactory typeFactory, RelDataType fromType, RelDataType toType) {
+        // Check custom data types first.
+        if (toType.getSqlTypeName() == SqlTypeName.ANY || fromType.getSqlTypeName() == SqlTypeName.ANY) {
+            return customDataTypeNeedCast(typeFactory, fromType, toType);
+        }
+
+        // No need to cast between char and varchar.
+        if (SqlTypeUtil.isCharacter(toType) && SqlTypeUtil.isCharacter(fromType)) {
+            return false;
+        }
+
+        // No need to cast if the source type precedence list
+        // contains target type. i.e. do not cast from
+        // tinyint to int or int to bigint.
+        if (fromType.getPrecedenceList().containsType(toType)
+                && SqlTypeUtil.isIntType(fromType)
+                && SqlTypeUtil.isIntType(toType)) {
+            return false;
+        }
+
+        // Implicit type coercion does not handle nullability.
+        if (SqlTypeUtil.equalSansNullability(typeFactory, fromType, toType)) {
+            return false;
+        }
+        // Should keep sync with rules in SqlTypeCoercionRule.
+        assert SqlTypeUtil.canCastFrom(toType, fromType, true);
+        return true;
+    }
+
+    /**
+     * Checks whether one type can be casted to another if one of type is a custom data type.
+     * This method expects at least one of its arguments to be a custom data type.
+     */
+    public static boolean customDataTypeNeedCast(IgniteTypeFactory factory, RelDataType fromType, RelDataType toType) {
+        assert fromType.getSqlTypeName() == SqlTypeName.ANY || toType.getSqlTypeName() == SqlTypeName.ANY :
+                format("Invalid argument. Expected at least one custom data type: " + fromType, toType);
+
+        IgniteCustomTypeCoercionRules typeCoercionRules = factory.getCustomTypeCoercionRules();
+        // IgniteCustomType: whether we need implicit cast from one type to another.
+        // We can get toType to be a custom data type in case where e1 is part of CASE <e1> WHERE ... END expression.
+        // We can get fromType to be a custom data type in SELECT e1 UNION SELECT e2
+        if (toType instanceof IgniteCustomType) {
+            IgniteCustomType to = (IgniteCustomType) toType;
+            return typeCoercionRules.needToCast(fromType, to);
+        } else if (fromType instanceof IgniteCustomType) {
+            boolean sameType = SqlTypeUtil.equalSansNullability(fromType, toType);
+            return !sameType;
+        } else {
+            throw new AssertionError("Neither of arguments is a custom data type");
+        }
+    }
 
     /**
      * Checks that {@code toType} and {@code fromType} have compatible type families taking into account custom data types.

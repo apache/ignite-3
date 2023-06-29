@@ -719,7 +719,7 @@ public class RexUtils {
 
         if (op instanceof RexSlot) {
             RelDataType operandType = call.getOperands().get(operandNum).getType();
-            if (!typeCoercion.needToCastInIndex(op.getType(), operandType)) {
+            if (!TypeUtils.needCastInSearchBounds(Commons.typeFactory(), op.getType(), operandType)) {
                 return (RexSlot) op;
             }
         }
@@ -951,7 +951,7 @@ public class RexUtils {
 
         if (saturated != null) {
             return saturated;
-        } else if (typeCoercion.needToCastInIndex(node.getType(), type)) {
+        } else if (TypeUtils.needCastInSearchBounds(Commons.typeFactory(), node.getType(), type)) {
             return builder.makeCast(type, node);
         } else {
             return node;

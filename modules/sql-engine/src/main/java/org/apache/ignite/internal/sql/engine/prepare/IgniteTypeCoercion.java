@@ -271,93 +271,16 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             if (fromType == null) {
                 return false;
             }
-
+            // The following checks ensure that there no ClassCastException when casting from one
+            // integer type to another (e.g. int to smallint, int to bigint)
             if (SqlTypeUtil.isIntType(fromType) && fromType.getSqlTypeName() != toType.getSqlTypeName()) {
                 return true;
             }
+        } else if (toType.getSqlTypeName() == SqlTypeName.ANY || fromType.getSqlTypeName() == SqlTypeName.ANY) {
+            return TypeUtils.customDataTypeNeedCast(typeFactory, fromType, toType);
         }
 
-        return doNeedToCast(fromType, toType);
-    }
-
-    /**
-     * Checks whether {@code CAST} operation can be used to convert {@code fromType} to {@code toType}.
-     * This method returns {@code false} if type are the same.
-     *
-     * <p>This method should be only used for index bound checks.
-     */
-    public boolean needToCastInIndex(RelDataType fromType, RelDataType toType) {
-        if (fromType == null) {
-            return false;
-        }
-
-        return doNeedToCast(fromType, toType);
-    }
-
-    private boolean doNeedToCast(RelDataType fromType, RelDataType toType) {
-        if (toType.getSqlTypeName() == SqlTypeName.ANY || fromType.getSqlTypeName() == SqlTypeName.ANY) {
-            IgniteCustomTypeCoercionRules typeCoercionRules = typeFactory.getCustomTypeCoercionRules();
-
-            // IgniteCustomType: whether we need implicit cast from one type to another.
-            // We can get toType to be a custom data type in case where e1 is part of CASE <e1> WHERE ... END expression.
-            // We can get fromType to be a custom data type in SELECT e1 UNION SELECT e2
-            if (toType instanceof IgniteCustomType) {
-                IgniteCustomType to = (IgniteCustomType) toType;
-                return typeCoercionRules.needToCast(fromType, to);
-            } else if (fromType instanceof IgniteCustomType) {
-                boolean sameType = SqlTypeUtil.equalSansNullability(fromType, toType);
-                return !sameType;
-            } else {
-                return true;
-            }
-            // When both types are custom data types, do nothing.
-        }
-        ///////////////////////////////////////////////////////////////////////
-        // CALCITE SOURCE: AbstractTypeCoercionImpl::needToCast
-        //\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/
-
-        // This depends on the fact that type validate happens before coercion.
-        // We do not have inferred type for some node, i.e. LOCALTIME.
-        if (fromType == null) {
-            return false;
-        }
-
-        // This prevents that we cast a JavaType to normal RelDataType.
-        if (fromType instanceof RelDataTypeFactoryImpl.JavaType
-                && toType.getSqlTypeName() == fromType.getSqlTypeName()) {
-            return false;
-        }
-
-        // Do not make a cast when we don't know specific type (ANY) of the origin node.
-        if (toType.getSqlTypeName() == SqlTypeName.ANY
-                || fromType.getSqlTypeName() == SqlTypeName.ANY) {
-            return false;
-        }
-
-        // No need to cast between char and varchar.
-        if (SqlTypeUtil.isCharacter(toType) && SqlTypeUtil.isCharacter(fromType)) {
-            return false;
-        }
-
-        // No need to cast if the source type precedence list
-        // contains target type. i.e. do not cast from
-        // tinyint to int or int to bigint.
-        if (fromType.getPrecedenceList().containsType(toType)
-                && SqlTypeUtil.isIntType(fromType)
-                && SqlTypeUtil.isIntType(toType)) {
-            return false;
-        }
-
-        // Implicit type coercion does not handle nullability.
-        if (SqlTypeUtil.equalSansNullability(typeFactory, fromType, toType)) {
-            return false;
-        }
-        // Should keep sync with rules in SqlTypeCoercionRule.
-        assert SqlTypeUtil.canCastFrom(toType, fromType, true);
-        return true;
-        //\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/
-        // CALCITE SOURCE: AbstractTypeCoercionImpl::needToCast
-        ///////////////////////////////////////////////////////////////////////
+        return super.needToCast(scope, node, toType);
     }
 
     // The method is fully copy from parent class with modified handling of dynamic parameters.
