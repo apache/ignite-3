@@ -200,7 +200,7 @@ public class TestNode implements LifecycleAware {
     public QueryPlan prepare(SqlNode queryAst) {
         assertThat(queryAst, not(instanceOf(SqlNodeList.class)));
 
-        return await(((PrepareServiceImpl)prepareService).prepareAsync(queryAst, createContext()));
+        return await(((PrepareServiceImpl) prepareService).prepareAsync(queryAst, createContext()));
     }
 
     private BaseQueryContext createContext() {
