@@ -19,8 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.BitSet;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.jetbrains.annotations.Nullable;
 
 /**
