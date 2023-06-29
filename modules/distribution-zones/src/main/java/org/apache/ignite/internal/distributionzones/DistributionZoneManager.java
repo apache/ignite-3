@@ -1299,15 +1299,15 @@ public class DistributionZoneManager implements IgniteComponent {
         ZoneConfiguration zoneConfiguration = new ZoneConfiguration();
 
         zoneConfiguration.setIsRemoved(false);
-        zoneConfiguration.setDataNodesAutoAdjustScaleUp(zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleUp().value());
-        zoneConfiguration.setDataNodesAutoAdjustScaleDown(zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleDown().value());
-        zoneConfiguration.setFilter(zonesConfiguration.defaultDistributionZone().filter().value());
+        zoneConfiguration.setDataNodesAutoAdjustScaleUp(zone.dataNodesAutoAdjustScaleUp());
+        zoneConfiguration.setDataNodesAutoAdjustScaleDown(zone.dataNodesAutoAdjustScaleDown());
+        zoneConfiguration.setFilter(zone.filter());
 
         ConcurrentSkipListMap<Long, ZoneConfiguration> versionedCfg = new ConcurrentSkipListMap<>();
 
-        zonesVersionedCfg.put(zoneId, versionedCfg);
+        versionedCfg.put(revision, zoneConfiguration);
 
-        versionedCfg.put(1L, zoneConfiguration);
+        zonesVersionedCfg.put(zoneId, versionedCfg);
 
         vaultMgr.put(zoneVersionedConfigurationKey(DEFAULT_ZONE_ID), toBytes(versionedCfg)).join();
     }
