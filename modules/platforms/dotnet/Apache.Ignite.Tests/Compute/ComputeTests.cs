@@ -285,15 +285,13 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreEqual(expectedNodeName, requestTargetNodeName2);
             Assert.AreEqual(expectedNodeName, requestTargetNodeName3);
 
-            void ClearOps() => proxies.Values.ForEach(p => p.ClientOps.Clear());
+            void ClearOps() => proxies.Values.ForEach(p => p.ClearOps());
 
-            string GetRequestTargetNodeName()
-            {
-                return proxies
+            string GetRequestTargetNodeName() =>
+                proxies
                     .Where(x => x.Value.ClientOps.Contains(ClientOp.ComputeExecuteColocated))
                     .Select(x => x.Key)
                     .Single();
-            }
         }
 
         [Test]
