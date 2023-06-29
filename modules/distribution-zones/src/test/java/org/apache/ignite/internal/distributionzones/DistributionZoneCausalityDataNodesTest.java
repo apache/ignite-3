@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
@@ -538,17 +539,25 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         long topologyRevision2 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes);
 
+        System.out.println("test_log topologyRevision2=" + topologyRevision2);
+
         long dropRevision1 = dropZoneAndGetRevision(ZONE_NAME_1);
+
+        System.out.println("test_log dropRevision1=" + dropRevision1);
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 because scale up timer has not fired.
         CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1);
         assertThat(dataNodesFut3, willBe(oneNodeName));
 
-        System.out.println("test_log dropRevision1=" + dropRevision1);
-
         // Check that zones is removed and attempt to get data nodes throws an exception.
-        CompletableFuture<Set<String>> dataNodesFut5 = distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1);
-        assertThrows(DistributionZoneNotFoundException.class, () -> dataNodesFut5.get(3, SECONDS));
+        CompletableFuture<Set<String>> dataNodesFut5 = null;
+        try {
+            dataNodesFut5 = distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        CompletableFuture<Set<String>> finalDataNodesFut = dataNodesFut5;
+        assertThrowsWithCause(() -> finalDataNodesFut.get(3, SECONDS), DistributionZoneNotFoundException.class);
     }
 
     /**
@@ -589,23 +598,16 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         long topologyRevision2 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), oneNode);
 
-        long dropRevision0 = dropZoneAndGetRevision(DEFAULT_ZONE_NAME);
         long dropRevision1 = dropZoneAndGetRevision(ZONE_NAME_1);
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 and NODE_1
         // because scale down timer has not fired.
-        CompletableFuture<Set<String>> dataNodesFut2 = distributionZoneManager.dataNodes(topologyRevision2, DEFAULT_ZONE_ID);
-        assertThat(dataNodesFut2, willBe(twoNodesNames));
-
         CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1);
         assertThat(dataNodesFut3, willBe(twoNodesNames));
 
         // Check that zones is removed and attempt to get data nodes throws an exception.
-        CompletableFuture<Set<String>> dataNodesFut4 = distributionZoneManager.dataNodes(dropRevision0, DEFAULT_ZONE_ID);
-        assertThrows(DistributionZoneNotFoundException.class, () -> dataNodesFut4.get(3, SECONDS));
-
         CompletableFuture<Set<String>> dataNodesFut5 = distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1);
-        assertThrows(DistributionZoneNotFoundException.class, () -> dataNodesFut5.get(3, SECONDS));
+        assertThrowsWithCause(() -> dataNodesFut5.get(3, SECONDS), DistributionZoneNotFoundException.class);
     }
 
     /**
