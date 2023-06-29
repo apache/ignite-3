@@ -53,7 +53,7 @@ public class PartitionAwarenessTests
         _server1 = new FakeServer(nodeName: "srv1");
         _server2 = new FakeServer(nodeName: "srv2");
 
-        var assignment = new[] { _server1.Node.Id, _server2.Node.Id };
+        var assignment = new[] { _server1.Node.Name, _server2.Node.Name };
         _server1.PartitionAssignment = assignment;
         _server2.PartitionAssignment = assignment;
     }
