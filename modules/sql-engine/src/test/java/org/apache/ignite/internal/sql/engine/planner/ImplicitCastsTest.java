@@ -238,9 +238,11 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
             RelDataType lhs = (RelDataType) vals[0];
             RelDataType rhs = (RelDataType) vals[1];
 
-            // SearchBounds are not built for types t1 and t2 when
-            // t1 != t2 AND either of them is approx numeric or decimal.
-            // For integral numeric types t1 != t2 search bounds are always built.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19881
+            //       https://issues.apache.org/jira/browse/IGNITE-19882
+            //   SearchBounds are not built for types t1 and t2 when
+            //   t1 != t2 AND either of them is approx numeric or decimal.
+            //   For integral numeric types t1 != t2 search bounds are always built.
             if (SqlTypeUtil.isApproximateNumeric(lhs) || SqlTypeUtil.isApproximateNumeric(rhs)
                     || SqlTypeUtil.isDecimal(lhs) || SqlTypeUtil.isDecimal(rhs)) {
 
