@@ -26,20 +26,25 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.NativeTypeValues;
@@ -56,13 +61,13 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class ImplicitCastsTest extends AbstractPlannerTest {
 
-    private static void addTable(IgniteSchema igniteSchema, String tableName, String columnName, RelDataType columnType) {
+    private static TestTable addTable(IgniteSchema igniteSchema, String tableName, String columnName, RelDataType columnType) {
         RelDataType tableType = new RelDataTypeFactory.Builder(TYPE_FACTORY)
                 .add("ID", SqlTypeName.INTEGER)
                 .add(columnName, columnType)
                 .build();
 
-        createTable(igniteSchema, tableName, tableType, IgniteDistributions.single());
+        return createTable(igniteSchema, tableName, tableType, IgniteDistributions.single());
     }
 
     private static String castedExpr(String idx, @Nullable RelDataType type) {
@@ -99,8 +104,8 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
     private static Stream<Arguments> joinColumnTypes() {
 
         List<RelDataType> numericTypes = SqlTypeName.NUMERIC_TYPES.stream()
-                // Real/Float get mixed up.
-                .filter(t -> t != SqlTypeName.REAL && t != SqlTypeName.FLOAT)
+                // Real/Float got mixed up.
+                .filter(t -> t != SqlTypeName.FLOAT)
                 .map(TYPE_FACTORY::createSqlType)
                 .collect(Collectors.toList());
 
@@ -191,6 +196,83 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
 
                     return Objects.equals(expectedPredicate, actualPredicate);
                 }), params);
+    }
+
+    /** Index - implicit casts in index search bounds. **/
+    @ParameterizedTest
+    @MethodSource("filterTypesForIndex")
+    public void testIndex(RelDataType lhs, RelDataType rhs, ExpectedTypes expected, Type indexType) throws Exception {
+        IgniteSchema igniteSchema = new IgniteSchema("PUBLIC");
+
+        TestTable table = addTable(igniteSchema, "A1", "COL1", lhs);
+        switch (indexType) {
+            case SORTED:
+                table.addIndex(RelCollations.of(1), "COL1_IDX");
+                break;
+            case HASH:
+                table.addIndex("COL1_IDX", 1);
+                break;
+            default:
+                throw new IllegalArgumentException("Unexpected index type " + indexType);
+        }
+
+        List<Object> params = NativeTypeValues.values(rhs, 1);
+
+        String query = format("SELECT * FROM A1 WHERE COL1 = ?", rhs);
+        assertPlan(query, igniteSchema, isInstanceOf(IgniteIndexScan.class)
+                .and(node -> {
+                    String actualPredicate = node.condition().toString();
+
+                    // lhs is not null, rhs may be null.
+                    String castedLhs = castedExprNotNullable("$t1", expected.lhs);
+                    String castedRhs = castedExpr("?0", expected.rhs);
+                    String expectedPredicate = format("=({}, {})", castedLhs, castedRhs);
+
+                    return Objects.equals(expectedPredicate, actualPredicate);
+                }), params);
+    }
+
+    private static Stream<Arguments> filterTypesForIndex() {
+        Predicate<Arguments> filter = args -> {
+            Object[] vals = args.get();
+            RelDataType lhs = (RelDataType) vals[0];
+            RelDataType rhs = (RelDataType) vals[1];
+
+            // SearchBounds are not built for types t1 and t2 when
+            // t1 != t2 AND either of them is approx numeric or decimal.
+            // For integral numeric types t1 != t2 search bounds are always built.
+            if (SqlTypeUtil.isApproximateNumeric(lhs) || SqlTypeUtil.isApproximateNumeric(rhs)
+                    || SqlTypeUtil.isDecimal(lhs) || SqlTypeUtil.isDecimal(rhs)) {
+
+                return SqlTypeUtil.equalSansNullability(lhs, rhs);
+            } else {
+                return true;
+            }
+        };
+
+        final class AddIndexType implements Function<Arguments, Arguments> {
+
+            private final Type type;
+
+            private AddIndexType(Type type) {
+                this.type = type;
+            }
+
+            @Override
+            public Arguments apply(Arguments args) {
+                Object[] vals = args.get();
+                RelDataType lhs = (RelDataType) vals[0];
+                RelDataType rhs = (RelDataType) vals[1];
+                ExpectedTypes expected = (ExpectedTypes) vals[2];
+
+                return Arguments.of(lhs, rhs, expected, type);
+            }
+        }
+
+        Stream<Arguments> s1 = filterTypes().filter(filter).map(new AddIndexType(Type.SORTED));
+        Stream<Arguments> s2 = filterTypes().filter(filter).map(new AddIndexType(Type.HASH));
+
+        return Stream.concat(s1, s2);
     }
 
     /** Type coercion in INSERT statement. */
