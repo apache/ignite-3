@@ -34,28 +34,26 @@ public class TestIndex extends IgniteIndex {
             "DataProvider is not configured [index={}, node={}]";
 
     /** Factory method for creating hash-index. */
-    static TestIndex createHash(String name, String tableName, List<String> indexedColumns, Map<String, DataProvider<?>> dataProviders) {
-        return new TestIndex(name, tableName, Type.HASH, indexedColumns, null, dataProviders);
+    static TestIndex createHash(String name, List<String> indexedColumns, Map<String, DataProvider<?>> dataProviders) {
+        return new TestIndex(name, Type.HASH, indexedColumns, null, dataProviders);
     }
 
     /** Factory method for creating sorted-index. */
-    static TestIndex createSorted(String name, String tableName, List<String> columns, List<Collation> collations,
+    static TestIndex createSorted(String name, List<String> columns, List<Collation> collations,
             Map<String, DataProvider<?>> dataProviders) {
-        return new TestIndex(name, tableName, Type.SORTED, columns, collations, dataProviders);
+        return new TestIndex(name, Type.SORTED, columns, collations, dataProviders);
     }
 
     private static final AtomicInteger ID = new AtomicInteger();
 
     private final int id = ID.incrementAndGet();
     private final String name;
-    private final String tableName;
 
     private final Map<String, DataProvider<?>> dataProviders;
 
     /** Constructor. */
     TestIndex(
             String name,
-            String tableName,
             Type type,
             List<String> columns,
             @Nullable List<Collation> collations,
@@ -64,7 +62,6 @@ public class TestIndex extends IgniteIndex {
         super(type, columns, collations);
 
         this.name = name;
-        this.tableName = tableName;
         this.dataProviders = dataProviders;
     }
 
@@ -77,10 +74,6 @@ public class TestIndex extends IgniteIndex {
     @Override
     public String name() {
         return name;
-    }
-
-    public String tableName() {
-        return tableName;
     }
 
     /**

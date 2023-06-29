@@ -45,12 +45,11 @@ public class TestClusterTest {
             .addColumn("ID", NativeTypes.INT32)
             .addColumn("VAL", NativeTypes.stringOf(64))
             .defaultDataProvider(dataProvider)
-            .end()
             .addHashIndex()
             .name("IDX_ID")
-            .table("T1")
             .addColumn("ID")
             .defaultDataProvider(dataProvider)
+            .end()
             .end()
             .build();
     // @formatter:on
@@ -83,7 +82,7 @@ public class TestClusterTest {
         cluster.start();
 
         TestNode gatewayNode = cluster.node("N1");
-        QueryPlan plan = gatewayNode.prepare("SELECT * FROM t1 WHERE ID > 1");
+        QueryPlan plan = gatewayNode.prepare("SELECT * FROM t1 WHERE ID = 1");
 
         for (List<?> row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
             assertNotNull(row);

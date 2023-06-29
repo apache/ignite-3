@@ -98,8 +98,8 @@ public class TestBuilders {
         /**
          * Sets desired names for the cluster nodes.
          *
-         * @param firstNodeName A name of the first node. There is no difference in what node should be first. This parameter was introduced
-         *     to force user to provide at least one node name.
+         * @param firstNodeName A name of the first node. There is no difference in what node should be first. This parameter was
+         *         introduced to force user to provide at least one node name.
          * @param otherNodeNames An array of rest of the names to create cluster from.
          * @return {@code this} for chaining.
          */
@@ -113,23 +113,9 @@ public class TestBuilders {
         ClusterTableBuilder addTable();
 
         /**
-         * Creates a sorted-index builder to add to the cluster.
-         *
-         * @return An instance of sorted-index builder.
-         */
-        ClusterSortedIndexBuilder addSortedIndex();
-
-        /**
-         * Creates a hash-index builder to add to the cluster.
-         *
-         * @return An instance of hash builder.
-         */
-        ClusterHashIndexBuilder addHashIndex();
-
-        /**
          * When specified the given factory is used to create instances of
-         * {@link ClusterTableBuilder#defaultDataProvider(DataProvider) default data providers} for tables
-         * that have no {@link ClusterTableBuilder#defaultDataProvider(DataProvider) default data provider} set.
+         * {@link ClusterTableBuilder#defaultDataProvider(DataProvider) default data providers} for tables that have no
+         * {@link ClusterTableBuilder#defaultDataProvider(DataProvider) default data provider} set.
          *
          * <p>Note: when a table has default data provider this method has no effect.
          *
@@ -196,6 +182,20 @@ public class TestBuilders {
     public interface ClusterTableBuilder extends TableBuilderBase<ClusterTableBuilder>,
             DataSourceBuilder<ClusterTableBuilder>,
             NestedBuilder<ClusterBuilder> {
+
+        /**
+         * Creates a sorted-index builder to add to the cluster.
+         *
+         * @return An instance of sorted-index builder.
+         */
+        ClusterSortedIndexBuilder addSortedIndex();
+
+        /**
+         * Creates a hash-index builder to add to the cluster.
+         *
+         * @return An instance of hash builder.
+         */
+        ClusterHashIndexBuilder addHashIndex();
     }
 
     /**
@@ -206,7 +206,7 @@ public class TestBuilders {
      */
     public interface ClusterSortedIndexBuilder extends SortedIndexBuilderBase<ClusterSortedIndexBuilder>,
             DataSourceBuilder<ClusterSortedIndexBuilder>,
-            NestedBuilder<ClusterBuilder> {
+            NestedBuilder<ClusterTableBuilder> {
     }
 
     /**
@@ -217,7 +217,7 @@ public class TestBuilders {
      */
     public interface ClusterHashIndexBuilder extends HashIndexBuilderBase<ClusterHashIndexBuilder>,
             DataSourceBuilder<ClusterHashIndexBuilder>,
-            NestedBuilder<ClusterBuilder> {
+            NestedBuilder<ClusterTableBuilder> {
     }
 
     /**
@@ -319,7 +319,6 @@ public class TestBuilders {
 
     private static class ClusterBuilderImpl implements ClusterBuilder {
         private final List<ClusterTableBuilderImpl> tableBuilders = new ArrayList<>();
-        private final List<AbstractIndexBuilderImpl> indexBuilders = new ArrayList<>();
         private DataProviderFactory dataProviderFactory;
         private List<String> nodeNames;
 
@@ -342,19 +341,6 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
-        public ClusterSortedIndexBuilder addSortedIndex() {
-            return new ClusterSortedIndexBuilderImpl(this);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public ClusterHashIndexBuilder addHashIndex() {
-            return new ClusterHashIndexBuilderImpl(this);
-        }
-
-
-        /** {@inheritDoc} */
-        @Override
         public ClusterBuilder defaultDataProviderFactory(DataProviderFactory dataProviderFactory) {
             this.dataProviderFactory = dataProviderFactory;
             return this;
@@ -369,23 +355,21 @@ public class TestBuilders {
                 validateDataSourceBuilder(tableBuilder);
                 injectDefaultDataProvidersIfNeeded(tableBuilder);
                 injectDataProvidersIfNeeded(tableBuilder);
+
+                for (AbstractIndexBuilderImpl<?> indexBuilder : tableBuilder.indexBuilders) {
+                    validateDataSourceBuilder(indexBuilder);
+                    injectDataProvidersIfNeeded(indexBuilder);
+                }
             }
 
             Map<String, Table> tableMap = tableBuilders.stream()
                     .map(ClusterTableBuilderImpl::build)
                     .collect(Collectors.toMap(TestTable::name, Function.identity()));
 
-            for (AbstractIndexBuilderImpl<?> indexBuilder : indexBuilders) {
-                validateDataSourceBuilder(indexBuilder);
-                validateIndexBuilder(indexBuilder, tableMap);
-                injectDataProvidersIfNeeded(indexBuilder);
-            }
-
-            Map<Integer, IgniteIndex> indexMap = indexBuilders.stream()
-                    .map(AbstractIndexBuilderImpl::build)
+            Map<Integer, IgniteIndex> indexMap = tableMap.values().stream()
+                    .map(TestTable.class::cast)
+                    .flatMap(t -> t.indexes().values().stream().map(TestIndex.class::cast))
                     .collect(Collectors.toMap(TestIndex::id, Function.identity()));
-
-            indexMap.values().forEach(idx -> ((TestTable) tableMap.get(((TestIndex) idx).tableName())).addIndex(idx));
 
             var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, indexMap, SCHEMA_VERSION));
 
@@ -404,17 +388,6 @@ public class TestBuilders {
             if (!tableOwners.isEmpty()) {
                 throw new AssertionError(format("The table has a dataProvider that is outside the cluster "
                         + "[tableName={}, outsiders={}]", tableBuilder.name, tableOwners));
-            }
-        }
-
-        private void validateIndexBuilder(AbstractIndexBuilderImpl<?> indexBuilder, Map<String, Table> tableMap) {
-            String tableName = indexBuilder.tableName;
-
-            TestTable table = (TestTable) tableMap.get(tableName);
-
-            if (table == null) {
-                throw new AssertionError(format("The index refers to an invalid table "
-                        + "[indexName={}, tableName={}]", indexBuilder.name, tableName));
             }
         }
 
@@ -472,9 +445,22 @@ public class TestBuilders {
 
     private static class ClusterTableBuilderImpl extends AbstractTableBuilderImpl<ClusterTableBuilder> implements ClusterTableBuilder {
         private final ClusterBuilderImpl parent;
+        private final List<AbstractIndexBuilderImpl> indexBuilders = new ArrayList<>();
 
         private ClusterTableBuilderImpl(ClusterBuilderImpl parent) {
             this.parent = parent;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ClusterSortedIndexBuilder addSortedIndex() {
+            return new ClusterSortedIndexBuilderImpl(this);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ClusterHashIndexBuilder addHashIndex() {
+            return new ClusterHashIndexBuilderImpl(this);
         }
 
         /** {@inheritDoc} */
@@ -492,9 +478,11 @@ public class TestBuilders {
         }
 
         private TestTable build() {
-            return new TestTable(
-                    new TableDescriptorImpl(columns, distribution), name, dataProviders, size
-            );
+            TestTable testTable = new TestTable(new TableDescriptorImpl(columns, distribution), name, dataProviders, size);
+
+            indexBuilders.forEach(idx -> testTable.addIndex(idx.build()));
+
+            return testTable;
         }
     }
 
@@ -513,10 +501,6 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Name is not specified");
             }
 
-            if (tableName == null) {
-                throw new IllegalArgumentException("Table name is not specified");
-            }
-
             if (columns.isEmpty()) {
                 throw new IllegalArgumentException("Index must contain at least one column");
             }
@@ -525,7 +509,7 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Collation must be specified for each of columns.");
             }
 
-            return new TestIndex(name, tableName, Type.SORTED, columns, collations, dataProviders);
+            return new TestIndex(name, Type.SORTED, columns, collations, dataProviders);
         }
     }
 
@@ -544,25 +528,21 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Name is not specified");
             }
 
-            if (tableName == null) {
-                throw new IllegalArgumentException("Table name is not specified");
-            }
-
             if (columns.isEmpty()) {
                 throw new IllegalArgumentException("Index must contain at least one column");
             }
 
             assert collations == null : "Collation is not supported.";
 
-            return new TestIndex(name, tableName, Type.HASH, columns, null, dataProviders);
+            return new TestIndex(name, Type.HASH, columns, null, dataProviders);
         }
     }
 
     private static class ClusterSortedIndexBuilderImpl extends AbstractIndexBuilderImpl<ClusterSortedIndexBuilder>
             implements ClusterSortedIndexBuilder {
-        private final ClusterBuilderImpl parent;
+        private final ClusterTableBuilderImpl parent;
 
-        ClusterSortedIndexBuilderImpl(ClusterBuilderImpl parent) {
+        ClusterSortedIndexBuilderImpl(ClusterTableBuilderImpl parent) {
             this.parent = parent;
         }
 
@@ -574,7 +554,7 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
-        public ClusterBuilder end() {
+        public ClusterTableBuilder end() {
             parent.indexBuilders.add(this);
 
             return parent;
@@ -584,15 +564,15 @@ public class TestBuilders {
         TestIndex build() {
             assert collations.size() == columns.size();
 
-            return TestIndex.createSorted(name, tableName, columns, collations, dataProviders);
+            return TestIndex.createSorted(name, columns, collations, dataProviders);
         }
     }
 
     private static class ClusterHashIndexBuilderImpl extends AbstractIndexBuilderImpl<ClusterHashIndexBuilder>
             implements ClusterHashIndexBuilder {
-        private final ClusterBuilderImpl parent;
+        private final ClusterTableBuilderImpl parent;
 
-        ClusterHashIndexBuilderImpl(ClusterBuilderImpl parent) {
+        ClusterHashIndexBuilderImpl(ClusterTableBuilderImpl parent) {
             this.parent = parent;
         }
 
@@ -604,7 +584,7 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
-        public ClusterBuilder end() {
+        public ClusterTableBuilder end() {
             parent.indexBuilders.add(this);
 
             return parent;
@@ -614,7 +594,7 @@ public class TestBuilders {
         TestIndex build() {
             assert collations == null;
 
-            return TestIndex.createHash(name, tableName, columns, dataProviders);
+            return TestIndex.createHash(name, columns, dataProviders);
         }
     }
 
@@ -694,15 +674,6 @@ public class TestBuilders {
             implements SortedIndexBuilderBase<ChildT>, HashIndexBuilderBase<ChildT> {
         protected final List<String> columns = new ArrayList<>();
         protected List<Collation> collations;
-        protected String tableName;
-
-        /** {@inheritDoc} */
-        @Override
-        public ChildT table(String tableName) {
-            this.tableName = tableName;
-
-            return self();
-        }
 
         /** {@inheritDoc} */
         @Override
@@ -795,9 +766,6 @@ public class TestBuilders {
     private interface IndexBuilderBase<ChildT> {
         /** Sets the name of the index. */
         ChildT name(String name);
-
-        /** Sets the name of the table that index belongs to. */
-        ChildT table(String name);
     }
 
     /**
@@ -847,8 +815,7 @@ public class TestBuilders {
     @FunctionalInterface
     private interface NestedBuilder<ParentT> {
         /**
-         * Notifies the builder's chain of the nested builder that we need to return back to the
-         * previous layer.
+         * Notifies the builder's chain of the nested builder that we need to return back to the previous layer.
          *
          * @return An instance of the parent builder.
          */
