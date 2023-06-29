@@ -34,34 +34,38 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
     /// Uses <see cref="ComputeTests.NodeNameJob"/> to get the name of the node that should be the primary for the given key,
     /// and compares to the actual node that received the request (using IgniteProxy).
     /// </summary>
-    /// <param name="key">Key.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
-    [TestCase(4)]
-    [TestCase(5)]
-    [TestCase(6)]
-    [TestCase(10)]
-    [TestCase(11)]
-    public async Task TestPutRoutesRequestToPrimaryNode(long key)
+    public async Task TestPutRoutesRequestToPrimaryNode()
     {
         var proxies = GetProxies();
         using var client = await IgniteClient.StartAsync(GetConfig(proxies));
         var recordView = (await client.Tables.GetTableAsync(TableName))!.RecordBinaryView;
-        var keyTuple = new IgniteTuple { ["KEY"] = key };
 
         // Warm up.
-        await recordView.GetAsync(null, keyTuple);
+        await recordView.GetAsync(null, new IgniteTuple { ["KEY"] = 1L });
 
         // Check.
-        await recordView.UpsertAsync(null, keyTuple);
-        var requestTargetNodeName = GetRequestTargetNodeName(proxies, ClientOp.TupleUpsert);
+        for (long key = 0; key < 50; key++)
+        {
+            var keyTuple = new IgniteTuple { ["KEY"] = key };
 
-        var primaryNodeName = await client.Compute.ExecuteColocatedAsync<string>(
-            TableName,
-            keyTuple,
-            Array.Empty<DeploymentUnit>(),
-            ComputeTests.NodeNameJob);
+            var primaryNodeName = await client.Compute.ExecuteColocatedAsync<string>(
+                TableName,
+                keyTuple,
+                Array.Empty<DeploymentUnit>(),
+                ComputeTests.NodeNameJob);
 
-        Assert.AreEqual(primaryNodeName, requestTargetNodeName);
+            if (primaryNodeName.EndsWith("_3", StringComparison.Ordinal) || primaryNodeName.EndsWith("_4", StringComparison.Ordinal))
+            {
+                // Skip nodes without direct client connection.
+                continue;
+            }
+
+            await recordView.UpsertAsync(null, keyTuple);
+            var requestTargetNodeName = GetRequestTargetNodeName(proxies, ClientOp.TupleUpsert);
+
+            Assert.AreEqual(primaryNodeName, requestTargetNodeName);
+        }
     }
 }
