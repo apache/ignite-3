@@ -208,7 +208,7 @@ public class PlacementDriverManager implements IgniteComponent {
         });
     }
 
-    private void onLeaderChange(ClusterNode leader, Long term) {
+    private void onLeaderChange(ClusterNode leader, long term) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }

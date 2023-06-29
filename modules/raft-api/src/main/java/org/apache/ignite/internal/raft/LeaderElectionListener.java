@@ -15,27 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
+package org.apache.ignite.internal.raft;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.network.ClusterNode;
 
 /**
- * Command that initiates idle safe time synchronization.
+ * Listener that gets called after a new Raft group leader has been elected.
  */
-@Transferable(MetastorageCommandsMessageGroup.SYNC_TIME)
-public interface SyncTimeCommand extends WriteCommand {
-    /** New safe time. */
-    long safeTimeLong();
-
-    /** Term of the initiator. */
-    long initiatorTerm();
-
-    /** New safe time. */
-    default HybridTimestamp safeTime() {
-        return hybridTimestamp(safeTimeLong());
-    }
+public interface LeaderElectionListener {
+    /**
+     * Callback that gets called after a new Raft group leader has been elected.
+     *
+     * @param leader New leader node.
+     * @param term New leader term.
+     */
+    void onLeaderElected(ClusterNode leader, long term);
 }

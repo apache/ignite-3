@@ -194,7 +194,7 @@ public class ItMetaStorageServiceTest {
                     clock
             );
 
-            this.clusterTime = new ClusterTimeImpl(new IgniteSpinBusyLock(), clock);
+            this.clusterTime = new ClusterTimeImpl(clusterService.nodeName(), new IgniteSpinBusyLock(), clock);
 
             this.mockStorage = mock(KeyValueStorage.class);
         }
