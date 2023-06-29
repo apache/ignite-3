@@ -277,6 +277,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
                 return true;
             }
         } else if (toType.getSqlTypeName() == SqlTypeName.ANY || fromType.getSqlTypeName() == SqlTypeName.ANY) {
+            // IgniteCustomType: whether we need implicit cast from one type to another.
             return TypeUtils.customDataTypeNeedCast(typeFactory, fromType, toType);
         }
 
