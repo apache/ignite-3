@@ -327,7 +327,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         IgniteTypeFactory typeFactory = ctx.getTypeFactory();
         ImmutableBitSet requiredColumns = rel.requiredColumns();
         RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
-        TableRowConverter rowConverter = resolvedDependencies.rowConverter(tbl.id());
+        ScannableTable scannableTable = resolvedDependencies.scannableTable(tbl.id());
 
         IgniteIndex idx = tbl.getIndex(rel.indexName());
 
@@ -371,7 +371,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx,
                 ctx.rowHandler().factory(ctx.getTypeFactory(), rowType),
                 idx,
-                rowConverter,
+                scannableTable,
                 tbl.descriptor(),
                 group.partitionsWithTerms(ctx.localNode().name()),
                 comp,
@@ -390,7 +390,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         ImmutableBitSet requiredColumns = rel.requiredColumns();
 
         IgniteTable tbl = rel.getTable().unwrapOrThrow(IgniteTable.class);
-        ScannableTable scannableTable = resolvedDependencies.scanableTable(tbl.id());
+        ScannableTable scannableTable = resolvedDependencies.scannableTable(tbl.id());
 
         IgniteTypeFactory typeFactory = ctx.getTypeFactory();
 

@@ -377,6 +377,7 @@ import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTab
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.GEN_RANDOM_UUID;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.GREATEST2;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.LEAST2;
+import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.LENGTH;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.RAND_UUID;
 
 /**
@@ -854,6 +855,7 @@ public class RexImpTable {
             defineMethod(IgniteSqlOperatorTable.GEN_RANDOM_UUID, GEN_RANDOM_UUID.method(), NullPolicy.NONE);
             defineMethod(IS_NOT_DISTINCT_FROM, IgniteMethod.IS_NOT_DISTINCT_FROM.method(), NullPolicy.NONE);
             defineMethod(IgniteSqlOperatorTable.LEAST2, LEAST2.method(), NullPolicy.NONE);
+            defineMethod(IgniteSqlOperatorTable.LENGTH, LENGTH.method(), NullPolicy.STRICT);
 
             map.put(TYPEOF, systemFunctionImplementor);
             map.put(NULL_BOUND, systemFunctionImplementor);
