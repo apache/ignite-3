@@ -21,12 +21,10 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
-import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.jetbrains.annotations.Nullable;
 
@@ -123,44 +121,6 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
      *  @return Publisher of datasource.
      */
     protected abstract Publisher<RowT> scan();
-
-    /**
-     * Proxy publisher with singe goal convert rows from {@code BinaryRow} to {@code RowT}.
-     *
-     * @param pub {@code BinaryRow} Publisher.
-     *
-     * @return Proxy publisher with conversion from {@code BinaryRow} to {@code RowT}.
-     */
-    public static <RowT> Publisher<RowT> convertPublisher(Publisher<BinaryRow> pub, Function<BinaryRow, RowT> convert) {
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-19726 this method be moved to ScanableTableImpl
-        Publisher<RowT> convPub = downstream -> {
-            // BinaryRow -> RowT converter.
-            Subscriber<BinaryRow> subs = new Subscriber<>() {
-                @Override
-                public void onSubscribe(Subscription subscription) {
-                    downstream.onSubscribe(subscription);
-                }
-
-                @Override
-                public void onNext(BinaryRow item) {
-                    downstream.onNext(convert.apply(item));
-                }
-
-                @Override
-                public void onError(Throwable throwable) {
-                    downstream.onError(throwable);
-                }
-
-                @Override
-                public void onComplete() {
-                    downstream.onComplete();
-                }
-            };
-
-            pub.subscribe(subs);
-        };
-        return convPub;
-    }
 
     private void push() throws Exception {
         if (isClosed()) {

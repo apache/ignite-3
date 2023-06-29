@@ -260,6 +260,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         );
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(tableManager, schemaManager, replicaService, clock, TABLE_CACHE_SIZE);
+
         var dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
 
         sqlSchemaManager.registerListener(executableTableRegistry);
