@@ -287,6 +287,7 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreEqual(expectedNodeName, resNodeName3);
 
             // TODO: Why requests go to a wrong node? Because we don't have direct connection to all of them!
+            // And we can't connect to all because of different auth settings.
             Assert.AreEqual(expectedNodeName, requestTargetNodeName);
             Assert.AreEqual(expectedNodeName, requestTargetNodeName2);
             Assert.AreEqual(expectedNodeName, requestTargetNodeName3);
