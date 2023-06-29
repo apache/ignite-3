@@ -20,7 +20,6 @@ package org.apache.ignite.internal.schema.marshaller.asm;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.defaultValue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.isNull;
