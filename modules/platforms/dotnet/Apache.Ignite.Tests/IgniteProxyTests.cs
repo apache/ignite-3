@@ -15,28 +15,30 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Network
+namespace Apache.Ignite.Tests;
+
+using System.Linq;
+using System.Threading.Tasks;
+using Internal.Proto;
+using NUnit.Framework;
+
+/// <summary>
+/// Tests for <see cref="IgniteProxy"/>.
+/// </summary>
+public class IgniteProxyTests : IgniteTestsBase
 {
-    using System.Net;
-
-    /// <summary>
-    /// Ignite cluster node.
-    /// </summary>
-    public interface IClusterNode
+    [Test]
+    public async Task TestBasicProxying()
     {
-        /// <summary>
-        /// Gets the local node id. Changes after node restart.
-        /// </summary>
-        string Id { get; }
+        var addr = Client.GetConnections().First().Node.Address;
+        using var proxy = new IgniteProxy(addr, "test");
+        using var client = await IgniteClient.StartAsync(new IgniteClientConfiguration(proxy.Endpoint));
 
-        /// <summary>
-        /// Gets the unique name (consistent id) of the cluster member. Does not change after node restart.
-        /// </summary>
-        string Name { get; }
+        var tables = await client.Tables.GetTablesAsync();
+        var table = await client.Tables.GetTableAsync(TableName);
 
-        /// <summary>
-        /// Gets the node address.
-        /// </summary>
-        IPEndPoint Address { get; }
+        Assert.Greater(tables.Count, 1);
+        Assert.IsNotNull(table);
+        Assert.AreEqual(new[] { ClientOp.TablesGet, ClientOp.TableGet }, proxy.ClientOps);
     }
 }

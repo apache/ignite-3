@@ -15,28 +15,18 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Network
+namespace Apache.Ignite.Tests.Common;
+
+using System;
+using System.Collections.Generic;
+
+public static class CollectionExtensions
 {
-    using System.Net;
-
-    /// <summary>
-    /// Ignite cluster node.
-    /// </summary>
-    public interface IClusterNode
+    public static void ForEach<T>(this IEnumerable<T> source, Action<T> action)
     {
-        /// <summary>
-        /// Gets the local node id. Changes after node restart.
-        /// </summary>
-        string Id { get; }
-
-        /// <summary>
-        /// Gets the unique name (consistent id) of the cluster member. Does not change after node restart.
-        /// </summary>
-        string Name { get; }
-
-        /// <summary>
-        /// Gets the node address.
-        /// </summary>
-        IPEndPoint Address { get; }
+        foreach (var item in source)
+        {
+            action(item);
+        }
     }
 }
