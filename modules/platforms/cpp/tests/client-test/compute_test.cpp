@@ -311,7 +311,7 @@ TEST_F(compute_test, unknown_unit) {
                 auto cluster_nodes = m_client.get_cluster_nodes();
                 (void) m_client.get_compute().execute(cluster_nodes, {{"unknown"}}, NODE_NAME_JOB, {});
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Deployment unit unknown:latest doesn’t exist"));
+                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Deployment unit unknown:latest doesn't exist"));
                 throw;
             }
         },
@@ -325,7 +325,7 @@ TEST_F(compute_test, execute_unknown_unit_and_version) {
                 auto cluster_nodes = m_client.get_cluster_nodes();
                 (void) m_client.get_compute().execute(cluster_nodes, {{"unknown", "1.2.3"}}, NODE_NAME_JOB, {});
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Deployment unit unknown:1.2.3 doesn’t exist"));
+                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Deployment unit unknown:1.2.3 doesn't exist"));
                 throw;
             }
         },
@@ -339,7 +339,7 @@ TEST_F(compute_test, execute_colocated_unknown_unit_and_version) {
                 auto comp = m_client.get_compute();
                 (void) comp.execute_colocated(TABLE_1, get_tuple(1), {{"unknown", "1.2.3"}}, NODE_NAME_JOB, {});
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Deployment unit unknown:1.2.3 doesn’t exist"));
+                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Deployment unit unknown:1.2.3 doesn't exist"));
                 throw;
             }
         },
@@ -353,7 +353,7 @@ TEST_F(compute_test, broadcast_unknown_unit_and_version) {
 
     auto &res1 = res[get_node(1)];
     ASSERT_TRUE(res1.has_error());
-    EXPECT_THAT(res1.error().what_str(), ::testing::HasSubstr("Deployment unit unknown:1.2.3 doesn’t exist"));
+    EXPECT_THAT(res1.error().what_str(), ::testing::HasSubstr("Deployment unit unknown:1.2.3 doesn't exist"));
 }
 
 TEST_F(compute_test, execute_empty_unit_name) {

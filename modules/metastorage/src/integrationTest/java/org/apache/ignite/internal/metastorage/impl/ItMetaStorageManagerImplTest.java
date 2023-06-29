@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -25,16 +26,19 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
@@ -48,6 +52,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
@@ -70,6 +75,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 
 /**
  * Integration tests for {@link MetaStorageManagerImpl}.
@@ -136,7 +142,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
      */
     @Test
     void testPrefixOverflow() {
-        byte[] value = "value".getBytes(StandardCharsets.UTF_8);
+        byte[] value = "value".getBytes(UTF_8);
 
         var key1 = new ByteArray(new byte[]{1, (byte) 0xFF, 0});
         var key2 = new ByteArray(new byte[]{1, (byte) 0xFF, 1});
@@ -172,7 +178,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
      */
     @Test
     void testWatchEventsPersistence() throws InterruptedException {
-        byte[] value = "value".getBytes(StandardCharsets.UTF_8);
+        byte[] value = "value".getBytes(UTF_8);
 
         var key1 = new ByteArray("foo");
         var key2 = new ByteArray("bar");
@@ -215,7 +221,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         assertThat(metaStorageManager.appliedRevision(), is(2L));
 
-        byte[] newValue = "newValue".getBytes(StandardCharsets.UTF_8);
+        byte[] newValue = "newValue".getBytes(UTF_8);
 
         invokeFuture = metaStorageManager.invoke(
                 Conditions.exists(new ByteArray("foo")),
@@ -283,5 +289,26 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         cmgFut.complete(msNodes);
 
         assertThat(metaStorageManager.metaStorageServiceFuture(), willThrowFast(CancellationException.class));
+    }
+
+    @Test
+    void testUpdateRevisionListener() {
+        ArgumentCaptor<Long> revisionCapture = ArgumentCaptor.forClass(Long.class);
+
+        RevisionUpdateListener listener = mock(RevisionUpdateListener.class);
+
+        when(listener.onUpdated(revisionCapture.capture())).thenReturn(completedFuture(null));
+
+        long revision = metaStorageManager.appliedRevision();
+
+        metaStorageManager.registerRevisionUpdateListener(listener);
+
+        assertThat(metaStorageManager.put(ByteArray.fromString("test"), "test".getBytes(UTF_8)), willSucceedFast());
+
+        // Watches are processed asynchronously.
+        // Timeout is big just in case there's a GC pause. Test's duration doesn't really depend on it.
+        verify(listener, timeout(5000).atLeast(1)).onUpdated(anyLong());
+
+        assertThat(revisionCapture.getAllValues(), is(List.of(revision + 1)));
     }
 }
