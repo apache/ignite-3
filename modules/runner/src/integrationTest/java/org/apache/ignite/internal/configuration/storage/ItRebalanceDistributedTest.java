@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZoneReplicas;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
@@ -56,6 +57,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -863,40 +865,51 @@ public class ItRebalanceDistributedTest {
          * Starts the created components.
          */
         void start() {
-            nodeComponents = List.of(
+            nodeComponents = new CopyOnWriteArrayList<>();
+
+            List<IgniteComponent> compsPre = List.of(
                     vaultManager,
                     nodeCfgMgr,
                     clusterService,
-                    raftManager,
-                    cmgManager,
-                    metaStorageManager,
-                    clusterCfgMgr,
-                    clockWaiter,
-                    catalogManager,
-                    distributionZoneManager,
-                    replicaManager,
-                    txManager,
-                    baselineMgr,
-                    dataStorageMgr,
-                    schemaManager,
-                    tableManager
+                    raftManager
             );
 
-            nodeComponents.forEach(IgniteComponent::start);
+            compsPre.forEach(IgniteComponent::start);
 
-            assertThat(
-                    allOf(
+            nodeComponents.addAll(compsPre);
+
+            deployWatchesFut = CompletableFuture.supplyAsync(() -> {
+                List<IgniteComponent> compsPost = List.of(
+                        cmgManager,
+                        metaStorageManager,
+                        clusterCfgMgr,
+                        clockWaiter,
+                        catalogManager,
+                        distributionZoneManager,
+                        replicaManager,
+                        txManager,
+                        baselineMgr,
+                        dataStorageMgr,
+                        schemaManager,
+                        tableManager
+                );
+
+                compsPost.forEach(IgniteComponent::start);
+
+                nodeComponents.addAll(compsPost);
+
+                var fff = metaStorageManager.recoveryFinishedFuture().thenCompose(rev -> {
+                    return allOf(
                             nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                             clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                            // Why "-1"? I don't know, it just works like that.
-                            ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart(
-                                    metaStorageManager.appliedRevision() - 1
-                            )
-                    ),
-                    willSucceedIn(1, TimeUnit.MINUTES)
-            );
+                            ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart()
+                    );
+                });
 
-            deployWatchesFut = metaStorageManager.deployWatches();
+                assertThat(fff, willSucceedIn(1, TimeUnit.MINUTES));
+
+                return metaStorageManager.deployWatches();
+            }).thenCompose(fut -> fut);
         }
 
         /**

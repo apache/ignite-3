@@ -992,6 +992,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback) {
+        assert startRevision != 0 : "First meaningful revision is 1";
+
         long currentRevision;
 
         rwLock.readLock().lock();

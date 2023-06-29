@@ -312,7 +312,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
     }
 
     /**
-     * Tests that metastorage missed metastorage events are replayed after deploying watches.
+     * Tests that missed metastorage events are replayed after deploying watches.
      */
     @Test
     void testReplayUpdates() throws Exception {

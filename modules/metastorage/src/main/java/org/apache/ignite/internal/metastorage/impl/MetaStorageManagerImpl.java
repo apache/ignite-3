@@ -900,7 +900,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     /** Explicitly notifies revision update listeners. */
-    public CompletableFuture<Void> notifyRevisionUpdateListenerOnStart(long newRevision) {
-        return storage.notifyRevisionUpdateListenerOnStart(newRevision);
+    public CompletableFuture<Void> notifyRevisionUpdateListenerOnStart() {
+        return recoveryFinishedFuture.thenCompose(storage::notifyRevisionUpdateListenerOnStart);
     }
 }

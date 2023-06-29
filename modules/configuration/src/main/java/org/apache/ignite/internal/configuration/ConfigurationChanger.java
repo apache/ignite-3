@@ -592,7 +592,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                         } else {
                             // Here we go to next iteration of an implicit spin loop; we have to do it via recursion
                             // because we work with async code (futures).
-                            return localRoots.changeFuture.thenCompose(v -> changeInternally(src));
+                            return localRoots.changeFuture.thenCompose(v -> {
+                                return changeInternally(src);
+                            });
                         }
                     });
         } finally {
@@ -643,11 +645,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                 } finally {
                     rwLock.writeLock().unlock();
                 }
-
-                // Save revisions for recovery.
-                // We execute synchronously to avoid a race between notifications about updating the Meta Storage and updating the revision
-                // of the Meta Storage.
-                storage.writeConfigurationRevision(oldStorageRoots.version, newStorageRoots.version);
 
                 long notificationNumber = notificationListenerCnt.incrementAndGet();
 

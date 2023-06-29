@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -41,11 +44,11 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.ConditionType;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
-import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -262,9 +265,9 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         operations.add(Operations.put(MASTER_KEY, ByteUtils.longToBytes(curChangeId)));
 
-        SimpleCondition condition = curChangeId == 0L
-                ? Conditions.notExists(MASTER_KEY)
-                : Conditions.revision(MASTER_KEY).eq(curChangeId);
+        Condition condition = curChangeId == 0L
+                ? notExists(MASTER_KEY)
+                : or(notExists(MASTER_KEY), revision(MASTER_KEY).le(curChangeId));
 
         return metaStorageMgr.invoke(condition, operations, Set.of(Operations.noop()));
     }

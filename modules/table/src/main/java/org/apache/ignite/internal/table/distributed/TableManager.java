@@ -1265,7 +1265,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     });
         }));
 
-        createTablePartitionsLocally(causalityToken, assignments, zoneDescriptor.id(), table);
+        CompletableFuture<?> createPartsFut = createTablePartitionsLocally(causalityToken, assignments, zoneDescriptor.id(), table);
 
         pendingTables.put(tableId, table);
         startedTables.put(tableId, table);
@@ -1279,7 +1279,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         // TODO should be reworked in IGNITE-16763
         // We use the event notification future as the result so that dependent components can complete the schema updates.
-        return fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableId));
+        return allOf(createPartsFut, fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableId)));
     }
 
     /**
@@ -2212,8 +2212,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         InternalTable internalTable = tbl.internalTable();
 
         LOG.info("Received update on pending assignments. Check if new raft group should be started"
-                        + " [key={}, partition={}, table={}, localMemberAddress={}]",
-                new String(pendingAssignmentsEntry.key(), StandardCharsets.UTF_8), partId, tbl.name(), localMember.address());
+                        + " [key={}, partition={}, table={}, localMemberAddress={}, causalityToken={}]",
+                new String(pendingAssignmentsEntry.key(), StandardCharsets.UTF_8), partId, tbl.name(), localMember.address(), causalityToken);
 
         CompletableFuture<Void> localServicesStartFuture;
 
