@@ -25,9 +25,13 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
 import static org.apache.ignite.internal.util.IgniteUtils.collectionToBytes;
 
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
@@ -214,17 +218,25 @@ public class LeaseUpdater {
      * @return Future completes true when the lease will not prolong in the future, false otherwise.
      */
     public CompletableFuture<Boolean> denyLease(ReplicationGroupId grpId, Lease lease) {
-        var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
-
-        byte[] leaseRaw = lease.bytes();
+        var leasesKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX);
 
         Lease deniedLease = lease.denyLease();
 
         leaseNegotiator.onLeaseRemoved(grpId);
 
+        List<Lease> leases = leaseTracker.leasesCurrent();
+        List<Lease> renewedLeases = new ArrayList<>();
+        for (Lease ls : leases) {
+            if (ls.replicationGroupId().equals(grpId)) {
+                renewedLeases.add(deniedLease);
+            } else {
+                renewedLeases.add(ls);
+            }
+        }
+
         return msManager.invoke(
-                value(leaseKey).eq(leaseRaw),
-                put(leaseKey, deniedLease.bytes()),
+                or(notExists(leasesKey), value(leasesKey).eq(new LeaseBatch(leaseTracker.leasesCurrent()).bytes())),
+                put(leasesKey, new LeaseBatch(renewedLeases).bytes()),
                 noop()
         );
     }
@@ -271,6 +283,7 @@ public class LeaseUpdater {
                 long outdatedLeaseThreshold = clock.now().getPhysical() + LEASE_INTERVAL / 2;
 
                 List<Lease> leasesCurrent = leaseTracker.leasesCurrent();
+                Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
                 Map<ReplicationGroupId, Lease> renewedLeases = new TreeMap<>(Comparator.comparing(Object::toString));
                 leasesCurrent.forEach(lease -> renewedLeases.put(lease.replicationGroupId(), lease));
 
@@ -294,7 +307,7 @@ public class LeaseUpdater {
                             }
 
                             // New lease is granting.
-                            writeNewLeaseInMetaStorage(grpId, lease, candidate, renewedLeases);
+                            writeNewLeaseInMetaStorage(grpId, lease, candidate, renewedLeases, toBeNegotiated);
 
                             continue;
                         }
@@ -316,7 +329,7 @@ public class LeaseUpdater {
                         // leaseholders at all.
                         if (isLeaseOutdated(lease)) {
                             // New lease is granting.
-                            writeNewLeaseInMetaStorage(grpId, lease, candidate, renewedLeases);
+                            writeNewLeaseInMetaStorage(grpId, lease, candidate, renewedLeases, toBeNegotiated);
                         } else if (lease.isProlongable() && candidate.name().equals(lease.getLeaseholder())) {
                             // Old lease is renewing.
                             prolongLeaseInMetaStorage(grpId, lease, renewedLeases);
@@ -334,7 +347,18 @@ public class LeaseUpdater {
                         or(notExists(leasesKey), value(leasesKey).eq(new LeaseBatch(leasesCurrent).bytes())),
                         put(leasesKey, renewedValue),
                         noop()
-                ).thenAccept(b -> System.out.println("qqq invoke " + b));
+                ).thenAccept(success -> {
+                    if (success) {
+                        for (Lease lease : renewedLeasesList) {
+                            Boolean force = toBeNegotiated.get(lease.replicationGroupId());
+                            if (force == null) {
+                                continue;
+                            }
+
+                            leaseNegotiator.negotiate(lease, force);
+                        }
+                    }
+                });
 
                 try {
                     Thread.sleep(UPDATE_LEASE_MS);
@@ -352,29 +376,16 @@ public class LeaseUpdater {
          * @param candidate Lease candidate.
          */
         private void writeNewLeaseInMetaStorage(ReplicationGroupId grpId, Lease lease, ClusterNode candidate,
-                Map<ReplicationGroupId, Lease> renewedLeases) {
-            var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
-
+                Map<ReplicationGroupId, Lease> renewedLeases, Map<ReplicationGroupId, Boolean> toBeNegotiated) {
             HybridTimestamp startTs = clock.now();
 
             var expirationTs = new HybridTimestamp(startTs.getPhysical() + longLeaseInterval, 0);
 
-            byte[] leaseRaw = lease.bytes();
-
             Lease renewedLease = new Lease(candidate.name(), startTs, expirationTs, grpId);
 
-            /*msManager.invoke(
-                    or(notExists(leaseKey), value(leaseKey).eq(leaseRaw)),
-                    put(leaseKey, renewedLease.bytes()),
-                    noop()
-            ).thenAccept(isCreated -> {
-                if (isCreated) {
-                    boolean force = candidate.name().equals(lease.getLeaseholder());
-
-                    leaseNegotiator.negotiate(grpId, renewedLease, force);
-                }
-            });*/
             renewedLeases.put(grpId, renewedLease);
+
+            toBeNegotiated.put(grpId, Objects.equals(lease.getLeaseholder(), candidate.name()));
         }
 
         /**
@@ -384,18 +395,10 @@ public class LeaseUpdater {
          * @param lease Lease to prolong.
          */
         private void prolongLeaseInMetaStorage(ReplicationGroupId grpId, Lease lease, Map<ReplicationGroupId, Lease> renewedLeases) {
-            var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
             var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_INTERVAL, 0);
-
-            byte[] leaseRaw = lease.bytes();
 
             Lease renewedLease = lease.prolongLease(newTs);
 
-            /*msManager.invoke(
-                    value(leaseKey).eq(leaseRaw),
-                    put(leaseKey, renewedLease.bytes()),
-                    noop()
-            );*/
             renewedLeases.put(grpId, renewedLease);
         }
 
@@ -407,18 +410,10 @@ public class LeaseUpdater {
          * @param lease Lease to accept.
          */
         private void publishLease(ReplicationGroupId grpId, Lease lease, Map<ReplicationGroupId, Lease> renewedLeases) {
-            var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
             var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_INTERVAL, 0);
-
-            byte[] leaseRaw = lease.bytes();
 
             Lease renewedLease = lease.acceptLease(newTs);
 
-            /*msManager.invoke(
-                    value(leaseKey).eq(leaseRaw),
-                    put(leaseKey, renewedLease.bytes()),
-                    noop()
-            );*/
             renewedLeases.put(grpId, renewedLease);
         }
 
@@ -472,13 +467,13 @@ public class LeaseUpdater {
 
             if (msg instanceof StopLeaseProlongationMessage) {
                 if (lease.isProlongable() && sender.equals(lease.getLeaseholder())) {
-                    /*denyLease(grpId, lease).whenComplete((res, th) -> {
+                    denyLease(grpId, lease).whenComplete((res, th) -> {
                         if (th != null) {
                             LOG.warn("Prolongation denial failed due to exception [groupId={}]", th, grpId);
                         } else {
                             LOG.info("Stop lease prolongation message was handled [groupId={}, sender={}, deny={}]", grpId, sender, res);
                         }
-                    });*/
+                    });
                 }
             } else {
                 LOG.warn("Unknown message type [msg={}]", msg.getClass().getSimpleName());

@@ -348,27 +348,6 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testManyLeases() throws Exception {
-        var acceptedNodeRef = new AtomicReference<String>();
-
-        leaseGrantHandler = (msg, from, to) -> {
-            acceptedNodeRef.compareAndSet(null, to);
-
-            return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                    .accepted(true)
-                    .build();
-        };
-
-        while (true) {
-            for (int i = 0; i < 500; i++) {
-                createTableAssignment();
-            }
-            log.info("qqq created more tables, last table id: " + nextTableId.get());
-            Thread.sleep(10000);
-        }
-    }
-
-    @Test
     public void testLeaseProlong() throws Exception {
         var acceptedNodeRef = new AtomicReference<String>();
 

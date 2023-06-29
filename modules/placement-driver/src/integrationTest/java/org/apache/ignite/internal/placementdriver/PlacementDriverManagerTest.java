@@ -64,6 +64,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
+import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
@@ -289,16 +290,20 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
         checkLeaseCreated(grpPart0, false);
 
-        var leaseFut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart0));
+        var leaseFut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
 
-        Lease lease = fromBytes(leaseFut.join().value());
+        LeaseBatch leaseBatch = LeaseBatch.fromBytes(leaseFut.join().value());
+
+        Lease lease = leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(grpPart0)).findAny().orElse(null);
 
         assertNotNull(lease);
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart0));
+            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
 
-            Lease leaseRenew = fromBytes(fut.join().value());
+            LeaseBatch leaseBatchRenew = LeaseBatch.fromBytes(fut.join().value());
+            Lease leaseRenew = leaseBatchRenew.leases().stream()
+                    .filter(l -> l.replicationGroupId().equals(grpPart0)).findAny().orElse(null);
 
             return lease.getExpirationTime().compareTo(leaseRenew.getExpirationTime()) < 0;
 
@@ -317,9 +322,11 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), ByteUtils.toBytes(assignments));
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart0));
+            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
 
-            Lease lease = fromBytes(fut.join().value());
+            LeaseBatch leaseBatch = LeaseBatch.fromBytes(fut.join().value());
+
+            Lease lease = leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(grpPart0)).findAny().orElse(null);
 
             return lease.getExpirationTime().compareTo(clock.now()) < 0;
 
@@ -330,12 +337,13 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), ByteUtils.toBytes(assignments));
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart0));
+            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
 
-            Lease lease = fromBytes(fut.join().value());
+            LeaseBatch leaseBatch = LeaseBatch.fromBytes(fut.join().value());
+
+            Lease lease = leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(grpPart0)).findAny().orElse(null);
 
             return lease.getExpirationTime().compareTo(clock.now()) > 0;
-
         }, 10_000));
     }
 
@@ -450,12 +458,18 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         AtomicReference<Lease> leaseRef = new AtomicReference<>();
 
         assertTrue(waitForCondition(() -> {
-            var leaseFut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPartId));
+            var leaseFut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
 
             var leaseEntry = leaseFut.join();
 
             if (leaseEntry != null && !leaseEntry.empty()) {
-                Lease lease = fromBytes(leaseEntry.value());
+                LeaseBatch leaseBatch = LeaseBatch.fromBytes(leaseEntry.value());
+
+                Lease lease = leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(grpPartId)).findAny().orElse(null);
+
+                if (lease == null) {
+                    return false;
+                }
 
                 if (!waitAccept) {
                     leaseRef.set(lease);
