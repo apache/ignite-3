@@ -286,10 +286,11 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreEqual(expectedNodeName, resNodeName2);
             Assert.AreEqual(expectedNodeName, resNodeName3);
 
-            // TODO: Why requests go to a wrong node?
+            // TODO: Why requests go to a wrong node? Because we don't have direct connection to all of them!
             Assert.AreEqual(expectedNodeName, requestTargetNodeName);
             Assert.AreEqual(expectedNodeName, requestTargetNodeName2);
             Assert.AreEqual(expectedNodeName, requestTargetNodeName3);
+
             void ClearOps() => proxies.Values.ForEach(p => p.ClearOps());
 
             string GetRequestTargetNodeName() =>
