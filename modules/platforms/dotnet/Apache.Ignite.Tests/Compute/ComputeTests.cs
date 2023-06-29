@@ -24,7 +24,6 @@ namespace Apache.Ignite.Tests.Compute
     using System.Net;
     using System.Numerics;
     using System.Threading.Tasks;
-    using Common;
     using Ignite.Compute;
     using Ignite.Table;
     using Internal.Network;
@@ -58,15 +57,6 @@ namespace Apache.Ignite.Tests.Compute
         private const string ExceptionJob = PlatformTestNodeRunner + "$ExceptionJob";
 
         private static readonly IList<DeploymentUnit> Units = Array.Empty<DeploymentUnit>();
-
-        private readonly List<IDisposable> _disposables = new List<IDisposable>();
-
-        [TearDown]
-        public void DisposeProxies()
-        {
-            _disposables.ForEach(x => x.Dispose());
-            _disposables.Clear();
-        }
 
         [Test]
         public async Task TestGetClusterNodes()
@@ -255,13 +245,8 @@ namespace Apache.Ignite.Tests.Compute
         [TestCase(11, 2)]
         public async Task TestExecuteColocated(long key, int nodeIdx)
         {
-            var proxies = Client.GetConnections().ToDictionary(c => c.Node.Name, c => new IgniteProxy(c.Node.Address));
-            _disposables.AddRange(proxies.Values);
-
-            var cfg = new IgniteClientConfiguration();
-            proxies.Values.Select(x => x.Endpoint).ForEach(cfg.Endpoints.Add);
-
-            using var client = await IgniteClient.StartAsync(cfg);
+            var proxies = GetProxies();
+            using var client = await IgniteClient.StartAsync(GetConfig(proxies));
 
             // ReSharper disable once AccessToDisposedClosure
             TestUtils.WaitForCondition(() => client.GetConnections().Count == proxies.Count);
@@ -296,12 +281,12 @@ namespace Apache.Ignite.Tests.Compute
                 Assert.AreEqual(expectedNodeName, requestTargetNodeName3);
             }
 
-            void ClearOps() => proxies.Values.ForEach(p => p.ClearOps());
+            void ClearOps() => proxies.ForEach(p => p.ClearOps());
 
             string GetRequestTargetNodeName() =>
                 proxies
-                    .Where(x => x.Value.ClientOps.Contains(ClientOp.ComputeExecuteColocated))
-                    .Select(x => x.Key)
+                    .Where(x => x.ClientOps.Contains(ClientOp.ComputeExecuteColocated))
+                    .Select(x => x.NodeName)
                     .Single();
         }
 

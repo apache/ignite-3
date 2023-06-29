@@ -31,7 +31,7 @@ public class IgniteProxyTests : IgniteTestsBase
     public async Task TestBasicProxying()
     {
         var addr = Client.GetConnections().First().Node.Address;
-        using var proxy = new IgniteProxy(addr);
+        using var proxy = new IgniteProxy(addr, "test");
         using var client = await IgniteClient.StartAsync(new IgniteClientConfiguration(proxy.Endpoint));
 
         var tables = await client.Tables.GetTablesAsync();

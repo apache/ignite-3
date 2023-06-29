@@ -36,13 +36,16 @@ public sealed class IgniteProxy : IgniteServerBase
 
     private readonly ConcurrentQueue<ClientOp> _ops = new();
 
-    public IgniteProxy(IPEndPoint targetEndpoint)
+    public IgniteProxy(IPEndPoint targetEndpoint, string nodeName)
     {
         TargetEndpoint = targetEndpoint;
+        NodeName = nodeName;
 
         _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         _socket.Connect(targetEndpoint);
     }
+
+    public string NodeName { get; private init; }
 
     public IPEndPoint TargetEndpoint { get; private init; }
 

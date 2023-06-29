@@ -18,6 +18,8 @@
 namespace Apache.Ignite.Tests
 {
     using System;
+    using System.Collections.Generic;
+    using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
     using Log;
@@ -57,6 +59,8 @@ namespace Apache.Ignite.Tests
         protected static readonly TimeSpan ServerIdleTimeout = TimeSpan.FromMilliseconds(3000); // See PlatformTestNodeRunner.
 
         private static readonly JavaServer ServerNode;
+
+        private readonly List<IDisposable> _disposables = new();
 
         private TestEventListener _eventListener = null!;
 
@@ -119,7 +123,13 @@ namespace Apache.Ignite.Tests
         }
 
         [TearDown]
-        public void TearDown() => CheckPooledBufferLeak();
+        public void TearDown()
+        {
+            CheckPooledBufferLeak();
+
+            _disposables.ForEach(x => x.Dispose());
+            _disposables.Clear();
+        }
 
         protected static IIgniteTuple GetTuple(long id) => new IgniteTuple { [KeyCol] = id };
 
@@ -140,6 +150,18 @@ namespace Apache.Ignite.Tests
             },
             Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
         };
+
+        protected static IgniteClientConfiguration GetConfig(IEnumerable<IgniteProxy> proxies) =>
+            new(proxies.Select(x => x.Endpoint).ToArray());
+
+        protected List<IgniteProxy> GetProxies()
+        {
+            var proxies = Client.GetConnections().Select(c => new IgniteProxy(c.Node.Address, c.Node.Name)).ToList();
+
+            _disposables.AddRange(proxies);
+
+            return proxies;
+        }
 
         private void CheckPooledBufferLeak()
         {
