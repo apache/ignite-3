@@ -30,13 +30,19 @@ using NUnit.Framework;
 /// </summary>
 public class PartitionAwarenessRealClusterTests : IgniteTestsBase
 {
+    /// <summary>
+    /// Uses <see cref="ComputeTests.NodeNameJob"/> to get the name of the node that should be the primary for the given key,
+    /// and compares to the actual node that received the request (using IgniteProxy).
+    /// </summary>
+    /// <param name="key">Key.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
-    [TestCase(4, 2)]
-    [TestCase(5, 2)]
-    [TestCase(6, 1)]
-    [TestCase(10, 1)]
-    [TestCase(11, 2)]
-    public async Task TestPutRoutesRequestToPrimaryNode(long key, int nodeIdx)
+    [TestCase(4)]
+    [TestCase(5)]
+    [TestCase(6)]
+    [TestCase(10)]
+    [TestCase(11)]
+    public async Task TestPutRoutesRequestToPrimaryNode(long key)
     {
         var proxies = GetProxies();
         using var client = await IgniteClient.StartAsync(GetConfig(proxies));
