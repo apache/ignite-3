@@ -1112,7 +1112,6 @@ public class IgniteUtils {
         buf.putInt(objects.size());
 
         for (byte[] o : objects) {
-            buf.putInt(o.length);
             buf.put(o);
         }
 
@@ -1120,26 +1119,20 @@ public class IgniteUtils {
     }
 
     /**
-     * Deserializes the list from byte buffer.
+     * Deserializes the list from byte buffer. Requires little-endian byte order.
      *
-     * @param bytes Byte buffer.
+     * @param buf Byte buffer.
      * @param transform Transform function to create list element.
      * @return List.
      */
-    public static <T> List<T> bytesToList(byte[] bytes, Function<byte[], T> transform) {
-        ByteBuffer buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
-
+    public static <T> List<T> bytesToList(ByteBuffer buf, Function<ByteBuffer, T> transform) {
         int length = buf.getInt();
         assert length >= 0 : "Negative collection size: " + length;
 
         List<T> result = new ArrayList<>(length);
 
         for (int i = 0; i < length; i++) {
-            int size = buf.getInt();
-            assert size >= 0 : "Negative object size: " + size + ", index=" + i;
-            byte[] arr = new byte[size];
-            buf.get(arr);
-            result.add(transform.apply(arr));
+            result.add(transform.apply(buf));
         }
 
         return result;

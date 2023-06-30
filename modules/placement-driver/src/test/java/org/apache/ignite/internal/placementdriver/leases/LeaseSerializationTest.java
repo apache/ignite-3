@@ -22,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -59,5 +61,17 @@ public class LeaseSerializationTest {
         lease = new Lease("node" + new String(new byte[1000]), new HybridTimestamp(1, 1), new HybridTimestamp(2, 100), false, false,
                 groupId);
         assertEquals(lease, fromBytes(ByteBuffer.wrap(lease.bytes()).order(ByteOrder.LITTLE_ENDIAN)));
+    }
+
+    @Test
+    public void leaseBatchTest() {
+        List<Lease> leases = new ArrayList<>();
+        ReplicationGroupId groupId = new TablePartitionId(1, 1);
+
+        for (int i = 0 ; i < 25; i++) {
+            leases.add(new Lease("node" + i, new HybridTimestamp(1, i), new HybridTimestamp(1, i + 1), i % 2 == 0, i % 2 == 1, groupId));
+        }
+
+        assertEquals(leases, LeaseBatch.fromBytes(ByteBuffer.wrap(new LeaseBatch(leases).bytes()).order(ByteOrder.LITTLE_ENDIAN)).leases());
     }
 }

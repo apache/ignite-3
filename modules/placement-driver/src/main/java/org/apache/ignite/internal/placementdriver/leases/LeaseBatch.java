@@ -41,7 +41,7 @@ public class LeaseBatch {
         return collectionToBytes(leases, Lease::bytes);
     }
 
-    public static LeaseBatch fromBytes(byte[] bytes) {
+    public static LeaseBatch fromBytes(ByteBuffer bytes) {
         return new LeaseBatch(bytesToList(bytes, Lease::fromBytes));
     }
 }
