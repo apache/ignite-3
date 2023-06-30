@@ -1122,13 +1122,11 @@ public class IgniteUtils {
     /**
      * Deserializes the list from byte buffer.
      *
-     * @param bytes Byte buffer.
+     * @param buf Byte buffer.
      * @param transform Transform function to create list element.
      * @return List.
      */
-    public static <T> List<T> bytesToList(byte[] bytes, Function<byte[], T> transform) {
-        ByteBuffer buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
-
+    public static <T> List<T> bytesToList(ByteBuffer buf, Function<ByteBuffer, T> transform) {
         int length = buf.getInt();
         assert length >= 0 : "Negative collection size: " + length;
 
@@ -1137,9 +1135,8 @@ public class IgniteUtils {
         for (int i = 0; i < length; i++) {
             int size = buf.getInt();
             assert size >= 0 : "Negative object size: " + size + ", index=" + i;
-            byte[] arr = new byte[size];
-            buf.get(arr);
-            result.add(transform.apply(arr));
+            ByteBuffer b = buf.slice(buf.position(), size).order(ByteOrder.LITTLE_ENDIAN);
+            result.add(transform.apply(b));
         }
 
         return result;

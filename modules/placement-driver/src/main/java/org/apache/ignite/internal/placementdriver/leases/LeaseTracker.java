@@ -113,7 +113,7 @@ public class LeaseTracker implements PlacementDriver {
             for (VaultEntry entry : cursor) {
                 leases.clear();
                 ByteBuffer buf = ByteBuffer.wrap(entry.value()).order(ByteOrder.LITTLE_ENDIAN);
-                List<Lease> renewedLeasesList = bytesToList(buf.array(), Lease::fromBytes);
+                List<Lease> renewedLeasesList = bytesToList(buf, Lease::fromBytes);
                 renewedLeasesList.forEach(lease -> {
                     leases.put(lease.replicationGroupId(), lease);
                     primaryReplicaWaiters.computeIfAbsent(lease.replicationGroupId(),
@@ -173,7 +173,7 @@ public class LeaseTracker implements PlacementDriver {
 
                 ByteBuffer buf = ByteBuffer.wrap(msEntry.value()).order(ByteOrder.LITTLE_ENDIAN);
 
-                List<Lease> renewedLeasesList = LeaseBatch.fromBytes(buf.array()).leases();
+                List<Lease> renewedLeasesList = LeaseBatch.fromBytes(buf).leases();
 
                 Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>();
                 renewedLeasesList.forEach(lease -> renewedLeases.put(lease.replicationGroupId(), lease));

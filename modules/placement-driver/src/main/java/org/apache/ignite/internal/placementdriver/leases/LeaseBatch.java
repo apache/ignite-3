@@ -20,8 +20,12 @@ package org.apache.ignite.internal.placementdriver.leases;
 import static org.apache.ignite.internal.util.IgniteUtils.bytesToList;
 import static org.apache.ignite.internal.util.IgniteUtils.collectionToBytes;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 
+/**
+ * Representation of leases batch.
+ */
 public class LeaseBatch {
     List<Lease> leases;
 
@@ -37,7 +41,7 @@ public class LeaseBatch {
         return collectionToBytes(leases, Lease::bytes);
     }
 
-    public static LeaseBatch fromBytes(byte[] bytes) {
-        return new LeaseBatch(bytesToList(bytes, Lease::fromBytes));
+    public static LeaseBatch fromBytes(ByteBuffer buf) {
+        return new LeaseBatch(bytesToList(buf, Lease::fromBytes));
     }
 }

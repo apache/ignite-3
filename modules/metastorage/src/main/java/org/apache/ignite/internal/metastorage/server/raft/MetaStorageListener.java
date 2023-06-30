@@ -128,13 +128,7 @@ public class MetaStorageListener implements RaftGroupListener {
         try (cursor) {
             var entries = new ArrayList<Entry>();
 
-            while (true) {
-                boolean hasNext = cursor.hasNext();
-                if (!hasNext)
-                    break;
-
-                Entry entry = cursor.next();
-
+            for (Entry entry : cursor) {
                 if (command.includeTombstones() || !entry.tombstone()) {
                     entries.add(entry);
 

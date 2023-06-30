@@ -20,7 +20,6 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
-import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -33,6 +32,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.Closeable;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -54,7 +55,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManagerTest.LogicalTopologyServiceTestImpl;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
@@ -499,7 +499,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
 
-            LeaseBatch leaseBatch = LeaseBatch.fromBytes(fut.join().value());
+            LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(fut.join().value()).order(ByteOrder.LITTLE_ENDIAN));
 
             Lease leaseRenew = leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(grpPart)).findAny().orElse(null);
 
@@ -535,7 +535,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
 
-            LeaseBatch leaseBatch = LeaseBatch.fromBytes(fut.join().value());
+            LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(fut.join().value()).order(ByteOrder.LITTLE_ENDIAN));
 
             Lease leaseRenew = leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(grpPart)).findAny().orElse(null);
 
@@ -574,7 +574,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
             var leaseEntry = leaseFut.join();
 
             if (leaseEntry != null && !leaseEntry.empty()) {
-                LeaseBatch leaseBatch = LeaseBatch.fromBytes(leaseEntry.value());
+                LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leaseEntry.value()).order(ByteOrder.LITTLE_ENDIAN));
 
                 Lease lease = leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(grpPartId)).findAny().orElse(null);
 
