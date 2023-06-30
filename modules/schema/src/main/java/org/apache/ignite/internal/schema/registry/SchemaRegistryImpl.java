@@ -148,17 +148,14 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         return resolveInternal(row, schemaDescriptor);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Collection<Row> resolve(Collection<BinaryRow> binaryRows) {
-        final SchemaDescriptor curSchema = waitLatestSchema();
+    public List<Row> resolve(Collection<BinaryRow> binaryRows) {
+        SchemaDescriptor curSchema = waitLatestSchema();
 
-        List<Row> rows = new ArrayList<>(binaryRows.size());
+        var rows = new ArrayList<Row>(binaryRows.size());
 
-        for (BinaryRow r : binaryRows) {
-            if (r != null) {
-                rows.add(resolveInternal(r, curSchema));
-            }
+        for (BinaryRow row : binaryRows) {
+            rows.add(row == null ? null : resolveInternal(row, curSchema));
         }
 
         return rows;

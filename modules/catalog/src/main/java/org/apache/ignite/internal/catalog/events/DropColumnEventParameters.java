@@ -31,11 +31,12 @@ public class DropColumnEventParameters extends CatalogEventParameters {
      * Constructor.
      *
      * @param causalityToken Causality token.
+     * @param catalogVersion Catalog version.
      * @param tableId An id of table, which columns are dropped from.
      * @param columns Names of columns to drop.
      */
-    public DropColumnEventParameters(long causalityToken, int tableId, Collection<String> columns) {
-        super(causalityToken);
+    public DropColumnEventParameters(long causalityToken, int catalogVersion, int tableId, Collection<String> columns) {
+        super(causalityToken, catalogVersion);
 
         this.tableId = tableId;
         this.columns = columns;

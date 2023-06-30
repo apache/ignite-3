@@ -17,12 +17,18 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static java.util.stream.Collectors.toList;
+
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Describes deletion of a zone.
  */
-public class DropZoneEntry implements UpdateEntry {
+public class DropZoneEntry implements UpdateEntry, Fireable {
     private static final long serialVersionUID = 7727583734058987315L;
 
     private final int zoneId;
@@ -41,7 +47,27 @@ public class DropZoneEntry implements UpdateEntry {
         return zoneId;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public CatalogEvent eventType() {
+        return CatalogEvent.ZONE_DROP;
+    }
+
+    @Override
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new DropZoneEventParameters(causalityToken, catalogVersion, zoneId);
+    }
+
+    @Override
+    public Catalog applyUpdate(Catalog catalog) {
+        return new Catalog(
+                catalog.version(),
+                catalog.time(),
+                catalog.objectIdGenState(),
+                catalog.zones().stream().filter(z -> z.id() != zoneId).collect(toList()),
+                catalog.schemas()
+        );
+    }
+
     @Override
     public String toString() {
         return S.toString(this);

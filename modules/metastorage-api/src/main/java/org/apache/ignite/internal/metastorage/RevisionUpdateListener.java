@@ -15,27 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.message;
+package org.apache.ignite.internal.metastorage;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Undeploy unit request.
+ * The listener which receives and handles the Meta Storage revision update. No listeners for revision {@code N+1} will be invoked until
+ * all listeners for revision {@code N} are completed.
+ * Also, this listener is only triggered strictly after all {@link WatchListener#onUpdate(WatchEvent)} are invoked (but the returned futures
+ * might not still be completed completed), for the specified revision.
  */
-@Transferable(DeployUnitMessageTypes.UNDEPLOY_UNIT_REQUEST)
-public interface UndeployUnitRequest extends NetworkMessage {
+@FunctionalInterface
+public interface RevisionUpdateListener {
     /**
-     * Returns id of deployment unit.
+     * Callback that will be invoked when a Meta Storage revision update has been received.
      *
-     * @return id of deployment unit.
+     * @param revision Meta Storage revision.
+     * @return Future that will be completed when the event is processed.
      */
-    String id();
-
-    /**
-     * Returns version of deployment unit.
-     *
-     * @return version of deployment unit.
-     */
-    String version();
+    CompletableFuture<?> onUpdated(long revision);
 }

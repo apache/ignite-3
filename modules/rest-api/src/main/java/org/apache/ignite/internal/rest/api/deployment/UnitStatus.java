@@ -22,7 +22,7 @@ import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
-import java.util.Map;
+import java.util.List;
 
 /**
  * DTO of unit status.
@@ -41,11 +41,11 @@ public class UnitStatus {
      */
     @Schema(description = "Map from unit version to unit deployment status.",
             requiredMode = RequiredMode.REQUIRED)
-    private final Map<String, DeploymentStatus> versionToStatus;
+    private final List<UnitVersionStatus> versionToStatus;
 
     @JsonCreator
     public UnitStatus(@JsonProperty("id") String id,
-            @JsonProperty("versionToStatus") Map<String, DeploymentStatus> versionToStatus) {
+            @JsonProperty("versionToStatus") List<UnitVersionStatus> versionToStatus) {
         this.id = id;
         this.versionToStatus = versionToStatus;
     }
@@ -66,7 +66,7 @@ public class UnitStatus {
      * @return Map from existing unit version to list of nodes consistent ids where unit deployed.
      */
     @JsonGetter("versionToStatus")
-    public Map<String, DeploymentStatus> versionToStatus() {
+    public List<UnitVersionStatus> versionToStatus() {
         return versionToStatus;
     }
 }

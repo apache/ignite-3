@@ -91,8 +91,10 @@ dependencies {
     integrationTestAnnotationProcessor libs.picocli.annotation.processor
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
     integrationTestAnnotationProcessor libs.micronaut.validation.annotation.processor
+
     integrationTestImplementation testFixtures(project)
     integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-configuration-api')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-sql-engine')

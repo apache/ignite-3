@@ -41,6 +41,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
@@ -100,7 +102,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
-    private HybridClock clock = new HybridClockImpl();
+    private final HybridClock clock = new HybridClockImpl();
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
@@ -110,6 +112,9 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private DistributionZonesConfiguration dstZnsCfg;
+
+    @InjectConfiguration
+    private MetaStorageConfiguration metaStorageConfiguration;
 
     private List<String> placementDriverNodeNames;
 
@@ -122,8 +127,6 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
     /** Cluster service by node name. */
     private Map<String, ClusterService> clusterServices;
-
-    private TestInfo testInfo;
 
     /** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. */
     private IgniteTriFunction<LeaseGrantedMessage, String, String, LeaseGrantedMessageResponse> leaseGrantHandler;
@@ -139,8 +142,6 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
                 .collect(Collectors.toList());
         this.nodeNames = IntStream.range(BASE_PORT, BASE_PORT + 5).mapToObj(port -> testNodeName(testInfo, port))
                 .collect(Collectors.toList());
-
-        this.testInfo = testInfo;
 
         this.clusterServices = startNodes();
 
@@ -248,7 +249,10 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     ) throws Exception {
         var res = new ArrayList<Closeable>(placementDriverNodeNames.size());
 
-        for (String nodeName : placementDriverNodeNames) {
+        var msFutures = new CompletableFuture[placementDriverNodeNames.size()];
+
+        for (int i = 0; i < placementDriverNodeNames.size(); i++) {
+            String nodeName = placementDriverNodeNames.get(i);
             var vaultManager = new VaultManager(new InMemoryVaultService());
             var clusterService = services.get(nodeName);
 
@@ -288,7 +292,9 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
                     logicalTopologyService,
                     raftManager,
                     storage,
-                    nodeClock
+                    nodeClock,
+                    topologyAwareRaftGroupServiceFactory,
+                    metaStorageConfiguration
             );
 
             if (this.metaStorageManager == null) {
@@ -315,7 +321,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
             metaStorageManager.start();
             placementDriverManager.start();
 
-            assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
+            msFutures[i] = metaStorageManager.deployWatches();
 
             res.add(() -> {
                         try {
@@ -336,6 +342,8 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
                     }
             );
         }
+
+        assertThat("Nodes were not started", CompletableFuture.allOf(msFutures), willCompleteSuccessfully());
 
         return res;
     }

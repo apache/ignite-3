@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Ignite.Compute;
 using Ignite.Table;
 using Internal.Proto;
 using NUnit.Framework;
@@ -52,7 +53,7 @@ public class PartitionAwarenessTests
         _server1 = new FakeServer(nodeName: "srv1");
         _server2 = new FakeServer(nodeName: "srv2");
 
-        var assignment = new[] { _server1.Node.Id, _server2.Node.Id };
+        var assignment = new[] { _server1.Node.Name, _server2.Node.Name };
         _server1.PartitionAssignment = assignment;
         _server2.PartitionAssignment = assignment;
     }
@@ -297,10 +298,10 @@ public class PartitionAwarenessTests
         var key = new IgniteTuple { ["ID"] = keyId };
 
         // Warm up.
-        await client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, key, "job");
+        await client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job");
 
         await AssertOpOnNode(
-            () => client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, key, "job"),
+            () => client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job"),
             ClientOp.ComputeExecuteColocated,
             expectedNode);
     }
@@ -314,10 +315,12 @@ public class PartitionAwarenessTests
         var key = new SimpleKey(keyId);
 
         // Warm up.
-        await client.Compute.ExecuteColocatedAsync<object?, SimpleKey>(FakeServer.ExistingTableName, key, "job");
+        await client.Compute.ExecuteColocatedAsync<object?, SimpleKey>(
+            FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job");
 
         await AssertOpOnNode(
-            () => client.Compute.ExecuteColocatedAsync<object?, SimpleKey>(FakeServer.ExistingTableName, key, "job"),
+            () => client.Compute.ExecuteColocatedAsync<object?, SimpleKey>(
+                FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job"),
             ClientOp.ComputeExecuteColocated,
             expectedNode);
     }

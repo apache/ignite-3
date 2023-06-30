@@ -233,7 +233,9 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
             var nodeId = new RaftNodeId(RAFT_GROUP_NAME, serverPeer == null ? configuration.learner(nodeName) : serverPeer);
 
             try {
-                raftGroupService = loza.startRaftGroupNode(nodeId, configuration, mock(RaftGroupListener.class), eventsListener);
+                raftGroupService = loza.startRaftGroupNodeAndWaitNodeReadyFuture(
+                        nodeId, configuration, mock(RaftGroupListener.class), eventsListener
+                );
             } catch (NodeStoppingException e) {
                 return CompletableFuture.failedFuture(e);
             }

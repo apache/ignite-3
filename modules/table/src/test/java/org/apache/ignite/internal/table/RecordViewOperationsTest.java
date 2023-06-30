@@ -29,6 +29,8 @@ import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.NativeTypes.datetime;
 import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -282,9 +284,7 @@ public class RecordViewOperationsTest {
 
         Collection<TestObjectWithAllTypes> res = tbl.getAll(null, List.of(key1, key2, key3));
 
-        assertEquals(2, res.size());
-        assertTrue(res.contains(val1));
-        assertTrue(res.contains(val3));
+        assertThat(res, contains(val1, null, val3));
     }
 
     /**

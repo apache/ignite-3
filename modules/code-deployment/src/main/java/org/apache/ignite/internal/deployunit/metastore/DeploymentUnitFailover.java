@@ -18,14 +18,20 @@
 package org.apache.ignite.internal.deployunit.metastore;
 
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 
 import java.util.Objects;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.internal.deployunit.DeploymentStatus;
+import org.apache.ignite.internal.deployunit.FileDeployerService;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 
 /**
  * Deployment unit failover.
@@ -35,54 +41,111 @@ public class DeploymentUnitFailover {
 
     private final DeploymentUnitStore deploymentUnitStore;
 
-    private final ClusterService clusterService;
+    private final FileDeployerService deployer;
+
+    private final String nodeName;
 
     /**
      * Constructor.
      *
      * @param logicalTopology Logical topology service.
      * @param deploymentUnitStore Deployment units store.
-     * @param clusterService Cluster service.
+     * @param deployer Deployment unit file system service.
+     * @param nodeName Node consistent ID.
      */
     public DeploymentUnitFailover(
             LogicalTopologyService logicalTopology,
             DeploymentUnitStore deploymentUnitStore,
-            ClusterService clusterService
+            FileDeployerService deployer,
+            String nodeName
     ) {
         this.logicalTopology = logicalTopology;
         this.deploymentUnitStore = deploymentUnitStore;
-        this.clusterService = clusterService;
+        this.deployer = deployer;
+        this.nodeName = nodeName;
     }
 
     /**
      * Register {@link NodeEventCallback} as topology change callback.
      *
-     * @param callback Node status callback.
+     * @param nodeEventCallback Node status callback.
+     * @param clusterEventCallback Cluster status callback.
      */
-    public void registerTopologyChangeCallback(NodeEventCallback callback) {
+    public void registerTopologyChangeCallback(NodeEventCallback nodeEventCallback, ClusterEventCallback clusterEventCallback) {
         logicalTopology.addEventListener(new LogicalTopologyEventListener() {
             @Override
             public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
                 String consistentId = joinedNode.name();
-                if (Objects.equals(consistentId, getLocalNodeId())) {
+                if (Objects.equals(consistentId, nodeName)) {
                     deploymentUnitStore.getNodeStatuses(consistentId)
-                            .thenAccept(nodeStatuses -> nodeStatuses.forEach(nodeStatus -> {
-                                if (nodeStatus.status() == UPLOADING) {
-                                    deploymentUnitStore.getClusterStatus(nodeStatus.id(), nodeStatus.version())
-                                            .thenAccept(clusterStatus -> {
-                                                if (clusterStatus.status() == UPLOADING || clusterStatus.status() == DEPLOYED) {
-                                                    deploymentUnitStore.getAllNodes(nodeStatus.id(), nodeStatus.version())
-                                                            .thenAccept(nodes -> callback.onUploading(nodeStatus, nodes));
-                                                }
-                                            });
-                                }
-                            }));
+                            .thenAccept(nodeStatuses -> nodeStatuses.forEach(unitNodeStatus ->
+                                    deploymentUnitStore.getClusterStatus(unitNodeStatus.id(), unitNodeStatus.version())
+                                            .thenAccept(unitClusterStatus ->
+                                                    processStatus(unitClusterStatus, unitNodeStatus, nodeEventCallback))));
                 }
             }
         });
     }
 
-    private String getLocalNodeId() {
-        return clusterService.topologyService().localMember().name();
+    private void processStatus(UnitClusterStatus unitClusterStatus, UnitNodeStatus unitNodeStatus, NodeEventCallback nodeEventCallback) {
+        String id = unitNodeStatus.id();
+        Version version = unitNodeStatus.version();
+
+        if (unitClusterStatus == null) {
+            undeploy(id, version);
+            return;
+        }
+
+        if (checkAbaProblem(unitClusterStatus, unitNodeStatus)) {
+            return;
+        }
+
+        DeploymentStatus nodeStatus = unitNodeStatus.status();
+        switch (unitClusterStatus.status()) {
+            case UPLOADING: // fallthrough
+            case DEPLOYED:
+                if (nodeStatus == UPLOADING) {
+                    deploymentUnitStore.getAllNodeStatuses(id, version)
+                            .thenAccept(nodes -> nodeEventCallback.onUpdate(unitNodeStatus, nodes));
+                }
+                break;
+            case OBSOLETE:
+                if (nodeStatus == DEPLOYED || nodeStatus == OBSOLETE) {
+                    deploymentUnitStore.updateNodeStatus(nodeName, id, version, REMOVING);
+                }
+                break;
+            case REMOVING:
+                deploymentUnitStore.getAllNodeStatuses(id, version)
+                        .thenAccept(nodes -> {
+                            UnitNodeStatus status = new UnitNodeStatus(id, version, REMOVING, unitClusterStatus.opId(), nodeName);
+                            nodeEventCallback.onUpdate(status, nodes);
+                        });
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void undeploy(String id, Version version) {
+        deployer.undeploy(id, version)
+                .thenAccept(success -> {
+                    if (success) {
+                        deploymentUnitStore.removeNodeStatus(nodeName, id, version);
+                    }
+                });
+    }
+
+    private boolean checkAbaProblem(UnitClusterStatus clusterStatus, UnitNodeStatus nodeStatus) {
+        String id = nodeStatus.id();
+        Version version = nodeStatus.version();
+        if (clusterStatus.opId() != nodeStatus.opId()) {
+            if (nodeStatus.status() == DEPLOYED) {
+                undeploy(id, version);
+            } else {
+                deploymentUnitStore.removeNodeStatus(nodeName, id, version);
+            }
+            return true;
+        }
+        return false;
     }
 }

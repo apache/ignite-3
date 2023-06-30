@@ -61,6 +61,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
@@ -129,6 +130,9 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private DistributionZonesConfiguration dstZnsCfg;
+
+    @InjectConfiguration
+    private MetaStorageConfiguration metaStorageConfiguration;
 
     private MetaStorageManagerImpl metaStorageManager;
 
@@ -201,7 +205,9 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
                 logicalTopologyService,
                 raftManager,
                 storage,
-                nodeClock
+                nodeClock,
+                topologyAwareRaftGroupServiceFactory,
+                metaStorageConfiguration
         );
 
         placementDriverManager = new PlacementDriverManager(

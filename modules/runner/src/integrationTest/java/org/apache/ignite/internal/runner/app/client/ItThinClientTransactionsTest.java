@@ -123,7 +123,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertFalse(recordView.delete(tx, key));
 
         recordView.upsertAll(tx, List.of(rec(1, "6"), rec(2, "7")));
-        assertEquals(2, recordView.getAll(tx, List.of(key, rec(2, null), rec(3, null))).size());
+        assertEquals(3, recordView.getAll(tx, List.of(key, rec(2, null), rec(3, null))).size());
 
         tx.rollback();
         assertEquals(rec(1, "1"), recordView.get(null, key));
@@ -149,7 +149,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertFalse(recordView.delete(tx, key));
 
         recordView.upsertAll(tx, List.of(kv(1, "6"), kv(2, "7")));
-        assertEquals(2, recordView.getAll(tx, List.of(key, key(2), key(3))).size());
+        assertEquals(3, recordView.getAll(tx, List.of(key, key(2), key(3))).size());
 
         tx.rollback();
         assertEquals(kv(1, "1"), recordView.get(null, key));

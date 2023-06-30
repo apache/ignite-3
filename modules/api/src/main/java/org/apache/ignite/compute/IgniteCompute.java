@@ -36,7 +36,7 @@ public interface IgniteCompute {
      * Executes a {@link ComputeJob} of the given class on a single node from a set of candidate nodes.
      *
      * @param nodes    Candidate nodes; the job will be executed on one of them.
-     * @param units    Deployment units.
+     * @param units    Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param args     Arguments of the job.
      * @param <R>      Job result type
@@ -50,7 +50,7 @@ public interface IgniteCompute {
      *
      * @param tableName Name of the table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
-     * @param units Deployment units.
+     * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param args Arguments of the job.
      * @param <R> Job result type.
@@ -65,7 +65,7 @@ public interface IgniteCompute {
      * @param tableName Name of the table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
      * @param keyMapper Mapper used to map the key to a binary representation.
-     * @param units Deployment units.
+     * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param args Arguments of the job.
      * @param <R> Job result type.
@@ -84,7 +84,7 @@ public interface IgniteCompute {
      * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
      *
      * @param nodes Nodes to execute the job on.
-     * @param units Deployment units.
+     * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param args     Arguments of the job.
      * @param <R>      Job result type.

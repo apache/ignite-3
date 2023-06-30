@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -60,7 +60,7 @@ public class CatalogUtils {
                 id,
                 params.tableName(),
                 zoneId,
-                params.columns().stream().map(CatalogUtils::fromParams).collect(Collectors.toList()),
+                params.columns().stream().map(CatalogUtils::fromParams).collect(toList()),
                 params.primaryKeyColumns(),
                 params.colocationColumns()
         );
@@ -69,44 +69,39 @@ public class CatalogUtils {
     /**
      * Converts CreateIndex command params to hash index descriptor.
      *
-     * @param id Index id.
-     * @param tableId Table id.
+     * @param id Index ID.
+     * @param tableId Table ID.
      * @param params Parameters.
      * @return Index descriptor.
      */
-    public static CatalogIndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
-        return new CatalogHashIndexDescriptor(id,
-                params.indexName(),
-                tableId,
-                false,
-                params.columns()
-        );
+    public static CatalogHashIndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
+        return new CatalogHashIndexDescriptor(id, params.indexName(), tableId, params.unique(), params.columns());
     }
 
     /**
      * Converts CreateIndex command params to sorted index descriptor.
      *
-     * @param id Index id.
-     * @param tableId Table id.
+     * @param id Index ID.
+     * @param tableId Table ID.
      * @param params Parameters.
      * @return Index descriptor.
      */
-    public static CatalogIndexDescriptor fromParams(int id, int tableId, CreateSortedIndexParams params) {
+    public static CatalogSortedIndexDescriptor fromParams(int id, int tableId, CreateSortedIndexParams params) {
         List<CatalogColumnCollation> collations = params.collations();
 
-        assert collations.size() == params.columns().size();
+        assert collations.size() == params.columns().size() : "tableId=" + tableId + ", indexId=" + id;
 
         List<CatalogIndexColumnDescriptor> columnDescriptors = IntStream.range(0, collations.size())
                 .mapToObj(i -> new CatalogIndexColumnDescriptor(params.columns().get(i), collations.get(i)))
-                .collect(Collectors.toList());
+                .collect(toList());
 
-        return new CatalogSortedIndexDescriptor(id, params.indexName(), tableId, params.isUnique(), columnDescriptors);
+        return new CatalogSortedIndexDescriptor(id, params.indexName(), tableId, params.unique(), columnDescriptors);
     }
 
     /**
      * Converts CreateZone command params to descriptor.
      *
-     * @param id Distribution zone id.
+     * @param id Distribution zone ID.
      * @param params Parameters.
      * @return Distribution zone descriptor.
      */

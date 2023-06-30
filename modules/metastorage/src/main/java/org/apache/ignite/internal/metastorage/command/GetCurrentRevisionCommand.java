@@ -15,14 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.message;
+package org.apache.ignite.internal.metastorage.command;
 
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.network.annotations.Transferable;
 
-/**
- * Undeploy unit response.
- */
-@Transferable(DeployUnitMessageTypes.UNDEPLOY_UNIT_RESPONSE)
-public interface UndeployUnitResponse extends NetworkMessage {
+/** Get command for MetaStorageCommandListener that retrieves current revision. */
+@Transferable(MetastorageCommandsMessageGroup.GET_CURRENT_REVISION)
+public interface GetCurrentRevisionCommand extends ReadCommand {
 }

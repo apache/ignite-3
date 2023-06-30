@@ -170,10 +170,9 @@ public class TestConfigurationStorage implements ConfigurationStorage {
         return CompletableFuture.completedFuture(version);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> writeConfigurationRevision(long prevRevision, long currentRevision) {
-        return CompletableFuture.completedFuture(null);
+    public void writeConfigurationRevision(long prevRevision, long currentRevision) {
+        // No-op.
     }
 
     /**

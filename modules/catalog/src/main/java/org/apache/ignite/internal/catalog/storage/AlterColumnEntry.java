@@ -17,13 +17,25 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.events.AlterColumnEventParameters;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Describes a column replacement.
  */
-public class AlterColumnEntry implements UpdateEntry {
+public class AlterColumnEntry implements UpdateEntry, Fireable {
     private static final long serialVersionUID = -4552940987881338656L;
 
     private final int tableId;
@@ -51,7 +63,47 @@ public class AlterColumnEntry implements UpdateEntry {
         return column;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public CatalogEvent eventType() {
+        return CatalogEvent.TABLE_ALTER;
+    }
+
+    @Override
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new AlterColumnEventParameters(causalityToken, catalogVersion, tableId, column);
+    }
+
+    @Override
+    public Catalog applyUpdate(Catalog catalog) {
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+
+        return new Catalog(
+                catalog.version(),
+                catalog.time(),
+                catalog.objectIdGenState(),
+                catalog.zones(),
+                List.of(new CatalogSchemaDescriptor(
+                        schema.id(),
+                        schema.name(),
+                        Arrays.stream(schema.tables())
+                                .map(table -> table.id() != tableId
+                                        ? table
+                                        : new CatalogTableDescriptor(
+                                                table.id(),
+                                                table.name(),
+                                                table.zoneId(),
+                                                table.columns().stream()
+                                                        .map(source -> source.name().equals(column.name()) ? column : source)
+                                                        .collect(toList()),
+                                                table.primaryKeyColumns(),
+                                                table.colocationColumns())
+                                )
+                                .toArray(CatalogTableDescriptor[]::new),
+                        schema.indexes()
+                ))
+        );
+    }
+
     @Override
     public String toString() {
         return S.toString(this);

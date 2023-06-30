@@ -272,18 +272,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final Map<Integer, CompletableFuture<Table>> tableCreateFuts = new ConcurrentHashMap<>();
 
     /**
-     * Versioned store for tables by id. Only table instances are created here, RAFT groups may not be initialized yet.
+     * Versioned store for tables by id. Only table instances are created here, local storages and RAFT groups may not be initialized yet.
      *
+     * @see #localPartsByTableIdVv
      * @see #assignmentsUpdatedVv
      */
     private final IncrementalVersionedValue<Map<Integer, TableImpl>> tablesByIdVv;
 
-    /** Versioned store for local partition set by table id. */
+    /**
+     * Versioned store for local partition set by table id.
+     * Completed strictly after {@link #tablesByIdVv} and strictly before {@link #assignmentsUpdatedVv}.
+     */
     private final IncrementalVersionedValue<Map<Integer, PartitionSet>> localPartsByTableIdVv;
 
     /**
      * Versioned store for tracking RAFT groups initialization and starting completion.
      * Only explicitly updated in {@link #createTablePartitionsLocally(long, List, int, TableImpl)}.
+     * Completed strictly after {@link #localPartsByTableIdVv}.
      */
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
 
@@ -443,7 +448,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
-        localPartsByTableIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
+        localPartsByTableIdVv = new IncrementalVersionedValue<>(dependingOn(tablesByIdVv), HashMap::new);
 
         assignmentsUpdatedVv = new IncrementalVersionedValue<>(dependingOn(localPartsByTableIdVv));
 
@@ -1749,7 +1754,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<List<Table>> tablesAsyncInternal() {
-        // TODO: IGNITE-16288 directTableIds should use async configuration API
         return supplyAsync(() -> inBusyLock(busyLock, this::directTableIds), ioExecutor)
                 .thenCompose(tableIds -> inBusyLock(busyLock, () -> {
                     var tableFuts = new CompletableFuture[tableIds.size()];
@@ -1830,8 +1834,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         } else {
             CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(latestCausalityToken);
 
-            // "tablesByIdVv" is always completed strictly before the "assignmentsUpdatedVv".
-            assert tablesByIdFuture.isDone();
+            assert tablesByIdFuture.isDone()
+                    : "'tablesByIdVv' is always completed strictly before the 'assignmentsUpdatedVv'";
 
             return tablesByIdFuture.join();
         }
@@ -1939,7 +1943,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
-            // TODO: IGNITE-16288 directTableId should use async configuration API
             return supplyAsync(() -> inBusyLock(busyLock, () -> directTableId(name)), ioExecutor)
                     .thenCompose(tableId -> inBusyLock(busyLock, () -> {
                         if (tableId == null) {
@@ -1963,7 +1966,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     public CompletableFuture<TableImpl> tableAsyncInternal(int id, boolean checkConfiguration) {
         CompletableFuture<Boolean> tblCfgFut = checkConfiguration
-                // TODO: IGNITE-16288 isTableConfigured should use async configuration API
                 ? supplyAsync(() -> inBusyLock(busyLock, () -> isTableConfigured(id)), ioExecutor)
                 : completedFuture(true);
 
@@ -2505,40 +2507,52 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     boolean shouldStopLocalServices = Stream.concat(stableAssignments.stream(), pendingAssignments.stream())
                             .noneMatch(assignment -> assignment.consistentId().equals(localMemberName));
 
-                    if (!shouldStopLocalServices) {
+                    if (shouldStopLocalServices) {
+                        return stopAndDestroyPartition(tablePartitionId, evt.revision());
+                    } else {
                         return completedFuture(null);
                     }
-
-                    try {
-                        raftMgr.stopRaftNodes(tablePartitionId);
-                    } catch (NodeStoppingException e) {
-                        // No-op
-                    }
-
-                    CompletableFuture<Boolean> stopReplicaFut;
-                    try {
-                        stopReplicaFut = replicaMgr.stopReplica(tablePartitionId);
-                    } catch (NodeStoppingException e) {
-                        stopReplicaFut = completedFuture(true);
-                    }
-
-                    CompletableFuture<Boolean> finalStopReplicaFut = stopReplicaFut;
-
-                    return tablesById(evt.revision())
-                            // TODO: IGNITE-18703 Destroy raft log and meta
-                            .thenCombine(mvGc.removeStorage(tablePartitionId), (tables, unused) -> {
-                                InternalTable internalTable = tables.get(tableId).internalTable();
-
-                                closePartitionTrackers(internalTable, partitionId);
-
-                                return allOf(
-                                        finalStopReplicaFut,
-                                        internalTable.storage().destroyPartition(partitionId),
-                                        runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
-                                );
-                            })
-                            .thenCompose(Function.identity());
                 }, ioExecutor);
+    }
+
+    private CompletableFuture<Void> stopAndDestroyPartition(TablePartitionId tablePartitionId, long revision) {
+        try {
+            raftMgr.stopRaftNodes(tablePartitionId);
+        } catch (NodeStoppingException e) {
+            // No-op
+        }
+
+        CompletableFuture<Boolean> stopReplicaFut;
+        try {
+            stopReplicaFut = replicaMgr.stopReplica(tablePartitionId);
+        } catch (NodeStoppingException e) {
+            stopReplicaFut = completedFuture(true);
+        }
+
+        return destroyPartitionStorages(tablePartitionId, revision, stopReplicaFut);
+    }
+
+    private CompletableFuture<Void> destroyPartitionStorages(
+            TablePartitionId tablePartitionId,
+            long revision,
+            CompletableFuture<Boolean> stopReplicaFut
+    ) {
+        int partitionId = tablePartitionId.partitionId();
+
+        return tablesById(revision)
+                // TODO: IGNITE-18703 Destroy raft log and meta
+                .thenCombine(mvGc.removeStorage(tablePartitionId), (tables, unused) -> {
+                    InternalTable internalTable = tables.get(tablePartitionId.tableId()).internalTable();
+
+                    closePartitionTrackers(internalTable, partitionId);
+
+                    return allOf(
+                            stopReplicaFut,
+                            internalTable.storage().destroyPartition(partitionId),
+                            runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
+                    );
+                })
+                .thenCompose(Function.identity());
     }
 
     private static void handleExceptionOnCleanUpTablesResources(
