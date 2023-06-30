@@ -21,8 +21,12 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.runner.app.client.proxy.IgniteClientProxy;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -73,11 +77,21 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
     void testGetRequestIsRoutedToPrimaryNode() {
         Tuple key = Tuple.create().set("key", 1);
         RecordView<Tuple> view = proxyClient.tables().table(TABLE_NAME).recordView();
-        view.get(null, key);
-        resetRequestCount();
 
+        // Warm up.
         view.get(null, key);
-        assertEquals("TODO", getLastRequestNodeName());
+
+        // Get actual primary node using compute.
+        var primaryNodeName = proxyClient.compute()
+                .<String>executeColocated(TABLE_NAME, key, List.of(), NodeNameJob.class.getName())
+                .join();
+
+        // Perform request and check routing with proxy.
+        resetRequestCount();
+        view.get(null, key);
+        String requestNodeName = getLastRequestNodeName();
+
+        assertEquals(primaryNodeName, requestNodeName);
     }
 
     private @Nullable String getLastRequestNodeName() {
@@ -91,5 +105,12 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
         }
 
         return null;
+    }
+
+    private static class NodeNameJob implements ComputeJob<String> {
+        @Override
+        public String execute(JobExecutionContext context, Object... args) {
+            return context.ignite().name() + Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_"));
+        }
     }
 }
