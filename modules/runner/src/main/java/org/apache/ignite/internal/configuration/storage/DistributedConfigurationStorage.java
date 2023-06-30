@@ -195,7 +195,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override
     public CompletableFuture<Data> readDataOnRecovery() throws StorageException {
         CompletableFuture<Data> future = metaStorageMgr.recoveryFinishedFuture()
-                .thenApplyAsync(this::readDataOnRecovery0);
+                .thenApplyAsync(this::readDataOnRecovery0, threadPool);
 
         return registerFuture(future);
     }
@@ -208,6 +208,10 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         try (Cursor<Entry> cursor = metaStorageMgr.getLocally(DST_KEYS_START_RANGE, DST_KEYS_END_RANGE, cfgRevision)) {
             for (Entry entry : cursor) {
+                if (entry.tombstone()) {
+                    continue;
+                }
+
                 byte[] key = entry.key();
                 byte[] value = entry.value();
 
