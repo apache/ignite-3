@@ -61,6 +61,10 @@ public class StripedDisruptor<T extends NodeIdAware> {
     /** The Striped disruptor name. */
     private final String name;
 
+    /**
+     * If {@code false}, this stripe will always pass {@code true} into {@link EventHandler#onEvent(Object, long, boolean)}.
+     * Otherwise, the data will be provided with batches.
+     */
     private final boolean supportsBatches;
 
     /**
@@ -68,6 +72,8 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param bufferSize Buffer size for each Disruptor.
      * @param eventFactory Event factory for the Striped disruptor.
      * @param stripes Amount of stripes.
+     * @param supportsBatches If {@code false}, this stripe will always pass {@code true} into
+     *      {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
      */
     public StripedDisruptor(String name, int bufferSize, EventFactory<T> eventFactory, int stripes, boolean supportsBatches) {
         disruptors = new Disruptor[stripes];

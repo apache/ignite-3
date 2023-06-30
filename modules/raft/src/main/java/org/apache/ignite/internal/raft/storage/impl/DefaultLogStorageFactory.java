@@ -192,7 +192,13 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      * Clears {@link WriteBatch} returned by {@link #getOrCreateThreadLocalWriteBatch()}.
      */
     void clearThreadLocalWriteBatch() {
-        threadLocalWriteBatch.set(null);
+        WriteBatch writeBatch = threadLocalWriteBatch.get();
+
+        if (writeBatch != null) {
+            writeBatch.close();
+
+            threadLocalWriteBatch.set(null);
+        }
     }
 
     /**

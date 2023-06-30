@@ -174,7 +174,10 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         this.writeOptions.setSync(raftOptions.isSync());
     }
 
-    public DefaultLogStorageFactory getLogStorageFactory() {
+    /**
+     * Returns the log factory instance, that created current log storage.
+     */
+    DefaultLogStorageFactory getLogStorageFactory() {
         return logStorageFactory;
     }
 
