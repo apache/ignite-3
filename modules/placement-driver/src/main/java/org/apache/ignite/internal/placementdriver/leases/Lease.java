@@ -213,10 +213,12 @@ public class Lease implements LeaseMeta, Comparable<Lease> {
     /**
      * Decodes a lease from the sequence of bytes.
      *
-     * @param buf Byte buffer containing lease representation. Requires to be in little-endian.
+     * @param bytes Lease representation in a byte array.
      * @return Decoded lease.
      */
-    public static Lease fromBytes(ByteBuffer buf) {
+    public static Lease fromBytes(byte[] bytes) {
+        ByteBuffer buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+
         boolean accepted = buf.get() == 1;
         boolean prolongable = buf.get() == 1;
         HybridTimestamp startTime = hybridTimestamp(buf.getLong());
