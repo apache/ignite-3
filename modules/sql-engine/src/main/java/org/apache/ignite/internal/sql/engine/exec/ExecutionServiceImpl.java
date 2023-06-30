@@ -841,12 +841,16 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                             if (e != null) {
                                 Throwable ex = unwrapCause(e);
 
-                                LOG.warn("Exception raised during close", ex);
+                                LOG.warn(format("Fragment closing processed with errors, root fragmentId={}", rootFragmentId), ex);
                             }
 
                             queryManagerMap.remove(ctx.queryId());
 
-                            ctx.cancel().cancel();
+                            try {
+                                ctx.cancel().cancel();
+                            } catch (Exception th) {
+                                LOG.debug("Exception raised while cancel", th);
+                            }
 
                             cancelFut.complete(null);
                         });
