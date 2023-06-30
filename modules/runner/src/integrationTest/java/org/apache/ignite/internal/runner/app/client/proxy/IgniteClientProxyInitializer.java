@@ -22,12 +22,10 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 
-public class IgniteClientProxyInitializer {
-    private final String remoteHost;
+public class IgniteClientProxyInitializer extends ChannelInitializer<SocketChannel> {
     private final int remotePort;
 
-    public IgniteClientProxyInitializer(String remoteHost, int remotePort) {
-        this.remoteHost = remoteHost;
+    IgniteClientProxyInitializer(int remotePort) {
         this.remotePort = remotePort;
     }
 
@@ -35,6 +33,6 @@ public class IgniteClientProxyInitializer {
     public void initChannel(SocketChannel ch) {
         ch.pipeline().addLast(
                 new LoggingHandler(LogLevel.INFO),
-                new IgniteClientProxyFrontendHandler(remoteHost, remotePort));
+                new IgniteClientProxyFrontendHandler(remotePort));
     }
 }
