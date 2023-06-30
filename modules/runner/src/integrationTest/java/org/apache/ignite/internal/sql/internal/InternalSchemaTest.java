@@ -31,7 +31,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
-import org.junit.jupiter.api.Disabled;
+import org.apache.ignite.sql.SqlRow;
 import org.junit.jupiter.api.Test;
 
 /** Tests for internal manipulations with schema. */
@@ -39,7 +39,6 @@ public class InternalSchemaTest extends ClusterPerClassIntegrationTest {
     /**
      * Checks that schema version is updated even if column names are intersected.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19612")
     @Test
     public void checkSchemaUpdatedWithEqAlterColumn() {
         IgniteSql sql = igniteSql();
@@ -51,20 +50,20 @@ public class InternalSchemaTest extends ClusterPerClassIntegrationTest {
 
         ConfigurationManager cfgMgr = IgniteTestUtils.getFieldValue(node, "clusterCfgMgr");
 
-        final TablesConfiguration tablesConfiguration = cfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
+        TablesConfiguration tablesConfiguration = cfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
 
         int schIdBefore = ((ExtendedTableView) tablesConfiguration.tables().get("TEST").value()).schemaId();
 
-        checkDdl(false, ses, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS (VAL0 INT, VAL1 INT)");
+        checkDdl(true, ses, "ALTER TABLE TEST ADD COLUMN (VAL1 INT)");
 
         int schIdAfter = ((ExtendedTableView) tablesConfiguration.tables().get("TEST").value()).schemaId();
 
         assertEquals(schIdBefore + 1, schIdAfter);
     }
 
-    /** Test correct mapping schema after drop columns. */
+    /** Test correct mapping schema after alter columns. */
     @Test
-    public void testDropColumns() {
+    public void testDropAndAddColumns() {
         IgniteSql sql = igniteSql();
         Session ses = sql.createSession();
 
@@ -75,7 +74,7 @@ public class InternalSchemaTest extends ClusterPerClassIntegrationTest {
                 "INSERT INTO my VALUES (1, 2, '3')"
         );
 
-        ResultSet res = ses.execute(
+        ResultSet<SqlRow> res = ses.execute(
                 null,
                 "SELECT c1, c3 FROM my"
         );
@@ -93,12 +92,23 @@ public class InternalSchemaTest extends ClusterPerClassIntegrationTest {
 
         checkDdl(true, ses, "ALTER TABLE my ADD COLUMN (c2 INT, c4 VARCHAR)");
 
-        res = ses.execute(
+        ses.execute(
                 null,
-                "SELECT c1, c3 FROM my"
+                "INSERT INTO my VALUES (2, '2', 2, '3')"
         );
 
-        assertNotNull(res.next());
+        res = ses.execute(
+                null,
+                "SELECT c2, c4 FROM my WHERE c1=2"
+        );
+
+        SqlRow result = res.next();
+
+        assertNotNull(result);
+        System.err.println(result.metadata().columns());
+        assertEquals(2, result.intValue("C2"));
+        // Unmute after https://issues.apache.org/jira/browse/IGNITE-19894
+        //assertEquals(2, result.intValue("c2"));
     }
 
     private static void checkDdl(boolean expectedApplied, Session ses, String sql) {
