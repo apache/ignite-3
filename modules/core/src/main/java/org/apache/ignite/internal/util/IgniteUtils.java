@@ -1090,6 +1090,19 @@ public class IgniteUtils {
     }
 
     /**
+     * Returns slice of the byte buffer of given offset and length. Required as the corresponding method in {@link ByteBuffer} is not
+     * public in older versions of Java.
+     *
+     * @param buffer Byte buffer.
+     * @param offset Offset.
+     * @param length Length.
+     * @return Slice of the byte buffer.
+     */
+    public static ByteBuffer sliceBuffer(ByteBuffer buffer, int offset, int length) {
+        return buffer.position(offset).limit(offset + length).slice();
+    }
+
+    /**
      * Serializes collection to bytes.
      *
      * @param collection Collection.
@@ -1120,7 +1133,7 @@ public class IgniteUtils {
     }
 
     /**
-     * Deserializes the list from byte buffer.
+     * Deserializes the list from byte buffer. Requires little-endian byte order.
      *
      * @param buf Byte buffer.
      * @param transform Transform function to create list element.
@@ -1135,7 +1148,7 @@ public class IgniteUtils {
         for (int i = 0; i < length; i++) {
             int size = buf.getInt();
             assert size >= 0 : "Negative object size: " + size + ", index=" + i;
-            ByteBuffer b = buf.slice(buf.position(), size).order(ByteOrder.LITTLE_ENDIAN);
+            ByteBuffer b = sliceBuffer(buf, buf.position(), size).order(ByteOrder.LITTLE_ENDIAN);
             result.add(transform.apply(b));
         }
 

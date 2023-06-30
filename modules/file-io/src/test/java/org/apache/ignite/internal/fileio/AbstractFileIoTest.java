@@ -21,6 +21,7 @@ import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.Arrays.copyOfRange;
+import static org.apache.ignite.internal.util.IgniteUtils.sliceBuffer;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -386,10 +387,10 @@ public abstract class AbstractFileIoTest {
         assertEquals(1024, writeOperation.apply(fileIo, rangeBuffer(randomBytes, 1024, 2 * 1024)));
         assertEquals(2 * 1024, fileIo.position());
 
-        assertEquals(1024, writeOperation.apply(fileIo, sliceBuffer(randomByteBuffer, 2 * 1024, 3 * 1024)));
+        assertEquals(1024, writeOperation.apply(fileIo, sliceBuffer(randomByteBuffer, 2 * 1024, 1024)));
         assertEquals(3 * 1024, fileIo.position());
 
-        assertEquals(1024, writeOperation.apply(fileIo, sliceBuffer(randomByteBuffer, 3 * 1024, 4 * 1024)));
+        assertEquals(1024, writeOperation.apply(fileIo, sliceBuffer(randomByteBuffer, 3 * 1024, 1024)));
         assertEquals(4 * 1024, fileIo.position());
 
         assertEquals(0, writeOperation.apply(fileIo, ByteBuffer.wrap(new byte[0])));
@@ -453,7 +454,7 @@ public abstract class AbstractFileIoTest {
         assertEquals(1024, writeOperation.apply(fileIo, 1024, rangeBuffer(randomBytes, 1024, 2 * 1024)));
         assertEquals(0, fileIo.position());
 
-        assertEquals(1024, writeOperation.apply(fileIo, 2 * 1024, sliceBuffer(randomByteBuffer, 3 * 1024, 4 * 1024)));
+        assertEquals(1024, writeOperation.apply(fileIo, 2 * 1024, sliceBuffer(randomByteBuffer, 3 * 1024, 1024)));
         assertEquals(0, fileIo.position());
 
         assertEquals(0, writeOperation.apply(fileIo, 3 * 1024, ByteBuffer.wrap(new byte[0])));
@@ -503,9 +504,5 @@ public abstract class AbstractFileIoTest {
 
     private static ByteBuffer rangeBuffer(byte[] bytes, int from, int to) {
         return ByteBuffer.wrap(copyOfRange(bytes, from, to));
-    }
-
-    private static ByteBuffer sliceBuffer(ByteBuffer buffer, int from, int to) {
-        return buffer.position(from).limit(to).slice();
     }
 }
