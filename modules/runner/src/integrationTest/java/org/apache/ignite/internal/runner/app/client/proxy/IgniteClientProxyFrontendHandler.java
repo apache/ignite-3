@@ -26,44 +26,43 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelOption;
 
-public class IgniteClientProxyFrontendHandler extends ChannelInboundHandlerAdapter {
+class IgniteClientProxyFrontendHandler extends ChannelInboundHandlerAdapter {
     private final int remotePort;
 
     private Channel outboundChannel;
 
-    public IgniteClientProxyFrontendHandler(int remotePort) {
+    IgniteClientProxyFrontendHandler(int remotePort) {
         this.remotePort = remotePort;
     }
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
-        final Channel inboundChannel = ctx.channel();
+        Channel inboundChannel = ctx.channel();
 
-        // Start the connection attempt.
         Bootstrap b = new Bootstrap();
         b.group(inboundChannel.eventLoop())
                 .channel(ctx.channel().getClass())
                 .handler(new IgniteClientProxyBackendHandler(inboundChannel))
                 .option(ChannelOption.AUTO_READ, false);
+
         ChannelFuture f = b.connect("127.0.0.1", remotePort);
         outboundChannel = f.channel();
+
         f.addListener((ChannelFutureListener) future -> {
             if (future.isSuccess()) {
-                // connection complete start to read first data
+                // Start reading.
                 inboundChannel.read();
             } else {
-                // Close the connection if the connection attempt has failed.
                 inboundChannel.close();
             }
         });
     }
 
     @Override
-    public void channelRead(final ChannelHandlerContext ctx, Object msg) {
+    public void channelRead(ChannelHandlerContext ctx, Object msg) {
         if (outboundChannel.isActive()) {
             outboundChannel.writeAndFlush(msg).addListener((ChannelFutureListener) future -> {
                 if (future.isSuccess()) {
-                    // was able to flush out data, start to read the next chunk
                     ctx.channel().read();
                 } else {
                     future.channel().close();
