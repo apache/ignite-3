@@ -570,9 +570,6 @@ public class TypeUtils {
      * This method expects at least one of its arguments to be a custom data type.
      */
     public static boolean customDataTypeNeedCast(IgniteTypeFactory factory, RelDataType fromType, RelDataType toType) {
-        assert fromType.getSqlTypeName() == SqlTypeName.ANY || toType.getSqlTypeName() == SqlTypeName.ANY :
-                format("Invalid argument. Expected at least one custom data type: " + fromType, toType);
-
         IgniteCustomTypeCoercionRules typeCoercionRules = factory.getCustomTypeCoercionRules();
         if (toType instanceof IgniteCustomType) {
             IgniteCustomType to = (IgniteCustomType) toType;
@@ -581,7 +578,8 @@ public class TypeUtils {
             boolean sameType = SqlTypeUtil.equalSansNullability(fromType, toType);
             return !sameType;
         } else {
-            throw new AssertionError("Neither of arguments is a custom data type");
+            String message = format("Invalid arguments. Expected at least one custom data type but got {} and {}", fromType, toType);
+            throw new AssertionError(message);
         }
     }
 
