@@ -17,22 +17,43 @@
 
 package org.apache.ignite.internal.runner.app.client.proxy;
 
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public class IgniteClientProxyInitializer extends ChannelInitializer<SocketChannel> {
+class IgniteClientProxyInitializer extends ChannelInitializer<SocketChannel> {
     private final int remotePort;
+
+    private final AtomicInteger requestCounter = new AtomicInteger();
 
     IgniteClientProxyInitializer(int remotePort) {
         this.remotePort = remotePort;
     }
 
+    int requestCount() {
+        return requestCounter.get();
+    }
+
+    int resetRequestCount() {
+        return requestCounter.getAndSet(0);
+    }
+
     @Override
     public void initChannel(SocketChannel ch) {
         ch.pipeline().addLast(
-                new LoggingHandler(LogLevel.INFO),
+                new RequestTrackingHandler(),
                 new IgniteClientProxyFrontendHandler(remotePort));
+    }
+
+    private class RequestTrackingHandler extends ChannelInboundHandlerAdapter {
+        @Override
+        public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+            requestCounter.incrementAndGet();
+            super.channelRead(ctx, msg);
+        }
     }
 }

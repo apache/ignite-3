@@ -29,21 +29,23 @@ import io.netty.handler.logging.LoggingHandler;
 public final class IgniteClientProxy implements AutoCloseable {
     private final EventLoopGroup bossGroup = new NioEventLoopGroup(1);
     private final EventLoopGroup workerGroup = new NioEventLoopGroup();
-    private final int targetPort;
     private final int listenPort;
 
     private final ChannelFuture chFut;
 
+    private final IgniteClientProxyInitializer proxyHandler;
+
     private IgniteClientProxy(int targetPort, int listenPort) throws InterruptedException {
-        this.targetPort = targetPort;
         this.listenPort = listenPort;
 
         ServerBootstrap b = new ServerBootstrap();
 
+        this.proxyHandler = new IgniteClientProxyInitializer(targetPort);
+
         this.chFut = b.group(bossGroup, workerGroup)
                 .channel(NioServerSocketChannel.class)
                 .handler(new LoggingHandler(LogLevel.INFO))
-                .childHandler(new IgniteClientProxyInitializer(targetPort))
+                .childHandler(proxyHandler)
                 .childOption(ChannelOption.AUTO_READ, false)
                 .bind(listenPort).sync();
     }
@@ -52,12 +54,16 @@ public final class IgniteClientProxy implements AutoCloseable {
         return new IgniteClientProxy(targetPort, listenPort);
     }
 
-    public int targetPort() {
-        return targetPort;
-    }
-
     public int listenPort() {
         return listenPort;
+    }
+
+    public int requestCount() {
+        return proxyHandler.requestCount();
+    }
+
+    public int resetRequestCount() {
+        return proxyHandler.resetRequestCount();
     }
 
     @Override

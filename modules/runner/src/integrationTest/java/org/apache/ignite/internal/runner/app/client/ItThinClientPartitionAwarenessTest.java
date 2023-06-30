@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.client.IgniteClient;
@@ -34,10 +36,13 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
         for (int port : getClientPorts()) {
             var proxy = IgniteClientProxy.start(port, port + 1000);
             adds.add("127.0.0.1:" + proxy.listenPort());
+            proxies.add(proxy);
         }
 
         var client = IgniteClient.builder().addresses(adds.get(0)).build();
 
+        proxies.get(0).resetRequestCount();
         var nodes = client.clusterNodes();
+        assertEquals(1, proxies.get(0).requestCount());
     }
 }

@@ -22,7 +22,7 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 
-public class IgniteClientProxyBackendHandler extends ChannelInboundHandlerAdapter {
+class IgniteClientProxyBackendHandler extends ChannelInboundHandlerAdapter {
     private final Channel inboundChannel;
 
     IgniteClientProxyBackendHandler(Channel inboundChannel) {
