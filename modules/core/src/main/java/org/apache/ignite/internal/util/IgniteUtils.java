@@ -1132,6 +1132,9 @@ public class IgniteUtils {
         List<T> result = new ArrayList<>(length);
 
         for (int i = 0; i < length; i++) {
+            assert buf.position() < buf.limit() : "Can't read an object from the given buffer [position=" + buf.position()
+                    + ", limit=" + buf.limit() + ']';
+
             result.add(transform.apply(buf));
         }
 

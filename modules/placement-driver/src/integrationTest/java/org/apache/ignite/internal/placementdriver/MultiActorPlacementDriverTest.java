@@ -19,12 +19,11 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
-import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
+import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.lang.ByteArray.fromString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -505,7 +504,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         var leaseRenewRef = new AtomicReference<Lease>();
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
+            var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
             LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(fut.join().value()).order(ByteOrder.LITTLE_ENDIAN));
 
@@ -541,7 +540,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         var leaseRenewRef = new AtomicReference<Lease>();
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
+            var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
             LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(fut.join().value()).order(ByteOrder.LITTLE_ENDIAN));
 
@@ -577,7 +576,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         AtomicReference<Lease> leaseRef = new AtomicReference<>();
 
         assertTrue(waitForCondition(() -> {
-            var leaseFut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
+            var leaseFut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
             var leaseEntry = leaseFut.join();
 

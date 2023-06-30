@@ -19,7 +19,8 @@ package org.apache.ignite.internal.placementdriver;
 
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
-import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
+import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
+import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY_STRING;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -56,8 +57,6 @@ public class PlacementDriverTest {
     private static final ByteArray FAKE_KEY = new ByteArray("foobar");
 
     private static final TablePartitionId GROUP_1 = new TablePartitionId(1000, 0);
-
-    private static final ByteArray MS_LEASE_KEY = ByteArray.fromString(PLACEMENTDRIVER_PREFIX);
 
     private static final String LEASEHOLDER_1 = "leaseholder1";
     private static final Lease LEASE_FROM_1_TO_5_000 = new Lease(
@@ -336,7 +335,7 @@ public class PlacementDriverTest {
     private void publishLease(Lease lease) {
         metastore.invoke(
                 Conditions.notExists(FAKE_KEY),
-                put(MS_LEASE_KEY, new LeaseBatch(List.of(lease)).bytes()),
+                put(PLACEMENTDRIVER_LEASES_KEY, new LeaseBatch(List.of(lease)).bytes()),
                 noop()
         );
     }

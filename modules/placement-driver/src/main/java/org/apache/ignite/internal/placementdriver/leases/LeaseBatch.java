@@ -21,19 +21,19 @@ import static org.apache.ignite.internal.util.IgniteUtils.bytesToList;
 import static org.apache.ignite.internal.util.IgniteUtils.collectionToBytes;
 
 import java.nio.ByteBuffer;
-import java.util.List;
+import java.util.Collection;
 
 /**
  * Representation of leases batch.
  */
 public class LeaseBatch {
-    List<Lease> leases;
+    private final Collection<Lease> leases;
 
-    public LeaseBatch(List<Lease> leases) {
+    public LeaseBatch(Collection<Lease> leases) {
         this.leases = leases;
     }
 
-    public List<Lease> leases() {
+    public Collection<Lease> leases() {
         return leases;
     }
 

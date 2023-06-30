@@ -20,17 +20,19 @@ package org.apache.ignite.internal.placementdriver.leases;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
-import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
+import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
+import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY_STRING;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.EMPTY_LEASE;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Comparator;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -103,11 +105,11 @@ public class LeaseTracker implements PlacementDriver {
      * Recoveries state from Vault and subscribers on further updates.
      */
     public void startTrack() {
-        msManager.registerPrefixWatch(ByteArray.fromString(PLACEMENTDRIVER_PREFIX), updateListener);
+        msManager.registerPrefixWatch(PLACEMENTDRIVER_LEASES_KEY, updateListener);
 
         try (Cursor<VaultEntry> cursor = vaultManager.range(
-                ByteArray.fromString(PLACEMENTDRIVER_PREFIX),
-                ByteArray.fromString(incrementLastChar(PLACEMENTDRIVER_PREFIX))
+                PLACEMENTDRIVER_LEASES_KEY,
+                ByteArray.fromString(incrementLastChar(PLACEMENTDRIVER_LEASES_KEY_STRING))
         )) {
             for (VaultEntry entry : cursor) {
                 leases.clear();
@@ -170,28 +172,28 @@ public class LeaseTracker implements PlacementDriver {
             for (EntryEvent entry : event.entryEvents()) {
                 Entry msEntry = entry.newEntry();
 
-                ByteBuffer buf = ByteBuffer.wrap(msEntry.value()).order(ByteOrder.LITTLE_ENDIAN);
+                LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(msEntry.value()).order(ByteOrder.LITTLE_ENDIAN));
 
-                List<Lease> renewedLeasesList = LeaseBatch.fromBytes(buf).leases();
+                Set<ReplicationGroupId> actualGroups = new HashSet<>();
 
-                Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>();
-                renewedLeasesList.forEach(lease -> renewedLeases.put(lease.replicationGroupId(), lease));
+                for (Lease lease : leaseBatch.leases()) {
+                    ReplicationGroupId grpId = lease.replicationGroupId();
+                    actualGroups.add(grpId);
 
-                for (Iterator<Map.Entry<ReplicationGroupId, Lease>> iterator = leases.entrySet().iterator(); iterator.hasNext();) {
-                    Map.Entry<ReplicationGroupId, Lease> e = iterator.next();
-
-                    if (!renewedLeases.containsKey(e.getKey())) {
-                        iterator.remove();
-                        tryRemoveTracker(e.getKey());
-                    }
-                }
-
-                renewedLeases.forEach((grpId, lease) -> {
                     leases.put(grpId, lease);
 
                     primaryReplicaWaiters.computeIfAbsent(grpId, groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
                             .update(lease.getExpirationTime(), lease);
-                });
+                }
+
+                for (Iterator<Map.Entry<ReplicationGroupId, Lease>> iterator = leases.entrySet().iterator(); iterator.hasNext();) {
+                    Map.Entry<ReplicationGroupId, Lease> e = iterator.next();
+
+                    if (!actualGroups.contains(e.getKey())) {
+                        iterator.remove();
+                        tryRemoveTracker(e.getKey());
+                    }
+                }
             }
 
             return completedFuture(null);

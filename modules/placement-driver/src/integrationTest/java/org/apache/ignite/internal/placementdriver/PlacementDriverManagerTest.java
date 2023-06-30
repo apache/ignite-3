@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
-import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
+import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -297,7 +297,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
         checkLeaseCreated(grpPart0, false);
 
-        var leaseFut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
+        var leaseFut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
         LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leaseFut.join().value()).order(ByteOrder.LITTLE_ENDIAN));
 
@@ -306,7 +306,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         assertNotNull(lease);
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
+            var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
             LeaseBatch leaseBatchRenew = LeaseBatch.fromBytes(ByteBuffer.wrap(fut.join().value()).order(ByteOrder.LITTLE_ENDIAN));
             Lease leaseRenew = leaseBatchRenew.leases().stream()
@@ -329,7 +329,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), ByteUtils.toBytes(assignments));
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
+            var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
             LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(fut.join().value()).order(ByteOrder.LITTLE_ENDIAN));
 
@@ -344,7 +344,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), ByteUtils.toBytes(assignments));
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
+            var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
             LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(fut.join().value()).order(ByteOrder.LITTLE_ENDIAN));
 
@@ -465,7 +465,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         AtomicReference<Lease> leaseRef = new AtomicReference<>();
 
         assertTrue(waitForCondition(() -> {
-            var leaseFut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX));
+            var leaseFut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
             var leaseEntry = leaseFut.join();
 
