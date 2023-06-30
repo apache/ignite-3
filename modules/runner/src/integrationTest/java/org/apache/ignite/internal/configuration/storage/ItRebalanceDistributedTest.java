@@ -275,9 +275,9 @@ public class ItRebalanceDistributedTest {
                 .handleAsync((zoneId, throwable) -> {
                     try {
                         boolean result = waitForCondition(() -> {
-                            return nodes.stream().map(node -> {
-                                return node.distributionZoneManager.dataNodes(zoneId).size();
-                            }).allMatch(integer -> integer == 3);
+                            return nodes.stream()
+                                    .map(node -> node.distributionZoneManager.dataNodes(zoneId).size())
+                                    .allMatch(integer -> integer == 3);
                         }, TimeUnit.SECONDS.toMillis(5));
 
                         if (!result) {

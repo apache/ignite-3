@@ -633,15 +633,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
             });
 
-            writeTableAssignmentsToMetastore(tableId, assignments);
+            CompletableFuture<Boolean> writeToMs = writeTableAssignmentsToMetastore(tableId, assignments);
 
-            return createTableFut;
+            return allOf(createTableFut, writeToMs);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    private void writeTableAssignmentsToMetastore(int tableId, List<Set<Assignment>> assignments) {
+    private CompletableFuture<Boolean> writeTableAssignmentsToMetastore(int tableId, List<Set<Assignment>> assignments) {
         assert !assignments.isEmpty();
 
         List<Operation> partitionAssignments = new ArrayList<>(assignments.size());
@@ -655,7 +655,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         Condition condition = Conditions.notExists(new ByteArray(partitionAssignments.get(0).key()));
 
-        metaStorageMgr
+        return metaStorageMgr
                 .invoke(condition, partitionAssignments, Collections.emptyList())
                 .exceptionally(e -> {
                     LOG.error("Couldn't write assignments to metastore", e);
