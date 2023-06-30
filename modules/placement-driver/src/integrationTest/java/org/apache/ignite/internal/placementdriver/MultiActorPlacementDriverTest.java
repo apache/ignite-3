@@ -58,7 +58,7 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
-//import org.apache.ignite.internal.placementdriver.PlacementDriverManagerTest.LogicalTopologyServiceTestImpl;
+import org.apache.ignite.internal.placementdriver.PlacementDriverManagerTest.LogicalTopologyServiceTestImpl;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
@@ -98,7 +98,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({ConfigurationExtension.class, WorkDirectoryExtension.class})
 public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
-    /*public static final int BASE_PORT = 1234;
+    public static final int BASE_PORT = 1234;
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
@@ -122,18 +122,18 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
     private List<Closeable> servicesToClose;
 
-    *//** The manager is used to read a data from Meta storage in the tests. *//*
+    /** The manager is used to read a data from Meta storage in the tests. */
     private MetaStorageManagerImpl metaStorageManager;
 
-    *//** Cluster service by node name. *//*
+    /** Cluster service by node name. */
     private Map<String, ClusterService> clusterServices;
 
-    *//** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. *//*
+    /** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. */
     private IgniteTriFunction<LeaseGrantedMessage, String, String, LeaseGrantedMessageResponse> leaseGrantHandler;
 
     private final AtomicInteger nextTableId = new AtomicInteger(1);
 
-    *//** Work directory. *//*
+    /** Work directory. */
     protected Path workDir;
 
     @BeforeEach
@@ -177,12 +177,12 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         }
     }
 
-    *//**
+    /**
      * Handles a lease grant message.
      *
      * @param handlerService Node service which will handles the message.
      * @return Response message.
-     *//*
+     */
     private NetworkMessageHandler leaseGrantMessageHandler(ClusterService handlerService) {
         return (msg, sender, correlationId) -> {
             if (!(msg instanceof PlacementDriverReplicaMessage)) {
@@ -210,11 +210,11 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         };
     }
 
-    *//**
+    /**
      * Starts cluster nodes.
      *
      * @return Cluster services.
-     *//*
+     */
     public Map<String, ClusterService> startNodes() {
         var res = new HashMap<String, ClusterService>(nodeNames.size());
 
@@ -235,13 +235,13 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         return res;
     }
 
-    *//**
+    /**
      * Starts placement driver.
      *
      * @param services Cluster services.
      * @param logicalTopManagers The list to update in the method. The list might be used for driving of the logical topology.
      * @return List of closures to stop the services.
-     *//*
+     */
     public List<Closeable> startPlacementDriver(
             Map<String, ClusterService> services,
             List<LogicalTopologyServiceTestImpl> logicalTopManagers,
@@ -493,14 +493,14 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         log.info("Lease move from {} to {}", lease.getLeaseholder(), leaseRenew.getLeaseholder());
     }
 
-    *//**
+    /**
      * Waits for a new leaseholder.
      *
      * @param grpPart Replication group id.
      * @param lease Previous lease.
      * @return Renewed lease.
      * @throws InterruptedException If the waiting is interrupted.
-     *//*
+     */
     private Lease waitNewLeaseholder(TablePartitionId grpPart, Lease lease) throws InterruptedException {
         var leaseRenewRef = new AtomicReference<Lease>();
 
@@ -529,14 +529,14 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         return leaseRenewRef.get();
     }
 
-    *//**
+    /**
      * Waits for a lease prolong.
      *
      * @param grpPart Replication group id.
      * @param lease Lease which waits for prolong.
      * @return Renewed lease.
      * @throws InterruptedException If the waiting is interrupted.
-     *//*
+     */
     private Lease waitForProlong(TablePartitionId grpPart, Lease lease) throws InterruptedException {
         var leaseRenewRef = new AtomicReference<Lease>();
 
@@ -565,14 +565,14 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         return leaseRenewRef.get();
     }
 
-    *//**
+    /**
      * Checks if a group lease is created during the timeout.
      *
      * @param grpPartId Replication group id.
      * @param waitAccept Await a lease with the accepted flag.
      * @return A lease that is read from Meta storage.
      * @throws InterruptedException If the waiting is interrupted.
-     *//*
+     */
     private Lease checkLeaseCreated(TablePartitionId grpPartId, boolean waitAccept) throws InterruptedException {
         AtomicReference<Lease> leaseRef = new AtomicReference<>();
 
@@ -603,12 +603,12 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         return leaseRef.get();
     }
 
-    *//**
+    /**
      * Creates an assignment for the fake table.
      *
      * @return Replication group id.
      * @throws Exception If failed.
-     *//*
+     */
     private TablePartitionId createTableAssignment() throws Exception {
         int tableId = nextTableId.incrementAndGet();
 
@@ -646,11 +646,11 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         return grpPart0;
     }
 
-    *//**
+    /**
      * Creates a distribution zone.
      *
      * @return Id of created distribution zone.
-     *//*
+     */
     private int createZone() {
         if (dstZnsCfg.distributionZones().get("zone1") != null) {
             return dstZnsCfg.distributionZones().get("zone1").value().zoneId();
@@ -665,5 +665,5 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         }).join();
 
         return dstZnsCfg.distributionZones().get("zone1").value().zoneId();
-    }*/
+    }
 }

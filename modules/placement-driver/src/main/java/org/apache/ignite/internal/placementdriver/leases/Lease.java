@@ -213,7 +213,7 @@ public class Lease implements LeaseMeta, Comparable<Lease> {
     /**
      * Decodes a lease from the sequence of bytes.
      *
-     * @param bytes Lease representation in a byte array.
+     * @param buf Byte buffer containing lease representation. Requires to be in little-endian.
      * @return Decoded lease.
      */
     public static Lease fromBytes(ByteBuffer buf) {

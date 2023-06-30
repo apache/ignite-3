@@ -102,13 +102,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class PlacementDriverManagerTest extends IgniteAbstractTest {
-    /*public static final int PORT = 1234;
+    public static final int PORT = 1234;
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     private String nodeName;
 
-    *//** Another node name. The node name is matched to {@code anotherClusterService}. *//*
+    /** Another node name. The node name is matched to {@code anotherClusterService}. */
     private String anotherNodeName;
 
     private HybridClock clock = new HybridClockImpl();
@@ -117,7 +117,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
     private ClusterService clusterService;
 
-    *//** This service is used to redirect a lease proposal. *//*
+    /** This service is used to redirect a lease proposal. */
     private ClusterService anotherClusterService;
 
     private Loza raftManager;
@@ -140,7 +140,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
     private TestInfo testInfo;
 
-    *//** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. *//*
+    /** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. */
     private BiFunction<LeaseGrantedMessage, String, LeaseGrantedMessageResponse> leaseGrantHandler;
 
     private final AtomicInteger nextTableId = new AtomicInteger();
@@ -234,12 +234,12 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
-    *//**
+    /**
      * Handles a lease grant message.
      *
      * @param handlerNode Node which will handles the message.
      * @return Response message.
-     *//*
+     */
     private NetworkMessageHandler leaseGrantMessageHandler(String handlerNode) {
         return (msg, sender, correlationId) -> {
             assert msg instanceof LeaseGrantedMessage : "Message type is unexpected [type=" + msg.getClass().getSimpleName() + ']';
@@ -453,14 +453,14 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         assertTrue(leaseGrantReqRef.get().leaseExpirationTime().compareTo(lease.getExpirationTime()) >= 0);
     }
 
-    *//**
+    /**
      * Checks if a group lease is created during the timeout.
      *
      * @param grpPartId Replication group id.
      * @param waitAccept Await a lease with the accepted flag.
      * @return A lease that is read from Meta storage.
      * @throws InterruptedException If the waiting is interrupted.
-     *//*
+     */
     private Lease checkLeaseCreated(TablePartitionId grpPartId, boolean waitAccept) throws InterruptedException {
         AtomicReference<Lease> leaseRef = new AtomicReference<>();
 
@@ -491,12 +491,12 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         return leaseRef.get();
     }
 
-    *//**
+    /**
      * Creates an assignment for the fake table.
      *
      * @return Replication group id.
      * @throws Exception If failed.
-     *//*
+     */
     private TablePartitionId createTableAssignment() throws Exception {
         int tableId = nextTableId.incrementAndGet();
 
@@ -534,11 +534,11 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         return grpPart0;
     }
 
-    *//**
+    /**
      * Creates a distribution zone.
      *
      * @return Id of created distribution zone.
-     *//*
+     */
     private int createZone() {
         dstZnsCfg.distributionZones().change(zones -> {
             zones.create("zone1", ch -> {
@@ -551,9 +551,9 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         return dstZnsCfg.distributionZones().get("zone1").value().zoneId();
     }
 
-    *//**
+    /**
      * Test implementation of {@link LogicalTopologyService}.
-     *//*
+     */
     protected static class LogicalTopologyServiceTestImpl implements LogicalTopologyService {
         private final ClusterService clusterService;
 
@@ -574,9 +574,9 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
             this.listeners.remove(listener);
         }
 
-        *//**
+        /**
          * Updates logical topology to the physical one.
-         *//*
+         */
         public void updateTopology() {
             if (listeners != null) {
                 var top = clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet());
@@ -597,5 +597,5 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
             return completedFuture(Set.copyOf(clusterService.topologyService().allMembers()));
         }
-    }*/
+    }
 }
