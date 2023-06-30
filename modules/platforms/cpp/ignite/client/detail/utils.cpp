@@ -56,10 +56,10 @@ void claim_column(binary_tuple_builder &builder, ignite_type typ, const primitiv
             builder.claim_uuid(value.get<uuid>());
             break;
         case ignite_type::STRING:
-            builder.claim_string(value.get<std::string>());
+            builder.claim_varlen(value.get<std::string>());
             break;
         case ignite_type::BYTE_ARRAY:
-            builder.claim_bytes(value.get<std::vector<std::byte>>());
+            builder.claim_varlen(value.get<std::vector<std::byte>>());
             break;
         case ignite_type::DECIMAL: {
             big_decimal to_write;
@@ -89,7 +89,7 @@ void claim_column(binary_tuple_builder &builder, ignite_type typ, const primitiv
             builder.claim_duration(value.get<ignite_duration>());
             break;
         case ignite_type::BITMASK:
-            builder.claim_bytes(value.get<bit_array>().get_raw());
+            builder.claim_varlen(value.get<bit_array>().get_raw());
             break;
         default:
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
@@ -128,10 +128,10 @@ void append_column(binary_tuple_builder &builder, ignite_type typ, const primiti
             builder.append_uuid(value.get<uuid>());
             break;
         case ignite_type::STRING:
-            builder.append_string(value.get<std::string>());
+            builder.append_varlen(value.get<std::string>());
             break;
         case ignite_type::BYTE_ARRAY:
-            builder.append_bytes(value.get<std::vector<std::byte>>());
+            builder.append_varlen(value.get<std::vector<std::byte>>());
             break;
         case ignite_type::DECIMAL: {
             big_decimal to_write;
@@ -161,7 +161,7 @@ void append_column(binary_tuple_builder &builder, ignite_type typ, const primiti
             builder.append_duration(value.get<ignite_duration>());
             break;
         case ignite_type::BITMASK:
-            builder.append_bytes(value.get<bit_array>().get_raw());
+            builder.append_varlen(value.get<bit_array>().get_raw());
             break;
         default:
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
@@ -191,7 +191,7 @@ std::vector<std::byte> pack_tuple(
         if (col_idx >= 0)
             claim_column(builder, col.type, tuple.get(col_idx), col.scale);
         else
-            builder.claim(std::nullopt);
+            builder.claim_null();
     }
 
     builder.layout();
@@ -202,7 +202,7 @@ std::vector<std::byte> pack_tuple(
         if (col_idx >= 0)
             append_column(builder, col.type, tuple.get(col_idx), col.scale);
         else {
-            builder.append(std::nullopt);
+            builder.append_null();
             no_value.set(std::size_t(i));
         }
     }
@@ -236,9 +236,9 @@ void append_type_and_scale(binary_tuple_builder &builder, ignite_type typ, std::
 
 void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &value) {
     if (value.is_null()) {
-        builder.claim(std::nullopt); // Type.
-        builder.claim(std::nullopt); // Scale.
-        builder.claim(std::nullopt); // Value.
+        builder.claim_null(); // Type.
+        builder.claim_null(); // Scale.
+        builder.claim_null(); // Value.
         return;
     }
 
@@ -285,13 +285,13 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
         }
         case ignite_type::STRING: {
             claim_type_and_scale(builder, ignite_type::STRING);
-            builder.claim_string(value.get<std::string>());
+            builder.claim_varlen(value.get<std::string>());
             break;
         }
         case ignite_type::BYTE_ARRAY: {
             claim_type_and_scale(builder, ignite_type::BYTE_ARRAY);
             auto &data = value.get<std::vector<std::byte>>();
-            builder.claim_bytes(data);
+            builder.claim_varlen(data);
             break;
         }
         case ignite_type::DECIMAL: {
@@ -337,7 +337,7 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
         }
         case ignite_type::BITMASK: {
             claim_type_and_scale(builder, ignite_type::BITMASK);
-            builder.claim_bytes(value.get<bit_array>().get_raw());
+            builder.claim_varlen(value.get<bit_array>().get_raw());
             break;
         }
         default:
@@ -347,9 +347,9 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
 
 void append_primitive_with_type(binary_tuple_builder &builder, const primitive &value) {
     if (value.is_null()) {
-        builder.append(std::nullopt); // Type.
-        builder.append(std::nullopt); // Scale.
-        builder.append(std::nullopt); // Value.
+        builder.append_null(); // Type.
+        builder.append_null(); // Scale.
+        builder.append_null(); // Value.
         return;
     }
 
@@ -396,13 +396,13 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
         }
         case ignite_type::STRING: {
             append_type_and_scale(builder, ignite_type::STRING);
-            builder.append_string(value.get<std::string>());
+            builder.append_varlen(value.get<std::string>());
             break;
         }
         case ignite_type::BYTE_ARRAY: {
             append_type_and_scale(builder, ignite_type::BYTE_ARRAY);
             auto &data = value.get<std::vector<std::byte>>();
-            builder.append_bytes(data);
+            builder.append_varlen(data);
             break;
         }
         case ignite_type::DECIMAL: {
@@ -448,7 +448,7 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
         }
         case ignite_type::BITMASK: {
             append_type_and_scale(builder, ignite_type::BITMASK);
-            builder.append_bytes(value.get<bit_array>().get_raw());
+            builder.append_varlen(value.get<bit_array>().get_raw());
             break;
         }
         default:
@@ -457,15 +457,13 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
 }
 
 primitive read_next_column(binary_tuple_parser &parser, ignite_type typ, std::int32_t scale) {
-    auto val_opt = parser.get_next();
-    if (!val_opt)
+    auto val = parser.get_next();
+    if (val.empty())
         return {};
-
-    auto val = val_opt.value();
 
     switch (typ) {
         case ignite_type::BOOLEAN:
-            return binary_tuple_parser::get_int8(val) != 0;
+            return binary_tuple_parser::get_bool(val);
         case ignite_type::INT8:
             return binary_tuple_parser::get_int8(val);
         case ignite_type::INT16:
@@ -481,9 +479,9 @@ primitive read_next_column(binary_tuple_parser &parser, ignite_type typ, std::in
         case ignite_type::UUID:
             return binary_tuple_parser::get_uuid(val);
         case ignite_type::STRING:
-            return std::string(reinterpret_cast<const char *>(val.data()), val.size());
+            return std::string(binary_tuple_parser::get_varlen(val));
         case ignite_type::BYTE_ARRAY:
-            return std::vector<std::byte>(val);
+            return std::vector<std::byte>(binary_tuple_parser::get_varlen(val));
         case ignite_type::DECIMAL:
             return binary_tuple_parser::get_decimal(val, scale);
         case ignite_type::NUMBER:
@@ -501,7 +499,7 @@ primitive read_next_column(binary_tuple_parser &parser, ignite_type typ, std::in
         case ignite_type::DURATION:
             return binary_tuple_parser::get_duration(val);
         case ignite_type::BITMASK:
-            return bit_array(val);
+            return bit_array(binary_tuple_parser::get_varlen(val));
         default:
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
     }

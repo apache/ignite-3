@@ -30,22 +30,14 @@ import org.apache.ignite.internal.schema.row.RowAssembler;
  */
 class ObjectStatistics {
     /** Cached zero statistics. */
-    private static final ObjectStatistics ZERO_STATISTICS = new ObjectStatistics(true, -1);
-
-    /** Whether there are NULL values or not. */
-    private final boolean hasNulls;
+    private static final ObjectStatistics ZERO_STATISTICS = new ObjectStatistics(-1);
 
     /** Estimated total size of the object. */
     private final int estimatedValueSize;
 
     /** Constructor. */
-    private ObjectStatistics(boolean hasNulls, int estimatedValueSize) {
-        this.hasNulls = hasNulls;
+    private ObjectStatistics(int estimatedValueSize) {
         this.estimatedValueSize = estimatedValueSize;
-    }
-
-    boolean hasNulls() {
-        return hasNulls;
     }
 
     int getEstimatedValueSize() {
@@ -62,7 +54,6 @@ class ObjectStatistics {
             return ZERO_STATISTICS;
         }
 
-        boolean hasNulls = false;
         int estimatedValueSize = 0;
 
         for (int i = 0; i < cols.length(); i++) {
@@ -70,25 +61,26 @@ class ObjectStatistics {
             NativeType colType = cols.column(i).type();
 
             if (val == null) {
-                hasNulls = true;
-            } else if (colType.spec().fixedLength()) {
+                continue;
+            }
+
+            if (colType.spec().fixedLength()) {
                 estimatedValueSize += colType.sizeInBytes();
             } else {
                 estimatedValueSize += getValueSize(val, colType);
             }
         }
 
-        return new ObjectStatistics(hasNulls, estimatedValueSize);
+        return new ObjectStatistics(estimatedValueSize);
     }
 
     static RowAssembler createAssembler(SchemaDescriptor schema, Marshaller keyMarsh, Object key)
             throws MarshallerException {
         ObjectStatistics keyStat = collectObjectStats(schema.keyColumns(), keyMarsh, key);
 
-        boolean hasNulls = keyStat.hasNulls();
         int totalValueSize = keyStat.getEstimatedValueSize();
 
-        return new RowAssembler(schema.keyColumns(), null, schema.version(), hasNulls, totalValueSize);
+        return new RowAssembler(schema.keyColumns(), null, schema.version(), totalValueSize);
     }
 
     static RowAssembler createAssembler(SchemaDescriptor schema, Marshaller keyMarsh, Marshaller valMarsh, Object key, Object val)
@@ -96,7 +88,6 @@ class ObjectStatistics {
         ObjectStatistics keyStat = collectObjectStats(schema.keyColumns(), keyMarsh, key);
         ObjectStatistics valStat = collectObjectStats(schema.valueColumns(), valMarsh, val);
 
-        boolean hasNulls = keyStat.hasNulls() || valStat.hasNulls();
         int totalValueSize;
         if (keyStat.getEstimatedValueSize() < 0 || valStat.getEstimatedValueSize() < 0) {
             totalValueSize = -1;
@@ -104,6 +95,6 @@ class ObjectStatistics {
             totalValueSize = keyStat.getEstimatedValueSize() + valStat.getEstimatedValueSize();
         }
 
-        return new RowAssembler(schema, hasNulls, totalValueSize);
+        return new RowAssembler(schema, totalValueSize);
     }
 }

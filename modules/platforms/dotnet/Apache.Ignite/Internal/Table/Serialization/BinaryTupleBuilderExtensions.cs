@@ -33,7 +33,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static void AppendNoValue(this ref BinaryTupleBuilder builder, Span<byte> noValueSet)
         {
             noValueSet.SetBit(builder.ElementIndex);
-            builder.AppendDefault();
+            builder.AppendNull();
         }
     }
 }

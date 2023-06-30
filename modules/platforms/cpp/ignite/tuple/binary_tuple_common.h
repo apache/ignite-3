@@ -33,11 +33,14 @@ namespace binary_tuple_common {
 /** Header size in bytes. */
 constexpr tuple_size_t HEADER_SIZE = 1;
 
-/** Mask for null-map flag. */
-constexpr std::byte NULLMAP_FLAG{0b100};
+/** Empty varlen token. */
+constexpr std::byte VARLEN_EMPTY_BYTE{0x80};
 
 /** Mask for tuple size bits. */
 constexpr std::byte VARLEN_ENTRY_SIZE_MASK{0b11};
+
+/** Flag indicating that the offset table is larger than required. */
+constexpr std::byte OFFSET_TABLE_OVERSIZED{0b100};
 
 /** Encodes size as a bit mask. */
 constexpr unsigned int size_to_flags(tuple_size_t size) noexcept {
@@ -59,50 +62,27 @@ struct header {
 
     /** Sets the size of offset-table entries based on the value area size. */
     unsigned int set_entry_size(tuple_size_t value_area_size) noexcept {
-        const unsigned size_log2 = size_to_flags(value_area_size);
+        const auto size_log2 = size_to_flags(value_area_size);
         flags &= ~VARLEN_ENTRY_SIZE_MASK;
         flags |= std::byte(size_log2);
         return 1u << size_log2;
     }
 
+    /** Sets the offset-table 'oversized' flag. */
+    void set_oversized(bool oversized) {
+        if (oversized) {
+            flags |= OFFSET_TABLE_OVERSIZED;
+        } else {
+            flags &= ~OFFSET_TABLE_OVERSIZED;
+        }
+    }
+
     /** Gets the size of a single offset-table entry, in bytes. */
     tuple_size_t get_entry_size() const noexcept { return 1u << static_cast<unsigned>(flags & VARLEN_ENTRY_SIZE_MASK); }
 
-    /** Sets the nullmap flag on. */
-    void set_nullmap_flag() noexcept { flags |= NULLMAP_FLAG; }
-
-    /** Gets the nullmap flag value. */
-    bool get_nullmap_flag() const noexcept { return (flags & NULLMAP_FLAG) != std::byte{0}; }
+    /** Gets the offset-table 'oversized' flag. */
+    bool is_oversized() const noexcept { return (flags & OFFSET_TABLE_OVERSIZED) != std::byte{0}; }
 };
-
-/**
- * @brief Gets the nullmap size.
- *
- * @return Nullmap size in bytes.
- */
-constexpr tuple_size_t get_nullmap_size(tuple_num_t num_elements) noexcept {
-    return (num_elements + 7) / 8;
-}
-
-/**
- * @brief Gets offset of the byte that contains null-bit of a given tuple element.
- *
- * @param index Tuple element index.
- * @return Offset of the required byte relative to the tuple start.
- */
-constexpr tuple_size_t get_null_offset(tuple_num_t index) noexcept {
-    return HEADER_SIZE + index / 8;
-}
-
-/**
- * @brief Gets a null-bit mask corresponding to a given tuple element.
- *
- * @param index Tuple element index.
- * @return Mask to extract the required null-bit.
- */
-constexpr std::byte get_null_mask(tuple_num_t index) noexcept {
-    return std::byte{1} << (index % 8);
-}
 
 } // namespace binary_tuple_common
 

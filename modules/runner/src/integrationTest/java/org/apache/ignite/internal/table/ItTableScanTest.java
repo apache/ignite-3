@@ -459,9 +459,9 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
         BinaryTuplePrefix lowBound = BinaryTuplePrefix.fromBinaryTuple(new BinaryTuple(1,
-                new BinaryTupleBuilder(1, false).appendInt(5).build()));
+                new BinaryTupleBuilder(1).appendInt(5).build()));
         BinaryTuplePrefix upperBound = BinaryTuplePrefix.fromBinaryTuple(new BinaryTuple(1,
-                new BinaryTupleBuilder(1, false).appendInt(9).build()));
+                new BinaryTupleBuilder(1).appendInt(9).build()));
 
         int soredIndexId = getSortedIndexId();
 
