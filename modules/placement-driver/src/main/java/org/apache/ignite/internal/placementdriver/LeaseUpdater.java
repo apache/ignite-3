@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
@@ -34,7 +35,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -72,7 +72,7 @@ public class LeaseUpdater {
     private static final IgniteLogger LOG = Loggers.forClass(LeaseUpdater.class);
 
     /** Update attempts interval in milliseconds. */
-    private static final long UPDATE_LEASE_MS = 500L;
+    private static final long UPDATE_LEASE_MS = 200L;
 
     /** Lease holding interval. */
     private static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
@@ -335,8 +335,7 @@ public class LeaseUpdater {
                 }
 
                 var leasesKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX);
-                List<Lease> renewedLeasesList = renewedLeases.entrySet().stream().map(Map.Entry::getValue).sorted().collect(
-                        Collectors.toList());
+                List<Lease> renewedLeasesList = renewedLeases.entrySet().stream().map(Map.Entry::getValue).sorted().collect(toList());
 
                 byte[] renewedValue = new LeaseBatch(renewedLeasesList).bytes();
 

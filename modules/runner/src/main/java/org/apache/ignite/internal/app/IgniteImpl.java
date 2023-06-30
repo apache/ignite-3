@@ -450,6 +450,8 @@ public class IgniteImpl implements Ignite {
 
         metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageConfiguration.KEY));
 
+        DistributionZonesConfiguration zonesConfiguration = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
+
         placementDriverMgr = new PlacementDriverManager(
                 metaStorageMgr,
                 vaultMgr,
@@ -499,7 +501,7 @@ public class IgniteImpl implements Ignite {
         schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
         distributionZoneManager = new DistributionZoneManager(
-                clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY),
+                zonesConfiguration,
                 tablesConfig,
                 metaStorageMgr,
                 logicalTopologyService,
