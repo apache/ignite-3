@@ -154,7 +154,7 @@ public class JraftServerImpl implements RaftServer {
         this.service = service;
         this.dataPath = dataPath;
         this.nodeManager = new NodeManager();
-        this.logStorageFactory = new DefaultLogStorageFactory(dataPath.resolve("log"));
+        this.logStorageFactory = new DefaultLogStorageFactory(dataPath.resolve("log"), opts.getStripes());
         this.opts = opts;
         this.raftGroupEventsClientListener = raftGroupEventsClientListener;
 
@@ -245,7 +245,9 @@ public class JraftServerImpl implements RaftServer {
                     NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-FSMCaller-Disruptor"),
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     ApplyTask::new,
-                    opts.getStripes()));
+                    opts.getStripes(),
+                    false
+            ));
         }
 
         if (opts.getNodeApplyDisruptor() == null) {
@@ -253,7 +255,9 @@ public class JraftServerImpl implements RaftServer {
                     NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-NodeImpl-Disruptor"),
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     LogEntryAndClosure::new,
-                    opts.getStripes()));
+                    opts.getStripes(),
+                    false
+            ));
         }
 
         if (opts.getReadOnlyServiceDisruptor() == null) {
@@ -261,7 +265,9 @@ public class JraftServerImpl implements RaftServer {
                     NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-ReadOnlyService-Disruptor"),
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     ReadIndexEvent::new,
-                    opts.getStripes()));
+                    opts.getStripes(),
+                    false
+            ));
         }
 
         if (opts.getLogManagerDisruptor() == null) {
@@ -269,7 +275,9 @@ public class JraftServerImpl implements RaftServer {
                     NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-LogManager-Disruptor"),
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     StableClosureEvent::new,
-                    opts.getStripes()));
+                    opts.getStripes(),
+                    true
+            ));
         }
 
         logStorageFactory.start();

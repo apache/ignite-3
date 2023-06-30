@@ -55,7 +55,7 @@ public class RocksDbSharedLogStorageAdvancedTest {
 
     @BeforeEach
     public void setUp() {
-        logStorageProvider = new DefaultLogStorageFactory(this.path);
+        logStorageProvider = new DefaultLogStorageFactory(this.path, 1);
 
         logStorageProvider.start();
 

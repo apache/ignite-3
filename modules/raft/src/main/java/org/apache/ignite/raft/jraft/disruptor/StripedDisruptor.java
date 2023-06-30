@@ -61,19 +61,22 @@ public class StripedDisruptor<T extends NodeIdAware> {
     /** The Striped disruptor name. */
     private final String name;
 
+    private final boolean supportsBatches;
+
     /**
      * @param name Name of the Striped disruptor.
      * @param bufferSize Buffer size for each Disruptor.
      * @param eventFactory Event factory for the Striped disruptor.
      * @param stripes Amount of stripes.
      */
-    public StripedDisruptor(String name, int bufferSize, EventFactory<T> eventFactory, int stripes) {
+    public StripedDisruptor(String name, int bufferSize, EventFactory<T> eventFactory, int stripes, boolean supportsBatches) {
         disruptors = new Disruptor[stripes];
         queues = new RingBuffer[stripes];
         eventHandlers = new ArrayList<>(stripes);
         exceptionHandlers = new ArrayList<>(stripes);
         this.stripes = stripes;
         this.name = name;
+        this.supportsBatches = supportsBatches;
 
         for (int i = 0; i < stripes; i++) {
             String stripeName = format("{}_stripe_{}-", name, i);
@@ -136,12 +139,12 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @return Disruptor queue appropriate to the group.
      */
     public RingBuffer<T> subscribe(NodeId nodeId, EventHandler<T> handler, BiConsumer<T, Throwable> exceptionHandler) {
-        eventHandlers.get(getStripe(nodeId)).subscribe(nodeId, handler);
+        eventHandlers.get(getStripe(nodeId, stripes)).subscribe(nodeId, handler);
 
         if (exceptionHandler != null)
-            exceptionHandlers.get(getStripe(nodeId)).subscribe(nodeId, exceptionHandler);
+            exceptionHandlers.get(getStripe(nodeId, stripes)).subscribe(nodeId, exceptionHandler);
 
-        return queues[getStripe(nodeId)];
+        return queues[getStripe(nodeId, stripes)];
     }
 
     /**
@@ -150,8 +153,8 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param nodeId Node id.
      */
     public void unsubscribe(NodeId nodeId) {
-        eventHandlers.get(getStripe(nodeId)).unsubscribe(nodeId);
-        exceptionHandlers.get(getStripe(nodeId)).unsubscribe(nodeId);
+        eventHandlers.get(getStripe(nodeId, stripes)).unsubscribe(nodeId);
+        exceptionHandlers.get(getStripe(nodeId, stripes)).unsubscribe(nodeId);
     }
 
     /**
@@ -160,7 +163,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param nodeId Node id.
      * @return Stripe of the Striped disruptor.
      */
-    private int getStripe(NodeId nodeId) {
+    public static int getStripe(NodeId nodeId, int stripes) {
         return Math.abs(nodeId.hashCode() % stripes);
     }
 
@@ -171,7 +174,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @return Disruptor queue appropriate to the group.
      */
     public RingBuffer<T> queue(NodeId nodeId) {
-        return queues[getStripe(nodeId)];
+        return queues[getStripe(nodeId, stripes)];
     }
 
     /**
@@ -214,7 +217,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
             assert handler != null : format("Group of the event is unsupported [nodeId={}, event={}]", event.nodeId(), event);
 
             //TODO: IGNITE-15568 endOfBatch should be set to true to prevent caching tasks until IGNITE-15568 has fixed.
-            handler.onEvent(event, sequence, subscribers.size() > 1 ? true : endOfBatch);
+            handler.onEvent(event, sequence, endOfBatch || subscribers.size() >= 1 && !supportsBatches);
         }
     }
 

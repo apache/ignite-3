@@ -41,6 +41,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
+import org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorage;import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -612,7 +613,7 @@ public class NodeImpl implements Node, RaftServerService {
     private boolean initLogStorage() {
         Requires.requireNonNull(this.fsmCaller, "Null fsm caller");
         this.logStorage = this.serviceFactory.createLogStorage(this.options.getLogUri(), this.raftOptions);
-        this.logManager = new LogManagerImpl();
+        this.logManager = new StripeAwareLogManager();
         final LogManagerOptions opts = new LogManagerOptions();
         opts.setLogEntryCodecFactory(this.serviceFactory.createLogEntryCodecFactory());
         opts.setLogStorage(this.logStorage);
@@ -1279,7 +1280,9 @@ public class NodeImpl implements Node, RaftServerService {
                 NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-FSMCaller-Disruptor"),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
-                opts.getStripes()));
+                opts.getStripes(),
+                false
+            ));
         } else if (ownFsmCallerExecutorDisruptorConfig != null) {
             opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
                 NamedThreadFactory.threadPrefix(
@@ -1288,7 +1291,9 @@ public class NodeImpl implements Node, RaftServerService {
                 ),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
-                ownFsmCallerExecutorDisruptorConfig.getStripes()));
+                ownFsmCallerExecutorDisruptorConfig.getStripes(),
+                false
+            ));
         }
 
         if (opts.getNodeApplyDisruptor() == null) {
@@ -1296,7 +1301,9 @@ public class NodeImpl implements Node, RaftServerService {
                 NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-NodeImpl-Disruptor"),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new NodeImpl.LogEntryAndClosure(),
-                opts.getStripes()));
+                opts.getStripes(),
+                false
+            ));
         }
 
         if (opts.getReadOnlyServiceDisruptor() == null) {
@@ -1304,7 +1311,9 @@ public class NodeImpl implements Node, RaftServerService {
                 NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-ReadOnlyService-Disruptor"),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
-                opts.getStripes()));
+                opts.getStripes(),
+                false
+            ));
         }
 
         if (opts.getLogManagerDisruptor() == null) {
@@ -1312,7 +1321,9 @@ public class NodeImpl implements Node, RaftServerService {
                 NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-LogManager-Disruptor"),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new LogManagerImpl.StableClosureEvent(),
-                opts.getStripes()));
+                opts.getStripes(),
+                logStorage instanceof RocksDbSharedLogStorage
+            ));
         }
     }
 

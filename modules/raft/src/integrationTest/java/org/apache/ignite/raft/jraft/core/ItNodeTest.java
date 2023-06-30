@@ -2928,8 +2928,10 @@ public class ItNodeTest {
         for (char ch = 'a'; ch <= 'z'; ch++)
             fsm.getLogs().add(ByteBuffer.wrap(new byte[] {(byte) ch}));
 
+        NodeOptions nodeOpts = new NodeOptions();
+
         BootstrapOptions opts = new BootstrapOptions();
-        DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path);
+        DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path, nodeOpts.getStripes());
         logStorageProvider.start();
         opts.setServiceFactory(new IgniteJraftServiceFactory(logStorageProvider));
         opts.setLastLogIndex(fsm.getLogs().size());
@@ -2939,7 +2941,6 @@ public class ItNodeTest {
         opts.setGroupConf(JRaftUtils.getConfiguration(peer.getPeerId().toString()));
         opts.setFsm(fsm);
 
-        NodeOptions nodeOpts = new NodeOptions();
         opts.setNodeOptions(nodeOpts);
 
         assertTrue(JRaftUtils.bootstrap(opts));
@@ -2948,7 +2949,7 @@ public class ItNodeTest {
         nodeOpts.setRaftMetaUri(dataPath + File.separator + "meta");
         nodeOpts.setSnapshotUri(dataPath + File.separator + "snapshot");
         nodeOpts.setLogUri("test");
-        DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path);
+        DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path, nodeOpts.getStripes());
         log2.start();
         nodeOpts.setServiceFactory(new IgniteJraftServiceFactory(log2));
         nodeOpts.setFsm(fsm);
@@ -2976,8 +2977,10 @@ public class ItNodeTest {
         Path path = Path.of(dataPath, "node0", "log");
         Files.createDirectories(path);
 
+        NodeOptions nodeOpts = new NodeOptions();
+
         BootstrapOptions opts = new BootstrapOptions();
-        DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path);
+        DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path, nodeOpts.getStripes());
         logStorageProvider.start();
         opts.setServiceFactory(new IgniteJraftServiceFactory(logStorageProvider));
         opts.setLastLogIndex(0);
@@ -2986,7 +2989,6 @@ public class ItNodeTest {
         opts.setLogUri("test");
         opts.setGroupConf(JRaftUtils.getConfiguration(peer.getPeerId().toString()));
         opts.setFsm(fsm);
-        NodeOptions nodeOpts = new NodeOptions();
         opts.setNodeOptions(nodeOpts);
 
         assertTrue(JRaftUtils.bootstrap(opts));
@@ -2996,7 +2998,7 @@ public class ItNodeTest {
         nodeOpts.setSnapshotUri(dataPath + File.separator + "snapshot");
         nodeOpts.setLogUri("test");
         nodeOpts.setFsm(fsm);
-        DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path);
+        DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path, nodeOpts.getStripes());
         log2.start();
         nodeOpts.setServiceFactory(new IgniteJraftServiceFactory(log2));
 
@@ -3872,7 +3874,7 @@ public class ItNodeTest {
     private NodeOptions createNodeOptions(int nodeIdx) {
         NodeOptions options = new NodeOptions();
 
-        DefaultLogStorageFactory log = new DefaultLogStorageFactory(Path.of(dataPath, "node" + nodeIdx, "log"));
+        DefaultLogStorageFactory log = new DefaultLogStorageFactory(Path.of(dataPath, "node" + nodeIdx, "log"), options.getStripes());
         log.start();
 
         options.setServiceFactory(new IgniteJraftServiceFactory(log));

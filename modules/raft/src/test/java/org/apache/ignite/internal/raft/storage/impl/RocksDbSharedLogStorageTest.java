@@ -32,7 +32,7 @@ public class RocksDbSharedLogStorageTest extends BaseLogStorageTest {
     @BeforeEach
     @Override
     public void setup() throws Exception {
-        logStorageProvider = new DefaultLogStorageFactory(this.path);
+        logStorageProvider = new DefaultLogStorageFactory(this.path, 1);
 
         logStorageProvider.start();
 

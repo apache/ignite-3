@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.toList;
 import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
 
+import com.lmax.disruptor.dsl.Disruptor;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,11 +29,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
+import org.apache.ignite.raft.jraft.entity.NodeId;
+import org.apache.ignite.raft.jraft.option.LogManagerOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
@@ -45,6 +52,7 @@ import org.rocksdb.DBOptions;
 import org.rocksdb.Env;
 import org.rocksdb.Priority;
 import org.rocksdb.RocksDB;
+import org.rocksdb.WriteBatch;
 import org.rocksdb.util.SizeUnit;
 
 /** Implementation of the {@link LogStorageFactory} that creates {@link RocksDbSharedLogStorage}s. */
@@ -70,17 +78,35 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     private ColumnFamilyHandle dataHandle;
 
     /**
+     * List of stripes for stipe-aware log manager.
+     * <br>
+     * Every log instance, created be {@link #createLogStorage(String, RaftOptions)}, will be assigned to its own stripe instance,
+     * that corresponds to its {@link Disruptor} worker in {@link LogManagerOptions#getLogManagerDisruptor()}.
+     */
+    private final List<Stripe> stripes;
+
+    /**
+     * Thread-local batch instance, used by {@link RocksDbSharedLogStorage#appendEntriesToBatch(List)} and
+     * {@link RocksDbSharedLogStorage#commitWriteBatch()}.
+     * <br>
+     * Shared between instances to provide more efficient way of executing batch updates.
+     */
+    @SuppressWarnings("ThreadLocalNotStaticFinal")
+    private final ThreadLocal<WriteBatch> threadLocalWriteBatch = new ThreadLocal<>();
+
+    /**
      * Constructor.
      *
      * @param path Path to the storage.
      */
-    public DefaultLogStorageFactory(Path path) {
+    public DefaultLogStorageFactory(Path path, int stripes) {
         this.path = path;
 
-        executorService = Executors.newFixedThreadPool(
-                Runtime.getRuntime().availableProcessors() * 2,
+        executorService = Executors.newSingleThreadExecutor(
                 new NamedThreadFactory("raft-shared-log-storage-pool", LOG)
         );
+
+        this.stripes = IntStream.range(0, stripes).mapToObj(i -> new Stripe()).collect(toList());
     }
 
     /** {@inheritDoc} */
@@ -136,7 +162,37 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** {@inheritDoc} */
     @Override
     public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
-        return new RocksDbSharedLogStorage(db, confHandle, dataHandle, groupId, raftOptions, executorService);
+        return new RocksDbSharedLogStorage(this, db, confHandle, dataHandle, groupId, raftOptions, executorService);
+    }
+
+    /**
+     * Returns a stripe, that corresponds to a specific {@link Disruptor} in {@link LogManagerOptions#getLogManagerDisruptor()},
+     * attached to the gven {@code nodeId}.
+     */
+    Stripe stripe(NodeId nodeId) {
+        return stripes.get(StripedDisruptor.getStripe(nodeId, stripes.size()));
+    }
+
+    /**
+     * Returns a thread-local {@link WriteBatch} instance, attached to current factory, append data from multiple storages at the same time.
+     */
+    WriteBatch getOrCreateThreadLocalWriteBatch() {
+        WriteBatch writeBatch = threadLocalWriteBatch.get();
+
+        if (writeBatch == null) {
+            writeBatch = new WriteBatch();
+
+            threadLocalWriteBatch.set(writeBatch);
+        }
+
+        return writeBatch;
+    }
+
+    /**
+     * Clears {@link WriteBatch} returned by {@link #getOrCreateThreadLocalWriteBatch()}.
+     */
+    void clearThreadLocalWriteBatch() {
+        threadLocalWriteBatch.set(null);
     }
 
     /**
