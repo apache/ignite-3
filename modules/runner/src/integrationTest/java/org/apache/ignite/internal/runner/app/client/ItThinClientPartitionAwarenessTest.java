@@ -36,6 +36,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Thin client partition awareness test with real cluster.
@@ -75,23 +77,24 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
 
     @Test
     void testGetRequestIsRoutedToPrimaryNode() {
-        Tuple key = Tuple.create().set("key", 1);
-        RecordView<Tuple> view = proxyClient.tables().table(TABLE_NAME).recordView();
-
         // Warm up.
-        view.get(null, key);
+        RecordView<Tuple> view = proxyClient.tables().table(TABLE_NAME).recordView();
+        view.get(null, Tuple.create().set("key", 1));
 
-        // Get actual primary node using compute.
-        var primaryNodeName = proxyClient.compute()
-                .<String>executeColocated(TABLE_NAME, key, List.of(), NodeNameJob.class.getName())
-                .join();
+        for (int key = 0; key < 50; key++) {
+            // Get actual primary node using compute.
+            Tuple keyTuple = Tuple.create().set("key", key);
+            var primaryNodeName = proxyClient.compute()
+                    .<String>executeColocated(TABLE_NAME, keyTuple, List.of(), NodeNameJob.class.getName())
+                    .join();
 
-        // Perform request and check routing with proxy.
-        resetRequestCount();
-        view.get(null, key);
-        String requestNodeName = getLastRequestNodeName();
+            // Perform request and check routing with proxy.
+            resetRequestCount();
+            view.get(null, keyTuple);
+            String requestNodeName = getLastRequestNodeName();
 
-        assertEquals(primaryNodeName, requestNodeName);
+            assertEquals(primaryNodeName, requestNodeName, "Key: " + key);
+        }
     }
 
     private @Nullable String getLastRequestNodeName() {
