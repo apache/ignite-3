@@ -34,8 +34,6 @@ import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 /**
  * Log manager that enables batch processing of log entries from different partitions within a stripe.
  * <br>
- * Only compatible with {@link DefaultLogStorageFactory}.
- * <br>
  * Upon each flush of the log, it will also trigger flush on all the other log storages, that belong to the same stripe in
  * corresponding {@link LogManagerOptions#getLogManagerDisruptor()}.
  */
@@ -43,36 +41,53 @@ public class StripeAwareLogManager extends LogManagerImpl {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LogManagerImpl.class);
 
-    /** Explicitly typed log storage instance. */
-    private RocksDbSharedLogStorage logStorage;
+    /** Log storage instance. */
+    private LogStorage logStorage;
 
     /** Stripe, that corresponds to the current log storage instance. */
-    private Stripe stripe;
+    private final Stripe stripe;
 
     /** Size threshold of log entries list, that will trigger the flush upon the excess. */
     private int maxAppendBufferSize;
+
+    /**
+     * Whether the log storage is a {@link RocksDbSharedLogStorage} or not.
+     * It requires special treatment in order to better optimize writes.
+     */
+    private boolean sharedLogStorage;
+
+    /**
+     * Constructor.
+     *
+     * @param stripe Stripe that corresponds to a worker thread in {@link LogManagerOptions#getLogManagerDisruptor()}.
+     */
+    public StripeAwareLogManager(Stripe stripe) {
+        this.stripe = stripe;
+    }
 
     @Override
     public boolean init(LogManagerOptions opts) {
         LogStorage logStorage = opts.getLogStorage();
 
-        assert logStorage instanceof RocksDbSharedLogStorage : logStorage;
-
-        this.logStorage = (RocksDbSharedLogStorage) logStorage;
-        this.stripe = this.logStorage.getLogStorageFactory().stripe(opts.getNode().getNodeId());
+        this.sharedLogStorage = logStorage instanceof RocksDbSharedLogStorage;
+        this.logStorage = logStorage;
         this.maxAppendBufferSize = opts.getRaftOptions().getMaxAppendBufferSize();
 
         return super.init(opts);
     }
 
     /**
-     * Regular append to storage has been replaced with appending data into a batch. Data will later be "committed" by calling
+     * Regular append to shared storage has been replaced with appending data into a batch. Data will later be "committed" by calling
      * {@link StripeAwareAppendBatcher#commitWriteBatch()} on any of the log instances.
      * The reason why is given in {@link Stripe}'s comments.
      */
     @Override
     protected int appendToLogStorage(List<LogEntry> toAppend) {
-        return logStorage.appendEntriesToBatch(toAppend) ? toAppend.size() : 0;
+        if (sharedLogStorage) {
+            return ((RocksDbSharedLogStorage) logStorage).appendEntriesToBatch(toAppend) ? toAppend.size() : 0;
+        } else {
+            return logStorage.appendEntries(toAppend);
+        }
     }
 
     @Override
@@ -111,10 +126,12 @@ public class StripeAwareLogManager extends LogManagerImpl {
         }
 
         /**
-         * Delegates to {@link RocksDbSharedLogStorage#commitWriteBatch()}.
+         * Delegates to {@link RocksDbSharedLogStorage#commitWriteBatch()} if it can. No-op otherwise.
          */
         void commitWriteBatch() {
-            logStorage.commitWriteBatch();
+            if (sharedLogStorage) {
+                ((RocksDbSharedLogStorage) logStorage).commitWriteBatch();
+            }
         }
 
         /**
@@ -173,9 +190,9 @@ public class StripeAwareLogManager extends LogManagerImpl {
      * <br>
      * It accumulates data from different {@link AppendBatcher} instances, allowing to flush data from several log storages all at once.
      * <br>
-     * This enables us to support batch log updates.
+     * Also supports batch log updates for {@link RocksDbSharedLogStorage}.
      */
-    static class Stripe {
+    public static class Stripe {
         /** Cumulative data size of all data entries, not yet flushed in this stripe. */
         private int bufferSize;
 
@@ -212,7 +229,7 @@ public class StripeAwareLogManager extends LogManagerImpl {
                 // This is a little confusing and hacky, but it doesn't require explicit access to the log storage factory,
                 // which makes it far easier to use in current jraft code.
                 // The reason why we don't call this method on log factory, for example, is because the factory doesn't have proper access
-                // to the RAFT configuration, and can't say, whether it should use "fscyn" or not, for example.
+                // to the RAFT configuration, and can't say, whether it should use "fsync" or not, for example.
                 try {
                     appendBatchers.iterator().next().commitWriteBatch();
                 } catch (Exception e) {

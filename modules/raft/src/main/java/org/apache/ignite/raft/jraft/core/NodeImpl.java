@@ -613,7 +613,8 @@ public class NodeImpl implements Node, RaftServerService {
     private boolean initLogStorage() {
         Requires.requireNonNull(this.fsmCaller, "Null fsm caller");
         this.logStorage = this.serviceFactory.createLogStorage(this.options.getLogUri(), this.raftOptions);
-        this.logManager = new StripeAwareLogManager();
+        int stripe = options.getLogManagerDisruptor().getStripe(getNodeId());
+        this.logManager = new StripeAwareLogManager(options.getLogStripes().get(stripe));
         final LogManagerOptions opts = new LogManagerOptions();
         opts.setLogEntryCodecFactory(this.serviceFactory.createLogEntryCodecFactory());
         opts.setLogStorage(this.logStorage);

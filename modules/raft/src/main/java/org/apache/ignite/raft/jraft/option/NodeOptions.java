@@ -17,11 +17,14 @@
 package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
+import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
+import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -246,6 +249,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     /** */
     private boolean sharedPools = false;
+
+    /** */
+    private List<Stripe> logStripes;
 
     public NodeOptions() {
         raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());
@@ -590,6 +596,16 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setLogManagerDisruptor(StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor) {
         this.logManagerDisruptor = logManagerDisruptor;
+
+        if (logManagerDisruptor == null) {
+            logStripes = null;
+        } else {
+            this.logStripes = IntStream.range(0, stripes).mapToObj(i -> new StripeAwareLogManager.Stripe()).collect(Collectors.toList());
+        }
+    }
+
+    public List<Stripe> getLogStripes() {
+        return logStripes;
     }
 
     public HybridClock getClock() {

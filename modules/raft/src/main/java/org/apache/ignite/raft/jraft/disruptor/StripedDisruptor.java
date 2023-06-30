@@ -145,12 +145,12 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @return Disruptor queue appropriate to the group.
      */
     public RingBuffer<T> subscribe(NodeId nodeId, EventHandler<T> handler, BiConsumer<T, Throwable> exceptionHandler) {
-        eventHandlers.get(getStripe(nodeId, stripes)).subscribe(nodeId, handler);
+        eventHandlers.get(getStripe(nodeId)).subscribe(nodeId, handler);
 
         if (exceptionHandler != null)
-            exceptionHandlers.get(getStripe(nodeId, stripes)).subscribe(nodeId, exceptionHandler);
+            exceptionHandlers.get(getStripe(nodeId)).subscribe(nodeId, exceptionHandler);
 
-        return queues[getStripe(nodeId, stripes)];
+        return queues[getStripe(nodeId)];
     }
 
     /**
@@ -159,8 +159,8 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param nodeId Node id.
      */
     public void unsubscribe(NodeId nodeId) {
-        eventHandlers.get(getStripe(nodeId, stripes)).unsubscribe(nodeId);
-        exceptionHandlers.get(getStripe(nodeId, stripes)).unsubscribe(nodeId);
+        eventHandlers.get(getStripe(nodeId)).unsubscribe(nodeId);
+        exceptionHandlers.get(getStripe(nodeId)).unsubscribe(nodeId);
     }
 
     /**
@@ -169,7 +169,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param nodeId Node id.
      * @return Stripe of the Striped disruptor.
      */
-    public static int getStripe(NodeId nodeId, int stripes) {
+    public int getStripe(NodeId nodeId) {
         return Math.abs(nodeId.hashCode() % stripes);
     }
 
@@ -180,7 +180,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @return Disruptor queue appropriate to the group.
      */
     public RingBuffer<T> queue(NodeId nodeId) {
-        return queues[getStripe(nodeId, stripes)];
+        return queues[getStripe(nodeId)];
     }
 
     /**
