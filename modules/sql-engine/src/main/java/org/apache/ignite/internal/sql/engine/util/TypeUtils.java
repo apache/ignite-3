@@ -537,11 +537,6 @@ public class TypeUtils {
 
     /** Checks whether cast operation is necessary in {@code SearchBound}. */
     public static boolean needCastInSearchBounds(IgniteTypeFactory typeFactory, RelDataType fromType, RelDataType toType) {
-        // Check custom data types first.
-        if (toType.getSqlTypeName() == SqlTypeName.ANY || fromType.getSqlTypeName() == SqlTypeName.ANY) {
-            return customDataTypeNeedCast(typeFactory, fromType, toType);
-        }
-
         // No need to cast between char and varchar.
         if (SqlTypeUtil.isCharacter(toType) && SqlTypeUtil.isCharacter(fromType)) {
             return false;

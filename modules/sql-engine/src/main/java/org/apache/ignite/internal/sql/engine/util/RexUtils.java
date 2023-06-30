@@ -87,7 +87,6 @@ import org.apache.calcite.util.Sarg;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
-import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -713,10 +712,6 @@ public class RexUtils {
 
         op = removeCast(op);
 
-        // Can proceed without ref cast only if cast was redundant in terms of values comparison.
-        IgniteTypeCoercion typeCoercion = cluster.getPlanner().getContext().unwrap(IgniteTypeCoercion.class);
-        assert typeCoercion != null : "type coercion";
-
         if (op instanceof RexSlot) {
             RelDataType operandType = call.getOperands().get(operandNum).getType();
             if (!TypeUtils.needCastInSearchBounds(Commons.typeFactory(), op.getType(), operandType)) {
@@ -942,9 +937,6 @@ public class RexUtils {
         RexNode node = removeCast(condition);
 
         assert idxOpSupports(node) : "Unsupported RexNode in index condition: " + node;
-
-        IgniteTypeCoercion typeCoercion = cluster.getPlanner().getContext().unwrap(IgniteTypeCoercion.class);
-        assert typeCoercion != null : "type coercion";
 
         RexBuilder builder = cluster.getRexBuilder();
         RexNode saturated = toSaturatedValue(builder, node, type);
