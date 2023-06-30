@@ -562,7 +562,8 @@ public class TypeUtils {
 
     /**
      * Checks whether one type can be casted to another if one of type is a custom data type.
-     * This method expects at least one of its arguments to be a custom data type.
+     *
+     * <p>This method expects at least one of its arguments to be a custom data type.
      */
     public static boolean customDataTypeNeedCast(IgniteTypeFactory factory, RelDataType fromType, RelDataType toType) {
         IgniteCustomTypeCoercionRules typeCoercionRules = factory.getCustomTypeCoercionRules();
