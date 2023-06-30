@@ -11,4 +11,4 @@ we ask both an author and a reviewer to check the following requirements:
 - [ ] **Tests code quality:** tests set covers positive/negative scenarios, happy/edge cases. Tests are effective in terms of execution time and resources.
 
 ### Notes
-- [Apache Ignite Coding Guidelines](https://cwiki.apache.org/confluence/display/IGNITE/Coding+Guidelines)
+- [Apache Ignite Coding Guidelines](https://cwiki.apache.org/confluence/display/IGNITE/Java+Code+Style+Guide)
