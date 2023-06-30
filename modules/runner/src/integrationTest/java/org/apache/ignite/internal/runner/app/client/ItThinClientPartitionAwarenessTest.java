@@ -36,7 +36,7 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
             adds.add("127.0.0.1:" + proxy.listenPort());
         }
 
-        var client = IgniteClient.builder().addresses(adds.toArray(new String[0])).build();
+        var client = IgniteClient.builder().addresses(adds.get(0)).build();
 
         var nodes = client.clusterNodes();
     }

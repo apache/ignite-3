@@ -32,29 +32,24 @@ public final class IgniteClientProxy implements AutoCloseable {
     private final int targetPort;
     private final int listenPort;
 
-    private IgniteClientProxy(int targetPort, int listenPort) {
+    private final ChannelFuture chFut;
+
+    private IgniteClientProxy(int targetPort, int listenPort) throws InterruptedException {
         this.targetPort = targetPort;
         this.listenPort = listenPort;
-    }
 
-    private void start() throws InterruptedException {
         ServerBootstrap b = new ServerBootstrap();
 
-        ChannelFuture chFut = b.group(bossGroup, workerGroup)
+        this.chFut = b.group(bossGroup, workerGroup)
                 .channel(NioServerSocketChannel.class)
                 .handler(new LoggingHandler(LogLevel.INFO))
                 .childHandler(new IgniteClientProxyInitializer(targetPort))
                 .childOption(ChannelOption.AUTO_READ, false)
                 .bind(listenPort).sync();
-
-        chFut.channel().closeFuture().sync();
     }
 
     public static IgniteClientProxy start(int targetPort, int listenPort) throws Exception {
-        IgniteClientProxy proxy = new IgniteClientProxy(targetPort, listenPort);
-        proxy.start();
-
-        return proxy;
+        return new IgniteClientProxy(targetPort, listenPort);
     }
 
     public int targetPort() {
@@ -67,6 +62,7 @@ public final class IgniteClientProxy implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
+        chFut.channel().close().sync();
         bossGroup.shutdownGracefully();
         workerGroup.shutdownGracefully();
     }
