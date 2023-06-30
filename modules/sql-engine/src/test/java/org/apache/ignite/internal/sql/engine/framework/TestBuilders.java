@@ -69,16 +69,6 @@ public class TestBuilders {
         return new TableBuilderImpl();
     }
 
-    /** Returns a builder of the test sorted-index object. */
-    public static SortedIndexBuilder sortedIndex() {
-        return new SortedIndexBuilderImpl();
-    }
-
-    /** Returns a builder of the test hash-index object. */
-    public static HashIndexBuilder hashIndex() {
-        return new HashIndexBuilderImpl();
-    }
-
     /** Returns a builder of the execution context. */
     public static ExecutionContextBuilder executionContext() {
         return new ExecutionContextBuilderImpl();
@@ -137,6 +127,12 @@ public class TestBuilders {
      * @see TestTable
      */
     public interface TableBuilder extends TableBuilderBase<TableBuilder> {
+        /** Returns a builder of the test sorted-index object. */
+        public SortedIndexBuilder sortedIndex();
+
+        /** Returns a builder of the test hash-index object. */
+        public HashIndexBuilder hashIndex();
+
         /**
          * Builds a table.
          *
@@ -150,13 +146,7 @@ public class TestBuilders {
      *
      * @see TestIndex
      */
-    public interface SortedIndexBuilder extends SortedIndexBuilderBase<SortedIndexBuilder> {
-        /**
-         * Builds a index.
-         *
-         * @return Created index object.
-         */
-        IgniteIndex build();
+    public interface SortedIndexBuilder extends SortedIndexBuilderBase<SortedIndexBuilder>, NestedBuilder<TableBuilder> {
     }
 
     /**
@@ -164,13 +154,7 @@ public class TestBuilders {
      *
      * @see TestIndex
      */
-    public interface HashIndexBuilder extends HashIndexBuilderBase<HashIndexBuilder> {
-        /**
-         * Builds a index.
-         *
-         * @return Created index object.
-         */
-        IgniteIndex build();
+    public interface HashIndexBuilder extends HashIndexBuilderBase<HashIndexBuilder>, NestedBuilder<TableBuilder> {
     }
 
     /**
@@ -415,6 +399,18 @@ public class TestBuilders {
     private static class TableBuilderImpl extends AbstractTableBuilderImpl<TableBuilder> implements TableBuilder {
         /** {@inheritDoc} */
         @Override
+        public SortedIndexBuilder sortedIndex() {
+            return new SortedIndexBuilderImpl(this);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public HashIndexBuilder hashIndex() {
+            return new HashIndexBuilderImpl(this);
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public TestTable build() {
             if (distribution == null) {
                 throw new IllegalArgumentException("Distribution is not specified");
@@ -428,12 +424,16 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Table must contain at least one column");
             }
 
-            return new TestTable(
+            TestTable testTable = new TestTable(
                     new TableDescriptorImpl(columns, distribution),
                     Objects.requireNonNull(name),
                     Map.of(),
                     size
             );
+
+            indexBuilders.stream().map(AbstractIndexBuilderImpl::build).forEach(testTable::addIndex);
+
+            return testTable;
         }
 
         /** {@inheritDoc} */
@@ -445,7 +445,6 @@ public class TestBuilders {
 
     private static class ClusterTableBuilderImpl extends AbstractTableBuilderImpl<ClusterTableBuilder> implements ClusterTableBuilder {
         private final ClusterBuilderImpl parent;
-        private final List<AbstractIndexBuilderImpl> indexBuilders = new ArrayList<>();
 
         private ClusterTableBuilderImpl(ClusterBuilderImpl parent) {
             this.parent = parent;
@@ -488,10 +487,24 @@ public class TestBuilders {
 
     private static class SortedIndexBuilderImpl extends AbstractIndexBuilderImpl<SortedIndexBuilder>
             implements SortedIndexBuilder {
+        private final TableBuilderImpl parent;
+
+        private SortedIndexBuilderImpl(TableBuilderImpl parent) {
+            this.parent = parent;
+        }
+
         /** {@inheritDoc} */
         @Override
         SortedIndexBuilder self() {
             return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public TableBuilder end() {
+            parent.indexBuilders.add(this);
+
+            return parent;
         }
 
         /** {@inheritDoc} */
@@ -513,12 +526,25 @@ public class TestBuilders {
         }
     }
 
-    private static class HashIndexBuilderImpl extends AbstractIndexBuilderImpl<HashIndexBuilder>
-            implements HashIndexBuilder {
+    private static class HashIndexBuilderImpl extends AbstractIndexBuilderImpl<HashIndexBuilder> implements HashIndexBuilder {
+        private final TableBuilderImpl parent;
+
+        private HashIndexBuilderImpl(TableBuilderImpl parent) {
+            this.parent = parent;
+        }
+
         /** {@inheritDoc} */
         @Override
         HashIndexBuilder self() {
             return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public TableBuilder end() {
+            parent.indexBuilders.add(this);
+
+            return parent;
         }
 
         /** {@inheritDoc} */
@@ -617,6 +643,7 @@ public class TestBuilders {
     private abstract static class AbstractTableBuilderImpl<ChildT> extends AbstractDataSourceBuilderImpl<ChildT>
             implements TableBuilderBase<ChildT> {
         protected final List<ColumnDescriptor> columns = new ArrayList<>();
+        protected final List<AbstractIndexBuilderImpl> indexBuilders = new ArrayList<>();
 
         protected IgniteDistribution distribution;
         protected int size = 100_000;
