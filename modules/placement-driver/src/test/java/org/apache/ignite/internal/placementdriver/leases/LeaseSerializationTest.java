@@ -68,7 +68,7 @@ public class LeaseSerializationTest {
         List<Lease> leases = new ArrayList<>();
         ReplicationGroupId groupId = new TablePartitionId(1, 1);
 
-        for (int i = 0 ; i < 25; i++) {
+        for (int i = 0; i < 25; i++) {
             leases.add(new Lease("node" + i, new HybridTimestamp(1, i), new HybridTimestamp(1, i + 1), i % 2 == 0, i % 2 == 1, groupId));
         }
 
