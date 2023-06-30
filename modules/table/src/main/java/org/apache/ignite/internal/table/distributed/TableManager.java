@@ -2507,35 +2507,42 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     boolean shouldStopLocalServices = Stream.concat(stableAssignments.stream(), pendingAssignments.stream())
                             .noneMatch(assignment -> assignment.consistentId().equals(localMemberName));
 
-                    if (!shouldStopLocalServices) {
+                    if (shouldStopLocalServices) {
+                        return stopAndDestroyPartition(tablePartitionId, evt.revision());
+                    } else {
                         return completedFuture(null);
                     }
-
-                    try {
-                        raftMgr.stopRaftNodes(tablePartitionId);
-                    } catch (NodeStoppingException e) {
-                        // No-op
-                    }
-
-                    CompletableFuture<Boolean> stopReplicaFut;
-                    try {
-                        stopReplicaFut = replicaMgr.stopReplica(tablePartitionId);
-                    } catch (NodeStoppingException e) {
-                        stopReplicaFut = completedFuture(true);
-                    }
-
-                    return destroyPartitionStorages(tableId, partitionId, evt.revision(), stopReplicaFut);
                 }, ioExecutor);
     }
 
-    private CompletableFuture<Void> destroyPartitionStorages(int tableId, int partitionId,
-            long revision, CompletableFuture<Boolean> stopReplicaFut) {
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
+    private CompletableFuture<Void> stopAndDestroyPartition(TablePartitionId tablePartitionId, long revision) {
+        try {
+            raftMgr.stopRaftNodes(tablePartitionId);
+        } catch (NodeStoppingException e) {
+            // No-op
+        }
+
+        CompletableFuture<Boolean> stopReplicaFut;
+        try {
+            stopReplicaFut = replicaMgr.stopReplica(tablePartitionId);
+        } catch (NodeStoppingException e) {
+            stopReplicaFut = completedFuture(true);
+        }
+
+        return destroyPartitionStorages(tablePartitionId, revision, stopReplicaFut);
+    }
+
+    private CompletableFuture<Void> destroyPartitionStorages(
+            TablePartitionId tablePartitionId,
+            long revision,
+            CompletableFuture<Boolean> stopReplicaFut
+    ) {
+        int partitionId = tablePartitionId.partitionId();
 
         return tablesById(revision)
                 // TODO: IGNITE-18703 Destroy raft log and meta
                 .thenCombine(mvGc.removeStorage(tablePartitionId), (tables, unused) -> {
-                    InternalTable internalTable = tables.get(tableId).internalTable();
+                    InternalTable internalTable = tables.get(tablePartitionId.tableId()).internalTable();
 
                     closePartitionTrackers(internalTable, partitionId);
 
