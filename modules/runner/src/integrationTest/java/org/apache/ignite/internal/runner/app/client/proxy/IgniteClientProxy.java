@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app.client.proxy;
 
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -29,23 +30,28 @@ public final class IgniteClientProxy implements AutoCloseable {
     private final EventLoopGroup bossGroup = new NioEventLoopGroup(1);
     private final EventLoopGroup workerGroup = new NioEventLoopGroup();
     private final int targetPort;
+    private final int listenPort;
 
-    private IgniteClientProxy(int targetPort) {
+    private IgniteClientProxy(int targetPort, int listenPort) {
         this.targetPort = targetPort;
+        this.listenPort = listenPort;
     }
 
-    private void start() {
+    private void start() throws InterruptedException {
         ServerBootstrap b = new ServerBootstrap();
-        b.group(bossGroup, workerGroup)
+
+        ChannelFuture chFut = b.group(bossGroup, workerGroup)
                 .channel(NioServerSocketChannel.class)
                 .handler(new LoggingHandler(LogLevel.INFO))
                 .childHandler(new IgniteClientProxyInitializer(targetPort))
                 .childOption(ChannelOption.AUTO_READ, false)
-                .bind(LOCAL_PORT).sync().channel().closeFuture().sync();
+                .bind(listenPort).sync();
+
+        chFut.channel().closeFuture().sync();
     }
 
-    public static AutoCloseable start(int serverPort) throws Exception {
-        IgniteClientProxy proxy = new IgniteClientProxy(serverPort);
+    public static AutoCloseable start(int targetPort, int listenPort) throws Exception {
+        IgniteClientProxy proxy = new IgniteClientProxy(targetPort, listenPort);
         proxy.start();
 
         return proxy;
