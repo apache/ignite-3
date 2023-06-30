@@ -50,11 +50,19 @@ public final class IgniteClientProxy implements AutoCloseable {
         chFut.channel().closeFuture().sync();
     }
 
-    public static AutoCloseable start(int targetPort, int listenPort) throws Exception {
+    public static IgniteClientProxy start(int targetPort, int listenPort) throws Exception {
         IgniteClientProxy proxy = new IgniteClientProxy(targetPort, listenPort);
         proxy.start();
 
         return proxy;
+    }
+
+    public int targetPort() {
+        return targetPort;
+    }
+
+    public int listenPort() {
+        return listenPort;
     }
 
     @Override

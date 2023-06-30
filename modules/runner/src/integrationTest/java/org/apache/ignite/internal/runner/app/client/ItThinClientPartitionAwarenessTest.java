@@ -17,9 +17,27 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.runner.app.client.proxy.IgniteClientProxy;
+import org.junit.jupiter.api.Test;
+
 /**
  * Thin client partition awareness test with real cluster.
  */
-public class ItThinClientPartitionAwarenessTest {
-    // TODO: Use Netty proxy https://github.com/netty/netty/tree/4.1/example/src/main/java/io/netty/example/proxy
+public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest {
+    @Test
+    void testClusterNodes() throws Exception {
+        List<String> adds = new ArrayList<>();
+        List<IgniteClientProxy> proxies = new ArrayList<>();
+        for (int port : getClientPorts()) {
+            var proxy = IgniteClientProxy.start(port, port + 1000);
+            adds.add("127.0.0.1:" + proxy.listenPort());
+        }
+
+        var client = IgniteClient.builder().addresses(adds.toArray(new String[0])).build();
+
+        var nodes = client.clusterNodes();
+    }
 }

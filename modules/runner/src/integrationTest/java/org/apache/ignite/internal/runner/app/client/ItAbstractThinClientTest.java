@@ -150,6 +150,10 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         return getClientAddresses(startedNodes);
     }
 
+    protected List<Integer> getClientPorts() {
+        return getClientPorts(startedNodes);
+    }
+
     /**
      * Gets client connector addresses for the specified nodes.
      *
@@ -157,15 +161,15 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
      * @return List of client addresses.
      */
     public static List<String> getClientAddresses(List<Ignite> nodes) {
-        List<String> res = new ArrayList<>(nodes.size());
+        return getClientPorts(nodes).stream()
+                .map(port -> "127.0.0.1" + ":" + port)
+                .collect(toList());
+    }
 
-        for (Ignite ignite : nodes) {
-            int port = ((IgniteImpl) ignite).clientAddress().port();
-
-            res.add("127.0.0.1:" + port);
-        }
-
-        return res;
+    private static List<Integer> getClientPorts(List<Ignite> nodes) {
+        return nodes.stream()
+                .map(ignite -> ((IgniteImpl) ignite).clientAddress().port())
+                .collect(toList());
     }
 
     protected IgniteClient client() {
