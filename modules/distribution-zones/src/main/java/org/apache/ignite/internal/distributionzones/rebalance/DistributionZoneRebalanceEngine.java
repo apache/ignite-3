@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
@@ -81,6 +82,8 @@ public class DistributionZoneRebalanceEngine {
     /** Meta storage listener for data nodes changes. */
     private final WatchListener dataNodesListener;
 
+    private final ConfigurationListener<Integer> onUpdateReplicas = this::onUpdateReplicas;
+
     /**
      * The constructor.
      *
@@ -118,7 +121,8 @@ public class DistributionZoneRebalanceEngine {
         }
 
         try {
-            zonesConfiguration.distributionZones().any().replicas().listen(this::onUpdateReplicas);
+            zonesConfiguration.defaultDistributionZone().replicas().listen(onUpdateReplicas);
+            zonesConfiguration.distributionZones().any().replicas().listen(onUpdateReplicas);
 
             // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
             metaStorageManager.registerPrefixWatch(zoneDataNodesKey(), dataNodesListener);
@@ -138,6 +142,9 @@ public class DistributionZoneRebalanceEngine {
         busyLock.block();
 
         metaStorageManager.unregisterWatch(dataNodesListener);
+
+        zonesConfiguration.defaultDistributionZone().replicas().stopListen(onUpdateReplicas);
+        zonesConfiguration.distributionZones().any().replicas().stopListen(onUpdateReplicas);
     }
 
     private WatchListener createDistributionZonesDataNodesListener() {
