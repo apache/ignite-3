@@ -17,32 +17,79 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.runner.app.client.proxy.IgniteClientProxy;
+import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Thin client partition awareness test with real cluster.
  */
 public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest {
-    @Test
-    void testClusterNodes() throws Exception {
-        List<String> adds = new ArrayList<>();
-        List<IgniteClientProxy> proxies = new ArrayList<>();
+    List<IgniteClientProxy> proxies = new ArrayList<>();
+
+    IgniteClient proxyClient;
+
+    @BeforeAll
+    void createProxies() throws Exception {
+        List<String> addrs = new ArrayList<>();
         for (int port : getClientPorts()) {
             var proxy = IgniteClientProxy.start(port, port + 1000);
-            adds.add("127.0.0.1:" + proxy.listenPort());
+            addrs.add("127.0.0.1:" + proxy.listenPort());
             proxies.add(proxy);
         }
 
-        var client = IgniteClient.builder().addresses(adds.get(0)).build();
+        proxyClient = IgniteClient.builder().addresses(addrs.toArray(new String[0])).build();
+    }
 
-        proxies.get(0).resetRequestCount();
-        var nodes = client.clusterNodes();
-        assertEquals(1, proxies.get(0).requestCount());
+    @AfterAll
+    void stopProxies() throws Exception {
+        proxyClient.close();
+
+        for (var proxy : proxies) {
+            proxy.close();
+        }
+    }
+
+    @BeforeEach
+    void resetRequestCount() {
+        for (IgniteClientProxy proxy : proxies) {
+            proxy.resetRequestCount();
+        }
+    }
+
+    @Test
+    void testGetRequestIsRoutedToPrimaryNode() {
+        Tuple key = Tuple.create().set("key", 1);
+        RecordView<Tuple> view = proxyClient.tables().table(TABLE_NAME).recordView();
+        view.get(null, key);
+        resetRequestCount();
+
+        view.get(null, key);
+        assertEquals("TODO", getLastRequestNodeName());
+    }
+
+    private @Nullable String getLastRequestNodeName() {
+        for (int i = 0; i < proxies.size(); i++) {
+            IgniteClientProxy proxy = proxies.get(i);
+
+            if (proxy.requestCount() > 0) {
+                //noinspection resource
+                return server(i).name();
+            }
+        }
+
+        return null;
     }
 }
