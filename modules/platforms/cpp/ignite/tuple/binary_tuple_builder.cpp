@@ -79,15 +79,15 @@ void binary_tuple_builder::layout() {
 
     entry_size = header.set_entry_size(value_area_size);
 
-    std::size_t tableSize = entry_size * element_count;
+    std::size_t table_size = entry_size * element_count;
 
     binary_tuple.clear();
-    binary_tuple.resize(HEADER_SIZE + tableSize + value_area_size);
+    binary_tuple.resize(HEADER_SIZE + table_size + value_area_size);
 
     binary_tuple[0] = header.flags;
 
     next_entry = binary_tuple.data() + HEADER_SIZE;
-    value_base = next_entry + tableSize;
+    value_base = next_entry + table_size;
     next_value = value_base;
 
     element_index = 0;
