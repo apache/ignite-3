@@ -705,15 +705,26 @@ public class DistributionZoneManager implements IgniteComponent {
             IgniteBiTuple<Long, Long> scaleUpAndScaleDownConfigRevisions = getLastScaleUpAndScaleDownConfigRevisions(causalityToken, zoneId, isScaleUpImmediate, isScaleDownImmediate);
             IgniteBiTuple<Long, Long> scaleUpAndScaleDownTopologyRevisions = getLastScaleUpAndScaleDownTopologyRevisions(causalityToken, zoneId, isScaleUpImmediate, isScaleDownImmediate);
 
-            lastScaleUpRevision = max(scaleUpAndScaleDownConfigRevisions.get1(), scaleUpAndScaleDownTopologyRevisions.get1());
-            lastScaleDownRevision = max(scaleUpAndScaleDownConfigRevisions.get2(), scaleUpAndScaleDownTopologyRevisions.get2());
+            if (isScaleUpImmediate) {
+                lastScaleUpRevision = max(scaleUpAndScaleDownConfigRevisions.get1(), scaleUpAndScaleDownTopologyRevisions.get1());
+            } else {
+                lastScaleUpRevision = scaleUpAndScaleDownConfigRevisions.get1();
+            }
 
-            if (!isScaleUpImmediate) {
-                lastScaleUpRevision = 0;
+            if (isScaleDownImmediate) {
+                lastScaleDownRevision = max(scaleUpAndScaleDownConfigRevisions.get2(), scaleUpAndScaleDownTopologyRevisions.get2());
+            } else {
+                lastScaleDownRevision = scaleUpAndScaleDownConfigRevisions.get2();
             }
-            if (!isScaleDownImmediate) {
-                lastScaleDownRevision = 0;
-            }
+
+            System.out.println();
+
+//            if (!isScaleUpImmediate) {
+//                lastScaleUpRevision = 0;
+//            }
+//            if (!isScaleDownImmediate) {
+//                lastScaleDownRevision = 0;
+//            }
         }
 
 
@@ -732,16 +743,16 @@ public class DistributionZoneManager implements IgniteComponent {
 
             // Нужно ждать не только если isScaleUpImmediate/isScaleDownImmediate но и если это событие с ревизией
             // lastScaleUpRevision/lastScaleDownRevision всегда требует ожидания (например создание зоны)
-            if (isScaleUpImmediate) {
+//            if (isScaleUpImmediate) {
                 System.out.println("dataNodes isScaleUpImmediate");
                 scaleUpDataNodesRevision = waitTriggerKey(lastScaleUpRevision, zoneId, zoneScaleUpChangeTriggerKey(zoneId), isZoneRemoved);
-            }
+//            }
 
-            if (isScaleDownImmediate) {
+//            if (isScaleDownImmediate) {
                 System.out.println("dataNodes isScaleDownImmediate");
                 scaleDownDataNodesRevision = waitTriggerKey(lastScaleDownRevision, zoneId, zoneScaleDownChangeTriggerKey(zoneId),
                         isZoneRemoved);
-            }
+//            }
 
             long dataNodesRevision = max(scaleUpDataNodesRevision, scaleDownDataNodesRevision);
 
@@ -782,17 +793,19 @@ public class DistributionZoneManager implements IgniteComponent {
             if (entryNewerCfg != null) {
                 ZoneConfiguration newerCfg = entryNewerCfg.getValue();
 
-                if (olderCfg.getDataNodesAutoAdjustScaleUp() != newerCfg.getDataNodesAutoAdjustScaleUp()
-                        && newerCfg.getDataNodesAutoAdjustScaleUp() == IMMEDIATE_TIMER_VALUE) {
+                if (scaleUpRevision == 0 && olderCfg.getDataNodesAutoAdjustScaleUp() != newerCfg.getDataNodesAutoAdjustScaleUp()
+                        && newerCfg.getDataNodesAutoAdjustScaleUp() == IMMEDIATE_TIMER_VALUE
+                        && isScaleUpImmediate) {
                     scaleUpRevision = entryNewerCfg.getKey();
                 }
 
-                if (olderCfg.getDataNodesAutoAdjustScaleDown() != newerCfg.getDataNodesAutoAdjustScaleDown()
-                        && newerCfg.getDataNodesAutoAdjustScaleDown() == IMMEDIATE_TIMER_VALUE) {
+                if (scaleDownRevision == 0 && olderCfg.getDataNodesAutoAdjustScaleDown() != newerCfg.getDataNodesAutoAdjustScaleDown()
+                        && newerCfg.getDataNodesAutoAdjustScaleDown() == IMMEDIATE_TIMER_VALUE
+                        && isScaleDownImmediate) {
                     scaleDownRevision = entryNewerCfg.getKey();
                 }
 
-                if (olderCfg.getFilter().equals(newerCfg.getFilter())) {
+                if (scaleUpRevision == 0 && !olderCfg.getFilter().equals(newerCfg.getFilter())) {
                     scaleUpRevision = entryNewerCfg.getKey();
                 }
 
@@ -802,7 +815,7 @@ public class DistributionZoneManager implements IgniteComponent {
 //                }
             }
 
-            if ((scaleUpRevision > 0 || !isScaleUpImmediate) && (scaleDownRevision > 0 || !isScaleDownImmediate)) {
+            if ((scaleUpRevision > 0/* || !isScaleUpImmediate*/) && (scaleDownRevision > 0/* || !isScaleDownImmediate*/)) {
                 break;
             }
 

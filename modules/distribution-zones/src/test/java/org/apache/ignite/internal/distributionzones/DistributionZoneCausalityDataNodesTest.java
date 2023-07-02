@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.cluster.management.topology.LogicalTopo
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesDataNodesPrefix;
@@ -615,6 +616,30 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Check that zones is removed and attempt to get data nodes throws an exception.
         CompletableFuture<Set<String>> dataNodesFut5 = distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1);
         assertThrowsWithCause(() -> dataNodesFut5.get(3, SECONDS), DistributionZoneNotFoundException.class);
+    }
+
+    @Test
+    void createZoneWithNotImmediateTimers() throws Exception {
+        // Prerequisite.
+
+        // Create logical topology with NODE_0.
+        topology.putNode(NODE_0);
+
+        Set<LogicalNode> oneNode = Set.of(NODE_0);
+        Set<String> oneNodeName = Set.of(NODE_0.name());
+
+        putNodeInLogicalTopologyAndGetRevision(NODE_0, oneNode);
+
+        // Test steps.
+
+        // Create a zone.
+        long createZoneRevision = createZoneAndGetRevision(ZONE_NAME_1, ZONE_ID_1, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE);
+
+        System.out.println("test_log createZoneRevision=" + createZoneRevision);
+
+        // Check that data nodes value of the zone with the create zone revision is NODE_0.
+        CompletableFuture<Set<String>> dataNodesFut2 = distributionZoneManager.dataNodes(createZoneRevision, ZONE_ID_1);
+        assertThat(dataNodesFut2, willBe(oneNodeName));
     }
 
     /**
