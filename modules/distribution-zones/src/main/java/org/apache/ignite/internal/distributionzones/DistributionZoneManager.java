@@ -670,7 +670,6 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param zoneId Zone id.
      * @return The future which will be completed with data nodes for the zoneId or with exception.
      */
-    // TODO: Will be implemented in IGNITE-19506.
     public CompletableFuture<Set<String>> dataNodes(long causalityToken, int zoneId) {
         if (causalityToken < 1) {
             return failedFuture(new IllegalArgumentException("Invalid causalityToken"));
@@ -1252,6 +1251,21 @@ public class DistributionZoneManager implements IgniteComponent {
             Set<Node> dataNodes = logicalTopology.stream().map(NodeWithAttributes::node).collect(toSet());
 
             initDataNodesAndTriggerKeysInMetaStorage(zoneId, revision, dataNodes);
+
+            ZoneConfiguration zoneConfiguration = new ZoneConfiguration();
+
+            zoneConfiguration.setIsRemoved(false);
+            zoneConfiguration.setDataNodesAutoAdjustScaleUp(zone.dataNodesAutoAdjustScaleUp());
+            zoneConfiguration.setDataNodesAutoAdjustScaleDown(zone.dataNodesAutoAdjustScaleDown());
+            zoneConfiguration.setFilter(zone.filter());
+
+            ConcurrentSkipListMap<Long, ZoneConfiguration> versionedCfg = new ConcurrentSkipListMap<>();
+
+            versionedCfg.put(revision, zoneConfiguration);
+
+            zonesVersionedCfg.put(zoneId, versionedCfg);
+
+            vaultMgr.put(zoneVersionedConfigurationKey(zoneId), toBytes(versionedCfg)).join();
         } else {
             // Restart case, when topologyAugmentationMap has already been saved during a cluster work.
             ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap = fromBytes(topologyAugmentationMapFromVault.value());
@@ -1292,22 +1306,13 @@ public class DistributionZoneManager implements IgniteComponent {
                             () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, rev)
                     )
             );
+
+            VaultEntry versionedCfgEntry = vaultMgr.get(zoneVersionedConfigurationKey(zoneId)).join();
+
+            if (versionedCfgEntry != null) {
+                zonesVersionedCfg.put(zoneId, fromBytes(versionedCfgEntry.value()));
+            }
         }
-
-        ZoneConfiguration zoneConfiguration = new ZoneConfiguration();
-
-        zoneConfiguration.setIsRemoved(false);
-        zoneConfiguration.setDataNodesAutoAdjustScaleUp(zone.dataNodesAutoAdjustScaleUp());
-        zoneConfiguration.setDataNodesAutoAdjustScaleDown(zone.dataNodesAutoAdjustScaleDown());
-        zoneConfiguration.setFilter(zone.filter());
-
-        ConcurrentSkipListMap<Long, ZoneConfiguration> versionedCfg = new ConcurrentSkipListMap<>();
-
-        versionedCfg.put(revision, zoneConfiguration);
-
-        zonesVersionedCfg.put(zoneId, versionedCfg);
-
-        vaultMgr.put(zoneVersionedConfigurationKey(DEFAULT_ZONE_ID), toBytes(versionedCfg)).join();
     }
 
     /**

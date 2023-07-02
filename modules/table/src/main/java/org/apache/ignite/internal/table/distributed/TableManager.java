@@ -598,39 +598,48 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             CatalogTableDescriptor tableDescriptor = toTableDescriptor(ctx.newValue());
             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId());
 
-            List<Set<Assignment>> assignments;
+            CompletableFuture<List<Set<Assignment>>> assignmentsFut;
 
             int tableId = tableDescriptor.id();
 
             // Check if the table already has assignments in the vault.
             // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
             if (partitionAssignments(vaultManager, tableId, 0) != null) {
-                assignments = tableAssignments(vaultManager, tableId, zoneDescriptor.partitions());
+                assignmentsFut = completedFuture(tableAssignments(vaultManager, tableId, zoneDescriptor.partitions()));
             } else {
-                assignments = AffinityUtils.calculateAssignments(
-                        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 use data nodes from DistributionZoneManager instead.
-                        baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
-                        zoneDescriptor.partitions(),
-                        zoneDescriptor.replicas()
-                );
+                assignmentsFut = distributionZoneManager.dataNodes(ctx.storageRevision(), tableDescriptor.zoneId())
+                        .thenCompose(dataNodes -> {
+
+                            System.out.println("DZM dataNodes " + dataNodes);
+                            System.out.println("BM dataNodes " + baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()));
+                                    return completedFuture(AffinityUtils.calculateAssignments(
+                                            // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 use data nodes from DistributionZoneManager instead.
+                                            dataNodes,//baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
+                                            zoneDescriptor.partitions(),
+                                            zoneDescriptor.replicas()
+                                    ));
+                                }
+                        );
             }
 
-            assert !assignments.isEmpty() : "Couldn't create the table with empty assignments.";
+            CompletableFuture<?> createTableFut = assignmentsFut.thenCompose(assignments -> {
+                assert !assignments.isEmpty() : "Couldn't create the table with empty assignments.";
 
-            CompletableFuture<?> createTableFut = createTableLocally(
-                    ctx.storageRevision(),
-                    tableDescriptor,
-                    zoneDescriptor,
-                    assignments
-            ).whenComplete((v, e) -> {
+                writeTableAssignmentsToMetastore(tableId, assignments);
+
+                return createTableLocally(
+                        ctx.storageRevision(),
+                        tableDescriptor,
+                        zoneDescriptor,
+                        assignments
+                );
+            }).whenComplete((v, e) -> {
                 if (e == null) {
                     for (var listener : assignmentsChangeListeners) {
                         listener.accept(this);
                     }
                 }
             });
-
-            writeTableAssignmentsToMetastore(tableId, assignments);
 
             return createTableFut;
         } finally {
