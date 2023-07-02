@@ -55,6 +55,7 @@ public class Lease implements LeaseMeta, Comparable<Lease> {
     /** The lease is available to prolong in the same leaseholder. */
     private final boolean prolongable;
 
+    /** Id of replication group. */
     private final ReplicationGroupId replicationGroupId;
 
     /**
@@ -63,6 +64,7 @@ public class Lease implements LeaseMeta, Comparable<Lease> {
      * @param leaseholder Lease holder.
      * @param startTime Start lease timestamp.
      * @param leaseExpirationTime Lease expiration timestamp.
+     * @param replicationGroupId Id of replication group.
      */
     public Lease(String leaseholder, HybridTimestamp startTime, HybridTimestamp leaseExpirationTime,
             ReplicationGroupId replicationGroupId) {

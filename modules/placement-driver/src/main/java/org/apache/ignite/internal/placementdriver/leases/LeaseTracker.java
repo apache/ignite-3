@@ -27,17 +27,16 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -159,8 +158,13 @@ public class LeaseTracker implements PlacementDriver {
         return str.substring(0, str.length() - 1) + (char) (lastChar + 1);
     }
 
-    public List<Lease> leasesCurrent() {
-        return leases.entrySet().stream().map(Map.Entry::getValue).sorted().collect(Collectors.toList());
+    /**
+     * Returns collection of leases, ordered by replication group.
+     *
+     * @return Collection of leases.
+     */
+    public Collection<Lease> leasesCurrent() {
+        return leases.values();
     }
 
     /**

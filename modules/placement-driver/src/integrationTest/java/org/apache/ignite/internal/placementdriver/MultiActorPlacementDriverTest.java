@@ -68,6 +68,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplica
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -245,7 +246,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
             Map<String, ClusterService> services,
             List<LogicalTopologyServiceTestImpl> logicalTopManagers,
             Path workDir
-    ) throws Exception {
+    ) {
         var res = new ArrayList<Closeable>(placementDriverNodeNames.size());
 
         var msFutures = new CompletableFuture[placementDriverNodeNames.size()];
@@ -506,9 +507,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
-            LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(fut.join().value()).order(ByteOrder.LITTLE_ENDIAN));
-
-            Lease leaseRenew = leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(grpPart)).findAny().orElse(null);
+            Lease leaseRenew = leaseFromBytes(fut.join().value(), grpPart);
 
             if (lease == null) {
                 return false;
@@ -542,9 +541,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
-            LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(fut.join().value()).order(ByteOrder.LITTLE_ENDIAN));
-
-            Lease leaseRenew = leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(grpPart)).findAny().orElse(null);
+            Lease leaseRenew = leaseFromBytes(fut.join().value(), grpPart);
 
             if (lease == null) {
                 return false;
@@ -581,9 +578,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
             var leaseEntry = leaseFut.join();
 
             if (leaseEntry != null && !leaseEntry.empty()) {
-                LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leaseEntry.value()).order(ByteOrder.LITTLE_ENDIAN));
-
-                Lease lease = leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(grpPartId)).findAny().orElse(null);
+                Lease lease = leaseFromBytes(leaseEntry.value(), grpPartId);
 
                 if (lease == null) {
                     return false;
@@ -664,5 +659,11 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         }).join();
 
         return dstZnsCfg.distributionZones().get("zone1").value().zoneId();
+    }
+
+    private Lease leaseFromBytes(byte[] bytes, ReplicationGroupId groupId) {
+        LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN));
+
+        return leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(groupId)).findAny().orElse(null);
     }
 }

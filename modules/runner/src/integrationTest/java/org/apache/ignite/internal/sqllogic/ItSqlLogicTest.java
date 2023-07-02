@@ -205,8 +205,6 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
         stopNodes();
     }
 
-    private static final int SLEEP = 10_000;
-
     @TestFactory
     public Stream<DynamicNode> sql() {
         assertTrue(Files.isDirectory(SCRIPTS_ROOT));

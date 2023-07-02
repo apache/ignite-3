@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -218,7 +219,7 @@ public class LeaseUpdater {
 
         leaseNegotiator.onLeaseRemoved(grpId);
 
-        List<Lease> leases = leaseTracker.leasesCurrent();
+        Collection<Lease> leases = leaseTracker.leasesCurrent();
         List<Lease> renewedLeases = new ArrayList<>();
         for (Lease ls : leases) {
             if (ls.replicationGroupId().equals(grpId)) {

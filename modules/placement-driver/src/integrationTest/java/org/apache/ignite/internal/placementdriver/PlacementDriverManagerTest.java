@@ -74,6 +74,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -299,18 +300,14 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
         var leaseFut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
-        LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leaseFut.join().value()).order(ByteOrder.LITTLE_ENDIAN));
-
-        Lease lease = leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(grpPart0)).findAny().orElse(null);
+        Lease lease = leaseFromBytes(leaseFut.join().value(), grpPart0);
 
         assertNotNull(lease);
 
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
-            LeaseBatch leaseBatchRenew = LeaseBatch.fromBytes(ByteBuffer.wrap(fut.join().value()).order(ByteOrder.LITTLE_ENDIAN));
-            Lease leaseRenew = leaseBatchRenew.leases().stream()
-                    .filter(l -> l.replicationGroupId().equals(grpPart0)).findAny().orElse(null);
+            Lease leaseRenew = leaseFromBytes(fut.join().value(), grpPart0);
 
             return lease.getExpirationTime().compareTo(leaseRenew.getExpirationTime()) < 0;
 
@@ -331,9 +328,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
-            LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(fut.join().value()).order(ByteOrder.LITTLE_ENDIAN));
-
-            Lease lease = leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(grpPart0)).findAny().orElse(null);
+            Lease lease = leaseFromBytes(fut.join().value(), grpPart0);
 
             return lease.getExpirationTime().compareTo(clock.now()) < 0;
 
@@ -346,9 +341,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
-            LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(fut.join().value()).order(ByteOrder.LITTLE_ENDIAN));
-
-            Lease lease = leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(grpPart0)).findAny().orElse(null);
+            Lease lease = leaseFromBytes(fut.join().value(), grpPart0);
 
             return lease.getExpirationTime().compareTo(clock.now()) > 0;
         }, 10_000));
@@ -470,9 +463,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
             var leaseEntry = leaseFut.join();
 
             if (leaseEntry != null && !leaseEntry.empty()) {
-                LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leaseEntry.value()).order(ByteOrder.LITTLE_ENDIAN));
-
-                Lease lease = leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(grpPartId)).findAny().orElse(null);
+                Lease lease = leaseFromBytes(leaseEntry.value(), grpPartId);
 
                 if (lease == null) {
                     return false;
@@ -549,6 +540,12 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         }).join();
 
         return dstZnsCfg.distributionZones().get("zone1").value().zoneId();
+    }
+
+    private Lease leaseFromBytes(byte[] bytes, ReplicationGroupId groupId) {
+        LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN));
+
+        return leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(groupId)).findAny().orElse(null);
     }
 
     /**
