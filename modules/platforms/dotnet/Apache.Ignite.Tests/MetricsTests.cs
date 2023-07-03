@@ -136,7 +136,7 @@ public class MetricsTests
     {
         using var server = new FakeServer { SendInvalidMagic = true };
 
-        Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync());
+        Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfig()));
         Assert.AreEqual(1, _listener.GetMetric("handshakes-failed"));
         Assert.AreEqual(0, _listener.GetMetric("handshakes-failed-timeout"));
     }
