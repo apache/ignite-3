@@ -36,7 +36,7 @@ using NUnit.Framework;
 [Parallelizable(ParallelScope.None)]
 public class MetricsTests
 {
-    private Listener _listener = null!;
+    private volatile Listener _listener = null!;
 
     [SetUp]
     public void SetUp() => _listener = new Listener();
