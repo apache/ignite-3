@@ -32,6 +32,7 @@ using NUnit.Framework;
 /// <summary>
 /// Tests client metrics.
 /// </summary>
+[Parallelizable(ParallelScope.None)]
 public class MetricsTests
 {
     private Listener _listener = null!;
