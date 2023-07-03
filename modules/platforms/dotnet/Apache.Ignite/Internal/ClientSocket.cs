@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal
     using System;
     using System.Buffers.Binary;
     using System.Collections.Concurrent;
+    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
     using System.IO;
@@ -217,12 +218,11 @@ namespace Apache.Ignite.Internal
 
                 if (e.GetBaseException() is TimeoutException)
                 {
-                    Metrics.HandshakesFailedTimeout.Add(1);
+                    Metrics.HandshakesFailedTimeout.Add(1, new KeyValuePair<string, object?>("port", endPoint.EndPoint.Port));
                 }
                 else
                 {
-                    Console.WriteLine($"HandshakesFailed.Add(1) [remoteAddress={endPoint.EndPoint}]");
-                    Metrics.HandshakesFailed.Add(1);
+                    Metrics.HandshakesFailed.Add(1, new KeyValuePair<string, object?>("port", endPoint.EndPoint.Port));
                 }
 
                 // ReSharper disable once MethodHasAsyncOverload
