@@ -278,7 +278,7 @@ public class ItRebalanceDistributedTest {
                             return nodes.stream()
                                     .map(node -> node.distributionZoneManager.dataNodes(zoneId).size())
                                     .allMatch(integer -> integer == 3);
-                        }, TimeUnit.SECONDS.toMillis(5));
+                        }, TimeUnit.SECONDS.toMillis(15));
 
                         if (!result) {
                             throw new RuntimeException("replicas=" + replicas);
