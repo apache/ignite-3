@@ -613,8 +613,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             System.out.println("DZM dataNodes " + dataNodes);
                             System.out.println("BM dataNodes " + baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()));
                                     return completedFuture(AffinityUtils.calculateAssignments(
-                                            // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 use data nodes from DistributionZoneManager instead.
-                                            dataNodes,//baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
+                                            dataNodes,
                                             zoneDescriptor.partitions(),
                                             zoneDescriptor.replicas()
                                     ));

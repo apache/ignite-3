@@ -68,7 +68,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for causality data nodes updating in {@link DistributionZoneManager}.
  */
-//@Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
 public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZoneManagerTest {
     private static final String ZONE_NAME_1 = "zone1";
 

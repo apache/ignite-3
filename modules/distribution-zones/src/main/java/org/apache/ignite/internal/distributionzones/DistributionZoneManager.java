@@ -713,25 +713,28 @@ public class DistributionZoneManager implements IgniteComponent {
 
         if (!isZoneRemoved) {
             // Wait if needed when the data nodes value will be updated in the meta storage according to calculated lastScaleUpRevision, lastScaleDownRevision and causalityToken.
-            long scaleUpDataNodesRevision = waitTriggerKey(lastScaleUpRevision, zoneId, zoneScaleUpChangeTriggerKey(zoneId), isZoneRemoved);
+            CompletableFuture<Long> scaleUpDataNodesRevisionFut = waitTriggerKey(lastScaleUpRevision, zoneId, zoneScaleUpChangeTriggerKey(zoneId), isZoneRemoved);
 
-            long scaleDownDataNodesRevision = waitTriggerKey(lastScaleDownRevision, zoneId, zoneScaleDownChangeTriggerKey(zoneId),
+            CompletableFuture<Long> scaleDownDataNodesRevisionFut = waitTriggerKey(lastScaleDownRevision, zoneId, zoneScaleDownChangeTriggerKey(zoneId),
                     isZoneRemoved);
 
-            // Use the highest revision from revision.
-            long dataNodesRevision = max(causalityToken, max(scaleUpDataNodesRevision, scaleDownDataNodesRevision));
+            return scaleUpDataNodesRevisionFut.thenCompose(
+                    scaleUpDataNodesRevision -> scaleDownDataNodesRevisionFut.thenCompose(scaleDownDataNodesRevision -> {
+                        // Use the highest revision from revision.
+                        long dataNodesRevision = max(causalityToken, max(scaleUpDataNodesRevision, scaleDownDataNodesRevision));
 
-            // Get the latest data nodes value for a calculated revision.
-            Entry dataNodesEntry = metaStorageManager.get(zoneDataNodesKey(zoneId), dataNodesRevision).join();
+                        // Get the latest data nodes value for a calculated revision.
+                        Entry dataNodesEntry = metaStorageManager.get(zoneDataNodesKey(zoneId), dataNodesRevision).join();
 
-            Set<Node> dataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesEntry.value()));
+                        Set<Node> dataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesEntry.value()));
 
-            //Get a filter for the calculated revision.
-            String filter = zonesVersionedCfg.get(zoneId).floorEntry(dataNodesRevision).getValue().getFilter();
+                        //Get a filter for the calculated revision.
+                        String filter = zonesVersionedCfg.get(zoneId).floorEntry(dataNodesRevision).getValue().getFilter();
 
-            Set<String> dataNodesNames = filterDataNodes(dataNodes, filter, nodesAttributes);
+                        Set<String> dataNodesNames = filterDataNodes(dataNodes, filter, nodesAttributes);
 
-            return completedFuture(dataNodesNames);
+                        return completedFuture(dataNodesNames);
+                    }));
         } else {
             return failedFuture(new DistributionZoneNotFoundException(zoneId));
         }
@@ -757,8 +760,10 @@ public class DistributionZoneManager implements IgniteComponent {
             boolean isScaleDownImmediate) {
         IgniteBiTuple<Long, Long> scaleUpAndScaleDownConfigRevisions = getLastScaleUpAndScaleDownConfigRevisions(causalityToken, zoneId,
                 isScaleUpImmediate, isScaleDownImmediate);
+
         IgniteBiTuple<Long, Long> scaleUpAndScaleDownTopologyRevisions = getLastScaleUpAndScaleDownTopologyRevisions(causalityToken, zoneId,
                 isScaleUpImmediate, isScaleDownImmediate);
+
         long lastScaleUpRevision;
         long lastScaleDownRevision;
 
@@ -847,7 +852,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         long newerTopologyRevision = 0;
 
-        Entry topologyEntry = metaStorageManager.get(zonesLogicalTopologyKey(), causalityToken).join();
+        Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey().bytes(), causalityToken);
 
         long scaleUpTopologyRevision = 0;
         long scaleDownTopologyRevision = 0;
@@ -860,7 +865,7 @@ public class DistributionZoneManager implements IgniteComponent {
             newerTopologyRevision = topologyEntry.revision();
 
             while((scaleUpTopologyRevision == 0 || !isScaleUpImmediate) || (scaleDownTopologyRevision == 0 || !isScaleDownImmediate)) {
-                topologyEntry = metaStorageManager.get(zonesLogicalTopologyKey(), newerTopologyRevision - 1).join();
+                topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey().bytes(), newerTopologyRevision - 1);
 
                 Set<NodeWithAttributes> olderLogicalTopology;
 
@@ -907,10 +912,10 @@ public class DistributionZoneManager implements IgniteComponent {
         return new IgniteBiTuple<>(scaleUpTopologyRevision, scaleDownTopologyRevision);
     }
 
-    private long waitTriggerKey(long scaleRevision, int zoneId, ByteArray triggerKey, boolean isRemoved) {
+    private CompletableFuture<Long> waitTriggerKey(long scaleRevision, int zoneId, ByteArray triggerKey, boolean isRemoved) {
         System.out.println("waitTriggerKey " + scaleRevision + " " + zoneId);
 
-        CompletableFuture<Long> watchEntry = new CompletableFuture<>();
+        CompletableFuture<Long> watchEntryFut = new CompletableFuture<>();
 
         // Register watch listener to handle new events.
         WatchListener listener = new WatchListener() {
@@ -921,14 +926,14 @@ public class DistributionZoneManager implements IgniteComponent {
                 if (!isRemoved) {
                     long eventValue = bytesToLong(event.entryEvent().newEntry().value());
 
-                    if (eventValue >= scaleRevision && !watchEntry.isDone()) {
-                        watchEntry.complete(event.revision());
+                    if (eventValue >= scaleRevision && !watchEntryFut.isDone()) {
+                        watchEntryFut.complete(event.revision());
                     }
                 } else {
                     byte[] value = event.entryEvent().newEntry().value();
 
-                    if (value == null && !watchEntry.isDone()) {
-                        watchEntry.complete(event.revision());
+                    if (value == null && !watchEntryFut.isDone()) {
+                        watchEntryFut.complete(event.revision());
                     }
                 }
 
@@ -941,7 +946,7 @@ public class DistributionZoneManager implements IgniteComponent {
         };
 
         // Unregister watch listener if it received entry with expected value.
-        watchEntry.thenRun(() -> metaStorageManager.unregisterWatch(listener));
+        watchEntryFut.thenRun(() -> metaStorageManager.unregisterWatch(listener));
 
         metaStorageManager.registerExactWatch(triggerKey, listener);
 
@@ -987,14 +992,12 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         if (revision == Long.MAX_VALUE) {
-            revision = watchEntry.join();
+            return watchEntryFut;
         } else {
             metaStorageManager.unregisterWatch(listener);
+
+            return completedFuture(revision);
         }
-
-        System.out.println("waitTriggerKey result " + revision);
-
-        return revision;
     }
 
     /**
