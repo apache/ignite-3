@@ -59,6 +59,9 @@ public class MetricsTests
         _listener.Dispose();
     }
 
+    [OneTimeTearDown]
+    public void OneTimeTearDown() => _listener.Dispose();
+
     [Test]
     public async Task TestConnectionsMetrics()
     {
