@@ -141,7 +141,7 @@ public class InlineUtilsTest {
         indexDescriptor = testIndexDescriptor(testColumnDescriptor(NativeTypes.INT32, true));
 
         assertEquals(
-                BinaryTupleCommon.HEADER_SIZE + 1 + 1 + NativeTypes.INT32.sizeInBytes(), // With a nullMap card.
+                BinaryTupleCommon.HEADER_SIZE + 1 + NativeTypes.INT32.sizeInBytes(), // With a nullMap card.
                 binaryTupleInlineSize(indexDescriptor)
         );
 
@@ -167,7 +167,7 @@ public class InlineUtilsTest {
         );
 
         assertEquals(
-                BinaryTupleCommon.HEADER_SIZE + 4 * 2 + 1 + 4 * MAX_VARLEN_INLINE_SIZE, // With a nullMap card.
+                BinaryTupleCommon.HEADER_SIZE + 4 * 2 + 4 * MAX_VARLEN_INLINE_SIZE, // With a nullMap card.
                 binaryTupleInlineSize(indexDescriptor)
         );
 
@@ -262,11 +262,11 @@ public class InlineUtilsTest {
                 testColumnDescriptor(NativeTypes.UUID, false),
                 testColumnDescriptor(NativeTypes.UUID, false),
                 testColumnDescriptor(NativeTypes.UUID, false),
-                testColumnDescriptor(NativeTypes.stringOf(32), true)
+                testColumnDescriptor(NativeTypes.stringOf(33), true)
         );
 
         assertEquals(
-                BinaryTupleCommon.HEADER_SIZE + 1 + 5 + NativeTypes.INT64.sizeInBytes() + 3 * NativeTypes.UUID.sizeInBytes() + 32 + 6,
+                BinaryTupleCommon.HEADER_SIZE + 5 + NativeTypes.INT64.sizeInBytes() + 3 * NativeTypes.UUID.sizeInBytes() + 33 + 6,
                 binaryTupleInlineSize(pageSize, itemHeaderSize, indexDescriptor)
         );
     }
