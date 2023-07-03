@@ -111,6 +111,24 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         this.connectionId = connectionId;
         this.recoveryDescriptorProvider = recoveryDescriptorProvider;
         this.staleIdDetector = staleIdDetector;
+
+        this.handshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
+            if (throwable != null) {
+                releaseResources();
+
+                return;
+            }
+        });
+    }
+
+    private void releaseResources() {
+        assert ctx.executor().inEventLoop() : "Release resources called outside of event loop";
+
+        RecoveryDescriptor desc = recoveryDescriptor;
+
+        if (desc != null) {
+            desc.release(ctx);
+        }
     }
 
     /** {@inheritDoc} */
@@ -136,14 +154,26 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             this.remoteLaunchId = msg.launchId();
             this.remoteConsistentId = msg.consistentId();
 
-            this.recoveryDescriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
+            RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
                     remoteConsistentId,
                     remoteLaunchId,
                     connectionId,
                     false
             );
 
-            handshake(recoveryDescriptor);
+            if (!descriptor.acquire(ctx)) {
+                String err = "Failed to acquire recovery descriptor during handshake, it is held by: " + descriptor.holder();
+
+                LOG.warn(err);
+
+                handshakeCompleteFuture.completeExceptionally(new HandshakeException(err));
+
+                return;
+            }
+
+            this.recoveryDescriptor = descriptor;
+
+            handshake(this.recoveryDescriptor);
 
             return;
         }

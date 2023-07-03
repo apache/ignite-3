@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.network.recovery;
 
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.OutNetworkObject;
 
@@ -123,5 +126,31 @@ public class RecoveryDescriptor {
     @Override
     public String toString() {
         return S.toString(RecoveryDescriptor.class, this);
+    }
+
+    private final AtomicReference<Channel> ctxHolder = new AtomicReference<>();
+
+    /**
+     * Release this descriptor.
+     *
+     * @param ctx Channel handler context.
+     */
+    public void release(ChannelHandlerContext ctx) {
+        boolean result = ctxHolder.compareAndSet(ctx.channel(), null);
+
+        assert result : "Failed to release descriptor: " + ctx;
+    }
+
+    /**
+     * Acquire this descriptor.
+     *
+     * @param ctx Channel handler context.
+     */
+    public boolean acquire(ChannelHandlerContext ctx) {
+        return ctxHolder.compareAndSet(null, ctx.channel());
+    }
+
+    public String holder() {
+        return ctxHolder.get().toString();
     }
 }

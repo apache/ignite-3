@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.internal.network.netty.NettyUtils.toCompletableFuture;
 import static org.apache.ignite.network.ChannelType.getChannel;
 
 import io.netty.bootstrap.Bootstrap;
@@ -54,7 +55,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Class that manages connections both incoming and outgoing.
  */
-public class ConnectionManager {
+public class ConnectionManager implements ChannelCreationListener {
     /** Message factory. */
     private static final NetworkMessagesFactory FACTORY = new NetworkMessagesFactory();
 
@@ -165,7 +166,6 @@ public class ConnectionManager {
         this.server = new NettyServer(
                 networkConfiguration,
                 this::createServerHandshakeManager,
-                this::onNewIncomingChannel,
                 this::onMessage,
                 serializationService,
                 bootstrapFactory
@@ -263,13 +263,24 @@ public class ConnectionManager {
      *
      * @param channel Channel from client to this {@link #server}.
      */
-    private void onNewIncomingChannel(NettySender channel) {
+    @Override
+    public void handshakeFinished(NettySender channel) {
         ConnectorKey<String> key = new ConnectorKey<>(channel.consistentId(), getChannel(channel.channelId()));
         NettySender oldChannel = channels.put(key, channel);
 
+        assert oldChannel == null : "Incorrect channel creation flow";
+    }
+
+    @Override
+    public CompletableFuture<Void> notifyInboundChannelCreation(String consistentId, short channelId) {
+        ConnectorKey<String> key = new ConnectorKey<>(consistentId, getChannel(channelId));
+        NettySender oldChannel = channels.remove(key);
+
         if (oldChannel != null) {
-            oldChannel.close();
+            return toCompletableFuture(oldChannel.close());
         }
+
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
@@ -353,7 +364,7 @@ public class ConnectionManager {
     }
 
     private HandshakeManager createServerHandshakeManager() {
-        return new RecoveryServerHandshakeManager(launchId, consistentId, FACTORY, descriptorProvider, staleIdDetector);
+        return new RecoveryServerHandshakeManager(launchId, consistentId, FACTORY, descriptorProvider, staleIdDetector, this);
     }
 
     /**

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -548,7 +549,18 @@ public class RecoveryHandshakeTest {
 
     private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(String consistentId, UUID launchId,
             RecoveryDescriptorProvider provider, StaleIdDetector staleIdDetector) {
-        return new RecoveryServerHandshakeManager(launchId, consistentId, MESSAGE_FACTORY, provider, staleIdDetector);
+        return new RecoveryServerHandshakeManager(launchId, consistentId, MESSAGE_FACTORY, provider, staleIdDetector,
+                new ChannelCreationListener() {
+                    @Override
+                    public CompletableFuture<Void> notifyInboundChannelCreation(String consistentId, short channelId) {
+                        return completedFuture(null);
+                    }
+
+                    @Override
+                    public void handshakeFinished(NettySender channel) {
+                        // No-op.
+                    }
+                });
     }
 
     private RecoveryDescriptorProvider createRecoveryDescriptorProvider() {
