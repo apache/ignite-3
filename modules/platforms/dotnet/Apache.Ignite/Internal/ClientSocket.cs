@@ -214,6 +214,7 @@ namespace Apache.Ignite.Internal
             catch (Exception e)
             {
                 logger?.Warn($"Connection failed before or during handshake [remoteAddress={socket.RemoteEndPoint}]: {e.Message}.", e);
+                Console.WriteLine($"Connection failed before or during handshake [remoteAddress={socket.RemoteEndPoint}]: {e.Message} ({e.GetType()}).");
 
                 if (connected)
                 {
