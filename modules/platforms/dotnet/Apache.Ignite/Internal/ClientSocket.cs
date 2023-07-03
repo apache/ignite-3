@@ -218,11 +218,11 @@ namespace Apache.Ignite.Internal
 
                 if (e.GetBaseException() is TimeoutException)
                 {
-                    Metrics.HandshakesFailedTimeout.Add(1, new KeyValuePair<string, object?>("port", endPoint.EndPoint.Port));
+                    Metrics.HandshakesFailedTimeout.Add(1, new KeyValuePair<string, object?>("endpoint", endPoint.EndPoint));
                 }
                 else
                 {
-                    Metrics.HandshakesFailed.Add(1, new KeyValuePair<string, object?>("port", endPoint.EndPoint.Port));
+                    Metrics.HandshakesFailed.Add(1, new KeyValuePair<string, object?>("endpoint", endPoint.EndPoint));
                 }
 
                 // ReSharper disable once MethodHasAsyncOverload
