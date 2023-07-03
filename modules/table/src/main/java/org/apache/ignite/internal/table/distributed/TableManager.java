@@ -633,9 +633,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
             });
 
-            CompletableFuture<Boolean> writeToMs = writeTableAssignmentsToMetastore(tableId, assignments);
+            writeTableAssignmentsToMetastore(tableId, assignments);
 
-            return allOf(createTableFut, writeToMs);
+            return createTableFut;
         } finally {
             busyLock.leaveBusy();
         }
