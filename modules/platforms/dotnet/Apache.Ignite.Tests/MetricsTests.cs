@@ -34,7 +34,7 @@ using NUnit.Framework;
 /// </summary>
 public class MetricsTests
 {
-    private Listener _listener = null!;
+    private volatile Listener _listener = null!;
 
     [SetUp]
     public void SetUp() => _listener = new Listener();
@@ -57,6 +57,9 @@ public class MetricsTests
         _listener.Dispose();
     }
 
+    [OneTimeTearDown]
+    public void OneTimeTearDown() => _listener.Dispose();
+
     [Test]
     public async Task TestConnectionsMetrics()
     {
@@ -65,11 +68,12 @@ public class MetricsTests
         Assert.AreEqual(0, _listener.GetMetric("connections-established"));
         Assert.AreEqual(0, _listener.GetMetric("connections-active"));
 
-        var client = await server.ConnectClientAsync();
-        Assert.AreEqual(1, _listener.GetMetric("connections-established"));
-        Assert.AreEqual(1, _listener.GetMetric("connections-active"));
+        using (await server.ConnectClientAsync())
+        {
+            Assert.AreEqual(1, _listener.GetMetric("connections-established"));
+            Assert.AreEqual(1, _listener.GetMetric("connections-active"));
+        }
 
-        client.Dispose();
         Assert.AreEqual(0, _listener.GetMetric("connections-active"));
 
         (await server.ConnectClientAsync()).Dispose();
@@ -136,7 +140,7 @@ public class MetricsTests
     {
         using var server = new FakeServer { SendInvalidMagic = true };
 
-        Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync());
+        Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfig()));
         Assert.AreEqual(1, _listener.GetMetric("handshakes-failed"));
         Assert.AreEqual(0, _listener.GetMetric("handshakes-failed-timeout"));
     }
