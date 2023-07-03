@@ -150,16 +150,18 @@ public class MetricsTests
     [Test]
     public void TestHandshakesFailedTimeout()
     {
+        var listener = _listener;
+
         Console.WriteLine("$$TestHandshakesFailedTimeout started 1");
-        Assert.AreEqual(0, _listener.GetMetric("handshakes-failed"));
-        Assert.AreEqual(0, _listener.GetMetric("handshakes-failed-timeout"));
+        Assert.AreEqual(0, listener.GetMetric("handshakes-failed"));
+        Assert.AreEqual(0, listener.GetMetric("handshakes-failed-timeout"));
         Console.WriteLine("$$TestHandshakesFailedTimeout started 2");
 
         using var server = new FakeServer { HandshakeDelay = TimeSpan.FromSeconds(1) };
 
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfigWithDelay()));
-        Assert.AreEqual(0, _listener.GetMetric("handshakes-failed"));
-        Assert.AreEqual(1, _listener.GetMetric("handshakes-failed-timeout"));
+        Assert.AreEqual(0, listener.GetMetric("handshakes-failed"));
+        Assert.AreEqual(1, listener.GetMetric("handshakes-failed-timeout"));
     }
 
     [Test]
