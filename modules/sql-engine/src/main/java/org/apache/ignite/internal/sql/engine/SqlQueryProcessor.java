@@ -19,11 +19,11 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_EXPIRED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_SQL_OPERATION_KIND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.VALIDATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
@@ -646,7 +646,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     params.length, parseResult.dynamicParamsCount()
             );
 
-            throw new SqlException(QUERY_INVALID_ERR, message);
+            throw new SqlException(VALIDATION_ERR, message);
         }
 
         for (Object param : params) {
@@ -654,7 +654,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 String message = format(
                         "Unsupported dynamic parameter defined. Provided '{}' is not supported.", param.getClass().getName());
 
-                throw new SqlException(QUERY_INVALID_ERR, message);
+                throw new SqlException(VALIDATION_ERR, message);
             }
         }
     }

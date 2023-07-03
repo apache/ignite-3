@@ -30,11 +30,11 @@ import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.R
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEYS_MULTIPLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEY_MISSING_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_VALIDATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SQL_TO_REL_CONVERSION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STORAGE_ENGINE_NOT_VALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.VALIDATION_ERR;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -340,7 +340,7 @@ public class DdlSqlToCommandConverter {
 
         for (SqlColumnDeclaration col : colDeclarations) {
             if (!col.name.isSimple()) {
-                throw new SqlException(QUERY_INVALID_ERR, "Unexpected value of columnName ["
+                throw new SqlException(VALIDATION_ERR, "Unexpected value of columnName ["
                         + "expected a simple identifier, but was " + col.name + "; "
                         + "querySql=\"" + ctx.query() + "\"]");
             }
@@ -348,7 +348,7 @@ public class DdlSqlToCommandConverter {
             String name = col.name.getSimple();
 
             if (col.dataType.getNullable() != null && col.dataType.getNullable() && dedupSetPk.contains(name)) {
-                throw new SqlException(QUERY_INVALID_ERR, "Primary key cannot contain nullable column [col=" + name + "]");
+                throw new SqlException(VALIDATION_ERR, "Primary key cannot contain nullable column [col=" + name + "]");
             }
 
             RelDataType relType = planner.convert(col.dataType, !dedupSetPk.contains(name));
@@ -357,7 +357,7 @@ public class DdlSqlToCommandConverter {
 
             DefaultValueDefinition dflt = convertDefault(col.expression, relType);
             if (dflt.type() == DefaultValueDefinition.Type.FUNCTION_CALL && !pkCols.contains(name)) {
-                throw new SqlException(QUERY_INVALID_ERR,
+                throw new SqlException(VALIDATION_ERR,
                         "Functional defaults are not supported for non-primary key columns [col=" + name + "]");
             }
 
@@ -365,7 +365,7 @@ public class DdlSqlToCommandConverter {
         }
 
         if (!dedupSetPk.isEmpty()) {
-            throw new SqlException(QUERY_INVALID_ERR, "Primary key constraint contains undefined columns: [cols=" + dedupSetPk + "]");
+            throw new SqlException(VALIDATION_ERR, "Primary key constraint contains undefined columns: [cols=" + dedupSetPk + "]");
         }
 
         createTblCmd.columns(cols);
@@ -677,7 +677,7 @@ public class DdlSqlToCommandConverter {
             SqlIdentifier schemaId = id.skipLast(1);
 
             if (!schemaId.isSimple()) {
-                throw new SqlException(QUERY_INVALID_ERR, "Unexpected value of schemaName ["
+                throw new SqlException(VALIDATION_ERR, "Unexpected value of schemaName ["
                         + "expected a simple identifier, but was " + schemaId + "; "
                         + "querySql=\"" + ctx.query() + "\"]");
             }
@@ -699,7 +699,7 @@ public class DdlSqlToCommandConverter {
         SqlIdentifier objId = id.getComponent(id.skipLast(1).names.size());
 
         if (!objId.isSimple()) {
-            throw new SqlException(QUERY_INVALID_ERR, "Unexpected value of " + objDesc + " ["
+            throw new SqlException(VALIDATION_ERR, "Unexpected value of " + objDesc + " ["
                     + "expected a simple identifier, but was " + objId + "; "
                     + "querySql=\"" + ctx.query() + "\"]");
         }
