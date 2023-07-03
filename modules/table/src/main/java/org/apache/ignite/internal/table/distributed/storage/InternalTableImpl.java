@@ -302,7 +302,8 @@ public class InternalTableImpl implements InternalTable {
 
         final boolean implicit = tx == null;
 
-        if (!implicit && tx.state() != TxState.PENDING) {
+        // It's possible to have null txState if transaction isn't started yet.
+        if (!implicit && (tx.state() != TxState.PENDING || tx.state() != null)) {
             return failedFuture(new TransactionException(
                     "The operation is attempted for completed transaction"));
         }
