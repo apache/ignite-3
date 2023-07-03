@@ -26,6 +26,10 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 
+/**
+ * Proxy for Ignite client with request tracking.
+ * Provides a way to test request routing while using real Ignite cluster.
+ */
 public final class IgniteClientProxy implements AutoCloseable {
     private final EventLoopGroup bossGroup = new NioEventLoopGroup(1);
     private final EventLoopGroup workerGroup = new NioEventLoopGroup();

@@ -142,16 +142,12 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         IgniteUtils.closeAll(closeables);
     }
 
-    protected String getNodeAddress() {
+    String getNodeAddress() {
         return getClientAddresses().get(0);
     }
 
-    protected List<String> getClientAddresses() {
+    List<String> getClientAddresses() {
         return getClientAddresses(startedNodes);
-    }
-
-    protected List<Integer> getClientPorts() {
-        return getClientPorts(startedNodes);
     }
 
     /**
@@ -164,6 +160,10 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         return getClientPorts(nodes).stream()
                 .map(port -> "127.0.0.1" + ":" + port)
                 .collect(toList());
+    }
+
+    List<Integer> getClientPorts() {
+        return getClientPorts(startedNodes);
     }
 
     private static List<Integer> getClientPorts(List<Ignite> nodes) {
