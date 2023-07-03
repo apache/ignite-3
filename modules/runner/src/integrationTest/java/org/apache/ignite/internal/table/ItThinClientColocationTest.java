@@ -22,7 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.handler.requests.table.ClientTableCommon;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
@@ -38,11 +41,14 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.platform.commons.util.ReflectionUtils;
 
 /**
  * Tests that client and server have matching colocation logic.
@@ -71,14 +77,28 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    public void testCustomColocationColumnOrder() {
+    public void testCustomColocationColumnOrder() throws Exception {
+        String tableName = "testCustomColocationColumnOrder";
+
         sql("create table testCustomColocationColumnOrder(id integer, id0 bigint, id1 varchar, v INTEGER, "
                 + "primary key(id, id0, id1)) colocate by (id1, id0)");
 
-        CLUSTER_NODES.get(0).tables().table("testCustomColocationColumnOrder");
+        Tuple key = Tuple.create().set("id", 1).set("id0", 2L).set("id1", "3");
+        Table serverTable = CLUSTER_NODES.get(0).tables().table(tableName);
+        RecordBinaryViewImpl serverView = (RecordBinaryViewImpl)serverTable.recordView();
+        TupleMarshallerImpl marsh = IgniteTestUtils.getFieldValue(serverView, "marsh");
+        int serverHash = marsh.marshal(key).colocationHash();
 
-        // TODO: Server: Use RecordBinaryViewImpl.marsh to marshal and get colocation hash
-        // TODO: Client: ClientTupleSerializer.getColocationHash(), get schema from ClientTable
+        try (IgniteClient client = IgniteClient.builder().addresses("localhost").build()) {
+            // Perform get to populate schema.
+            Table clientTable = client.tables().table(tableName);
+            clientTable.recordView().get(null, key);
+
+            Map<Integer, CompletableFuture<ClientSchema>> schemas = IgniteTestUtils.getFieldValue(clientTable, "schemas");
+            int clientHash = ClientTupleSerializer.getColocationHash(schemas.values().iterator().next().get(), key);
+
+            assertEquals(serverHash, clientHash);
+        }
     }
 
     private static ClientSchema clientSchema(NativeType type, String columnName) {
