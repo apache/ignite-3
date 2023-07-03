@@ -122,7 +122,6 @@ public class MetricsTests
     {
         using var server = new FakeServer { HeartbeatDelay = TimeSpan.FromSeconds(3) };
         using var client = await server.ConnectClientAsync(GetConfigWithDelay());
-        Console.WriteLine("TestConnectionsLostTimeout FakeServer: " + server.Port);
 
         Assert.AreEqual(0, _listener.GetMetric("connections-lost-timeout"));
 
@@ -136,7 +135,6 @@ public class MetricsTests
     public void TestHandshakesFailed()
     {
         using var server = new FakeServer { SendInvalidMagic = true };
-        Console.WriteLine("TestHandshakesFailed FakeServer: " + server.Port);
 
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfig()));
         Assert.AreEqual(1, _listener.GetMetric("handshakes-failed"));

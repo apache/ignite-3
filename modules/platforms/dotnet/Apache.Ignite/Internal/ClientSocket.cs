@@ -214,12 +214,6 @@ namespace Apache.Ignite.Internal
             catch (Exception e)
             {
                 logger?.Warn($"Connection failed before or during handshake [remoteAddress={socket.RemoteEndPoint}]: {e.Message}.", e);
-                Console.WriteLine($"Connection failed before or during handshake [remoteAddress={socket.RemoteEndPoint}]: {e.Message} ({e.GetType()}).");
-
-                if (connected)
-                {
-                    Metrics.ConnectionsActiveDecrement();
-                }
 
                 if (e.GetBaseException() is TimeoutException)
                 {
@@ -232,6 +226,11 @@ namespace Apache.Ignite.Internal
 
                 // ReSharper disable once MethodHasAsyncOverload
                 socket.Dispose();
+
+                if (connected)
+                {
+                    Metrics.ConnectionsActiveDecrement();
+                }
 
                 throw new IgniteClientConnectionException(
                     ErrorGroups.Client.Connection,
