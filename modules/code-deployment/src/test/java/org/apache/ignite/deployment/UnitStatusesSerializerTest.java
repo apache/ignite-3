@@ -48,10 +48,10 @@ public class UnitStatusesSerializerTest {
 
     private static List<Arguments> clusterStatusProvider() {
         return List.of(
-                arguments("id", Version.LATEST, UPLOADING, 0, Set.of()),
-                arguments("id", Version.LATEST, UPLOADING, 1, Set.of("node1")),
-                arguments("id", Version.LATEST, UPLOADING, 1, Set.of("node1", "node2")),
-                arguments("id", Version.LATEST, UPLOADING, 1, Set.of("node1", "node2", "node3"))
+                arguments("id", Version.LATEST, UPLOADING, 0, Set.of(), false),
+                arguments("id", Version.LATEST, UPLOADING, 1, Set.of("node1"), true),
+                arguments("id", Version.LATEST, UPLOADING, 1, Set.of("node1", "node2"), true),
+                arguments("id", Version.LATEST, UPLOADING, 1, Set.of("node1", "node2", "node3"), true)
         );
     }
 
@@ -78,9 +78,10 @@ public class UnitStatusesSerializerTest {
             Version version,
             DeploymentStatus status,
             long opId,
-            Set<String> consistentIdLocation
+            Set<String> consistentIdLocation,
+            boolean isMajority
     ) {
-        UnitClusterStatus nodeStatus = new UnitClusterStatus(id, version, status, opId, consistentIdLocation);
+        UnitClusterStatus nodeStatus = new UnitClusterStatus(id, version, status, opId, consistentIdLocation, isMajority);
 
         byte[] serialize = UnitClusterStatus.serialize(nodeStatus);
 

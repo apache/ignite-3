@@ -23,20 +23,26 @@ import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Default implementation of {@link NodeEventCallback}.
  */
 public class DefaultNodeCallback extends NodeEventCallback {
+    private static final IgniteLogger LOG = Loggers.forClass(DefaultNodeCallback.class);
+
     private final DeploymentUnitStore deploymentUnitStore;
 
     private final DeployMessagingService messaging;
@@ -82,28 +88,37 @@ public class DefaultNodeCallback extends NodeEventCallback {
     @Override
     public void onUploading(String id, Version version, List<UnitNodeStatus> holders) {
         tracker.track(id, version,
-                () -> messaging.downloadUnitContent(id, version, new ArrayList<>(getDeployedNodeIds(holders)))
-                        .thenCompose(content -> deployer.deploy(id, version, content))
-                        .thenApply(deployed -> {
-                            if (deployed) {
-                                return deploymentUnitStore.updateNodeStatus(nodeName, id, version, DEPLOYED);
-                            }
-                            return deployed;
-                        })
+                () -> filterTopology(holders).thenApply(nodes -> {
+                    LOG.info("onUploading holders {}", nodes);
+                    return messaging.downloadUnitContent(id, version, new ArrayList<>(getDeployedNodeIds(nodes)))
+                            .thenCompose(content -> deployer.deploy(id, version, content))
+                            .thenApply(deployed -> {
+                                if (deployed) {
+                                    return deploymentUnitStore.updateNodeStatus(nodeName, id, version, DEPLOYED);
+                                }
+                                return deployed;
+                            });
+                })
         );
     }
 
     @Override
     public void onDeploy(String id, Version version, List<UnitNodeStatus> holders) {
-        Set<String> nodeIds = getDeployedNodeIds(holders);
-        deploymentUnitStore.getClusterStatus(id, version)
-                .thenApply(UnitClusterStatus::initialNodesToDeploy)
-                .thenApply(nodeIds::containsAll)
-                .thenAccept(allRequiredDeployed -> {
-                    if (allRequiredDeployed) {
-                        deploymentUnitStore.updateClusterStatus(id, version, DEPLOYED);
-                    }
-                });
+        filterTopology(holders).thenAccept(nodes -> {
+            Set<String> nodeIds = getDeployedNodeIds(nodes);
+            LOG.info("onDeploy nodes {}, deployed {}", nodes, nodeIds);
+            deploymentUnitStore.getClusterStatus(id, version)
+                    .thenApply(UnitClusterStatus::initialNodesToDeploy)
+                    .thenApply(initialNodesToDeploy -> {
+                        LOG.info("initialNodesToDeploy {}", initialNodesToDeploy);
+                        return nodeIds.containsAll(initialNodesToDeploy);
+                    })
+                    .thenAccept(allRequiredDeployed -> {
+                        if (allRequiredDeployed) {
+                            deploymentUnitStore.updateClusterStatus(id, version, DEPLOYED);
+                        }
+                    });
+        });
     }
 
     @Override
@@ -113,16 +128,27 @@ public class DefaultNodeCallback extends NodeEventCallback {
 
     @Override
     public void onRemoving(String id, Version version, List<UnitNodeStatus> holders) {
-        cmgManager.logicalTopology()
-                .thenAccept(snapshot -> {
-                    Set<String> nodes = snapshot.nodes().stream().map(LogicalNode::name).collect(Collectors.toSet());
-                    boolean allRemoved = holders.stream()
-                            .filter(nodeStatus -> nodes.contains(nodeStatus.nodeId()))
-                            .allMatch(nodeStatus -> nodeStatus.status() == REMOVING);
-                    if (allRemoved) {
-                        deploymentUnitStore.updateClusterStatus(id, version, REMOVING);
-                    }
-                });
+        filterTopology(holders).thenAccept(nodes -> {
+            boolean allRemoved = nodes.stream()
+                    .allMatch(nodeStatus -> nodeStatus.status() == REMOVING);
+            if (allRemoved) {
+                deploymentUnitStore.updateClusterStatus(id, version, REMOVING);
+            }
+        });
+    }
+
+    private CompletableFuture<List<UnitNodeStatus>> filterTopology(List<UnitNodeStatus> statuses) {
+        return cmgManager.logicalTopology()
+                .thenApply(DefaultNodeCallback::getNodeNames)
+                .thenApply(nodes -> statuses.stream()
+                        .filter(nodeStatus -> nodes.contains(nodeStatus.nodeId()))
+                        .collect(Collectors.toList()));
+    }
+
+    private static Set<String> getNodeNames(LogicalTopologySnapshot snapshot) {
+        return snapshot.nodes().stream()
+                .map(LogicalNode::name)
+                .collect(Collectors.toSet());
     }
 
     /**

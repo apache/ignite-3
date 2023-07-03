@@ -22,8 +22,12 @@ import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -32,16 +36,22 @@ import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.FileDeployerService;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Deployment unit failover.
  */
 public class DeploymentUnitFailover {
+    private static final IgniteLogger LOG = Loggers.forClass(DeploymentUnitFailover.class);
+
     private final LogicalTopologyService logicalTopology;
 
     private final DeploymentUnitStore deploymentUnitStore;
 
     private final FileDeployerService deployer;
+
+    private final ClusterManagementGroupManager cmgManager;
 
     private final String nodeName;
 
@@ -51,17 +61,20 @@ public class DeploymentUnitFailover {
      * @param logicalTopology Logical topology service.
      * @param deploymentUnitStore Deployment units store.
      * @param deployer Deployment unit file system service.
+     * @param cmgManager
      * @param nodeName Node consistent ID.
      */
     public DeploymentUnitFailover(
             LogicalTopologyService logicalTopology,
             DeploymentUnitStore deploymentUnitStore,
             FileDeployerService deployer,
+            ClusterManagementGroupManager cmgManager,
             String nodeName
     ) {
         this.logicalTopology = logicalTopology;
         this.deploymentUnitStore = deploymentUnitStore;
         this.deployer = deployer;
+        this.cmgManager = cmgManager;
         this.nodeName = nodeName;
     }
 
@@ -76,6 +89,7 @@ public class DeploymentUnitFailover {
             @Override
             public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
                 String consistentId = joinedNode.name();
+                LOG.info("onNodeJoined {}", consistentId);
                 if (Objects.equals(consistentId, nodeName)) {
                     deploymentUnitStore.getNodeStatuses(consistentId)
                             .thenAccept(nodeStatuses -> nodeStatuses.forEach(unitNodeStatus ->
@@ -84,7 +98,62 @@ public class DeploymentUnitFailover {
                                                     processStatus(unitClusterStatus, unitNodeStatus, nodeEventCallback))));
                 }
             }
+
+            @Override
+            public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
+                cmgManager.isCmgLeader().thenAccept(isLeader -> {
+                    String leftNodeName = leftNode.name();
+                    LOG.info("onNodeLeft " + leftNodeName + (isLeader ? " on leader" : ""));
+                    if (isLeader) {
+                        // When a node from the majority is down, another node from the CMG should be selected for majority.
+                        deploymentUnitStore.getNodeStatuses(leftNodeName)
+                                .thenAccept(statuses -> {
+                                    LOG.info("Left node {} statuses: {}", leftNodeName, statuses);
+                                    statuses.stream()
+                                            .filter(nodeStatus -> nodeStatus.status() == UPLOADING)
+                                            .forEach(nodeStatus -> checkNodeStatus(nodeStatus, leftNodeName));
+                                });
+                    }
+                });
+            }
         });
+    }
+
+    private void checkNodeStatus(UnitNodeStatus nodeStatus, String leftNodeName) {
+        deploymentUnitStore.getClusterStatus(nodeStatus.id(), nodeStatus.version())
+                .thenAccept(clusterStatus -> {
+                    LOG.info("clusterStatus {}", clusterStatus);
+                    if (clusterStatus.isMajority() && clusterStatus.initialNodesToDeploy().contains(leftNodeName)) {
+                        Set<String> initialNodesToDeploy = new HashSet<>(clusterStatus.initialNodesToDeploy());
+
+                        initialNodesToDeploy.remove(leftNodeName);
+
+                        // Find new candidate for majority
+                        cmgManager.peers().thenAccept(peers -> {
+                            LOG.info("peers {}", peers);
+                            Optional<String> newNode = peers.stream()
+                                    .filter(node -> !initialNodesToDeploy.contains(node) && !leftNodeName.equals(node))
+                                    .findAny();
+                            if (newNode.isPresent()) {
+                                String newNodeName = newNode.get();
+                                initialNodesToDeploy.add(newNodeName);
+
+                                LOG.info("updateClusterStatus {}", initialNodesToDeploy);
+                                deploymentUnitStore.updateClusterStatus(nodeStatus.id(), nodeStatus.version(), initialNodesToDeploy)
+                                        .thenAccept(success -> {
+                                            LOG.info("createNodeStatus for {}", newNodeName);
+                                            deploymentUnitStore.createNodeStatus(
+                                                    newNodeName,
+                                                    nodeStatus.id(),
+                                                    nodeStatus.version(),
+                                                    nodeStatus.opId(),
+                                                    UPLOADING);
+                                                }
+                                        );
+                            }
+                        });
+                    }
+                });
     }
 
     private void processStatus(UnitClusterStatus unitClusterStatus, UnitNodeStatus unitNodeStatus, NodeEventCallback nodeEventCallback) {

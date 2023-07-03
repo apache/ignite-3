@@ -109,18 +109,18 @@ public class DeploymentUnitStoreImplTest {
         String id = "id1";
         Version version = Version.parseVersion("1.1.1");
 
-        CompletableFuture<UnitClusterStatus> clusterStatusFuture = metastore.createClusterStatus(id, version, Set.of());
+        CompletableFuture<UnitClusterStatus> clusterStatusFuture = metastore.createClusterStatus(id, version, Set.of(), true);
         assertThat(clusterStatusFuture, willCompleteSuccessfully());
 
         UnitClusterStatus clusterStatus = clusterStatusFuture.get();
         long opId = clusterStatus.opId();
 
         assertThat(metastore.getClusterStatus(id, version),
-                willBe(new UnitClusterStatus(id, version, UPLOADING, opId, Set.of())));
+                willBe(new UnitClusterStatus(id, version, UPLOADING, opId, Set.of(), true)));
 
         assertThat(metastore.updateClusterStatus(id, version, DEPLOYED), willBe(true));
         assertThat(metastore.getClusterStatus(id, version),
-                willBe(new UnitClusterStatus(id, version, DEPLOYED, opId, Set.of())));
+                willBe(new UnitClusterStatus(id, version, DEPLOYED, opId, Set.of(), true)));
 
         assertThat(metastore.removeClusterStatus(id, version), willBe(true));
 
@@ -136,14 +136,14 @@ public class DeploymentUnitStoreImplTest {
         String node2 = "node2";
         String node3 = "node3";
 
-        CompletableFuture<UnitClusterStatus> clusterStatusFuture = metastore.createClusterStatus(id, version, Set.of(node1, node2, node3));
+        CompletableFuture<UnitClusterStatus> clusterStatusFuture = metastore.createClusterStatus(id, version, Set.of(node1, node2, node3), true);
         assertThat(clusterStatusFuture, willCompleteSuccessfully());
 
         UnitClusterStatus clusterStatus = clusterStatusFuture.get();
         long opId = clusterStatus.opId();
 
         assertThat(metastore.getClusterStatus(id, version),
-                willBe(new UnitClusterStatus(id, version, UPLOADING, opId, Set.of(node1, node2, node3))));
+                willBe(new UnitClusterStatus(id, version, UPLOADING, opId, Set.of(node1, node2, node3), true)));
 
         assertThat(metastore.createNodeStatus(node1, id, version, opId, UPLOADING), willBe(true));
         assertThat(metastore.getNodeStatus(node1, id, version),
@@ -161,10 +161,10 @@ public class DeploymentUnitStoreImplTest {
 
         assertThat(metastore.updateClusterStatus(id, version, DEPLOYED), willBe(true));
         assertThat(metastore.getClusterStatus(id, version),
-                willBe(new UnitClusterStatus(id, version, DEPLOYED, opId, Set.of(node1, node2, node3))));
+                willBe(new UnitClusterStatus(id, version, DEPLOYED, opId, Set.of(node1, node2, node3), true)));
 
         assertThat(metastore.getClusterStatuses(id),
-                willBe(contains((new UnitClusterStatus(id, version, DEPLOYED, opId, Set.of(node1, node2, node3)))))
+                willBe(contains((new UnitClusterStatus(id, version, DEPLOYED, opId, Set.of(node1, node2, node3), true))))
         );
 
         assertThat(metastore.removeClusterStatus(id, version), willBe(true));
@@ -200,7 +200,7 @@ public class DeploymentUnitStoreImplTest {
         String id = "id6";
         Version version = Version.parseVersion("1.1.1");
 
-        CompletableFuture<UnitClusterStatus> clusterStatusFuture = metastore.createClusterStatus(id, version, Set.of());
+        CompletableFuture<UnitClusterStatus> clusterStatusFuture = metastore.createClusterStatus(id, version, Set.of(), true);
         assertThat(clusterStatusFuture, willCompleteSuccessfully());
 
         UnitClusterStatus clusterStatus = clusterStatusFuture.get();
@@ -212,10 +212,10 @@ public class DeploymentUnitStoreImplTest {
 
         await().untilAsserted(() ->
                 assertThat(clusterHistory, containsInAnyOrder(
-                        new UnitClusterStatus(id, version, UPLOADING, opId, Set.of()),
-                        new UnitClusterStatus(id, version, DEPLOYED, opId, Set.of()),
-                        new UnitClusterStatus(id, version, OBSOLETE, opId, Set.of()),
-                        new UnitClusterStatus(id, version, REMOVING, opId, Set.of())
+                        new UnitClusterStatus(id, version, UPLOADING, opId, Set.of(), true),
+                        new UnitClusterStatus(id, version, DEPLOYED, opId, Set.of(), true),
+                        new UnitClusterStatus(id, version, OBSOLETE, opId, Set.of(), true),
+                        new UnitClusterStatus(id, version, REMOVING, opId, Set.of(), true)
                 )));
     }
 }

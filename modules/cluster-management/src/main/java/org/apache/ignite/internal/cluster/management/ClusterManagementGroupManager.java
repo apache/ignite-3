@@ -457,6 +457,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * cluster state.
      */
     private CompletableFuture<CmgRaftService> updateLogicalTopology(CmgRaftService service) {
+        LOG.info("isCurrentNodeLeader {}", service.isCurrentNodeLeader().join());
         return service.logicalTopology()
                 .thenCompose(logicalTopology -> {
                     Set<String> physicalTopologyIds = clusterService.topologyService().allMembers()
@@ -798,6 +799,19 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         }
     }
 
+    public CompletableFuture<Set<String>> peers() {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return raftServiceAfterJoin()
+                    .thenApply(CmgRaftService::nodeNames);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
     /**
      * Returns a future that, when complete, resolves into a logical topology snapshot.
      *
@@ -856,8 +870,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /**
      * Returns a future that resolves to {@code true} if the current node is the CMG leader.
      */
-    @TestOnly
-    CompletableFuture<Boolean> isCmgLeader() {
+    public CompletableFuture<Boolean> isCmgLeader() {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
