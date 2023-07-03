@@ -2544,7 +2544,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return tablesById(revision)
                 // TODO: IGNITE-18703 Destroy raft log and meta
                 .thenCombine(mvGc.removeStorage(tablePartitionId), (tables, unused) -> {
-                    InternalTable internalTable = tables.get(tablePartitionId.tableId()).internalTable();
+                    TableImpl table = tables.get(tablePartitionId.tableId());
+
+                    // TODO: IGNITE-19905 - remove the check.
+                    if (table == null) {
+                        return allOf(stopReplicaFut);
+                    }
+
+                    InternalTable internalTable = table.internalTable();
 
                     closePartitionTrackers(internalTable, partitionId);
 
