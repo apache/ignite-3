@@ -592,9 +592,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                         } else {
                             // Here we go to next iteration of an implicit spin loop; we have to do it via recursion
                             // because we work with async code (futures).
-                            return localRoots.changeFuture.thenCompose(v -> {
-                                return changeInternally(src);
-                            });
+                            return localRoots.changeFuture.thenCompose(v -> changeInternally(src));
                         }
                     });
         } finally {

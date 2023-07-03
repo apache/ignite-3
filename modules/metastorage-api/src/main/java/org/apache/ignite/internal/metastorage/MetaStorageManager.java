@@ -87,6 +87,15 @@ public interface MetaStorageManager extends IgniteComponent {
      */
     Entry getLocally(ByteArray key, long revUpperBound);
 
+    /**
+     * Returns cursor by entries which correspond to the given keys range and bounded by revision number. The entries in the cursor
+     * are obtained from the local storage.
+     *
+     * @param startKey Start key of range (inclusive).
+     * @param endKey Last key of range (exclusive).
+     * @param revision Upper bound of revision.
+     * @return Cursor by entries which correspond to the given keys range.
+     */
     Cursor<Entry> getLocally(ByteArray startKey, ByteArray endKey, long revision);
 
     /**
