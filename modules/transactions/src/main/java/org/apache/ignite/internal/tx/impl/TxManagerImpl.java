@@ -196,7 +196,7 @@ public class TxManagerImpl implements TxManager {
 
         return replicaService.invoke(recipientNode, req)
                 // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
-                .thenRun(() -> changeState(txId, null, commit ? COMMITED : ABORTED));
+                .thenRun(() -> changeState(txId, PENDING, commit ? COMMITED : ABORTED));
     }
 
     @Override
