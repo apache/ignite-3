@@ -27,6 +27,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Ignite.Table;
+using Log;
 using NUnit.Framework;
 
 /// <summary>
@@ -303,7 +304,12 @@ public class MetricsTests
         {
             HeartbeatInterval = TimeSpan.FromMilliseconds(50),
             SocketTimeout = TimeSpan.FromMilliseconds(50),
-            RetryPolicy = new RetryNonePolicy()
+            RetryPolicy = new RetryNonePolicy(),
+            Logger = new ConsoleLogger
+            {
+                MinLevel = LogLevel.Info,
+                Prefix = "$" + TestContext.CurrentContext.Test.MethodName
+            }
         };
 
     private sealed class Listener : IDisposable
