@@ -312,7 +312,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      */
     private static RowAssembler createAssembler(SchemaDescriptor schema, InternalTuple keyTuple, InternalTuple valTuple) {
         Columns valueColumns = valTuple.tuple != null ? schema.valueColumns() : null;
-        boolean hasNulls = keyTuple.hasNulls || valTuple.hasNulls;
+
         int totalValueSize;
         if (keyTuple.estimatedValueSize < 0 || valTuple.estimatedValueSize < 0) {
             totalValueSize = -1;
@@ -320,7 +320,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             totalValueSize = keyTuple.estimatedValueSize + valTuple.estimatedValueSize;
         }
 
-        return new RowAssembler(schema.keyColumns(), valueColumns, schema.version(), hasNulls, totalValueSize);
+        return new RowAssembler(schema.keyColumns(), valueColumns, schema.version(), totalValueSize);
     }
 
     /**

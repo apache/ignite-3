@@ -89,10 +89,11 @@ public:
         check_index(index);
         std::size_t byte_index = index / CHAR_BIT;
         std::size_t bit_index = index % CHAR_BIT;
-        if (value)
+        if (value) {
             m_data[byte_index] |= std::byte(1 << bit_index);
-        else
+        } else {
             m_data[byte_index] &= std::byte(~(1 << bit_index));
+        }
     }
 
     /**
