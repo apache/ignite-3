@@ -336,7 +336,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
-        SchemaManager schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
+        var clockWaiter = new ClockWaiter("test", hybridClock);
+
+        var catalogManager = new CatalogServiceImpl(
+                new UpdateLogImpl(metaStorageMgr),
+                clockWaiter
+        );
+
+        SchemaManager schemaManager = new SchemaManager(registry, catalogManager, metaStorageMgr);
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 zonesConfig,
@@ -345,13 +352,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopologyService,
                 vault,
                 name
-        );
-
-        var clockWaiter = new ClockWaiter("test", hybridClock);
-
-        var catalogManager = new CatalogServiceImpl(
-                new UpdateLogImpl(metaStorageMgr),
-                clockWaiter
         );
 
         TableManager tableManager = new TableManager(
@@ -372,6 +372,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 storagePath,
                 metaStorageMgr,
                 schemaManager,
+                catalogManager,
                 view -> new LocalLogStorageFactory(),
                 hybridClock,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
@@ -381,7 +382,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 null
         );
 
-        var indexManager = new IndexManager(tablesConfig, schemaManager, tableManager);
+        var indexManager = new IndexManager(tablesConfig, schemaManager, tableManager, catalogManager);
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,

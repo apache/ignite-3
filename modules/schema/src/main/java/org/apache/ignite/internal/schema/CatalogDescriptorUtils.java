@@ -21,8 +21,12 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.ConstantValue;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
@@ -32,7 +36,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.configuration.ColumnTypeView;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
-import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.configuration.PrimaryKeyView;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.ValueSerializationHelper;
@@ -45,6 +48,7 @@ import org.apache.ignite.internal.schema.configuration.index.IndexColumnView;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
+import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Helper class for working with catalog descriptors.
@@ -53,6 +57,24 @@ import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 // TODO: IGNITE-19500 Get rid of the index configuration
 @Deprecated(forRemoval = true)
 public class CatalogDescriptorUtils {
+    public static final Map<String, NativeType> FIX_SIZED_TYPES;
+
+    static {
+        List<NativeType> types = IgniteUtils.collectStaticFields(NativeTypes.class, NativeType.class);
+
+        Map<String, NativeType> tmp = new HashMap<>(types.size(), 1.0f);
+
+        for (NativeType type : types) {
+            if (!type.spec().fixedLength()) {
+                continue;
+            }
+
+            tmp.put(type.spec().name(), type);
+        }
+
+        FIX_SIZED_TYPES = Map.copyOf(tmp);
+    }
+
     /**
      * Converts a table configuration to a catalog table descriptor.
      *
@@ -158,7 +180,7 @@ public class CatalogDescriptorUtils {
     private static CatalogTableColumnDescriptor toTableColumnDescriptor(ColumnView config) {
         ColumnTypeView typeConfig = config.type();
 
-        NativeType nativeType = ConfigurationToSchemaDescriptorConverter.convert(typeConfig);
+        NativeType nativeType = convert(typeConfig);
 
         return new CatalogTableColumnDescriptor(
                 config.name(),
@@ -194,5 +216,78 @@ public class CatalogDescriptorUtils {
         CatalogColumnCollation collation = config.asc() ? ASC_NULLS_LAST : DESC_NULLS_FIRST;
 
         return new CatalogIndexColumnDescriptor(config.name(), collation);
+    }
+
+    public static DefaultValueProvider getDefaultValueProvider(CatalogTableColumnDescriptor columnDescriptor) {
+        DefaultValue defaultValue = columnDescriptor.defaultValue();
+
+        assert defaultValue != null;
+
+        switch (defaultValue.type()) {
+            case CONSTANT:
+                return ((ConstantValue) defaultValue).value() == null
+                        ? DefaultValueProvider.NULL_PROVIDER
+                        : DefaultValueProvider.constantProvider(((ConstantValue) defaultValue).value());
+            case FUNCTION_CALL:
+                return DefaultValueProvider.forValueGenerator(
+                        DefaultValueGenerator.valueOf(((FunctionCall) defaultValue).functionName())
+                );
+
+            default:
+                throw new IllegalArgumentException("Unexpected default value: ");
+        }
+    }
+
+    /**
+     * Converts given type view to a {@link NativeType}.
+     *
+     * @param colTypeView View to convert.
+     * @return A {@link NativeType} object represented by given view.
+     */
+    public static NativeType convert(ColumnTypeView colTypeView) {
+        String typeName = colTypeView.type().toUpperCase();
+        NativeType res = FIX_SIZED_TYPES.get(typeName);
+
+        if (res != null) {
+            return res;
+        }
+
+        switch (typeName) {
+            case "BITMASK":
+                int bitmaskLen = colTypeView.length();
+
+                return NativeTypes.bitmaskOf(bitmaskLen);
+
+            case "STRING":
+                int strLen = colTypeView.length();
+
+                return NativeTypes.stringOf(strLen);
+
+            case "BYTES":
+                int blobLen = colTypeView.length();
+
+                return NativeTypes.blobOf(blobLen);
+
+            case "DECIMAL":
+                int prec = colTypeView.precision();
+                int scale = colTypeView.scale();
+
+                return NativeTypes.decimalOf(prec, scale);
+
+            case "NUMBER":
+                return NativeTypes.numberOf(colTypeView.precision());
+
+            case "TIME":
+                return NativeTypes.time(colTypeView.precision());
+
+            case "DATETIME":
+                return NativeTypes.datetime(colTypeView.precision());
+
+            case "TIMESTAMP":
+                return NativeTypes.timestamp(colTypeView.precision());
+
+            default:
+                throw new IllegalArgumentException("Unknown type " + typeName);
+        }
     }
 }

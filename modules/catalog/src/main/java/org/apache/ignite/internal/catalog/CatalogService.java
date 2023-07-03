@@ -58,6 +58,8 @@ public interface CatalogService {
 
     CatalogZoneDescriptor zone(int zoneId, long timestamp);
 
+    CatalogZoneDescriptor zone(int zoneId, int catalogVersion);
+
     CatalogSchemaDescriptor activeSchema(long timestamp);
 
     CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);

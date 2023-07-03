@@ -259,53 +259,14 @@ public class DdlCommandHandler {
     }
 
     /** Handles create table command. */
+    @Deprecated(forRemoval = true)
     private CompletableFuture<Boolean> handleCreateTable(CreateTableCommand cmd) {
-        cmd.columns().stream()
-                .map(ColumnDefinition::name)
-                .filter(Predicate.not(new HashSet<>()::add))
-                .findAny()
-                .ifPresent(col -> {
-                    throw new SqlException(Table.TABLE_DEFINITION_ERR, "Can't create table with duplicate columns: "
-                            + cmd.columns().stream().map(ColumnDefinition::name).collect(Collectors.joining(", ")));
-                });
-
-        Consumer<TableChange> tblChanger = tableChange -> {
-            tableChange.changeColumns(columnsChange -> {
-                for (var col : cmd.columns()) {
-                    columnsChange.create(col.name(), columnChange -> convertColumnDefinition(col, columnChange));
-                }
-            });
-
-            var colocationKeys = cmd.colocationColumns();
-
-            if (nullOrEmpty(colocationKeys)) {
-                colocationKeys = cmd.primaryKeyColumns();
-            }
-
-            var colocationKeys0 = colocationKeys;
-
-            tableChange.changePrimaryKey(pkChange -> pkChange.changeColumns(cmd.primaryKeyColumns().toArray(String[]::new))
-                    .changeColocationColumns(colocationKeys0.toArray(String[]::new)));
-        };
-
-        String zoneName;
-
-        if (cmd.zone() != null) {
-            zoneName = cmd.zone();
-        } else {
-            zoneName = DEFAULT_ZONE_NAME;
-        }
-
-        return tableManager.createTableAsync(cmd.tableName(), zoneName, tblChanger)
-                .thenApply(Objects::nonNull)
-                .handle(handleModificationResult(cmd.ifTableExists(), TableAlreadyExistsException.class));
+        throw new UnsupportedOperationException("Please, create table via Catalog.");
     }
 
     /** Handles drop table command. */
     private CompletableFuture<Boolean> handleDropTable(DropTableCommand cmd) {
-        return tableManager.dropTableAsync(cmd.tableName())
-                .thenApply(v -> Boolean.TRUE)
-                .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
+        throw new UnsupportedOperationException("Please, create table via Catalog.");
     }
 
     /** Handles add column command. */

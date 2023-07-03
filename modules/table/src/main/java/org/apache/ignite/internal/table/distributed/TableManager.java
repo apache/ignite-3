@@ -25,6 +25,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
@@ -57,7 +58,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -83,14 +83,17 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
-import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -130,7 +133,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -207,8 +209,6 @@ import org.jetbrains.annotations.TestOnly;
  * Table manager.
  */
 public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTablesInternal, IgniteComponent {
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
     private static final long QUERY_DATA_NODES_COUNT_TIMEOUT = TimeUnit.SECONDS.toMillis(3);
 
     /** The logger. */
@@ -315,6 +315,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Schema manager. */
     private final SchemaManager schemaManager;
 
+    /** Catalog service. */
+    private final CatalogService catalogService;
+
     private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
     /** Executor for scheduling retries of a rebalance. */
@@ -391,6 +394,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param txManager Transaction manager.
      * @param dataStorageMgr Data storage manager.
      * @param schemaManager Schema manager.
+     * @param catalogService Catalog manager.
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
      *         volatile tables.
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
@@ -414,6 +418,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             Path storagePath,
             MetaStorageManager metaStorageMgr,
             SchemaManager schemaManager,
+            CatalogManager catalogService,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             HybridClock clock,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
@@ -437,6 +442,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.metaStorageMgr = metaStorageMgr;
         this.vaultManager = vaultManager;
         this.schemaManager = schemaManager;
+        this.catalogService = catalogService;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.clock = clock;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
@@ -510,23 +516,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), assignmentsSwitchRebalanceListener);
 
-        tablesCfg.tables().listenElements(new ConfigurationNamedListListener<>() {
-            @Override
-            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableView> ctx) {
-                return onTableCreate(ctx);
-            }
+        catalogService.listen(CatalogEvent.TABLE_CREATE, (parameters, exception) -> {
+            assert exception == null;
 
-            @Override
-            public CompletableFuture<?> onRename(ConfigurationNotificationEvent<TableView> ctx) {
-                // TODO: IGNITE-15485 Support table rename operation.
+            return onTableCreate((CreateTableEventParameters) parameters);
+        });
+        catalogService.listen(CatalogEvent.TABLE_DROP, (parameters, exception) -> {
+            assert exception == null;
 
-                return completedFuture(null);
-            }
-
-            @Override
-            public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<TableView> ctx) {
-                return onTableDelete(ctx);
-            }
+            return onTableDrop((DropTableEventParameters) parameters);
         });
 
         schemaManager.listen(SchemaEvent.CREATE, new EventListener<>() {
@@ -581,15 +579,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Listener of table create configuration change.
-     *
-     * @param ctx Table configuration context.
-     * @return A future.
+     * Table create callback.
      */
-    private CompletableFuture<?> onTableCreate(ConfigurationNotificationEvent<TableView> ctx) {
+    private CompletableFuture<Boolean> onTableCreate(CreateTableEventParameters parameters) {
         if (!busyLock.enterBusy()) {
             fireEvent(TableEvent.CREATE,
-                    new TableEventParameters(ctx.storageRevision(), ctx.newValue().id()),
+                    new TableEventParameters(parameters.causalityToken(), parameters.tableDescriptor().id()),
                     new NodeStoppingException()
             );
 
@@ -597,8 +592,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
-            CatalogTableDescriptor tableDescriptor = toTableDescriptor(ctx.newValue());
-            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId());
+            CatalogTableDescriptor tableDescriptor = parameters.tableDescriptor();
+
+            CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), parameters.catalogVersion());
+
+            assert zoneDescriptor != null;
 
             List<Set<Assignment>> assignments;
 
@@ -620,7 +618,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             assert !assignments.isEmpty() : "Couldn't create the table with empty assignments.";
 
             CompletableFuture<?> createTableFut = createTableLocally(
-                    ctx.storageRevision(),
+                    parameters.causalityToken(),
                     tableDescriptor,
                     zoneDescriptor,
                     assignments
@@ -634,7 +632,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             writeTableAssignmentsToMetastore(tableId, assignments);
 
-            return createTableFut;
+            createTableFut.thenApply(ignore -> false);
+
+            return completedFuture(false);
         } finally {
             busyLock.leaveBusy();
         }
@@ -664,16 +664,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Listener of table drop configuration change.
-     *
-     * @param ctx Table configuration context.
-     * @return A future.
+     * Table drop callback.
      */
-    private CompletableFuture<?> onTableDelete(ConfigurationNotificationEvent<TableView> ctx) {
+    private CompletableFuture<Boolean> onTableDrop(DropTableEventParameters parameters) {
         if (!busyLock.enterBusy()) {
             fireEvent(
                     TableEvent.DROP,
-                    new TableEventParameters(ctx.storageRevision(), ctx.oldValue().id()),
+                    new TableEventParameters(parameters.causalityToken(), parameters.tableId()),
                     new NodeStoppingException()
             );
 
@@ -681,15 +678,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
-            CatalogTableDescriptor tableDescriptor = toTableDescriptor(ctx.oldValue());
+            CatalogTableDescriptor tableDescriptor = catalogService.table(parameters.tableId(), parameters.catalogVersion() - 1);
             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId());
 
-            dropTableLocally(ctx.storageRevision(), tableDescriptor, zoneDescriptor);
+            dropTableLocally(parameters.causalityToken(), tableDescriptor.id(), zoneDescriptor.partitions());
         } finally {
             busyLock.leaveBusy();
         }
 
-        return completedFuture(null);
+        return completedFuture(false);
     }
 
     /**
@@ -1314,13 +1311,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Drops local structures for a table.
      *
      * @param causalityToken Causality token.
-     * @param tableDescriptor Catalog table descriptor.
-     * @param zoneDescriptor Catalog distributed zone descriptor.
+     * @param tableId Table id.
+     * @param partitions Partitions.
      */
-    private void dropTableLocally(long causalityToken, CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
-        int tableId = tableDescriptor.id();
-        int partitions = zoneDescriptor.partitions();
-
+    private void dropTableLocally(long causalityToken, int tableId, int partitions) {
         try {
             CompletableFuture<?>[] removeStorageFromGcFutures = new CompletableFuture<?>[partitions];
 
@@ -1416,6 +1410,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         </ul>
      * @see TableAlreadyExistsException
      */
+    @Deprecated(forRemoval = true)
     public CompletableFuture<Table> createTableAsync(String name, String zoneName, Consumer<TableChange> tableInitChange) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
@@ -1792,29 +1787,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Gets direct id of table with {@code tblName}.
-     *
-     * @param tblName Name of the table.
-     * @return Direct id of the table, or {@code null} if the table with the {@code tblName} has not been found.
-     */
-    @Nullable
-    private Integer directTableId(String tblName) {
-        try {
-            TableConfiguration exTblCfg = directProxy(tablesCfg.tables()).get(tblName);
-
-            if (exTblCfg == null) {
-                return null;
-            } else {
-                return exTblCfg.id().value();
-            }
-        } catch (NoSuchElementException e) {
-            return null;
-        }
-    }
-
-    /**
-     * Returns the tables by ID future for the given causality token.
-     * The future will only be completed when corresponding assignments update completes.
+     * Returns the tables by ID future for the given causality token. The future will only be completed when corresponding assignments
+     * update completes.
      *
      * @param causalityToken Causality token.
      * @return The future with tables map.
@@ -1945,14 +1919,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
-            return supplyAsync(() -> inBusyLock(busyLock, () -> directTableId(name)), ioExecutor)
-                    .thenCompose(tableId -> inBusyLock(busyLock, () -> {
-                        if (tableId == null) {
-                            return completedFuture(null);
-                        }
+            CatalogTableDescriptor table = catalogService.table(name, clock.nowLong());
 
-                        return tableAsyncInternal(tableId, false);
-                    }));
+            return tableAsyncInternal(table.id(), false);
         } finally {
             busyLock.leaveBusy();
         }

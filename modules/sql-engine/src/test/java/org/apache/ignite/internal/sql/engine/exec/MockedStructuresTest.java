@@ -30,7 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -66,9 +65,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -111,7 +108,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -275,7 +271,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         dataStorageManager.start();
 
-        schemaManager = new SchemaManager(revisionUpdater, tblsCfg, msm);
+        schemaManager = new SchemaManager(revisionUpdater, catalogManager, msm);
 
         schemaManager.start();
 
@@ -297,7 +293,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         tblManager = mockManagers();
 
-        idxManager = new IndexManager(tblsCfg, schemaManager, tblManager);
+        idxManager = new IndexManager(tblsCfg, schemaManager, tblManager, catalogManager);
 
         idxManager.start();
 
@@ -541,11 +537,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 new NetworkAddress("localhost", 47500)
         ));
 
-        try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
-            schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(anyInt(), any()))
-                    .thenReturn(mock(SchemaDescriptor.class));
-        }
-
         when(cs.messagingService()).thenAnswer(invocation -> {
             MessagingService ret = mock(MessagingService.class);
 
@@ -586,6 +577,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 workDir,
                 msm,
                 schemaManager,
+                catalogManager,
                 null,
                 clock,
                 mock(OutgoingSnapshotsManager.class),

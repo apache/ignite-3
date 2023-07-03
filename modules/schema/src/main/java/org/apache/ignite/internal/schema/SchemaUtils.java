@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
-import org.apache.ignite.internal.schema.configuration.TableView;
+import java.util.List;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 
@@ -28,17 +30,6 @@ import org.apache.ignite.internal.schema.mapping.ColumnMapping;
  * Stateless schema utils that produces helper methods for schema preparation.
  */
 public class SchemaUtils {
-    /**
-     * Creates schema descriptor for the table with specified configuration.
-     *
-     * @param schemaVer Schema version.
-     * @param tableView Table configuration.
-     * @return Schema descriptor.
-     */
-    public static SchemaDescriptor prepareSchemaDescriptor(int schemaVer, TableView tableView) {
-        return ConfigurationToSchemaDescriptorConverter.convert(schemaVer, tableView);
-    }
-
     /**
      * Prepares column mapper.
      *
@@ -120,5 +111,50 @@ public class SchemaUtils {
         }
 
         return true;
+    }
+
+    /**
+     * Creates SchemaDescriptor from table descriptor.
+     */
+    static SchemaDescriptor toSchemaDescriptor(int catalogVersion, CatalogTableDescriptor tableDescriptor) {
+        List<Column> keyCols = new ArrayList<>(tableDescriptor.primaryKeyColumns().size());
+        List<Column> valCols = new ArrayList<>(tableDescriptor.columns().size() - tableDescriptor.primaryKeyColumns().size());
+
+        int idx = 0;
+
+        for (CatalogTableColumnDescriptor column : tableDescriptor.columns()) {
+            if (column == null) {
+                // columns was removed, so let's skip it
+                continue;
+            }
+
+            if (tableDescriptor.isPrimaryKeyColumn(column.name())) {
+                keyCols.add(toColumn(idx, column));
+            } else {
+                valCols.add(toColumn(idx, column));
+            }
+
+            idx++;
+        }
+
+        return new SchemaDescriptor(
+                catalogVersion,
+                keyCols.toArray(Column[]::new),
+                tableDescriptor.colocationColumns().toArray(String[]::new),
+                valCols.toArray(Column[]::new)
+        );
+    }
+
+    /**
+     * Creates Column from column descriptor.
+     */
+    private static Column toColumn(int idx, CatalogTableColumnDescriptor columnDescriptor) {
+        return new Column(
+                idx,
+                columnDescriptor.name(),
+                CatalogDescriptorUtils.getNativeType(columnDescriptor),
+                columnDescriptor.nullable(),
+                CatalogDescriptorUtils.getDefaultValueProvider(columnDescriptor)
+        );
     }
 }

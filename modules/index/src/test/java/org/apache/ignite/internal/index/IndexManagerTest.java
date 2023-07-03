@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
@@ -81,6 +82,7 @@ public class IndexManagerTest {
     @BeforeEach
     public void setUp() {
         TableManager tableManagerMock = mock(TableManager.class);
+        CatalogManager catalogManagerMock = mock(CatalogManager.class);
 
         when(tableManagerMock.tableAsync(anyLong(), anyInt())).thenAnswer(inv -> {
             InternalTable tbl = mock(InternalTable.class);
@@ -104,7 +106,7 @@ public class IndexManagerTest {
 
         when(schManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(null));
 
-        indexManager = new IndexManager(tablesConfig, schManager, tableManagerMock);
+        indexManager = new IndexManager(tablesConfig, schManager, tableManagerMock, catalogManagerMock);
         indexManager.start();
 
         assertThat(

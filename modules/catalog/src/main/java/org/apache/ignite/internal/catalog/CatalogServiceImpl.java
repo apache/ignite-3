@@ -239,6 +239,17 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     @Override
+    public @Nullable CatalogZoneDescriptor zone(int zoneId, int catalogVersion) {
+        Catalog catalog = catalog(catalogVersion);
+
+        if (catalog == null) {
+            return null;
+        }
+
+        return catalog.zone(zoneId);
+    }
+
+    @Override
     public @Nullable CatalogSchemaDescriptor activeSchema(long timestamp) {
         return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME);
     }

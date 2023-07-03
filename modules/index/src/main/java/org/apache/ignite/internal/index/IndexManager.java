@@ -20,13 +20,13 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toIndexDescriptor;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -36,12 +36,18 @@ import java.util.function.Function;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -58,7 +64,6 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesView;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
@@ -68,7 +73,6 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups;
@@ -80,8 +84,7 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableNotFoundException;
 
 /**
- * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
- * as well as managing indexes' lifecycle.
+ * An Ignite component that is responsible for handling index-related commands like CREATE or DROP as well as managing indexes' lifecycle.
  */
 // TODO: IGNITE-19082 Delete this class
 public class IndexManager extends Producer<IndexEvent, IndexEventParameters> implements IgniteComponent {
@@ -96,6 +99,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /** Table manager. */
     private final TableManager tableManager;
 
+    /** Catalog manager. */
+    private final CatalogService catalogManager;
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -108,14 +114,17 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @param tablesCfg Tables and indexes configuration.
      * @param schemaManager Schema manager.
      * @param tableManager Table manager.
+     * @param catalogService Catalog service.
      */
     public IndexManager(
             TablesConfiguration tablesCfg,
             SchemaManager schemaManager,
-            TableManager tableManager
-    ) {
+            TableManager tableManager,
+            CatalogService catalogService) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
         this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
+        this.catalogManager = Objects.requireNonNull(catalogService, "catalogService");
+
         this.tableManager = tableManager;
     }
 
@@ -126,28 +135,24 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         tablesCfg.indexes().listenElements(new ConfigurationListener());
 
-        tableManager.listen(TableEvent.CREATE, (param, ex) -> {
-            if (ex != null) {
-                return completedFuture(false);
-            }
+        // TODO IGNITE-19500 Index manager should subscribe to index events only.
+        // In a hack below, PK index is created.
+        catalogManager.listen(CatalogEvent.TABLE_CREATE, (parameters, exception) -> {
+            CreateTableEventParameters createTableParameters = (CreateTableEventParameters) parameters;
 
-            // We can't return this future as the listener's result, because a deadlock can happen in the configuration component:
-            // this listener is called inside a configuration notification thread and all notifications are required to finish before
-            // new configuration modifications can occur (i.e. we are creating an index below). Therefore we create the index fully
-            // asynchronously and rely on the underlying components to handle PK index synchronisation.
-            tableManager.tableAsync(param.causalityToken(), param.tableId())
-                    .thenCompose(table -> {
-                        String[] pkColumns = Arrays.stream(table.schemaView().schema().keyColumns().columns())
-                                .map(Column::name)
-                                .toArray(String[]::new);
+            CatalogTableDescriptor tableDescriptor = createTableParameters.tableDescriptor();
+            CatalogHashIndexDescriptor indexDescriptor = CatalogUtils.fromParams(
+                    tableDescriptor.id() + 1,
+                    tableDescriptor.id(),
+                    CreateHashIndexParams.builder()
+                            .schemaName(DEFAULT_SCHEMA_NAME)
+                            .tableName(tableDescriptor.name())
+                            .indexName(tableDescriptor.name() + "_PK")
+                            .columns(tableDescriptor.primaryKeyColumns())
+                            .unique()
+                            .build());
 
-                        String pkName = table.name() + "_PK";
-
-                        return createIndexAsync("PUBLIC", pkName, table.name(), false,
-                                change -> change.changeUniq(true).convert(HashIndexChange.class)
-                                        .changeColumnNames(pkColumns)
-                        );
-                    })
+            createIndexLocally(parameters.causalityToken(), tableDescriptor, indexDescriptor)
                     .whenComplete((v, e) -> {
                         if (e != null) {
                             LOG.error("Error when creating index: " + e);
@@ -156,6 +161,37 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             return completedFuture(false);
         });
+
+//        tableManager.listen(TableEvent.CREATE, (param, ex) -> {
+//            if (ex != null) {
+//                return completedFuture(false);
+//            }
+//
+//            // We can't return this future as the listener's result, because a deadlock can happen in the configuration component:
+//            // this listener is called inside a configuration notification thread and all notifications are required to finish before
+//            // new configuration modifications can occur (i.e. we are creating an index below). Therefore we create the index fully
+//            // asynchronously and rely on the underlying components to handle PK index synchronisation.
+//            tableManager.tableAsync(param.causalityToken(), param.tableId())
+//                    .thenCompose(table -> {
+//                        String[] pkColumns = Arrays.stream(table.schemaView().schema().keyColumns().columns())
+//                                .map(Column::name)
+//                                .toArray(String[]::new);
+//
+//                        String pkName = table.name() + "_PK";
+//
+//                        return createIndexAsync("PUBLIC", pkName, table.name(), false,
+//                                change -> change.changeUniq(true).convert(HashIndexChange.class)
+//                                        .changeColumnNames(pkColumns)
+//                        );
+//                    })
+//                    .whenComplete((v, e) -> {
+//                        if (e != null) {
+//                            LOG.error("Error when creating index: " + e);
+//                        }
+//                    });
+//
+//            return completedFuture(false);
+//        });
 
         LOG.info("Index manager started");
     }
@@ -571,8 +607,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         /**
-         * Convenient wrapper which glues together a function which actually converts one row to another,
-         * and a version of the schema the function was build upon.
+         * Convenient wrapper which glues together a function which actually converts one row to another, and a version of the schema the
+         * function was build upon.
          */
         private static class VersionedConverter {
             private final int version;

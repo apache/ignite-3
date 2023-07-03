@@ -72,21 +72,19 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
     /** Handles ddl commands. */
     @Override
     public CompletableFuture<Boolean> handle(DdlCommand cmd) {
+        if (cmd instanceof CreateTableCommand) {
+            return catalogManager.createTable(DdlToCatalogCommandConverter.convert((CreateTableCommand) cmd))
+                    .handle(handleModificationResult(((CreateTableCommand) cmd).ifTableExists(), TableAlreadyExistsException.class));
+        } else if (cmd instanceof DropTableCommand) {
+            return catalogManager.dropTable(DdlToCatalogCommandConverter.convert((DropTableCommand) cmd))
+                    .handle(handleModificationResult(((DropTableCommand) cmd).ifTableExists(), TableNotFoundException.class));
+        }
+
         // Handle command in usual way.
         CompletableFuture<Boolean> ddlCommandFuture = super.handle(cmd);
 
         // Pass supported commands to the Catalog.
-        if (cmd instanceof CreateTableCommand) {
-            return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.createTable(DdlToCatalogCommandConverter.convert((CreateTableCommand) cmd))
-                            .handle(handleModificationResult(((CreateTableCommand) cmd).ifTableExists(), TableAlreadyExistsException.class))
-                    );
-        } else if (cmd instanceof DropTableCommand) {
-            return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.dropTable(DdlToCatalogCommandConverter.convert((DropTableCommand) cmd))
-                            .handle(handleModificationResult(((DropTableCommand) cmd).ifTableExists(), TableNotFoundException.class))
-                    );
-        } else if (cmd instanceof AlterTableAddCommand) {
+        if (cmd instanceof AlterTableAddCommand) {
             AlterTableAddCommand addCommand = (AlterTableAddCommand) cmd;
 
             return ddlCommandFuture

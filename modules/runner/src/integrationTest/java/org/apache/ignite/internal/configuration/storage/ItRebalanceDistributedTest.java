@@ -71,6 +71,10 @@ import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -258,28 +262,32 @@ public class ItRebalanceDistributedTest {
 
     @Test
     void testOneRebalance() {
-        createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1).join();
-
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
-        ).withPrimaryKey("key").build();
-
-        await(nodes.get(0).tableManager.createTableAsync(
-                "TBL1",
-                ZONE_1_NAME,
-                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
+        await(nodes.get(0).catalogManager.createDistributionZone(
+                CreateZoneParams.builder().zoneName(ZONE_1_NAME).partitions(1).replicas(1).build()
         ));
 
-        assertEquals(1, getPartitionClusterNodes(0, 0).size());
+        await(nodes.get(0).catalogManager.createTable(CreateTableParams.builder()
+                .schemaName(CatalogManager.DEFAULT_SCHEMA_NAME)
+                .tableName("TBL1")
+                .zone(ZONE_1_NAME)
+                .columns(List.of(
+                        ColumnParams.builder().name("key").type(org.apache.ignite.sql.ColumnType.INT64).build(),
+                        ColumnParams.builder().name("val").type(org.apache.ignite.sql.ColumnType.INT32).nullable(true).build()
+                ))
+                .primaryKeyColumns(List.of("key"))
+                .build()));
 
-        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
+        assertEquals(1, getPartitionClusterNodes0(0, 0).size());
+
+        await(nodes.get(0).catalogManager.alterDistributionZone(
+                AlterZoneParams.builder().zoneName(ZONE_1_NAME).replicas(2).build()
+        ));
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
-        assertEquals(2, getPartitionClusterNodes(0, 0).size());
-        assertEquals(2, getPartitionClusterNodes(1, 0).size());
-        assertEquals(2, getPartitionClusterNodes(2, 0).size());
+        assertEquals(2, getPartitionClusterNodes0(0, 0).size());
+        assertEquals(2, getPartitionClusterNodes0(1, 0).size());
+        assertEquals(2, getPartitionClusterNodes0(2, 0).size());
     }
 
     @Test
@@ -535,7 +543,7 @@ public class ItRebalanceDistributedTest {
     }
 
     private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) {
-        while (!IntStream.range(0, nodes.size()).allMatch(n -> getPartitionClusterNodes(n, partNum).size() == replicasNum)) {
+        while (!IntStream.range(0, nodes.size()).allMatch(n -> getPartitionClusterNodes0(n, partNum).size() == replicasNum)) {
             LockSupport.parkNanos(100_000_000);
         }
     }
@@ -555,6 +563,22 @@ public class ItRebalanceDistributedTest {
         if (table != null) {
             Set<Assignment> assignments =
                     partitionAssignments(nodes.get(nodeNum).metaStorageManager, table.id().value(), partNum).join();
+
+            if (assignments != null) {
+                return assignments;
+            }
+        }
+
+        return Set.of();
+    }
+
+    private Set<Assignment> getPartitionClusterNodes0(int nodeNum, int partNum) {
+        Node node = nodes.get(nodeNum);
+
+        CatalogTableDescriptor table = node.catalogManager.table("TBL1", Long.MAX_VALUE);
+
+        if (table != null) {
+            Set<Assignment> assignments = partitionAssignments(node.metaStorageManager, table.id(), partNum).join();
 
             if (assignments != null) {
                 return assignments;
@@ -785,7 +809,7 @@ public class ItRebalanceDistributedTest {
                     clockWaiter
             );
 
-            schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
+            schemaManager = new SchemaManager(registry, catalogManager, metaStorageManager);
 
             distributionZoneManager = new DistributionZoneManager(
                     zonesCfg,
@@ -795,7 +819,6 @@ public class ItRebalanceDistributedTest {
                     vaultManager,
                     name
             );
-
 
             tableManager = new TableManager(
                     name,
@@ -815,6 +838,7 @@ public class ItRebalanceDistributedTest {
                     storagePath,
                     metaStorageManager,
                     schemaManager,
+                    catalogManager,
                     view -> new LocalLogStorageFactory(),
                     new HybridClockImpl(),
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
@@ -925,7 +949,6 @@ public class ItRebalanceDistributedTest {
                     LOG.error("Unable to stop component [component={}]", e, component);
                 }
             });
-
 
             nodeCfgGenerator.close();
             clusterCfgGenerator.close();

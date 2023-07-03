@@ -65,6 +65,7 @@ import java.util.function.LongFunction;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -772,11 +773,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new NetworkAddress("localhost", 47500)
         ));
 
-        try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
-            schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(anyInt(), any()))
-                    .thenReturn(mock(SchemaDescriptor.class));
-        }
-
         try (MockedStatic<AffinityUtils> affinityServiceMock = mockStatic(AffinityUtils.class)) {
             ArrayList<List<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
 
@@ -857,6 +853,9 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
         when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
 
+        //TODO: fix me
+        CatalogManager catalogManager = mock(CatalogManager.class);
+
         TableManager tableManager = new TableManager(
                 "test",
                 revisionUpdater,
@@ -874,7 +873,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 dsm = createDataStorageManager(configRegistry, workDir, storageEngineConfig),
                 workDir,
                 msm,
-                sm = new SchemaManager(revisionUpdater, tblsCfg, msm),
+                sm = new SchemaManager(revisionUpdater, catalogManager, msm),
+                catalogManager,
                 budgetView -> new LocalLogStorageFactory(),
                 new HybridClockImpl(),
                 new OutgoingSnapshotsManager(clusterService.messagingService()),

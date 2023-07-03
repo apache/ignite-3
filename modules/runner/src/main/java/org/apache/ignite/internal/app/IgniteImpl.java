@@ -477,7 +477,17 @@ public class IgniteImpl implements Ignite {
                 )
         );
 
-        schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
+        SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry.getConfiguration(
+                SchemaSynchronizationConfiguration.KEY
+        );
+
+        catalogManager = new CatalogServiceImpl(
+                new UpdateLogImpl(metaStorageMgr),
+                clockWaiter,
+                () -> schemaSyncConfig.delayDuration().value()
+        );
+
+        schemaManager = new SchemaManager(registry, catalogManager, metaStorageMgr);
 
         distributionZoneManager = new DistributionZoneManager(
                 clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY),
@@ -491,16 +501,6 @@ public class IgniteImpl implements Ignite {
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(workDir.resolve("volatile-log-spillout"));
 
         outgoingSnapshotsManager = new OutgoingSnapshotsManager(clusterSvc.messagingService());
-
-        SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry.getConfiguration(
-                SchemaSynchronizationConfiguration.KEY
-        );
-
-        catalogManager = new CatalogServiceImpl(
-                new UpdateLogImpl(metaStorageMgr),
-                clockWaiter,
-                () -> schemaSyncConfig.delayDuration().value()
-        );
 
         distributedTblMgr = new TableManager(
                 name,
@@ -520,6 +520,7 @@ public class IgniteImpl implements Ignite {
                 storagePath,
                 metaStorageMgr,
                 schemaManager,
+                catalogManager,
                 volatileLogStorageFactoryCreator,
                 clock,
                 outgoingSnapshotsManager,
@@ -529,7 +530,7 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager
         );
 
-        indexManager = new IndexManager(tablesConfig, schemaManager, distributedTblMgr);
+        indexManager = new IndexManager(tablesConfig, schemaManager, distributedTblMgr, catalogManager);
 
         qryEngine = new SqlQueryProcessor(
                 registry,
