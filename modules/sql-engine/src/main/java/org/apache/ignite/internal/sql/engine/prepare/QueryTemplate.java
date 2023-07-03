@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_MAPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_EXECUTION_ERR;
 
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import java.util.ArrayList;
@@ -79,7 +79,7 @@ public class QueryTemplate {
             }
         }
 
-        throw new SqlException(QUERY_MAPPING_ERR, "Failed to map query.", ex);
+        throw new SqlException(RUNTIME_EXECUTION_ERR, "Failed to map query.", ex);
     }
 
     @NotNull

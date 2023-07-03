@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.lang.ErrorGroups.Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.VALIDATION_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -190,7 +190,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         SqlException ex = IgniteTestUtils.cause(assertThrows(Throwable.class,
                 () -> await(ses.executeAsync(null, "ALTER TABLE TEST DROP COLUMN (val0, val1)"))), SqlException.class);
         assertNotNull(ex);
-        assertEquals(DROP_IDX_COLUMN_CONSTRAINT_ERR, ex.code());
+        assertEquals(VALIDATION_ERR, ex.code());
 
         String msg = ex.getMessage();
         String explainMsg = "Unexpected error message: " + msg;
@@ -759,7 +759,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
                 () -> await(ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args))
         );
 
-        assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
+        assertEquals(Sql.CONSTRAINT_VIOLATION_ERR, ex.code());
         assertEquals(err, ex.updateCounters().length);
         IntStream.range(0, ex.updateCounters().length).forEach(i -> assertEquals(1, ex.updateCounters()[i]));
     }

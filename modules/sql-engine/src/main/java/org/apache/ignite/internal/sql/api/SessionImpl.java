@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.INVALID_DML_RESULT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.INTERNAL_EXECUTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_EXECUTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.IgniteExceptionUtils.extractCodeFrom;
 
@@ -31,7 +31,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
@@ -330,7 +329,13 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public void close() {
-        await(closeAsync());
+        try {
+            closeAsync().toCompletableFuture().get();
+        } catch (ExecutionException e) {
+            throw new SqlException(RUNTIME_EXECUTION_ERR, e.getCause());
+        } catch (Throwable e) {
+            throw new SqlException(RUNTIME_EXECUTION_ERR, e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -347,24 +352,6 @@ public class SessionImpl implements Session {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    /**
-     * Awaits completion of the given stage and returns its result.
-     *
-     * @param stage The stage.
-     * @param <T> Type of the result returned by the stage.
-     * @return A result of the stage.
-     */
-    @SuppressWarnings("UnusedReturnValue")
-    public static <T> T await(CompletionStage<T> stage) {
-        try {
-            return stage.toCompletableFuture().get();
-        } catch (ExecutionException e) {
-            throw new SqlException(OPERATION_INTERRUPTED_ERR, e.getCause());
-        } catch (Throwable e) {
-            throw new SqlException(OPERATION_INTERRUPTED_ERR, e);
-        }
-    }
-
     private void closeInternal() {
         if (closed.compareAndSet(false, true)) {
             busyLock.block();
@@ -377,7 +364,7 @@ public class SessionImpl implements Session {
                 || page.items().size() != 1
                 || page.items().get(0).size() != 1
                 || page.hasMore()) {
-            throw new SqlException(INVALID_DML_RESULT_ERR, "Invalid DML results: " + page);
+            throw new SqlException(INTERNAL_EXECUTION_ERR, "Invalid DML results: " + page);
         }
     }
 }

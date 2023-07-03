@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.calcite.util.Util.unexpected;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_EXECUTION_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -365,7 +365,9 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         checkState();
 
         if (perNodeBuffers.get(nodeName).check() != State.END) {
-            throw new IgniteInternalCheckedException(NODE_LEFT_ERR, "Failed to execute query, node left [nodeName=" + nodeName + ']');
+            throw new IgniteInternalCheckedException(
+                    RUNTIME_EXECUTION_ERR, "Failed to execute query, node left [nodeName=" + nodeName + ']'
+            );
         }
     }
 

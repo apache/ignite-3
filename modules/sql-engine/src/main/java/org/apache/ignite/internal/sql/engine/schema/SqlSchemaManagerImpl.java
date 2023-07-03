@@ -22,8 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.OBJECT_NOT_FOUND_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_EVALUATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.INTERNAL_EXECUTION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -125,7 +124,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     calciteSchemaVv.completeExceptionally(
                             token,
                             new IgniteInternalException(
-                                    SCHEMA_EVALUATION_ERR, "Couldn't evaluate sql schemas for causality token: " + token, throwable)
+                                    INTERNAL_EXECUTION_ERR, "Couldn't evaluate sql schemas for causality token: " + token, throwable)
                     );
 
                     return;
@@ -200,7 +199,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             IgniteTable table = tablesVv.latest().get(id);
 
             if (table == null) {
-                throw new IgniteInternalException(OBJECT_NOT_FOUND_ERR,
+                throw new IgniteInternalException(INTERNAL_EXECUTION_ERR,
                         format("Table not found [tableId={}]", id));
             }
 

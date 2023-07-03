@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -77,7 +79,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         {
             SqlException ex = assertThrows(SqlException.class, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 2));
 
-            assertEquals(ex.code(), Sql.DUPLICATE_KEYS_ERR);
+            checkDuplicatePk(ex);
         }
 
         assertQuery("DELETE FROM my WHERE id=?")
@@ -97,7 +99,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         {
             SqlException ex = assertThrows(SqlException.class, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 3));
 
-            assertEquals(ex.code(), Sql.DUPLICATE_KEYS_ERR);
+            checkDuplicatePk(ex);
         }
     }
 
@@ -124,12 +126,12 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(1L)
                 .check();
 
-        var sqlException = assertThrows(
+        var ex = assertThrows(
                 SqlException.class,
                 () -> sql("INSERT INTO test VALUES (0, 0), (1, 1), (2, 2)")
         );
 
-        assertEquals(Sql.DUPLICATE_KEYS_ERR, sqlException.code());
+        checkDuplicatePk(ex);
 
         assertQuery("SELECT count(*) FROM test")
                 .returns(1L)
@@ -174,12 +176,12 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .map(Object::toString)
                 .collect(Collectors.joining("), (", "(", ")"));
 
-        SqlException sqlException = assertThrows(
+        SqlException ex = assertThrows(
                 SqlException.class,
                 () -> sql(insertStatement)
         );
 
-        assertEquals(Sql.DUPLICATE_KEYS_ERR, sqlException.code());
+        checkDuplicatePk(ex);
 
         assertQuery("SELECT count(*) FROM test")
                 .returns(0L)
@@ -389,7 +391,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                                 + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
                                 + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
 
-        assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
+        checkDuplicatePk(ex);
     }
 
     /**
@@ -612,5 +614,10 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(4, 4)
                 .returns(5, 2)
                 .check();
+    }
+
+    private static void checkDuplicatePk(IgniteException ex) {
+        assertEquals(Sql.CONSTRAINT_VIOLATION_ERR, ex.code());
+        assertThat(ex.getMessage(), containsString("PK unique constraint is violated"));
     }
 }

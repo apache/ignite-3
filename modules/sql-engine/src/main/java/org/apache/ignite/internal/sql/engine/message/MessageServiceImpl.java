@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.message;
 
 import static org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup.GROUP_TYPE;
-import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_EXECUTION_ERR;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -91,7 +91,7 @@ public class MessageServiceImpl implements MessageService {
 
                 if (node == null) {
                     return CompletableFuture.failedFuture(new IgniteInternalException(
-                            NODE_LEFT_ERR, "Failed to send message to node (has node left grid?): " + nodeName
+                            RUNTIME_EXECUTION_ERR, "Failed to send message to node (has node left grid?): " + nodeName
                     ));
                 }
 

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.EXPRESSION_COMPILATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.INTERNAL_EXECUTION_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -392,7 +392,7 @@ public final class Commons {
 
             return (T) cbe.createInstance(new StringReader(body));
         } catch (Exception e) {
-            throw new SqlException(EXPRESSION_COMPILATION_ERR, e);
+            throw new SqlException(INTERNAL_EXECUTION_ERR, "Unable to compile expression", e);
         }
     }
 

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_EXECUTION_ERR;
 
 import com.google.common.base.Functions;
 import java.util.ArrayDeque;
@@ -268,7 +268,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                 cond.await();
             }
         } catch (InterruptedException e) {
-            throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, e);
+            throw new IgniteInternalException(RUNTIME_EXECUTION_ERR, e);
         } finally {
             lock.unlock();
         }

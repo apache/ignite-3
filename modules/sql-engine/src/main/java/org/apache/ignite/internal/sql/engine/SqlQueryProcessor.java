@@ -18,11 +18,9 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
-import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_EXPIRED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_SQL_OPERATION_KIND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.VALIDATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
@@ -354,7 +352,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             SessionId sessionId, QueryContext context, String qry, Object... params
     ) {
         if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, new NodeStoppingException());
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
@@ -625,7 +623,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         SqlQueryType queryType = Commons.getQueryType(node);
 
         if (queryType == null) {
-            throw new IgniteInternalException(UNSUPPORTED_SQL_OPERATION_KIND_ERR, "Unsupported operation ["
+            throw new IgniteInternalException(VALIDATION_ERR, "Unsupported operation ["
                     + "sqlNodeKind=" + node.getKind() + "; "
                     + "querySql=\"" + node + "\"]");
         }
@@ -637,7 +635,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         if (SqlQueryType.DDL == queryType && outerTx != null) {
-            throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, "DDL doesn't support transactions.");
+            throw new SqlException(VALIDATION_ERR, "DDL doesn't support transactions.");
         }
 
         if (parseResult.dynamicParamsCount() != params.length) {

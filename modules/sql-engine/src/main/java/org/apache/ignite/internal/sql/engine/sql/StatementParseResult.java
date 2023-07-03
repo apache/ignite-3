@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.PARSE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.VALIDATION_ERR;
 
 import java.util.List;

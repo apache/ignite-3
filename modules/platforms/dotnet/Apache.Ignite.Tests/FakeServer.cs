@@ -316,7 +316,7 @@ namespace Apache.Ignite.Tests
                 using var errWriter = new PooledArrayBuffer();
                 var w = new MsgPackWriter(errWriter);
                 w.Write(Guid.Empty);
-                w.Write(262147);
+                w.Write(262152);
                 w.Write("org.foo.bar.BazException");
                 w.Write(Err);
                 w.WriteNil(); // Stack trace.

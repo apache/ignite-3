@@ -20,8 +20,7 @@ package org.apache.ignite.internal.sql.engine.externalize;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.igniteClassLoader;
-import static org.apache.ignite.lang.ErrorGroups.Sql.CLASS_NOT_FOUND_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.REL_DESERIALIZATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.INTERNAL_EXECUTION_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
@@ -158,7 +157,7 @@ class RelJson {
         try {
             constructor = (Constructor<RelNode>) clazz.getConstructor(RelInput.class);
         } catch (NoSuchMethodException e) {
-            throw new SqlException(REL_DESERIALIZATION_ERR, "class does not have required constructor, "
+            throw new SqlException(INTERNAL_EXECUTION_ERR, "class does not have required constructor, "
                     + clazz + "(RelInput)");
         }
 
@@ -212,7 +211,7 @@ class RelJson {
             return IgniteUtils.forName(typeName, igniteClassLoader());
         } catch (ClassNotFoundException e) {
             if (!skipNotFound) {
-                throw new SqlException(CLASS_NOT_FOUND_ERR, "unknown type " + typeName);
+                throw new SqlException(INTERNAL_EXECUTION_ERR, "RelJson unable to load type: " + typeName);
             }
         }
 

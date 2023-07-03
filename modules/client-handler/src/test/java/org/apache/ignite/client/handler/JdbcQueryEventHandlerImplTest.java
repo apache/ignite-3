@@ -19,7 +19,6 @@ package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.jdbc.proto.event.Response.STATUS_FAILED;
 import static org.apache.ignite.internal.jdbc.proto.event.Response.STATUS_SUCCESS;
-import static org.apache.ignite.internal.sql.api.SessionImpl.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
@@ -37,6 +36,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -298,5 +298,14 @@ class JdbcQueryEventHandlerImplTest {
         assertThat(result.hasResults(), is(true));
 
         return result.connectionId();
+    }
+
+    @SuppressWarnings("UnusedReturnValue")
+    private static <T> T await(CompletionStage<T> stage) {
+        try {
+            return stage.toCompletableFuture().get();
+        } catch (Throwable e) {
+            throw new RuntimeException("Stage has completed exceptionally", e);
+        }
     }
 }

@@ -115,146 +115,37 @@ public class ErrorGroups {
         public static final int CURSOR_NO_MORE_PAGES_ERR = SQL_ERR_GROUP.registerErrorCode(1);
 
         /** Session not found error. */
-        // This error code is used to recreate SQL sessions. Can not be removed.
         public static final int SESSION_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(2);
-
-        /** Parsing error. */
-        public static final int PARSE_ERR = SQL_ERR_GROUP.registerErrorCode(100);
-
-        /** Validation error. */
-        // Supersedes QUERY_VALIDATION_ERR.
-        public static final int VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode(101);
-
-        /** Constraint violation error. */
-        public static final int CONSTRAINT_VIOLATION_ERR = SQL_ERR_GROUP.registerErrorCode(102);
-
-        /** Internal SQL engine error. */
-        public static final int INTERNAL_EXECUTION_ERR = SQL_ERR_GROUP.registerErrorCode(103);
-
-        /** Runtime SQL engine error. */
-        public static final int RUNTIME_EXECUTION_ERR = SQL_ERR_GROUP.registerErrorCode(104);
-
-        /** Error condition which is raised when data is not correct (such as number of out range error). */
-        public static final int INVALID_DATA_ERR = SQL_ERR_GROUP.registerErrorCode(105);
-
-        /** Invalid query error. */
-        // Sometimes used to indicate parsing errors, sometimes is used to indicate validation error.
-        // Would be replaced by PARSE_ERR and VALIDATION_ERR.
-        public static final int QUERY_INVALID_ERR = INVALID_DATA_ERR;
 
         /** Query without a result set error. */
         public static final int QUERY_NO_RESULT_SET_ERR = SQL_ERR_GROUP.registerErrorCode(4);
 
-        /** Missing primary key error. */
-        // Self explanatory - raised by DdlSqlToCommandConverter.
-        public static final int PRIMARY_KEY_MISSING_ERR = VALIDATION_ERR;
-
-        /** Multiple primary keys error. */
-        // Self explanatory - DdlToSqlCommandConverter.
-        public static final int PRIMARY_KEYS_MULTIPLE_ERR = VALIDATION_ERR;
-
         /** Schema not found. */
-        // Used to recreate SQL sessions. Can not be removed.
-        public static final int SCHEMA_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(7);
-
-        /** Storage engine not valid. */
-        // DdlSqlToCommandConverter - unknown or unsupported storage engine name condition.
-        public static final int STORAGE_ENGINE_NOT_VALID_ERR = VALIDATION_ERR;
+        public static final int SCHEMA_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(5);
 
         /** Cursor is already closed error. */
-        public static final int CURSOR_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode(9);
+        public static final int CURSOR_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode(6);
 
-        /** Constraint violation: some keys can't be inserted because they violate unique constraint PK. */
-        // Self explanatory - raised by UpdateableTableImpl::insert/update..
-        public static final int DUPLICATE_KEYS_ERR = CONSTRAINT_VIOLATION_ERR;
+        /** Parsing error. */
+        public static final int PARSE_ERR = SQL_ERR_GROUP.registerErrorCode(7);
 
-        /** Constraint violation: deleting a column that belongs to the index. */
-        // I think this is not a constraint per se, it could be a validation error.
-        public static final int DROP_IDX_COLUMN_CONSTRAINT_ERR = VALIDATION_ERR;
+        /** Validation error. */
+        public static final int VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode(8);
 
-        /**  Too many grouping expressions. */
-        // HashAggregateNode constructor: the number of groupingSets is greater that 128 <- Should be replaced by Assertion.
-        public static final int TOO_MANY_GROUPING_EXPRESSIONS_ERR = SQL_ERR_GROUP.registerErrorCode(12);
+        /** Constraint violation error. */
+        public static final int CONSTRAINT_VIOLATION_ERR = SQL_ERR_GROUP.registerErrorCode(9);
 
-        /** Unsupported sql operation. */
-        // SQLQueryProcessor::validateParsedStatement, PrepareServiceImpl
-        public static final int UNSUPPORTED_SQL_OPERATION_KIND_ERR = VALIDATION_ERR;
+        /** Internal SQL engine error. */
+        public static final int INTERNAL_EXECUTION_ERR = SQL_ERR_GROUP.registerErrorCode(10);
 
-        /** Unsupported DDL operation. */
-        // CatalogServiceImpl - validateDdl
-        // DdlSqlToCommandConverter - when unknown ddl node is received.
-        // DdlCOmmandHandler when receives unexpected ddl command.
-        public static final int UNSUPPORTED_DDL_OPERATION_ERR = VALIDATION_ERR;
+        /** Runtime SQL engine error. */
+        public static final int RUNTIME_EXECUTION_ERR = SQL_ERR_GROUP.registerErrorCode(11);
 
-        /** Query validation error. */
-        public static final int QUERY_VALIDATION_ERR = VALIDATION_ERR;
-
-        /** Object is not found in schema. */
-        // Schema manager getTableById is unable to find a table.
-        public static final int OBJECT_NOT_FOUND_ERR = INTERNAL_EXECUTION_ERR;
-
-        /** Object already exists in schema. */
-        // IndexAlreadyExistsException constructor - would it be better to replaced it with something?
-        public static final int OBJECT_ALREADY_EXISTS_ERR = SQL_ERR_GROUP.registerErrorCode(17);
-
-        /** Query mapping error. */
-        // QueryTemplate::map - all attempts to perform query fragment mapping have failed.
-        public static final int QUERY_MAPPING_ERR = RUNTIME_EXECUTION_ERR;
-
-        /** DDL execution error. */
-        // ExecutionServiceImpl::convertDdlException
-        public static final int DDL_EXEC_ERR = RUNTIME_EXECUTION_ERR;
-
-        /** DML result error. */
-        // SessionImpl::validateDmlResult - invalid ddl result number for rows != 1 and columns != 1
-        public static final int INVALID_DML_RESULT_ERR = INTERNAL_EXECUTION_ERR;
-
-        /** SQL data type to relational conversion error. */
-        // literal conversion error in DdlToSqlCommandConverter::fromLiteral
-        public static final int SQL_TO_REL_CONVERSION_ERR = VALIDATION_ERR;
-
-        /** Relational expression serialization error. */
-        // Serialization error in RelJson
-        public static final int REL_SERIALIZATION_ERR = INTERNAL_EXECUTION_ERR;
-
-        /** Relational expression deserialization error. */
-        // Deserialization error in RelJson
-        public static final int REL_DESERIALIZATION_ERR = INTERNAL_EXECUTION_ERR;
-
-        /** Class not found error. */
-        // RelJson: ClassNotFoundError during RelNode class registration.
-        public static final int CLASS_NOT_FOUND_ERR = INTERNAL_EXECUTION_ERR;
-
-        /** Expression compilation error. */
-        // Commons::compile error.
-        public static final int EXPRESSION_COMPILATION_ERR = INTERNAL_EXECUTION_ERR;
-
-        /** Node left the cluster. */
-        // ExecutionServiceImpl/MessageService/Inbox - node is left condition.
-        public static final int NODE_LEFT_ERR = RUNTIME_EXECUTION_ERR;
-
-        /** Operation aborted/interrupted error. */
-        //  SessionImpl::await - this method is used mostly for JdbcTests.
-        //  QueryCancelledException - thrown when QueryCancel was cancelled.
-        //  AbstractNode, RootNode -  Thread.interrupted() condition is detected.
-        // ExecutionServiceImplTest - can be replaced with any exception.
-        public static final int OPERATION_INTERRUPTED_ERR = INTERNAL_EXECUTION_ERR;
-
-        /** An error occurred while canceling the operation. */
-        // QueryCancel::cancel - A task submitted to run at query cancellation throws an exception.
-        public static final int CANCEL_OPERATION_ERR = RUNTIME_EXECUTION_ERR;
+        /** Error condition which is raised when data is not correct (such as number of out range error). */
+        public static final int INVALID_DATA_ERR = SQL_ERR_GROUP.registerErrorCode(12);
 
         /** Session expired error. */
-        // This error code is used to recreate SQL sessions. Can not be removed.
-        public static final int SESSION_EXPIRED_ERR = SQL_ERR_GROUP.registerErrorCode(31);
-
-        /** Schema evaluation error. */
-        // SchemaManagerImpl - Couldn't evaluate sql schemas for causality token.
-        public static final int SCHEMA_EVALUATION_ERR = INTERNAL_EXECUTION_ERR;
-
-        /** Execution cancelled. */
-        //ExecutionCancelledException - raised when AbstractNode, AsyncRootNode, RootNode detect cancellation - context().isCancelled().
-        public static final int EXECUTION_CANCELLED_ERR = RUNTIME_EXECUTION_ERR;
+        public static final int SESSION_EXPIRED_ERR = SQL_ERR_GROUP.registerErrorCode(13);
     }
 
     /** Meta storage error group. */
@@ -288,6 +179,9 @@ public class ErrorGroups {
 
         /** Index not found. */
         public static final int INDEX_NOT_FOUND_ERR = INDEX_ERR_GROUP.registerErrorCode(2);
+
+        /** Index already exists. */
+        public static int INDEX_ALREADY_EXISTS_ERR = INDEX_ERR_GROUP.registerErrorCode(3);
     }
 
     /** Transactions error group. */

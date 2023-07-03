@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.sql;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCauseAndCode;
 import static org.apache.ignite.lang.ErrorGroup.extractCauseMessage;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PARSE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 
 import java.io.Reader;
 import org.apache.calcite.config.Lex;
