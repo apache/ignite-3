@@ -588,6 +588,11 @@ public class RowTest {
                 NativeType type = schema.column(i).type();
 
                 switch (type.spec()) {
+                    // TODO add test.
+                    // case BOOLEAN:
+                    //    asm.appendBoolean((Boolean) vals[i]);
+                    //    break;
+
                     case INT8:
                         asm.appendByte((Byte) vals[i]);
                         break;

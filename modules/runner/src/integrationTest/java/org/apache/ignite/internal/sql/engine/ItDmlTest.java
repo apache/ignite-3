@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -33,6 +35,7 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -440,9 +443,8 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     @Test
     public void testInsertDefaultValue() {
         var args = List.of(
-                // TODO: IGNITE-17298
-                // new DefaultValueArg("BOOLEAN", "TRUE", Boolean.TRUE),
-                // new DefaultValueArg("BOOLEAN NOT NULL", "TRUE", Boolean.TRUE),
+                new DefaultValueArg("BOOLEAN", "TRUE", Boolean.TRUE),
+                new DefaultValueArg("BOOLEAN NOT NULL", "TRUE", Boolean.TRUE),
 
                 new DefaultValueArg("BIGINT", "10", 10L),
                 new DefaultValueArg("INTEGER", "10", 10),
@@ -483,9 +485,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         checkWrongDefault("DATE", "10");
         checkWrongDefault("DATE", "TIME '01:01:01'");
         checkWrongDefault("TIME", "TIMESTAMP '2021-01-01 01:01:01'");
-
-        // TODO: IGNITE-17298
-        // checkWrongDefault("BOOLEAN", "1");
+        checkWrongDefault("BOOLEAN", "1");
 
         // TODO: IGNITE-17373
         // checkWrongDefault("INTERVAL DAYS", "INTERVAL '10' MONTHS");
@@ -612,5 +612,35 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(4, 4)
                 .returns(5, 2)
                 .check();
+    }
+
+    /**
+     * TODO to remove.
+     *
+     * @throws InterruptedException If failed.
+     */
+    @Test
+    public void testBoolean() throws InterruptedException {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL BOOLEAN)");
+        sql("CREATE INDEX test_idx ON TEST(val)");
+
+        Thread.sleep(1_000);
+
+        sql("INSERT INTO TEST VALUES(1, true)");
+        sql("INSERT INTO TEST VALUES(2, false)");
+        sql("INSERT INTO TEST VALUES(3, false)");
+
+        KeyValueView<Integer, Boolean> kvView = CLUSTER_NODES.get(0).tables().table("TEST")
+                .keyValueView(Integer.class, Boolean.class);
+
+        boolean val = kvView.get(null, 1);
+
+        assertTrue(val);
+
+        assertFalse(kvView.get(null, 2));
+
+        kvView.put(null, 4, true);
+
+        assertQuery("SELECT VAL FROM TEST WHERE ID=4").returns(true).check();
     }
 }

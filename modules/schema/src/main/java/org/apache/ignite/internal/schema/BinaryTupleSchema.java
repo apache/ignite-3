@@ -307,6 +307,7 @@ public class BinaryTupleSchema {
             case TIME: return tuple.timeValue(index);
             case DATETIME: return tuple.dateTimeValue(index);
             case TIMESTAMP: return tuple.timestampValue(index);
+            case BOOLEAN: return tuple.booleanValueBoxed(index);
             default: throw new InvalidTypeException("Unknown element type: " + element.typeSpec);
         }
     }

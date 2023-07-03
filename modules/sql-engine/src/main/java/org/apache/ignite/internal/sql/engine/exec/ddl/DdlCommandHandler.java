@@ -597,6 +597,7 @@ public class DdlCommandHandler {
             case DOUBLE:
             case DATE:
             case UUID:
+            case BOOLEAN:
                 // do nothing
                 break;
 

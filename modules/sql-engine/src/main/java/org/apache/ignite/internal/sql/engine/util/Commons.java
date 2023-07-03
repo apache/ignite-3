@@ -577,6 +577,8 @@ public final class Commons {
         switch (type.spec()) {
             case INT8:
                 return Byte.class;
+            case BOOLEAN:
+                return Boolean.class;
 
             case INT16:
                 return Short.class;

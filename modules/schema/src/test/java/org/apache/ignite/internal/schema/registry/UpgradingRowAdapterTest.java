@@ -223,6 +223,10 @@ public class UpgradingRowAdapterTest {
                 NativeType type = schema.column(i).type();
 
                 switch (type.spec()) {
+                    case BOOLEAN:
+                        asm.appendBoolean((Boolean) vals.get(i));
+                        break;
+
                     case INT8:
                         asm.appendByte((Byte) vals.get(i));
                         break;

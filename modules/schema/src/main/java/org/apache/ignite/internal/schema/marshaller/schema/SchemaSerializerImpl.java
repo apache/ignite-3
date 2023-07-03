@@ -242,6 +242,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
         }
 
         switch (type) {
+            case BOOLEAN:
             case INT8:
                 return BYTE;
 
@@ -441,6 +442,11 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
         switch (type.spec()) {
             case INT8: {
                 buf.put((byte) val);
+
+                break;
+            }
+            case BOOLEAN: {
+                buf.put((byte) ((boolean) val ? 1 : 0));
 
                 break;
             }

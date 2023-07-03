@@ -28,6 +28,7 @@ import static org.apache.calcite.sql.SqlKind.IS_NOT_NULL;
 import static org.apache.calcite.sql.SqlKind.IS_NULL;
 import static org.apache.calcite.sql.SqlKind.LESS_THAN;
 import static org.apache.calcite.sql.SqlKind.LESS_THAN_OR_EQUAL;
+import static org.apache.calcite.sql.SqlKind.NOT;
 import static org.apache.calcite.sql.SqlKind.SEARCH;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -642,6 +643,8 @@ public class RexUtils {
         Int2ObjectMap<List<RexCall>> res = new Int2ObjectOpenHashMap<>(conjunctions.size());
 
         for (RexNode rexNode : conjunctions) {
+            rexNode = expandBooleanFieldComparison(rexNode, builder(cluster));
+
             if (!isSupportedTreeComparison(rexNode)) {
                 continue;
             }
@@ -683,6 +686,18 @@ public class RexUtils {
         } else {
             return RexUtil.invert(rexBuilder, call);
         }
+    }
+
+    private static RexNode expandBooleanFieldComparison(RexNode rexNode, RexBuilder builder) {
+        if (rexNode instanceof RexSlot) {
+            return builder.makeCall(SqlStdOperatorTable.EQUALS, rexNode, builder.makeLiteral(true));
+        } else if (rexNode instanceof RexCall && rexNode.getKind() == NOT
+                && ((RexCall) rexNode).getOperands().get(0) instanceof RexSlot) {
+            return builder.makeCall(SqlStdOperatorTable.EQUALS, ((RexCall) rexNode).getOperands().get(0),
+                    builder.makeLiteral(false));
+        }
+
+        return rexNode;
     }
 
     private static @Nullable RexSlot extractRefFromBinary(RexCall call, RelOptCluster cluster) {

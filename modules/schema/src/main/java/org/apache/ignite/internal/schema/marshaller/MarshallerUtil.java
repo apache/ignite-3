@@ -79,7 +79,9 @@ public final class MarshallerUtil {
      */
     public static @NotNull BinaryMode mode(@NotNull Class<?> cls) {
         // Primitives.
-        if (cls == byte.class) {
+        if (cls == boolean.class) {
+            return BinaryMode.P_BOOLEAN;
+        } else if (cls == byte.class) {
             return BinaryMode.P_BYTE;
         } else if (cls == short.class) {
             return BinaryMode.P_SHORT;
@@ -91,7 +93,9 @@ public final class MarshallerUtil {
             return BinaryMode.P_FLOAT;
         } else if (cls == double.class) {
             return BinaryMode.P_DOUBLE;
-        } else if (cls == Byte.class) { // Boxed primitives.
+        } else if (cls == Boolean.class) { // Boxed primitives.
+            return BinaryMode.BOOLEAN;
+        } else if (cls == Byte.class) {
             return BinaryMode.BYTE;
         } else if (cls == Short.class) {
             return BinaryMode.SHORT;

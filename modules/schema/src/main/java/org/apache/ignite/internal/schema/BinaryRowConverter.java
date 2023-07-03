@@ -121,6 +121,8 @@ public class BinaryRowConverter {
         }
 
         switch (element.typeSpec()) {
+            case BOOLEAN:
+                return builder.appendByte((byte) ((boolean) value ? 1 : 0));
             case INT8:
                 return builder.appendByte((byte) value);
             case INT16:

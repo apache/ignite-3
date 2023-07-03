@@ -74,6 +74,8 @@ public class NativeTypes {
     /** Timezone-free three-part value representing a year, month, and day. */
     public static final NativeType DATE = new NativeType(NativeTypeSpec.DATE, 3);
 
+    public static final NativeType BOOLEAN = new NativeType(NativeTypeSpec.BOOLEAN, 1);
+
     /** Don't allow to create an instance. */
     private NativeTypes() {
     }
@@ -251,6 +253,9 @@ public class NativeTypes {
 
             case DECIMAL:
                 return decimalOf(((BigDecimal) val).precision(), ((BigDecimal) val).scale());
+
+            case BOOLEAN:
+                return BOOLEAN;
 
             default:
                 assert false : "Unexpected type: " + spec;

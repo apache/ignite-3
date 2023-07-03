@@ -968,29 +968,55 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
         }
     }
 
-    /**
-     * Saturated value are placed in search bounds of a sorted index.
-     */
     @Test
-    public void testSaturatedBoundsSortedIndex() {
-        sql("CREATE TABLE t100 (ID INTEGER PRIMARY KEY, VAL TINYINT)");
-        sql("CREATE INDEX t100_idx ON t100 (VAL)");
+    public void testScanBooleanField() {
+        sql("CREATE TABLE t(i INTEGER PRIMARY KEY, b BOOLEAN)");
+        sql("INSERT INTO t VALUES (0, TRUE), (1, TRUE), (2, FALSE), (3, FALSE), (4, null)");
+        sql("CREATE INDEX t_idx ON t(b)");
 
-        sql("INSERT INTO t100 VALUES (1, 127)");
+        assertQuery("SELECT i FROM t WHERE b = TRUE")
+                .matches(QueryChecker.containsIndexScan("PUBLIC", "T", "T_IDX"))
+                .returns(0)
+                .returns(1)
+                .check();
 
-        assertQuery("SELECT * FROM t100 WHERE val = 1024").returnNothing().check();
-    }
+        assertQuery("SELECT i FROM t WHERE b = FALSE")
+                .matches(QueryChecker.containsIndexScan("PUBLIC", "T", "T_IDX"))
+                .returns(2)
+                .returns(3)
+                .check();
 
-    /**
-     * Saturated value are placed in search bounds of a hash index.
-     */
-    @Test
-    public void testSaturatedBoundsHashIndex() {
-        sql("CREATE TABLE t200 (ID INTEGER PRIMARY KEY, VAL TINYINT)");
-        sql("CREATE INDEX t200_idx ON t200 USING HASH (VAL)");
+        assertQuery("SELECT i FROM t WHERE b IS TRUE")
+                .matches(QueryChecker.containsIndexScan("PUBLIC", "T", "T_IDX"))
+                .returns(0)
+                .returns(1)
+                .check();
 
-        sql("INSERT INTO t200 VALUES (1, 127)");
+        assertQuery("SELECT i FROM t WHERE b IS FALSE")
+                .matches(QueryChecker.containsIndexScan("PUBLIC", "T", "T_IDX"))
+                .returns(2)
+                .returns(3)
+                .check();
 
-        assertQuery("SELECT * FROM t200 WHERE val = 1024").returnNothing().check();
+        // Support index scans for IS TRUE, IS FALSE but not for IS NOT TRUE, IS NOT FALSE, since it requeres multi
+        // bounds scan and may not be effective.
+        assertQuery("SELECT i FROM t WHERE b IS NOT TRUE")
+                .matches(QueryChecker.containsTableScan("PUBLIC", "T"))
+                .returns(2)
+                .returns(3)
+                .returns(4)
+                .check();
+
+        assertQuery("SELECT i FROM t WHERE b IS NOT FALSE")
+                .matches(QueryChecker.containsTableScan("PUBLIC", "T"))
+                .returns(0)
+                .returns(1)
+                .returns(4)
+                .check();
+
+        assertQuery("SELECT i FROM t WHERE b IS NULL")
+                .matches(QueryChecker.containsIndexScan("PUBLIC", "T", "T_IDX"))
+                .returns(4)
+                .check();
     }
 }
