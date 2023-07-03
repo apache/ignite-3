@@ -145,6 +145,9 @@ public class MetricsTests
     [Test]
     public void TestHandshakesFailedTimeout()
     {
+        Assert.AreEqual(0, _listener.GetMetric("handshakes-failed"));
+        Assert.AreEqual(0, _listener.GetMetric("handshakes-failed-timeout"));
+
         using var server = new FakeServer { HandshakeDelay = TimeSpan.FromSeconds(1) };
 
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfigWithDelay()));
