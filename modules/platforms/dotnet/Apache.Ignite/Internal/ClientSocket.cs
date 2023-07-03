@@ -222,6 +222,7 @@ namespace Apache.Ignite.Internal
                 else
                 {
                     Metrics.HandshakesFailed.Add(1);
+                    Console.WriteLine("HandshakesFailed.Add(1)");
                 }
 
                 // ReSharper disable once MethodHasAsyncOverload

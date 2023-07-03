@@ -296,7 +296,12 @@ public class MetricsTests
         new()
         {
             SocketTimeout = TimeSpan.FromMilliseconds(100),
-            RetryPolicy = new RetryNonePolicy()
+            RetryPolicy = new RetryNonePolicy(),
+            Logger = new ConsoleLogger
+            {
+                MinLevel = LogLevel.Trace,
+                Prefix = "$" + TestContext.CurrentContext.Test.MethodName
+            }
         };
 
     private static IgniteClientConfiguration GetConfigWithDelay() =>
@@ -307,7 +312,7 @@ public class MetricsTests
             RetryPolicy = new RetryNonePolicy(),
             Logger = new ConsoleLogger
             {
-                MinLevel = LogLevel.Info,
+                MinLevel = LogLevel.Trace,
                 Prefix = "$" + TestContext.CurrentContext.Test.MethodName
             }
         };
