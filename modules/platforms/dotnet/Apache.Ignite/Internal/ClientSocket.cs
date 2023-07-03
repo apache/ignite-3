@@ -221,7 +221,6 @@ namespace Apache.Ignite.Internal
                 }
                 else
                 {
-                    Console.WriteLine($"Handshake failed [remoteAddress={endPoint.EndPoint}]");
                     Metrics.HandshakesFailed.Add(1);
                 }
 
