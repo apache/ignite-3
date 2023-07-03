@@ -334,6 +334,8 @@ public class MetricsTests
 
         private readonly ConcurrentDictionary<string, long> _metrics = new();
 
+        private readonly string _testName = TestContext.CurrentContext.Test.MethodName!;
+
         public Listener()
         {
             _listener.InstrumentPublished = (instrument, listener) =>
@@ -370,7 +372,7 @@ public class MetricsTests
 
                 if (instrument.Name == "handshakes-failed")
                 {
-                    Console.WriteLine("WHY? handshakes-failed: " + newVal);
+                    Console.WriteLine($"WHY? handshakes-failed ({_testName}): {newVal}");
                 }
             }
             else
@@ -381,7 +383,7 @@ public class MetricsTests
                 {
                     if (res > 1)
                     {
-                        Console.WriteLine("Too many handshakes failed: " + res);
+                        Console.WriteLine($"Too many handshakes failed ({_testName}): {res}");
                     }
                 }
             }
