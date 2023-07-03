@@ -36,8 +36,10 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -45,7 +47,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests that client and server have matching colocation logic.
  */
-public class ItThinClientColocationTest {
+public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource("nativeTypes")
     public void testClientAndServerColocationHashesAreSame(NativeType type)
@@ -66,6 +68,17 @@ public class ItThinClientColocationTest {
 
             assertEquals(serverHash, clientHash);
         }
+    }
+
+    @Test
+    public void testCustomColocationColumnOrder() {
+        sql("create table testCustomColocationColumnOrder(id integer, id0 bigint, id1 varchar, v INTEGER, "
+                + "primary key(id, id0, id1)) colocate by (id1, id0)");
+
+        CLUSTER_NODES.get(0).tables().table("testCustomColocationColumnOrder");
+
+        // TODO: Server: Use RecordBinaryViewImpl.marsh to marshal and get colocation hash
+        // TODO: Client: ClientTupleSerializer.getColocationHash(), get schema from ClientTable
     }
 
     private static ClientSchema clientSchema(NativeType type, String columnName) {
