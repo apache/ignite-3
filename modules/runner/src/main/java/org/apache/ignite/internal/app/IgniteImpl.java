@@ -1094,4 +1094,13 @@ public class IgniteImpl implements Ignite {
     public HybridClock clock() {
         return clock;
     }
+
+    /**
+     * Returns the node's transaction manager.
+     * @return Transaction manager.
+     */
+    @TestOnly
+    public TxManager txManager() {
+        return txManager;
+    }
 }

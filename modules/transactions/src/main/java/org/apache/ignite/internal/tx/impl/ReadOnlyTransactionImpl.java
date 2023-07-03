@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -98,6 +100,12 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             return completedFuture(null);
         }
 
-        return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()));
+        CompletableFuture<Void> txFinishFuture = ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(
+                new TxIdAndTimestamp(readTimestamp, id()));
+
+        // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
+        txManager.changeState(id(), PENDING, COMMITED);
+
+        return txFinishFuture;
     }
 }
