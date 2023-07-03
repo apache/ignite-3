@@ -92,8 +92,9 @@ import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
-import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
+import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
+import org.apache.ignite.internal.sql.engine.sql.ParserService;
+import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -142,6 +143,7 @@ public class ExecutionServiceImplTest {
     private TestCluster testCluster;
     private List<ExecutionServiceImpl<?>> executionServices;
     private PrepareService prepareService;
+    private ParserService parserService;
     private RuntimeException mappingException;
 
     @BeforeEach
@@ -149,6 +151,7 @@ public class ExecutionServiceImplTest {
         testCluster = new TestCluster();
         executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
         prepareService = new PrepareServiceImpl("test", 0, null);
+        parserService = new ParserServiceImpl(0);
 
         prepareService.start();
     }
@@ -537,11 +540,11 @@ public class ExecutionServiceImplTest {
     }
 
     private QueryPlan prepare(String query, BaseQueryContext ctx) {
-        StatementParseResult parseResult = IgniteSqlParser.parse(query, StatementParseResult.MODE);
+        ParsedResult parsedResult = parserService.parse(query);
 
-        assertEquals(ctx.parameters().length, parseResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
+        assertEquals(ctx.parameters().length, parsedResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
 
-        return await(prepareService.prepareAsync(parseResult.statement(), ctx));
+        return await(prepareService.prepareAsync(parsedResult, ctx));
     }
 
     static class TestCluster {
