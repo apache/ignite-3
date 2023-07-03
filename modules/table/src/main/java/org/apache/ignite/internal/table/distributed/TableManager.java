@@ -289,7 +289,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /**
      * Versioned store for tracking RAFT groups initialization and starting completion.
-     * Only explicitly updated in {@link #createTablePartitionsLocally(long, List, int, TableImpl)}.
+     * Only explicitly updated in {@link #createTablePartitionsLocally(long, List, TableImpl)}.
      * Completed strictly after {@link #localPartsByTableIdVv}.
      */
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
@@ -679,7 +679,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         try {
             CatalogTableDescriptor tableDescriptor = catalogService.table(parameters.tableId(), parameters.catalogVersion() - 1);
-            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId());
+            CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), parameters.catalogVersion() - 1);
 
             dropTableLocally(parameters.causalityToken(), tableDescriptor.id(), zoneDescriptor.partitions());
         } finally {
@@ -694,14 +694,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param causalityToken Causality token.
      * @param assignments Table assignments.
-     * @param zoneId Distributed zone ID.
      * @param table Initialized table entity.
      * @return future, which will be completed when the partitions creations done.
      */
     private CompletableFuture<?> createTablePartitionsLocally(
             long causalityToken,
             List<Set<Assignment>> assignments,
-            int zoneId,
             TableImpl table
     ) {
         int tableId = table.tableId();
@@ -1219,7 +1217,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     });
         }));
 
-        createTablePartitionsLocally(causalityToken, assignments, zoneDescriptor.id(), table);
+        createTablePartitionsLocally(causalityToken, assignments, table);
 
         pendingTables.put(tableId, table);
         startedTables.put(tableId, table);
@@ -1783,7 +1781,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A list of direct table ids.
      */
     private List<Integer> directTableIds() {
-        return configuredTablesCache.configuredTableIds();
+        return Arrays.stream(catalogService.activeSchema(Long.MAX_VALUE).tables()).map(CatalogTableDescriptor::id).collect(toList());
     }
 
     /**
@@ -1996,7 +1994,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return True when the table is configured into cluster, false otherwise.
      */
     private boolean isTableConfigured(int id) {
-        return configuredTablesCache.isTableConfigured(id);
+        return catalogService.table(id, Long.MAX_VALUE) != null;
     }
 
     /**

@@ -306,24 +306,6 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
-    public void testCreateTableWithDuplicateColumns() {
-        CreateTableParams params = CreateTableParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .zone(ZONE_NAME)
-                .columns(List.of(
-                        ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
-                        ColumnParams.builder().name("val").type(ColumnType.INT32).build(),
-                        ColumnParams.builder().name("val").type(ColumnType.INT32).nullable(true).build()
-                ))
-                .primaryKeyColumns(List.of("key"))
-                .build();
-
-        assertThat(service.createTable(params), willThrowFast(IgniteInternalException.class,
-                "Can't create table with duplicate columns: key, val, val"));
-    }
-
-    @Test
     public void testDropTable() {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
         assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
@@ -1738,19 +1720,106 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
-    void testCreateTableWithoutPkColumns() {
+    void testCreateTableErrors() {
+        // Table must have PK columns.
         assertThat(
                 service.createTable(
                         CreateTableParams.builder()
                                 .schemaName(SCHEMA_NAME)
                                 .zone(ZONE_NAME)
                                 .tableName(TABLE_NAME)
-                                .columns(List.of())
+                                .columns(List.of(
+                                        ColumnParams.builder().name("val").type(ColumnType.INT32).build()
+                                ))
                                 .primaryKeyColumns(List.of())
                                 .build()
                 ),
-                willThrowFast(IgniteInternalException.class, "Missing primary key columns")
+                willThrowFast(IgniteInternalException.class, "Table without primary key is not supported.")
         );
+
+        // PK column must be a valid column
+        assertThat(
+                service.createTable(
+                        CreateTableParams.builder()
+                                .schemaName(SCHEMA_NAME)
+                                .zone(ZONE_NAME)
+                                .tableName(TABLE_NAME)
+                                .columns(List.of(
+                                        ColumnParams.builder().name("val").type(ColumnType.INT32).build()
+                                ))
+                                .primaryKeyColumns(List.of("key"))
+                                .build()
+                ),
+                willThrowFast(IgniteInternalException.class, "Invalid primary key columns: val")
+        );
+
+        // Column names must be unique.
+        assertThat(
+                service.createTable(
+                        CreateTableParams.builder()
+                                .schemaName(SCHEMA_NAME)
+                                .tableName(TABLE_NAME)
+                                .zone(ZONE_NAME)
+                                .columns(List.of(
+                                        ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
+                                        ColumnParams.builder().name("val").type(ColumnType.INT32).build(),
+                                        ColumnParams.builder().name("val").type(ColumnType.INT32).nullable(true).build()
+                                ))
+                                .primaryKeyColumns(List.of("key"))
+                                .build()
+                ),
+                willThrowFast(IgniteInternalException.class, "Can't create table with duplicate columns: key, val, val"));
+
+        // PK column names must be unique.
+        assertThat(
+                service.createTable(
+                        CreateTableParams.builder()
+                                .schemaName(SCHEMA_NAME)
+                                .tableName(TABLE_NAME)
+                                .zone(ZONE_NAME)
+                                .columns(List.of(
+                                        ColumnParams.builder().name("key1").type(ColumnType.INT32).build(),
+                                        ColumnParams.builder().name("key2").type(ColumnType.INT32).build()
+                                ))
+                                .primaryKeyColumns(List.of("key1", "key2", "key1"))
+                                .build()
+                ),
+                willThrowFast(IgniteInternalException.class, "Primary key columns contains duplicates: key1, key2, key1"));
+
+        // Colocated columns names must be unique.
+        assertThat(
+                service.createTable(
+                        CreateTableParams.builder()
+                                .schemaName(SCHEMA_NAME)
+                                .tableName(TABLE_NAME)
+                                .zone(ZONE_NAME)
+                                .columns(List.of(
+                                        ColumnParams.builder().name("key1").type(ColumnType.INT32).build(),
+                                        ColumnParams.builder().name("key2").type(ColumnType.INT32).build(),
+                                        ColumnParams.builder().name("val").type(ColumnType.INT32).build()
+                                ))
+                                .primaryKeyColumns(List.of("key1", "key2"))
+                                .colocationColumns(List.of("key1", "key2", "key1"))
+                                .build()
+                ),
+                willThrowFast(IgniteInternalException.class, "Colocation columns contains duplicates: key1, key2, key1"));
+
+        // Colocated columns must be valid primary key columns.
+        assertThat(
+                service.createTable(
+                        CreateTableParams.builder()
+                                .schemaName(SCHEMA_NAME)
+                                .tableName(TABLE_NAME)
+                                .zone(ZONE_NAME)
+                                .columns(List.of(
+                                        ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
+                                        ColumnParams.builder().name("val").type(ColumnType.INT32).build()
+                                ))
+                                .primaryKeyColumns(List.of("key"))
+                                .colocationColumns(List.of("val"))
+                                .build()
+                ),
+                willThrowFast(IgniteInternalException.class, "Colocation columns must be subset of primary key: outstandingColumns=[val]"));
     }
 
     private CompletableFuture<Void> changeColumn(
