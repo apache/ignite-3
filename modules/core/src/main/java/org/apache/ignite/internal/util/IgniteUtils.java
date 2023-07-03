@@ -1106,7 +1106,7 @@ public class IgniteUtils {
             bytesObjects += b.length;
         }
 
-        bytesObjects += Integer.BYTES * (objects.size() + 1);
+        bytesObjects += Integer.BYTES;
         ByteBuffer buf = ByteBuffer.allocate(bytesObjects).order(ByteOrder.LITTLE_ENDIAN);
 
         buf.putInt(objects.size());

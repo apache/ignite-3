@@ -306,7 +306,7 @@ public class LeaseUpdater {
                             }
 
                             // New lease is granting.
-                            writeNewLeaseInMetaStorage(grpId, lease, candidate, renewedLeases, toBeNegotiated);
+                            writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
 
                             continue;
                         }
@@ -328,10 +328,10 @@ public class LeaseUpdater {
                         // leaseholders at all.
                         if (isLeaseOutdated(lease)) {
                             // New lease is granting.
-                            writeNewLeaseInMetaStorage(grpId, lease, candidate, renewedLeases, toBeNegotiated);
+                            writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
                         } else if (lease.isProlongable() && candidate.name().equals(lease.getLeaseholder())) {
                             // Old lease is renewing.
-                            prolongLeaseInMetaStorage(grpId, lease, renewedLeases);
+                            prolongLease(grpId, lease, renewedLeases);
                         }
                     }
                 }
@@ -364,13 +364,13 @@ public class LeaseUpdater {
         }
 
         /**
-         * Writes a new lease in Meta storage.
+         * Writes a new lease.
          *
          * @param grpId Replication group id.
          * @param lease Old lease to apply CAS in Meta storage.
          * @param candidate Lease candidate.
          */
-        private void writeNewLeaseInMetaStorage(ReplicationGroupId grpId, Lease lease, ClusterNode candidate,
+        private void writeNewLease(ReplicationGroupId grpId, Lease lease, ClusterNode candidate,
                 Map<ReplicationGroupId, Lease> renewedLeases, Map<ReplicationGroupId, Boolean> toBeNegotiated) {
             HybridTimestamp startTs = clock.now();
 
@@ -384,12 +384,12 @@ public class LeaseUpdater {
         }
 
         /**
-         * Writes a prolong lease in Meta storage.
+         * Prolongs the lease.
          *
          * @param grpId Replication group id.
          * @param lease Lease to prolong.
          */
-        private void prolongLeaseInMetaStorage(ReplicationGroupId grpId, Lease lease, Map<ReplicationGroupId, Lease> renewedLeases) {
+        private void prolongLease(ReplicationGroupId grpId, Lease lease, Map<ReplicationGroupId, Lease> renewedLeases) {
             var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_INTERVAL, 0);
 
             Lease renewedLease = lease.prolongLease(newTs);

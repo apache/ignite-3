@@ -74,7 +74,6 @@ import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
@@ -96,7 +95,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * There are tests of muti-nodes for placement driver.
  */
-@ExtendWith({ConfigurationExtension.class, WorkDirectoryExtension.class})
+@ExtendWith({ConfigurationExtension.class})
 public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     public static final int BASE_PORT = 1234;
 
@@ -133,11 +132,8 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
     private final AtomicInteger nextTableId = new AtomicInteger(1);
 
-    /** Work directory. */
-    protected Path workDir;
-
     @BeforeEach
-    public void beforeTest(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
+    public void beforeTest(TestInfo testInfo, @WorkDirectory Path workDir) {
         this.placementDriverNodeNames = IntStream.range(BASE_PORT, BASE_PORT + 3).mapToObj(port -> testNodeName(testInfo, port))
                 .collect(Collectors.toList());
         this.nodeNames = IntStream.range(BASE_PORT, BASE_PORT + 5).mapToObj(port -> testNodeName(testInfo, port))
