@@ -517,15 +517,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 )
                 .get(3, SECONDS);
 
-        // Create logical topology with NODE_0.
-        topology.putNode(NODE_0);
-
         Set<LogicalNode> oneNode = Set.of(NODE_0);
         Set<String> oneNodeName = Set.of(NODE_0.name());
 
-        // Check that data nodes value of both zone is NODE_0.
+        // Create logical topology with NODE_0.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, Set.of(NODE_0));
 
+        // Check that data nodes value of the zone is NODE_0.
         CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
         assertThat(dataNodesFut1, willBe(oneNodeName));
 
@@ -656,8 +654,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         Set<LogicalNode> oneNode = Set.of(NODE_0);
         Set<String> oneNodeName = Set.of(NODE_0.name());
-
-        putNodeInLogicalTopologyAndGetRevision(NODE_0, oneNode);
 
         Set<String> twoNodesNames = Set.of(NODE_0.name(), NODE_1.name());
 
