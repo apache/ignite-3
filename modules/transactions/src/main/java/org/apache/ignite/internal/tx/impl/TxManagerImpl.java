@@ -168,7 +168,7 @@ public class TxManagerImpl implements TxManager {
         });
 
         assert computeResult == after : "Unable to change transaction state, expected = [" + before + "],"
-                + " got = [" + computeResult + "], state to set=[" + after + ']';
+                + " got = [" + computeResult + "], state to set = [" + after + ']';
     }
 
     @Override
