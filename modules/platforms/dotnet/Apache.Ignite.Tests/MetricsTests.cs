@@ -24,17 +24,14 @@ using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Ignite.Table;
-using Log;
 using NUnit.Framework;
 
 /// <summary>
 /// Tests client metrics.
 /// </summary>
-[Parallelizable(ParallelScope.None)]
 public class MetricsTests
 {
     private volatile Listener _listener = null!;
@@ -151,23 +148,11 @@ public class MetricsTests
     [Test]
     public void TestHandshakesFailedTimeout()
     {
-        using var listener = new Listener();
-
-        Assert.AreEqual(0, listener.GetMetric("handshakes-failed"));
-        Assert.AreEqual(0, listener.GetMetric("handshakes-failed-timeout"));
-
         using var server = new FakeServer { HandshakeDelay = TimeSpan.FromSeconds(1) };
 
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfigWithDelay()));
-
-        Assert.Multiple(() =>
-        {
-            var events = listener.GetEvents();
-            Assert.AreEqual(0, listener.GetMetric("handshakes-failed"), events);
-            Assert.AreEqual(1, listener.GetMetric("handshakes-failed-timeout"), events);
-
-            Console.WriteLine(events);
-        });
+        Assert.AreEqual(0, _listener.GetMetric("handshakes-failed"));
+        Assert.AreEqual(1, _listener.GetMetric("handshakes-failed-timeout"));
     }
 
     [Test]
@@ -309,12 +294,7 @@ public class MetricsTests
         new()
         {
             SocketTimeout = TimeSpan.FromMilliseconds(100),
-            RetryPolicy = new RetryNonePolicy(),
-            Logger = new ConsoleLogger
-            {
-                MinLevel = LogLevel.Trace,
-                Prefix = "$" + TestContext.CurrentContext.Test.MethodName
-            }
+            RetryPolicy = new RetryNonePolicy()
         };
 
     private static IgniteClientConfiguration GetConfigWithDelay() =>
@@ -322,12 +302,7 @@ public class MetricsTests
         {
             HeartbeatInterval = TimeSpan.FromMilliseconds(50),
             SocketTimeout = TimeSpan.FromMilliseconds(50),
-            RetryPolicy = new RetryNonePolicy(),
-            Logger = new ConsoleLogger
-            {
-                MinLevel = LogLevel.Trace,
-                Prefix = "$" + TestContext.CurrentContext.Test.MethodName
-            }
+            RetryPolicy = new RetryNonePolicy()
         };
 
     private sealed class Listener : IDisposable
@@ -335,8 +310,6 @@ public class MetricsTests
         private readonly MeterListener _listener = new();
 
         private readonly ConcurrentDictionary<string, long> _metrics = new();
-
-        private readonly ConcurrentQueue<string> _events = new();
 
         public Listener()
         {
@@ -359,12 +332,9 @@ public class MetricsTests
             return _metrics.TryGetValue(name, out var val) ? (int)val : 0;
         }
 
-        public string GetEvents() => string.Join("; ", _events);
-
         public void Dispose()
         {
             _listener.Dispose();
-            _events.Clear();
         }
 
         private void Handle<T>(Instrument instrument, T measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state)
@@ -379,16 +349,6 @@ public class MetricsTests
             {
                 _metrics.AddOrUpdate(instrument.Name, newVal, (_, val) => val + newVal);
             }
-
-            var sb = new StringBuilder();
-            sb.Append(instrument.Name).Append('=').Append(measurement);
-
-            foreach (var tag in tags)
-            {
-                sb.Append(' ').Append(tag.Key).Append('=').Append(tag.Value);
-            }
-
-            _events.Enqueue(sb.ToString());
         }
     }
 }

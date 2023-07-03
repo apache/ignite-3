@@ -51,11 +51,6 @@ namespace Apache.Ignite.Log
         public IDateTimeProvider? DateTimeProvider { get; set; }
 
         /// <summary>
-        /// Gets or sets the prefix to be added to all log messages.
-        /// </summary>
-        public string? Prefix { get; set; }
-
-        /// <summary>
         /// Logs the specified message.
         /// </summary>
         /// <param name="level">The level.</param>
@@ -82,14 +77,7 @@ namespace Apache.Ignite.Log
 
             var dateTimeProvider = DateTimeProvider ?? LocalDateTimeProvider.Instance;
 
-            var sb = new StringBuilder();
-
-            if (Prefix != null)
-            {
-                sb.Append(Prefix).Append(' ');
-            }
-
-            sb.AppendFormat(
+            var sb = new StringBuilder().AppendFormat(
                 CultureInfo.InvariantCulture,
                 "[{0:HH:mm:ss}] [{1}] [{2}] ",
                 dateTimeProvider.Now(),
