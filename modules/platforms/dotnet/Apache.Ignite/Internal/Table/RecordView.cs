@@ -337,7 +337,7 @@ namespace Apache.Ignite.Internal.Table
                             ClientOp.TupleUpsertAll,
                             tx: null,
                             batch,
-                            PreferredNode.FromId(preferredNode),
+                            PreferredNode.FromName(preferredNode),
                             retryPolicy)
                         .ConfigureAwait(false);
                 },

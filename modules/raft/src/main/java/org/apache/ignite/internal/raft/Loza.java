@@ -130,6 +130,7 @@ public class Loza implements RaftManager {
      * @param dataPath Data path.
      * @param clock A hybrid logical clock.
      */
+    @TestOnly
     public Loza(
             ClusterService clusterNetSvc,
             RaftConfiguration raftConfiguration,

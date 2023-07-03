@@ -73,18 +73,13 @@ public class BinaryRowConverter {
         ByteBuffer tupleBuffer = binaryRow.tupleSlice();
         var parser = new BinaryTupleParser(srcSchema.elementCount(), tupleBuffer);
 
-        // See if there are any NULL values and estimate total data size.
+        // Estimate total data size.
         var stats = new Sink() {
-            boolean hasNulls = false;
             int estimatedValueSize = 0;
 
             @Override
             public void nextElement(int index, int begin, int end) {
-                if (begin == 0) {
-                    hasNulls = true;
-                } else {
-                    estimatedValueSize += end - begin;
-                }
+                estimatedValueSize += end - begin;
             }
         };
 
@@ -94,15 +89,13 @@ public class BinaryRowConverter {
         }
 
         // Now compose the tuple.
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(dstSchema.elementCount(), stats.hasNulls, stats.estimatedValueSize);
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(dstSchema.elementCount(), stats.estimatedValueSize);
 
         for (int elementIndex = 0; elementIndex < dstSchema.elementCount(); elementIndex++) {
             int columnIndex = dstSchema.columnIndex(elementIndex);
             parser.fetch(columnIndex, (index, begin, end) -> {
-                if (begin == 0) {
+                if (begin == end) {
                     builder.appendNull();
-                } else if (begin == end) { // Explicitly append default, although appendElementBytes would work fine in this case.
-                    builder.appendDefault();
                 } else {
                     builder.appendElementBytes(tupleBuffer, begin, end - begin);
                 }

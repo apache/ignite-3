@@ -88,6 +88,7 @@ import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -217,7 +218,7 @@ public class IgniteImpl implements Ignite {
     private final Loza raftMgr;
 
     /** Meta storage manager. */
-    private final MetaStorageManager metaStorageMgr;
+    private final MetaStorageManagerImpl metaStorageMgr;
 
     /** Distributed configuration validator. */
     private final ConfigurationValidator distributedConfigurationValidator;
@@ -406,6 +407,13 @@ public class IgniteImpl implements Ignite {
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
 
+        var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                clusterSvc,
+                logicalTopologyService,
+                Loza.FACTORY,
+                raftGroupEventsClientListener
+        );
+
         metaStorageMgr = new MetaStorageManagerImpl(
                 vaultMgr,
                 clusterSvc,
@@ -413,7 +421,8 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 raftMgr,
                 new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH)),
-                clock
+                clock,
+                topologyAwareRaftGroupServiceFactory
         );
 
         this.cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
@@ -434,15 +443,7 @@ public class IgniteImpl implements Ignite {
 
         TablesConfiguration tablesConfig = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
-        TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
-                clusterSvc,
-                logicalTopologyService,
-                Loza.FACTORY,
-                raftGroupEventsClientListener
-        );
-
-        DistributionZonesConfiguration zonesConfiguration = clusterConfigRegistry
-                .getConfiguration(DistributionZonesConfiguration.KEY);
+        metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageConfiguration.KEY));
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
 
@@ -479,7 +480,7 @@ public class IgniteImpl implements Ignite {
         schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
         distributionZoneManager = new DistributionZoneManager(
-                zonesConfiguration,
+                clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY),
                 tablesConfig,
                 metaStorageMgr,
                 logicalTopologyService,

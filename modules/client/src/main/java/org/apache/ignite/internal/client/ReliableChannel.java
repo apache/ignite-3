@@ -79,11 +79,8 @@ public final class ReliableChannel implements AutoCloseable {
     /** Client configuration. */
     private final IgniteClientConfiguration clientCfg;
 
-    /** Node channels. */
+    /** Node channels by name (consistent id). */
     private final Map<String, ClientChannelHolder> nodeChannelsByName = new ConcurrentHashMap<>();
-
-    /** Node channels. */
-    private final Map<String, ClientChannelHolder> nodeChannelsById = new ConcurrentHashMap<>();
 
     /** Channels reinit was scheduled. */
     private final AtomicBoolean scheduledChannelsReinit = new AtomicBoolean();
@@ -183,8 +180,6 @@ public final class ReliableChannel implements AutoCloseable {
      * @param <T>           response type.
      * @param preferredNodeName Unique name (consistent id) of the preferred target node. When a connection to the specified node exists,
      *                          it will be used to handle the request; otherwise, default connection will be used.
-     * @param preferredNodeId   ID of the preferred target node. When a connection to the specified node exists,
-     *                          it will be used to handle the request; otherwise, default connection will be used.
      * @param retryPolicyOverride Retry policy override.
      * @return Future for the operation.
      */
@@ -193,11 +188,10 @@ public final class ReliableChannel implements AutoCloseable {
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader,
             @Nullable String preferredNodeName,
-            @Nullable String preferredNodeId,
             @Nullable RetryPolicy retryPolicyOverride
     ) {
         return ClientFutureUtils.doWithRetryAsync(
-                () -> getChannelAsync(preferredNodeName, preferredNodeId)
+                () -> getChannelAsync(preferredNodeName)
                         .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, ch)),
                 null,
                 ctx -> shouldRetry(opCode, ctx, retryPolicyOverride));
@@ -217,7 +211,7 @@ public final class ReliableChannel implements AutoCloseable {
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader
     ) {
-        return serviceAsync(opCode, payloadWriter, payloadReader, null, null, null);
+        return serviceAsync(opCode, payloadWriter, payloadReader, null, null);
     }
 
     /**
@@ -229,7 +223,7 @@ public final class ReliableChannel implements AutoCloseable {
      * @return Future for the operation.
      */
     public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadReader<T> payloadReader) {
-        return serviceAsync(opCode, null, payloadReader, null, null, null);
+        return serviceAsync(opCode, null, payloadReader, null, null);
     }
 
     private <T> CompletableFuture<T> serviceAsyncInternal(
@@ -244,24 +238,20 @@ public final class ReliableChannel implements AutoCloseable {
         });
     }
 
-    private CompletableFuture<ClientChannel> getChannelAsync(@Nullable String preferredNodeName, @Nullable String preferredNodeId) {
-        ClientChannelHolder holder = null;
-
+    private CompletableFuture<ClientChannel> getChannelAsync(@Nullable String preferredNodeName) {
         // 1. Preferred node connection.
         if (preferredNodeName != null) {
-            holder = nodeChannelsByName.get(preferredNodeName);
-        } else if (preferredNodeId != null) {
-            holder = nodeChannelsById.get(preferredNodeId);
-        }
+            ClientChannelHolder holder = nodeChannelsByName.get(preferredNodeName);
 
-        if (holder != null) {
-            return holder.getOrCreateChannelAsync().thenCompose(ch -> {
-                if (ch != null) {
-                    return CompletableFuture.completedFuture(ch);
-                } else {
-                    return getDefaultChannelAsync();
-                }
-            });
+            if (holder != null) {
+                return holder.getOrCreateChannelAsync().thenCompose(ch -> {
+                    if (ch != null) {
+                        return CompletableFuture.completedFuture(ch);
+                    } else {
+                        return getDefaultChannelAsync();
+                    }
+                });
+            }
         }
 
         // 2. Round-robin connection.
@@ -800,13 +790,11 @@ public final class ReliableChannel implements AutoCloseable {
                     // There could be multiple holders map to the same serverNodeId if user provide the same
                     // address multiple times in configuration.
                     nodeChannelsByName.put(newNode.name(), this);
-                    nodeChannelsById.put(newNode.id(), this);
 
                     var oldServerNode = serverNode;
                     if (oldServerNode != null && !oldServerNode.id().equals(newNode.id())) {
                         // New node on the old address.
                         nodeChannelsByName.remove(oldServerNode.name(), this);
-                        nodeChannelsById.remove(oldServerNode.id(), this);
                     }
 
                     serverNode = newNode;
@@ -871,7 +859,6 @@ public final class ReliableChannel implements AutoCloseable {
 
                 if (oldServerNode != null) {
                     nodeChannelsByName.remove(oldServerNode.name(), this);
-                    nodeChannelsById.remove(oldServerNode.id(), this);
                 }
 
                 chFut = null;
@@ -888,7 +875,6 @@ public final class ReliableChannel implements AutoCloseable {
 
             if (oldServerNode != null) {
                 nodeChannelsByName.remove(oldServerNode.name(), this);
-                nodeChannelsById.remove(oldServerNode.id(), this);
             }
 
             closeChannel();

@@ -89,11 +89,11 @@ public class BinaryTupleComparatorTest {
 
         switch (type.spec()) {
             case INT8: {
-                tuple1 = new BinaryTupleBuilder(1, false)
+                tuple1 = new BinaryTupleBuilder(1)
                         .appendByte((byte) -1)
                         .build();
 
-                tuple2 = new BinaryTupleBuilder(1, false)
+                tuple2 = new BinaryTupleBuilder(1)
                         .appendByte(Byte.MAX_VALUE)
                         .build();
 
@@ -101,11 +101,11 @@ public class BinaryTupleComparatorTest {
             }
 
             case INT16: {
-                tuple1 = new BinaryTupleBuilder(1, false)
+                tuple1 = new BinaryTupleBuilder(1)
                         .appendShort((short) -1)
                         .build();
 
-                tuple2 = new BinaryTupleBuilder(1, false)
+                tuple2 = new BinaryTupleBuilder(1)
                         .appendShort(Short.MAX_VALUE)
                         .build();
 
@@ -113,11 +113,11 @@ public class BinaryTupleComparatorTest {
             }
 
             case INT32: {
-                tuple1 = new BinaryTupleBuilder(1, false)
+                tuple1 = new BinaryTupleBuilder(1)
                         .appendInt(-1)
                         .build();
 
-                tuple2 = new BinaryTupleBuilder(1, false)
+                tuple2 = new BinaryTupleBuilder(1)
                         .appendInt(Integer.MAX_VALUE)
                         .build();
 
@@ -125,11 +125,11 @@ public class BinaryTupleComparatorTest {
             }
 
             case INT64: {
-                tuple1 = new BinaryTupleBuilder(1, false)
+                tuple1 = new BinaryTupleBuilder(1)
                         .appendLong(-1)
                         .build();
 
-                tuple2 = new BinaryTupleBuilder(1, false)
+                tuple2 = new BinaryTupleBuilder(1)
                         .appendLong(Long.MAX_VALUE)
                         .build();
 
@@ -137,11 +137,11 @@ public class BinaryTupleComparatorTest {
             }
 
             case FLOAT: {
-                tuple1 = new BinaryTupleBuilder(1, false)
+                tuple1 = new BinaryTupleBuilder(1)
                         .appendFloat(-1.69f)
                         .build();
 
-                tuple2 = new BinaryTupleBuilder(1, false)
+                tuple2 = new BinaryTupleBuilder(1)
                         .appendFloat(Float.MAX_VALUE)
                         .build();
 
@@ -149,11 +149,11 @@ public class BinaryTupleComparatorTest {
             }
 
             case DOUBLE: {
-                tuple1 = new BinaryTupleBuilder(1, false)
+                tuple1 = new BinaryTupleBuilder(1)
                         .appendDouble(-1.69)
                         .build();
 
-                tuple2 = new BinaryTupleBuilder(1, false)
+                tuple2 = new BinaryTupleBuilder(1)
                         .appendDouble(Double.MAX_VALUE)
                         .build();
 
@@ -161,11 +161,11 @@ public class BinaryTupleComparatorTest {
             }
 
             case BYTES: {
-                tuple1 = new BinaryTupleBuilder(1, false)
+                tuple1 = new BinaryTupleBuilder(1)
                         .appendBytes(new byte[] {1, 2, 3})
                         .build();
 
-                tuple2 = new BinaryTupleBuilder(1, false)
+                tuple2 = new BinaryTupleBuilder(1)
                         .appendBytes(new byte[] {1, 2, 6})
                         .build();
 
@@ -173,11 +173,11 @@ public class BinaryTupleComparatorTest {
             }
 
             case BITMASK: {
-                tuple1 = new BinaryTupleBuilder(1, false)
+                tuple1 = new BinaryTupleBuilder(1)
                         .appendBitmask(BitSet.valueOf(new byte[] { 1, 2, 3 }))
                         .build();
 
-                tuple2 = new BinaryTupleBuilder(1, false)
+                tuple2 = new BinaryTupleBuilder(1)
                         .appendBitmask(BitSet.valueOf(new byte[] {-1, -1, -1}))
                         .build();
 
@@ -185,11 +185,11 @@ public class BinaryTupleComparatorTest {
             }
 
             case DECIMAL: {
-                tuple1 = new BinaryTupleBuilder(1, false)
+                tuple1 = new BinaryTupleBuilder(1)
                         .appendDecimal(BigDecimal.valueOf(-1), 4)
                         .build();
 
-                tuple2 = new BinaryTupleBuilder(1, false)
+                tuple2 = new BinaryTupleBuilder(1)
                         .appendDecimal(BigDecimal.valueOf(123456789.1234), 4)
                         .build();
 
@@ -206,11 +206,11 @@ public class BinaryTupleComparatorTest {
                     uuid2 = t;
                 }
 
-                tuple1 = new BinaryTupleBuilder(1, false)
+                tuple1 = new BinaryTupleBuilder(1)
                         .appendUuid(uuid1)
                         .build();
 
-                tuple2 = new BinaryTupleBuilder(1, false)
+                tuple2 = new BinaryTupleBuilder(1)
                         .appendUuid(uuid2)
                         .build();
 
@@ -218,11 +218,11 @@ public class BinaryTupleComparatorTest {
             }
 
             case STRING: {
-                tuple1 = new BinaryTupleBuilder(1, false)
+                tuple1 = new BinaryTupleBuilder(1)
                         .appendString("foobar")
                         .build();
 
-                tuple2 = new BinaryTupleBuilder(1, false)
+                tuple2 = new BinaryTupleBuilder(1)
                         .appendString("foobaz")
                         .build();
 
@@ -230,11 +230,11 @@ public class BinaryTupleComparatorTest {
             }
 
             case NUMBER: {
-                tuple1 = new BinaryTupleBuilder(1, false)
+                tuple1 = new BinaryTupleBuilder(1)
                         .appendNumber(BigInteger.valueOf(-1))
                         .build();
 
-                tuple2 = new BinaryTupleBuilder(1, false)
+                tuple2 = new BinaryTupleBuilder(1)
                         .appendNumber(BigInteger.TEN)
                         .build();
 
@@ -242,11 +242,11 @@ public class BinaryTupleComparatorTest {
             }
 
             case TIMESTAMP: {
-                tuple1 = new BinaryTupleBuilder(1, false)
+                tuple1 = new BinaryTupleBuilder(1)
                         .appendTimestamp(Instant.ofEpochSecond(1))
                         .build();
 
-                tuple2 = new BinaryTupleBuilder(1, false)
+                tuple2 = new BinaryTupleBuilder(1)
                         .appendTimestamp(Instant.ofEpochSecond(42))
                         .build();
 
@@ -254,11 +254,11 @@ public class BinaryTupleComparatorTest {
             }
 
             case DATE: {
-                tuple1 = new BinaryTupleBuilder(1, false)
+                tuple1 = new BinaryTupleBuilder(1)
                         .appendDate(LocalDate.of(2000, 4, 10))
                         .build();
 
-                tuple2 = new BinaryTupleBuilder(1, false)
+                tuple2 = new BinaryTupleBuilder(1)
                         .appendDate(LocalDate.of(2000, 4, 15))
                         .build();
 
@@ -266,11 +266,11 @@ public class BinaryTupleComparatorTest {
             }
 
             case TIME: {
-                tuple1 = new BinaryTupleBuilder(1, false)
+                tuple1 = new BinaryTupleBuilder(1)
                         .appendTime(LocalTime.of(10, 0, 0))
                         .build();
 
-                tuple2 = new BinaryTupleBuilder(1, false)
+                tuple2 = new BinaryTupleBuilder(1)
                         .appendTime(LocalTime.of(10, 0, 1))
                         .build();
 
@@ -278,11 +278,11 @@ public class BinaryTupleComparatorTest {
             }
 
             case DATETIME: {
-                tuple1 = new BinaryTupleBuilder(1, false)
+                tuple1 = new BinaryTupleBuilder(1)
                         .appendDateTime(LocalDateTime.of(2000, 4, 10, 10, 0, 0))
                         .build();
 
-                tuple2 = new BinaryTupleBuilder(1, false)
+                tuple2 = new BinaryTupleBuilder(1)
                         .appendDateTime(LocalDateTime.of(2000, 4, 10, 10, 0, 1))
                         .build();
 
@@ -303,12 +303,12 @@ public class BinaryTupleComparatorTest {
                 new StorageSortedIndexColumnDescriptor("column", NativeTypes.STRING, false,  false)
         ));
 
-        ByteBuffer tuple1 = new BinaryTupleBuilder(2, false)
+        ByteBuffer tuple1 = new BinaryTupleBuilder(2)
                 .appendInt(0)
                 .appendString("foobar")
                 .build();
 
-        ByteBuffer tuple2 = new BinaryTupleBuilder(2, false)
+        ByteBuffer tuple2 = new BinaryTupleBuilder(2)
                 .appendInt(1)
                 .appendString("foobar")
                 .build();
@@ -317,7 +317,7 @@ public class BinaryTupleComparatorTest {
         assertThat(comparator.compare(tuple1, tuple1), is(0));
         assertThat(comparator.compare(tuple2, tuple1), is(greaterThanOrEqualTo(1)));
 
-        tuple2 = new BinaryTupleBuilder(2, false)
+        tuple2 = new BinaryTupleBuilder(2)
                 .appendInt(0)
                 .appendString("foobaa")
                 .build();
@@ -333,12 +333,12 @@ public class BinaryTupleComparatorTest {
                 new StorageSortedIndexColumnDescriptor("column", NativeTypes.STRING, true,  false)
         ));
 
-        ByteBuffer tuple1 = new BinaryTupleBuilder(2, true)
+        ByteBuffer tuple1 = new BinaryTupleBuilder(2)
                 .appendInt(null)
                 .appendString("foobar")
                 .build();
 
-        ByteBuffer tuple2 = new BinaryTupleBuilder(2, true)
+        ByteBuffer tuple2 = new BinaryTupleBuilder(2)
                 .appendInt(1)
                 .appendString("foobar")
                 .build();
@@ -347,7 +347,7 @@ public class BinaryTupleComparatorTest {
         assertThat(comparator.compare(tuple1, tuple1), is(0));
         assertThat(comparator.compare(tuple2, tuple1), is(lessThanOrEqualTo(-1)));
 
-        tuple2 = new BinaryTupleBuilder(2, true)
+        tuple2 = new BinaryTupleBuilder(2)
                 .appendInt(null)
                 .appendString("foobaa")
                 .build();
@@ -355,7 +355,7 @@ public class BinaryTupleComparatorTest {
         assertThat(comparator.compare(tuple1, tuple2), is(lessThanOrEqualTo(-1)));
         assertThat(comparator.compare(tuple2, tuple1), is(greaterThanOrEqualTo(1)));
 
-        tuple2 = new BinaryTupleBuilder(2, true)
+        tuple2 = new BinaryTupleBuilder(2)
                 .appendInt(null)
                 .appendString(null)
                 .build();
@@ -372,7 +372,7 @@ public class BinaryTupleComparatorTest {
                 new StorageSortedIndexColumnDescriptor("column", NativeTypes.STRING, false,  false)
         ));
 
-        ByteBuffer tuple1 = new BinaryTupleBuilder(2, false)
+        ByteBuffer tuple1 = new BinaryTupleBuilder(2)
                 .appendInt(1)
                 .appendString("foobar")
                 .build();
@@ -411,7 +411,7 @@ public class BinaryTupleComparatorTest {
                 new StorageSortedIndexColumnDescriptor("column", NativeTypes.STRING, false,  false)
         ));
 
-        ByteBuffer tuple1 = new BinaryTupleBuilder(2, true)
+        ByteBuffer tuple1 = new BinaryTupleBuilder(2)
                 .appendInt(null)
                 .appendString("foobar")
                 .build();

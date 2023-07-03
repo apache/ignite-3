@@ -39,7 +39,7 @@ class ClientSqlCommon {
 
         for (SqlRow row : asyncResultSet.currentPage()) {
             // TODO IGNITE-18922 Avoid conversion, copy BinaryTuple from SQL to client.
-            var builder = new BinaryTupleBuilder(row.columnCount(), true);
+            var builder = new BinaryTupleBuilder(row.columnCount());
 
             for (int i = 0; i < cols.size(); i++) {
                 packValue(builder, cols.get(i), row, i);
