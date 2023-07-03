@@ -213,8 +213,8 @@ private:
 
             const msgpack_object_array &arr = obj.via.array;
 
-            constexpr std::uint32_t minCount = 6;
-            assert(arr.size >= minCount);
+            constexpr std::uint32_t min_count = 6;
+            assert(arr.size >= min_count);
 
             auto name = protocol::unpack_object<std::string>(arr.ptr[0]);
             auto nullable = protocol::unpack_object<bool>(arr.ptr[1]);
@@ -229,7 +229,7 @@ private:
                 return;
             }
 
-            assert(arr.size >= minCount + 3);
+            assert(arr.size >= min_count + 3);
             auto origin_name =
                 arr.ptr[6].type == MSGPACK_OBJECT_NIL ? name : protocol::unpack_object<std::string>(arr.ptr[6]);
 
