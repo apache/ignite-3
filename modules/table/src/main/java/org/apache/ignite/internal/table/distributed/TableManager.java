@@ -1717,6 +1717,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     }
                                 });
                     })
+                    .thenCompose(v -> {
+                        List<CompletableFuture<Void>> futs = new ArrayList<>();
+
+                        for (int i = 0; i < tbl.internalTable().assignments().size(); i++) {
+                            var partId = new TablePartitionId(tbl.tableId(), i);
+
+                            futs.add(metaStorageMgr.remove(stablePartAssignmentsKey(partId)));
+                        }
+
+                        return allOf(futs.toArray(new CompletableFuture[0]));
+                    })
                     .exceptionally(t -> {
                         Throwable ex = getRootCause(t);
 

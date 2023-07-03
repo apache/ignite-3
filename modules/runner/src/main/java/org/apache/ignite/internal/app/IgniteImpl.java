@@ -91,12 +91,14 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
 import org.apache.ignite.internal.network.recovery.VaultStateIds;
+import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -291,6 +293,8 @@ public class IgniteImpl implements Ignite {
 
     private final AuthenticationManager authenticationManager;
 
+    private PlacementDriverManager placementDriverManager;
+
     /**
      * The Constructor.
      *
@@ -434,14 +438,30 @@ public class IgniteImpl implements Ignite {
                 distributedConfigurationValidator
         );
 
+        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
+
+        TablesConfiguration tablesConfig = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
+
+        DistributionZonesConfiguration zonesConfig = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
+
+        placementDriverManager = new PlacementDriverManager(
+                metaStorageMgr,
+                vaultMgr,
+                MetastorageGroupId.INSTANCE,
+                clusterSvc,
+                cmgMgr::metaStorageNodes,
+                logicalTopologyService,
+                raftMgr,
+                topologyAwareRaftGroupServiceFactory,
+                tablesConfig,
+                zonesConfig,
+                clock
+        );
+
         distributedConfigurationUpdater = new DistributedConfigurationUpdater(
                 cmgMgr,
                 new HoconPresentation(clusterCfgMgr.configurationRegistry())
         );
-
-        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
-
-        TablesConfiguration tablesConfig = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
         metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageConfiguration.KEY));
 
@@ -462,8 +482,6 @@ public class IgniteImpl implements Ignite {
         );
 
         Path storagePath = getPartitionsStorePath(workDir);
-
-        DistributionZonesConfiguration zonesConfig = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
@@ -725,6 +743,7 @@ public class IgniteImpl implements Ignite {
                         try {
                             lifecycleManager.startComponents(
                                     clusterCfgMgr,
+                                    placementDriverManager,
                                     metricManager,
                                     distributionZoneManager,
                                     computeComponent,

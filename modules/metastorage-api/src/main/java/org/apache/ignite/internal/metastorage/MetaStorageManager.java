@@ -111,6 +111,11 @@ public interface MetaStorageManager extends IgniteComponent {
     CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals);
 
     /**
+     * Removes an entry for the given key.
+     */
+    CompletableFuture<Void> remove(ByteArray key);
+
+    /**
      * Retrieves entries for the given key prefix in lexicographic order. Shortcut for {@link #prefix(ByteArray, long)} where
      * {@code revUpperBound = LATEST_REVISION}.
      *
