@@ -165,6 +165,8 @@ public class MetricsTests
             var events = listener.GetEvents();
             Assert.AreEqual(0, listener.GetMetric("handshakes-failed"), events);
             Assert.AreEqual(1, listener.GetMetric("handshakes-failed-timeout"), events);
+
+            Console.WriteLine(events);
         });
     }
 
