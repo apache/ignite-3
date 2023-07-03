@@ -213,7 +213,7 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception e)
             {
-                logger?.Warn($"Connection failed before or during handshake [remoteAddress={socket.RemoteEndPoint}]: {e.Message}.", e);
+                logger?.Warn($"Connection failed before or during handshake [remoteAddress={endPoint.EndPoint}]: {e.Message}.", e);
 
                 if (e.GetBaseException() is TimeoutException)
                 {
@@ -221,7 +221,7 @@ namespace Apache.Ignite.Internal
                 }
                 else
                 {
-                    Console.WriteLine($"Handshake failed [remoteAddress={socket.RemoteEndPoint}]");
+                    Console.WriteLine($"Handshake failed [remoteAddress={endPoint.EndPoint}]");
                     Metrics.HandshakesFailed.Add(1);
                 }
 
