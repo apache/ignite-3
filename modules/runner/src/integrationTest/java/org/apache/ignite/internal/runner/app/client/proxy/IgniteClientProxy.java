@@ -32,7 +32,9 @@ import io.netty.handler.logging.LoggingHandler;
  */
 public final class IgniteClientProxy implements AutoCloseable {
     private final EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+
     private final EventLoopGroup workerGroup = new NioEventLoopGroup();
+
     private final int listenPort;
 
     private final ChannelFuture chFut;
