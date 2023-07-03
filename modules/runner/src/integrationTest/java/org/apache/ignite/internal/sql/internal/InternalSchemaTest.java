@@ -105,7 +105,6 @@ public class InternalSchemaTest extends ClusterPerClassIntegrationTest {
         SqlRow result = res.next();
 
         assertNotNull(result);
-        System.err.println(result.metadata().columns());
         assertEquals(2, result.intValue("C2"));
         // Unmute after https://issues.apache.org/jira/browse/IGNITE-19894
         //assertEquals(2, result.intValue("c2"));
