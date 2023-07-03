@@ -715,25 +715,7 @@ public class DistributionZoneManager implements IgniteComponent {
             } else {
                 lastScaleDownRevision = scaleUpAndScaleDownConfigRevisions.get2();
             }
-
-            System.out.println();
-
-//            if (!isScaleUpImmediate) {
-//                lastScaleUpRevision = 0;
-//            }
-//            if (!isScaleDownImmediate) {
-//                lastScaleDownRevision = 0;
-//            }
         }
-
-
-
-
-
-
-
-
-//        System.out.println("dataNodes scaleUpAndScaleDownRevisions" + scaleUpAndScaleDownRevisions);
 
         if (!isZoneRemoved) {
             long scaleUpDataNodesRevision = 0;
@@ -742,16 +724,12 @@ public class DistributionZoneManager implements IgniteComponent {
 
             // Нужно ждать не только если isScaleUpImmediate/isScaleDownImmediate но и если это событие с ревизией
             // lastScaleUpRevision/lastScaleDownRevision всегда требует ожидания (например создание зоны)
-//            if (isScaleUpImmediate) {
                 System.out.println("dataNodes isScaleUpImmediate");
                 scaleUpDataNodesRevision = waitTriggerKey(lastScaleUpRevision, zoneId, zoneScaleUpChangeTriggerKey(zoneId), isZoneRemoved);
-//            }
 
-//            if (isScaleDownImmediate) {
                 System.out.println("dataNodes isScaleDownImmediate");
                 scaleDownDataNodesRevision = waitTriggerKey(lastScaleDownRevision, zoneId, zoneScaleDownChangeTriggerKey(zoneId),
                         isZoneRemoved);
-//            }
 
             long dataNodesRevision = max(scaleUpDataNodesRevision, scaleDownDataNodesRevision);
 
@@ -767,10 +745,6 @@ public class DistributionZoneManager implements IgniteComponent {
         } else {
             return failedFuture(new DistributionZoneNotFoundException(zoneId));
         }
-    }
-
-    private ZoneConfiguration getZoneConfiguration(long causalityToken, int zoneId) {
-        return zonesVersionedCfg.get(zoneId).floorEntry(causalityToken).getValue();
     }
 
     private IgniteBiTuple<Long, Long> getLastScaleUpAndScaleDownConfigRevisions(long causalityToken, int zoneId, boolean isScaleUpImmediate, boolean isScaleDownImmediate) {
@@ -905,72 +879,6 @@ public class DistributionZoneManager implements IgniteComponent {
     private long waitTriggerKey(long scaleRevision, int zoneId, ByteArray triggerKey, boolean isRemoved) {
         System.out.println("waitTriggerKey " + scaleRevision + " " + zoneId);
 
-
-        long revision = Long.MAX_VALUE;
-
-        long startRevision = scaleRevision;
-
-        while(revision == Long.MAX_VALUE) {
-            long revAfterRegister = metaStorageManager.appliedRevision();
-
-            System.out.println("waitTriggerKey revAfterRegister " + revAfterRegister);
-
-            long upperRevision = max(revAfterRegister, scaleRevision);
-
-            // Gets old entries from storage to check if the expected value was handled before watch listener was registered.
-            List<Entry> entryList = metaStorageManager.getLocally(triggerKey.bytes(), startRevision, upperRevision);
-
-            for (Entry entry : entryList) {
-                long entryValue = 0;
-
-                System.out.println("waitTriggerKey iteration revision " + entry.value());
-
-                if (!isRemoved) {
-                    try {
-                        // Дошли до записи в которой зона уже удалена
-                        if (entry.value() == null) {
-                            assert revision < Long.MAX_VALUE;
-
-                            break;
-                        }
-                        entryValue = bytesToLong(entry.value());
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-
-                    if (entryValue >= scaleRevision && entry.revision() < revision) {
-                        revision = entry.revision();
-                    }
-                } else {
-                    if (entry.value() == null && entry.revision() < revision) {
-                        revision = entry.revision();
-                    }
-                }
-
-                startRevision = entry.revision() + 1;
-            }
-
-            try {
-                Thread.sleep(20);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-//        if (revision == Long.MAX_VALUE) {
-//            revision = watchEntry.join();
-//        } else {
-//            metaStorageManager.unregisterWatch(listener);
-//        }
-
-        System.out.println("waitTriggerKey result " + revision);
-
-        return revision;
-    }
-
-    private long waitTriggerKeyOLD(long scaleRevision, int zoneId, ByteArray triggerKey) {
-        System.out.println("waitTriggerKey " + scaleRevision + " " + zoneId);
-
         CompletableFuture<Long> watchEntry = new CompletableFuture<>();
 
         // Register watch listener to handle new events.
@@ -979,10 +887,18 @@ public class DistributionZoneManager implements IgniteComponent {
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 System.out.println("waitTriggerKey watchListener");
 
-                long eventValue = bytesToLong(event.entryEvent().newEntry().value());
+                if (!isRemoved) {
+                    long eventValue = bytesToLong(event.entryEvent().newEntry().value());
 
-                if (eventValue >= scaleRevision && !watchEntry.isDone()) {
-                    watchEntry.complete(event.revision());
+                    if (eventValue >= scaleRevision && !watchEntry.isDone()) {
+                        watchEntry.complete(event.revision());
+                    }
+                } else {
+                    byte[] value = event.entryEvent().newEntry().value();
+
+                    if (value == null && !watchEntry.isDone()) {
+                        watchEntry.complete(event.revision());
+                    }
                 }
 
                 return completedFuture(null);
@@ -1000,16 +916,11 @@ public class DistributionZoneManager implements IgniteComponent {
 
         System.out.println("waitTriggerKey after registerExactWatch");
 
-        long revAfterRegister = metaStorageManager.appliedRevision();
+        long revAfterRegister = metaStorageManager.appliedRevision() + 2;
 
         System.out.println("waitTriggerKey revAfterRegister " + revAfterRegister);
 
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        long upperRevision = Math.max(revAfterRegister, scaleRevision);
+        long upperRevision = max(revAfterRegister, scaleRevision);
 
         // Gets old entries from storage to check if the expected value was handled before watch listener was registered.
         List<Entry> entryList = metaStorageManager.getLocally(triggerKey.bytes(), scaleRevision, upperRevision);
@@ -1017,12 +928,30 @@ public class DistributionZoneManager implements IgniteComponent {
         long revision = Long.MAX_VALUE;
 
         for (Entry entry : entryList) {
-            long entryValue = bytesToLong(entry.value());
+            long entryValue = 0;
 
-            System.out.println("waitTriggerKey iteration revision " + entryValue);
+            System.out.println("waitTriggerKey iteration revision " + entry.value());
 
-            if (entryValue >= scaleRevision && entry.revision() < revision) {
-                revision = entry.revision();
+            if (!isRemoved) {
+                try {
+                    // An entry when the zone was removed.
+                    if (entry.value() == null) {
+                        assert revision < Long.MAX_VALUE;
+
+                        break;
+                    }
+                    entryValue = bytesToLong(entry.value());
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+
+                if (entryValue >= scaleRevision && entry.revision() < revision) {
+                    revision = entry.revision();
+                }
+            } else {
+                if (entry.value() == null && entry.revision() < revision) {
+                    revision = entry.revision();
+                }
             }
         }
 
