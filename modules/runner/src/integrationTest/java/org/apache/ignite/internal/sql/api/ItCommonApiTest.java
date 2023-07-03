@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ErrorGroups.Sql;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Instant;
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -207,7 +207,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         assertEquals(0, txManagerInternal.finished() - txPrevCnt);
         InternalTransaction tx0 = (InternalTransaction) tx;
-        assertNull(tx0.state());
+        assertEquals(TxState.PENDING, tx0.state());
 
         tx.rollback();
         assertEquals(1, txManagerInternal.finished() - txPrevCnt);
