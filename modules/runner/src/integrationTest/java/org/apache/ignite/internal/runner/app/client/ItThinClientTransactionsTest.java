@@ -194,7 +194,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Transaction tx1 = client().transactions().begin();
 
         // Here we guarantee that tx2 will strictly after tx2 even if the transactions start in different server nodes.
-        // TODO:IGNITE-19849 Generate transaction id in client side
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19900 Client should participate in RW TX clock adjustment
         Thread.sleep(50);
 
         Transaction tx2 = client().transactions().begin();
