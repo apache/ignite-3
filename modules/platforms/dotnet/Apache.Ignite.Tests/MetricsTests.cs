@@ -147,8 +147,10 @@ public class MetricsTests
     [Test]
     public void TestHandshakesFailedTimeout()
     {
+        Console.WriteLine("$$TestHandshakesFailedTimeout started 1");
         Assert.AreEqual(0, _listener.GetMetric("handshakes-failed"));
         Assert.AreEqual(0, _listener.GetMetric("handshakes-failed-timeout"));
+        Console.WriteLine("$$TestHandshakesFailedTimeout started 2");
 
         using var server = new FakeServer { HandshakeDelay = TimeSpan.FromSeconds(1) };
 
@@ -359,7 +361,15 @@ public class MetricsTests
             }
             else
             {
-                _metrics.AddOrUpdate(instrument.Name, newVal, (_, val) => val + newVal);
+                var res = _metrics.AddOrUpdate(instrument.Name, newVal, (_, val) => val + newVal);
+
+                if (instrument.Name == "handshakes-failed")
+                {
+                    if (res > 1)
+                    {
+                        Console.WriteLine("Too many handshakes failed: " + res);
+                    }
+                }
             }
         }
     }
