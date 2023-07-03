@@ -278,13 +278,12 @@ public class ClientTable implements Table {
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
-                    String preferredNodeId = getPreferredNodeId(provider, partitionsFut.getNow(null), schema);
+                    String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
                             r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue),
-                            null,
-                            preferredNodeId,
+                            preferredNodeName,
                             null);
                 })
                 .thenCompose(t -> loadSchemaAndReadData(t, reader));
@@ -333,7 +332,7 @@ public class ClientTable implements Table {
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
-                    String preferredNodeId = getPreferredNodeId(provider, partitionsFut.getNow(null), schema);
+                    String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
@@ -342,8 +341,7 @@ public class ClientTable implements Table {
 
                                 return reader.apply(r.in());
                             },
-                            null,
-                            preferredNodeId,
+                            preferredNodeName,
                             retryPolicyOverride);
                 });
     }
@@ -445,7 +443,7 @@ public class ClientTable implements Table {
     }
 
     @Nullable
-    private static String getPreferredNodeId(
+    private static String getPreferredNodeName(
             @Nullable PartitionAwarenessProvider provider,
             @Nullable List<String> partitions,
             ClientSchema schema) {
@@ -453,10 +451,10 @@ public class ClientTable implements Table {
             return null;
         }
 
-        String nodeId = provider.nodeId();
+        String nodeName = provider.nodeName();
 
-        if (nodeId != null) {
-            return nodeId;
+        if (nodeName != null) {
+            return nodeName;
         }
 
         if (partitions == null || partitions.isEmpty()) {
