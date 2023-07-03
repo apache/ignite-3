@@ -411,7 +411,7 @@ public class ClientTupleSerializer {
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(@Nullable Transaction tx, @NotNull Tuple rec) {
         if (tx != null) {
             //noinspection resource
-            return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel().protocolContext().clusterNode().id());
+            return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel());
         }
 
         return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, rec));

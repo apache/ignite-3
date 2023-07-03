@@ -30,8 +30,10 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryPolicy;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
+import org.apache.ignite.internal.client.PayloadReader;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -271,13 +273,24 @@ public class ClientTable implements Table {
             @Nullable PartitionAwarenessProvider provider
     ) {
         CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
-        CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled()
+
+        @SuppressWarnings("resource")
+        ClientChannel ch0 = provider != null ? provider.channel() : null;
+
+        CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled() || ch0 != null
                 ? CompletableFuture.completedFuture(null)
                 : getPartitionAssignment();
 
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
+
+                    if (ch0 != null) {
+                        return ch0.serviceAsync(opCode,
+                                w -> writer.accept(schema, w),
+                                r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue));
+                    }
+
                     String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
                     return ch.serviceAsync(opCode,
@@ -323,24 +336,36 @@ public class ClientTable implements Table {
             Function<ClientMessageUnpacker, T> reader,
             @Nullable PartitionAwarenessProvider provider,
             @Nullable RetryPolicy retryPolicyOverride) {
-
         CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
-        CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled()
+
+        @SuppressWarnings("resource")
+        ClientChannel ch0 = provider != null ? provider.channel() : null;
+
+        CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled() || ch0 != null
                 ? CompletableFuture.completedFuture(null)
                 : getPartitionAssignment();
 
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
+
+                    PayloadReader<T> payloadReader = r -> {
+                        ensureSchemaLoadedAsync(r.in().unpackInt());
+
+                        return reader.apply(r.in());
+                    };
+
+                    if (ch0 != null) {
+                        return ch0.serviceAsync(opCode,
+                                w -> writer.accept(schema, w),
+                                payloadReader);
+                    }
+
                     String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
-                            r -> {
-                                ensureSchemaLoadedAsync(r.in().unpackInt());
-
-                                return reader.apply(r.in());
-                            },
+                            payloadReader,
                             preferredNodeName,
                             retryPolicyOverride);
                 });
@@ -451,10 +476,8 @@ public class ClientTable implements Table {
             return null;
         }
 
-        String nodeName = provider.nodeName();
-
-        if (nodeName != null) {
-            return nodeName;
+        if (provider.nodeName() != null) {
+            return provider.nodeName();
         }
 
         if (partitions == null || partitions.isEmpty()) {
