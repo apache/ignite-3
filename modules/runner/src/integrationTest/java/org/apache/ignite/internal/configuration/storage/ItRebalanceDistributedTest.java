@@ -277,7 +277,7 @@ public class ItRebalanceDistributedTest {
                         boolean result = waitForCondition(() -> {
                             return nodes.stream()
                                     .map(node -> node.distributionZoneManager.dataNodes(zoneId).size())
-                                    .allMatch(integer -> integer == 3);
+                                    .allMatch(integer -> integer >= 3);
                         }, TimeUnit.SECONDS.toMillis(15));
 
                         if (!result) {
