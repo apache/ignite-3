@@ -1097,6 +1097,7 @@ public class IgniteImpl implements Ignite {
 
     /**
      * Returns the node's transaction manager.
+     *
      * @return Transaction manager.
      */
     @TestOnly
