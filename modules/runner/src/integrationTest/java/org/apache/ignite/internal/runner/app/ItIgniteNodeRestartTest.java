@@ -87,6 +87,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
@@ -135,6 +136,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
+import org.awaitility.Awaitility;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
@@ -168,6 +170,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
+
+    @InjectConfiguration
+    private static MetaStorageConfiguration metaStorageConfiguration;
 
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
@@ -238,7 +243,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         HybridClock hybridClock = new HybridClockImpl();
 
-        var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock);
+        var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
+
+        var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock, raftGroupEventsClientListener);
 
         var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
 
@@ -269,14 +276,25 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock, new TransactionIdGenerator(idx));
 
+        var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
+
+        var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                clusterSvc,
+                logicalTopologyService,
+                Loza.FACTORY,
+                raftGroupEventsClientListener
+        );
+
         var metaStorageMgr = new MetaStorageManagerImpl(
                 vault,
                 clusterSvc,
                 cmgManager,
-                new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
+                logicalTopologyService,
                 raftMgr,
                 new RocksDbKeyValueStorage(name, dir.resolve("metastorage")),
-                hybridClock
+                hybridClock,
+                topologyAwareRaftGroupServiceFactory,
+                metaStorageConfiguration
         );
 
         var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vault);
@@ -320,8 +338,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
-        LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
-
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 zonesConfig,
                 tablesConfig,
@@ -329,13 +345,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopologyService,
                 vault,
                 name
-        );
-
-        TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
-                clusterSvc,
-                new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
-                Loza.FACTORY,
-                new RaftGroupEventsClientListener()
         );
 
         var clockWaiter = new ClockWaiter("test", hybridClock);
@@ -1092,7 +1101,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17770")
     public void testCfgGap() throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(4);
 
@@ -1150,9 +1158,25 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         assertNotNull(table);
 
         for (int i = 0; i < 100; i++) {
-            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i));
+            int fi = i;
 
-            assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));
+            Awaitility.with()
+                    .await()
+                    .pollInterval(100, TimeUnit.MILLISECONDS)
+                    .pollDelay(0, TimeUnit.MILLISECONDS)
+                    .atMost(30, TimeUnit.SECONDS)
+                    .until(() -> {
+                        try {
+                            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", fi));
+
+                            assertEquals(VALUE_PRODUCER.apply(fi), row.stringValue("name"));
+
+                            return true;
+                        } catch (TransactionException te) {
+                            // There may be an exception if the primary replica node was stopped. We should wait for new primary to appear.
+                            return false;
+                        }
+                    });
         }
     }
 

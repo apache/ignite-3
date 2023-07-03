@@ -79,6 +79,7 @@ public class ColocationHashTests : IgniteTestsBase
         decimal.MaxValue,
         string.Empty,
         "abc αβγ 🔥",
+        ((char)BinaryTupleCommon.VarlenEmptyByte).ToString(),
         Guid.Empty,
         Guid.NewGuid(),
         BigInteger.One,

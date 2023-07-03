@@ -150,7 +150,7 @@ public class ActiveActorTest extends IgniteAbstractTest {
             Set<String> placementDriverNodesNames,
             RaftGroupEventsClientListener eventsClientListener
     ) {
-        var raftManager = new Loza(clusterService, raftConfiguration, dataPath, new HybridClockImpl());
+        var raftManager = new Loza(clusterService, raftConfiguration, dataPath, new HybridClockImpl(), eventsClientListener);
 
         LogicalTopologyService logicalTopologyService = new LogicalTopologyServiceTestImpl(clusterService);
 
@@ -524,7 +524,7 @@ public class ActiveActorTest extends IgniteAbstractTest {
             });
         }
 
-        return (TopologyAwareRaftGroupService) TopologyAwareRaftGroupService.start(
+        return TopologyAwareRaftGroupService.start(
                 GROUP_ID,
                 localClusterService,
                 FACTORY,

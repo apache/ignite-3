@@ -66,7 +66,7 @@ void CheckDoubleCast(double val) {
 
     dec.assign_double(val);
 
-    EXPECT_NEAR(val, dec.ToDouble(), 1E-10);
+    EXPECT_NEAR(val, dec.to_double(), 1E-10);
 }
 
 TEST(bignum, TestMultiplyBigIntegerArguments) {
@@ -78,7 +78,7 @@ TEST(bignum, TestMultiplyBigIntegerArguments) {
     bigInt.multiply(big_integer(12345), res);
 
     {
-        const big_integer::MagArray &mag = res.get_magnitude();
+        const big_integer::mag_array &mag = res.get_magnitude();
 
         EXPECT_EQ(mag.size(), 1);
 
@@ -90,7 +90,7 @@ TEST(bignum, TestMultiplyBigIntegerArguments) {
     bigInt.multiply(bigInt, res);
 
     {
-        const big_integer::MagArray &mag = res.get_magnitude();
+        const big_integer::mag_array &mag = res.get_magnitude();
 
         EXPECT_EQ(mag.size(), 1);
 
@@ -102,7 +102,7 @@ TEST(bignum, TestMultiplyBigIntegerArguments) {
     bigInt.multiply(big_integer(12345), bigInt);
 
     {
-        const big_integer::MagArray &mag = bigInt.get_magnitude();
+        const big_integer::mag_array &mag = bigInt.get_magnitude();
 
         EXPECT_EQ(mag.size(), 1);
 
@@ -114,7 +114,7 @@ TEST(bignum, TestMultiplyBigIntegerArguments) {
     bigInt.multiply(bigInt, bigInt);
 
     {
-        const big_integer::MagArray &mag = bigInt.get_magnitude();
+        const big_integer::mag_array &mag = bigInt.get_magnitude();
 
         EXPECT_EQ(mag.size(), 1);
 
@@ -135,7 +135,7 @@ TEST(bignum, TestMultiplyBigIntegerBigger) {
     bigInt.multiply(buf, bigInt);
 
     {
-        const big_integer::MagArray &mag = bigInt.get_magnitude();
+        const big_integer::mag_array &mag = bigInt.get_magnitude();
 
         EXPECT_EQ(mag.size(), 3);
 
@@ -150,7 +150,7 @@ TEST(bignum, TestMultiplyBigIntegerBigger) {
     bigInt.multiply(big_integer(23423079641), bigInt);
 
     {
-        const big_integer::MagArray &mag = bigInt.get_magnitude();
+        const big_integer::mag_array &mag = bigInt.get_magnitude();
 
         EXPECT_EQ(mag.size(), 5);
 
@@ -166,7 +166,7 @@ TEST(bignum, TestPowBigInteger) {
     big_integer bigInt(12345);
 
     {
-        const big_integer::MagArray &mag = bigInt.get_magnitude();
+        const big_integer::mag_array &mag = bigInt.get_magnitude();
 
         EXPECT_EQ(mag.size(), 1);
 
@@ -177,7 +177,7 @@ TEST(bignum, TestPowBigInteger) {
     bigInt.pow(2);
 
     {
-        const big_integer::MagArray &mag = bigInt.get_magnitude();
+        const big_integer::mag_array &mag = bigInt.get_magnitude();
 
         EXPECT_EQ(mag.size(), 1);
 
@@ -189,7 +189,7 @@ TEST(bignum, TestPowBigInteger) {
     bigInt.pow(3);
 
     {
-        const big_integer::MagArray &mag = bigInt.get_magnitude();
+        const big_integer::mag_array &mag = bigInt.get_magnitude();
 
         EXPECT_EQ(mag.size(), 3);
 
@@ -211,7 +211,7 @@ TEST(bignum, TestPowBigInteger) {
     bigInt.pow(10);
 
     {
-        const big_integer::MagArray &mag = bigInt.get_magnitude();
+        const big_integer::mag_array &mag = bigInt.get_magnitude();
 
         EXPECT_EQ(mag.size(), 26);
 

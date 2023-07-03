@@ -314,7 +314,7 @@ public class ClientSession implements Session {
         }
 
         w.out().packInt(size);
-        var builder = new BinaryTupleBuilder(size * 4, true);
+        var builder = new BinaryTupleBuilder(size * 4);
 
         if (props != null) {
             for (Entry<String, Object> entry : props.entrySet()) {

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,12 +31,16 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
@@ -45,12 +50,17 @@ import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Tests MetaStorage manager recovery basics. */
+@ExtendWith(ConfigurationExtension.class)
 public class MetaStorageManagerRecoveryTest {
     private static final String NODE_NAME = "node";
 
     private static final String LEADER_NAME = "ms-leader";
+
+    @InjectConfiguration
+    private static MetaStorageConfiguration metaStorageConfiguration;
 
     private MetaStorageManagerImpl metaStorageManager;
 
@@ -75,7 +85,9 @@ public class MetaStorageManagerRecoveryTest {
                 topologyService,
                 raftManager,
                 kvs,
-                clock
+                clock,
+                mock(TopologyAwareRaftGroupServiceFactory.class),
+                metaStorageConfiguration
         );
     }
 
@@ -84,12 +96,11 @@ public class MetaStorageManagerRecoveryTest {
 
         RaftGroupService service = mock(RaftGroupService.class);
 
-        when(service.run(any(GetCurrentRevisionCommand.class))).thenAnswer(invocation -> {
-            return CompletableFuture.completedFuture(remoteRevision);
-        });
+        when(service.run(any(GetCurrentRevisionCommand.class)))
+                .thenAnswer(invocation -> completedFuture(remoteRevision));
 
         when(raft.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any()))
-                .thenAnswer(invocation -> CompletableFuture.completedFuture(service));
+                .thenAnswer(invocation -> completedFuture(service));
 
         return raft;
     }
@@ -135,7 +146,7 @@ public class MetaStorageManagerRecoveryTest {
         ClusterManagementGroupManager mock = mock(ClusterManagementGroupManager.class);
 
         when(mock.metaStorageNodes())
-                .thenAnswer(invocation -> CompletableFuture.completedFuture(Set.of(LEADER_NAME)));
+                .thenAnswer(invocation -> completedFuture(Set.of(LEADER_NAME)));
 
         return mock;
     }

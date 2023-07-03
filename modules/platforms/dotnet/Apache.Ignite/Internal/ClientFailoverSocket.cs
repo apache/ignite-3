@@ -52,9 +52,6 @@ namespace Apache.Ignite.Internal
         /** Cluster node unique name to endpoint map. */
         private readonly ConcurrentDictionary<string, SocketEndpoint> _endpointsByName = new();
 
-        /** Cluster node id to endpoint map. */
-        private readonly ConcurrentDictionary<string, SocketEndpoint> _endpointsById = new();
-
         /** Socket connection lock. */
         [SuppressMessage(
             "Microsoft.Design",
@@ -262,21 +259,15 @@ namespace Apache.Ignite.Internal
             ThrowIfDisposed();
 
             // 1. Preferred node connection.
-            if (preferredNode != default)
+            if (preferredNode != default && _endpointsByName.TryGetValue(preferredNode.Name, out var endpoint))
             {
-                var key = preferredNode.Id ?? preferredNode.Name;
-                var map = preferredNode.Id != null ? _endpointsById : _endpointsByName;
-
-                if (map.TryGetValue(key!, out var endpoint))
+                try
                 {
-                    try
-                    {
-                        return await ConnectAsync(endpoint).ConfigureAwait(false);
-                    }
-                    catch (Exception e)
-                    {
-                        _logger?.Warn(e, $"Failed to connect to preferred node [{preferredNode}]: {e.Message}");
-                    }
+                    return await ConnectAsync(endpoint).ConfigureAwait(false);
+                }
+                catch (Exception e)
+                {
+                    _logger?.Warn(e, $"Failed to connect to preferred node [{preferredNode}]: {e.Message}");
                 }
             }
 
@@ -439,7 +430,6 @@ namespace Apache.Ignite.Internal
                 endpoint.Socket = socket;
 
                 _endpointsByName[socket.ConnectionContext.ClusterNode.Name] = endpoint;
-                _endpointsById[socket.ConnectionContext.ClusterNode.Id] = endpoint;
                 _lastConnectedSocket = socket;
 
                 return socket;
