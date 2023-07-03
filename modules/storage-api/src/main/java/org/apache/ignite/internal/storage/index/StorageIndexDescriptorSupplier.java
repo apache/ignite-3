@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toIndexDescriptor;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
+import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toIndexDescriptor;
+import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findIndexView;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 
