@@ -95,7 +95,7 @@ public class LeaseTracker implements PlacementDriver {
         this.vaultManager = vaultManager;
         this.msManager = msManager;
 
-        this.leases = null;
+        this.leases = new IgniteBiTuple<>(createLeasesMap(), new byte[0]);
         this.primaryReplicaWaiters = new ConcurrentHashMap<>();
     }
 
