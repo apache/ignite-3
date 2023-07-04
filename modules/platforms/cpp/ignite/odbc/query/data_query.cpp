@@ -251,36 +251,16 @@ sql_result data_query::make_request_execute()
 
 sql_result data_query::make_request_close()
 {
-    query_close_request req(m_cursor->get_query_id());
-    query_close_response rsp;
+    if (!m_cursor)
+        return sql_result::AI_SUCCESS;
 
-    try
-    {
-        m_connection.sync_message(req, rsp);
-    }
-    catch (const odbc_error& err)
-    {
-        m_diag.add_status_record(err);
+    LOG_MSG("Closing cursor: " << m_cursor->get_query_id());
 
-        return sql_result::AI_ERROR;
-    }
-    catch (const ignite_error& err)
-    {
-        m_diag.add_status_record(err.get_text());
-
-        return sql_result::AI_ERROR;
-    }
-
-    LOG_MSG("Query id: " << rsp.GetQueryId());
-
-    if (rsp.GetStatus() != response_status::SUCCESS)
-    {
-        LOG_MSG("Error: " << rsp.GetError());
-
-        m_diag.add_status_record(response_status_to_sql_state(rsp.get_status()), rsp.get_error());
-
-        return sql_result::AI_ERROR;
-    }
+    auto success = m_diag.catch_errors([&]{
+        UNUSED_VALUE m_connection.sync_request([&](protocol::writer &writer) {
+            writer.write(m_cursor->get_query_id());
+        });
+    });
 
     return sql_result::AI_SUCCESS;
 }
