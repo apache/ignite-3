@@ -53,7 +53,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /** Current element. */
         private int _elementIndex;
 
-        /** Current element. */
+        /** Current hash. */
         private int _hash;
 
         /// <summary>
