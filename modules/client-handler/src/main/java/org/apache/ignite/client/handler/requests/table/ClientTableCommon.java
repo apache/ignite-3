@@ -21,8 +21,8 @@ import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.Set;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -60,7 +60,7 @@ public class ClientTableCommon {
      * @param schemaVer Schema version.
      * @param schema    Schema.
      */
-    public static void writeSchema(ClientMessagePacker packer, int schemaVer, SchemaDescriptor schema) {
+    static void writeSchema(ClientMessagePacker packer, int schemaVer, SchemaDescriptor schema) {
         packer.packInt(schemaVer);
 
         if (schema == null) {
@@ -72,8 +72,6 @@ public class ClientTableCommon {
         var colCnt = schema.columnNames().size();
         packer.packArrayHeader(colCnt);
 
-        var colocationCols = Set.of(schema.colocationColumns());
-
         for (var colIdx = 0; colIdx < colCnt; colIdx++) {
             var col = schema.column(colIdx);
 
@@ -82,9 +80,21 @@ public class ClientTableCommon {
             packer.packInt(getColumnType(col.type().spec()).ordinal());
             packer.packBoolean(schema.isKeyColumn(colIdx));
             packer.packBoolean(col.nullable());
-            packer.packBoolean(colocationCols.contains(col));
             packer.packInt(getDecimalScale(col.type()));
             packer.packInt(getPrecision(col.type()));
+        }
+
+        var colocationCols = schema.colocationColumns();
+
+        if (colocationCols == null || colocationCols.length == 0 || Arrays.equals(colocationCols, schema.keyColumns().columns())) {
+            // Colocation columns are the same as key columns (custom colocation not specified).
+            packer.packArrayHeader(0);
+        } else {
+            packer.packArrayHeader(colocationCols.length);
+
+            for (var col : colocationCols) {
+                packer.packInt(col.schemaIndex());
+            }
         }
     }
 
