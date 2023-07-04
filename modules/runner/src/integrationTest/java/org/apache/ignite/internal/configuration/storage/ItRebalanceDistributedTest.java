@@ -795,6 +795,7 @@ public class ItRebalanceDistributedTest {
             distributionZoneManager = new DistributionZoneManager(
                     zonesCfg,
                     tablesCfg,
+                    catalogManager,
                     metaStorageManager,
                     logicalTopologyService,
                     vaultManager,

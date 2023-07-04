@@ -126,6 +126,7 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
                 tablesConfiguration,
+                DistributionZonesTestUtil.mockCatalog(),
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 vaultMgr,

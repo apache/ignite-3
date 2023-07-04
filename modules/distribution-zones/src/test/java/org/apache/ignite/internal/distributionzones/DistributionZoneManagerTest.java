@@ -99,6 +99,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
                 tablesConfiguration,
+                DistributionZonesTestUtil.mockCatalog(),
                 null,
                 null,
                 null,

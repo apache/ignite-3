@@ -26,6 +26,7 @@ dependencies {
     annotationProcessor project(":ignite-configuration-annotation-processor")
     annotationProcessor libs.auto.service
 
+    implementation project(':ignite-catalog')
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-api')
@@ -65,6 +66,7 @@ dependencies {
     testFixturesImplementation libs.mockito.core
     testFixturesImplementation libs.mockito.junit
     testFixturesImplementation libs.hamcrest.core
+    testFixturesImplementation project(':ignite-catalog')
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-metastorage')
     testFixturesImplementation project(':ignite-schema')

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptySet;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -92,6 +93,11 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
+import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.DropZoneParams;
+import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -185,6 +191,9 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Tables configuration. */
     private final TablesConfiguration tablesConfiguration;
 
+    /** Catalog service. */
+    private final CatalogManager catalogManager;
+
     /** Meta Storage manager. */
     private final MetaStorageManager metaStorageManager;
 
@@ -256,6 +265,7 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @param zonesConfiguration Distribution zones configuration.
      * @param tablesConfiguration Tables configuration.
+     * @param catalogManager Catalog manager.
      * @param metaStorageManager Meta Storage manager.
      * @param logicalTopologyService Logical topology service.
      * @param vaultMgr Vault manager.
@@ -264,6 +274,7 @@ public class DistributionZoneManager implements IgniteComponent {
     public DistributionZoneManager(
             DistributionZonesConfiguration zonesConfiguration,
             TablesConfiguration tablesConfiguration,
+            CatalogManager catalogManager,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             VaultManager vaultMgr,
@@ -274,6 +285,7 @@ public class DistributionZoneManager implements IgniteComponent {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
         this.vaultMgr = vaultMgr;
+        this.catalogManager = catalogManager;
 
         this.topologyWatchListener = createMetastorageTopologyListener();
 
@@ -388,66 +400,73 @@ public class DistributionZoneManager implements IgniteComponent {
         try {
             CompletableFuture<Integer> fut = new CompletableFuture<>();
 
-            int[] zoneIdContainer = new int[1];
+            catalogManager.createDistributionZone(CreateZoneParams.builder()
+                            .zoneName(distributionZoneCfg.name())
+                            .partitions(distributionZoneCfg.partitions())
+                            .filter(distributionZoneCfg.filter())
+                            .replicas(distributionZoneCfg.replicas())
+                            .dataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust())
+                            .dataNodesAutoAdjustScaleUp(distributionZoneCfg.dataNodesAutoAdjustScaleUp())
+                            .dataNodesAutoAdjustScaleDown(distributionZoneCfg.dataNodesAutoAdjustScaleDown())
+                            .build())
+                    .thenApply(ignore -> catalogManager.zone(distributionZoneCfg.name(), Long.MAX_VALUE).id())
+                    .thenCompose(zoneId ->
+                            zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+                                try {
+                                    zonesListChange.create(distributionZoneCfg.name(), zoneChange -> {
+                                        if (distributionZoneCfg.partitions() != null) {
+                                            zoneChange.changePartitions(distributionZoneCfg.partitions());
+                                        }
 
-            zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
-                try {
-                    zonesListChange.create(distributionZoneCfg.name(), zoneChange -> {
-                        if (distributionZoneCfg.partitions() != null) {
-                            zoneChange.changePartitions(distributionZoneCfg.partitions());
-                        }
+                                        if (distributionZoneCfg.dataStorageChangeConsumer() == null) {
+                                            zoneChange.changeDataStorage(ch -> ch.convert(zonesConfiguration.defaultDataStorage().value()));
+                                        } else {
+                                            zoneChange.changeDataStorage(distributionZoneCfg.dataStorageChangeConsumer());
+                                        }
 
-                        if (distributionZoneCfg.dataStorageChangeConsumer() == null) {
-                            zoneChange.changeDataStorage(ch -> ch.convert(zonesConfiguration.defaultDataStorage().value()));
+                                        if (distributionZoneCfg.replicas() != null) {
+                                            zoneChange.changeReplicas(distributionZoneCfg.replicas());
+                                        }
+
+                                        if (distributionZoneCfg.filter() != null) {
+                                            zoneChange.changeFilter(distributionZoneCfg.filter());
+                                        }
+
+                                        if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
+                                            zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
+                                        }
+
+                                        if (distributionZoneCfg.dataNodesAutoAdjustScaleUp() == null) {
+                                            if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
+                                                zoneChange.changeDataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE);
+                                            }
+                                        } else {
+                                            zoneChange.changeDataNodesAutoAdjustScaleUp(distributionZoneCfg.dataNodesAutoAdjustScaleUp());
+                                        }
+
+                                        if (distributionZoneCfg.dataNodesAutoAdjustScaleDown() != null) {
+                                            zoneChange.changeDataNodesAutoAdjustScaleDown(
+                                                    distributionZoneCfg.dataNodesAutoAdjustScaleDown());
+                                        }
+
+                                        zoneChange.changeZoneId(zoneId);
+                                    });
+                                } catch (ConfigurationNodeAlreadyExistException e) {
+                                    throw new DistributionZoneAlreadyExistsException(distributionZoneCfg.name(), e);
+                                }
+                            })).thenApply(ig -> zoneId))
+                    .whenComplete((res, e) -> {
+                        if (e != null) {
+                            fut.completeExceptionally(
+                                    unwrapDistributionZoneException(
+                                            e,
+                                            DistributionZoneAlreadyExistsException.class,
+                                            ConfigurationValidationException.class)
+                            );
                         } else {
-                            zoneChange.changeDataStorage(distributionZoneCfg.dataStorageChangeConsumer());
+                            fut.complete(res);
                         }
-
-                        if (distributionZoneCfg.replicas() != null) {
-                            zoneChange.changeReplicas(distributionZoneCfg.replicas());
-                        }
-
-                        if (distributionZoneCfg.filter() != null) {
-                            zoneChange.changeFilter(distributionZoneCfg.filter());
-                        }
-
-                        if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
-                            zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
-                        }
-
-                        if (distributionZoneCfg.dataNodesAutoAdjustScaleUp() == null) {
-                            if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
-                                zoneChange.changeDataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE);
-                            }
-                        } else {
-                            zoneChange.changeDataNodesAutoAdjustScaleUp(distributionZoneCfg.dataNodesAutoAdjustScaleUp());
-                        }
-
-                        if (distributionZoneCfg.dataNodesAutoAdjustScaleDown() != null) {
-                            zoneChange.changeDataNodesAutoAdjustScaleDown(distributionZoneCfg.dataNodesAutoAdjustScaleDown());
-                        }
-
-                        int intZoneId = zonesChange.globalIdCounter() + 1;
-                        zonesChange.changeGlobalIdCounter(intZoneId);
-
-                        zoneChange.changeZoneId(intZoneId);
-                        zoneIdContainer[0] = intZoneId;
                     });
-                } catch (ConfigurationNodeAlreadyExistException e) {
-                    throw new DistributionZoneAlreadyExistsException(distributionZoneCfg.name(), e);
-                }
-            })).whenComplete((res, e) -> {
-                if (e != null) {
-                    fut.completeExceptionally(
-                            unwrapDistributionZoneException(
-                                    e,
-                                    DistributionZoneAlreadyExistsException.class,
-                                    ConfigurationValidationException.class)
-                    );
-                } else {
-                    fut.complete(zoneIdContainer[0]);
-                }
-            });
 
             return fut;
         } finally {
@@ -496,6 +515,23 @@ public class DistributionZoneManager implements IgniteComponent {
         try {
             CompletableFuture<Void> fut = new CompletableFuture<>();
 
+            CompletableFuture<Void> catalogFut = catalogManager.alterDistributionZone(AlterZoneParams.builder()
+                    .zoneName(name)
+                    .partitions(distributionZoneCfg.partitions())
+                    .replicas(distributionZoneCfg.replicas())
+                    .filter(distributionZoneCfg.filter())
+                    .dataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust())
+                    .dataNodesAutoAdjustScaleUp(distributionZoneCfg.dataNodesAutoAdjustScaleUp())
+                    .dataNodesAutoAdjustScaleDown(distributionZoneCfg.dataNodesAutoAdjustScaleDown())
+                    .build());
+
+            if (!name.equals(distributionZoneCfg.name())) {
+                catalogFut = catalogFut.thenCompose(ignore -> catalogManager.renameDistributionZone(RenameZoneParams.builder()
+                        .zoneName(name)
+                        .newZoneName(distributionZoneCfg.name())
+                        .build()));
+            }
+
             CompletableFuture<Void> change;
 
             if (DEFAULT_ZONE_NAME.equals(name)) {
@@ -524,7 +560,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 }));
             }
 
-            change.whenComplete((res, e) -> {
+            allOf(catalogFut, change).whenComplete((res, e) -> {
                 if (e != null) {
                     fut.completeExceptionally(
                             unwrapDistributionZoneException(
@@ -570,26 +606,29 @@ public class DistributionZoneManager implements IgniteComponent {
         try {
             CompletableFuture<Void> fut = new CompletableFuture<>();
 
-            zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
-                DistributionZoneView zoneView = zonesListChange.get(name);
+            catalogManager.dropDistributionZone(DropZoneParams.builder()
+                            .zoneName(name)
+                            .build())
+                    .thenCompose(ignore -> zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+                        DistributionZoneView zoneView = zonesListChange.get(name);
 
-                if (zoneView == null) {
-                    throw new DistributionZoneNotFoundException(name);
-                }
+                        if (zoneView == null) {
+                            throw new DistributionZoneNotFoundException(name);
+                        }
 
-                NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesConfiguration.tables();
+                        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesConfiguration.tables();
 
-                for (int i = 0; i < tables.value().size(); i++) {
-                    TableView tableView = tables.value().get(i);
-                    int tableZoneId = tableView.zoneId();
+                        for (int i = 0; i < tables.value().size(); i++) {
+                            TableView tableView = tables.value().get(i);
+                            int tableZoneId = tableView.zoneId();
 
-                    if (zoneView.zoneId() == tableZoneId) {
-                        throw new DistributionZoneBindTableException(name, tableView.name());
-                    }
-                }
+                            if (zoneView.zoneId() == tableZoneId) {
+                                throw new DistributionZoneBindTableException(name, tableView.name());
+                            }
+                        }
 
-                zonesListChange.delete(name);
-            }))
+                        zonesListChange.delete(name);
+                    })))
                     .whenComplete((res, e) -> {
                         if (e != null) {
                             fut.completeExceptionally(
