@@ -42,9 +42,11 @@ using NUnit.Framework;
 /// </summary>
 public class ColocationHashTests : IgniteTestsBase
 {
-    private const string ColocationHashJob = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ColocationHashJob";
+    private const string PlatformTestNodeRunner = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
 
-    private const string TableRowColocationHashJob = "org.apache.ignite.internal.runner.app.TableRowColocationHashJob";
+    private const string ColocationHashJob = PlatformTestNodeRunner + "$ColocationHashJob";
+
+    private const string TableRowColocationHashJob = PlatformTestNodeRunner + "$TableRowColocationHashJob";
 
     private static readonly object[] TestCases =
     {
