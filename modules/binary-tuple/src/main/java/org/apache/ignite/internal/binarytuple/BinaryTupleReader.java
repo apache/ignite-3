@@ -100,7 +100,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
     public Boolean booleanValueBoxed(int index) {
         seek(index);
 
-        if (begin == 0) {
+        if (begin == end) {
             return null;
         }
 

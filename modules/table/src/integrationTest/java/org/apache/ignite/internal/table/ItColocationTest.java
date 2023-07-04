@@ -247,6 +247,8 @@ public class ItColocationTest {
 
     private static NativeType nativeType(NativeTypeSpec type) {
         switch (type) {
+            case BOOLEAN:
+                return NativeTypes.BOOLEAN;
             case INT8:
                 return NativeTypes.INT8;
             case INT16:
@@ -286,6 +288,8 @@ public class ItColocationTest {
 
     private static Object generateValueByType(int i, NativeTypeSpec type) {
         switch (type) {
+            case BOOLEAN:
+                return i % 2 == 0;
             case INT8:
                 return (byte) i;
             case INT16:
@@ -333,6 +337,10 @@ public class ItColocationTest {
 
         for (NativeTypeSpec t0 : NativeTypeSpec.values()) {
             for (NativeTypeSpec t1 : NativeTypeSpec.values()) {
+                if (t0 == NativeTypeSpec.BOOLEAN && t0 == t1) {
+                    continue;
+                }
+
                 args.add(Arguments.of(t0, t1));
             }
         }

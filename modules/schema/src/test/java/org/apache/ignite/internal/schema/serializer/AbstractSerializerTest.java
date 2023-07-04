@@ -71,6 +71,7 @@ public class AbstractSerializerTest {
     static {
         var tmp = new HashMap<NativeTypeSpec, List<Object>>();
 
+        tmp.put(NativeTypeSpec.BOOLEAN, Arrays.asList(null, false, true, true));
         tmp.put(NativeTypeSpec.INT8, Arrays.asList(null, Byte.MIN_VALUE, Byte.MAX_VALUE, (byte) 14));
         tmp.put(NativeTypeSpec.INT16, Arrays.asList(null, Short.MIN_VALUE, Short.MAX_VALUE, (short) 14));
         tmp.put(NativeTypeSpec.INT32, Arrays.asList(null, Integer.MIN_VALUE, Integer.MAX_VALUE, 14));
@@ -322,6 +323,8 @@ public class AbstractSerializerTest {
     /** Creates a column type from given type spec. */
     protected static NativeType specToType(NativeTypeSpec spec) {
         switch (spec) {
+            case BOOLEAN:
+                return NativeTypes.BOOLEAN;
             case INT8:
                 return NativeTypes.INT8;
             case INT16:

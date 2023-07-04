@@ -749,6 +749,9 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
         }
 
         switch (type.spec()) {
+            case BOOLEAN:
+                return buf.get() == 1;
+
             case INT8:
                 return buf.get();
 
@@ -858,6 +861,9 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
                 return NativeTypes.numberOf(precision);
             }
+            case BOOLEAN:
+                return NativeTypes.BOOLEAN;
+
             case INT8:
                 return NativeTypes.INT8;
 
