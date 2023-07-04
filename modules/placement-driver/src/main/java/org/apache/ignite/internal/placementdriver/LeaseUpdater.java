@@ -57,6 +57,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -219,7 +220,9 @@ public class LeaseUpdater {
 
         leaseNegotiator.onLeaseRemoved(grpId);
 
-        Collection<Lease> leases = leaseTracker.leasesCurrent();
+        IgniteBiTuple<NavigableMap<ReplicationGroupId, Lease>, byte[]> leasesCurrent = leaseTracker.leasesCurrent();
+
+        Collection<Lease> leases = leasesCurrent.getKey().values();
         List<Lease> renewedLeases = new ArrayList<>();
         for (Lease ls : leases) {
             if (ls.replicationGroupId().equals(grpId)) {
@@ -232,7 +235,7 @@ public class LeaseUpdater {
         var key = PLACEMENTDRIVER_LEASES_KEY;
 
         return msManager.invoke(
-                or(notExists(key), value(key).eq(new LeaseBatch(leaseTracker.leasesCurrent()).bytes())),
+                or(notExists(key), value(key).eq(leasesCurrent.getValue())),
                 put(key, new LeaseBatch(renewedLeases).bytes()),
                 noop()
         );
@@ -279,10 +282,11 @@ public class LeaseUpdater {
             while (updaterTread != null && !updaterTread.isInterrupted()) {
                 long outdatedLeaseThreshold = clock.now().getPhysical() + LEASE_INTERVAL / 2;
 
+                IgniteBiTuple<NavigableMap<ReplicationGroupId, Lease>, byte[]> leasesCurrent = leaseTracker.leasesCurrent();
                 Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
                 NavigableMap<ReplicationGroupId, Lease> renewedLeases = new TreeMap<>(Comparator.comparing(Object::toString));
 
-                for (Lease lease : leaseTracker.leasesCurrent()) {
+                for (Lease lease : leasesCurrent.getKey().values()) {
                     renewedLeases.put(lease.replicationGroupId(), lease);
                 }
 
@@ -341,7 +345,7 @@ public class LeaseUpdater {
                 var key = PLACEMENTDRIVER_LEASES_KEY;
 
                 msManager.invoke(
-                        or(notExists(key), value(key).eq(new LeaseBatch(leaseTracker.leasesCurrent()).bytes())),
+                        or(notExists(key), value(key).eq(leasesCurrent.getValue())),
                         put(key, renewedValue),
                         noop()
                 ).thenAccept(success -> {
