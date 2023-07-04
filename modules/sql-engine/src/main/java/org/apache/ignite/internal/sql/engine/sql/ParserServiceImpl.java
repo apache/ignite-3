@@ -17,38 +17,36 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.util.Cache;
+import org.apache.ignite.internal.sql.engine.util.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * An implementation of {@link ParserService} that, apart of parsing, introduces cache of parsed results.
  */
 public class ParserServiceImpl implements ParserService {
-    private final ConcurrentMap<String, ParsedResult> queryToParsedResultCache;
+
+    private final Cache<String, ParsedResult> queryToParsedResultCache;
 
     /**
      * Constructs the object.
      *
-     * @param cacheSize The size of the cache to keep parsed results.
+     * @param cacheFactory A factory to create cache for parsed results.
      */
-    public ParserServiceImpl(int cacheSize) {
-        this.queryToParsedResultCache = Caffeine.newBuilder()
-                .maximumSize(cacheSize)
-                .<String, ParsedResult>build()
-                .asMap();
+    public ParserServiceImpl(int cacheSize, CacheFactory cacheFactory) {
+        this.queryToParsedResultCache = cacheFactory.create(cacheSize);
     }
 
     /** {@inheritDoc} */
     @Override
     public ParsedResult parse(String query) {
-        ParsedResult result = queryToParsedResultCache.get(query);
+        ParsedResult cachedResult = queryToParsedResultCache.get(query);
 
-        if (result != null) {
-            return result;
+        if (cachedResult != null) {
+            return cachedResult;
         }
 
         StatementParseResult parsedStatement = IgniteSqlParser.parse(query, StatementParseResult.MODE);
@@ -59,7 +57,7 @@ public class ParserServiceImpl implements ParserService {
 
         assert queryType != null : parsedTree.toString();
 
-        result = new ParsedResultImpl(
+        ParsedResult result = new ParsedResultImpl(
                 queryType,
                 query,
                 parsedTree.toString(),
@@ -68,7 +66,7 @@ public class ParserServiceImpl implements ParserService {
         );
 
         if (shouldBeCached(queryType)) {
-            queryToParsedResultCache.put(query, result);
+            queryToParsedResultCache.computeIfAbsent(query, k -> result);
         }
 
         return result;

@@ -82,6 +82,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -134,7 +135,9 @@ public class SqlQueryProcessor implements QueryProcessor {
             .set(SessionProperty.IDLE_TIMEOUT, DEFAULT_SESSION_IDLE_TIMEOUT)
             .build();
 
-    private final ParserService parserService = new ParserServiceImpl(PARSED_RESULT_CACHE_SIZE);
+    private final ParserService parserService = new ParserServiceImpl(
+            PARSED_RESULT_CACHE_SIZE, CaffeineCacheFactory.INSTANCE
+    );
 
     private final List<LifecycleAware> services = new ArrayList<>();
 

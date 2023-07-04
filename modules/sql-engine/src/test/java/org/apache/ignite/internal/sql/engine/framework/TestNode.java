@@ -62,6 +62,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -140,7 +141,7 @@ public class TestNode implements LifecycleAware {
                 }
         ));
 
-        parserService = new ParserServiceImpl(0);
+        parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
     }
 
     /** {@inheritDoc} */

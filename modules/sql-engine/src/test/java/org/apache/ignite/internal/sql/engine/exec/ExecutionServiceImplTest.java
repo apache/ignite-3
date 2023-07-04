@@ -98,6 +98,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
@@ -151,7 +152,7 @@ public class ExecutionServiceImplTest {
         testCluster = new TestCluster();
         executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
         prepareService = new PrepareServiceImpl("test", 0, null);
-        parserService = new ParserServiceImpl(0);
+        parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
 
         prepareService.start();
     }
