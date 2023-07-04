@@ -51,11 +51,10 @@ public class ClientColumn {
      * @param type         Column type.
      * @param nullable     Nullable flag.
      * @param isKey        Key column flag.
-     * @param isColocation Colocation column flag.
      * @param schemaIndex  Index of the column in the schema.
      */
-    public ClientColumn(String name, ColumnType type, boolean nullable, boolean isKey, boolean isColocation, int schemaIndex) {
-        this(name, type, nullable, isKey, isColocation, schemaIndex, 0, 0);
+    public ClientColumn(String name, ColumnType type, boolean nullable, boolean isKey, int schemaIndex) {
+        this(name, type, nullable, isKey, schemaIndex, 0, 0);
     }
 
     /**
