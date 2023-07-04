@@ -167,7 +167,7 @@ public class ColocationHashTests : IgniteTestsBase
         // TODO: See testCustomColocationColumnOrder in Java.
         // Use SQL to create a table, and Compute to verify that the hash is the same.
         var tableName = $"{nameof(TestCustomColocationColumnOrder)}_{reverseColocationOrder}";
-        var sql = $"create table {tableName} " +
+        var sql = $"create table if not exists {tableName} " +
                   $"(id integer, id0 bigint, id1 varchar, v INTEGER, primary key(id, id0, id1)) " +
                   $"colocate by {(reverseColocationOrder ? "(id1, id0)" : "(id0, id1)")}";
 
