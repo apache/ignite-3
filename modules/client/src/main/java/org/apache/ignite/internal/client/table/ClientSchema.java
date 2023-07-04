@@ -48,7 +48,7 @@ public class ClientSchema {
     private final ClientColumn[] columns;
 
     /** Colocation columns. */
-    private final List<ClientColumn> colocationColumns;
+    private final int @Nullable [] colocationColumns;
 
     /** Columns map by name. */
     private final Map<String, ClientColumn> map = new HashMap<>();
@@ -56,16 +56,17 @@ public class ClientSchema {
     /**
      * Constructor.
      *
-     * @param ver     Schema version.
+     * @param ver Schema version.
      * @param columns Columns.
+     * @param colocationColumns Colocation columns. When null, all key columns are used.
      */
-    public ClientSchema(int ver, ClientColumn[] columns) {
+    public ClientSchema(int ver, ClientColumn[] columns, int @Nullable [] colocationColumns) {
         assert ver >= 0;
         assert columns != null;
 
         this.ver = ver;
         this.columns = columns;
-        this.colocationColumns = new ArrayList<>();
+        this.colocationColumns = colocationColumns;
 
         var keyCnt = 0;
 
@@ -75,10 +76,6 @@ public class ClientSchema {
             }
 
             map.put(col.name(), col);
-
-            if (col.colocation()) {
-                colocationColumns.add(col);
-            }
         }
 
         keyColumnCount = keyCnt;
@@ -108,6 +105,7 @@ public class ClientSchema {
      * @return Colocation columns.
      */
     public List<ClientColumn> colocationColumns() {
+        // TODO: Iterable/iterator?
         return colocationColumns;
     }
 

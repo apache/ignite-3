@@ -44,12 +44,10 @@ import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.junit.platform.commons.util.ReflectionUtils;
 
 /**
  * Tests that client and server have matching colocation logic.
@@ -117,7 +115,7 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
                 ClientTableCommon.getDecimalScale(type),
                 ClientTableCommon.getPrecision(type));
 
-        return new ClientSchema(0, new ClientColumn[]{clientColumn});
+        return new ClientSchema(0, new ClientColumn[]{clientColumn}, colocationColumns);
     }
 
     private static TupleMarshallerImpl tupleMarshaller(NativeType type, String columnName) {

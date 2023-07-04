@@ -200,7 +200,6 @@ public class ClientTable implements Table {
     private ClientSchema readSchema(ClientMessageUnpacker in) {
         var schemaVer = in.unpackInt();
         var colCnt = in.unpackArrayHeader();
-
         var columns = new ClientColumn[colCnt];
 
         for (int i = 0; i < colCnt; i++) {
@@ -212,18 +211,26 @@ public class ClientTable implements Table {
             var type = ColumnTypeConverter.fromOrdinalOrThrow(in.unpackInt());
             var isKey = in.unpackBoolean();
             var isNullable = in.unpackBoolean();
-            var isColocation = in.unpackBoolean();
             var scale = in.unpackInt();
             var precision = in.unpackInt();
 
             // Skip unknown extra properties, if any.
             in.skipValues(propCnt - 7);
 
-            var column = new ClientColumn(name, type, isNullable, isKey, isColocation, i, scale, precision);
+            var column = new ClientColumn(name, type, isNullable, isKey, i, scale, precision);
             columns[i] = column;
         }
 
-        var schema = new ClientSchema(schemaVer, columns);
+        var colocationColCnt = in.unpackArrayHeader();
+        var colocationColumns = colocationColCnt > 0 ? new int[colocationColCnt] : null;
+
+        if (colocationColumns != null) {
+            for (int i = 0; i < colocationColCnt; i++) {
+                colocationColumns[i] = in.unpackInt();
+            }
+        }
+
+        var schema = new ClientSchema(schemaVer, columns, colocationColumns);
 
         schemas.put(schemaVer, CompletableFuture.completedFuture(schema));
 

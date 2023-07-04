@@ -35,9 +35,6 @@ public class ClientColumn {
     /** Key column flag. */
     private final boolean isKey;
 
-    /** Key column flag. */
-    private final boolean isColocation;
-
     /** Index of the column in the schema. */
     private final int schemaIndex;
 
@@ -76,7 +73,6 @@ public class ClientColumn {
             ColumnType type,
             boolean nullable,
             boolean isKey,
-            boolean isColocation,
             int schemaIndex,
             int scale,
             int precision) {
@@ -87,7 +83,6 @@ public class ClientColumn {
         this.type = type;
         this.nullable = nullable;
         this.isKey = isKey;
-        this.isColocation = isColocation;
         this.schemaIndex = schemaIndex;
         this.scale = scale;
         this.precision = precision;
@@ -122,15 +117,6 @@ public class ClientColumn {
      */
     public boolean key() {
         return isKey;
-    }
-
-    /**
-     * Gets a value indicating whether this column is a part of colocation key.
-     *
-     * @return Value indicating whether this column is a part of colocation key.
-     */
-    public boolean colocation() {
-        return isColocation;
     }
 
     /**
