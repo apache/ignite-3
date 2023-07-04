@@ -797,6 +797,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             distributionZoneManager = new DistributionZoneManager(
                     zonesCfg,
                     tablesCfg,
+                    catalogManager,
                     metaStorageManager,
                     logicalTopologyService,
                     vaultManager,

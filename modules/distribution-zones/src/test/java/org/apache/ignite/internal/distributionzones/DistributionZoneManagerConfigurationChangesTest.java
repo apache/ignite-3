@@ -146,6 +146,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
                 tablesConfiguration,
+                DistributionZonesTestUtil.mockCatalog(),
                 metaStorageManager,
                 logicalTopologyService,
                 vaultMgr,
