@@ -19,6 +19,7 @@
 
 #include "ignite/common/ignite_error.h"
 #include "ignite/odbc/diagnostic/diagnostic_record_storage.h"
+#include "ignite/odbc/odbc_error.h"
 
 #include <functional>
 

@@ -247,6 +247,8 @@ sql_result data_query::make_request_execute()
         set_resultset_meta(columns);
         // TODO: IGNITE-19213 Implement data fetching
     }
+
+    return sql_result::AI_SUCCESS;
 }
 
 sql_result data_query::make_request_close()
