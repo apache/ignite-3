@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.table;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.BinaryMode;
@@ -47,7 +46,7 @@ public class ClientSchema {
     private final ClientColumn[] columns;
 
     /** Colocation columns. */
-    private final int @Nullable [] colocationColumns;
+    private final ClientColumn[] colocationColumns;
 
     /** Columns map by name. */
     private final Map<String, ClientColumn> map = new HashMap<>();
@@ -65,8 +64,6 @@ public class ClientSchema {
 
         this.ver = ver;
         this.columns = columns;
-        this.colocationColumns = colocationColumns;
-
         var keyCnt = 0;
 
         for (var col : columns) {
@@ -78,6 +75,18 @@ public class ClientSchema {
         }
 
         keyColumnCount = keyCnt;
+
+        if (colocationColumns == null) {
+            this.colocationColumns = new ClientColumn[keyCnt];
+
+            System.arraycopy(columns, 0, this.colocationColumns, 0, keyCnt);
+        } else {
+            this.colocationColumns = new ClientColumn[colocationColumns.length];
+
+            for (int i = 0; i < colocationColumns.length; i++) {
+                this.colocationColumns[i] = columns[colocationColumns[i]];
+            }
+        }
     }
 
     /**
@@ -103,38 +112,8 @@ public class ClientSchema {
      *
      * @return Colocation columns.
      */
-    Iterable<ClientColumn> colocationColumns() {
-        if (colocationColumns != null) {
-            return () -> new Iterator<>() {
-                private int idx;
-
-                @Override
-                public boolean hasNext() {
-                    return idx < colocationColumns.length;
-                }
-
-                @SuppressWarnings("IteratorNextCanNotThrowNoSuchElementException")
-                @Override
-                public ClientColumn next() {
-                    return columns[colocationColumns[idx++]];
-                }
-            };
-        } else {
-            return () -> new Iterator<>() {
-                private int idx;
-
-                @Override
-                public boolean hasNext() {
-                    return idx < keyColumnCount;
-                }
-
-                @SuppressWarnings("IteratorNextCanNotThrowNoSuchElementException")
-                @Override
-                public ClientColumn next() {
-                    return columns[idx++];
-                }
-            };
-        }
+    ClientColumn[] colocationColumns() {
+        return colocationColumns;
     }
 
     /**
