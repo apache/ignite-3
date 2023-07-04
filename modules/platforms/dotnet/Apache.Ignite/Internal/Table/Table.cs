@@ -352,7 +352,24 @@ namespace Apache.Ignite.Internal.Table
                 }
             }
 
-            r.Skip(); // Colocation columns.
+            // TODO: ColocationIndex or separate array in schema?
+            var colocationColumnCount = r.ReadArrayHeader();
+
+            if (colocationColumnCount == 0)
+            {
+                for (var i = 0; i < keyColumnCount; i++)
+                {
+                    columns[i].IsColocation = true;
+                }
+            }
+            else
+            {
+                for (var i = 0; i < colocationColumnCount; i++)
+                {
+                    var idx = r.ReadInt32();
+                    columns[idx].IsColocation = true;
+                }
+            }
 
             var schema = new Schema(schemaVersion, Id, keyColumnCount, columns);
             _schemas[schemaVersion] = Task.FromResult(schema);
