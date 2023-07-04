@@ -636,6 +636,7 @@ public class KvMarshallerTest {
                 new Column("primitiveFloatCol".toUpperCase(), FLOAT, false),
                 new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
 
+                new Column("booleanCol".toUpperCase(), BOOLEAN, nullable),
                 new Column("byteCol".toUpperCase(), INT8, nullable),
                 new Column("shortCol".toUpperCase(), INT16, nullable),
                 new Column("intCol".toUpperCase(), INT32, nullable),

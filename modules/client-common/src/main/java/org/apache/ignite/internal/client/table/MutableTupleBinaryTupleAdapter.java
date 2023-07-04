@@ -163,6 +163,22 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
     /** {@inheritDoc} */
     @Override
+    public boolean booleanValue(@NotNull String columnName) {
+        return tuple != null
+                ? tuple.booleanValue(columnName)
+                : binaryTuple.booleanValue(validateSchemaColumnType(columnName, ColumnType.BOOLEAN));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean booleanValue(int columnIndex) {
+        return tuple != null
+                ? tuple.booleanValue(columnIndex)
+                : binaryTuple.booleanValue(validateSchemaColumnType(columnIndex, ColumnType.BOOLEAN));
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public byte byteValue(@NotNull String columnName) {
         return tuple != null
                 ? tuple.byteValue(columnName)
@@ -487,7 +503,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
         switch (type) {
             case BOOLEAN:
-                return binaryTuple.byteValue(internalIndex) != 0;
+                return binaryTuple.booleanValue(internalIndex);
 
             case INT8:
                 return binaryTuple.byteValue(internalIndex);

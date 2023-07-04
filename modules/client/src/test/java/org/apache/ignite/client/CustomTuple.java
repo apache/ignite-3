@@ -149,6 +149,18 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
+    public boolean booleanValue(@NotNull String columnName) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean booleanValue(int columnIndex) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public byte byteValue(@NotNull String columnName) {
         throw new UnsupportedOperationException();
     }

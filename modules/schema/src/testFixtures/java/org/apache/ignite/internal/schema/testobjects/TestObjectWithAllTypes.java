@@ -200,7 +200,7 @@ public class TestObjectWithAllTypes {
         return primitiveBooleanCol;
     }
 
-    public void setPrimitiveByteCol(boolean primitiveBooleanCol) {
+    public void setPrimitiveBooleanCol(boolean primitiveBooleanCol) {
         this.primitiveBooleanCol = primitiveBooleanCol;
     }
 
@@ -256,7 +256,7 @@ public class TestObjectWithAllTypes {
         return booleanCol;
     }
 
-    public void setByteCol(Boolean booleanCol) {
+    public void setBooleanCol(Boolean booleanCol) {
         this.booleanCol = booleanCol;
     }
 
