@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
@@ -85,6 +87,8 @@ public class PlacementDriverTest {
 
     private MetaStorageManager metastore;
 
+    private PendingComparableValuesTracker<Long, Void> revisionTracker;
+
     private LeaseTracker placementDriver;
 
     @BeforeEach
@@ -93,10 +97,18 @@ public class PlacementDriverTest {
 
         metastore = StandaloneMetaStorageManager.create(vault);
 
+        revisionTracker = new PendingComparableValuesTracker<>(-1L);
+
         placementDriver = new LeaseTracker(
                 vault,
                 metastore
         );
+
+        metastore.registerRevisionUpdateListener(rev -> {
+            revisionTracker.update(rev, null);
+
+            return completedFuture(null);
+        });
 
         vault.start();
         metastore.start();
@@ -332,10 +344,14 @@ public class PlacementDriverTest {
     }
 
     private void publishLease(Lease lease) {
+        long rev = metastore.appliedRevision();
+
         metastore.invoke(
                 Conditions.notExists(FAKE_KEY),
                 put(PLACEMENTDRIVER_LEASES_KEY, new LeaseBatch(List.of(lease)).bytes()),
                 noop()
         );
+
+        revisionTracker.waitFor(rev + 1).join();
     }
 }

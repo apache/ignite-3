@@ -95,7 +95,7 @@ public class LeaseTracker implements PlacementDriver {
         this.vaultManager = vaultManager;
         this.msManager = msManager;
 
-        this.leases = new IgniteBiTuple<>(createLeasesMap(), new byte[0]);
+        this.leases = new IgniteBiTuple<>(unmodifiableNavigableMap(createLeasesMap()), new byte[0]);
         this.primaryReplicaWaiters = new ConcurrentHashMap<>();
     }
 
@@ -209,7 +209,7 @@ public class LeaseTracker implements PlacementDriver {
                     }
                 }
 
-                LeaseTracker.this.leases = new IgniteBiTuple<>(leasesMap, leasesBytes);
+                LeaseTracker.this.leases = new IgniteBiTuple<>(unmodifiableNavigableMap(leasesMap), leasesBytes);
             }
 
             return completedFuture(null);
@@ -242,7 +242,7 @@ public class LeaseTracker implements PlacementDriver {
         NavigableMap<ReplicationGroupId, Lease> leasesMap = leases.get1();
 
         try {
-            Lease lease = leasesMap.get(replicationGroupId);
+            Lease lease = leasesMap.getOrDefault(replicationGroupId, EMPTY_LEASE);
 
             if (lease.getExpirationTime().after(timestamp)) {
                 return completedFuture(lease);
@@ -251,9 +251,9 @@ public class LeaseTracker implements PlacementDriver {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-19532 Race between meta storage safe time publication and listeners.
             return msManager.clusterTime().waitFor(timestamp).thenApply(ignored -> inBusyLock(
                     busyLock, () -> {
-                        Lease lease0 = leasesMap.get(replicationGroupId);
+                        Lease lease0 = leasesMap.getOrDefault(replicationGroupId, EMPTY_LEASE);
 
-                        if (lease.getExpirationTime().after(timestamp)) {
+                        if (lease0.getExpirationTime().after(timestamp)) {
                             return lease0;
                         } else {
                             return null;
