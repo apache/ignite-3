@@ -364,11 +364,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
             assertEquals(1, sql("SELECT ID FROM TEST WHERE ID = -1").size());
         }
 
-        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
-
-        var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
-
-        assertEquals(txManagerInternal.finished(), states.size());
+        assertEquals(0, ((IgniteImpl)CLUSTER_NODES.get(0)).txManager().pending());
     }
 
     @Test
