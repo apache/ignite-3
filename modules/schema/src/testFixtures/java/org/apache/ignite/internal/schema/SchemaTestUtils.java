@@ -43,6 +43,7 @@ public final class SchemaTestUtils {
 
     /** All types for tests. */
     public static List<NativeType> ALL_TYPES = List.of(
+            NativeTypes.BOOLEAN,
             NativeTypes.INT8,
             NativeTypes.INT16,
             NativeTypes.INT32,
