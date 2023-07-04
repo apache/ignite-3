@@ -48,7 +48,9 @@ public class HashCalculator {
             return;
         }
 
-        if (v.getClass() == Byte.class) {
+        if (v.getClass() == Boolean.class) {
+            appendByte((byte) ((boolean) v ? 1 : 0));
+        } else if (v.getClass() == Byte.class) {
             appendByte((byte) v);
         } else if (v.getClass() == Short.class) {
             appendShort((short) v);
