@@ -354,24 +354,34 @@ namespace Apache.Ignite.Internal.Table
 
             // TODO: ColocationIndex or separate array in schema?
             var colocationColumnCount = r.ReadArrayHeader();
+            int[]? colocationColumns = null;
+            bool colocationColumnsOrdered = true;
 
             if (colocationColumnCount == 0)
             {
                 for (var i = 0; i < keyColumnCount; i++)
                 {
-                    columns[i].IsColocation = true;
+                    columns[i].ColocationIndex = i;
                 }
             }
             else
             {
+                colocationColumns = new int[colocationColumnCount];
+
                 for (var i = 0; i < colocationColumnCount; i++)
                 {
                     var idx = r.ReadInt32();
-                    columns[idx].IsColocation = true;
+                    columns[idx].ColocationIndex = i;
+                    colocationColumns[i] = idx;
+
+                    if (i > 0 && idx < columns[idx - 1].ColocationIndex)
+                    {
+                        colocationColumnsOrdered = false;
+                    }
                 }
             }
 
-            var schema = new Schema(schemaVersion, Id, keyColumnCount, columns);
+            var schema = new Schema(schemaVersion, Id, keyColumnCount, columns, colocationColumns, colocationColumnsOrdered);
             _schemas[schemaVersion] = Task.FromResult(schema);
 
             if (_logger?.IsEnabled(LogLevel.Debug) == true)

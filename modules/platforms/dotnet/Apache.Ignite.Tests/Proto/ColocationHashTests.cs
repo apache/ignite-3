@@ -259,7 +259,7 @@ public class ColocationHashTests : IgniteTestsBase
     {
         var columns = arr.Select((obj, ci) => GetColumn(obj, ci, timePrecision, timestampPrecision)).ToArray();
 
-        return new Schema(Version: 0, 0, arr.Count, columns);
+        return new Schema(Version: 0, 0, arr.Count, columns, null, true);
     }
 
     private static Column GetColumn(object value, int schemaIndex, int timePrecision, int timestampPrecision)
@@ -297,7 +297,7 @@ public class ColocationHashTests : IgniteTestsBase
 
         return new Column("m_Item" + (schemaIndex + 1), colType, false, true, schemaIndex, Scale: scale, precision)
         {
-            IsColocation = true
+            ColocationIndex = schemaIndex
         };
     }
 

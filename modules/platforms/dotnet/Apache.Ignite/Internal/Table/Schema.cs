@@ -27,11 +27,17 @@ namespace Apache.Ignite.Internal.Table
     /// <param name="TableId">Table id.</param>
     /// <param name="KeyColumnCount">Key column count.</param>
     /// <param name="Columns">Columns in schema order.</param>
+    /// <param name="ColocationColumns">Colocation columns in hashing order.</param>
+    /// <param name="ColocationColumnsOrdered">Whether colocation column order matches schema order.
+    /// Used to simplify hash calculation while serializing data.
+    /// </param>
     internal sealed record Schema(
         int Version,
         int TableId,
         int KeyColumnCount,
-        IReadOnlyList<Column> Columns) : IHashedColumnIndexProvider
+        IReadOnlyList<Column> Columns,
+        IReadOnlyList<int>? ColocationColumns,
+        bool ColocationColumnsOrdered) : IHashedColumnIndexProvider
     {
         /// <summary>
         /// Gets the value column count.
