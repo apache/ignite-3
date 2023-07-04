@@ -29,6 +29,7 @@ using Ignite.Compute;
 using Ignite.Sql;
 using Ignite.Table;
 using Internal.Buffers;
+using Internal.Proto;
 using Internal.Proto.BinaryTuple;
 using Internal.Proto.MsgPack;
 using Internal.Table;
@@ -164,14 +165,29 @@ public class ColocationHashTests : IgniteTestsBase
     [Test]
     public async Task TestCustomColocationColumnOrder([Values(true, false)] bool reverseColocationOrder)
     {
-        // TODO: See testCustomColocationColumnOrder in Java.
-        // Use SQL to create a table, and Compute to verify that the hash is the same.
         var tableName = $"{nameof(TestCustomColocationColumnOrder)}_{reverseColocationOrder}";
         var sql = $"create table if not exists {tableName} " +
                   $"(id integer, id0 bigint, id1 varchar, v INTEGER, primary key(id, id0, id1)) " +
                   $"colocate by {(reverseColocationOrder ? "(id1, id0)" : "(id0, id1)")}";
 
         await Client.Sql.ExecuteAsync(null, sql);
+
+        // Perform get to populate schema.
+        var table = await Client.Tables.GetTableAsync(tableName);
+        var view = table!.RecordBinaryView;
+        await view.GetAsync(null, new IgniteTuple{["id"] = 1, ["id0"] = 2L, ["id1"] = "3", ["v"] = 4});
+
+        var ser = view.GetFieldValue<RecordSerializer<IIgniteTuple>>("_ser");
+        var schemas = table.GetFieldValue<IDictionary<int, Task<Schema>>>("_schemas");
+        var schema = schemas.Values.Single().GetAwaiter().GetResult();
+
+        for (int i = 0; i < 100; i++)
+        {
+            var key = new IgniteTuple { ["id"] = 1 + i, ["id0"] = 2L + i, ["id1"] = "3" + i, ["v"] = 4 + i };
+
+            using var writer = ProtoCommon.GetMessageWriter();
+            var colocationHash = ser.Write(writer, null, schema, key);
+        }
     }
 
     private static (byte[] Bytes, int Hash) WriteAsBinaryTuple(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
