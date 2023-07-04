@@ -44,6 +44,8 @@ public class ColocationHashTests : IgniteTestsBase
 {
     private const string ColocationHashJob = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ColocationHashJob";
 
+    private const string TableRowColocationHashJob = "org.apache.ignite.internal.runner.app.TableRowColocationHashJob";
+
     private static readonly object[] TestCases =
     {
         sbyte.MinValue,
@@ -180,16 +182,23 @@ public class ColocationHashTests : IgniteTestsBase
         var ser = view.GetFieldValue<RecordSerializer<IIgniteTuple>>("_ser");
         var schemas = table.GetFieldValue<IDictionary<int, Task<Schema>>>("_schemas");
         var schema = schemas[1].GetAwaiter().GetResult();
+        var clusterNodes = await Client.GetClusterNodesAsync();
 
         for (int i = 0; i < 100; i++)
         {
             var key = new IgniteTuple { ["id"] = 1 + i, ["id0"] = 2L + i, ["id1"] = "3" + i, ["v"] = 4 + i };
 
             using var writer = ProtoCommon.GetMessageWriter();
-            var colocationHash = ser.Write(writer, null, schema, key);
+            var clientColocationHash = ser.Write(writer, null, schema, key);
 
-            // TODO: Compare with server hash.
-            Assert.AreEqual(123, colocationHash);
+            var serverColocationHash = await Client.Compute.ExecuteAsync<int>(
+                clusterNodes,
+                Array.Empty<DeploymentUnit>(),
+                TableRowColocationHashJob,
+                tableName,
+                i);
+
+            Assert.AreEqual(serverColocationHash, clientColocationHash);
         }
     }
 
