@@ -28,6 +28,7 @@
 #include "ignite/network/tcp_range.h"
 #include "ignite/protocol/buffer_adapter.h"
 #include "ignite/protocol/writer.h"
+#include "ignite/protocol/client_operation.h"
 
 #include <atomic>
 #include <cstdint>
@@ -241,9 +242,10 @@ public:
      * Make new request.
      *
      * @param id Request ID.
+     * @param op Operation.
      * @param func Function.
      */
-    [[nodiscard]] std::vector<std::byte> make_request(std::int64_t id,
+    [[nodiscard]] static std::vector<std::byte> make_request(std::int64_t id, detail::client_operation op,
         const std::function<void(protocol::writer &)> &func);
 
     /**
@@ -267,12 +269,14 @@ public:
     /**
      * Make a synchronous request and get a response.
      *
+     * @param op Operation.
      * @param wr Payload writing function.
      * @return Response.
      */
-    network::data_buffer_owning sync_request(const std::function<void(protocol::writer &)> &wr) {
+    network::data_buffer_owning sync_request(detail::client_operation op,
+        const std::function<void(protocol::writer &)> &wr) {
         auto req_id = generate_next_req_id();
-        auto request = make_request(req_id, wr);
+        auto request = make_request(req_id, op, wr);
 
         send_message(request);
         return receive_message(req_id);

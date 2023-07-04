@@ -226,20 +226,14 @@ bool sql_connection::send(const std::byte* data, std::size_t len, std::int32_t t
     if (!m_socket)
         throw odbc_error(sql_state::S08003_NOT_CONNECTED, "Connection is not established");
 
-    auto new_len = len + PROTOCOL_HEADER_SIZE;
-    std::vector<std::byte> msg(new_len);
-
-    bytes::store<endian::BIG, std::int32_t>(msg.data(), std::int32_t(len));
-    memcpy(msg.data() + PROTOCOL_HEADER_SIZE, data, len);
-
-    operation_result res = send_all(msg.data(), msg.size(), timeout);
+    operation_result res = send_all(data, len, timeout);
     if (res == operation_result::TIMEOUT)
         return false;
 
     if (res == operation_result::FAIL)
         throw odbc_error(sql_state::S08S01_LINK_FAILURE, "Can not send message due to connection failure");
 
-    TRACE_MSG("message sent: (" <<  msg.size() << " bytes)" << hex_dump(msg.data(), msg.size()));
+    TRACE_MSG("message sent: (" <<  len << " bytes)" << hex_dump(data, len));
 
     return true;
 }
@@ -547,13 +541,14 @@ sql_result sql_connection::internal_set_attribute(int attr, void* value, SQLINTE
     return sql_result::AI_SUCCESS;
 }
 
-std::vector<std::byte> sql_connection::make_request(std::int64_t id,
+std::vector<std::byte> sql_connection::make_request(std::int64_t id, detail::client_operation op,
     const std::function<void(protocol::writer &)> &func) {
     std::vector<std::byte> req;
     protocol::buffer_adapter buffer(req);
     buffer.reserve_length_header();
 
     protocol::writer writer(buffer);
+    writer.write(std::int32_t(op));
     writer.write(id);
     func(writer);
 

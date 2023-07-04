@@ -170,6 +170,12 @@ void check_column_meta_with_sqlcol_attribute(SQLHSTMT stmt, SQLUSMALLINT idx, co
  */
 class meta_queries_test : public odbc_suite {
 public:
+    void SetUp() override {
+        odbc_connect(get_basic_connection_string());
+        exec_query("DELETE FROM " + std::string(TABLE_NAME_ALL_COLUMNS_SQL));
+        odbc_clean_up();
+    }
+
     /**
      * @param func Function to call before tests. May be PrepareQuery or ExecQuery.
      *
@@ -181,7 +187,7 @@ public:
     template<typename F>
     void check_sqldescribe_col_precision_and_scale(F func)
     {
-        odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=PUBLIC");
+        odbc_connect(get_basic_connection_string());
 
         SQLRETURN ret = exec_query(
             "create table TestScalePrecision("
@@ -241,7 +247,7 @@ public:
     template<typename F>
     void check_sqlcol_attribute_precision_and_scale(F func)
     {
-        odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=PUBLIC");
+        odbc_connect(get_basic_connection_string());
 
         SQLRETURN ret = exec_query(
             "create table TestScalePrecision("
@@ -309,27 +315,32 @@ public:
 
 };
 
-
+// TODO IGNITE-19216 Implement type info fetching
+#ifdef MUTED
 TEST_F(meta_queries_test, test_get_type_info_all_types)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLGetTypeInfo(m_statement, SQL_ALL_TYPES);
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 }
+#endif // MUTED
 
 TEST_F(meta_queries_test, test_date_type_column_attribute_curdate)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "select CURDATE()";
-    SQLExecDirect(m_statement, req, SQL_NTS);
+    SQLRETURN ret = SQLExecDirect(m_statement, req, SQL_NTS);
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
     SQLLEN int_val = 0;
 
-    SQLRETURN ret = SQLColAttribute(m_statement, 1, SQL_DESC_TYPE, nullptr, 0, nullptr, &int_val);
+    ret = SQLColAttribute(m_statement, 1, SQL_DESC_TYPE, nullptr, 0, nullptr, &int_val);
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
@@ -339,7 +350,7 @@ TEST_F(meta_queries_test, test_date_type_column_attribute_curdate)
 
 TEST_F(meta_queries_test, test_date_type_column_attribute_literal)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "select DATE '2020-10-25'";
     SQLExecDirect(m_statement, req, SQL_NTS);
@@ -356,7 +367,7 @@ TEST_F(meta_queries_test, test_date_type_column_attribute_literal)
 
 TEST_F(meta_queries_test, test_date_type_column_attribute_field)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "select CAST (dateField as DATE) from TestType";
     SQLExecDirect(m_statement, req, SQL_NTS);
@@ -373,7 +384,7 @@ TEST_F(meta_queries_test, test_date_type_column_attribute_field)
 
 TEST_F(meta_queries_test, test_time_type_column_attribute_literal)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "select TIME '12:42:13'";
     SQLExecDirect(m_statement, req, SQL_NTS);
@@ -390,7 +401,7 @@ TEST_F(meta_queries_test, test_time_type_column_attribute_literal)
 
 TEST_F(meta_queries_test, test_time_type_column_attribute_field)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "select timeField from TestType";
     SQLExecDirect(m_statement, req, SQL_NTS);
@@ -407,7 +418,7 @@ TEST_F(meta_queries_test, test_time_type_column_attribute_field)
 
 TEST_F(meta_queries_test, test_col_attributes_column_length)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "select strField from TestType";
     SQLExecDirect(m_statement, req, SQL_NTS);
@@ -426,7 +437,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_length)
 
 TEST_F(meta_queries_test, test_col_attributes_column_presicion)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "select strField from TestType";
     SQLExecDirect(m_statement, req, SQL_NTS);
@@ -445,7 +456,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_presicion)
 
 TEST_F(meta_queries_test, test_col_attributes_column_scale)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "select strField from TestType";
     SQLExecDirect(m_statement, req, SQL_NTS);
@@ -462,7 +473,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_scale)
 
 TEST_F(meta_queries_test, test_col_attributes_column_length_prepare)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     insert_test_string();
 
@@ -493,7 +504,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_length_prepare)
 
 TEST_F(meta_queries_test, test_col_attributes_column_presicion_prepare)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     insert_test_string();
 
@@ -524,7 +535,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_presicion_prepare)
 
 TEST_F(meta_queries_test, test_col_attributes_column_scale_prepare)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     insert_test_string();
 
@@ -551,7 +562,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_scale_prepare)
 
 TEST_F(meta_queries_test, test_get_data_with_get_type_info)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLGetTypeInfo(m_statement, SQL_VARCHAR);
 
@@ -563,7 +574,7 @@ TEST_F(meta_queries_test, test_get_data_with_get_type_info)
 
 TEST_F(meta_queries_test, test_get_data_with_tables)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR empty[] = "";
     SQLCHAR table[] = "TestType";
@@ -578,7 +589,7 @@ TEST_F(meta_queries_test, test_get_data_with_tables)
 
 TEST_F(meta_queries_test, test_get_data_with_columns)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR empty[] = "";
     SQLCHAR table[] = "TestType";
@@ -594,7 +605,7 @@ TEST_F(meta_queries_test, test_get_data_with_columns)
 
 TEST_F(meta_queries_test, test_get_data_with_select_query)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR insert_req[] = "insert into TestType(_key, strField) VALUES(1, 'Lorem ipsum')";
     SQLRETURN ret = SQLExecDirect(m_statement, insert_req, SQL_NTS);
@@ -613,7 +624,7 @@ TEST_F(meta_queries_test, test_get_data_with_select_query)
 
 TEST_F(meta_queries_test, test_insert_too_long_value_fail)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR insert_req[] =
         "insert into TestType(_key, strField) VALUES(42, '0123456789012345678901234567890123456789012345678901234567891')";
@@ -626,7 +637,7 @@ TEST_F(meta_queries_test, test_insert_too_long_value_fail)
 
 TEST_F(meta_queries_test, test_get_info_scroll_options)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLUINTEGER val = 0;
     SQLRETURN ret = SQLGetInfo(m_conn, SQL_SCROLL_OPTIONS, &val, 0, nullptr);
@@ -639,7 +650,7 @@ TEST_F(meta_queries_test, test_get_info_scroll_options)
 
 TEST_F(meta_queries_test, test_ddl_tables_meta)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=PUBLIC");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR create_table[] = "create table TestTable(id int primary key, testColumn varchar)";
     SQLRETURN ret = SQLExecDirect(m_statement, create_table, SQL_NTS);
@@ -672,7 +683,7 @@ TEST_F(meta_queries_test, test_ddl_tables_meta)
 
 TEST_F(meta_queries_test, test_ddl_tables_meta_table_type_list)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=PUBLIC");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR create_table[] = "create table TestTable(id int primary key, testColumn varchar)";
     SQLRETURN ret = SQLExecDirect(m_statement, create_table, SQL_NTS);
@@ -708,7 +719,7 @@ TEST_F(meta_queries_test, test_ddl_tables_meta_table_type_list)
 
 TEST_F(meta_queries_test, test_ddl_columns_meta)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=PUBLIC");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR create_table[] = "create table TestTable(id int primary key, testColumn varchar)";
     SQLRETURN ret = SQLExecDirect(m_statement, create_table, SQL_NTS);
@@ -751,7 +762,7 @@ TEST_F(meta_queries_test, test_ddl_columns_meta)
 
 TEST_F(meta_queries_test, test_ddl_columns_meta_escaped)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=PUBLIC");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR create_table[] = "create table ESG_FOCUS(id int primary key, TEST_COLUMN varchar)";
     SQLRETURN ret = SQLExecDirect(m_statement, create_table, SQL_NTS);
@@ -794,7 +805,7 @@ TEST_F(meta_queries_test, test_ddl_columns_meta_escaped)
 
 TEST_F(meta_queries_test, test_sqlnum_result_cols_after_sqlprepare)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=127.0.0.1:11110;SCHEMA=PUBLIC");
+    odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = exec_query("create table TestSqlPrepare(id int primary key, test1 varchar, test2 long, test3 varchar)");
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);

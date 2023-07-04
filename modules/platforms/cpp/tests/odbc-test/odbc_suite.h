@@ -120,6 +120,39 @@ public:
     }
 
     /**
+     * Disconnect.
+     */
+    void odbc_disconnect() {
+        if (m_statement) {
+            // Releasing the statement handle.
+            SQLFreeHandle(SQL_HANDLE_STMT, m_statement);
+            m_statement = SQL_NULL_HANDLE;
+        }
+
+        if (m_conn) {
+            // Disconnecting from the server.
+            SQLDisconnect(m_conn);
+
+            // Releasing allocated handles.
+            SQLFreeHandle(SQL_HANDLE_DBC, m_conn);
+            m_conn = SQL_NULL_HANDLE;
+        }
+    }
+
+    /**
+     * ODBC Clean up.
+     */
+    void odbc_clean_up() {
+        odbc_disconnect();
+
+        if (m_env) {
+            // Releasing allocated handles.
+            SQLFreeHandle(SQL_HANDLE_ENV, m_env);
+            m_env = SQL_NULL_HANDLE;
+        }
+    }
+
+    /**
      * Convert string to SQLCHAR vector.
      *
      * @param str String.

@@ -197,7 +197,7 @@ sql_result data_query::make_request_execute()
 {
     network::data_buffer_owning response;
     auto success = m_diag.catch_errors([&]{
-        response = m_connection.sync_request([&](protocol::writer &writer) {
+        response = m_connection.sync_request(detail::client_operation::SQL_EXEC, [&](protocol::writer &writer) {
             // TODO: IGNITE-19399 Implement transactions support.
             writer.write_nil();
 
@@ -259,7 +259,8 @@ sql_result data_query::make_request_close()
     LOG_MSG("Closing cursor: " << m_cursor->get_query_id());
 
     auto success = m_diag.catch_errors([&]{
-        UNUSED_VALUE m_connection.sync_request([&](protocol::writer &writer) {
+        UNUSED_VALUE m_connection.sync_request(detail::client_operation::SQL_CURSOR_CLOSE,
+            [&](protocol::writer &writer) {
             writer.write(m_cursor->get_query_id());
         });
     });
