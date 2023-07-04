@@ -161,6 +161,13 @@ public class ColocationHashTests : IgniteTestsBase
         }
     }
 
+    [Test]
+    public void TestCustomColocationColumnOrder()
+    {
+        // TODO: See testCustomColocationColumnOrder in Java.
+        // Use SQL to create a table, and Compute to verify that the hash is the same.
+    }
+
     private static (byte[] Bytes, int Hash) WriteAsBinaryTuple(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
     {
         using var builder = new BinaryTupleBuilder(arr.Count * 3, hashedColumnsPredicate: new TestIndexProvider(x => x % 3 == 2));
