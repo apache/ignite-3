@@ -34,9 +34,9 @@ public class ResolvedDependencies {
     /**
      * Returns a table with the given id.
      */
-    public ScannableTable scanableTable(int tableId) {
+    public ScannableTable scannableTable(int tableId) {
         ExecutableTable executableTable = getTable(tableId);
-        return executableTable.scanableTable();
+        return executableTable.scannableTable();
     }
 
     /**
@@ -45,14 +45,6 @@ public class ResolvedDependencies {
     public UpdatableTable updatableTable(int tableId) {
         ExecutableTable executableTable = getTable(tableId);
         return executableTable.updatableTable();
-    }
-
-    /**
-     * Returns a row converter for the given table.
-     */
-    public TableRowConverter rowConverter(int tableId) {
-        ExecutableTable executableTable = getTable(tableId);
-        return executableTable.rowConverter();
     }
 
     private ExecutableTable getTable(int tableId) {

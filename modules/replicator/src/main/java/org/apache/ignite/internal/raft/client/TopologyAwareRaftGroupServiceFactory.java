@@ -69,16 +69,16 @@ public class TopologyAwareRaftGroupServiceFactory implements RaftServiceFactory<
             ScheduledExecutorService raftClientExecutor
     ) {
         return TopologyAwareRaftGroupService.start(
-                    groupId,
-                    clusterService,
-                    raftMessagesFactory,
-                    raftConfiguration,
-                    peersAndLearners,
-                    true,
-                    raftClientExecutor,
-                    logicalTopologyService,
-                    eventsClientListener,
-                    true
-            ).thenApply(TopologyAwareRaftGroupService.class::cast);
+                groupId,
+                clusterService,
+                raftMessagesFactory,
+                raftConfiguration,
+                peersAndLearners,
+                true,
+                raftClientExecutor,
+                logicalTopologyService,
+                eventsClientListener,
+                true
+        );
     }
 }

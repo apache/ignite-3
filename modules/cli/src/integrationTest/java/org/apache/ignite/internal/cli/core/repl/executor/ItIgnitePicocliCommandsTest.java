@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.cli.core.repl.executor;
 
+import static java.util.stream.Collectors.flatMapping;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -32,8 +35,12 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.core.repl.Session;
@@ -44,6 +51,7 @@ import org.apache.ignite.internal.cli.core.repl.completer.filter.CompleterFilter
 import org.apache.ignite.internal.cli.core.repl.completer.filter.DynamicCompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.NonRepeatableOptionsFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.ShortOptionsFilter;
+import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.assertj.core.util.Files;
 import org.jline.reader.Candidate;
 import org.jline.reader.LineReader;
@@ -64,6 +72,23 @@ import org.mockito.Mockito;
 public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegrationBase {
 
     private static final String DEFAULT_REST_URL = "http://localhost:10300";
+
+    private static final List<String> DISTRIBUTED_CONFIGURATION_KEYS;
+
+    private static final List<String> LOCAL_CONFIGURATION_KEYS;
+
+    static {
+        Map<ConfigurationType, List<String>> configKeysByType = new ServiceLoaderModulesProvider()
+                .modules(ItIgnitePicocliCommandsTest.class.getClassLoader())
+                .stream()
+                .collect(groupingBy(
+                        ConfigurationModule::type,
+                        flatMapping(module -> module.rootKeys().stream().map(RootKey::key), toUnmodifiableList())
+                ));
+
+        DISTRIBUTED_CONFIGURATION_KEYS = configKeysByType.get(ConfigurationType.DISTRIBUTED);
+        LOCAL_CONFIGURATION_KEYS = configKeysByType.get(ConfigurationType.LOCAL);
+    }
 
     @Inject
     DynamicCompleterRegistry dynamicCompleterRegistry;
@@ -215,7 +240,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         // wait for lazy init of node config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder("rest", "compute", "clientConnector", "raft", "network", "cluster", "deployment", "nodeAttributes")
+                containsInAnyOrder(LOCAL_CONFIGURATION_KEYS.toArray(String[]::new))
         );
     }
 
@@ -265,7 +290,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         // wait for lazy init of cluster config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder("aimem", "aipersist", "metrics", "rocksDb", "table", "zone", "security", "schemaSync", "gc")
+                containsInAnyOrder(DISTRIBUTED_CONFIGURATION_KEYS.toArray(String[]::new))
         );
     }
 
@@ -288,7 +313,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         // wait for lazy init of cluster config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder("aimem", "aipersist", "metrics", "rocksDb", "table", "zone", "security", "schemaSync", "gc")
+                containsInAnyOrder(DISTRIBUTED_CONFIGURATION_KEYS.toArray(String[]::new))
         );
     }
 

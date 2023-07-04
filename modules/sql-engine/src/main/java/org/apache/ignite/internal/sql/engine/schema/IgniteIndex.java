@@ -130,6 +130,15 @@ public class IgniteIndex {
         return index;
     }
 
+    /** Returns id of this index. */
+    public int id() {
+        return index.id();
+    }
+
+    public int tableId() {
+        return index.tableId();
+    }
+
     public Type type() {
         return type;
     }

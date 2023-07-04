@@ -23,9 +23,13 @@ description = 'ignite-metastorage-api'
 
 dependencies {
     api project(':ignite-network-api')
+    api project(':ignite-configuration-api')
 
     implementation project(':ignite-core')
     implementation libs.jetbrains.annotations
+    implementation libs.auto.service.annotations
 
     annotationProcessor project(':ignite-network-annotation-processor')
+    annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor libs.auto.service
 }

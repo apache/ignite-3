@@ -560,7 +560,7 @@ public class ClientMessagePacker implements AutoCloseable {
 
         // Builder with inline schema.
         // Every element in vals is represented by 3 tuple elements: type, scale, value.
-        var builder = new BinaryTupleBuilder(vals.length * 3, true);
+        var builder = new BinaryTupleBuilder(vals.length * 3);
 
         for (Object arg : vals) {
             ClientBinaryTupleUtils.appendObject(builder, arg);
@@ -585,7 +585,7 @@ public class ClientMessagePacker implements AutoCloseable {
 
         // Builder with inline schema.
         // Value is represented by 3 tuple elements: type, scale, value.
-        var builder = new BinaryTupleBuilder(3, false, 3);
+        var builder = new BinaryTupleBuilder(3, 3);
         ClientBinaryTupleUtils.appendObject(builder, val);
 
         packBinaryTuple(builder);

@@ -299,7 +299,7 @@ public class ClientTupleTest {
     }
 
     private static Tuple createTuple() {
-        var binTupleBuf = new BinaryTupleBuilder(SCHEMA.columns().length, false)
+        var binTupleBuf = new BinaryTupleBuilder(SCHEMA.columns().length)
                 .appendLong(3L)
                 .appendString("Shirt")
                 .build();
@@ -310,7 +310,7 @@ public class ClientTupleTest {
     }
 
     private static ClientTuple createFullSchemaTuple() {
-        var binTupleBuf = new BinaryTupleBuilder(FULL_SCHEMA.columns().length, false)
+        var binTupleBuf = new BinaryTupleBuilder(FULL_SCHEMA.columns().length)
                 .appendByte((byte) 1)
                 .appendShort((short) 2)
                 .appendInt(3)

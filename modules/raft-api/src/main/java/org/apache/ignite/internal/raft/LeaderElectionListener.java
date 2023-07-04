@@ -15,14 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration.schema;
+package org.apache.ignite.internal.raft;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
+import org.apache.ignite.network.ClusterNode;
 
 /**
- * Test data storage configuration schema for tables.
+ * Listener that gets called after a new Raft group leader has been elected.
  */
-@PolymorphicConfigInstance("test_data_storage")
-public class TestDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
+public interface LeaderElectionListener {
+    /**
+     * Callback that gets called after a new Raft group leader has been elected.
+     *
+     * @param leader New leader node.
+     * @param term New leader term.
+     */
+    void onLeaderElected(ClusterNode leader, long term);
 }

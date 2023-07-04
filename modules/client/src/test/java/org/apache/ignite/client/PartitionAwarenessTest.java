@@ -170,8 +170,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         // Update partition assignment.
         var assignments = new ArrayList<String>();
 
-        assignments.add(testServer2.nodeId());
-        assignments.add(testServer.nodeId());
+        assignments.add(testServer2.nodeName());
+        assignments.add(testServer.nodeName());
 
         initPartitionAssignment(assignments);
 
@@ -543,8 +543,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         // Update partition assignment.
         var assignments = new ArrayList<String>();
 
-        assignments.add(testServer2.nodeId());
-        assignments.add(testServer.nodeId());
+        assignments.add(testServer2.nodeName());
+        assignments.add(testServer.nodeName());
 
         initPartitionAssignment(assignments);
 
@@ -612,10 +612,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         if (assignments == null) {
             assignments = new ArrayList<>();
 
-            assignments.add(testServer.nodeId());
-            assignments.add(testServer2.nodeId());
-            assignments.add(testServer.nodeId());
-            assignments.add(testServer2.nodeId());
+            assignments.add(testServer.nodeName());
+            assignments.add(testServer2.nodeName());
+            assignments.add(testServer.nodeName());
+            assignments.add(testServer2.nodeName());
         }
 
         FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
