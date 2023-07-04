@@ -153,6 +153,14 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
         res = sql("SELECT c2, c4 FROM my WHERE c1=2");
 
         assertEquals(2, res.get(0).get(0));
+
+        sql("ALTER TABLE my DROP COLUMN c4");
+        sql("ALTER TABLE my ADD COLUMN (c4 INT)");
+        sql("INSERT INTO my VALUES (3, '2', 3, 3)");
+
+        res = sql("SELECT c4 FROM my WHERE c1=3");
+
+        assertEquals(3, res.get(0).get(0));
     }
 
     /**
