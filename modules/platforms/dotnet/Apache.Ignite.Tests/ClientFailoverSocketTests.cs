@@ -32,8 +32,8 @@ public class ClientFailoverSocketTests
     {
         ClientFailoverSocket.ResetGlobalEndpointIndex();
 
-        var operationTimeout = TimeSpan.FromSeconds(1);
-        var handshakeDelay = TimeSpan.FromSeconds(10);
+        var operationTimeout = TimeSpan.FromSeconds(0.5);
+        var handshakeDelay = TimeSpan.FromSeconds(2);
 
         using var server1 = new FakeServer { HandshakeDelay = handshakeDelay };
         using var server2 = new FakeServer();
@@ -44,8 +44,8 @@ public class ClientFailoverSocketTests
         };
 
         // First connection will go to server2, which does not have a delay.
-        // Second connection will be established in background, and will take 10 seconds, but will not delay operations.
-        var client = await IgniteClient.StartAsync(clientCfg).WaitAsync(operationTimeout);
+        // Second connection will be established in background, and will take 2 seconds, but will not delay operations.
+        using var client = await IgniteClient.StartAsync(clientCfg).WaitAsync(operationTimeout);
         var tables = await client.Tables.GetTablesAsync().WaitAsync(operationTimeout);
 
         Assert.AreEqual(0, tables.Count);
