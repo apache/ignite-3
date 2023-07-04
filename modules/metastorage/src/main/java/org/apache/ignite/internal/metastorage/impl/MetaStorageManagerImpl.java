@@ -516,8 +516,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public Cursor<Entry> getLocally(ByteArray startKey, ByteArray endKey, long revision) {
-        return storage.range(startKey.bytes(), endKey.bytes(), revision);
+    public Cursor<Entry> getLocally(ByteArray startKey, ByteArray endKey, long revUpperBound) {
+        return storage.range(startKey.bytes(), endKey.bytes(), revUpperBound);
     }
 
     @Override

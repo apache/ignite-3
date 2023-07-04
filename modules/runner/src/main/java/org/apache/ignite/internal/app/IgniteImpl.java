@@ -980,7 +980,7 @@ public class IgniteImpl implements Ignite {
      */
     private CompletableFuture<?> recoverComponentsStateOnStart(ExecutorService startupExecutor) {
         CompletableFuture<Void> startupConfigurationUpdate = notifyConfigurationListeners();
-        CompletableFuture<Void> startupRevisionUpdate = ((MetaStorageManagerImpl) metaStorageMgr).notifyRevisionUpdateListenerOnStart();
+        CompletableFuture<Void> startupRevisionUpdate = metaStorageMgr.notifyRevisionUpdateListenerOnStart();
 
         return CompletableFuture.allOf(startupConfigurationUpdate, startupRevisionUpdate)
                 .thenComposeAsync(t -> {

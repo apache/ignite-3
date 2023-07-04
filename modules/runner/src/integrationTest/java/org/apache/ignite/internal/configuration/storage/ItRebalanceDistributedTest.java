@@ -18,11 +18,12 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZoneReplicas;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -88,7 +89,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -125,7 +125,6 @@ import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValu
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -259,37 +258,6 @@ public class ItRebalanceDistributedTest {
         for (Node node : nodes) {
             node.stop();
         }
-    }
-
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 Remove.
-    CompletableFuture<Integer> createZone(
-            DistributionZoneManager zoneManager, String zoneName,
-            int partitions, int replicas) {
-        return createZone(zoneManager, zoneName, partitions, replicas, null);
-    }
-
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 Remove.
-    CompletableFuture<Integer> createZone(
-            DistributionZoneManager zoneManager, String zoneName,
-            int partitions, int replicas, Consumer<DataStorageChange> dataStorageChangeConsumer) {
-        return DistributionZonesTestUtil.createZone(zoneManager, zoneName, partitions, replicas, dataStorageChangeConsumer)
-                .handleAsync((zoneId, throwable) -> {
-                    try {
-                        boolean result = waitForCondition(() -> {
-                            return nodes.stream()
-                                    .map(node -> node.distributionZoneManager.dataNodes(zoneId).size())
-                                    .allMatch(integer -> integer >= 3);
-                        }, TimeUnit.SECONDS.toMillis(15));
-
-                        if (!result) {
-                            throw new RuntimeException("replicas=" + replicas);
-                        }
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-
-                    return zoneId;
-                });
     }
 
     @Test
@@ -944,7 +912,7 @@ public class ItRebalanceDistributedTest {
                 assertThat(configurationNotificationFut, willSucceedIn(1, TimeUnit.MINUTES));
 
                 return metaStorageManager.deployWatches();
-            }).thenCompose(fut -> fut);
+            }).thenCompose(identity());
         }
 
         /**

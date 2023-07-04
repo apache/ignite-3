@@ -19,6 +19,7 @@ package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,7 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -234,8 +234,6 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             ConfigurationTreeGenerator distributedConfigurationGenerator,
             ConfigurationRegistry clusterConfigRegistry
     ) {
-        AtomicLong lastRevision = new AtomicLong();
-
         CompletableFuture<?> startFuture = CompletableFuture.allOf(
                 nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                 clusterConfigRegistry.notifyCurrentConfigurationListeners()
@@ -246,7 +244,11 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
         assertThat("Partial node was not started", startFuture, willCompleteSuccessfully());
 
-        log.info("Completed recovery on partially started node, last revision applied: " + lastRevision.get());
+        Long recoveryRevision = metaStorageMgr.recoveryFinishedFuture().getNow(null);
+
+        assertNotNull(recoveryRevision);
+
+        log.info("Completed recovery on partially started node, MetaStorage revision recovered to: " + recoveryRevision);
 
         return new PartialNode(
                 components,
