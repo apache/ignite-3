@@ -61,6 +61,7 @@ import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
+import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
@@ -137,6 +138,16 @@ public class TestNode implements LifecycleAware {
                     @Override
                     public Node<Object[]> visit(IgniteTableScan rel) {
                         DataProvider<Object[]> dataProvider = rel.getTable().unwrap(TestTable.class).dataProvider(ctx.localNode().name());
+
+                        return new ScanNode<>(ctx, dataProvider);
+                    }
+
+                    @Override
+                    public Node<Object[]> visit(IgniteIndexScan rel) {
+                        TestTable tbl = rel.getTable().unwrap(TestTable.class);
+                        TestIndex idx = (TestIndex) tbl.getIndex(rel.indexName());
+
+                        DataProvider<Object[]> dataProvider = idx.dataProvider(ctx.localNode().name());
 
                         return new ScanNode<>(ctx, dataProvider);
                     }

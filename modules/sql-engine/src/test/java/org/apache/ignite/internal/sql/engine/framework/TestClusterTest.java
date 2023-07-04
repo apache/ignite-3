@@ -19,10 +19,16 @@ package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.engine.prepare.Fragment;
+import org.apache.ignite.internal.sql.engine.prepare.MultiStepQueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -44,6 +50,11 @@ public class TestClusterTest {
             .addColumn("ID", NativeTypes.INT32)
             .addColumn("VAL", NativeTypes.stringOf(64))
             .defaultDataProvider(dataProvider)
+            .addHashIndex()
+            .name("IDX_ID")
+            .addColumn("ID")
+            .defaultDataProvider(dataProvider)
+            .end()
             .end()
             .build();
     // @formatter:on
@@ -66,5 +77,30 @@ public class TestClusterTest {
         for (var row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
             assertNotNull(row);
         }
+
+        // Ensure the plan contains full table scan.
+        assertTrue(plan instanceof MultiStepQueryPlan);
+        Fragment fragment = ((MultiStepQueryPlan) plan).fragments().get(1);
+        assertTrue(fragment.root().getInput(0) instanceof IgniteTableScan);
+    }
+
+    /**
+     * Runs a SELECT query with condition.
+     */
+    @Test
+    public void testQueryWithCondition() {
+        cluster.start();
+
+        TestNode gatewayNode = cluster.node("N1");
+        QueryPlan plan = gatewayNode.prepare("SELECT * FROM t1 WHERE ID = 1");
+
+        for (List<?> row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
+            assertNotNull(row);
+        }
+
+        // Ensure the plan uses index.
+        assertTrue(plan instanceof MultiStepQueryPlan);
+        Fragment fragment = ((MultiStepQueryPlan) plan).fragments().get(1);
+        assertTrue(fragment.root().getInput(0) instanceof IgniteIndexScan);
     }
 }
