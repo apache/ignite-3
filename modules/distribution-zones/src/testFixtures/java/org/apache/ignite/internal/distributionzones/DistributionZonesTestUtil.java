@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
@@ -41,6 +42,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Map;
 import java.util.Objects;
@@ -48,9 +54,12 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -485,5 +494,30 @@ public class DistributionZonesTestUtil {
 
             assertThat(dataNodes, is(expectedValueNames));
         }
+    }
+
+    /**
+     * Creates CatalogService mock.
+     */
+    public static CatalogManager mockCatalog() {
+        AtomicInteger idGen = new AtomicInteger(0);
+
+        CatalogManager catalogManager = mock(CatalogManager.class);
+        when(catalogManager.createDistributionZone(any())).thenReturn(completedFuture(null));
+        when(catalogManager.alterDistributionZone(any())).thenReturn(completedFuture(null));
+        when(catalogManager.renameDistributionZone(any())).thenReturn(completedFuture(null));
+        when(catalogManager.dropDistributionZone(any())).thenReturn(completedFuture(null));
+        when(catalogManager.zone(anyString(), anyLong())).thenAnswer(invocation -> zoneDescriptorMock(idGen));
+
+        return catalogManager;
+    }
+
+    private static CatalogZoneDescriptor zoneDescriptorMock(AtomicInteger idGen) {
+        int zoneId = idGen.incrementAndGet();
+
+        CatalogZoneDescriptor descriptor = mock(CatalogZoneDescriptor.class);
+        when(descriptor.id()).thenReturn(zoneId);
+
+        return descriptor;
     }
 }

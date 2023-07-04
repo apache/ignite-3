@@ -76,6 +76,9 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
+
+        // TODO: IGNITE-19719 Fix it
+        this.dataStorage = new CatalogDataStorageDescriptor("aipersist", "default");
     }
 
     /**
