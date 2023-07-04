@@ -179,7 +179,7 @@ public class ColocationHashTests : IgniteTestsBase
 
         var ser = view.GetFieldValue<RecordSerializer<IIgniteTuple>>("_ser");
         var schemas = table.GetFieldValue<IDictionary<int, Task<Schema>>>("_schemas");
-        var schema = schemas.Values.Single().GetAwaiter().GetResult();
+        var schema = schemas[1].GetAwaiter().GetResult();
 
         for (int i = 0; i < 100; i++)
         {
@@ -187,6 +187,9 @@ public class ColocationHashTests : IgniteTestsBase
 
             using var writer = ProtoCommon.GetMessageWriter();
             var colocationHash = ser.Write(writer, null, schema, key);
+
+            // TODO: Compare with server hash.
+            Assert.AreEqual(123, colocationHash);
         }
     }
 
