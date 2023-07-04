@@ -841,7 +841,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                             if (e != null) {
                                 Throwable ex = unwrapCause(e);
 
-                                LOG.warn("Fragment closing processed with errors, root [queryId={}]", ex, ctx.queryId());
+                                LOG.warn("Fragment closing processed with errors: [queryId={}]", ex, ctx.queryId());
                             }
 
                             queryManagerMap.remove(ctx.queryId());
