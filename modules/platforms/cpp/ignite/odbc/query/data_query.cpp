@@ -15,14 +15,89 @@
  * limitations under the License.
  */
 
-#include <memory>
-#include <utility>
-
 #include "ignite/odbc/log.h"
 #include "ignite/odbc/odbc_error.h"
 #include "ignite/odbc/query/data_query.h"
 #include "ignite/odbc/query/cursor.h"
-#include "ignite/odbc/query/result_page.h"
+#include "ignite/tuple/binary_tuple_builder.h"
+
+#include <memory>
+#include <utility>
+
+namespace
+{
+using namespace ignite;
+
+/**
+ * Reads result set metadata.
+ *
+ * @param reader Reader.
+ * @return Result set meta columns.
+ */
+column_meta_vector read_meta(protocol::reader &reader) {
+    auto size = reader.read_array_size();
+
+    column_meta_vector columns;
+    columns.reserve(size);
+
+    reader.read_array_raw([&columns](std::uint32_t idx, const msgpack_object &obj) {
+        if (obj.type != MSGPACK_OBJECT_ARRAY)
+            throw ignite_error("Meta column expected to be serialized as array");
+
+        const msgpack_object_array &arr = obj.via.array;
+
+        constexpr std::uint32_t min_count = 6;
+        assert(arr.size >= min_count);
+
+        auto name = protocol::unpack_object<std::string>(arr.ptr[0]);
+        auto nullable = protocol::unpack_object<bool>(arr.ptr[1]);
+        auto typ = ignite_type(protocol::unpack_object<std::int32_t>(arr.ptr[2]));
+        auto scale = protocol::unpack_object<std::int32_t>(arr.ptr[3]);
+        auto precision = protocol::unpack_object<std::int32_t>(arr.ptr[4]);
+
+        bool origin_present = protocol::unpack_object<bool>(arr.ptr[5]);
+
+        if (!origin_present) {
+            columns.emplace_back("", "", std::move(name), typ, precision, scale, nullable);
+            return;
+        }
+
+        assert(arr.size >= min_count + 3);
+        auto origin_name =
+            arr.ptr[6].type == MSGPACK_OBJECT_NIL ? name : protocol::unpack_object<std::string>(arr.ptr[6]);
+
+        auto origin_schema_id = protocol::try_unpack_object<std::int32_t>(arr.ptr[7]);
+        std::string origin_schema;
+        if (origin_schema_id) {
+            if (*origin_schema_id >= std::int32_t(columns.size())) {
+                throw ignite_error("Origin schema ID is too large: " + std::to_string(*origin_schema_id)
+                    + ", id=" + std::to_string(idx));
+            }
+            origin_schema = columns[*origin_schema_id].get_schema_name();
+        } else {
+            origin_schema = protocol::unpack_object<std::string>(arr.ptr[7]);
+        }
+
+        auto origin_table_id = protocol::try_unpack_object<std::int32_t>(arr.ptr[8]);
+        std::string origin_table;
+        if (origin_table_id) {
+            if (*origin_table_id >= std::int32_t(columns.size())) {
+                throw ignite_error("Origin table ID is too large: " + std::to_string(*origin_table_id)
+                    + ", id=" + std::to_string(idx));
+            }
+            origin_table = columns[*origin_table_id].get_table_name();
+        } else {
+            origin_table = protocol::unpack_object<std::string>(arr.ptr[8]);
+        }
+
+        columns.emplace_back(
+            std::move(origin_schema), std::move(origin_table), std::move(name), typ, precision, scale, nullable);
+    });
+
+    return columns;
+}
+
+}
 
 namespace ignite
 {
@@ -31,7 +106,7 @@ data_query::data_query(diagnosable_adapter &m_diag, sql_connection &m_connection
     const parameter_set &params, std::int32_t &timeout)
     : query(m_diag, query_type::DATA)
     , m_connection(m_connection)
-    , m_sql(std::move(sql))
+    , m_query(std::move(sql))
     , m_params(params)
     , m_timeout(timeout) { }
 
@@ -120,46 +195,58 @@ bool data_query::is_closed_remotely() const
 
 sql_result data_query::make_request_execute()
 {
-    const std::string& schema = m_connection.get_schema();
+    network::data_buffer_owning response;
+    auto success = m_diag.catch_errors([&]{
+        response = m_connection.sync_request([&](protocol::writer &writer) {
+            // TODO: IGNITE-19399 Implement transactions support.
+            writer.write_nil();
 
-    query_execute_request req(schema, m_sql, m_params, m_timeout, m_connection.is_auto_commit());
-    query_execute_response rsp;
+            writer.write(m_connection.get_schema());
+            writer.write(m_connection.get_configuration().get_page_size().get_value());
+            writer.write(std::int64_t(m_connection.get_timeout()) * 1000);
+            writer.write_nil(); // Session timeout (unused, session is closed by the server immediately).
 
-    try
-    {
-        m_connection.sync_message(req, rsp);
-    }
-    catch (const odbc_error& err)
-    {
-        m_diag.add_status_record(err);
+            // Properties are not used for now.
+            writer.write(0);
+            binary_tuple_builder prop_builder{0};
+            prop_builder.start();
+            prop_builder.layout();
+            auto prop_data = prop_builder.build();
+            writer.write_binary(prop_data);
 
+            writer.write(m_query);
+
+            auto args_num = std::int32_t(m_params.get_parameters_number());
+            if (args_num == 0) {
+                writer.write_nil();
+                return;
+            }
+
+            // TODO: IGNITE-19205 Implement column bindings reading.
+            throw odbc_error(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Parameters are not yet supported");
+        });
+    });
+
+    if (!success)
         return sql_result::AI_ERROR;
-    }
-    catch (const ignite_error& err)
-    {
-        m_diag.add_status_record(err.get_text());
 
-        return sql_result::AI_ERROR;
-    }
+    protocol::reader reader(response.get_bytes_view());
 
-    if (rsp.get_status() != response_status::SUCCESS)
-    {
-        LOG_MSG("Error: " << rsp.get_error());
-
-        m_diag.add_status_record(response_status_to_sql_state(rsp.get_status()), rsp.get_error());
-
-        return sql_result::AI_ERROR;
+    auto resource_id = reader.read_object_nullable<std::int64_t>();
+    if (resource_id) {
+        m_cursor = std::make_unique<cursor>(*resource_id);
     }
 
-    m_rows_affected = rsp.get_affected_rows();
-    set_resultset_meta(rsp.get_meta());
+    bool has_rowset = reader.read_bool();
+    UNUSED_VALUE reader.read_bool(); // has_more_pages
+    UNUSED_VALUE reader.read_bool(); // was_applied
+    m_rows_affected = reader.read_int64();
 
-    LOG_MSG("Query id: " << rsp.get_query_id());
-    LOG_MSG("Affected Rows: " << m_rows_affected);
-
-    m_cursor = std::make_unique<cursor>(rsp.get_query_id());
-
-    return sql_result::AI_SUCCESS;
+    if (has_rowset) {
+        auto columns = read_meta(reader);
+        set_resultset_meta(columns);
+        // TODO: IGNITE-19213 Implement data fetching
+    }
 }
 
 sql_result data_query::make_request_close()

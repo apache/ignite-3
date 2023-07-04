@@ -25,7 +25,6 @@ namespace ignite
 {
 
 class cursor;
-class result_page;
 
 /**
  * Data query.
@@ -120,9 +119,8 @@ public:
      *
      * @return SQL query string.
      */
-    [[nodiscard]] const std::string& get_sql() const
-    {
-        return m_sql;
+    [[nodiscard]] const std::string& get_query() const {
+        return m_query;
     }
 
 private:
@@ -190,7 +188,7 @@ private:
     sql_connection &m_connection;
 
     /** SQL query. */
-    std::string m_sql;
+    std::string m_query;
 
     /** Parameter bindings. */
     const parameter_set &m_params;
@@ -206,9 +204,6 @@ private:
 
     /** Cursor. */
     std::unique_ptr<cursor> m_cursor;
-
-    /** Cached next result page. */
-    std::unique_ptr<result_page> m_cached_next_page;
 
     /** Timeout. */
     std::int32_t &m_timeout;

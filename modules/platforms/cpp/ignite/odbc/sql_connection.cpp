@@ -26,6 +26,7 @@
 
 #include <ignite/common/bytes.h>
 #include <ignite/network/network.h>
+#include <ignite/protocol/client_operation.h>
 
 #include <algorithm>
 #include <cstring>
@@ -328,6 +329,48 @@ sql_connection::operation_result sql_connection::receive_all(void* dst, std::siz
     return operation_result::SUCCESS;
 }
 
+void sql_connection::send_message(bytes_view req, std::int32_t timeout) {
+    ensure_connected();
+
+    bool success = send(req.data(), req.size(), timeout);
+    if (!success)
+        throw odbc_error(sql_state::SHYT00_TIMEOUT_EXPIRED, "Could not send a request due to timeout");
+}
+
+network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std::int32_t timeout) {
+    ensure_connected();
+    std::vector<std::byte> res;
+
+    while (true) {
+        bool success = receive(res, timeout);
+        if (!success)
+            throw odbc_error(sql_state::SHYT00_TIMEOUT_EXPIRED, "Could not receive a response within timeout");
+
+        protocol::reader reader(res);
+        auto response_type = reader.read_int32();
+        if (detail::message_type(response_type) != detail::message_type::RESPONSE) {
+            LOG_MSG("Unsupported message type: " + std::to_string(response_type));
+            continue;
+        }
+
+        auto req_id = reader.read_int64();
+        if (req_id != id) {
+            throw odbc_error(sql_state::S08S01_LINK_FAILURE,
+                "Response with unknown ID is received: " + std::to_string(req_id));
+        }
+
+        auto flags = reader.read_int32();
+        UNUSED_VALUE flags; // Flags are unused for now.
+
+        auto err = protocol::read_error(reader);
+        if (err) {
+            throw odbc_error(sql_state::SHY000_GENERAL_ERROR, err.value().what_str());
+        }
+
+        return network::data_buffer_owning{std::move(res), reader.position()};
+    }
+}
+
 const configuration&sql_connection::get_configuration() const
 {
     return m_config;
@@ -502,6 +545,21 @@ sql_result sql_connection::internal_set_attribute(int attr, void* value, SQLINTE
     }
 
     return sql_result::AI_SUCCESS;
+}
+
+std::vector<std::byte> sql_connection::make_request(std::int64_t id,
+    const std::function<void(protocol::writer &)> &func) {
+    std::vector<std::byte> req;
+    protocol::buffer_adapter buffer(req);
+    buffer.reserve_length_header();
+
+    protocol::writer writer(buffer);
+    writer.write(id);
+    func(writer);
+
+    buffer.write_length_header();
+
+    return req;
 }
 
 sql_result sql_connection::make_request_handshake()
