@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import static java.util.stream.Collectors.toList;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
@@ -35,13 +36,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
-import org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorage;import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
+import org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorage;
+import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
+import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -1325,6 +1329,8 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getStripes(),
                 logStorage instanceof RocksDbSharedLogStorage
             ));
+
+            opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));
         }
     }
 
@@ -3200,6 +3206,7 @@ public class NodeImpl implements Node, RaftServerService {
         if (opts.getLogManagerDisruptor() != null && !opts.isSharedPools()) {
             opts.getLogManagerDisruptor().shutdown();
             opts.setLogManagerDisruptor(null);
+            opts.setLogStripes(null);
         }
     }
 

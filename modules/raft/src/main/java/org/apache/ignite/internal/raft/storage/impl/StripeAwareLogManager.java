@@ -165,6 +165,8 @@ public class StripeAwareLogManager extends LogManagerImpl {
             toAppend.clear();
             storage.clear();
             size = 0;
+
+            setDiskId(lastId);
         }
 
         @Override
@@ -219,6 +221,10 @@ public class StripeAwareLogManager extends LogManagerImpl {
          * Performs an composite flush for all log storages that belong to the stripe.
          */
         void flush() {
+            if (size == 0) {
+                return;
+            }
+
             // At first, all log storages should prepare the data by adding it to the write batch in the log storage factory.
             for (StripeAwareAppendBatcher appendBatcher : appendBatchers) {
                 appendBatcher.appendToStorage();

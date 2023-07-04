@@ -530,6 +530,8 @@ public class LogManagerImpl implements LogManager {
             }
             else {
                 this.lastId = this.ab.flush();
+                setDiskId(this.lastId);
+
                 boolean ret = true;
                 switch (eventType) {
                     case LAST_LOG_ID:
@@ -596,7 +598,7 @@ public class LogManagerImpl implements LogManager {
         this.fsmCaller.onError(error);
     }
 
-    private void setDiskId(final LogId id) {
+    protected void setDiskId(final LogId id) {
         if (id == null) {
             return;
         }

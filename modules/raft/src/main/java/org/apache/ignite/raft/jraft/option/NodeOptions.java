@@ -596,12 +596,10 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setLogManagerDisruptor(StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor) {
         this.logManagerDisruptor = logManagerDisruptor;
+    }
 
-        if (logManagerDisruptor == null) {
-            logStripes = null;
-        } else {
-            this.logStripes = IntStream.range(0, stripes).mapToObj(i -> new StripeAwareLogManager.Stripe()).collect(Collectors.toList());
-        }
+    public void setLogStripes(List<Stripe> logStripes) {
+        this.logStripes = logStripes;
     }
 
     public List<Stripe> getLogStripes() {
@@ -643,6 +641,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setfSMCallerExecutorDisruptor(this.getfSMCallerExecutorDisruptor());
         nodeOptions.setReadOnlyServiceDisruptor(this.getReadOnlyServiceDisruptor());
         nodeOptions.setLogManagerDisruptor(this.getLogManagerDisruptor());
+        nodeOptions.setLogStripes(this.getLogStripes());
         nodeOptions.setElectionTimer(this.getElectionTimer());
         nodeOptions.setVoteTimer(this.getVoteTimer());
         nodeOptions.setSnapshotTimer(this.getSnapshotTimer());
