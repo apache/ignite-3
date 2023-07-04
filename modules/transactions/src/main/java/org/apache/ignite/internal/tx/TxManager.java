@@ -69,7 +69,6 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @param before Before state.
      * @param after After state.
-     * @return {@code True} if a state was changed.
      */
     // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
     @Deprecated
@@ -131,6 +130,7 @@ public interface TxManager extends IgniteComponent {
 
     /**
      * Returns a number of pending transactions, that is, transactions that have not yet been committed.
+     *
      * @return A number of pending transactions.
      */
     @TestOnly
