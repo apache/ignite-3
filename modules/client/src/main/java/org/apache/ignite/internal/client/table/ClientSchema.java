@@ -106,7 +106,6 @@ public class ClientSchema {
     Iterable<ClientColumn> colocationColumns() {
         if (colocationColumns != null) {
             return () -> new Iterator<>() {
-                /**  */
                 private int idx;
 
                 @Override
@@ -122,7 +121,6 @@ public class ClientSchema {
             };
         } else {
             return () -> new Iterator<>() {
-                /**  */
                 private int idx;
 
                 @Override
