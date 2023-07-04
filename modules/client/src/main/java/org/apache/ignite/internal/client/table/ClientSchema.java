@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.client.table;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.Iterator;
 import java.util.Map;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.BinaryMode;
@@ -104,9 +103,40 @@ public class ClientSchema {
      *
      * @return Colocation columns.
      */
-    public List<ClientColumn> colocationColumns() {
-        // TODO: Iterable/iterator?
-        return colocationColumns;
+    Iterable<ClientColumn> colocationColumns() {
+        if (colocationColumns != null) {
+            return () -> new Iterator<>() {
+                /**  */
+                private int idx;
+
+                @Override
+                public boolean hasNext() {
+                    return idx < colocationColumns.length;
+                }
+
+                @SuppressWarnings("IteratorNextCanNotThrowNoSuchElementException")
+                @Override
+                public ClientColumn next() {
+                    return columns[colocationColumns[idx++]];
+                }
+            };
+        } else {
+            return () -> new Iterator<>() {
+                /**  */
+                private int idx;
+
+                @Override
+                public boolean hasNext() {
+                    return idx < keyColumnCount;
+                }
+
+                @SuppressWarnings("IteratorNextCanNotThrowNoSuchElementException")
+                @Override
+                public ClientColumn next() {
+                    return columns[idx++];
+                }
+            };
+        }
     }
 
     /**
