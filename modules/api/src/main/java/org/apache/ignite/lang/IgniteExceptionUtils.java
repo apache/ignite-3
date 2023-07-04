@@ -157,7 +157,7 @@ public class IgniteExceptionUtils {
      */
     public static int extractCodeFrom(Throwable t) {
         if (t instanceof TraceableException) {
-            return ((IgniteException) t).code();
+            return ((TraceableException) t).code();
         }
 
         return INTERNAL_ERR;
