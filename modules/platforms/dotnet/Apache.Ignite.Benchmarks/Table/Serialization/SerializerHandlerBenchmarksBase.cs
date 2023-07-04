@@ -46,9 +46,9 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
         internal static readonly Schema Schema = new(1, 1, 1, new[]
         {
-            new Column(nameof(Car.Id), ColumnType.Uuid, IsNullable: false, IsColocation: true, IsKey: true, SchemaIndex: 0, Scale: 0, Precision: 0),
-            new Column(nameof(Car.BodyType), ColumnType.String, IsNullable: false, IsColocation: false, IsKey: false, SchemaIndex: 1, Scale: 0, Precision: 0),
-            new Column(nameof(Car.Seats), ColumnType.Int32, IsNullable: false, IsColocation: false, IsKey: false, SchemaIndex: 2, Scale: 0, Precision: 0)
+            new Column(nameof(Car.Id), ColumnType.Uuid, IsNullable: false, IsKey: true, SchemaIndex: 0, Scale: 0, Precision: 0) { IsColocation = true},
+            new Column(nameof(Car.BodyType), ColumnType.String, IsNullable: false, IsKey: false, SchemaIndex: 1, Scale: 0, Precision: 0),
+            new Column(nameof(Car.Seats), ColumnType.Int32, IsNullable: false, IsKey: false, SchemaIndex: 2, Scale: 0, Precision: 0)
         });
 
         internal static readonly byte[] SerializedData = GetSerializedData();
