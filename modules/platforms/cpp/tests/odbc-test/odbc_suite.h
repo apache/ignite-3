@@ -76,7 +76,7 @@ public:
     /**
      * Prepare handles for connection.
      */
-    void prepare_environment(){
+    void prepare_environment() {
         // Allocate an environment handle
         SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &m_env);
 
@@ -100,14 +100,14 @@ public:
         prepare_environment();
 
         // Connect string
-        std::vector<SQLCHAR> connect_str0(connect_str.begin(), connect_str.end());
+        auto connect_str0 = make_odbc_string(connect_str);
 
         SQLCHAR out_str[ODBC_BUFFER_SIZE];
         SQLSMALLINT out_str_len;
 
         // Connecting to ODBC server.
-        SQLRETURN ret = SQLDriverConnect(m_conn, NULL, &connect_str0[0], static_cast<SQLSMALLINT>(connect_str0.size()),
-            out_str, sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
+        SQLRETURN ret = SQLDriverConnect(m_conn, nullptr, &connect_str0[0],
+            static_cast<SQLSMALLINT>(connect_str0.size()), out_str, sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
 
         if (!SQL_SUCCEEDED(ret)) {
             FAIL() << get_odbc_error_message(SQL_HANDLE_DBC, m_conn);
@@ -117,6 +117,27 @@ public:
         SQLAllocHandle(SQL_HANDLE_STMT, m_conn, &m_statement);
 
         EXPECT_TRUE(m_statement != nullptr);
+    }
+
+    /**
+     * Convert string to SQLCHAR vector.
+     *
+     * @param str String.
+     * @return SQLCHAR vector.
+     */
+    static std::vector<SQLCHAR> make_odbc_string(std::string_view str) {
+        return {str.begin(), str.end()};
+    }
+
+    /**
+     * Execute query.
+     *
+     * @param qry Query.
+     * @return Result.
+     */
+    SQLRETURN exec_query(const std::string& qry) { // NOLINT(readability-make-member-function-const)
+        auto sql = make_odbc_string(qry);
+        return SQLExecDirect(m_statement, sql.data(), static_cast<SQLINTEGER>(sql.size()));
     }
 
     /**
