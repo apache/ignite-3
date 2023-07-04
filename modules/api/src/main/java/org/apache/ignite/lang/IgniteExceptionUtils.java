@@ -142,15 +142,8 @@ public class IgniteExceptionUtils {
      * @return Trace identifier.
      */
     public static @Nullable UUID extractTraceIdFrom(Throwable t) {
-        // Perhaps, it would be nice to introduce a new interface IgniteTraceableException to overcome if else statements.
-        if (t instanceof IgniteException) {
-            return ((IgniteException) t).traceId();
-        } else if (t instanceof IgniteCheckedException) {
-            return ((IgniteCheckedException) t).traceId();
-        } else if (t instanceof IgniteInternalException) {
-            return ((IgniteInternalException) t).traceId();
-        } else if (t instanceof IgniteInternalCheckedException) {
-            return ((IgniteInternalCheckedException) t).traceId();
+        if (t instanceof TraceableException) {
+            return ((TraceableException) t).traceId();
         }
 
         return null;
@@ -163,15 +156,8 @@ public class IgniteExceptionUtils {
      * @return Trace identifier.
      */
     public static int extractCodeFrom(Throwable t) {
-        // Perhaps, it would be nice to introduce a new interface IgniteTraceableException to overcome if else statements.
-        if (t instanceof IgniteException) {
+        if (t instanceof TraceableException) {
             return ((IgniteException) t).code();
-        } else if (t instanceof IgniteCheckedException) {
-            return ((IgniteCheckedException) t).code();
-        } else if (t instanceof IgniteInternalException) {
-            return ((IgniteInternalException) t).code();
-        } else if (t instanceof IgniteInternalCheckedException) {
-            return ((IgniteInternalCheckedException) t).code();
         }
 
         return INTERNAL_ERR;
@@ -298,8 +284,7 @@ public class IgniteExceptionUtils {
                 T exc = copy(constructor, traceId, code, message, cause);
 
                 // Make sure that error code and trace id are the same.
-                if (exc instanceof IgniteException || exc instanceof IgniteCheckedException || exc instanceof IgniteInternalException
-                        || exc instanceof IgniteInternalCheckedException) {
+                if (exc instanceof TraceableException) {
                     // Error code should be the same
                     assert code == extractCodeFrom(exc) :
                             "Unexpected error code [originCode=" + code + ", code=" + extractCodeFrom(exc) + ", err=" + exc + ']';
