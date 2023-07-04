@@ -268,6 +268,24 @@ public interface Tuple extends Iterable<Object> {
     BinaryObject binaryObjectValue(int columnIndex);
 
     /**
+     * Gets a {@code boolean} column value.
+     *
+     * @param columnName Column name.
+     * @return Column value.
+     * @throws IllegalArgumentException If no column with given name exists.
+     */
+    boolean booleanValue(@NotNull String columnName);
+
+    /**
+     * Gets {@code boolean} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
+     */
+    boolean booleanValue(int columnIndex);
+
+    /**
      * Gets a {@code byte} column value.
      *
      * @param columnName Column name.

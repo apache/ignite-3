@@ -40,6 +40,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public enum NativeTypeSpec {
     /**
+     * Native type representing a boolean value.
+     */
+    BOOLEAN("boolean", true),
+
+    /**
      * Native type representing a single-byte signed value.
      */
     INT8("int8", true),
@@ -117,9 +122,7 @@ public enum NativeTypeSpec {
     /**
      * Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision.
      */
-    TIMESTAMP("timestamp", true),
-
-    BOOLEAN("boolean", true);
+    TIMESTAMP("timestamp", true);
 
     /** Cached array with all enum values. */
     private static final NativeTypeSpec[] VALUES = values();
