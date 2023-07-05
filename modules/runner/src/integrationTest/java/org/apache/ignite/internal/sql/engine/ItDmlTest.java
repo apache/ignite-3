@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -35,7 +33,6 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -612,35 +609,5 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(4, 4)
                 .returns(5, 2)
                 .check();
-    }
-
-    /**
-     * TODO to remove.
-     *
-     * @throws InterruptedException If failed.
-     */
-    @Test
-    public void testBoolean() throws InterruptedException {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL BOOLEAN)");
-        sql("CREATE INDEX test_idx ON TEST(val)");
-
-        Thread.sleep(1_000);
-
-        sql("INSERT INTO TEST VALUES(1, true)");
-        sql("INSERT INTO TEST VALUES(2, false)");
-        sql("INSERT INTO TEST VALUES(3, false)");
-
-        KeyValueView<Integer, Boolean> kvView = CLUSTER_NODES.get(0).tables().table("TEST")
-                .keyValueView(Integer.class, Boolean.class);
-
-        boolean val = kvView.get(null, 1);
-
-        assertTrue(val);
-
-        assertFalse(kvView.get(null, 2));
-
-        kvView.put(null, 4, true);
-
-        assertQuery("SELECT VAL FROM TEST WHERE ID=4").returns(true).check();
     }
 }
