@@ -100,12 +100,7 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             return completedFuture(null);
         }
 
-        CompletableFuture<Void> txFinishFuture = ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(
-                new TxIdAndTimestamp(readTimestamp, id()));
-
-        // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
-        txManager.changeState(id(), PENDING, COMMITED);
-
-        return txFinishFuture;
+        return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(
+                new TxIdAndTimestamp(readTimestamp, id())).thenRun(() -> txManager.changeState(id(), PENDING, COMMITED));
     }
 }

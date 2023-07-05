@@ -62,6 +62,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -279,6 +280,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19919")
     public void errors() throws InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
