@@ -30,13 +30,12 @@ import org.apache.ignite.internal.placementdriver.LeaseMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * A lease representation in memory.
  * The real lease is stored in Meta storage.
  */
-public class Lease implements LeaseMeta, Comparable<Lease> {
+public class Lease implements LeaseMeta {
     /** The object is used when nothing holds the lease. Empty lease is always expired. */
     public static Lease EMPTY_LEASE = new Lease(null, MIN_VALUE, MIN_VALUE, null);
 
@@ -268,12 +267,5 @@ public class Lease implements LeaseMeta, Comparable<Lease> {
     @Override
     public int hashCode() {
         return Objects.hash(leaseholder, accepted, startTime, expirationTime, prolongable, replicationGroupId);
-    }
-
-    @Override
-    public int compareTo(@NotNull Lease o) {
-        String s1 = replicationGroupId == null ? "" : replicationGroupId.toString();
-        String s2 = o.replicationGroupId == null ? "" : o.replicationGroupId.toString();
-        return s1.compareTo(s2);
     }
 }

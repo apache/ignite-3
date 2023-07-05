@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.placementdriver.leases;
 
-import static java.util.Collections.unmodifiableNavigableMap;
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
@@ -27,13 +28,11 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.NavigableMap;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -77,7 +76,7 @@ public class LeaseTracker implements PlacementDriver {
     private final AtomicBoolean isStopped = new AtomicBoolean();
 
     /** Leases cache. */
-    private volatile IgniteBiTuple<NavigableMap<ReplicationGroupId, Lease>, byte[]> leases;
+    private volatile IgniteBiTuple<Map<ReplicationGroupId, Lease>, byte[]> leases;
 
     /** Map of primary replica waiters. */
     private final Map<ReplicationGroupId, PendingIndependentComparableValuesTracker<HybridTimestamp, LeaseMeta>> primaryReplicaWaiters;
@@ -95,7 +94,7 @@ public class LeaseTracker implements PlacementDriver {
         this.vaultManager = vaultManager;
         this.msManager = msManager;
 
-        this.leases = new IgniteBiTuple<>(unmodifiableNavigableMap(createLeasesMap()), new byte[0]);
+        this.leases = new IgniteBiTuple<>(emptyMap(), new byte[0]);
         this.primaryReplicaWaiters = new ConcurrentHashMap<>();
     }
 
@@ -109,7 +108,7 @@ public class LeaseTracker implements PlacementDriver {
 
         VaultEntry entry = entryFut.join();
 
-        NavigableMap<ReplicationGroupId, Lease> leasesMap = createLeasesMap();
+        Map<ReplicationGroupId, Lease> leasesMap = new HashMap<>();
 
         byte[] leasesBytes;
 
@@ -128,13 +127,9 @@ public class LeaseTracker implements PlacementDriver {
             leasesBytes = new byte[0];
         }
 
-        leases = new IgniteBiTuple<>(unmodifiableNavigableMap(leasesMap), leasesBytes);
+        leases = new IgniteBiTuple<>(unmodifiableMap(leasesMap), leasesBytes);
 
         LOG.info("Leases cache recovered [leases={}]", leases);
-    }
-
-    private NavigableMap<ReplicationGroupId, Lease> createLeasesMap() {
-        return new TreeMap<>(Comparator.comparing(Object::toString));
     }
 
     /**
@@ -170,7 +165,7 @@ public class LeaseTracker implements PlacementDriver {
      *
      * @return Collection of leases.
      */
-    public IgniteBiTuple<NavigableMap<ReplicationGroupId, Lease>, byte[]> leasesCurrent() {
+    public IgniteBiTuple<Map<ReplicationGroupId, Lease>, byte[]> leasesCurrent() {
         return leases;
     }
 
@@ -184,7 +179,7 @@ public class LeaseTracker implements PlacementDriver {
                 Entry msEntry = entry.newEntry();
 
                 byte[] leasesBytes = msEntry.value();
-                NavigableMap<ReplicationGroupId, Lease> leasesMap = createLeasesMap();
+                Map<ReplicationGroupId, Lease> leasesMap = new HashMap<>();
 
                 LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leasesBytes).order(ByteOrder.LITTLE_ENDIAN));
 
@@ -209,7 +204,7 @@ public class LeaseTracker implements PlacementDriver {
                     }
                 }
 
-                LeaseTracker.this.leases = new IgniteBiTuple<>(unmodifiableNavigableMap(leasesMap), leasesBytes);
+                LeaseTracker.this.leases = new IgniteBiTuple<>(unmodifiableMap(leasesMap), leasesBytes);
             }
 
             return completedFuture(null);
@@ -239,7 +234,7 @@ public class LeaseTracker implements PlacementDriver {
             return failedFuture(new NodeStoppingException("Component is stopping."));
         }
 
-        NavigableMap<ReplicationGroupId, Lease> leasesMap = leases.get1();
+        Map<ReplicationGroupId, Lease> leasesMap = leases.get1();
 
         try {
             Lease lease = leasesMap.getOrDefault(replicationGroupId, EMPTY_LEASE);

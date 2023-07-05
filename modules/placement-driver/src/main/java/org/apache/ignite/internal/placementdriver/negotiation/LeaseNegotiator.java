@@ -84,7 +84,9 @@ public class LeaseNegotiator {
                         leaseInterval)
                 .handle((msg, throwable) -> {
                     if (throwable != null) {
-                        LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, lease);
+                        // TODO commented this because of log flooding due to incorrect lease cleanup
+                        // TODO https://issues.apache.org/jira/browse/IGNITE-18959
+                        // LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, lease);
                     } else {
                         assert msg instanceof LeaseGrantedMessageResponse : "Message type is unexpected [type="
                                 + msg.getClass().getSimpleName() + ']';

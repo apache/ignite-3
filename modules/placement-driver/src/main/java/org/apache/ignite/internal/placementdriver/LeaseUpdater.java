@@ -26,14 +26,11 @@ import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -220,7 +217,7 @@ public class LeaseUpdater {
 
         leaseNegotiator.onLeaseRemoved(grpId);
 
-        IgniteBiTuple<NavigableMap<ReplicationGroupId, Lease>, byte[]> leasesCurrent = leaseTracker.leasesCurrent();
+        IgniteBiTuple<Map<ReplicationGroupId, Lease>, byte[]> leasesCurrent = leaseTracker.leasesCurrent();
 
         Collection<Lease> leases = leasesCurrent.getKey().values();
         List<Lease> renewedLeases = new ArrayList<>();
@@ -282,13 +279,9 @@ public class LeaseUpdater {
             while (updaterTread != null && !updaterTread.isInterrupted()) {
                 long outdatedLeaseThreshold = clock.now().getPhysical() + LEASE_INTERVAL / 2;
 
-                IgniteBiTuple<NavigableMap<ReplicationGroupId, Lease>, byte[]> leasesCurrent = leaseTracker.leasesCurrent();
+                IgniteBiTuple<Map<ReplicationGroupId, Lease>, byte[]> leasesCurrent = leaseTracker.leasesCurrent();
                 Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
-                NavigableMap<ReplicationGroupId, Lease> renewedLeases = new TreeMap<>(Comparator.comparing(Object::toString));
-
-                for (Lease lease : leasesCurrent.getKey().values()) {
-                    renewedLeases.put(lease.replicationGroupId(), lease);
-                }
+                Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.getKey());
 
                 for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : assignmentsTracker.assignments().entrySet()) {
                     ReplicationGroupId grpId = entry.getKey();
