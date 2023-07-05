@@ -111,6 +111,30 @@ public class BinaryTupleParser {
     }
 
     /**
+     * Trims a number of elements from the end of the tuple.
+     *
+     * @param elementCount Number of elements to retain.
+     * @return Resulting tuple buffer.
+     */
+    public ByteBuffer slice(int elementCount) {
+        assert elementCount > 0 : "elementCount must be positive";
+
+        if (elementCount >= elementCount()) {
+            return byteBuffer();
+        }
+
+        int entry = entryBase + (elementCount - 1) * entrySize;
+        int valueSize = getOffset(entry);
+        var entryTableSize = entrySize * elementCount;
+
+        var resBuf = ByteBuffer.allocate(BinaryTupleCommon.HEADER_SIZE + entryTableSize + valueSize);
+        resBuf.put(buffer.slice().position(0).limit(BinaryTupleCommon.HEADER_SIZE + entryTableSize));
+        resBuf.put(buffer.slice().position(valueBase).limit(valueBase + valueSize));
+
+        return resBuf;
+    }
+
+    /**
      * Locate the specified tuple element.
      *
      * @param index Index of the element.
