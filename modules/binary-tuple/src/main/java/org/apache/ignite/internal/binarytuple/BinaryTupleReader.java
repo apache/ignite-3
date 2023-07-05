@@ -370,4 +370,21 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
     public void seek(int index) {
         fetch(index, this);
     }
+
+    /**
+     * Trims a number of elements from the end of the tuple.
+     *
+     * @param retainedElementCount Number of elements to retain.
+     * @return Resulting tuple buffer.
+     */
+    public ByteBuffer trimEnd(int retainedElementCount) {
+        assert retainedElementCount > 0 : "retainedElementCount must be positive";
+
+        if (retainedElementCount >= elementCount()) {
+            return byteBuffer();
+        }
+
+        // TODO
+        return null;
+    }
 }
