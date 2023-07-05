@@ -181,7 +181,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
     /** Check transaction change status with erroneous statements.  */
     @Test
-        public void testTxStateChangedOnErroneousOp() {
+    public void testTxStateChangedOnErroneousOp() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19916 need to be refactored
@@ -206,14 +206,17 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         }
 
         assertEquals(0, txManagerInternal.finished() - txPrevCnt);
+        assertEquals(1, txManagerInternal.pending());
         InternalTransaction tx0 = (InternalTransaction) tx;
         assertEquals(TxState.PENDING, tx0.state());
 
         tx.rollback();
         assertEquals(1, txManagerInternal.finished() - txPrevCnt);
+        assertEquals(0, txManagerInternal.pending());
 
         sql("INSERT INTO TEST VALUES(1, 1)");
         assertEquals(2, txManagerInternal.finished() - txPrevCnt);
+        assertEquals(0, txManagerInternal.pending());
 
         var schemaManager = new ErroneousSchemaManager();
 
@@ -233,6 +236,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         }
 
         assertEquals(4, txManagerInternal.finished() - txPrevCnt);
+        assertEquals(0, txManagerInternal.pending());
 
         IgniteTestUtils.setFieldValue(queryProc, "sqlSchemaManager", oldManager);
     }
