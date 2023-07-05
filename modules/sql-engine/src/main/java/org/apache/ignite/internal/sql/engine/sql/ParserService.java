@@ -15,19 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
-
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
-import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+package org.apache.ignite.internal.sql.engine.sql;
 
 /**
- * Preparation service that accepts an AST of the query and returns a prepared query plan.
+ * A service whose sole purpose is to take a query string and convert it into a syntax tree according to the rules of grammar.
+ *
+ * @see ParsedResult
  */
-public interface PrepareService extends LifecycleAware {
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface ParserService {
     /**
-     * Prepare query plan.
+     * Takes a query string and convert it into a syntax tree according to the rules of grammar.
+     *
+     * @param query A query to convert.
+     * @return Result of the parsing.
      */
-    CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, BaseQueryContext ctx);
+    ParsedResult parse(String query);
 }

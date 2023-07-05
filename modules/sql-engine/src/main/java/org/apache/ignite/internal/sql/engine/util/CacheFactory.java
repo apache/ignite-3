@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
-
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
-import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+package org.apache.ignite.internal.sql.engine.util;
 
 /**
- * Preparation service that accepts an AST of the query and returns a prepared query plan.
+ * Factory that creates a cache.
  */
-public interface PrepareService extends LifecycleAware {
+public interface CacheFactory {
     /**
-     * Prepare query plan.
+     * Creates a cache with a desired size.
+     *
+     * @param size Desired size of the cache.
+     * @return An instance of the cache.
+     * @param <K> Type of the key object.
+     * @param <V> Type of the value object.
      */
-    CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, BaseQueryContext ctx);
+    <K, V> Cache<K, V> create(int size);
 }
