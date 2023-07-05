@@ -213,7 +213,7 @@ public class ColocationHashTests : IgniteTestsBase
             builder.AppendObjectWithType(obj, timePrecision, timestampPrecision);
         }
 
-        return (builder.Build().ToArray(), builder.Hash);
+        return (builder.Build().ToArray(), Hash: builder.GetHash());
     }
 
     private static int WriteAsIgniteTuple(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
@@ -234,7 +234,7 @@ public class ColocationHashTests : IgniteTestsBase
             var noValueSet = new byte[arr.Count].AsSpan();
 
             TupleSerializerHandler.Instance.Write(ref builder, igniteTuple, schema, arr.Count, noValueSet);
-            return builder.Hash;
+            return builder.GetHash();
         }
         finally
         {

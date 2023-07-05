@@ -105,7 +105,23 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <summary>
         /// Gets the hash from column values according to specified <see cref="IHashedColumnIndexProvider"/>.
         /// </summary>
-        public int Hash => _hash;
+        /// <returns>Column hash according to specified <see cref="IHashedColumnIndexProvider"/>.</returns>
+        public int GetHash()
+        {
+            if (_hashedColumnsPredicate == null)
+            {
+                Debug.Fail("HashedColumnsPredicate is null");
+                return 0;
+            }
+
+            if (_hashedColumnsPredicate.HashedColumnsOrdered)
+            {
+                return _hash;
+            }
+
+            // TODO: Combine hashes from the buffer.
+            return -1;
+        }
 
         /// <summary>
         /// Appends a null value.

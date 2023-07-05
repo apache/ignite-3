@@ -352,7 +352,6 @@ namespace Apache.Ignite.Internal.Table
                 }
             }
 
-            // TODO: ColocationIndex or separate array in schema?
             var colocationColumnCount = r.ReadArrayHeader();
             int[]? colocationColumns = null;
             bool colocationColumnsOrdered = true;
