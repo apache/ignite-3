@@ -27,17 +27,13 @@ internal record Column(
     ColumnType Type,
     bool IsNullable,
     bool IsKey,
+    int ColocationIndex,
     int SchemaIndex,
     int Scale,
     int Precision)
 {
     /// <summary>
-    /// Gets or sets the colocation index.
-    /// </summary>
-    public int? ColocationIndex { get; set; }
-
-    /// <summary>
     /// Gets a value indicating whether this column participates in colocation.
     /// </summary>
-    public bool IsColocation => ColocationIndex != null;
+    public bool IsColocation => ColocationIndex >= 0;
 }

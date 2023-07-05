@@ -337,35 +337,19 @@ namespace Apache.Ignite.Internal.Table
                 var type = r.ReadInt32();
                 var isKey = r.ReadBoolean();
                 var isNullable = r.ReadBoolean();
+                var colocationIndex = r.ReadInt32();
                 var scale = r.ReadInt32();
                 var precision = r.ReadInt32();
 
                 r.Skip(propertyCount - expectedCount);
 
-                var column = new Column(name, (ColumnType)type, isNullable, isKey, i, scale, precision);
+                var column = new Column(name, (ColumnType)type, isNullable, isKey, colocationIndex, i, scale, precision);
 
                 columns[i] = column;
 
                 if (isKey)
                 {
                     keyColumnCount++;
-                }
-            }
-
-            var colocationColumnCount = r.ReadArrayHeader();
-            if (colocationColumnCount == 0)
-            {
-                for (var i = 0; i < keyColumnCount; i++)
-                {
-                    columns[i].ColocationIndex = i;
-                }
-            }
-            else
-            {
-                for (var i = 0; i < colocationColumnCount; i++)
-                {
-                    var idx = r.ReadInt32();
-                    columns[idx].ColocationIndex = i;
                 }
             }
 
