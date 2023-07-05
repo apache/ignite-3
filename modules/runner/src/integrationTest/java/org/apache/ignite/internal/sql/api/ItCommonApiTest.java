@@ -184,7 +184,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         public void testTxStateChangedOnErroneousOp() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        // TODO: need to be refactored after https://issues.apache.org/jira/browse/IGNITE-19663
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19916 need to be refactored
         TxManager txManagerInternal =
                 (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
 
