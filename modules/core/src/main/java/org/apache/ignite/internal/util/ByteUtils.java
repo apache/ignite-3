@@ -193,6 +193,22 @@ public class ByteUtils {
     }
 
     /**
+     * Converts a {@link Byte} value to a boolean.
+     *
+     * @param val Byte value.
+     * @return Boolean representation of a byte value.
+     */
+    public static boolean byteToBoolean(byte val) {
+        if (val == 1) {
+            return true;
+        } else {
+            assert val == 0 : "val=" + val;
+
+            return false;
+        }
+    }
+
+    /**
      * Serializes an object to byte array using native java serialization mechanism.
      *
      * @param obj Object to serialize.

@@ -362,6 +362,7 @@ public class ColumnBindingTest {
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendTimestamp(Mockito.any(Instant.class));
 
         Mockito.doAnswer(rowAnswer).when(mockedRow).booleanValue(Mockito.anyInt());
+        Mockito.doAnswer(rowAnswer).when(mockedRow).booleanValueBoxed(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).byteValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).byteValueBoxed(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).shortValue(Mockito.anyInt());

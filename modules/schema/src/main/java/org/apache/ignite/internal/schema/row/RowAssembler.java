@@ -47,6 +47,7 @@ import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.TemporalNativeType;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.TemporalTypeUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -271,7 +272,7 @@ public class RowAssembler {
     public RowAssembler appendBoolean(boolean val) throws SchemaMismatchException {
         checkType(NativeTypes.BOOLEAN);
 
-        builder.appendByte((byte) (val ? 1 : 0));
+        builder.appendByte(ByteUtils.booleanToByte(val));
 
         shiftColumn();
 

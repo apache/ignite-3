@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -35,7 +34,6 @@ import java.time.temporal.Temporal;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
 
 /**

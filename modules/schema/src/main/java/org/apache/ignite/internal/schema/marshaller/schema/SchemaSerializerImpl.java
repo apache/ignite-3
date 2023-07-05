@@ -751,7 +751,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
         switch (type.spec()) {
             case BOOLEAN:
-                return buf.get() == 1;
+                return ByteUtils.byteToBoolean(buf.get());
 
             case INT8:
                 return buf.get();

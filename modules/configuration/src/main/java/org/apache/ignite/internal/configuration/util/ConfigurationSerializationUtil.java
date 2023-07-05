@@ -256,7 +256,7 @@ public class ConfigurationSerializationUtil {
 
         switch (header) {
             case BOOLEAN:
-                return buf.get() == 1;
+                return ByteUtils.byteToBoolean(buf.get());
 
             case BYTE:
                 return buf.get();

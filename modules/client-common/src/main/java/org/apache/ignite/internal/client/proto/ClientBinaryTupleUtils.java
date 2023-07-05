@@ -130,6 +130,9 @@ public class ClientBinaryTupleUtils {
             builder.appendNull(); // Type.
             builder.appendNull(); // Scale.
             builder.appendNull(); // Value.
+        } else if (obj instanceof Boolean) {
+            appendTypeAndScale(builder, ColumnType.BOOLEAN);
+            builder.appendByte(ByteUtils.booleanToByte((Boolean) obj));
         } else if (obj instanceof Byte) {
             appendTypeAndScale(builder, ColumnType.INT8);
             builder.appendByte((Byte) obj);
@@ -179,9 +182,6 @@ public class ClientBinaryTupleUtils {
         } else if (obj instanceof BigInteger) {
             appendTypeAndScale(builder, ColumnType.NUMBER);
             builder.appendNumber((BigInteger) obj);
-        } else if (obj instanceof Boolean) {
-            appendTypeAndScale(builder, ColumnType.BOOLEAN);
-            builder.appendByte(ByteUtils.booleanToByte((Boolean) obj));
         } else if (obj instanceof Duration) {
             appendTypeAndScale(builder, ColumnType.DURATION);
             builder.appendDuration((Duration) obj);
