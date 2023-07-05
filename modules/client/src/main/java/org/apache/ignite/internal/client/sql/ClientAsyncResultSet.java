@@ -318,6 +318,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
                     metaColumn.type(),
                     metaColumn.nullable(),
                     true,
+                    -1,
                     i,
                     metaColumn.scale(),
                     metaColumn.precision());
