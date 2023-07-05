@@ -82,6 +82,7 @@ import org.apache.ignite.internal.table.distributed.replicator.action.RequestTyp
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -301,7 +302,8 @@ public class InternalTableImpl implements InternalTable {
 
         final boolean implicit = tx == null;
 
-        if (!implicit && tx.state() != null) {
+        // It's possible to have null txState if transaction isn't started yet.
+        if (!implicit && !(tx.state() == TxState.PENDING || tx.state() == null)) {
             return failedFuture(new TransactionException(
                     "The operation is attempted for completed transaction"));
         }
