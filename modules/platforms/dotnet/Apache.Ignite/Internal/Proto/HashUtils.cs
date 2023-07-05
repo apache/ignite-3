@@ -129,7 +129,9 @@ internal static class HashUtils
 
     private static int Hash32Internal(ulong data, ulong seed, byte byteCount)
     {
-        var hash64 = Hash64Internal(data, seed, byteCount);
+        Span<byte> bytes = stackalloc byte[8];
+        BinaryPrimitives.WriteUInt64LittleEndian(bytes, data);
+        var hash64 = Hash64Internal(bytes[..byteCount], seed);
 
         return (int)(hash64 ^ (hash64 >> 32));
     }

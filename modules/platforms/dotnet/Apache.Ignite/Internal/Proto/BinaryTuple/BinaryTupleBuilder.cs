@@ -126,7 +126,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             for (var i = 0; i < _hashedColumnsPredicate.HashedColumnCount; i++)
             {
                 // TODO: How to combine hashes correctly?
-                hash = HashUtils.Hash32Internal((ulong)hashes[i], (ulong)hash, 4);
+                // We can extract bytes to be hashed and store them. int hashes can't be combined it seems.
+                hash = HashUtils.Hash32(hashes[i], hash);
             }
 
             return hash;
