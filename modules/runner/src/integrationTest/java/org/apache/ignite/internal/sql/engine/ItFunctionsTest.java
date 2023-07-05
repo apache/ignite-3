@@ -35,6 +35,7 @@ import java.time.temporal.Temporal;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -264,26 +265,20 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testCastToBoolean() {
-        assertQuery("SELECT CAST(CAST(null AS DOUBLE) AS BOOLEAN)").returns(NULL_RESULT).check();
-        assertQuery("SELECT CAST(CAST('1' AS DOUBLE) AS BOOLEAN)").returns(true).check();
-        assertQuery("SELECT CAST(1.0 AS BOOLEAN)").returns(true).check();
-        assertQuery("SELECT CAST(0.1 AS BOOLEAN)").returns(true).check();
-        assertQuery("SELECT CAST(1 AS BOOLEAN)").returns(true).check();
-        assertQuery("SELECT CAST(CAST('0' AS DOUBLE) AS BOOLEAN)").returns(false).check();
-        assertQuery("SELECT CAST(0.0 AS BOOLEAN)").returns(false).check();
-        assertQuery("SELECT CAST(0 AS BOOLEAN)").returns(false).check();
-        assertQuery("SELECT CAST(CAST(? AS INT) AS BOOLEAN)").withParams(0).returns(false).check();
-        assertQuery("SELECT CAST(CAST(? AS INT) AS BOOLEAN)").withParams(1).returns(true).check();
-        assertQuery("SELECT CAST(CAST(? AS INT) AS BOOLEAN)").withParams(NULL_RESULT).returns(NULL_RESULT).check();
-        assertQuery("SELECT CAST(CAST(? AS DOUBLE) AS BOOLEAN)").withParams(0.0d).returns(false).check();
-        assertQuery("SELECT CAST(CAST(? AS DOUBLE) AS BOOLEAN)").withParams(1.0d).returns(true).check();
-        assertQuery("SELECT CAST(CAST(? AS DOUBLE) AS BOOLEAN)").withParams(NULL_RESULT).returns(NULL_RESULT).check();
-        assertQuery("SELECT CAST(CAST(? AS DECIMAL(2, 1)) AS BOOLEAN)")
-                .withParams(BigDecimal.valueOf(0, 1)).returns(false).check();
-        assertQuery("SELECT CAST(CAST(? AS DECIMAL(2, 1)) AS BOOLEAN)")
-                .withParams(BigDecimal.valueOf(10, 1)).returns(true).check();
-        assertQuery("SELECT CAST(CAST(? AS DECIMAL(2, 1)) AS BOOLEAN)")
-                .withParams(NULL_RESULT).returns(NULL_RESULT).check();
+        assertQuery("SELECT 'true'::BOOLEAN").returns(true).check();
+        assertQuery("SELECT 'TruE'::BOOLEAN").returns(true).check();
+        assertQuery("SELECT 'false'::BOOLEAN").returns(false).check();
+        assertQuery("SELECT 'FalsE'::BOOLEAN").returns(false).check();
+        assertQuery("SELECT NULL::DOUBLE::BOOLEAN").returns(NULL_RESULT).check();
+        assertQuery("SELECT ?::DOUBLE::BOOLEAN").withParams(NULL_RESULT).returns(NULL_RESULT).check();
+
+        // TODO IGNITE-19877 Cast to boolean from other types (except true/false literals) is not permitted.
+        // assertThrows(SqlException.class, () -> sql("SELECT 1::BOOLEAN"));
+        // assertThrows(SqlException.class, () -> sql("SELECT ?::BOOLEAN", 1));
+        // assertThrows(SqlException.class, () -> sql("SELECT 1.0::BOOLEAN"));
+        // assertThrows(SqlException.class, () -> sql("SELECT ?::BOOLEAN", 1.0));
+        // assertThrows(SqlException.class, () -> sql("SELECT '1'::BOOLEAN"));
+        // assertThrows(SqlException.class, () -> sql("SELECT ?::BOOLEAN", "1"));
     }
 
     @Test

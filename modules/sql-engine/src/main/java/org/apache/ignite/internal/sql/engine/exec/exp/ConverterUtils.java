@@ -30,7 +30,6 @@ import org.apache.calcite.linq4j.tree.Primitive;
 import org.apache.calcite.linq4j.tree.Types;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.Util;
@@ -233,26 +232,6 @@ public class ConverterUtils {
                                 "toString",
                                 operand));
             }
-        }
-
-        // TODO think
-        Primitive toPrimitive = Primitive.of(toType);
-
-        if (toPrimitive == Primitive.BOOLEAN) {
-            if (Primitive.of(fromType) != null) {
-                return Expressions.notEqual(operand, Expressions.constant(0));
-            }
-
-            boolean fromNumber = fromType instanceof Class
-                    && Number.class.isAssignableFrom((Class) fromType);
-
-            if (fromNumber) {
-                // Construct "SqlFunctions.ne(val, Number.valueOf(0))" expression.
-                return Expressions.call(SqlFunctions.class, "ne", operand,
-                        Expressions.call(fromType, "valueOf", Expressions.constant(0)));
-            }
-
-            return Expressions.call(SqlFunctions.class, "toBoolean", operand);
         }
 
         var toCustomType = CustomTypesConversion.INSTANCE.tryConvert(operand, toType);
