@@ -373,7 +373,7 @@ namespace Apache.Ignite.Internal.Table
                     columns[idx].ColocationIndex = i;
                     colocationColumns[i] = idx;
 
-                    if (i > 0 && idx < columns[idx - 1].ColocationIndex)
+                    if (i > 0 && idx < colocationColumns[i - 1])
                     {
                         colocationColumnsOrdered = false;
                     }
