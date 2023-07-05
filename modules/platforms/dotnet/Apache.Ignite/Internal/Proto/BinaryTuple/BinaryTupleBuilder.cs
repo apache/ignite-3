@@ -112,8 +112,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         public void AppendNull()
         {
-            var hashOrder = GetHashOrder();
-            if (hashOrder == OrderedHash)
+            if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
                 _hash = HashUtils.Hash32((sbyte)0, _hash);
             }
