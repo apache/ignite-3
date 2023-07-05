@@ -80,21 +80,9 @@ public class ClientTableCommon {
             packer.packInt(getColumnType(col.type().spec()).ordinal());
             packer.packBoolean(schema.isKeyColumn(colIdx));
             packer.packBoolean(col.nullable());
+            packer.packInt(schema.colocationIndex(col));
             packer.packInt(getDecimalScale(col.type()));
             packer.packInt(getPrecision(col.type()));
-        }
-
-        var colocationCols = schema.colocationColumns();
-
-        if (colocationCols == null || colocationCols.length == 0 || Arrays.equals(colocationCols, schema.keyColumns().columns())) {
-            // Colocation columns are the same as key columns (custom colocation not specified).
-            packer.packArrayHeader(0);
-        } else {
-            packer.packArrayHeader(colocationCols.length);
-
-            for (var col : colocationCols) {
-                packer.packInt(col.schemaIndex());
-            }
         }
     }
 

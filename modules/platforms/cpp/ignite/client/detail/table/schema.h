@@ -60,7 +60,7 @@ struct column {
         res.type = static_cast<ignite_type>(protocol::unpack_object<std::int32_t>(arr.ptr[1]));
         res.is_key = protocol::unpack_object<bool>(arr.ptr[2]);
         res.nullable = protocol::unpack_object<bool>(arr.ptr[3]);
-        res.scale = protocol::unpack_object<std::int32_t>(arr.ptr[4]);
+        res.scale = protocol::unpack_object<std::int32_t>(arr.ptr[5]);
 
         return res;
     }
@@ -108,11 +108,6 @@ struct schema {
                 ++key_column_count;
             columns.emplace_back(std::move(val));
         });
-
-        // Skip colocation columns.
-        auto res = protocol::unpack_array_size(object.val);
-        UNUSED_VALUE res;
-        protocol::unpack_array_raw(object.val, [](const msgpack_object &) {});
 
         return std::make_shared<schema>(schema_version, key_column_count, std::move(columns));
     }
