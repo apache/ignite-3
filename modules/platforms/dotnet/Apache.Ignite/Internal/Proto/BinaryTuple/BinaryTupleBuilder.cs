@@ -83,6 +83,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             _buffer = new();
             _elementIndex = 0;
 
+            // Reserve space for hash values in the beginning of the buffer when the hash order is not default.
             _entryBase = _hashedColumnsPredicate is { HashedColumnsOrdered: false }
                 ? BinaryTupleCommon.HeaderSize + _hashedColumnsPredicate.HashedColumnCount * 4
                 : BinaryTupleCommon.HeaderSize;
@@ -119,8 +120,17 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 return _hash;
             }
 
-            // TODO: Combine hashes from the buffer.
-            return -1;
+            // Custom hash order. Combine hashes stored in the buffer.
+            var hash = 0;
+            var hashes = GetHashSpan();
+
+            for (var i = 0; i < _hashedColumnsPredicate.HashedColumnCount; i++)
+            {
+                // TODO: How to combine hashes correctly?
+                hash = HashUtils.Hash32((long)hashes[i], hash);
+            }
+
+            return hash;
         }
 
         /// <summary>
@@ -1349,7 +1359,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 : order;
         }
 
-        private void PutHash(int index, int hash) =>
-            MemoryMarshal.Cast<byte, int>(_buffer.GetWrittenMemory().Span)[index] = hash;
+        private void PutHash(int index, int hash) => GetHashSpan()[index] = hash;
+
+        private Span<int> GetHashSpan() => MemoryMarshal.Cast<byte, int>(_buffer.GetWrittenMemory().Span);
     }
 }
