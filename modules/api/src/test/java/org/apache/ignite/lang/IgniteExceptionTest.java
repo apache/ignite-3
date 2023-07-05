@@ -17,15 +17,25 @@
 
 package org.apache.ignite.lang;
 
+import static java.lang.invoke.MethodType.methodType;
+import static org.apache.ignite.internal.util.ExceptionUtils.getOrCreateTraceId;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.any;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
-import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Table;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests ignite exceptions.
@@ -73,11 +83,11 @@ public class IgniteExceptionTest {
         var originalMessage = "Unexpected error.";
         var originalTraceId = UUID.randomUUID();
 
-        var originalEx = new IgniteInternalException(originalTraceId, Common.INTERNAL_ERR, originalMessage);
+        var originalEx = new IgniteInternalException(originalTraceId, INTERNAL_ERR, originalMessage);
         var wrappedEx = new CompletionException(originalEx);
         IgniteException res = IgniteExceptionUtils.wrap(wrappedEx);
 
-        assertEquals(Common.INTERNAL_ERR, res.code());
+        assertEquals(INTERNAL_ERR, res.code());
         assertSame(originalEx, res.getCause());
         assertEquals(originalMessage, res.getMessage());
     }
@@ -87,11 +97,11 @@ public class IgniteExceptionTest {
         var originalMessage = "Unexpected error.";
         var originalTraceId = UUID.randomUUID();
 
-        var originalEx = new IgniteInternalCheckedException(originalTraceId, Common.INTERNAL_ERR, originalMessage);
+        var originalEx = new IgniteInternalCheckedException(originalTraceId, INTERNAL_ERR, originalMessage);
         var wrappedEx = new CompletionException(originalEx);
         IgniteException res = IgniteExceptionUtils.wrap(wrappedEx);
 
-        assertEquals(Common.INTERNAL_ERR, res.code());
+        assertEquals(INTERNAL_ERR, res.code());
         assertSame(originalEx, res.getCause());
         assertEquals(originalMessage, res.getMessage());
     }
@@ -105,6 +115,84 @@ public class IgniteExceptionTest {
         assertEquals(originalEx.code(), wrappedEx.code());
         assertSame(originalEx, wrappedEx.getCause());
         assertEquals(originalEx.getMessage(), wrappedEx.getMessage());
+    }
+
+    @ParameterizedTest
+    @ValueSource(classes = {
+            IgniteException.class,
+            IgniteCheckedException.class,
+            IgniteInternalException.class,
+            IgniteInternalCheckedException.class})
+    public void testPropagationTraceIdentifier(Class<? extends Exception> c) {
+        class Descriptor {
+            private final MethodType signature;
+            private final boolean deprecated;
+            private final Object[] args;
+
+            private Descriptor(MethodType signature, boolean deprecated, Object[] args) {
+                this.signature = signature;
+                this.deprecated = deprecated;
+                this.args = args;
+            }
+        }
+
+        Descriptor signatures[] = {
+                new Descriptor(methodType(void.class, Throwable.class), true, new Object[0]),
+                new Descriptor(methodType(void.class, String.class, Throwable.class), true, new Object[] {"test-message"}),
+                new Descriptor(methodType(void.class, int.class, Throwable.class), false, new Object[] {INTERNAL_ERR}),
+                new Descriptor(
+                        methodType(void.class, int.class, String.class, Throwable.class),
+                        false,
+                        new Object[] {INTERNAL_ERR, "test-message"})
+        };
+
+        var cause = new IgniteException(INTERNAL_ERR);
+
+        for (var p : signatures) {
+            TraceableException err = null;
+
+            try {
+                Object[] args = new Object[p.args.length + 1];
+                System.arraycopy(p.args, 0, args, 0, p.args.length);
+                args[p.args.length] = cause;
+
+                err = (TraceableException) MethodHandles.publicLookup()
+                        .findConstructor(c, p.signature)
+                        .invokeWithArguments(args);
+            } catch (NoSuchMethodException e) {
+                if (!p.deprecated) {
+                    fail("Failed to find constructor for exception class "
+                            + "[class=" + c.getCanonicalName() + ", signature=" + p.signature + ']', e);
+                }
+                continue;
+            } catch (Throwable e) {
+                fail("Failed to instantiate a new instance of exception class "
+                        + "[class=" + c.getCanonicalName() + ", signature=" + p.signature + ']', e);
+            }
+
+            assertThat("Unexpected trace identifier.", err.traceId(), is(cause.traceId()));
+        }
+    }
+
+    @Test
+    public void testExtractionTraceIdentifierFromNonTraceableException() {
+        var cause = new RuntimeException(new IllegalArgumentException());
+
+        UUID traceId = getOrCreateTraceId(cause);
+
+        assertThat(traceId, is(any(UUID.class)));
+    }
+
+    @Test
+    public void testExtractionTraceIdentifierFromNonTraceableExceptionWithCycle() {
+        var cause1 = new IllegalArgumentException();
+        var cause2 = new RuntimeException(cause1);
+
+        cause1.initCause(cause2);
+
+        UUID traceId = getOrCreateTraceId(cause2);
+
+        assertThat(traceId, is(any(UUID.class)));
     }
 
     /**
