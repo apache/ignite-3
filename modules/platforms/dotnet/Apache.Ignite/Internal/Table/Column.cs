@@ -26,13 +26,8 @@ internal record Column(
     string Name,
     ColumnType Type,
     bool IsNullable,
+    bool IsColocation,
     bool IsKey,
     int SchemaIndex,
     int Scale,
-    int Precision)
-{
-    /// <summary>
-    /// Gets or sets colocation index for this column.
-    /// </summary>
-    internal int? ColocationIndex { get; set; }
-}
+    int Precision);

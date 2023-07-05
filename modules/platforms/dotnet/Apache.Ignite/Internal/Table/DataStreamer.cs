@@ -157,7 +157,7 @@ internal static class DataStreamer
 
             var partition = partitionAssignment == null
                 ? string.Empty // Default connection.
-                : partitionAssignment[Math.Abs(tupleBuilder.GetHash() % partitionAssignment.Length)];
+                : partitionAssignment[Math.Abs(tupleBuilder.Hash % partitionAssignment.Length)];
 
             var batch = GetOrCreateBatch(partition);
 

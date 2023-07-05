@@ -60,7 +60,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 var binaryTupleMemory = tupleBuilder.Build();
                 writer.Write(binaryTupleMemory.Span);
 
-                return tupleBuilder.GetHash();
+                return tupleBuilder.Hash;
             }
             finally
             {
