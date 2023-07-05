@@ -129,7 +129,7 @@ public interface TxManager extends IgniteComponent {
     int finished();
 
     /**
-     * Returns a number of pending transactions, that is, transactions that have not yet been committed.
+     * Returns a number of pending transactions, that is, transactions that have not yet been committed or rolled back.
      *
      * @return A number of pending transactions.
      */
