@@ -1039,7 +1039,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <returns>Resulting memory.</returns>
         public Memory<byte> Build()
         {
-            int offset = _entryBase - BinaryTupleCommon.HeaderSize;
+            int baseOffset = _entryBase - BinaryTupleCommon.HeaderSize;
+            int offset = baseOffset;
 
             int valueSize = _buffer.Position - _valueBase;
             byte flags = BinaryTupleCommon.ValueSizeToFlags(valueSize);
@@ -1077,7 +1078,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     }
                 }
 
-                offset = (_entrySize - desiredEntrySize) * _numElements;
+                offset = baseOffset + (_entrySize - desiredEntrySize) * _numElements;
             }
 
             _buffer.WriteByte(flags, offset);
