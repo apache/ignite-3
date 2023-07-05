@@ -66,7 +66,7 @@ public class ParserServiceImpl implements ParserService {
         );
 
         if (shouldBeCached(queryType)) {
-            queryToParsedResultCache.computeIfAbsent(query, k -> result);
+            queryToParsedResultCache.put(query, result);
         }
 
         return result;

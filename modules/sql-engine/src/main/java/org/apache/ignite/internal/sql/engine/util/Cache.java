@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,13 +38,14 @@ public interface Cache<K, V> {
     @Nullable V get(K key);
 
     /**
-     * Returns value associated with given key, or null if there no mapping exists.
+     * Associates the {@code value} with the {@code key} in this cache. If the cache previously
+     * contained a value associated with the {@code key}, the old value is replaced by the new
+     * {@code value}.
      *
-     * @param key A key to look up value for.
-     * @param valueProvider A mapping function to compute value if it doesn't exist.
-     * @return A values associated with the given key.
+     * @param key A key with which the specified value is to be associated.
+     * @param value A value to be associated with the specified key.
      */
-    V computeIfAbsent(K key, Function<? super K, ? extends V> valueProvider);
+    void put(K key, V value);
 
     /** Clears the given cache. That is, remove all keys and associated values. */
     void clear();

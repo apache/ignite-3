@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -55,8 +54,8 @@ public class CaffeineCacheFactory implements CacheFactory {
         }
 
         @Override
-        public V computeIfAbsent(K key, Function<? super K, ? extends V> valueProvider) {
-            return map.computeIfAbsent(key, valueProvider);
+        public void put(K key, V value) {
+            map.put(key, value);
         }
 
         @Override

@@ -22,7 +22,6 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-import java.util.function.Function;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.util.Cache;
@@ -158,13 +157,13 @@ public class ParserServiceImplTest {
                 }
 
                 @Override
-                public V computeIfAbsent(K key, Function<? super K, ? extends V> valueProvider) {
-                    return (V) object;
+                public void put(K key, V value) {
+                    // NO-OP
                 }
 
                 @Override
                 public void clear() {
-
+                    // NO-OP
                 }
             };
         }

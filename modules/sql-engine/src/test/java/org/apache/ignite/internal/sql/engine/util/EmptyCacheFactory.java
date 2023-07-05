@@ -17,15 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A factory creating cache that keeps no objects.
  *
  * <p>That is, any instance of cache returned by this factory always returns {@code null}
- * from {@link Cache#get(Object)} method, and always call {@code valueProvider} in
- * {@link Cache#computeIfAbsent(Object, Function)} method.
+ * from {@link Cache#get(Object)} method, and do nothing when {@link Cache#put(Object, Object)}
+ * is invoked.
  */
 public class EmptyCacheFactory implements CacheFactory {
     public static CacheFactory INSTANCE = new EmptyCacheFactory();
@@ -46,8 +45,8 @@ public class EmptyCacheFactory implements CacheFactory {
         }
 
         @Override
-        public V computeIfAbsent(K key, Function<? super K, ? extends V> valueProvider) {
-            return valueProvider.apply(key);
+        public void put(K key, V value) {
+            // NO-OP
         }
 
         @Override
