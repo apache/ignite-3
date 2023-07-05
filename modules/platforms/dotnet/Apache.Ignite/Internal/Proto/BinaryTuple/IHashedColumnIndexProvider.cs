@@ -28,6 +28,11 @@ internal interface IHashedColumnIndexProvider
     bool HashedColumnsOrdered { get; }
 
     /// <summary>
+    /// Gets the number of hashed columns.
+    /// </summary>
+    int HashedColumnCount { get; }
+
+    /// <summary>
     /// Gets a value indicating the hash order for the column at specified index.
     /// </summary>
     /// <param name="index">Column index.</param>

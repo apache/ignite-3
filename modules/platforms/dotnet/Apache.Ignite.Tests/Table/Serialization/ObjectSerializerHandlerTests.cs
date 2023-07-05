@@ -36,6 +36,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
             Version: 1,
             TableId: 1,
             KeyColumnCount: 1,
+            ColocationColumnCount: 1,
             Columns: new[]
             {
                 new Column("Key", ColumnType.Int64, IsNullable: false, IsKey: true, SchemaIndex: 0, Scale: 0, Precision: 0),

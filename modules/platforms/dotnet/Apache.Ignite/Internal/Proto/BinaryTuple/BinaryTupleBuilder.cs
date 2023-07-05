@@ -22,6 +22,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Collections;
     using System.Diagnostics;
     using System.Numerics;
+    using System.Runtime.InteropServices;
     using Buffers;
     using Ignite.Sql;
     using NodaTime;
@@ -82,7 +83,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             _buffer = new();
             _elementIndex = 0;
 
-            _entryBase = BinaryTupleCommon.HeaderSize;
+            _entryBase = _hashedColumnsPredicate is { HashedColumnsOrdered: false }
+                ? BinaryTupleCommon.HeaderSize + _hashedColumnsPredicate.HashedColumnCount * 4
+                : BinaryTupleCommon.HeaderSize;
 
             _entrySize = totalValueSize < 0
                 ? 4
@@ -116,8 +119,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
             else if (hashOrder != NoHash)
             {
-                // TODO: Put hash into the indexed table to be combined later
-                var hash = HashUtils.Hash32((sbyte)0, 0);
+                PutHash(hashOrder, HashUtils.Hash32((sbyte)0, 0));
             }
 
             OnWrite();
@@ -964,7 +966,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <returns>Resulting memory.</returns>
         public Memory<byte> Build()
         {
-            int offset = 0;
+            int offset = _entryBase - BinaryTupleCommon.HeaderSize;
 
             int valueSize = _buffer.Position - _valueBase;
             byte flags = BinaryTupleCommon.ValueSizeToFlags(valueSize);
@@ -1264,5 +1266,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 ? OrderedHash
                 : order;
         }
+
+        private void PutHash(int index, int hash) =>
+            MemoryMarshal.Cast<byte, int>(_buffer.GetWrittenMemory().Span)[index] = hash;
     }
 }

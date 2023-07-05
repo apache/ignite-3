@@ -35,6 +35,7 @@ namespace Apache.Ignite.Internal.Table
         int Version,
         int TableId,
         int KeyColumnCount,
+        int ColocationColumnCount,
         IReadOnlyList<Column> Columns,
         IReadOnlyList<int>? ColocationColumns,
         bool ColocationColumnsOrdered) : IHashedColumnIndexProvider
@@ -46,6 +47,9 @@ namespace Apache.Ignite.Internal.Table
 
         /// <inheritdoc/>
         public bool HashedColumnsOrdered => ColocationColumnsOrdered;
+
+        /// <inheritdoc/>
+        public int HashedColumnCount => ColocationColumnCount;
 
         /// <inheritdoc/>
         public int HashedColumnOrder(int index) => index < KeyColumnCount

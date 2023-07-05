@@ -381,7 +381,15 @@ namespace Apache.Ignite.Internal.Table
                 }
             }
 
-            var schema = new Schema(schemaVersion, Id, keyColumnCount, columns, colocationColumns, colocationColumnsOrdered);
+            var schema = new Schema(
+                schemaVersion,
+                Id,
+                keyColumnCount,
+                colocationColumnCount,
+                columns,
+                colocationColumns,
+                colocationColumnsOrdered);
+
             _schemas[schemaVersion] = Task.FromResult(schema);
 
             if (_logger?.IsEnabled(LogLevel.Debug) == true)
