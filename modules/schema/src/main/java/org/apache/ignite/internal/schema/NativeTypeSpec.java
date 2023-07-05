@@ -232,6 +232,8 @@ public enum NativeTypeSpec {
         assert spec != null;
 
         switch (spec) {
+            case BOOLEAN:
+                return nullable ? Boolean.class : boolean.class;
             case INT8:
                 return nullable ? Byte.class : byte.class;
             case INT16:
@@ -264,8 +266,6 @@ public enum NativeTypeSpec {
                 return BigInteger.class;
             case DECIMAL:
                 return BigDecimal.class;
-            case BOOLEAN:
-                return nullable ? Boolean.class : boolean.class;
             default:
                 throw new IllegalStateException("Unknown typeSpec " + spec);
         }
@@ -294,6 +294,9 @@ public enum NativeTypeSpec {
     @Nullable
     public ColumnType asColumnTypeOrNull() {
         switch (this) {
+            case BOOLEAN:
+                return ColumnType.BOOLEAN;
+
             case INT8:
                 return ColumnType.INT8;
 
@@ -341,9 +344,6 @@ public enum NativeTypeSpec {
 
             case TIMESTAMP:
                 return ColumnType.TIMESTAMP;
-
-            case BOOLEAN:
-                return ColumnType.BOOLEAN;
 
             default:
                 return null;

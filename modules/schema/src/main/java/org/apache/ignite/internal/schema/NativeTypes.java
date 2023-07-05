@@ -27,6 +27,11 @@ import org.jetbrains.annotations.Contract;
  */
 public class NativeTypes {
     /**
+     * BOOLEAN type.
+     */
+    public static final NativeType BOOLEAN = new NativeType(NativeTypeSpec.BOOLEAN, 1);
+
+    /**
      * INT8 type.
      */
     public static final NativeType INT8 = new NativeType(NativeTypeSpec.INT8, 1);
@@ -73,8 +78,6 @@ public class NativeTypes {
 
     /** Timezone-free three-part value representing a year, month, and day. */
     public static final NativeType DATE = new NativeType(NativeTypeSpec.DATE, 3);
-
-    public static final NativeType BOOLEAN = new NativeType(NativeTypeSpec.BOOLEAN, 1);
 
     /** Don't allow to create an instance. */
     private NativeTypes() {
@@ -206,6 +209,9 @@ public class NativeTypes {
         }
 
         switch (spec) {
+            case BOOLEAN:
+                return BOOLEAN;
+
             case INT8:
                 return INT8;
 
@@ -253,9 +259,6 @@ public class NativeTypes {
 
             case DECIMAL:
                 return decimalOf(((BigDecimal) val).precision(), ((BigDecimal) val).scale());
-
-            case BOOLEAN:
-                return BOOLEAN;
 
             default:
                 assert false : "Unexpected type: " + spec;

@@ -49,6 +49,7 @@ public final class ValueSerializationHelper {
         Objects.requireNonNull(type, "type");
 
         switch (type.spec()) {
+            case BOOLEAN:
             case INT8:
             case INT16:
             case INT32:
@@ -63,7 +64,6 @@ public final class ValueSerializationHelper {
             case NUMBER:
             case STRING:
             case UUID:
-            case BOOLEAN:
                 return defaultValue.toString();
             case BYTES:
                 return IgniteUtils.toHexString((byte[]) defaultValue);

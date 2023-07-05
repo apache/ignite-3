@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.util.ByteUtils;
 
 /**
  * Utility class to help serializing  deserializing configuration values - primitives, strings, or arrays of primitives or strings.
@@ -68,7 +69,7 @@ public class ConfigurationSerializationUtil {
 
         switch (header) {
             case BOOLEAN:
-                return new byte[]{header, (byte) ((boolean) value ? 1 : 0)};
+                return new byte[]{header, ByteUtils.booleanToByte((boolean) value)};
 
             case BYTE:
                 return new byte[]{header, (byte) value};

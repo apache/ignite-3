@@ -46,6 +46,7 @@ import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.VarlenNativeType;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
+import org.apache.ignite.internal.util.ByteUtils;
 
 /**
  * Serialize SchemaDescriptor object to byte array and vice versa.
@@ -440,13 +441,13 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
         }
 
         switch (type.spec()) {
-            case INT8: {
-                buf.put((byte) val);
+            case BOOLEAN: {
+                buf.put(ByteUtils.booleanToByte((boolean) val));
 
                 break;
             }
-            case BOOLEAN: {
-                buf.put((byte) ((boolean) val ? 1 : 0));
+            case INT8: {
+                buf.put((byte) val);
 
                 break;
             }

@@ -56,7 +56,7 @@ public class ColocationUtils {
 
         switch (type.spec()) {
             case BOOLEAN:
-                calc.appendByte((byte) ((boolean) v ? 1 : 0));
+                calc.appendByte(ByteUtils.booleanToByte((boolean) v));
                 return;
 
             case INT8:

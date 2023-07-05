@@ -32,6 +32,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleFormatException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Sink;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -122,7 +123,7 @@ public class BinaryRowConverter {
 
         switch (element.typeSpec()) {
             case BOOLEAN:
-                return builder.appendByte((byte) ((boolean) value ? 1 : 0));
+                return builder.appendByte(ByteUtils.booleanToByte((boolean) value));
             case INT8:
                 return builder.appendByte((byte) value);
             case INT16:
