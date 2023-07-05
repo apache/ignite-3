@@ -610,13 +610,9 @@ public class ClientMessagePacker implements AutoCloseable {
      * Packs binary tuple.
      *
      * @param binaryTupleParser Binary tuple parser.
-     * @param elementCount Number of elements to pack. When {@code -1} all elements are packed.
      */
-    public void packBinaryTuple(BinaryTupleParser binaryTupleParser, int elementCount) {
-        ByteBuffer buf = elementCount == -1
-                ? binaryTupleParser.byteBuffer()
-                : binaryTupleParser.slice(elementCount);
-
+    public void packBinaryTuple(BinaryTupleParser binaryTupleParser) {
+        ByteBuffer buf = binaryTupleParser.byteBuffer();
         int len = buf.limit() - buf.position();
 
         packBinaryHeader(len);
