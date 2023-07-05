@@ -103,9 +103,9 @@ import org.apache.ignite.internal.security.authentication.UsernamePasswordReques
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.security.AuthenticationException;
@@ -395,12 +395,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
         err = ExceptionUtils.unwrapCause(err);
 
-        if (err instanceof IgniteException) {
-            IgniteException iex = (IgniteException) err;
-            packer.packUuid(iex.traceId());
-            packer.packInt(iex.code());
-        } else if (err instanceof IgniteCheckedException) {
-            IgniteCheckedException iex = (IgniteCheckedException) err;
+        if (err instanceof TraceableException) {
+            TraceableException iex = (TraceableException) err;
             packer.packUuid(iex.traceId());
             packer.packInt(iex.code());
         } else {
