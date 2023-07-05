@@ -67,7 +67,8 @@ public interface MetaStorageManager extends IgniteComponent {
      * Returns all entries corresponding to the given key and bounded by given revisions.
      * All these entries are ordered by revisions and have the same key.
      * The lower bound and the upper bound are inclusive.
-     * This method doesn't wait for the storage's revision to become greater or equal to the revUpperBound parameter, so it is
+     *
+     * <p>This method doesn't wait for the storage's revision to become greater or equal to the revUpperBound parameter, so it is
      * up to user to wait for the appropriate time to call this method.
      * TODO: IGNITE-19735 move this method to another interface for interaction with local KeyValueStorage.
      *
@@ -82,7 +83,8 @@ public interface MetaStorageManager extends IgniteComponent {
     /**
      * Returns an entry by the given key and bounded by the given revision. The entry is obtained
      * from the local storage.
-     * This method doesn't wait for the storage's revision to become greater or equal to the revUpperBound parameter, so it is
+     *
+     * <p>This method doesn't wait for the storage's revision to become greater or equal to the revUpperBound parameter, so it is
      * up to user to wait for the appropriate time to call this method.
      *
      * @param key The key.
@@ -94,7 +96,8 @@ public interface MetaStorageManager extends IgniteComponent {
     /**
      * Returns cursor by entries which correspond to the given keys range and bounded by revision number. The entries in the cursor
      * are obtained from the local storage.
-     * This method doesn't wait for the storage's revision to become greater or equal to the revUpperBound parameter, so it is
+     *
+     * <p>This method doesn't wait for the storage's revision to become greater or equal to the revUpperBound parameter, so it is
      * up to user to wait for the appropriate time to call this method.
      *
      * @param startKey Start key of range (inclusive).
