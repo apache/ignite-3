@@ -32,11 +32,6 @@ internal record Column(
     int Precision)
 {
     /// <summary>
-    /// Gets a value indicating whether this column is one of colocation columns.
-    /// </summary>
-    internal bool IsColocation => ColocationIndex != null;
-
-    /// <summary>
     /// Gets or sets colocation index for this column.
     /// </summary>
     internal int? ColocationIndex { get; set; }

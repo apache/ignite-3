@@ -339,6 +339,8 @@ public class ColocationHashTests : IgniteTestsBase
 
     private record TestIndexProvider(Func<int, bool> Delegate) : IHashedColumnIndexProvider
     {
-        public bool IsHashedColumnIndex(int index) => Delegate(index);
+        public bool HashedColumnsOrdered => true;
+
+        public int HashedColumnOrder(int index) => Delegate(index) ? index : -1;
     }
 }
