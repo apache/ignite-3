@@ -179,12 +179,12 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    public void testTestOnlyPendingCommit(boolean startROTransaction) {
+    public void testTestOnlyPendingCommit(boolean startReadOnlyTransaction) {
         assertEquals(0, txManager.pending());
         assertEquals(0, txManager.finished());
 
         // Start transaction.
-        InternalTransaction tx = txManager.begin(startROTransaction);
+        InternalTransaction tx = txManager.begin(startReadOnlyTransaction);
         assertEquals(1, txManager.pending());
         assertEquals(0, txManager.finished());
 
@@ -206,12 +206,12 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    public void testTestOnlyPendingRollback(boolean startROTransaction) {
+    public void testTestOnlyPendingRollback(boolean startReadOnlyTransaction) {
         assertEquals(0, txManager.pending());
         assertEquals(0, txManager.finished());
 
         // Start transaction.
-        InternalTransaction tx = txManager.begin(startROTransaction);
+        InternalTransaction tx = txManager.begin(startReadOnlyTransaction);
         assertEquals(1, txManager.pending());
         assertEquals(0, txManager.finished());
 
