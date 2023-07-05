@@ -21,7 +21,6 @@ import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
