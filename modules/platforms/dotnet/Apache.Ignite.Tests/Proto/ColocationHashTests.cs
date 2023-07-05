@@ -252,7 +252,10 @@ public class ColocationHashTests : IgniteTestsBase
 
         var scale = value is decimal d ? BitConverter.GetBytes(decimal.GetBits(d)[3])[2] : 0;
 
-        return new Column("m_Item" + (schemaIndex + 1), colType, false, true, true, schemaIndex, Scale: scale, precision);
+        return new Column("m_Item" + (schemaIndex + 1), colType, false, true, schemaIndex, Scale: scale, precision)
+        {
+            ColocationIndex = schemaIndex
+        };
     }
 
     private async Task AssertClientAndServerHashesAreEqual(int timePrecision = 9, int timestampPrecision = 6, params object[] keys)
