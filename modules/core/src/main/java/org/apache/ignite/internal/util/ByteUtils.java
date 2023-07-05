@@ -202,7 +202,7 @@ public class ByteUtils {
         if (val == 1) {
             return true;
         } else {
-            assert val == 0 : "val=" + val;
+            assert val == 0 : "Unexpected " + val;
 
             return false;
         }
