@@ -111,7 +111,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (_hashedColumnsPredicate == null)
             {
-                Debug.Fail("HashedColumnsPredicate is null");
                 return 0;
             }
 
@@ -127,7 +126,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             for (var i = 0; i < _hashedColumnsPredicate.HashedColumnCount; i++)
             {
                 // TODO: How to combine hashes correctly?
-                hash = HashUtils.Hash32((long)hashes[i], hash);
+                hash = HashUtils.Hash32Internal((ulong)hashes[i], (ulong)hash, 4);
             }
 
             return hash;
