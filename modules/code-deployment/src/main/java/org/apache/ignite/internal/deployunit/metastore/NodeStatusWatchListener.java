@@ -79,7 +79,10 @@ public class NodeStatusWatchListener implements WatchListener {
 
             CompletableFuture.supplyAsync(() -> nodeStatus, executor)
                     .thenComposeAsync(status -> deploymentUnitStore.getAllNodeStatuses(status.id(), status.version()), executor)
-                    .thenAccept(nodes -> callback.onUpdate(nodeStatus, nodes));
+                    .thenAccept(nodes -> {
+                        LOG.info("getAllNodeStatuses {} {}", nodeStatus, nodes);
+                        callback.onUpdate(nodeStatus, nodes);
+                    });
         }
         return completedFuture(null);
     }

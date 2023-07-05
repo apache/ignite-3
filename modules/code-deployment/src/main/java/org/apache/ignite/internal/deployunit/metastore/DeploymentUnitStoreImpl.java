@@ -139,10 +139,10 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     }
 
     @Override
-    public CompletableFuture<UnitClusterStatus> createClusterStatus(String id, Version version, Set<String> nodes) {
+    public CompletableFuture<UnitClusterStatus> createClusterStatus(String id, Version version, Set<String> nodes, boolean isMajority) {
         ByteArray key = ClusterStatusKey.builder().id(id).version(version).build().toByteArray();
         long revision = metaStorage.appliedRevision();
-        UnitClusterStatus clusterStatus = new UnitClusterStatus(id, version, UPLOADING, revision, nodes);
+        UnitClusterStatus clusterStatus = new UnitClusterStatus(id, version, UPLOADING, revision, nodes, isMajority);
         byte[] value = UnitClusterStatus.serialize(clusterStatus);
 
         return metaStorage.invoke(notExists(key), put(key, value), noop())
@@ -174,6 +174,22 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
             prev.updateStatus(status);
             return UnitClusterStatus.serialize(prev);
         }, status == DEPLOYED);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> updateClusterStatus(String id, Version version, Set<String> initialNodesToDeploy) {
+        return updateStatus(ClusterStatusKey.builder().id(id).version(version).build().toByteArray(), bytes -> {
+            UnitClusterStatus prev = UnitClusterStatus.deserialize(bytes);
+
+            return UnitClusterStatus.serialize(new UnitClusterStatus(
+                    prev.id(),
+                    prev.version(),
+                    prev.status(),
+                    prev.opId(),
+                    initialNodesToDeploy,
+                    prev.isMajority()
+            ));
+        }, false);
     }
 
     @Override

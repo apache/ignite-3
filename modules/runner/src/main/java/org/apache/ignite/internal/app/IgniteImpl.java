@@ -1094,4 +1094,9 @@ public class IgniteImpl implements Ignite {
     public HybridClock clock() {
         return clock;
     }
+
+    @TestOnly
+    public ClusterManagementGroupManager cmgManager() {
+        return cmgMgr;
+    }
 }

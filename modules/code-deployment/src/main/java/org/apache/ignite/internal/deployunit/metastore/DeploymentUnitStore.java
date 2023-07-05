@@ -113,10 +113,11 @@ public interface DeploymentUnitStore {
      *
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
-     * @return Future with {@code true} result if status created successfully
-     *          or with {@code false} if status with provided {@param id} and {@param version} already existed.
+     * @param isMajority
+     * @return Future with {@code true} result if status created successfully or with {@code false} if status with provided {@param id} and
+     *         {@param version} already existed.
      */
-    CompletableFuture<UnitClusterStatus> createClusterStatus(String id, Version version, Set<String> nodesToDeploy);
+    CompletableFuture<UnitClusterStatus> createClusterStatus(String id, Version version, Set<String> nodesToDeploy, boolean isMajority);
 
     /**
      * Create new node status for deployment unit.
@@ -137,7 +138,7 @@ public interface DeploymentUnitStore {
             DeploymentStatus status);
 
     /**
-     * Updates cluster status for deployment unit.
+     * Updates deployment status for the cluster status of the deployment unit.
      *
      * @param id Deployment unit identifier.
      * @param version Deployment version identifier.
@@ -145,6 +146,16 @@ public interface DeploymentUnitStore {
      * @return Future with {@code true} result if status updated successfully.
      */
     CompletableFuture<Boolean> updateClusterStatus(String id, Version version, DeploymentStatus status);
+
+    /**
+     * Updates set of initial nodes for the cluster status of the deployment unit.
+     *
+     * @param id Deployment unit identifier.
+     * @param version Deployment version identifier.
+     * @param initialNodesToDeploy Updated set of initial nodes.
+     * @return Future with {@code true} result if status updated successfully.
+     */
+    CompletableFuture<Boolean> updateClusterStatus(String id, Version version, Set<String> initialNodesToDeploy);
 
     /**
      * Updates node status for deployment unit.

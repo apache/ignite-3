@@ -31,6 +31,8 @@ import org.apache.ignite.internal.deployunit.UnitStatus;
 public class UnitClusterStatus extends UnitStatus {
     private final Set<String> initialNodesToDeploy;
 
+    private final boolean isMajority;
+
     /**
      * Constructor.
      *
@@ -39,20 +41,27 @@ public class UnitClusterStatus extends UnitStatus {
      * @param status Unit status.
      * @param opId Operation identifier.
      * @param initialNodesToDeploy Nodes required for initial deploy.
+     * @param isMajority
      */
     public UnitClusterStatus(
             String id,
             Version version,
             DeploymentStatus status,
             long opId,
-            Set<String> initialNodesToDeploy
+            Set<String> initialNodesToDeploy,
+            boolean isMajority
     ) {
         super(id, version, status, opId);
         this.initialNodesToDeploy = Collections.unmodifiableSet(initialNodesToDeploy);
+        this.isMajority = isMajority;
     }
 
     public Set<String> initialNodesToDeploy() {
         return initialNodesToDeploy;
+    }
+
+    public boolean isMajority() {
+        return isMajority;
     }
 
     @Override
@@ -69,15 +78,26 @@ public class UnitClusterStatus extends UnitStatus {
 
         UnitClusterStatus status = (UnitClusterStatus) o;
 
-        return initialNodesToDeploy != null ? initialNodesToDeploy.equals(status.initialNodesToDeploy)
-                : status.initialNodesToDeploy == null;
+        return initialNodesToDeploy.equals(status.initialNodesToDeploy);
     }
 
     @Override
     public int hashCode() {
         int result = super.hashCode();
-        result = 31 * result + (initialNodesToDeploy != null ? initialNodesToDeploy.hashCode() : 0);
+        result = 31 * result + initialNodesToDeploy.hashCode();
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return "UnitClusterStatus{"
+                + "id='" + id() + '\''
+                + ", version=" + version()
+                + ", status=" + status()
+                + ", opId=" + opId()
+                + ", initialNodesToDeploy=" + initialNodesToDeploy
+                + ", isMajority=" + isMajority
+                + '}';
     }
 
     /**
@@ -92,7 +112,8 @@ public class UnitClusterStatus extends UnitStatus {
                 status.version(),
                 status.status(),
                 status.opId(),
-                status.initialNodesToDeploy
+                status.initialNodesToDeploy,
+                status.isMajority
         );
     }
 
@@ -104,7 +125,7 @@ public class UnitClusterStatus extends UnitStatus {
      */
     public static UnitClusterStatus deserialize(byte[] value) {
         if (value == null || value.length == 0) {
-            return new UnitClusterStatus(null, null, null, 0, Set.of());
+            return new UnitClusterStatus(null, null, null, 0, Set.of(), true);
         }
 
         String[] values = SerializeUtils.deserialize(value);
@@ -114,8 +135,8 @@ public class UnitClusterStatus extends UnitStatus {
         DeploymentStatus status = checkElement(values, 2) ? DeploymentStatus.valueOf(SerializeUtils.decode(values[2])) : null;
         long opId = checkElement(values, 3) ? Long.parseLong(SerializeUtils.decode(values[3])) : 0;
         Set<String> nodes = checkElement(values, 4) ? SerializeUtils.decodeAsSet(values[4]) : Set.of();
+        boolean isMajority = checkElement(values, 5) ? Boolean.parseBoolean(SerializeUtils.decode(values[5])) : true;
 
-
-        return new UnitClusterStatus(id, version, status, opId, nodes);
+        return new UnitClusterStatus(id, version, status, opId, nodes, isMajority);
     }
 }

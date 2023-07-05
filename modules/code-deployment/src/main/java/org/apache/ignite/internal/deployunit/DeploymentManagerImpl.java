@@ -173,7 +173,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         clusterEventCallback = new ClusterEventCallbackImpl(deploymentUnitStore, deployer, cmgManager, nodeName);
         clusterStatusWatchListener = new ClusterStatusWatchListener(clusterEventCallback);
 
-        failover = new DeploymentUnitFailover(logicalTopology, deploymentUnitStore, deployer, nodeName);
+        failover = new DeploymentUnitFailover(logicalTopology, deploymentUnitStore, deployer, cmgManager, nodeName);
     }
 
     @Override
@@ -182,16 +182,16 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             Version version,
             boolean force,
             CompletableFuture<DeploymentUnit> deploymentUnit,
-            NodesToDeploy deployedNodes
+            NodesToDeploy nodesToDeploy
     ) {
         checkId(id);
         Objects.requireNonNull(version);
         Objects.requireNonNull(deploymentUnit);
 
-        LOG.info("Deploying {}:{} on {}", id, version, deployedNodes);
-        return deployedNodes.extractNodes(cmgManager)
-                .thenCompose(nodesToDeploy ->
-                        doDeploy(id, version, force, deploymentUnit, nodesToDeploy)
+        LOG.info("Deploying {}:{} on {}", id, version, nodesToDeploy);
+        return nodesToDeploy.extractNodes(cmgManager)
+                .thenCompose(initialNodes ->
+                        doDeploy(id, version, force, deploymentUnit, initialNodes, nodesToDeploy.isMajority())
                 );
     }
 
@@ -200,16 +200,17 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             Version version,
             boolean force,
             CompletableFuture<DeploymentUnit> unitFuture,
-            Set<String> nodesToDeploy
+            Set<String> nodesToDeploy,
+            boolean isMajority
     ) {
-        return deploymentUnitStore.createClusterStatus(id, version, nodesToDeploy)
-                .thenCompose(clusterStatus -> unitFuture.thenCompose(deploymentUnit -> {
+        return deploymentUnitStore.createClusterStatus(id, version, nodesToDeploy, isMajority)
+                .thenCompose(clusterStatus -> {
                     if (clusterStatus != null) {
-                        return doDeploy(clusterStatus, deploymentUnit, nodesToDeploy);
+                        return unitFuture.thenCompose(deploymentUnit -> doDeploy(clusterStatus, deploymentUnit, nodesToDeploy));
                     } else {
                         if (force) {
                             return undeployAsync(id, version)
-                                    .thenCompose(u -> doDeploy(id, version, false, unitFuture, nodesToDeploy));
+                                    .thenCompose(u -> doDeploy(id, version, false, unitFuture, nodesToDeploy, isMajority));
                         }
                         LOG.warn("Failed to deploy meta of unit " + id + ":" + version + " to metastore. "
                                 + "Already exists.");
@@ -217,7 +218,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                                 new DeploymentUnitAlreadyExistsException(id,
                                         "Unit " + id + ":" + version + " already exists"));
                     }
-                }));
+                });
     }
 
     private CompletableFuture<Boolean> doDeploy(
@@ -233,21 +234,21 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             return failedFuture(e);
         }
         return deployToLocalNode(clusterStatus, unitContent)
-                .thenApply(completed -> {
+                .thenCompose(completed -> {
                     if (completed) {
-                        nodesToDeploy.forEach(node -> {
-                            if (!node.equals(nodeName)) {
-                                deploymentUnitStore.createNodeStatus(
-                                        node,
-                                        clusterStatus.id(),
-                                        clusterStatus.version(),
-                                        clusterStatus.opId(),
-                                        UPLOADING
-                                );
-                            }
-                        });
+                        return allOf(
+                                nodesToDeploy.stream()
+                                        .filter(node -> !node.equals(nodeName))
+                                        .map(node -> deploymentUnitStore.createNodeStatus(
+                                                node,
+                                                clusterStatus.id(),
+                                                clusterStatus.version(),
+                                                clusterStatus.opId(),
+                                                UPLOADING
+                                        ).thenAccept(success -> LOG.info("createNodeStatus UPLOADING {}", node))).toArray(CompletableFuture<?>[]::new)
+                        ).thenApply(unused -> true);
                     }
-                    return completed;
+                    return completedFuture(false);
                 });
     }
 
@@ -261,7 +262,10 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                                 clusterStatus.version(),
                                 clusterStatus.opId(),
                                 DEPLOYED
-                        );
+                        ).thenApply(success -> {
+                            LOG.info("createNodeStatus DEPLOYED {}", nodeName);
+                            return success;
+                        });
                     }
                     return completedFuture(false);
                 });

@@ -536,7 +536,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                         } else if (resp instanceof SMErrorResponse) {
                             handleSmErrorResponse((SMErrorResponse) resp, fut);
                         } else {
-                            leader = peer; // The OK response was received from a leader.
+//                            leader = peer; // The OK response was received from a leader.
+                            LOG.info("sendWithRetry {} on {}", peer.consistentId(), this);
 
                             fut.complete((R) resp);
                         }
@@ -578,7 +579,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         switch (error) {
             case SUCCESS:
-                leader = peer; // The OK response was received from a leader.
+//                leader = peer; // The OK response was received from a leader.
+                LOG.info("handleErrorResponse {}", peer.consistentId());
 
                 fut.complete(null); // Void response.
 

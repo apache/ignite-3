@@ -72,6 +72,17 @@ public class UnitNodeStatus extends UnitStatus {
         return result;
     }
 
+    @Override
+    public String toString() {
+        return "UnitNodeStatus{"
+                + "id='" + id() + '\''
+                + ", version=" + version()
+                + ", status=" + status()
+                + ", opId=" + opId()
+                + ", nodeId=" + nodeId
+                + '}';
+    }
+
     /**
      * Serialize unit node status to byte array.
      *

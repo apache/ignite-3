@@ -54,13 +54,17 @@ public class NodesToDeploy {
     }
 
     /**
-     * Returns a list of nodes for initial deployment.
+     * Returns a set of nodes for initial deployment.
      *
      * @param cmgManager Cluster management group.
      * @return Set of nodes for initial deployment.
      */
     public CompletableFuture<Set<String>> extractNodes(ClusterManagementGroupManager cmgManager) {
         return nodesList != null ? extractNodesFromList(cmgManager) : extractNodesFromMode(cmgManager);
+    }
+
+    public boolean isMajority() {
+        return deployMode == InitialDeployMode.MAJORITY;
     }
 
     private CompletableFuture<Set<String>> extractNodesFromMode(ClusterManagementGroupManager cmgManager) {
