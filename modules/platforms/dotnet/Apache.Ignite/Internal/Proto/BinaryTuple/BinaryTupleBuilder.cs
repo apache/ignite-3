@@ -32,6 +32,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     /// </summary>
     internal ref struct BinaryTupleBuilder
     {
+        /** Hashed column index: not hashed. */
+        private const int NoHash = -1;
+
+        /** Hashed column index: hashed in order. */
+        private const int OrderedHash = -2;
+
         /** Number of elements in the tuple. */
         private readonly int _numElements;
 
@@ -103,9 +109,15 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         public void AppendNull()
         {
-            if (ShouldHash())
+            var hashOrder = GetHashOrder();
+            if (hashOrder == OrderedHash)
             {
                 _hash = HashUtils.Hash32((sbyte)0, _hash);
+            }
+            else if (hashOrder != NoHash)
+            {
+                // TODO: Put hash into the indexed table to be combined later
+                var hash = HashUtils.Hash32((sbyte)0, 0);
             }
 
             OnWrite();
@@ -1235,6 +1247,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             return span;
         }
 
-        private bool ShouldHash() => _hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true;
+        private int GetHashOrder()
+        {
+            if (_hashedColumnsPredicate is null)
+            {
+                return NoHash;
+            }
+
+            var order = _hashedColumnsPredicate.HashedColumnOrder(_elementIndex);
+            if (order == NoHash)
+            {
+                return NoHash;
+            }
+
+            return _hashedColumnsPredicate.HashedColumnsOrdered
+                ? OrderedHash
+                : order;
+        }
     }
 }
