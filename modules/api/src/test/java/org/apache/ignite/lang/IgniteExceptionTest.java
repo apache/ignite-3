@@ -136,7 +136,7 @@ public class IgniteExceptionTest {
             }
         }
 
-        Descriptor signatures[] = {
+        Descriptor[] signatures = {
                 new Descriptor(methodType(void.class, Throwable.class), true, new Object[0]),
                 new Descriptor(methodType(void.class, String.class, Throwable.class), true, new Object[] {"test-message"}),
                 new Descriptor(methodType(void.class, int.class, Throwable.class), false, new Object[] {INTERNAL_ERR}),
