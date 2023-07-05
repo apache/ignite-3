@@ -58,7 +58,7 @@ public class ClientSchema {
      * @param columns Columns.
      * @param colocationColumns Colocation columns. When null, all key columns are used.
      */
-    public ClientSchema(int ver, ClientColumn[] columns, int @Nullable [] colocationColumns) {
+    public ClientSchema(int ver, ClientColumn[] columns, ClientColumn @Nullable [] colocationColumns) {
         assert ver >= 0;
         assert columns != null;
 
@@ -81,11 +81,7 @@ public class ClientSchema {
 
             System.arraycopy(columns, 0, this.colocationColumns, 0, keyCnt);
         } else {
-            this.colocationColumns = new ClientColumn[colocationColumns.length];
-
-            for (int i = 0; i < colocationColumns.length; i++) {
-                this.colocationColumns[i] = columns[colocationColumns[i]];
-            }
+            this.colocationColumns = colocationColumns;
         }
     }
 

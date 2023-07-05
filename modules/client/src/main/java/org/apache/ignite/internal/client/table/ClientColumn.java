@@ -35,6 +35,9 @@ public class ClientColumn {
     /** Key column flag. */
     private final boolean isKey;
 
+    /** Colocation index. */
+    private final int colocationIndex;
+
     /** Index of the column in the schema. */
     private final int schemaIndex;
 
@@ -47,31 +50,34 @@ public class ClientColumn {
     /**
      * Constructor.
      *
-     * @param name         Column name.
-     * @param type         Column type.
-     * @param nullable     Nullable flag.
-     * @param isKey        Key column flag.
-     * @param schemaIndex  Index of the column in the schema.
+     * @param name Column name.
+     * @param type Column type.
+     * @param nullable Nullable flag.
+     * @param isKey Key column flag.
+     * @param colocationIndex Colocation index.
+     * @param schemaIndex Index of the column in the schema.
      */
-    public ClientColumn(String name, ColumnType type, boolean nullable, boolean isKey, int schemaIndex) {
-        this(name, type, nullable, isKey, schemaIndex, 0, 0);
+    public ClientColumn(String name, ColumnType type, boolean nullable, boolean isKey, int colocationIndex, int schemaIndex) {
+        this(name, type, nullable, isKey, colocationIndex, schemaIndex, 0, 0);
     }
 
     /**
      * Constructor.
      *
-     * @param name        Column name.
-     * @param type        Column type code.
-     * @param nullable    Nullable flag.
-     * @param isKey       Key column flag.
+     * @param name Column name.
+     * @param type Column type code.
+     * @param nullable Nullable flag.
+     * @param isKey Key column flag.
+     * @param colocationIndex Colocation index.
      * @param schemaIndex Index of the column in the schema.
-     * @param scale       Scale of the column, if applicable.
+     * @param scale Scale of the column, if applicable.
      */
     public ClientColumn(
             String name,
             ColumnType type,
             boolean nullable,
             boolean isKey,
+            int colocationIndex,
             int schemaIndex,
             int scale,
             int precision) {
@@ -82,6 +88,7 @@ public class ClientColumn {
         this.type = type;
         this.nullable = nullable;
         this.isKey = isKey;
+        this.colocationIndex = colocationIndex;
         this.schemaIndex = schemaIndex;
         this.scale = scale;
         this.precision = precision;
@@ -116,6 +123,15 @@ public class ClientColumn {
      */
     public boolean key() {
         return isKey;
+    }
+
+    /**
+     * Gets the colocation index, or -1 when not part of the colocation key.
+     *
+     * @return Index within colocation key, or -1 when not part of the colocation key.
+     */
+    public int colocationIndex() {
+        return colocationIndex;
     }
 
     /**
