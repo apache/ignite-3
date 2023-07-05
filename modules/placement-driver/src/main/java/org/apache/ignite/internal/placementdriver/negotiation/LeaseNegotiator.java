@@ -22,8 +22,6 @@ import static org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreem
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.LeaseUpdater;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
@@ -35,8 +33,9 @@ import org.apache.ignite.network.ClusterService;
  * This class negotiates a lease with leaseholder. If the lease is negotiated, it is ready available to accept.
  */
 public class LeaseNegotiator {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(LeaseNegotiator.class);
+    // TODO https://issues.apache.org/jira/browse/IGNITE-18959 uncomment
+    ///** The logger. */
+    //private static final IgniteLogger LOG = Loggers.forClass(LeaseNegotiator.class);
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
