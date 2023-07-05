@@ -968,6 +968,32 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
         }
     }
 
+    /**
+     * Saturated value are placed in search bounds of a sorted index.
+     */
+    @Test
+    public void testSaturatedBoundsSortedIndex() {
+        sql("CREATE TABLE t100 (ID INTEGER PRIMARY KEY, VAL TINYINT)");
+        sql("CREATE INDEX t100_idx ON t100 (VAL)");
+
+        sql("INSERT INTO t100 VALUES (1, 127)");
+
+        assertQuery("SELECT * FROM t100 WHERE val = 1024").returnNothing().check();
+    }
+
+    /**
+     * Saturated value are placed in search bounds of a hash index.
+     */
+    @Test
+    public void testSaturatedBoundsHashIndex() {
+        sql("CREATE TABLE t200 (ID INTEGER PRIMARY KEY, VAL TINYINT)");
+        sql("CREATE INDEX t200_idx ON t200 USING HASH (VAL)");
+
+        sql("INSERT INTO t200 VALUES (1, 127)");
+
+        assertQuery("SELECT * FROM t200 WHERE val = 1024").returnNothing().check();
+    }
+
     @Test
     public void testScanBooleanField() {
         try {
