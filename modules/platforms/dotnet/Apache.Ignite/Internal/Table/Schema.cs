@@ -26,6 +26,7 @@ namespace Apache.Ignite.Internal.Table
     /// <param name="Version">Version.</param>
     /// <param name="TableId">Table id.</param>
     /// <param name="KeyColumnCount">Key column count.</param>
+    /// <param name="ColocationColumnCount">Colocation column count.</param>
     /// <param name="Columns">Columns in schema order.</param>
     /// <param name="ColocationColumns">Colocation columns in hashing order.</param>
     /// <param name="ColocationColumnsOrdered">Whether colocation column order matches schema order.

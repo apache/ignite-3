@@ -48,6 +48,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             Version: 1,
             TableId: 1,
             KeyColumnCount: 1,
+            ColocationColumnCount: 1,
             Columns: new[]
             {
                 new Column(nameof(Car.Id), ColumnType.Uuid, IsNullable: false, IsKey: true, SchemaIndex: 0, Scale: 0, Precision: 0) { ColocationIndex = 0 },

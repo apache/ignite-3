@@ -130,9 +130,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendByte(sbyte value)
         {
-            if (ShouldHash())
+            if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
                 _hash = HashUtils.Hash32(value, _hash);
+            }
+            else if (hashOrder != NoHash)
+            {
+                PutHash(hashOrder, HashUtils.Hash32(value, 0));
             }
 
             PutByte(value);
@@ -161,9 +165,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendShort(short value)
         {
-            if (ShouldHash())
+            if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
                 _hash = HashUtils.Hash32(value, _hash);
+            }
+            else if (hashOrder != NoHash)
+            {
+                PutHash(hashOrder, HashUtils.Hash32(value, 0));
             }
 
             if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
@@ -200,9 +208,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendInt(int value)
         {
-            if (ShouldHash())
+            if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
                 _hash = HashUtils.Hash32(value, _hash);
+            }
+            else if (hashOrder != NoHash)
+            {
+                PutHash(hashOrder, HashUtils.Hash32(value, 0));
             }
 
             if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
@@ -243,9 +255,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendLong(long value)
         {
-            if (ShouldHash())
+            if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
                 _hash = HashUtils.Hash32(value, _hash);
+            }
+            else if (hashOrder != NoHash)
+            {
+                PutHash(hashOrder, HashUtils.Hash32(value, 0));
             }
 
             if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
@@ -290,9 +306,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendFloat(float value)
         {
-            if (ShouldHash())
+            if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
                 _hash = HashUtils.Hash32(value, _hash);
+            }
+            else if (hashOrder != NoHash)
+            {
+                PutHash(hashOrder, HashUtils.Hash32(value, 0));
             }
 
             PutFloat(value);
@@ -321,9 +341,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendDouble(double value)
         {
-            if (ShouldHash())
+            if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
                 _hash = HashUtils.Hash32(value, _hash);
+            }
+            else if (hashOrder != NoHash)
+            {
+                PutHash(hashOrder, HashUtils.Hash32(value, 0));
             }
 
             // ReSharper disable once CompareOfFloatsByEqualityOperator
@@ -388,9 +412,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendBytes(Span<byte> value)
         {
-            if (ShouldHash())
+            if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
                 _hash = HashUtils.Hash32(value, _hash);
+            }
+            else if (hashOrder != NoHash)
+            {
+                PutHash(hashOrder, HashUtils.Hash32(value, 0));
             }
 
             PutBytes(value);
@@ -428,12 +456,19 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             var span = GetSpan(16);
             UuidSerializer.Write(value, span);
 
-            if (ShouldHash())
+            if (GetHashOrder() is var hashOrder && hashOrder != NoHash)
             {
                 var lo = BinaryPrimitives.ReadInt64LittleEndian(span[..8]);
                 var hi = BinaryPrimitives.ReadInt64LittleEndian(span[8..]);
 
-                _hash = HashUtils.Hash32(hi, HashUtils.Hash32(lo, _hash));
+                if (hashOrder == OrderedHash)
+                {
+                    _hash = HashUtils.Hash32(hi, HashUtils.Hash32(lo, _hash));
+                }
+                else
+                {
+                    PutHash(hashOrder, HashUtils.Hash32(hi, HashUtils.Hash32(lo, 0)));
+                }
             }
 
             OnWrite();
@@ -476,9 +511,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                 var resBytes = arr.AsSpan()[..size];
 
-                if (ShouldHash())
+                if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
                 {
                     _hash = HashUtils.Hash32(resBytes, _hash);
+                }
+                else if (hashOrder != NoHash)
+                {
+                    PutHash(hashOrder, HashUtils.Hash32(resBytes, 0));
                 }
 
                 PutBytes(resBytes);
@@ -542,9 +581,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             var destination = GetSpan(size);
             var success = value.TryWriteBytes(destination, out int written, isBigEndian: true);
 
-            if (ShouldHash())
+            if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
                 _hash = HashUtils.Hash32(destination[..written], _hash);
+            }
+            else if (hashOrder != NoHash)
+            {
+                PutHash(hashOrder, HashUtils.Hash32(destination[..written], 0));
             }
 
             Debug.Assert(success, "success");
@@ -575,9 +618,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendDate(LocalDate value)
         {
-            if (ShouldHash())
+            if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
                 _hash = HashUtils.Hash32(value, _hash);
+            }
+            else if (hashOrder != NoHash)
+            {
+                PutHash(hashOrder, HashUtils.Hash32(value, 0));
             }
 
             PutDate(value);
@@ -607,9 +654,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="precision">Precision.</param>
         public void AppendTime(LocalTime value, int precision)
         {
-            if (ShouldHash())
+            if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
                 _hash = HashUtils.Hash32(value, precision, _hash);
+            }
+            else if (hashOrder != NoHash)
+            {
+                PutHash(hashOrder, HashUtils.Hash32(value, precision, 0));
             }
 
             PutTime(value, precision);
@@ -640,9 +691,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="precision">Precision.</param>
         public void AppendDateTime(LocalDateTime value, int precision)
         {
-            if (ShouldHash())
+            if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
                 _hash = HashUtils.Hash32(value, precision, _hash);
+            }
+            else if (hashOrder != NoHash)
+            {
+                PutHash(hashOrder, HashUtils.Hash32(value, precision, 0));
             }
 
             PutDate(value.Date);
@@ -676,10 +731,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             var (seconds, nanos) = PutTimestamp(value, precision);
 
-            if (ShouldHash())
+            if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
-                _hash = HashUtils.Hash32(seconds, _hash);
-                _hash = HashUtils.Hash32((long)nanos, _hash);
+                _hash = HashUtils.Hash32((long)nanos, HashUtils.Hash32(seconds, _hash));
+            }
+            else if (hashOrder != NoHash)
+            {
+                PutHash(hashOrder, HashUtils.Hash32((long)nanos, HashUtils.Hash32(seconds, 0)));
             }
 
             OnWrite();
@@ -708,7 +766,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendDuration(Duration value)
         {
-            if (ShouldHash())
+            if (GetHashOrder() != NoHash)
             {
                 // Colocation keys can't include Duration.
                 throw new NotSupportedException("Duration hashing is not supported.");
@@ -740,7 +798,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendPeriod(Period value)
         {
-            if (ShouldHash())
+            if (GetHashOrder() != NoHash)
             {
                 // Colocation keys can't include Period.
                 throw new NotSupportedException("Period hashing is not supported.");
@@ -1061,9 +1119,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (value.Length == 0)
             {
-                if (ShouldHash())
+                if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
                 {
                     _hash = HashUtils.Hash32(Span<byte>.Empty, _hash);
+                }
+                else if (hashOrder != NoHash)
+                {
+                    PutHash(hashOrder, HashUtils.Hash32(Span<byte>.Empty, 0));
                 }
 
                 _buffer.GetSpan(1)[0] = BinaryTupleCommon.VarlenEmptyByte;
@@ -1076,9 +1138,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             var actualBytes = ProtoCommon.StringEncoding.GetBytes(value, span);
 
-            if (ShouldHash())
+            if (GetHashOrder() is var hashOrder2 && hashOrder2 == OrderedHash)
             {
                 _hash = HashUtils.Hash32(span[..actualBytes], _hash);
+            }
+            else if (hashOrder2 != NoHash)
+            {
+                PutHash(hashOrder2, HashUtils.Hash32(span[..actualBytes], 0));
             }
 
             _buffer.Advance(actualBytes);
