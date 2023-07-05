@@ -337,10 +337,6 @@ public class ItColocationTest {
 
         for (NativeTypeSpec t0 : NativeTypeSpec.values()) {
             for (NativeTypeSpec t1 : NativeTypeSpec.values()) {
-                if (t0 == NativeTypeSpec.BOOLEAN && t0 == t1) {
-                    continue;
-                }
-
                 args.add(Arguments.of(t0, t1));
             }
         }
@@ -379,13 +375,15 @@ public class ItColocationTest {
     @MethodSource("twoColumnsParameters")
     public void colocationTwoColumnsInsertAll(NativeTypeSpec t0, NativeTypeSpec t1)
             throws TupleMarshallerException {
+        int keysCount = t0 == NativeTypeSpec.BOOLEAN && t0 == t1 ? 2 : KEYS;
+
         init(t0, t1);
 
-        tbl.recordView().insertAll(null, IntStream.range(0, KEYS).mapToObj(i -> createTuple(i, t0, t1)).collect(Collectors.toSet()));
+        tbl.recordView().insertAll(null, IntStream.range(0, keysCount).mapToObj(i -> createTuple(i, t0, t1)).collect(Collectors.toSet()));
 
         Int2IntMap partsMap = new Int2IntOpenHashMap();
 
-        for (int i = 0; i < KEYS; ++i) {
+        for (int i = 0; i < keysCount; ++i) {
             Tuple t = createTuple(i, t0, t1);
 
             BinaryRowEx r = marshaller.marshal(t);

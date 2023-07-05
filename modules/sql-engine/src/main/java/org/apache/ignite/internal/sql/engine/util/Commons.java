@@ -575,10 +575,11 @@ public final class Commons {
         assert type != null;
 
         switch (type.spec()) {
-            case INT8:
-                return Byte.class;
             case BOOLEAN:
                 return Boolean.class;
+
+            case INT8:
+                return Byte.class;
 
             case INT16:
                 return Short.class;

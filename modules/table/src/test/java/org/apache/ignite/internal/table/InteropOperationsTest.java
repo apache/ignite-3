@@ -338,13 +338,7 @@ public class InteropOperationsTest {
 
         Value expected = new Value(id, nulls);
 
-        try {
-            assertEquals(expected, res);
-        } catch (AssertionError e) {
-            e.printStackTrace();
-
-            throw e;
-        }
+        assertEquals(expected, res);
 
         return true;
     }

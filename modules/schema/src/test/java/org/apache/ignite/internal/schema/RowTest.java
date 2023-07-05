@@ -591,7 +591,7 @@ public class RowTest {
                 NativeType type = schema.column(i).type();
 
                 switch (type.spec()) {
-                     case BOOLEAN:
+                    case BOOLEAN:
                         asm.appendBoolean((Boolean) vals[i]);
                         break;
 
