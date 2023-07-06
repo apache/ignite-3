@@ -37,10 +37,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -62,7 +60,6 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -112,6 +109,12 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private final ConcurrentHashMap<Integer, CompletableFuture<Long>> zoneScaleDownRevisions = new ConcurrentHashMap<>();
 
     /**
+     * Contains futures that is completed when the filter update listener receive the event with expected zone id.
+     * Mapping of zone id -> future with event revision.
+     */
+    private final ConcurrentHashMap<Integer, CompletableFuture<Long>> zoneChangeFilterRevisions = new ConcurrentHashMap<>();
+
+    /**
      * Contains futures that is completed when the zone configuration listener receive the zone creation event with expected zone id.
      * Mapping of zone id -> future with event revision.
      */
@@ -134,10 +137,12 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         zonesConfiguration.distributionZones().listenElements(zonesConfigurationListener);
         zonesConfiguration.distributionZones().any().dataNodesAutoAdjustScaleUp().listen(onUpdateScaleUp());
         zonesConfiguration.distributionZones().any().dataNodesAutoAdjustScaleDown().listen(onUpdateScaleDown());
+        zonesConfiguration.distributionZones().any().filter().listen(onUpdateFilter());
 
         zonesConfiguration.defaultDistributionZone().listen(zonesConfigurationListener);
         zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleUp().listen(onUpdateScaleUp());
         zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleDown().listen(onUpdateScaleDown());
+        zonesConfiguration.defaultDistributionZone().filter().listen(onUpdateFilter());
 
         distributionZoneManager.start();
 
@@ -566,6 +571,84 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     }
 
     /**
+     * Tests data nodes updating when a filter is changed even when actual data nodes value is not changed.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void changeFilter() throws Exception {
+        // Prerequisite.
+
+        // Create the zone with immediate timers.
+        distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
+                                .build()
+                )
+                .get(3, SECONDS);
+
+        // Alter the zone with immediate timers.
+        distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
+                        new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
+                                .build()
+                )
+                .get(3, SECONDS);
+
+        // Create logical topology with NODE_0.
+        topology.putNode(NODE_0);
+
+        Set<LogicalNode> oneNode = Set.of(NODE_0);
+        Set<String> oneNodeName = Set.of(NODE_0.name());
+
+        // Check that data nodes value of both zone is NODE_0.
+        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, Set.of(NODE_0));
+
+        CompletableFuture<Set<String>> dataNodesFut0 = distributionZoneManager.dataNodes(topologyRevision1, DEFAULT_ZONE_ID);
+        assertThat(dataNodesFut0, willBe(oneNodeName));
+
+        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
+        assertThat(dataNodesFut1, willBe(oneNodeName));
+
+        // Alter the zones with infinite timers.
+        distributionZoneManager.alterZone(ZONE_NAME_1,
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                                .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
+                                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
+                                .build()
+                )
+                .get(3, SECONDS);
+
+        // Alter the zone with infinite timers.
+        distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
+                        new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                                .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
+                                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
+                                .build()
+                )
+                .get(3, SECONDS);
+
+        // Test steps.
+
+        String filter = "$[?($..* || @.region == 'US')]";
+
+        // Change filter and get revision of this change.
+        long filterRevision0 = alterFilterAndGetRevision(DEFAULT_ZONE_NAME, filter);
+        long filterRevision1 = alterFilterAndGetRevision(ZONE_NAME_1, filter);
+
+        // Check that data nodes value of the the zone is NODE_0.
+        // The future didn't hang due to the fact that the actual data nodes value did not change.
+        CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(filterRevision0, DEFAULT_ZONE_ID);
+        assertThat(dataNodesFut3, willBe(oneNodeName));
+
+        CompletableFuture<Set<String>> dataNodesFut4 = distributionZoneManager.dataNodes(filterRevision1, ZONE_ID_1);
+        assertThat(dataNodesFut4, willBe(oneNodeName));
+
+    }
+
+    /**
      * Tests data nodes dropping when a scale down task is scheduled.
      *
      * @throws Exception If failed.
@@ -885,6 +968,28 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     }
 
     /**
+     * Changes a filter value of a zone and return the revision of a zone update event.
+     *
+     * @param zoneName Zone name.
+     * @param filter New filter value.
+     * @return Revision.
+     * @throws Exception If failed.
+     */
+    private long alterFilterAndGetRevision(String zoneName, String filter) throws Exception {
+        CompletableFuture<Long> revisionFut = new CompletableFuture<>();
+
+        int zoneId = distributionZoneManager.getZoneId(zoneName);
+
+        zoneChangeFilterRevisions.put(zoneId, revisionFut);
+
+        distributionZoneManager.alterZone(zoneName, new Builder(zoneName)
+                        .filter(filter).build())
+                .get(3, SECONDS);
+
+        return revisionFut.get(3, SECONDS);
+    }
+
+    /**
      * Creates a zone and return the revision of a create zone event.
      *
      * @param zoneName Zone name.
@@ -977,6 +1082,24 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
             if (zoneScaleDownRevisions.containsKey(zoneId)) {
                 zoneScaleDownRevisions.remove(zoneId).complete(ctx.storageRevision());
+            }
+
+            return completedFuture(null);
+        };
+    }
+
+    /**
+     * Creates a configuration listener which completes futures from {@code zoneChangeFilterRevisions}
+     * when receives event with expected zone id.
+     *
+     * @return Configuration listener.
+     */
+    private ConfigurationListener<String> onUpdateFilter() {
+        return ctx -> {
+            int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
+
+            if (zoneChangeFilterRevisions.containsKey(zoneId)) {
+                zoneChangeFilterRevisions.remove(zoneId).complete(ctx.storageRevision());
             }
 
             return completedFuture(null);
