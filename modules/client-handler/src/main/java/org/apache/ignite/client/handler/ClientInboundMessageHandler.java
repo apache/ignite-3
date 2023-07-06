@@ -247,6 +247,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
                 handshake(ctx, unpacker, packer);
             } else {
+                // TODO: Some operations may use unpacker asynchronously, outside of this try block.
+                // We should increase the reference count of the buffer in this case, and release it in the future completion callback.
                 processOperation(ctx, unpacker, packer);
             }
         }

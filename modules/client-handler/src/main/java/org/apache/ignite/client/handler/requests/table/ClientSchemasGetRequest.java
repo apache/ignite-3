@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeSchema;
 
 import java.util.concurrent.CompletableFuture;
@@ -44,7 +44,7 @@ public class ClientSchemasGetRequest {
             ClientMessagePacker out,
             IgniteTables tables
     ) {
-        var table = readTable(in, tables);
+        var table = readTableAsync(in, tables);
 
         if (in.tryUnpackNil()) {
             // Return the latest schema.
