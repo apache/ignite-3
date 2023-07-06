@@ -26,6 +26,9 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ExecutionCancelledException extends IgniteInternalCheckedException {
+    /** Serial version UID. */
+    private static final long serialVersionUID = 0L;
+
     /**
      * Constructs a new exception with null as its detail message.
      */

@@ -94,9 +94,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         ResultSet rs1 = ses1.execute(null, "SELECT id FROM TST");
         ResultSet rs2 = ses2.execute(null, "SELECT id FROM TST");
 
-        waitForCondition(() -> {
-            return queryProcessor().liveSessions().size() == 1;
-        }, 10_000);
+        waitForCondition(() -> queryProcessor().liveSessions().size() == 1, 10_000);
 
         // first session should be expired for the moment
         SqlException ex = assertThrows(SqlException.class, () -> ses1.execute(null, "SELECT 1 + 1"));
