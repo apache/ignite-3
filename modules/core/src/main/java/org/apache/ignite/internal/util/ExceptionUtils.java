@@ -452,6 +452,7 @@ public final class ExceptionUtils {
     public static UUID getOrCreateTraceId(Throwable t) {
         Throwable e = t;
 
+        // This collection is used to avoid infinite loops in case of cyclic dependencies.
         Set<Throwable> dejaVu = Collections.newSetFromMap(new IdentityHashMap<>());
 
         while (e != null) {
