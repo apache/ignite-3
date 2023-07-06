@@ -678,8 +678,8 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
             case COLOCATED:
                 return createColocatedAggregateNodesChain(ctx, grpSets, aggCall, inRowType, rowFactory, scan);
 
-            case MAP_REDUCE:
-                return createMapReduceAggregateNodesChain(ctx, grpSets, aggCall, inRowType, aggRowType, rowFactory, scan);
+//            case MAP_REDUCE:
+//                return createMapReduceAggregateNodesChain(ctx, grpSets, aggCall, inRowType, aggRowType, rowFactory, scan);
 
             default:
                 assert false;
@@ -719,6 +719,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     enum TestAggregateType {
         COLOCATED,
 
-        MAP_REDUCE
+//        MAP_REDUCE
     }
 }

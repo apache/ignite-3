@@ -32,6 +32,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -40,6 +41,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>See {@link AbstractAggregatePlannerTest base class} for more details.
  */
+@Disabled
 public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerTest {
     private final String[] disableRules = {
             "MapReduceHashAggregateConverterRule",

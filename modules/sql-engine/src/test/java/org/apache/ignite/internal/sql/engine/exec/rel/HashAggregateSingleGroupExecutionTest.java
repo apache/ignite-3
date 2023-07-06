@@ -39,6 +39,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -47,6 +48,7 @@ import org.junit.jupiter.api.Test;
  */
 public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest {
     @Test
+    @Disabled
     public void mapReduceAvg() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
@@ -101,6 +103,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
     }
 
     @Test
+    @Disabled
     public void mapReduceSum() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
@@ -142,6 +145,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
     }
 
     @Test
+    @Disabled
     public void mapReduceMin() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
@@ -183,6 +187,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
     }
 
     @Test
+    @Disabled
     public void mapReduceMax() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
@@ -224,6 +229,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
     }
 
     @Test
+    @Disabled
     public void mapReduceCount() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();

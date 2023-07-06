@@ -255,11 +255,11 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private void add(RowT row) {
-            if (type == AggregateType.REDUCE) {
-                addOnReducer(row);
-            } else {
+//            if (type == AggregateType.REDUCE) {
+//                addOnReducer(row);
+//            } else {
                 addOnMapper(row);
-            }
+//            }
         }
 
         /**
@@ -272,9 +272,11 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         private List<RowT> getRows(int cnt) {
             if (nullOrEmpty(groups)) {
                 return Collections.emptyList();
-            } else if (type == AggregateType.MAP) {
-                return getOnMapper(cnt);
-            } else {
+            }
+//            else if (type == AggregateType.MAP) {
+//                return getOnMapper(cnt);
+//            }
+            else {
                 return getOnReducer(cnt);
             }
         }

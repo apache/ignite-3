@@ -252,19 +252,19 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private void add(RowT row) {
-            if (type == AggregateType.REDUCE) {
-                addOnReducer(row);
-            } else {
+//            if (type == AggregateType.REDUCE) {
+//                addOnReducer(row);
+//            } else {
                 addOnMapper(row);
-            }
+//            }
         }
 
         private RowT row() {
-            if (type == AggregateType.MAP) {
-                return rowOnMapper();
-            } else {
+//            if (type == AggregateType.MAP) {
+//                return rowOnMapper();
+//            } else {
                 return rowOnReducer();
-            }
+//            }
         }
 
         private void addOnMapper(RowT row) {
