@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.MAP;
-import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.REDUCE;
-import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.SINGLE;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 
 import java.util.Comparator;
@@ -54,9 +51,8 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(
                 ctx,
-                SINGLE,
                 grpSets,
-                accFactory(ctx, call, SINGLE, inRowType),
+                accFactory(ctx, call, inRowType),
                 rowFactory
         );
 
@@ -104,9 +100,8 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         HashAggregateNode<Object[]> aggMap = new HashAggregateNode<>(
                 ctx,
-                MAP,
                 grpSets,
-                accFactory(ctx, call, MAP, inRowType),
+                accFactory(ctx, call, inRowType),
                 rowFactory
         );
 
@@ -114,9 +109,8 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         HashAggregateNode<Object[]> aggRdc = new HashAggregateNode<>(
                 ctx,
-                REDUCE,
                 grpSets,
-                accFactory(ctx, call, REDUCE, aggRowType),
+                accFactory(ctx, call, aggRowType),
                 rowFactory
         );
 

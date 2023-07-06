@@ -31,7 +31,6 @@ import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,7 +39,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface ExpressionFactory<RowT> {
     Supplier<List<AccumulatorWrapper<RowT>>> accumulatorsFactory(
-            AggregateType type,
             List<AggregateCall> calls,
             RelDataType rowType
     );

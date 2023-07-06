@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.MAP;
-import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.REDUCE;
-import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.SINGLE;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 
 import java.util.Comparator;
@@ -68,9 +65,8 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         SortAggregateNode<Object[]> agg = new SortAggregateNode<>(
                 ctx,
-                SINGLE,
                 grpSet,
-                accFactory(ctx, call, SINGLE, inRowType),
+                accFactory(ctx, call, inRowType),
                 rowFactory,
                 cmp
         );
@@ -109,9 +105,8 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         SortAggregateNode<Object[]> aggMap = new SortAggregateNode<>(
                 ctx,
-                MAP,
                 grpSet,
-                accFactory(ctx, call, MAP, inRowType),
+                accFactory(ctx, call, inRowType),
                 rowFactory,
                 cmp
         );
@@ -135,9 +130,8 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         SortAggregateNode<Object[]> aggRdc = new SortAggregateNode<>(
                 ctx,
-                REDUCE,
                 ImmutableBitSet.of(reduceGrpFields),
-                accFactory(ctx, call, REDUCE, aggRowType),
+                accFactory(ctx, call, aggRowType),
                 rowFactory,
                 rdcCmp
         );

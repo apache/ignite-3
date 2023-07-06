@@ -42,7 +42,6 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -710,15 +709,12 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     protected Supplier<List<AccumulatorWrapper<Object[]>>> accFactory(
             ExecutionContext<Object[]> ctx,
             AggregateCall call,
-            AggregateType type,
             RelDataType rowType
     ) {
-        return ctx.expressionFactory().accumulatorsFactory(type, asList(call), rowType);
+        return ctx.expressionFactory().accumulatorsFactory(asList(call), rowType);
     }
 
     enum TestAggregateType {
         COLOCATED,
-
-//        MAP_REDUCE
     }
 }

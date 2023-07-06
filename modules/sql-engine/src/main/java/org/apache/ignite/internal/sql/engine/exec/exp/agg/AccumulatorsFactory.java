@@ -130,8 +130,6 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
     private final ExecutionContext<RowT> ctx;
 
-    private final AggregateType type;
-
     private final RelDataType inputRowType;
 
     private final List<WrapperPrototype> prototypes;
@@ -142,12 +140,10 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
      */
     public AccumulatorsFactory(
             ExecutionContext<RowT> ctx,
-            AggregateType type,
             List<AggregateCall> aggCalls,
             RelDataType inputRowType
     ) {
         this.ctx = ctx;
-        this.type = type;
         this.inputRowType = inputRowType;
 
         var accumulators = new Accumulators(ctx.getTypeFactory());
@@ -202,7 +198,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
         @NotNull
         private Function<Object[], Object[]> createInAdapter(Accumulator accumulator) {
-            if (type == AggregateType.REDUCE || nullOrEmpty(call.getArgList())) {
+            if (nullOrEmpty(call.getArgList())) {
                 return Function.identity();
             }
 
@@ -234,10 +230,6 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
         @NotNull
         private Function<Object, Object> createOutAdapter(Accumulator accumulator) {
-            if (type == AggregateType.MAP) {
-                return Function.identity();
-            }
-
             RelDataType inType = accumulator.returnType(ctx.getTypeFactory());
             RelDataType outType = call.getType();
 
@@ -284,8 +276,6 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         /** {@inheritDoc} */
         @Override
         public void add(RowT row) {
-            assert type != AggregateType.REDUCE;
-
             if (filterArg >= 0 && Boolean.TRUE != handler.get(filterArg, row)) {
                 return;
             }
@@ -305,24 +295,18 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         /** {@inheritDoc} */
         @Override
         public Object end() {
-//            assert type != AggregateType.MAP;
-
             return outAdapter.apply(accumulator.end());
         }
 
         /** {@inheritDoc} */
         @Override
         public void apply(Accumulator accumulator) {
-//            assert type == AggregateType.REDUCE;
-
             this.accumulator.apply(accumulator);
         }
 
         /** {@inheritDoc} */
         @Override
         public Accumulator accumulator() {
-//            assert type == AggregateType.MAP;
-
             return accumulator;
         }
     }

@@ -70,7 +70,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorsFactory;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -137,7 +136,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /** {@inheritDoc} */
     @Override
     public Supplier<List<AccumulatorWrapper<RowT>>> accumulatorsFactory(
-            AggregateType type,
             List<AggregateCall> calls,
             RelDataType rowType
     ) {
@@ -145,7 +143,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             return null;
         }
 
-        return new AccumulatorsFactory<>(ctx, type, calls, rowType);
+        return new AccumulatorsFactory<>(ctx, calls, rowType);
     }
 
     /** {@inheritDoc} */

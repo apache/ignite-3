@@ -48,7 +48,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractSetOpNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.CorrelatedNestedLoopJoinNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.FilterNode;
@@ -598,16 +597,14 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteColocatedHashAggregate rel) {
-        AggregateType type = AggregateType.SINGLE;
-
         RelDataType rowType = rel.getRowType();
         RelDataType inputType = rel.getInput().getRowType();
 
         Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
-                type, rel.getAggCallList(), inputType);
+                rel.getAggCallList(), inputType);
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accFactory, rowFactory);
+        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, rel.getGroupSets(), accFactory, rowFactory);
 
         Node<RowT> input = visit(rel.getInput());
 
@@ -619,16 +616,14 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteMapHashAggregate rel) {
-        AggregateType type = AggregateType.MAP;
-
         RelDataType rowType = rel.getRowType();
         RelDataType inputType = rel.getInput().getRowType();
 
         Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
-                type, rel.getAggCallList(), inputType);
+                rel.getAggCallList(), inputType);
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accFactory, rowFactory);
+        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, rel.getGroupSets(), accFactory, rowFactory);
 
         Node<RowT> input = visit(rel.getInput());
 
@@ -640,15 +635,13 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteReduceHashAggregate rel) {
-        AggregateType type = AggregateType.REDUCE;
-
         RelDataType rowType = rel.getRowType();
 
         Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
-                type, rel.getAggregateCalls(), null);
+                rel.getAggregateCalls(), null);
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accFactory, rowFactory);
+        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, rel.getGroupSets(), accFactory, rowFactory);
 
         Node<RowT> input = visit(rel.getInput());
 
@@ -660,13 +653,10 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteColocatedSortAggregate rel) {
-        AggregateType type = AggregateType.SINGLE;
-
         RelDataType rowType = rel.getRowType();
         RelDataType inputType = rel.getInput().getRowType();
 
         Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
-                type,
                 rel.getAggCallList(),
                 inputType
         );
@@ -681,7 +671,6 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         SortAggregateNode<RowT> node = new SortAggregateNode<>(
                 ctx,
-                type,
                 rel.getGroupSet(),
                 accFactory,
                 rowFactory,
@@ -698,13 +687,10 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteMapSortAggregate rel) {
-        AggregateType type = AggregateType.MAP;
-
         RelDataType rowType = rel.getRowType();
         RelDataType inputType = rel.getInput().getRowType();
 
         Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
-                type,
                 rel.getAggCallList(),
                 inputType
         );
@@ -719,7 +705,6 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         SortAggregateNode<RowT> node = new SortAggregateNode<>(
                 ctx,
-                type,
                 rel.getGroupSet(),
                 accFactory,
                 rowFactory,
@@ -736,12 +721,9 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteReduceSortAggregate rel) {
-        AggregateType type = AggregateType.REDUCE;
-
         RelDataType rowType = rel.getRowType();
 
         Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
-                type,
                 rel.getAggregateCalls(),
                 null
         );
@@ -756,7 +738,6 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         SortAggregateNode<RowT> node = new SortAggregateNode<>(
                 ctx,
-                type,
                 rel.getGroupSet(),
                 accFactory,
                 rowFactory,

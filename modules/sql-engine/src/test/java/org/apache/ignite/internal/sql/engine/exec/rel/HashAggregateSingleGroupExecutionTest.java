@@ -76,7 +76,6 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         HashAggregateNode<Object[]> map = new HashAggregateNode<>(
                 ctx,
-                MAP,
                 grpSets,
                 accFactory(ctx, call, MAP, rowType),
                 rowFactory()
@@ -86,7 +85,6 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(
                 ctx,
-                REDUCE,
                 grpSets,
                 accFactory(ctx, call, REDUCE, null),
                 rowFactory()
@@ -128,11 +126,11 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, MAP, grpSets,
+        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, grpSets,
                 accFactory(ctx, call, MAP, rowType), rowFactory());
         map.register(scan);
 
-        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, REDUCE, grpSets,
+        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, grpSets,
                 accFactory(ctx, call, REDUCE, null), rowFactory());
         reduce.register(map);
 
@@ -170,11 +168,11 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, MAP, grpSets,
+        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, grpSets,
                 accFactory(ctx, call, MAP, rowType), rowFactory());
         map.register(scan);
 
-        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, REDUCE, grpSets,
+        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, grpSets,
                 accFactory(ctx, call, REDUCE, null), rowFactory());
         reduce.register(map);
 
@@ -212,11 +210,11 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, MAP, grpSets,
+        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, grpSets,
                 accFactory(ctx, call, MAP, rowType), rowFactory());
         map.register(scan);
 
-        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, REDUCE, grpSets,
+        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, grpSets,
                 accFactory(ctx, call, REDUCE, null), rowFactory());
         reduce.register(map);
 
@@ -254,11 +252,11 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, MAP, grpSets,
+        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, grpSets,
                 accFactory(ctx, call, MAP, rowType), rowFactory());
         map.register(scan);
 
-        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, REDUCE, grpSets,
+        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, grpSets,
                 accFactory(ctx, call, REDUCE, null), rowFactory());
         reduce.register(map);
 
@@ -295,7 +293,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, SINGLE, grpSets,
+        HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, grpSets,
                 accFactory(ctx, call, SINGLE, rowType), rowFactory());
         agg.register(scan);
 
@@ -332,7 +330,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, SINGLE, grpSets,
+        HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, grpSets,
                 accFactory(ctx, call, SINGLE, rowType), rowFactory());
         agg.register(scan);
 
@@ -369,7 +367,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, SINGLE, grpSets,
+        HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, grpSets,
                 accFactory(ctx, call, SINGLE, rowType), rowFactory());
         agg.register(scan);
 
@@ -406,7 +404,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, SINGLE, grpSets,
+        HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, grpSets,
                 accFactory(ctx, call, SINGLE, rowType), rowFactory());
         agg.register(scan);
 
@@ -446,7 +444,6 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(
                 ctx,
-                SINGLE,
                 grpSets,
                 accFactory(ctx, call, SINGLE, rowType),
                 rowFactory()
@@ -468,6 +465,6 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
             AggregateType type,
             RelDataType rowType
     ) {
-        return ctx.expressionFactory().accumulatorsFactory(type, asList(call), rowType);
+        return ctx.expressionFactory().accumulatorsFactory(asList(call), rowType);
     }
 }

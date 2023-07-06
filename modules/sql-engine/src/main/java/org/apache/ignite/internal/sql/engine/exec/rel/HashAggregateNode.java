@@ -36,7 +36,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulator;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -46,7 +45,6 @@ import org.apache.ignite.lang.IgniteInternalException;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
-    private final AggregateType type;
 
     /** May be {@code null} when there are not accumulators (DISTINCT aggregate node). */
     private final Supplier<List<AccumulatorWrapper<RowT>>> accFactory;
@@ -69,11 +67,10 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
      * @param ctx Execution context.
      */
     public HashAggregateNode(
-            ExecutionContext<RowT> ctx, AggregateType type, List<ImmutableBitSet> grpSets,
+            ExecutionContext<RowT> ctx, List<ImmutableBitSet> grpSets,
             Supplier<List<AccumulatorWrapper<RowT>>> accFactory, RowFactory<RowT> rowFactory) {
         super(ctx);
 
-        this.type = type;
         this.accFactory = accFactory;
         this.rowFactory = rowFactory;
 
@@ -242,8 +239,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         private void init() {
             // Initializes aggregates for case when no any rows will be added into the aggregate to have 0 as result.
-            // Doesn't do it for MAP type due to we don't want send from MAP node zero results because it looks redundant.
-            if (grpFields.isEmpty() && (type == AggregateType.REDUCE || type == AggregateType.SINGLE)) {
+            if (grpFields.isEmpty()) {
                 groups.put(GroupKey.EMPTY_GRP_KEY, create());
             }
         }
