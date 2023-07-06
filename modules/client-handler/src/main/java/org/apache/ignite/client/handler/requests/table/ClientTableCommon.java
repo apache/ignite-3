@@ -130,13 +130,14 @@ public class ClientTableCommon {
         }
 
         assert tuple instanceof BinaryTupleContainer : "Tuple must be a BinaryTupleContainer: " + tuple.getClass();
-
         BinaryTupleReader binaryTuple = ((BinaryTupleContainer) tuple).binaryTuple();
-
         assert binaryTuple != null : "Binary tuple must not be null: " + tuple.getClass();
 
-        int elementCount = part == TuplePart.KEY ? schema.keyColumns().length() : -1;
-        packer.packBinaryTuple(binaryTuple, elementCount);
+        int elementCount = part == TuplePart.KEY ? schema.keyColumns().length() : schema.length();
+        assert elementCount == binaryTuple.elementCount() :
+                "Tuple element count mismatch: " + elementCount + " != " + binaryTuple.elementCount();
+
+        packer.packBinaryTuple(binaryTuple);
     }
 
     /**
