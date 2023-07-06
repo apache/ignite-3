@@ -439,8 +439,6 @@ public class StatementChecker {
                     StringDescription desc = new StringDescription();
                     matcher.describeTo(desc);
 
-                    err.printStackTrace(System.err);
-
                     AssertionFailedError error = AssertionFailureBuilder.assertionFailure()
                             .reason("Error does not match")
                             .actual(err)

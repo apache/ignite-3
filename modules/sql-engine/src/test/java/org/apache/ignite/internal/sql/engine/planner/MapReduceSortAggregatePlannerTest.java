@@ -41,7 +41,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>See {@link AbstractAggregatePlannerTest base class} for more details.
  */
-@Disabled
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-19785")
 public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerTest {
     private final String[] disableRules = {
             "MapReduceHashAggregateConverterRule",

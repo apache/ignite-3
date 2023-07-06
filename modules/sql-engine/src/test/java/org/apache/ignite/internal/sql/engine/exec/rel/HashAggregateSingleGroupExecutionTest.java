@@ -47,8 +47,9 @@ import org.junit.jupiter.api.Test;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest {
+
     @Test
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19785")
     public void mapReduceAvg() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
@@ -101,7 +102,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
     }
 
     @Test
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19785")
     public void mapReduceSum() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
@@ -143,7 +144,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
     }
 
     @Test
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19785")
     public void mapReduceMin() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
@@ -185,7 +186,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
     }
 
     @Test
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19785")
     public void mapReduceMax() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
@@ -227,7 +228,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
     }
 
     @Test
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19785")
     public void mapReduceCount() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
