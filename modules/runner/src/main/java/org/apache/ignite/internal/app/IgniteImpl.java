@@ -296,8 +296,6 @@ public class IgniteImpl implements Ignite {
 
     private final AuthenticationManager authenticationManager;
 
-    private PlacementDriverManager placementDriverManager;
-
     /**
      * The Constructor.
      *
@@ -446,20 +444,6 @@ public class IgniteImpl implements Ignite {
         TablesConfiguration tablesConfig = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
         DistributionZonesConfiguration zonesConfig = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
-
-        placementDriverManager = new PlacementDriverManager(
-                metaStorageMgr,
-                vaultMgr,
-                MetastorageGroupId.INSTANCE,
-                clusterSvc,
-                cmgMgr::metaStorageNodes,
-                logicalTopologyService,
-                raftMgr,
-                topologyAwareRaftGroupServiceFactory,
-                tablesConfig,
-                zonesConfig,
-                clock
-        );
 
         distributedConfigurationUpdater = new DistributedConfigurationUpdater(
                 cmgMgr,
