@@ -314,7 +314,7 @@ public class DdlCommandHandler {
             return completedFuture(Boolean.FALSE);
         }
 
-        return addColumnInternal(cmd.tableName(), cmd.columns(), cmd.ifColumnNotExists())
+        return addColumnInternal(cmd.tableName(), cmd.columns())
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
     }
 
@@ -324,7 +324,7 @@ public class DdlCommandHandler {
             return completedFuture(Boolean.FALSE);
         }
 
-        return dropColumnInternal(cmd.tableName(), cmd.columns(), cmd.ifColumnExists())
+        return dropColumnInternal(cmd.tableName(), cmd.columns())
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
     }
 
@@ -414,10 +414,9 @@ public class DdlCommandHandler {
      *
      * @param fullName Table with schema name.
      * @param colsDef Columns defenitions.
-     * @param ignoreColumnExistance Flag indicates exceptionally behavior in case of already existing column.
      * @return {@code true} if the full columns set is applied successfully. Otherwise, returns {@code false}.
      */
-    private CompletableFuture<Boolean> addColumnInternal(String fullName, List<ColumnDefinition> colsDef, boolean ignoreColumnExistance) {
+    private CompletableFuture<Boolean> addColumnInternal(String fullName, List<ColumnDefinition> colsDef) {
         AtomicBoolean retUsr = new AtomicBoolean(true);
 
         return tableManager.alterTableAsync(
@@ -430,34 +429,18 @@ public class DdlCommandHandler {
 
                         Set<String> colNamesToOrders = columnNames(chng.columns());
 
-                        List<ColumnDefinition> colsDef0;
+                        colsDef.stream()
+                                .filter(k -> colNamesToOrders.contains(k.name()))
+                                .findAny()
+                                .ifPresent(c -> {
+                                    throw new ColumnAlreadyExistsException(c.name());
+                                });
 
-                        if (ignoreColumnExistance) {
-                            colsDef0 = colsDef.stream().filter(k -> {
-                                if (colNamesToOrders.contains(k.name())) {
-                                    retUsr.set(false);
-
-                                    return false;
-                                } else {
-                                    return true;
-                                }
-                            }).collect(Collectors.toList());
-                        } else {
-                            colsDef.stream()
-                                    .filter(k -> colNamesToOrders.contains(k.name()))
-                                    .findAny()
-                                    .ifPresent(c -> {
-                                        throw new ColumnAlreadyExistsException(c.name());
-                                    });
-
-                            colsDef0 = colsDef;
-                        }
-
-                        for (ColumnDefinition col : colsDef0) {
+                        for (ColumnDefinition col : colsDef) {
                             cols.create(col.name(), colChg -> convertColumnDefinition(col, colChg));
                         }
 
-                        retTbl.set(!colsDef0.isEmpty());
+                        retTbl.set(!colsDef.isEmpty());
                     });
 
                     return retTbl.get();
@@ -504,10 +487,9 @@ public class DdlCommandHandler {
      *
      * @param tableName Table name.
      * @param colNames Columns definitions.
-     * @param ignoreColumnExistence Flag indicates exceptionally behavior in case of already existing column.
      * @return {@code true} if the full columns set is applied successfully. Otherwise, returns {@code false}.
      */
-    private CompletableFuture<Boolean> dropColumnInternal(String tableName, Set<String> colNames, boolean ignoreColumnExistence) {
+    private CompletableFuture<Boolean> dropColumnInternal(String tableName, Set<String> colNames) {
         AtomicBoolean ret = new AtomicBoolean(true);
 
         return tableManager.alterTableAsync(
@@ -530,9 +512,7 @@ public class DdlCommandHandler {
                             if (!colNamesToOrders.contains(colName)) {
                                 ret.set(false);
 
-                                if (!ignoreColumnExistence) {
-                                    throw new ColumnNotFoundException(DEFAULT_SCHEMA_NAME, tableName, colName);
-                                }
+                                throw new ColumnNotFoundException(DEFAULT_SCHEMA_NAME, tableName, colName);
                             } else {
                                 colNames0.add(colName);
                             }
