@@ -28,7 +28,6 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Abstract node of execution tree.
@@ -157,11 +156,8 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
     }
 
     protected void checkState() throws Exception {
-        if (context().isCancelled()) {
+        if (context().isCancelled() || Thread.interrupted()) {
             throw new ExecutionCancelledException();
-        }
-        if (Thread.interrupted()) {
-            throw new IgniteInternalCheckedException(RUNTIME_EXECUTION_ERR, "Thread was interrupted.");
         }
         if (!IgniteUtils.assertionsEnabled()) {
             return;

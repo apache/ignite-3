@@ -20,8 +20,8 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fromJson;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_EXECUTION_ERR;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_EXECUTION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -48,6 +48,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
+import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
@@ -526,9 +527,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private void onNodeLeft(String nodeName) {
             remoteFragmentInitCompletion.entrySet().stream()
                     .filter(e -> nodeName.equals(e.getKey().nodeName()))
-                    .forEach(e -> e.getValue()
-                            .completeExceptionally(new IgniteInternalException(
-                                    RUNTIME_EXECUTION_ERR, "Node left the cluster [nodeName=" + nodeName + "]")));
+                    .forEach(e -> e.getValue().completeExceptionally(new NodeLeftException(nodeName)));
         }
 
         private CompletableFuture<Void> executeFragment(IgniteRel treeRoot, ResolvedDependencies deps, ExecutionContext<RowT> ectx) {
