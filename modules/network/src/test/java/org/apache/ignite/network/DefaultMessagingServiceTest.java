@@ -17,6 +17,7 @@
 
 package org.apache.ignite.network;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.awaitility.Awaitility.await;
@@ -45,7 +46,9 @@ import org.apache.ignite.internal.network.messages.TestMessageImpl;
 import org.apache.ignite.internal.network.messages.TestMessageSerializationFactory;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
+import org.apache.ignite.internal.network.netty.ChannelCreationListener;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
+import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManagerFactory;
@@ -325,7 +328,18 @@ class DefaultMessagingServiceTest {
                         consistentId,
                         connectionId,
                         recoveryDescriptorProvider,
-                        staleIdDetector
+                        staleIdDetector,
+                        new ChannelCreationListener() {
+                            @Override
+                            public CompletableFuture<Void> notifyInboundChannelCreation(String consistentId, short channelId) {
+                                return completedFuture(null);
+                            }
+
+                            @Override
+                            public void handshakeFinished(NettySender channel) {
+                                // No-op.
+                            }
+                        }
                 ) {
                     @Override
                     protected void finishHandshake() {

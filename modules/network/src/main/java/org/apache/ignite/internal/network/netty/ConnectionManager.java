@@ -93,7 +93,7 @@ public class ConnectionManager implements ChannelCreationListener {
     private final StaleIdDetector staleIdDetector;
 
     /** Factory producing {@link RecoveryClientHandshakeManager} instances. */
-    private final RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory;
+    private @Nullable final RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory;
 
     /** Start flag. */
     private final AtomicBoolean started = new AtomicBoolean(false);
@@ -132,7 +132,7 @@ public class ConnectionManager implements ChannelCreationListener {
                 consistentId,
                 bootstrapFactory,
                 staleIdDetector,
-                new DefaultRecoveryClientHandshakeManagerFactory(staleIdDetector)
+                null
         );
     }
 
@@ -154,7 +154,7 @@ public class ConnectionManager implements ChannelCreationListener {
             String consistentId,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
-            RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory
+            @Nullable RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory
     ) {
         this.serializationService = serializationService;
         this.launchId = launchId;
@@ -355,6 +355,10 @@ public class ConnectionManager implements ChannelCreationListener {
     }
 
     private HandshakeManager createClientHandshakeManager(short connectionId) {
+        if (clientHandshakeManagerFactory == null) {
+            return new RecoveryClientHandshakeManager(launchId, consistentId, connectionId, descriptorProvider, staleIdDetector, this);
+        }
+
         return clientHandshakeManagerFactory.create(
                 launchId,
                 consistentId,
@@ -399,25 +403,5 @@ public class ConnectionManager implements ChannelCreationListener {
     @TestOnly
     public Collection<NettyClient> clients() {
         return Collections.unmodifiableCollection(clients.values());
-    }
-
-    /**
-     * Factory producing vanilla {@link RecoveryClientHandshakeManager} instances.
-     */
-    private static class DefaultRecoveryClientHandshakeManagerFactory implements RecoveryClientHandshakeManagerFactory {
-        private final StaleIdDetector staleIdDetector;
-
-        private DefaultRecoveryClientHandshakeManagerFactory(StaleIdDetector staleIdDetector) {
-            this.staleIdDetector = staleIdDetector;
-        }
-
-        @Override
-        public RecoveryClientHandshakeManager create(UUID launchId,
-                String consistentId,
-                short connectionId,
-                RecoveryDescriptorProvider recoveryDescriptorProvider
-        ) {
-            return new RecoveryClientHandshakeManager(launchId, consistentId, connectionId, recoveryDescriptorProvider, staleIdDetector);
-        }
     }
 }

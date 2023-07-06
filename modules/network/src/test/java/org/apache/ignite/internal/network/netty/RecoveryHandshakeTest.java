@@ -535,7 +535,18 @@ public class RecoveryHandshakeTest {
 
     private RecoveryClientHandshakeManager createRecoveryClientHandshakeManager(String consistentId, UUID launchId,
             RecoveryDescriptorProvider provider, StaleIdDetector staleIdDetector) {
-        return new RecoveryClientHandshakeManager(launchId, consistentId, CONNECTION_ID, provider, staleIdDetector);
+        return new RecoveryClientHandshakeManager(launchId, consistentId, CONNECTION_ID, provider, staleIdDetector,
+                new ChannelCreationListener() {
+                    @Override
+                    public CompletableFuture<Void> notifyInboundChannelCreation(String consistentId, short channelId) {
+                        return completedFuture(null);
+                    }
+
+                    @Override
+                    public void handshakeFinished(NettySender channel) {
+                        // No-op.
+                    }
+                });
     }
 
     private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(RecoveryDescriptorProvider provider) {

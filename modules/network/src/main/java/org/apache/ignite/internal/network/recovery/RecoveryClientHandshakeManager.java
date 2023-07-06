@@ -31,6 +31,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
+import org.apache.ignite.internal.network.netty.ChannelCreationListener;
 import org.apache.ignite.internal.network.netty.HandshakeHandler;
 import org.apache.ignite.internal.network.netty.MessageHandler;
 import org.apache.ignite.internal.network.netty.NettySender;
@@ -72,6 +73,9 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     /** Handshake completion future. */
     private final CompletableFuture<NettySender> handshakeCompleteFuture = new CompletableFuture<>();
 
+    /** Channel creation listener. */
+    private final ChannelCreationListener channelCreationListener;
+
     /** Remote node's launch id. */
     private UUID remoteLaunchId;
 
@@ -104,13 +108,15 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             String consistentId,
             short connectionId,
             RecoveryDescriptorProvider recoveryDescriptorProvider,
-            StaleIdDetector staleIdDetector
+            StaleIdDetector staleIdDetector,
+            ChannelCreationListener channelCreationListener
     ) {
         this.launchId = launchId;
         this.consistentId = consistentId;
         this.connectionId = connectionId;
         this.recoveryDescriptorProvider = recoveryDescriptorProvider;
         this.staleIdDetector = staleIdDetector;
+        this.channelCreationListener = channelCreationListener;
 
         this.handshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -118,6 +124,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
                 return;
             }
+
+            channelCreationListener.handshakeFinished(nettySender);
         });
     }
 
@@ -154,26 +162,29 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             this.remoteLaunchId = msg.launchId();
             this.remoteConsistentId = msg.consistentId();
 
-            RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
-                    remoteConsistentId,
-                    remoteLaunchId,
-                    connectionId,
-                    false
-            );
+            channelCreationListener.notifyInboundChannelCreation(this.remoteConsistentId, this.connectionId)
+                    .whenCompleteAsync((unused, throwable) -> {
+                        RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
+                                remoteConsistentId,
+                                remoteLaunchId,
+                                connectionId,
+                                false
+                        );
 
-            if (!descriptor.acquire(ctx)) {
-                String err = "Failed to acquire recovery descriptor during handshake, it is held by: " + descriptor.holder();
+                        if (!descriptor.acquire(ctx)) {
+                            String err = "Failed to acquire recovery descriptor during handshake, it is held by: " + descriptor.holder();
 
-                LOG.warn(err);
+                            LOG.warn(err);
 
-                handshakeCompleteFuture.completeExceptionally(new HandshakeException(err));
+                            handshakeCompleteFuture.completeExceptionally(new HandshakeException(err));
 
-                return;
-            }
+                            return;
+                        }
 
-            this.recoveryDescriptor = descriptor;
+                        this.recoveryDescriptor = descriptor;
 
-            handshake(this.recoveryDescriptor);
+                        handshake(this.recoveryDescriptor);
+                    }, ctx.executor());
 
             return;
         }

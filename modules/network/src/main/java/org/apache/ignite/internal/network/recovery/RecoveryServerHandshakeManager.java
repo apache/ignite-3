@@ -63,6 +63,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     /** Handshake completion future. */
     private final CompletableFuture<NettySender> handshakeCompleteFuture = new CompletableFuture<>();
 
+    /** Channel creation listener. */
     private final ChannelCreationListener channelCreationListener;
 
     /** Remote node's launch id. */
