@@ -1127,34 +1127,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         checkTableWithData(newNode, "t2");
     }
 
-
-
-    /**
-     * The test for node restart when there is a gap between the node local configuration and distributed configuration.
-     */
-    @Test
-    public void testCreateDropTable() throws InterruptedException {
-        List<IgniteImpl> nodes = startNodes(2);
-        String name = "t1";
-        int replicas = 1;
-        int partitions = 10;
-
-        try (Session session = nodes.get(0).sql().createSession()) {
-            session.execute(null,
-                    String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
-            session.execute(null, "CREATE TABLE IF NOT EXISTS " + name
-                    + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
-        }
-
-        Thread.sleep(3_000);
-
-        try (Session session = nodes.get(0).sql().createSession()) {
-            session.execute(null, "DROP TABLE t1");
-        }
-
-        Thread.sleep(3_000);
-    }
-
     /**
      * The test for updating cluster configuration with the default value.
      * Check that new nodes will be able to synchronize the local cluster configuration.

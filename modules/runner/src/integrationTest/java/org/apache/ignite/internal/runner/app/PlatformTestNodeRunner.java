@@ -53,11 +53,14 @@ import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType.TemporalColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
+import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 
@@ -541,6 +544,30 @@ public class PlatformTestNodeRunner {
                 Row row = marsh.marshal(tuple);
 
                 return row.colocationHash();
+            } catch (TupleMarshallerException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    /**
+     * Compute job that computes row colocation hash according to the current table schema.
+     */
+    @SuppressWarnings({"unused"}) // Used by platform tests.
+    private static class TableRowColocationHashJob implements ComputeJob<Integer> {
+        @Override
+        public Integer execute(JobExecutionContext context, Object... args) {
+            String tableName = (String) args[0];
+            int i = (int) args[1];
+            Tuple key = Tuple.create().set("id", 1 + i).set("id0", 2L + i).set("id1", "3" + i);
+
+            @SuppressWarnings("resource")
+            Table table = context.ignite().tables().table(tableName);
+            RecordBinaryViewImpl view = (RecordBinaryViewImpl) table.recordView();
+            TupleMarshallerImpl marsh = IgniteTestUtils.getFieldValue(view, "marsh");
+
+            try {
+                return marsh.marshal(key).colocationHash();
             } catch (TupleMarshallerException e) {
                 throw new RuntimeException(e);
             }

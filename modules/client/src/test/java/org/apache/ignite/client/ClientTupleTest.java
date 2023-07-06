@@ -58,31 +58,31 @@ import org.junit.jupiter.api.Test;
  */
 public class ClientTupleTest {
     private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[]{
-            new ClientColumn("ID", ColumnType.INT64, false, true, true, 0),
-            new ClientColumn("NAME", ColumnType.STRING, false, false, false, 1)
-    });
+            new ClientColumn("ID", ColumnType.INT64, false, true, 0, 0),
+            new ClientColumn("NAME", ColumnType.STRING, false, false, -1, 1)
+    }, null);
 
     private static final ClientSchema FULL_SCHEMA = new ClientSchema(100, new ClientColumn[]{
-            new ClientColumn("I8", ColumnType.INT8, false, false, false, 0),
-            new ClientColumn("I16", ColumnType.INT16, false, false, false, 1),
-            new ClientColumn("I32", ColumnType.INT32, false, false, false, 2),
-            new ClientColumn("I64", ColumnType.INT64, false, false, false, 3),
-            new ClientColumn("FLOAT", ColumnType.FLOAT, false, false, false, 4),
-            new ClientColumn("DOUBLE", ColumnType.DOUBLE, false, false, false, 5),
-            new ClientColumn("UUID", ColumnType.UUID, false, false, false, 6),
-            new ClientColumn("STR", ColumnType.STRING, false, false, false, 7),
-            new ClientColumn("BITS", ColumnType.BITMASK, false, false, false, 8),
-            new ClientColumn("DATE", ColumnType.DATE, false, false, false, 9),
-            new ClientColumn("TIME", ColumnType.TIME, false, false, false, 10),
-            new ClientColumn("DATETIME", ColumnType.DATETIME, false, false, false, 11),
-            new ClientColumn("TIMESTAMP", ColumnType.TIMESTAMP, false, false, false, 12),
-            new ClientColumn("BOOL", ColumnType.BOOLEAN, false, false, false, 13),
-            new ClientColumn("DECIMAL", ColumnType.DECIMAL, false, false, false, 14),
-            new ClientColumn("BYTES", ColumnType.BYTE_ARRAY, false, false, false, 15),
-            new ClientColumn("PERIOD", ColumnType.PERIOD, false, false, false, 16),
-            new ClientColumn("DURATION", ColumnType.DURATION, false, false, false, 17),
-            new ClientColumn("NUMBER", ColumnType.NUMBER, false, false, false, 18)
-    });
+            new ClientColumn("I8", ColumnType.INT8, false, false, -1, 0),
+            new ClientColumn("I16", ColumnType.INT16, false, false, -1, 1),
+            new ClientColumn("I32", ColumnType.INT32, false, false, -1, 2),
+            new ClientColumn("I64", ColumnType.INT64, false, false, -1, 3),
+            new ClientColumn("FLOAT", ColumnType.FLOAT, false, false, -1, 4),
+            new ClientColumn("DOUBLE", ColumnType.DOUBLE, false, false, -1, 5),
+            new ClientColumn("UUID", ColumnType.UUID, false, false, -1, 6),
+            new ClientColumn("STR", ColumnType.STRING, false, false, -1, 7),
+            new ClientColumn("BITS", ColumnType.BITMASK, false, false, -1, 8),
+            new ClientColumn("DATE", ColumnType.DATE, false, false, -1, 9),
+            new ClientColumn("TIME", ColumnType.TIME, false, false, -1, 10),
+            new ClientColumn("DATETIME", ColumnType.DATETIME, false, false, -1, 11),
+            new ClientColumn("TIMESTAMP", ColumnType.TIMESTAMP, false, false, -1, 12),
+            new ClientColumn("BOOL", ColumnType.BOOLEAN, false, false, -1, 13),
+            new ClientColumn("DECIMAL", ColumnType.DECIMAL, false, false, -1, 14),
+            new ClientColumn("BYTES", ColumnType.BYTE_ARRAY, false, false, -1, 15),
+            new ClientColumn("PERIOD", ColumnType.PERIOD, false, false, -1, 16),
+            new ClientColumn("DURATION", ColumnType.DURATION, false, false, -1, 17),
+            new ClientColumn("NUMBER", ColumnType.NUMBER, false, false, -1, 18)
+    }, null);
 
     private static final UUID GUID = UUID.randomUUID();
 

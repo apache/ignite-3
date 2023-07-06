@@ -21,10 +21,17 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.List;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
@@ -120,6 +127,63 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
         assertEquals(2, colocationColumns.length);
         assertEquals("ID1", colocationColumns[0].name());
         assertEquals("ID0", colocationColumns[1].name());
+    }
+
+    /** Test correct mapping schema after alter columns. */
+    @Test
+    public void testDropAndAddColumns() {
+        sql("CREATE TABLE my (c1 INT PRIMARY KEY, c2 INT, c3 VARCHAR)");
+
+        sql("INSERT INTO my VALUES (1, 2, '3')");
+
+        List<List<Object>> res = sql("SELECT c1, c3 FROM my");
+
+        assertFalse(res.isEmpty());
+
+        sql("ALTER TABLE my DROP COLUMN c2");
+
+        res = sql("SELECT c1, c3 FROM my");
+
+        assertFalse(res.isEmpty());
+
+        sql("ALTER TABLE my ADD COLUMN (c2 INT, c4 VARCHAR)");
+
+        sql("INSERT INTO my VALUES (2, '2', 2, '3')");
+
+        res = sql("SELECT c2, c4 FROM my WHERE c1=2");
+
+        assertEquals(2, res.get(0).get(0));
+
+        sql("ALTER TABLE my DROP COLUMN c4");
+        sql("ALTER TABLE my ADD COLUMN (c4 INT)");
+        sql("INSERT INTO my VALUES (3, '2', 3, 3)");
+
+        res = sql("SELECT c4 FROM my WHERE c1=3");
+
+        assertEquals(3, res.get(0).get(0));
+    }
+
+    /**
+     * Checks that schema version is updated even if column names are intersected.
+     */
+    // Need to be removed after https://issues.apache.org/jira/browse/IGNITE-19082
+    @Test
+    public void checkSchemaUpdatedWithEqAlterColumn() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        Ignite node = CLUSTER_NODES.get(0);
+
+        ConfigurationManager cfgMgr = IgniteTestUtils.getFieldValue(node, "clusterCfgMgr");
+
+        TablesConfiguration tablesConfiguration = cfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
+
+        int schIdBefore = ((ExtendedTableView) tablesConfiguration.tables().get("TEST").value()).schemaId();
+
+        sql("ALTER TABLE TEST ADD COLUMN (VAL1 INT)");
+
+        int schIdAfter = ((ExtendedTableView) tablesConfiguration.tables().get("TEST").value()).schemaId();
+
+        assertEquals(schIdBefore + 1, schIdAfter);
     }
 
     /**

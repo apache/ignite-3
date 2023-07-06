@@ -24,9 +24,6 @@ import java.util.List;
  */
 @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
 public class AlterTableAddCommand extends AbstractTableDdlCommand {
-    /** Quietly ignore this command if column already exists. */
-    private boolean ifColumnNotExists;
-
     /** Columns. */
     private List<ColumnDefinition> cols;
 
@@ -36,13 +33,5 @@ public class AlterTableAddCommand extends AbstractTableDdlCommand {
 
     public void columns(List<ColumnDefinition> cols) {
         this.cols = cols;
-    }
-
-    public boolean ifColumnNotExists() {
-        return ifColumnNotExists;
-    }
-
-    public void ifColumnNotExists(boolean ifColumnNotExists) {
-        this.ifColumnNotExists = ifColumnNotExists;
     }
 }

@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.sql.engine.benchmarks;
 
 import java.util.concurrent.TimeUnit;
-import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
-import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
+import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
+import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
+import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -65,7 +65,7 @@ public class TpchPrepareBenchmark {
 
     private TestNode gatewayNode;
 
-    private SqlNode queryAst;
+    private ParsedResult parsedResult;
 
     /** Starts the cluster and prepares the plan of the query. */
     @Setup
@@ -79,8 +79,7 @@ public class TpchPrepareBenchmark {
         gatewayNode = testCluster.node("N1");
 
         String query = TpchQueries.getQuery(queryId);
-        StatementParseResult parseResult = IgniteSqlParser.parse(query, StatementParseResult.MODE);
-        queryAst = parseResult.statement();
+        parsedResult = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE).parse(query);
     }
 
     /** Stops the cluster. */
@@ -96,7 +95,7 @@ public class TpchPrepareBenchmark {
      */
     @Benchmark
     public void prepareQuery(Blackhole bh) {
-        bh.consume(gatewayNode.prepare(queryAst));
+        bh.consume(gatewayNode.prepare(parsedResult));
     }
 
     /**

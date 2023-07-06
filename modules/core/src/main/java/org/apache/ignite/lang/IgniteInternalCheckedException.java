@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * General internal checked exception. This exception is used to indicate any error condition within the node.
  */
-public class IgniteInternalCheckedException extends Exception {
+public class IgniteInternalCheckedException extends Exception implements TraceableException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
@@ -241,6 +241,7 @@ public class IgniteInternalCheckedException extends Exception {
      *
      * @return Full error code.
      */
+    @Override
     public int code() {
         return code;
     }
@@ -261,6 +262,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @see #code()
      * @return Error group.
      */
+    @Override
     public int groupCode() {
         return extractGroupCode(code);
     }
@@ -272,6 +274,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @see #groupCode()
      * @return Error code.
      */
+    @Override
     public int errorCode() {
         return extractErrorCode(code);
     }
@@ -281,6 +284,7 @@ public class IgniteInternalCheckedException extends Exception {
      *
      * @return Unique identifier of this exception.
      */
+    @Override
     public UUID traceId() {
         return traceId;
     }
