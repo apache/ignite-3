@@ -47,16 +47,17 @@ public class ClientTupleReplaceExactRequest {
             IgniteTables tables,
             ClientResourceRegistry resources
     ) {
-        var table = readTableAsync(in, tables);
-        var tx = readTx(in, resources);
-        var schema = readSchema(in, table);
+        return readTableAsync(in, tables).thenCompose(table -> {
+            var tx = readTx(in, resources);
+            var schema = readSchema(in, table);
 
-        var oldTuple = readTuple(in, false, schema);
-        var newTuple = readTuple(in, false, schema);
+            var oldTuple = readTuple(in, false, schema);
+            var newTuple = readTuple(in, false, schema);
 
-        return table.recordView().replaceAsync(tx, oldTuple, newTuple).thenAccept(res -> {
-            out.packInt(table.schemaView().lastSchemaVersion());
-            out.packBoolean(res);
+            return table.recordView().replaceAsync(tx, oldTuple, newTuple).thenAccept(res -> {
+                out.packInt(table.schemaView().lastSchemaVersion());
+                out.packBoolean(res);
+            });
         });
     }
 }

@@ -47,11 +47,12 @@ public class ClientTupleGetAndReplaceRequest {
             IgniteTables tables,
             ClientResourceRegistry resources
     ) {
-        var table = readTableAsync(in, tables);
-        var tx = readTx(in, resources);
-        var tuple = readTuple(in, table, false);
+        return readTableAsync(in, tables).thenCompose(table -> {
+            var tx = readTx(in, resources);
+            var tuple = readTuple(in, table, false);
 
-        return table.recordView().getAndReplaceAsync(tx, tuple).thenAccept(
-                resTuple -> ClientTableCommon.writeTupleOrNil(out, resTuple, TuplePart.KEY_AND_VAL, table.schemaView()));
+            return table.recordView().getAndReplaceAsync(tx, tuple).thenAccept(
+                    resTuple -> ClientTableCommon.writeTupleOrNil(out, resTuple, TuplePart.KEY_AND_VAL, table.schemaView()));
+        });
     }
 }

@@ -47,11 +47,12 @@ public class ClientTupleGetRequest {
             IgniteTables tables,
             ClientResourceRegistry resources
     ) {
-        var table = readTableAsync(in, tables);
-        var tx = readTx(in, resources);
-        var keyTuple = readTuple(in, table, true);
+        return readTableAsync(in, tables).thenCompose(table -> {
+            var tx = readTx(in, resources);
+            var keyTuple = readTuple(in, table, true);
 
-        return table.recordView().getAsync(tx, keyTuple)
-                .thenAccept(t -> ClientTableCommon.writeTupleOrNil(out, t, TuplePart.KEY_AND_VAL, table.schemaView()));
+            return table.recordView().getAsync(tx, keyTuple)
+                    .thenAccept(t -> ClientTableCommon.writeTupleOrNil(out, t, TuplePart.KEY_AND_VAL, table.schemaView()));
+        });
     }
 }

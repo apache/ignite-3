@@ -43,7 +43,7 @@ public class ClientTablePartitionAssignmentGetRequest {
             IgniteTablesInternal tables
     ) throws NodeStoppingException {
         int tableId = in.unpackInt();
-        var assignment = tables.assignments(tableId);
+        var assignment = tables.assignments(tableId); // TODO: Make async too.
 
         if (assignment == null) {
             out.packArrayHeader(0);

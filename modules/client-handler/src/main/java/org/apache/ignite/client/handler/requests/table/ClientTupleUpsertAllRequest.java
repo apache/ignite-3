@@ -46,11 +46,12 @@ public class ClientTupleUpsertAllRequest {
             IgniteTables tables,
             ClientResourceRegistry resources
     ) {
-        var table = readTableAsync(in, tables);
-        var tx = readTx(in, resources);
-        var tuples = readTuples(in, table, false);
+        return readTableAsync(in, tables).thenCompose(table -> {
+            var tx = readTx(in, resources);
+            var tuples = readTuples(in, table, false);
 
-        return table.recordView().upsertAllAsync(tx, tuples)
-                .thenAccept(unused -> out.packInt(table.schemaView().lastSchemaVersion()));
+            return table.recordView().upsertAllAsync(tx, tuples)
+                    .thenAccept(unused -> out.packInt(table.schemaView().lastSchemaVersion()));
+        });
     }
 }

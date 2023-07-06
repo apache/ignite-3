@@ -47,11 +47,12 @@ public class ClientTupleInsertAllRequest {
             IgniteTables tables,
             ClientResourceRegistry resources
     ) {
-        var table = readTableAsync(in, tables);
-        var tx = readTx(in, resources);
-        var tuples = readTuples(in, table, false);
+        return readTableAsync(in, tables).thenCompose(table -> {
+            var tx = readTx(in, resources);
+            var tuples = readTuples(in, table, false);
 
-        return table.recordView().insertAllAsync(tx, tuples).thenAccept(skippedTuples ->
-            writeTuples(out, skippedTuples, table.schemaView()));
+            return table.recordView().insertAllAsync(tx, tuples).thenAccept(skippedTuples ->
+                    writeTuples(out, skippedTuples, table.schemaView()));
+        });
     }
 }

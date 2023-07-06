@@ -46,13 +46,14 @@ public class ClientTupleDeleteRequest {
             IgniteTables tables,
             ClientResourceRegistry resources
     ) {
-        var table = readTableAsync(in, tables);
-        var tx = readTx(in, resources);
-        var tuple = readTuple(in, table, true);
+        return readTableAsync(in, tables).thenCompose(table -> {
+            var tx = readTx(in, resources);
+            var tuple = readTuple(in, table, true);
 
-        return table.recordView().deleteAsync(tx, tuple).thenAccept(res -> {
-            out.packInt(table.schemaView().lastSchemaVersion());
-            out.packBoolean(res);
+            return table.recordView().deleteAsync(tx, tuple).thenAccept(res -> {
+                out.packInt(table.schemaView().lastSchemaVersion());
+                out.packBoolean(res);
+            });
         });
     }
 }
