@@ -347,6 +347,50 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         }
     }
 
+    /**
+     * Gets streamer batches sent.
+     */
+    public long streamerBatchesSent() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.streamerBatchesSent.value();
+    }
+
+    /**
+     * Adds streamer batches sent.
+     *
+     * @param batches Sent batches.
+     */
+    public void streamerBatchesSentAdd(long batches) {
+        Holder h = holder();
+
+        if (h != null) {
+            h.streamerBatchesSent.add(batches);
+        }
+    }
+
+    /**
+     * Gets streamer items sent.
+     */
+    public long streamerItemsSent() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.streamerItemsSent.value();
+    }
+
+    /**
+     * Adds streamer items sent.
+     *
+     * @param items Sent items.
+     */
+    public void streamerItemsSentAdd(long items) {
+        Holder h = holder();
+
+        if (h != null) {
+            h.streamerItemsSent.add(items);
+        }
+    }
+
     @Override
     protected Holder createHolder() {
         return new Holder();
