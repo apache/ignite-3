@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * General Ignite exception. Used to indicate any error condition within a node.
  */
-public class IgniteException extends RuntimeException {
+public class IgniteException extends RuntimeException implements TraceableException {
     /** Serial version UID. */
     private static final long serialVersionUID = 0L;
 
@@ -205,6 +205,7 @@ public class IgniteException extends RuntimeException {
      *
      * @return Full error code.
      */
+    @Override
     public int code() {
         return code;
     }
@@ -225,6 +226,7 @@ public class IgniteException extends RuntimeException {
      * @see #code()
      * @return Error group.
      */
+    @Override
     public int groupCode() {
         return extractGroupCode(code);
     }
@@ -236,6 +238,7 @@ public class IgniteException extends RuntimeException {
      * @see #groupCode()
      * @return Error code.
      */
+    @Override
     public int errorCode() {
         return extractErrorCode(code);
     }
@@ -245,6 +248,7 @@ public class IgniteException extends RuntimeException {
      *
      * @return Unique identifier of the exception.
      */
+    @Override
     public UUID traceId() {
         return traceId;
     }

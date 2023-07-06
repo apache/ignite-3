@@ -417,12 +417,12 @@ SqlNode SqlAlterTable() :
     <ALTER> { s = span(); }
     <TABLE> ifExists = IfExistsOpt() id = CompoundIdentifier()
     (
-        <ADD> [<COLUMN>] colIgnoreErr = IfNotExistsOpt() cols = ColumnWithTypeOrList() {
-            return new IgniteSqlAlterTableAddColumn(s.end(this), ifExists, id, colIgnoreErr, cols);
+        <ADD> [<COLUMN>] cols = ColumnWithTypeOrList() {
+            return new IgniteSqlAlterTableAddColumn(s.end(this), ifExists, id, cols);
         }
     |
-        <DROP> [<COLUMN>] colIgnoreErr = IfExistsOpt() cols = SimpleIdentifierOrList() {
-            return new IgniteSqlAlterTableDropColumn(s.end(this), ifExists, id, colIgnoreErr, cols);
+        <DROP> [<COLUMN>] cols = SimpleIdentifierOrList() {
+            return new IgniteSqlAlterTableDropColumn(s.end(this), ifExists, id, cols);
         }
     |
         <ALTER> [<COLUMN>] {

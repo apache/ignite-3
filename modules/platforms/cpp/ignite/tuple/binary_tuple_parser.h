@@ -30,8 +30,6 @@
 #include <ignite/common/ignite_timestamp.h>
 #include <ignite/common/uuid.h>
 
-#include <optional>
-
 namespace ignite {
 
 /**
@@ -45,8 +43,6 @@ class binary_tuple_parser {
     const tuple_num_t element_count; /**< Total number of elements. */
 
     tuple_num_t element_index; /**< Index of the next element to parse. */
-
-    bool has_nullmap; /**< Flag that indicates if the tuple contains a nullmap. */
 
     tuple_size_t entry_size; /**< Size of an offset table entry. */
 
@@ -103,7 +99,15 @@ public:
      *
      * @return The next value.
      */
-    std::optional<bytes_view> get_next();
+    bytes_view get_next();
+
+    /**
+     * @brief Reads value of a variable-length element.
+     *
+     * @param bytes Binary view of the element.
+     * @return Element value.
+     */
+    static bytes_view get_varlen(bytes_view bytes);
 
     /**
      * @brief Reads value of specified element.
@@ -176,7 +180,7 @@ public:
      * @param scale Scale of the decimal.
      * @return Element value.
      */
-    static big_decimal get_decimal(bytes_view bytes, int32_t scale);
+    static big_decimal get_decimal(bytes_view bytes, std::int32_t scale);
 
     /**
      * @brief Reads value of specified element.

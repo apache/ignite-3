@@ -91,12 +91,14 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
 import org.apache.ignite.internal.network.recovery.VaultStateIds;
+import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -219,6 +221,9 @@ public class IgniteImpl implements Ignite {
 
     /** Meta storage manager. */
     private final MetaStorageManagerImpl metaStorageMgr;
+
+    /** Placement driver manager. */
+    private final PlacementDriverManager placementDriverMgr;
 
     /** Distributed configuration validator. */
     private final ConfigurationValidator distributedConfigurationValidator;
@@ -445,6 +450,22 @@ public class IgniteImpl implements Ignite {
 
         metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageConfiguration.KEY));
 
+        DistributionZonesConfiguration zonesConfiguration = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
+
+        placementDriverMgr = new PlacementDriverManager(
+                metaStorageMgr,
+                vaultMgr,
+                MetastorageGroupId.INSTANCE,
+                clusterSvc,
+                cmgMgr::metaStorageNodes,
+                logicalTopologyService,
+                raftMgr,
+                topologyAwareRaftGroupServiceFactory,
+                tablesConfig,
+                zonesConfiguration,
+                clock
+        );
+
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
 
         restAddressReporter = new RestAddressReporter(workDir);
@@ -480,7 +501,7 @@ public class IgniteImpl implements Ignite {
         schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
         distributionZoneManager = new DistributionZoneManager(
-                clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY),
+                zonesConfiguration,
                 tablesConfig,
                 metaStorageMgr,
                 logicalTopologyService,
@@ -725,6 +746,7 @@ public class IgniteImpl implements Ignite {
                         try {
                             lifecycleManager.startComponents(
                                     clusterCfgMgr,
+                                    placementDriverMgr,
                                     metricManager,
                                     distributionZoneManager,
                                     computeComponent,
@@ -1093,5 +1115,15 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public HybridClock clock() {
         return clock;
+    }
+
+    /**
+     * Returns the node's transaction manager.
+     *
+     * @return Transaction manager.
+     */
+    @TestOnly
+    public TxManager txManager() {
+        return txManager;
     }
 }

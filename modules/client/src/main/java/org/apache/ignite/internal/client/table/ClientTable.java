@@ -200,8 +200,8 @@ public class ClientTable implements Table {
     private ClientSchema readSchema(ClientMessageUnpacker in) {
         var schemaVer = in.unpackInt();
         var colCnt = in.unpackArrayHeader();
-
         var columns = new ClientColumn[colCnt];
+        int colocationColumnCnt = 0;
 
         for (int i = 0; i < colCnt; i++) {
             var propCnt = in.unpackArrayHeader();
@@ -212,18 +212,32 @@ public class ClientTable implements Table {
             var type = ColumnTypeConverter.fromOrdinalOrThrow(in.unpackInt());
             var isKey = in.unpackBoolean();
             var isNullable = in.unpackBoolean();
-            var isColocation = in.unpackBoolean();
+            var colocationIndex = in.unpackInt();
             var scale = in.unpackInt();
             var precision = in.unpackInt();
 
             // Skip unknown extra properties, if any.
             in.skipValues(propCnt - 7);
 
-            var column = new ClientColumn(name, type, isNullable, isKey, isColocation, i, scale, precision);
+            var column = new ClientColumn(name, type, isNullable, isKey, colocationIndex, i, scale, precision);
             columns[i] = column;
+
+            if (colocationIndex >= 0) {
+                colocationColumnCnt++;
+            }
         }
 
-        var schema = new ClientSchema(schemaVer, columns);
+        var colocationColumns = colocationColumnCnt > 0 ? new ClientColumn[colocationColumnCnt] : null;
+        if (colocationColumns != null) {
+            for (ClientColumn col : columns) {
+                int idx = col.colocationIndex();
+                if (idx >= 0) {
+                    colocationColumns[idx] = col;
+                }
+            }
+        }
+
+        var schema = new ClientSchema(schemaVer, columns, colocationColumns);
 
         schemas.put(schemaVer, CompletableFuture.completedFuture(schema));
 
@@ -278,13 +292,12 @@ public class ClientTable implements Table {
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
-                    String preferredNodeId = getPreferredNodeId(provider, partitionsFut.getNow(null), schema);
+                    String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
                             r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue),
-                            null,
-                            preferredNodeId,
+                            preferredNodeName,
                             null);
                 })
                 .thenCompose(t -> loadSchemaAndReadData(t, reader));
@@ -333,7 +346,7 @@ public class ClientTable implements Table {
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
-                    String preferredNodeId = getPreferredNodeId(provider, partitionsFut.getNow(null), schema);
+                    String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
@@ -342,8 +355,7 @@ public class ClientTable implements Table {
 
                                 return reader.apply(r.in());
                             },
-                            null,
-                            preferredNodeId,
+                            preferredNodeName,
                             retryPolicyOverride);
                 });
     }
@@ -445,7 +457,7 @@ public class ClientTable implements Table {
     }
 
     @Nullable
-    private static String getPreferredNodeId(
+    private static String getPreferredNodeName(
             @Nullable PartitionAwarenessProvider provider,
             @Nullable List<String> partitions,
             ClientSchema schema) {
@@ -453,10 +465,10 @@ public class ClientTable implements Table {
             return null;
         }
 
-        String nodeId = provider.nodeId();
+        String nodeName = provider.nodeName();
 
-        if (nodeId != null) {
-            return nodeId;
+        if (nodeName != null) {
+            return nodeName;
         }
 
         if (partitions == null || partitions.isEmpty()) {

@@ -39,6 +39,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.ints.IntSets;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -77,6 +78,8 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeName.Limit;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Litmus;
@@ -84,7 +87,6 @@ import org.apache.calcite.util.Sarg;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
-import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -104,6 +106,14 @@ public class RexUtils {
 
     /** Hash index permitted search operations. */
     private static final EnumSet<SqlKind> HASH_SEARCH_OPS = EnumSet.of(EQUALS, IS_NOT_DISTINCT_FROM);
+
+    private static final BigDecimal MIN_DOUBLE_VALUE = BigDecimal.valueOf(Double.MIN_VALUE);
+
+    private static final BigDecimal MAX_DOUBLE_VALUE = BigDecimal.valueOf(Double.MAX_VALUE);
+
+    private static final BigDecimal MIN_FLOAT_VALUE = BigDecimal.valueOf(Float.MIN_VALUE);
+
+    private static final BigDecimal MAX_FLOAT_VALUE = BigDecimal.valueOf(Float.MAX_VALUE);
 
     /**
      * Builder.
@@ -702,13 +712,9 @@ public class RexUtils {
 
         op = removeCast(op);
 
-        // Can proceed without ref cast only if cast was redundant in terms of values comparison.
-        IgniteTypeCoercion typeCoercion = cluster.getPlanner().getContext().unwrap(IgniteTypeCoercion.class);
-        assert typeCoercion != null : "type coercion";
-
         if (op instanceof RexSlot) {
             RelDataType operandType = call.getOperands().get(operandNum).getType();
-            if (!typeCoercion.needToCast(op.getType(), operandType)) {
+            if (!TypeUtils.needCastInSearchBounds(Commons.typeFactory(), op.getType(), operandType)) {
                 return (RexSlot) op;
             }
         }
@@ -932,14 +938,68 @@ public class RexUtils {
 
         assert idxOpSupports(node) : "Unsupported RexNode in index condition: " + node;
 
-        IgniteTypeCoercion typeCoercion = cluster.getPlanner().getContext().unwrap(IgniteTypeCoercion.class);
-        assert typeCoercion != null : "type coercion";
+        RexBuilder builder = cluster.getRexBuilder();
+        RexNode saturated = toSaturatedValue(builder, node, type);
 
-        if (typeCoercion.needToCast(node.getType(), type)) {
-            RexBuilder builder = cluster.getRexBuilder();
+        if (saturated != null) {
+            return saturated;
+        } else if (TypeUtils.needCastInSearchBounds(Commons.typeFactory(), node.getType(), type)) {
             return builder.makeCast(type, node);
         } else {
             return node;
+        }
+    }
+
+    /**
+     * If the given node is a numeric literal, checks whether it the cast to {@code type} overflows
+     * and in that case performs {@code saturated cast}, converting a value of that literal to the largest value of that type.
+     * If overflow does can not occur, returns the same node.
+     */
+    @Nullable
+    private static RexLiteral toSaturatedValue(RexBuilder builder, RexNode node, RelDataType type) {
+        if (!SqlTypeUtil.isNumeric(node.getType()) || !SqlTypeUtil.isNumeric(type) || !(node instanceof RexLiteral)) {
+            return null;
+        }
+
+        RexLiteral lit = (RexLiteral) node;
+        BigDecimal val = lit.getValueAs(BigDecimal.class);
+        assert val != null : "No value";
+
+        BigDecimal upper;
+        BigDecimal lower;
+        boolean exact;
+
+        if (type.getSqlTypeName() == SqlTypeName.DOUBLE) {
+            lower = MIN_DOUBLE_VALUE;
+            upper = MAX_DOUBLE_VALUE;
+            exact = false;
+        } else if (type.getSqlTypeName() == SqlTypeName.REAL || type.getSqlTypeName() == SqlTypeName.FLOAT) {
+            lower = MIN_FLOAT_VALUE;
+            upper = MAX_FLOAT_VALUE;
+            exact = false;
+        } else {
+            int precision = type.getSqlTypeName().allowsPrec() ? type.getPrecision() : -1;
+            int scale = type.getSqlTypeName().allowsScale() ? type.getScale() : -1;
+
+            upper = (BigDecimal) type.getSqlTypeName().getLimit(true, Limit.OVERFLOW, false, precision, scale);
+            lower = (BigDecimal) type.getSqlTypeName().getLimit(false, Limit.OVERFLOW, false, precision, scale);
+            exact = true;
+        }
+
+        if (lower.compareTo(val) > 0) {
+            if (exact) {
+                return builder.makeExactLiteral(lower, type);
+            } else {
+                return builder.makeApproxLiteral(lower, type);
+            }
+        } else if (val.compareTo(upper) > 0) {
+            if (exact) {
+                return builder.makeExactLiteral(upper, type);
+            } else {
+                return builder.makeApproxLiteral(upper, type);
+            }
+        } else {
+            return lit;
         }
     }
 

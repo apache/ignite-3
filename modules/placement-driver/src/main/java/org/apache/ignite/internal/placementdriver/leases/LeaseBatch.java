@@ -15,14 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration.schema;
+package org.apache.ignite.internal.placementdriver.leases;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
+import static org.apache.ignite.internal.util.IgniteUtils.bytesToList;
+import static org.apache.ignite.internal.util.IgniteUtils.collectionToBytes;
+
+import java.nio.ByteBuffer;
+import java.util.Collection;
 
 /**
- * Test data storage configuration schema for tables.
+ * Representation of leases batch.
  */
-@PolymorphicConfigInstance("test_data_storage")
-public class TestDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
+public class LeaseBatch {
+    private final Collection<Lease> leases;
+
+    public LeaseBatch(Collection<Lease> leases) {
+        this.leases = leases;
+    }
+
+    public Collection<Lease> leases() {
+        return leases;
+    }
+
+    public byte[] bytes() {
+        return collectionToBytes(leases, Lease::bytes);
+    }
+
+    public static LeaseBatch fromBytes(ByteBuffer bytes) {
+        return new LeaseBatch(bytesToList(bytes, Lease::fromBytes));
+    }
 }

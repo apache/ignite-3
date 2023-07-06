@@ -26,8 +26,14 @@ internal record Column(
     string Name,
     ColumnType Type,
     bool IsNullable,
-    bool IsColocation,
     bool IsKey,
+    int ColocationIndex,
     int SchemaIndex,
     int Scale,
-    int Precision);
+    int Precision)
+{
+    /// <summary>
+    /// Gets a value indicating whether this column participates in colocation.
+    /// </summary>
+    public bool IsColocation => ColocationIndex >= 0;
+}
