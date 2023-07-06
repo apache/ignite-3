@@ -168,8 +168,8 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public List<String> assignmentsAsync(int tableId) {
-        return partitionAssignments;
+    public CompletableFuture<List<String>> assignmentsAsync(int tableId) {
+        return CompletableFuture.completedFuture(partitionAssignments);
     }
 
     /** {@inheritDoc} */
