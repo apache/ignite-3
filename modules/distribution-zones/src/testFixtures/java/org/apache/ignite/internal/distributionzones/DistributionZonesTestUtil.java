@@ -63,6 +63,7 @@ import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 
@@ -465,21 +466,24 @@ public class DistributionZonesTestUtil {
     public static void assertDataNodesFromManager(
             DistributionZoneManager distributionZoneManager,
             int zoneId,
-            @Nullable Set<String> expectedValue,
+            @Nullable Set<LogicalNode> expectedValue,
             long timeoutMillis
     ) throws InterruptedException {
+        Set<String> expectedValueNames =
+                expectedValue == null ? null : expectedValue.stream().map(ClusterNode::name).collect(Collectors.toSet());
+
         boolean success = waitForCondition(() -> {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 change this to the causality versioned call to dataNodes.
             Set<String> dataNodes = distributionZoneManager.dataNodes(zoneId);
 
-            return Objects.equals(dataNodes, expectedValue);
+            return Objects.equals(dataNodes, expectedValueNames);
         }, timeoutMillis);
 
         // We do a second check simply to print a nice error message in case the condition above is not achieved.
         if (!success) {
             Set<String> dataNodes = distributionZoneManager.dataNodes(zoneId);
 
-            assertThat(dataNodes, is(expectedValue));
+            assertThat(dataNodes, is(expectedValueNames));
         }
     }
 }

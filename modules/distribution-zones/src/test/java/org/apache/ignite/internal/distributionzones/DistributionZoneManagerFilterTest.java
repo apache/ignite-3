@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -65,12 +64,7 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
         topology.putNode(D);
 
-        assertDataNodesFromManager(
-                distributionZoneManager,
-                ZONE_ID,
-                Set.of(A, C, D).stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                TIMEOUT_MILLIS
-        );
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID, Set.of(A, C, D), TIMEOUT_MILLIS);
     }
 
     @Test
@@ -79,12 +73,7 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
         topology.removeNodes(Set.of(C));
 
-        assertDataNodesFromManager(
-                distributionZoneManager,
-                ZONE_ID,
-                Set.of(A).stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                TIMEOUT_MILLIS
-        );
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID, Set.of(A), TIMEOUT_MILLIS);
     }
 
     @Test
@@ -100,12 +89,7 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
         topology.putNode(newB);
 
-        assertDataNodesFromManager(
-                distributionZoneManager,
-                ZONE_ID,
-                Set.of(A, newB, C).stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                TIMEOUT_MILLIS
-        );
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID, Set.of(A, newB, C), TIMEOUT_MILLIS);
     }
 
     /**
@@ -131,11 +115,6 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
                         .build()
         ).get(10_000, TimeUnit.MILLISECONDS);
 
-        assertDataNodesFromManager(
-                distributionZoneManager,
-                ZONE_ID,
-                Set.of(A, C).stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                TIMEOUT_MILLIS
-        );
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID, Set.of(A, C), TIMEOUT_MILLIS);
     }
 }

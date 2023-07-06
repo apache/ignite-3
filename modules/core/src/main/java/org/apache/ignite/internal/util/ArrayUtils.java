@@ -186,7 +186,7 @@ public final class ArrayUtils {
      * @param <T> Array element type.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
-    public static <T> boolean nullOrEmpty(T[] arr) {
+    public static <T> boolean nullOrEmpty(T @Nullable[] arr) {
         return arr == null || arr.length == 0;
     }
 

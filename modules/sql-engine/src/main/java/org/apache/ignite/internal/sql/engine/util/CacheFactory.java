@@ -15,23 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare.ddl;
-
-import java.util.List;
+package org.apache.ignite.internal.sql.engine.util;
 
 /**
- * ALTER TABLE ... ADD COLUMN statement.
+ * Factory that creates a cache.
  */
-@SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-public class AlterTableAddCommand extends AbstractTableDdlCommand {
-    /** Columns. */
-    private List<ColumnDefinition> cols;
-
-    public List<ColumnDefinition> columns() {
-        return cols;
-    }
-
-    public void columns(List<ColumnDefinition> cols) {
-        this.cols = cols;
-    }
+public interface CacheFactory {
+    /**
+     * Creates a cache with a desired size.
+     *
+     * @param size Desired size of the cache.
+     * @return An instance of the cache.
+     * @param <K> Type of the key object.
+     * @param <V> Type of the value object.
+     */
+    <K, V> Cache<K, V> create(int size);
 }

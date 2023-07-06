@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fr
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_EXECUTION_ERR;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -701,8 +702,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                                 IgniteInternalException::new,
                                                 Common.INTERNAL_ERR,
                                                 format("Unable to send fragment [targetNode={}, fragmentId={}, cause={}]",
-                                                        nodeName, fragment.fragmentId(), t.getMessage()),
-                                                t
+                                                        nodeName, fragment.fragmentId(), t.getMessage()), t
                                         );
                                     })
                             );
@@ -825,7 +825,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private CompletableFuture<Void> close(boolean cancel) {
             if (!cancelled.compareAndSet(false, true)) {
-                return cancelFut.thenApply(Function.identity());
+                return cancelFut;
             }
 
             CompletableFuture<Void> start = closeExecNode(cancel);
@@ -837,23 +837,30 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                 : closeLocalFragments();
 
                         var finalStepFut = cancelResult.whenComplete((r, e) -> {
+                            if (e != null) {
+                                Throwable ex = unwrapCause(e);
+
+                                LOG.warn("Fragment closing processed with errors: [queryId={}]", ex, ctx.queryId());
+                            }
+
                             queryManagerMap.remove(ctx.queryId());
 
                             try {
                                 ctx.cancel().cancel();
-                            } catch (Exception ignored) {
-                                // NO-OP
+                            } catch (Exception th) {
+                                LOG.debug("Exception raised while cancel", th);
                             }
 
                             cancelFut.complete(null);
                         });
 
                         return cancelResult.thenCombine(finalStepFut, (none1, none2) -> null);
-                    });
+                    })
+                    .thenRun(() -> localFragments.forEach(f -> f.context().cancel()));
 
             start.completeAsync(() -> null, taskExecutor);
 
-            return cancelFut.thenApply(Function.identity());
+            return cancelFut;
         }
 
         private CompletableFuture<Void> closeLocalFragments() {
@@ -861,9 +868,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             List<CompletableFuture<?>> localFragmentCompletions = new ArrayList<>();
             for (AbstractNode<?> node : localFragments) {
-                if (node.context().isCancelled()) {
-                    continue;
-                }
+                assert !node.context().isCancelled() : "node context is cancelled, but node still processed";
 
                 localFragmentCompletions.add(
                         node.context().submit(() -> node.onError(ex), node::onError)
@@ -921,7 +926,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
          * @return Completable future that should run asynchronously.
          */
         private CompletableFuture<Void> closeExecNode(boolean cancel) {
-            CompletableFuture<Void> fut = new CompletableFuture<>();
+            CompletableFuture<Void> start = new CompletableFuture<>();
 
             if (!root.completeExceptionally(new ExecutionCancelledException()) && !root.isCompletedExceptionally()) {
                 AsyncRootNode<RowT, List<Object>> node = root.getNow(null);
@@ -929,13 +934,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 if (!cancel) {
                     CompletableFuture<Void> closeFut = node.closeAsync();
 
-                    return fut.thenCompose(v -> closeFut);
+                    return start.thenCompose(v -> closeFut);
                 }
 
                 node.onError(new ExecutionCancelledException());
             }
 
-            return fut;
+            return start;
         }
     }
 

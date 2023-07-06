@@ -15,23 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare.ddl;
-
-import java.util.List;
+package org.apache.ignite.internal.sql.engine.sql;
 
 /**
- * ALTER TABLE ... ADD COLUMN statement.
+ * A service whose sole purpose is to take a query string and convert it into a syntax tree according to the rules of grammar.
+ *
+ * @see ParsedResult
  */
-@SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-public class AlterTableAddCommand extends AbstractTableDdlCommand {
-    /** Columns. */
-    private List<ColumnDefinition> cols;
-
-    public List<ColumnDefinition> columns() {
-        return cols;
-    }
-
-    public void columns(List<ColumnDefinition> cols) {
-        this.cols = cols;
-    }
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface ParserService {
+    /**
+     * Takes a query string and convert it into a syntax tree according to the rules of grammar.
+     *
+     * @param query A query to convert.
+     * @return Result of the parsing.
+     */
+    ParsedResult parse(String query);
 }

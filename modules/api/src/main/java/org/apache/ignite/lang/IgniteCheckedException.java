@@ -28,7 +28,7 @@ import java.util.UUID;
 /**
  * General Ignite exception. Used to indicate any error condition within a node.
  */
-public class IgniteCheckedException extends Exception {
+public class IgniteCheckedException extends Exception implements TraceableException {
     /** Serial version UID. */
     private static final long serialVersionUID = 0L;
 
@@ -165,6 +165,7 @@ public class IgniteCheckedException extends Exception {
      *
      * @return Full error code.
      */
+    @Override
     public int code() {
         return code;
     }
@@ -185,6 +186,7 @@ public class IgniteCheckedException extends Exception {
      * @see #code()
      * @return Error group.
      */
+    @Override
     public int groupCode() {
         return extractGroupCode(code);
     }
@@ -196,6 +198,7 @@ public class IgniteCheckedException extends Exception {
      * @see #groupCode()
      * @return Error code.
      */
+    @Override
     public int errorCode() {
         return extractErrorCode(code);
     }
@@ -205,6 +208,7 @@ public class IgniteCheckedException extends Exception {
      *
      * @return Unique identifier of the exception.
      */
+    @Override
     public UUID traceId() {
         return traceId;
     }

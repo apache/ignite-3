@@ -337,13 +337,13 @@ namespace Apache.Ignite.Internal.Table
                 var type = r.ReadInt32();
                 var isKey = r.ReadBoolean();
                 var isNullable = r.ReadBoolean();
-                var isColocation = r.ReadBoolean(); // IsColocation.
+                var colocationIndex = r.ReadInt32();
                 var scale = r.ReadInt32();
                 var precision = r.ReadInt32();
 
                 r.Skip(propertyCount - expectedCount);
 
-                var column = new Column(name, (ColumnType)type, isNullable, isColocation, isKey, i, scale, precision);
+                var column = new Column(name, (ColumnType)type, isNullable, isKey, colocationIndex, i, scale, precision);
 
                 columns[i] = column;
 
@@ -353,7 +353,12 @@ namespace Apache.Ignite.Internal.Table
                 }
             }
 
-            var schema = new Schema(schemaVersion, Id, keyColumnCount, columns);
+            var schema = new Schema(
+                schemaVersion,
+                Id,
+                keyColumnCount,
+                columns);
+
             _schemas[schemaVersion] = Task.FromResult(schema);
 
             if (_logger?.IsEnabled(LogLevel.Debug) == true)

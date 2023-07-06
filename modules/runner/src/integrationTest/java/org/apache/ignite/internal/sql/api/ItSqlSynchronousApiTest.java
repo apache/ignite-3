@@ -62,6 +62,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -279,6 +280,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19919")
     public void errors() throws InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
@@ -364,11 +366,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
             assertEquals(1, sql("SELECT ID FROM TEST WHERE ID = -1").size());
         }
 
-        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
-
-        var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
-
-        assertEquals(txManagerInternal.finished(), states.size());
+        assertEquals(0, ((IgniteImpl) CLUSTER_NODES.get(0)).txManager().pending());
     }
 
     @Test

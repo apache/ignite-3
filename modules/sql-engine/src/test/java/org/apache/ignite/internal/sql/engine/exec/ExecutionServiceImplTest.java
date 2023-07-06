@@ -67,6 +67,7 @@ import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
@@ -77,6 +78,7 @@ import org.apache.ignite.internal.sql.engine.message.ExecutionContextAwareMessag
 import org.apache.ignite.internal.sql.engine.message.MessageListener;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
+import org.apache.ignite.internal.sql.engine.message.QueryStartResponseImpl;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteFragmentExecutionException;
@@ -91,11 +93,13 @@ import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
-import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
+import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
+import org.apache.ignite.internal.sql.engine.sql.ParserService;
+import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
@@ -141,13 +145,17 @@ public class ExecutionServiceImplTest {
     private TestCluster testCluster;
     private List<ExecutionServiceImpl<?>> executionServices;
     private PrepareService prepareService;
+    private ParserService parserService;
     private RuntimeException mappingException;
+
+    private ClusterNode firstNode;
 
     @BeforeEach
     public void init() {
         testCluster = new TestCluster();
         executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
         prepareService = new PrepareServiceImpl("test", 0, null);
+        parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
 
         prepareService.start();
     }
@@ -181,6 +189,9 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 4, TIMEOUT_IN_MS));
 
+        List<AbstractNode<?>> execNodes = executionServices.stream()
+                .flatMap(s -> s.localFragments(ctx.queryId()).stream()).collect(Collectors.toList());
+
         CompletionStage<?> batchFut = cursor.requestNextAsync(1);
 
         await(cursor.closeAsync());
@@ -188,6 +199,10 @@ public class ExecutionServiceImplTest {
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
+
+        for (AbstractNode<?> node : execNodes) {
+            assertTrue(node.context().isCancelled());
+        }
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
@@ -203,7 +218,7 @@ public class ExecutionServiceImplTest {
      */
     @Test
     public void testCancelOnInitiator() throws InterruptedException {
-        ExecutionService execService = executionServices.get(0);
+        ExecutionServiceImpl<?> execService = executionServices.get(0);
         BaseQueryContext ctx = createContext();
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
@@ -216,13 +231,20 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 4, TIMEOUT_IN_MS));
 
+        List<AbstractNode<?>> execNodes = executionServices.stream()
+                .flatMap(s -> s.localFragments(ctx.queryId()).stream()).collect(Collectors.toList());
+
         CompletionStage<?> batchFut = cursor.requestNextAsync(1);
 
-        await(executionServices.get(0).cancel(ctx.queryId()));
+        await(execService.cancel(ctx.queryId()));
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
+
+        for (AbstractNode<?> node : execNodes) {
+            assertTrue(node.context().isCancelled());
+        }
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
@@ -268,9 +290,17 @@ public class ExecutionServiceImplTest {
 
         assertTrue(waitForCondition(() -> batchFut.toCompletableFuture().isDone(), TIMEOUT_IN_MS));
 
+        // try gather all possible nodes.
+        List<AbstractNode<?>> execNodes = executionServices.stream()
+                .flatMap(s -> s.localFragments(ctx.queryId()).stream()).collect(Collectors.toList());
+
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
+
+        for (AbstractNode<?> node : execNodes) {
+            assertTrue(node.context().isCancelled());
+        }
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
@@ -329,6 +359,9 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 4, TIMEOUT_IN_MS));
 
+        List<AbstractNode<?>> execNodes = executionServices.stream()
+                .flatMap(s -> s.localFragments(ctx.queryId()).stream()).collect(Collectors.toList());
+
         var batchFut = cursor.requestNextAsync(1);
 
         await(executionServices.get(1).cancel(ctx.queryId()));
@@ -336,6 +369,10 @@ public class ExecutionServiceImplTest {
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
+
+        for (AbstractNode<?> node : execNodes) {
+            assertTrue(node.context().isCancelled());
+        }
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
@@ -390,6 +427,65 @@ public class ExecutionServiceImplTest {
         assertNotNull(res);
         assertFalse(res.hasMore());
         assertEquals(9, res.items().size());
+
+        assertTrue(waitForCondition(
+                () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
+                        .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
+    }
+
+    /**
+     * One node fail while reading data from cursor, check all fragments still correctly closed.
+     */
+    @Test
+    public void testCursorIsClosedAfterAllDataReadWithNodeFailure() throws InterruptedException {
+        ExecutionServiceImpl execService = executionServices.get(0);
+        BaseQueryContext ctx = createContext();
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
+
+        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+
+        // node failed trigger
+        CountDownLatch nodeFailedLatch = new CountDownLatch(1);
+        // start response trigger
+        CountDownLatch startResponse = new CountDownLatch(1);
+
+        nodeNames.stream().map(testCluster::node).forEach(node -> node.interceptor((senderNodeName, msg, original) -> {
+            if (node.nodeName.equals(nodeNames.get(0))) {
+                // On node_1, hang until an exception from another node fails the query to make sure that the root fragment does not execute
+                // before other fragments.
+                node.taskExecutor.execute(() -> {
+                    try {
+                        if (msg instanceof QueryStartResponseImpl) {
+                            startResponse.countDown();
+                            nodeFailedLatch.await();
+                        }
+                    } catch (InterruptedException e) {
+                        // No-op.
+                    }
+
+                    original.onMessage(senderNodeName, msg);
+                });
+
+                return CompletableFuture.completedFuture(null);
+            } else {
+                original.onMessage(senderNodeName, msg);
+
+                return CompletableFuture.completedFuture(null);
+            }
+        }));
+
+        CompletableFuture<BatchedResult<List<Object>>> resFut = cursor.requestNextAsync(9);
+
+        startResponse.await();
+        execService.onDisappeared(firstNode);
+
+        nodeFailedLatch.countDown();
+
+        BatchedResult<List<Object>> res0 = await(resFut);
+        assertNotNull(res0);
+        assertFalse(res0.hasMore());
+        assertEquals(9, res0.items().size());
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
@@ -479,6 +575,10 @@ public class ExecutionServiceImplTest {
 
         var clusterNode = new ClusterNode(UUID.randomUUID().toString(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
 
+        if (nodeName.equals(nodeNames.get(0))) {
+            firstNode = clusterNode;
+        }
+
         var topologyService = mock(TopologyService.class);
 
         when(topologyService.localMember()).thenReturn(clusterNode);
@@ -536,11 +636,11 @@ public class ExecutionServiceImplTest {
     }
 
     private QueryPlan prepare(String query, BaseQueryContext ctx) {
-        StatementParseResult parseResult = IgniteSqlParser.parse(query, StatementParseResult.MODE);
+        ParsedResult parsedResult = parserService.parse(query);
 
-        assertEquals(ctx.parameters().length, parseResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
+        assertEquals(ctx.parameters().length, parsedResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
 
-        return await(prepareService.prepareAsync(parseResult.statement(), ctx));
+        return await(prepareService.prepareAsync(parsedResult, ctx));
     }
 
     static class TestCluster {
