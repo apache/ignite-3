@@ -413,6 +413,28 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         }
     }
 
+    /**
+     * Gets streamer items queued.
+     */
+    public long streamerItemsQueued() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.streamerItemsQueued.value();
+    }
+
+    /**
+     * Adds streamer items queued.
+     *
+     * @param items Queued items.
+     */
+    public void streamerItemsQueuedAdd(long items) {
+        Holder h = holder();
+
+        if (h != null) {
+            h.streamerItemsQueued.add(items);
+        }
+    }
+
     @Override
     protected Holder createHolder() {
         return new Holder();
