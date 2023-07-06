@@ -356,17 +356,9 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     enum AggregateType {
-        SORT(
-                "ColocatedHashAggregateConverterRule",
-                "ColocatedSortAggregateConverterRule",
-                "MapReduceHashAggregateConverterRule"
-        ),
+        SORT("ColocatedHashAggregateConverterRule"),
 
-        HASH(
-                "ColocatedHashAggregateConverterRule",
-                "ColocatedSortAggregateConverterRule",
-                "MapReduceSortAggregateConverterRule"
-        );
+        HASH("ColocatedSortAggregateConverterRule");
 
         private final String[] disabledRules;
 

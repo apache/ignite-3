@@ -39,8 +39,10 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Group of tests to verify aggregation functions.
  */
 public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
-    private static final String[] disabledRules = {"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
-            "ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"};
+    private static final String[] disabledRules = {
+            "ColocatedHashAggregateConverterRule",
+            "ColocatedSortAggregateConverterRule"
+    };
 
     private static final int ROWS = 103;
 
@@ -359,7 +361,7 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
                 .check();
 
         assertQuery(sql, AggregateType.HASH)
-                .matches(QueryChecker.matches(".*ReduceHashAggregate.*Exchange.*MapHashAggregate.*"))
+                .matches(QueryChecker.matches(".*ColocatedHashAggregate.*Exchange.*"))
                 .returns("Igor")
                 .returns("Ilya")
                 .returns("Roma")
@@ -367,7 +369,7 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
                 .check();
 
         assertQuery(sql, AggregateType.SORT)
-                .matches(QueryChecker.matches(".*ReduceSortAggregate.*Exchange.*MapSortAggregate.*"))
+                .matches(QueryChecker.matches(".*ColocatedSortAggregate.*Exchange.*"))
                 .returns("Igor")
                 .returns("Ilya")
                 .returns("Roma")
@@ -396,14 +398,6 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
                     .disableRules(rules)
                     .returns(7L)
                     .check();
-
-            // Such kind of queries can`t be processed with
-            if (Arrays.stream(rules).anyMatch(r -> r.contains("MapReduceSortAggregateConverterRule"))) {
-                assertQuery("SELECT COUNT(a), COUNT(DISTINCT(b)) FROM testMe")
-                        .disableRules(rules)
-                        .returns(7L, 5L)
-                        .check();
-            }
 
             assertQuery("SELECT COUNT(a) as a, s FROM testMe GROUP BY s ORDER BY a, s")
                     .disableRules(rules)
