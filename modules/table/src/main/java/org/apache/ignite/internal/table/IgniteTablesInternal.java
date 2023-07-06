@@ -18,13 +18,11 @@
 package org.apache.ignite.internal.table;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.table.manager.IgniteTables;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Internal tables facade provides low-level methods for table operations.
