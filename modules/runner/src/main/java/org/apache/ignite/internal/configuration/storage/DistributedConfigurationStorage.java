@@ -96,10 +96,10 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      * <p>Given that {@link #MASTER_KEY} is updated on every configuration change, one could assume that {@code changeId} matches the
      * revision of {@link #MASTER_KEY}.
      *
-     * <p>This is true for all cases except for node restart. Key-specific revision values are lost on local vault copy after restart, so
-     * stored {@link MetaStorageManager#appliedRevision} value is used instead. This fact has very important side effect: it's no longer
-     * possible to use {@link ConditionType#REV_EQUAL} on {@link #MASTER_KEY} in {@link DistributedConfigurationStorage#write(Map, long)}.
-     * {@link ConditionType#REV_LESS_OR_EQUAL} must be used instead.
+     * <p>This is true for all cases except for node restart. We use latest values after restart, so MetaStorage's local revision is used
+     * instead. This fact has very important side effect: it's no longer possible to use {@link ConditionType#REV_EQUAL} on
+     * {@link #MASTER_KEY} in {@link DistributedConfigurationStorage#write(Map, long)}. {@link ConditionType#REV_LESS_OR_EQUAL} must be
+     * used instead.
      *
      * @see #MASTER_KEY
      * @see #write(Map, long)
@@ -277,14 +277,14 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         //  - Current node has been restarted and received updates from MetaStorage watch listeners after that. Same as
         //    above, "curChangeId" must match the MASTER_KEY revision exactly.
         //  - Current node has been restarted and have not received any updates from MetaStorage watch listeners yet.
-        //    In this case "curChangeId" matches APPLIED_REV, which may or may not match the MASTER_KEY revision. Two
+        //    In this case "curChangeId" matches MetaStorage's local revision, which may or may not match the MASTER_KEY revision. Two
         //    options here:
         //     - MASTER_KEY is missing in local MetaStorage copy. This means that current node have not performed nor
         //       observed any configuration changes. Valid condition is "MASTER_KEY does not exist".
         //     - MASTER_KEY is present in local MetaStorage copy. The MASTER_KEY revision is unknown but is less than or
-        //       equal to APPLIED_REV. Obviously, there have been no updates from the future yet. It's also guaranteed
+        //       equal to MetaStorage's local revision. Obviously, there have been no updates from the future yet. It's also guaranteed
         //       that the next received configuration update will have the MASTER_KEY revision strictly greater than
-        //       current APPLIED_REV. This allows to conclude that "MASTER_KEY revision <= curChangeId" is a valid
+        //       current MetaStorage's local revision. This allows to conclude that "MASTER_KEY revision <= curChangeId" is a valid
         //       condition for update.
         // Joining all of the above, it's concluded that the following condition must be used:
         Condition condition = curChangeId == 0L
