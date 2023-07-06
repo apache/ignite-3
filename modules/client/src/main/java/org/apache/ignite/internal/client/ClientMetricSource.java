@@ -399,6 +399,18 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
 
         private final AtomicLongMetric bytesReceived = new AtomicLongMetric("BytesReceived", "Total bytes received");
 
+        private final AtomicLongMetric streamerBatchesSent = new AtomicLongMetric(
+                "StreamerBatchesSent", "Total data streamer batches sent");
+
+        private final AtomicLongMetric streamerItemsSent = new AtomicLongMetric(
+                "StreamerItemsSent", "Total number of data streamer items sent");
+
+        private final AtomicLongMetric streamerBatchesActive = new AtomicLongMetric(
+                "StreamerBatchesActive", "Total number of existing data streamer batches");
+
+        private final AtomicLongMetric streamerItemsQueued = new AtomicLongMetric(
+                "StreamerItemsQueued", "Total number of queued data streamer items (rows)");
+
         final List<Metric> metrics = Arrays.asList(
                 connectionsActive,
                 connectionsEstablished,
