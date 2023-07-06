@@ -391,6 +391,28 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         }
     }
 
+    /**
+     * Gets streamer batches active.
+     */
+    public long streamerBatchesActive() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.streamerBatchesActive.value();
+    }
+
+    /**
+     * Adds streamer batches active.
+     *
+     * @param batches Active batches.
+     */
+    public void streamerBatchesActiveAdd(long batches) {
+        Holder h = holder();
+
+        if (h != null) {
+            h.streamerBatchesActive.add(batches);
+        }
+    }
+
     @Override
     protected Holder createHolder() {
         return new Holder();
