@@ -507,8 +507,8 @@ public class LogManagerImpl implements LogManager {
 
     private class StableClosureEventHandler implements EventHandler<StableClosureEvent> {
         LogId lastId = LogManagerImpl.this.diskId;
-        List<StableClosure> storage = new ArrayList<>(512);
-        AppendBatcher ab = newAppendBatcher(this.storage, 512, LogManagerImpl.this.diskId);
+        List<StableClosure> storage = new ArrayList<>(256);
+        AppendBatcher ab = newAppendBatcher(this.storage, 256, LogManagerImpl.this.diskId);
 
         @Override
         public void onEvent(final StableClosureEvent event, final long sequence, final boolean endOfBatch)
