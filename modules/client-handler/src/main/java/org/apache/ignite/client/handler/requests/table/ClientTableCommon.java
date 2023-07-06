@@ -22,6 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -328,17 +329,18 @@ public class ClientTableCommon {
      *                             <li>the node is stopping.</li>
      *                         </ul>
      */
-    public static TableImpl readTable(ClientMessageUnpacker unpacker, IgniteTables tables) {
+    public static CompletableFuture<TableImpl> readTableAsync(ClientMessageUnpacker unpacker, IgniteTables tables) {
         int tableId = unpacker.unpackInt();
 
         try {
-            TableImpl table = ((IgniteTablesInternal) tables).table(tableId);
+            return ((IgniteTablesInternal) tables).tableAsync(tableId)
+                    .thenApply(t -> {
+                        if (t == null) {
+                            throw new IgniteException(TABLE_ID_NOT_FOUND_ERR, "Table does not exist: " + tableId);
+                        }
 
-            if (table == null) {
-                throw new IgniteException(TABLE_ID_NOT_FOUND_ERR, "Table does not exist: " + tableId);
-            }
-
-            return table;
+                        return t;
+                    });
         } catch (NodeStoppingException e) {
             throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }
