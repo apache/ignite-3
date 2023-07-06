@@ -32,7 +32,6 @@ import static org.mockito.Mockito.when;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -319,7 +318,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 return false;
             }
 
-            return Arrays.equals(value.bytes(), read.binaryRow().tupleSlice().array());
+            return value.tupleSlice().equals(read.binaryRow().tupleSlice());
         };
     }
 

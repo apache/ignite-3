@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionIdFromLink;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 
-import java.nio.ByteBuffer;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
@@ -96,7 +95,7 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
 
             byte[] valueBytes = readRowVersionValue.result();
 
-            ByteBuffer value = ByteBuffer.wrap(valueBytes).order(ByteBufferRow.ORDER);
+            var value = valueBytes.length == 0 ? null : new ByteBufferRow(readRowVersionValue.result());
 
             result = new RowVersion(partitionId, rowLink, rowTimestamp, rowNextLink, value);
         } else {

@@ -22,7 +22,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.UUID;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -151,35 +150,6 @@ public class ByteUtils {
         }
 
         return bytes;
-    }
-
-    /**
-     * Converts a {@link UUID} value to a byte array in Big Endian order and stores it in the specified byte array.
-     *
-     * @param uuid UUID.
-     * @param bytes Bytes array to write result to.
-     * @param off Offset in the target array to write result to.
-     * @return Number of bytes overwritten in {@code bytes} array.
-     */
-    public static byte[] putUuidToBytes(UUID uuid, byte[] bytes, int off) {
-        putLongToBytes(uuid.getMostSignificantBits(), bytes, off);
-        putLongToBytes(uuid.getLeastSignificantBits(), bytes, off + Long.BYTES);
-
-        return bytes;
-    }
-
-    /**
-     * Constructs {@link UUID} from byte array in Big Endian order.
-     *
-     * @param bytes Array of bytes.
-     * @param off Offset in {@code bytes} array.
-     * @return UUID value.
-     */
-    public static UUID bytesToUuid(byte[] bytes, int off) {
-        long msb = bytesToLong(bytes, off);
-        long lsb = bytesToLong(bytes, off + Long.BYTES);
-
-        return new UUID(msb, lsb);
     }
 
     /**

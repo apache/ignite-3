@@ -18,14 +18,11 @@
 package org.apache.ignite.internal.schema;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
 /**
  * Heap byte buffer-based row.
  */
 public class ByteBufferRow implements BinaryRow {
-    public static final ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
-
     /** Row buffer. */
     private final ByteBuffer buf;
 
@@ -75,19 +72,12 @@ public class ByteBufferRow implements BinaryRow {
 
     /** {@inheritDoc} */
     @Override
-    public byte[] bytes() {
-        // TODO IGNITE-15934 avoid copy.
-        byte[] tmp = new byte[buf.limit()];
-
-        buf.get(tmp);
-        buf.rewind();
-
-        return tmp;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public ByteBuffer byteBuffer() {
         return buf.slice().order(ORDER);
+    }
+
+    @Override
+    public int length() {
+        return buf.remaining();
     }
 }

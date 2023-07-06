@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal.schema.row;
 
-import static org.apache.ignite.internal.schema.BinaryRow.HAS_VALUE_FLD_LEN;
-import static org.apache.ignite.internal.schema.BinaryRow.SCHEMA_VERSION_FLD_LEN;
-import static org.apache.ignite.internal.schema.ByteBufferRow.ORDER;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -34,8 +30,8 @@ import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.AssemblyException;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -653,13 +649,7 @@ public class RowAssembler {
      * @return Created {@link BinaryRow}.
      */
     public static BinaryRow build(ByteBuffer binTupleBuffer, int schemaVersion, boolean hasValue) {
-        ByteBuffer buffer = ByteBuffer.allocate(SCHEMA_VERSION_FLD_LEN + HAS_VALUE_FLD_LEN + binTupleBuffer.limit()).order(ORDER);
-        buffer.putShort((short) schemaVersion);
-        buffer.put(hasValue ? (byte) 1 : 0);
-        buffer.put(binTupleBuffer);
-        buffer.position(0);
-
-        return new ByteBufferRow(buffer);
+        return new BinaryRowImpl(schemaVersion, hasValue, binTupleBuffer);
     }
 
     /**
