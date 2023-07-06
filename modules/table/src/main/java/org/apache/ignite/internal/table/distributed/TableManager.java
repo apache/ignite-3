@@ -1378,6 +1378,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, tableId))
                     .whenComplete((v, e) -> {
+                        Set<ByteArray> assignmentKeys = new HashSet<>();
+
+                        for (int p = 0; p < partitions; p++) {
+                            assignmentKeys.add(stablePartAssignmentsKey(new TablePartitionId(tableId, p)));
+                        }
+
+                        metaStorageMgr.removeAll(assignmentKeys);
+
                         if (e != null) {
                             LOG.error("Error on " + TableEvent.DROP + " notification", e);
                         }
@@ -1716,17 +1724,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         }
                                     }
                                 });
-                    })
-                    .thenCompose(v -> {
-                        List<CompletableFuture<Void>> futs = new ArrayList<>();
-
-                        for (int i = 0; i < tbl.internalTable().assignments().size(); i++) {
-                            var partId = new TablePartitionId(tbl.tableId(), i);
-
-                            futs.add(metaStorageMgr.remove(stablePartAssignmentsKey(partId)));
-                        }
-
-                        return allOf(futs.toArray(new CompletableFuture[0]));
                     })
                     .exceptionally(t -> {
                         Throwable ex = getRootCause(t);
@@ -2485,6 +2482,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     protected CompletableFuture<Void> handleChangeStableAssignmentEvent(WatchEvent evt) {
         if (evt.entryEvents().stream().allMatch(e -> e.oldEntry().value() == null)) {
             // It's the initial write to table stable assignments on table create event.
+            return completedFuture(null);
+        }
+
+        if (!evt.single()) {
+            // If there is not a single entry, then all entries must be tombstones (this happens after table drop).
+            assert evt.entryEvents().stream().allMatch(entryEvent -> entryEvent.newEntry().tombstone()) : evt;
+
             return completedFuture(null);
         }
 

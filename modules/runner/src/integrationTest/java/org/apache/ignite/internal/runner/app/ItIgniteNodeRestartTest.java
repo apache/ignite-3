@@ -1134,7 +1134,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     @Test
     public void testCreateDropTable() throws InterruptedException {
-        List<IgniteImpl> nodes = startNodes(1);
+        List<IgniteImpl> nodes = startNodes(2);
         String name = "t1";
         int replicas = 1;
         int partitions = 10;
