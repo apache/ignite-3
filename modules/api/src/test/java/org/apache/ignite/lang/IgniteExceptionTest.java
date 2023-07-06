@@ -126,6 +126,8 @@ public class IgniteExceptionTest {
     public void testPropagationTraceIdentifier(Class<? extends Exception> c) {
         class Descriptor {
             private final MethodType signature;
+            // TODO https://issues.apache.org/jira/browse/IGNITE-19541
+            // This field should removed after fixing the issue.
             private final boolean deprecated;
             private final Object[] args;
 
