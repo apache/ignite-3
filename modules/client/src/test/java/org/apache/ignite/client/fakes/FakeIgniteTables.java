@@ -168,7 +168,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public List<String> assignments(int tableId) {
+    public List<String> assignmentsAsync(int tableId) {
         return partitionAssignments;
     }
 

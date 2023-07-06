@@ -37,25 +37,24 @@ public class ClientTablePartitionAssignmentGetRequest {
      * @return Future.
      * @throws IgniteException When schema registry is no initialized.
      */
-    public static CompletableFuture<Object> process(
+    public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             IgniteTablesInternal tables
     ) throws NodeStoppingException {
         int tableId = in.unpackInt();
-        var assignment = tables.assignments(tableId); // TODO: Make async too.
 
-        if (assignment == null) {
-            out.packArrayHeader(0);
-            return null;
-        }
+        return tables.assignmentsAsync(tableId).thenAccept(assignment -> {
+            if (assignment == null) {
+                out.packArrayHeader(0);
+                return;
+            }
 
-        out.packArrayHeader(assignment.size());
+            out.packArrayHeader(assignment.size());
 
-        for (String leaderNodeId : assignment) {
-            out.packString(leaderNodeId);
-        }
-
-        return null;
+            for (String leaderNodeId : assignment) {
+                out.packString(leaderNodeId);
+            }
+        });
     }
 }

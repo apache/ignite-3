@@ -1138,21 +1138,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override
-    public List<String> assignments(int tableId) throws NodeStoppingException {
-        if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
-        }
-        try {
-            TableImpl table = table(tableId);
-
+    public CompletableFuture<List<String>> assignmentsAsync(int tableId) {
+        return tableAsync(tableId).thenApply(table -> {
             if (table == null) {
                 return null;
             }
 
             return table.internalTable().assignments();
-        } finally {
-            busyLock.leaveBusy();
-        }
+        });
     }
 
     /** {@inheritDoc} */

@@ -87,11 +87,10 @@ public interface IgniteTablesInternal extends IgniteTables {
      * @param tableId Unique id of a table.
      * @return List of the current assignments.
      */
-    @Nullable
-    List<String> assignments(int tableId) throws NodeStoppingException;
+    CompletableFuture<List<String>> assignmentsAsync(int tableId) throws NodeStoppingException;
 
     /**
-     * Adds a listener to track changes in {@link #assignments(UUID)}.
+     * Adds a listener to track changes in {@link #assignmentsAsync}.
      *
      * @param listener Listener.
      */
