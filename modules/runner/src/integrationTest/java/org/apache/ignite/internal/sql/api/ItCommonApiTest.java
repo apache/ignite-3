@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.testutils.SchemaToCatalogParamsConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType.TemporalColumnType;
@@ -144,8 +144,8 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
                 SchemaBuilders.column("datetime", ColumnType.datetime(maxTimePrecision)).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTblAllSql.name(), DEFAULT_ZONE_NAME, tblCh ->
-                SchemaConfigurationConverter.convert(schTblAllSql, tblCh)
+        await(((TableManager) node.tables()).createTableAsync(
+                SchemaToCatalogParamsConverter.toCreateTable(DEFAULT_ZONE_NAME, schTblAllSql)
         ));
 
         Table tbl = node.tables().table(kvTblName);

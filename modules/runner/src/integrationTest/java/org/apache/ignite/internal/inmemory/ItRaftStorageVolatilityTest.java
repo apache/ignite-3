@@ -21,7 +21,6 @@ import static ca.seinesoftware.hamcrest.path.PathMatcher.exists;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -42,7 +41,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.raft.configuration.EntryCountBudgetChange;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.testutils.SchemaToCatalogParamsConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
@@ -240,7 +239,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createTableWithMaxOneInMemoryEntryAllowed(String tableName) {
-        int zoneId = await(createZone(
+        await(createZone(
                 node(0).distributionZoneManager(), "zone1", 1, DEFAULT_PARTITION_COUNT,
                 dataStorageChange -> dataStorageChange.convert(VolatilePageMemoryDataStorageChange.class)));
 
@@ -249,9 +248,8 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
                 SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build()
         ).withPrimaryKey("ID").build();
 
-        await(((TableManager) node(0).tables()).createTableAsync(tableName, DEFAULT_ZONE_NAME, tableChange -> {
-            SchemaConfigurationConverter.convert(tableDef, tableChange)
-                    .changeZoneId(zoneId);
-        }));
+        await(((TableManager) node(0).tables()).createTableAsync(
+                SchemaToCatalogParamsConverter.toCreateTable("zone1", tableDef)
+        ));
     }
 }

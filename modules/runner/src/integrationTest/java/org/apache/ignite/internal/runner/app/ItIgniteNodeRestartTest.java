@@ -153,10 +153,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private static final IntFunction<String> VALUE_PRODUCER = i -> "val " + i;
 
     /** Test table name. */
-    private static final String TABLE_NAME = "Table1";
+    private static final String TABLE_NAME = "Table1".toUpperCase();
 
     /** Test table name. */
-    private static final String TABLE_NAME_2 = "Table2";
+    private static final String TABLE_NAME_2 = "Table2".toUpperCase();
 
     @InjectConfiguration("mock: " + RAFT_CFG)
     private static RaftConfiguration raftConfiguration;
@@ -375,6 +375,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 dataStorageManager,
                 storagePath,
                 metaStorageMgr,
+                catalogManager,
                 schemaManager,
                 view -> new LocalLogStorageFactory(),
                 hybridClock,

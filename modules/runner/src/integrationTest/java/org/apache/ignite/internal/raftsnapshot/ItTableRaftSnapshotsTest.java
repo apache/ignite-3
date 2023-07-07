@@ -354,7 +354,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     private void createTestTableWith3Replicas(String storageEngine) throws InterruptedException {
-        String zoneSql = "create zone test_zone"
+        String zoneSql = "create zone TEST_ZONE"
                 + (DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? "" : " engine " + storageEngine)
                 + " with partitions=1, replicas=3;";
         String sql = "create table test (key int primary key, value varchar(20))"

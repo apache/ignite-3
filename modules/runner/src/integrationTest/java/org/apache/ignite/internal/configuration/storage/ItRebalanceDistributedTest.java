@@ -125,7 +125,7 @@ import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValu
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.testutils.SchemaToCatalogParamsConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
@@ -270,9 +270,7 @@ public class ItRebalanceDistributedTest {
         ).withPrimaryKey("key").build();
 
         await(nodes.get(0).tableManager.createTableAsync(
-                "TBL1",
-                ZONE_1_NAME,
-                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
+                SchemaToCatalogParamsConverter.toCreateTable(ZONE_1_NAME, schTbl1)
         ));
 
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
@@ -296,9 +294,7 @@ public class ItRebalanceDistributedTest {
         ).withPrimaryKey("key").build();
 
         await(nodes.get(0).tableManager.createTableAsync(
-                "TBL1",
-                ZONE_1_NAME,
-                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
+                SchemaToCatalogParamsConverter.toCreateTable(ZONE_1_NAME, schTbl1)
         ));
 
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
@@ -323,9 +319,8 @@ public class ItRebalanceDistributedTest {
         ).withPrimaryKey("key").build();
 
         await(nodes.get(0).tableManager.createTableAsync(
-                "TBL1",
-                ZONE_1_NAME,
-                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
+                SchemaToCatalogParamsConverter.toCreateTable(ZONE_1_NAME, schTbl1)
+        ));
 
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
 
@@ -353,9 +348,8 @@ public class ItRebalanceDistributedTest {
 
         // Tests that the distribution zone created on node0 is available on node1.
         TableImpl table = (TableImpl) await(nodes.get(1).tableManager.createTableAsync(
-                "TBL1",
-                zoneName,
-                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
+                SchemaToCatalogParamsConverter.toCreateTable(zoneName, schTbl1)
+        ));
 
         Set<String> partitionNodesConsistentIds = getPartitionClusterNodes(0, 0).stream()
                 .map(Assignment::consistentId)
@@ -416,9 +410,8 @@ public class ItRebalanceDistributedTest {
         ).withPrimaryKey("key").build();
 
         await(nodes.get(0).tableManager.createTableAsync(
-                "TBL1",
-                ZONE_1_NAME,
-                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
+                SchemaToCatalogParamsConverter.toCreateTable(ZONE_1_NAME, schTbl1)
+        ));
 
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
 
@@ -821,6 +814,7 @@ public class ItRebalanceDistributedTest {
                     dataStorageMgr,
                     storagePath,
                     metaStorageManager,
+                    catalogManager,
                     schemaManager,
                     view -> new LocalLogStorageFactory(),
                     new HybridClockImpl(),
@@ -1008,11 +1002,7 @@ public class ItRebalanceDistributedTest {
 
         assertThat(
                 nodes.get(0).tableManager.createTableAsync(
-                        tableName,
-                        zoneName,
-                        tableChange -> {
-                            SchemaConfigurationConverter.convert(createTableDefinition(tableName), tableChange);
-                        }
+                        SchemaToCatalogParamsConverter.toCreateTable(zoneName, createTableDefinition(tableName))
                 ),
                 willCompleteSuccessfully()
         );

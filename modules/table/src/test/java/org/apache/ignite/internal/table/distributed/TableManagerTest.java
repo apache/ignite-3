@@ -37,6 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -60,11 +62,13 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.LongFunction;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
+import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -77,8 +81,6 @@ import org.apache.ignite.internal.configuration.testframework.InjectRevisionList
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.raft.Loza;
@@ -93,10 +95,10 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.testutils.SchemaToCatalogParamsConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
@@ -143,8 +145,6 @@ import org.mockito.quality.Strictness;
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerTest extends IgniteAbstractTest {
-    private static final IgniteLogger LOG = Loggers.forClass(TableManagerTest.class);
-
     /** The name of the table which is preconfigured. */
     private static final String PRECONFIGURED_TABLE_NAME = "T1";
 
@@ -388,7 +388,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         TableManager tableManager = tblManagerFut.join();
 
-        await(tableManager.dropTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME));
+        await(tableManager.dropTableAsync(DropTableParams.builder().schemaName("PUBLIC").tableName(DYNAMIC_TABLE_FOR_DROP_NAME).build()));
 
         verify(mvTableStorage).destroy();
         verify(txStateTableStorage).destroy();
@@ -413,33 +413,33 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         createDistributionZone();
 
-        Consumer<TableChange> createTableChange = (TableChange change) ->
-                SchemaConfigurationConverter.convert(SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
-                                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
-                        ).withPrimaryKey("key").build(), change);
+        TableDefinition tableDef = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME)
+                .columns(
+                        SchemaBuilders.column("key", ColumnType.INT64).build(),
+                        SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
+                )
+                .withPrimaryKey("key")
+                .build();
 
-        Function<TableChange, Boolean> addColumnChange = (TableChange change) -> {
-            change.changeColumns(cols -> {
-                int colIdx = change.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;
-
-                cols.create(String.valueOf(colIdx),
-                        colChg -> SchemaConfigurationConverter.convert(SchemaBuilders.column("name", ColumnType.string()).build(),
-                                colChg));
-
-            });
-
-            return true;
-        };
+        AlterTableAddColumnParams addColumnParams = AlterTableAddColumnParams.builder()
+                .schemaName("PUBLIC")
+                .tableName(DYNAMIC_TABLE_FOR_DROP_NAME)
+                .columns(List.of(
+                       SchemaToCatalogParamsConverter.convert(SchemaBuilders.column("name", ColumnType.string()).build())
+                ))
+                .build();
 
         TableManager igniteTables = tableManager;
 
         assertThrows(IgniteException.class,
-                () -> igniteTables.createTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME, ZONE_NAME, createTableChange));
+                () -> igniteTables.createTableAsync(SchemaToCatalogParamsConverter.toCreateTable(ZONE_NAME, tableDef)));
 
-        assertThrows(IgniteException.class, () -> igniteTables.alterTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME, addColumnChange));
+        assertThrows(IgniteException.class, () -> igniteTables.alterTableAddColumnAsync(addColumnParams));
 
-        assertThrows(IgniteException.class, () -> igniteTables.dropTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME));
+        assertThrows(IgniteException.class, () -> igniteTables.dropTableAsync(DropTableParams.builder()
+                .schemaName(tableDef.schemaName())
+                .tableName(tableDef.name())
+                .build()));
 
         assertThrows(IgniteException.class, () -> igniteTables.tables());
         assertThrows(IgniteException.class, () -> igniteTables.tablesAsync());
@@ -632,8 +632,9 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNotNull(table);
 
         assertThrows(RuntimeException.class,
-                () -> await(tblManagerFut.join().createTableAsync(DYNAMIC_TABLE_NAME, ZONE_NAME,
-                        tblCh -> SchemaConfigurationConverter.convert(scmTbl, tblCh))));
+                () -> await(tblManagerFut.join().createTableAsync(
+                        SchemaToCatalogParamsConverter.toCreateTable(ZONE_NAME, scmTbl)
+                )));
 
         assertSame(table, tblManagerFut.join().table(scmTbl.name()));
     }
@@ -822,8 +823,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         createDistributionZone();
 
-        CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(tableDefinition.name(), ZONE_NAME,
-                tblCh -> SchemaConfigurationConverter.convert(tableDefinition, tblCh)
+        CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(
+                SchemaToCatalogParamsConverter.toCreateTable(ZONE_NAME, tableDefinition)
         );
 
         assertTrue(createTblLatch.await(10, TimeUnit.SECONDS));
@@ -857,6 +858,14 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
         when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
 
+        //TODO IGNITE-19082 drop mocked catalog manager.
+        CatalogManager catalogManager = mock(CatalogManager.class);
+        CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
+        when(catalogManager.createTable(any())).thenReturn(completedFuture(null));
+        when(catalogManager.dropTable(any())).thenReturn(completedFuture(null));
+        when(catalogManager.table(anyString(), anyLong())).thenReturn(tableDescriptor);
+        when(tableDescriptor.id()).thenReturn(1);
+
         TableManager tableManager = new TableManager(
                 "test",
                 revisionUpdater,
@@ -874,6 +883,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 dsm = createDataStorageManager(configRegistry, workDir, storageEngineConfig),
                 workDir,
                 msm,
+                catalogManager,
                 sm = new SchemaManager(revisionUpdater, tblsCfg, msm),
                 budgetView -> new LocalLogStorageFactory(),
                 new HybridClockImpl(),

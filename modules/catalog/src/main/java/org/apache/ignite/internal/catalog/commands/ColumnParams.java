@@ -158,7 +158,7 @@ public class ColumnParams {
          *
          * @return {@code this}.
          */
-        public Builder precision(int precision) {
+        public Builder precision(Integer precision) {
             params.precision = precision;
 
             return this;
@@ -169,7 +169,7 @@ public class ColumnParams {
          *
          * @return {@code this}.
          */
-        public Builder scale(int scale) {
+        public Builder scale(Integer scale) {
             params.scale = scale;
 
             return this;
@@ -180,7 +180,7 @@ public class ColumnParams {
          *
          * @return {@code this}.
          */
-        public Builder length(int length) {
+        public Builder length(Integer length) {
             params.length = length;
 
             return this;
