@@ -32,7 +32,6 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * SortAggregateNode.
@@ -251,7 +250,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private RowT row() {
-            Object[] fields = new Object[grpSet.cardinality() + (accFactory != null ? 1 : 0)];
+            Object[] fields = new Object[grpSet.cardinality() + accumWrps.size()];
 
             int i = 0;
 
@@ -259,9 +258,8 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 fields[i++] = grpKey;
             }
 
-            // Last column is the accumulators collection.
-            if (hasAccumulators()) {
-                fields[i] = Commons.transform(accumWrps, AccumulatorWrapper::accumulator);
+            for (AccumulatorWrapper<RowT> accWrp : accumWrps) {
+                fields[i++] = accWrp.end();
             }
 
             return rowFactory.create(fields);
