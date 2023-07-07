@@ -169,6 +169,7 @@ public class ColocationHashTests : IgniteTestsBase
     [Test]
     public async Task TestCustomColocationColumnOrder([Values(true, false)] bool reverseColocationOrder)
     {
+        // TODO: Stop this work and rework hashing first - see discussion in #ignite-3
         var tableName = $"{nameof(TestCustomColocationColumnOrder)}_{reverseColocationOrder}";
         var sql = $"create table if not exists {tableName} " +
                   $"(id integer, id0 bigint, id1 varchar, v INTEGER, primary key(id, id0, id1)) " +

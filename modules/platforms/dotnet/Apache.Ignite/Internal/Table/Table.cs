@@ -355,7 +355,7 @@ namespace Apache.Ignite.Internal.Table
                     keyColumnCount++;
                 }
 
-                if (colocationIndex > 0)
+                if (colocationIndex >= 0)
                 {
                     colocationColumnCount++;
 
