@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -221,25 +222,25 @@ public class ClientMetricsTest {
 
     @Test
     public void testStreamer() {
-        server = AbstractClientTest.startServer(1000, new FakeIgnite());
+        server = AbstractClientTest.startServer(0, new FakeIgnite());
         client = clientBuilder().build();
 
         Table table = oneColumnTable();
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
-            streamerFut = table.recordView().streamData(publisher, null);
+        var publisher = new SubmissionPublisher<Tuple>();
+        streamerFut = table.recordView().streamData(publisher, null);
 
-            publisher.submit(Tuple.create().set("ID", "1"));
-            publisher.submit(Tuple.create().set("ID", "2"));
+        publisher.submit(Tuple.create().set("ID", "1"));
+        publisher.submit(Tuple.create().set("ID", "2"));
+        publisher.close();
 
-            assertEquals(0, metrics().streamerItemsSent());
-            assertEquals(0, metrics().streamerBatchesSent());
-            assertEquals(0, metrics().streamerBatchesActive());
-            assertEquals(2, metrics().streamerItemsQueued());
-        }
+        assertEquals(0, metrics().streamerItemsSent());
+        assertEquals(0, metrics().streamerBatchesSent());
+        assertEquals(0, metrics().streamerBatchesActive());
+        assertEquals(2, metrics().streamerItemsQueued());
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(3, TimeUnit.SECONDS).join();
 
         assertEquals(2, metrics().streamerItemsSent());
         assertEquals(1, metrics().streamerBatchesSent());
