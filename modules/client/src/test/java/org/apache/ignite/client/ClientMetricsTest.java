@@ -17,19 +17,27 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_ONE_COLUMN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.SubmissionPublisher;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import org.apache.ignite.client.AbstractClientTableTest.PersonPojo;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeSession;
 import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -211,6 +219,34 @@ public class ClientMetricsTest {
         assertEquals(55, metrics().bytesReceived());
     }
 
+    @Test
+    public void testStreamer() {
+        server = AbstractClientTest.startServer(1000, new FakeIgnite());
+        client = clientBuilder().build();
+
+        Table table = oneColumnTable();
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            streamerFut = table.recordView().streamData(publisher, null);
+
+            publisher.submit(Tuple.create().set("ID", "1"));
+            publisher.submit(Tuple.create().set("ID", "2"));
+
+            assertEquals(0, metrics().streamerItemsSent());
+            assertEquals(0, metrics().streamerBatchesSent());
+            assertEquals(0, metrics().streamerBatchesActive());
+            assertEquals(2, metrics().streamerItemsQueued());
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        assertEquals(2, metrics().streamerItemsSent());
+        assertEquals(1, metrics().streamerBatchesSent());
+        assertEquals(0, metrics().streamerBatchesActive());
+        assertEquals(0, metrics().streamerItemsQueued());
+    }
+
     @AfterEach
     public void afterAll() throws Exception {
         if (client != null) {
@@ -221,6 +257,15 @@ public class ClientMetricsTest {
             server.close();
         }
     }
+
+    private Table oneColumnTable() {
+        if (server.ignite().tables().table(TABLE_ONE_COLUMN) == null) {
+            ((FakeIgniteTables) server.ignite().tables()).createTable(TABLE_ONE_COLUMN);
+        }
+
+        return client.tables().table(TABLE_ONE_COLUMN);
+    }
+
 
     private Builder clientBuilder() {
         return IgniteClient.builder()
