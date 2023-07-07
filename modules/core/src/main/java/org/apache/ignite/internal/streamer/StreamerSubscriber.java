@@ -28,7 +28,6 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -123,6 +122,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
                 p -> new StreamerBuffer<>(options.batchSize(), items -> sendBatch(p, items)));
 
         buf.add(item);
+        this.metrics.streamerItemsQueuedAdd(1);
 
         requestMore();
     }
@@ -155,6 +155,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
         CompletableFuture<Void> fut = new CompletableFuture<>();
         pendingFuts.add(fut);
         inFlightItemCount.addAndGet(batchSize);
+        metrics.streamerBatchesActiveAdd(1);
 
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
         try {
@@ -167,6 +168,11 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
                 } else {
                     fut.complete(null);
                     pendingFuts.remove(fut);
+
+                    this.metrics.streamerBatchesSentAdd(1);
+                    this.metrics.streamerBatchesActiveAdd(-1);
+                    this.metrics.streamerItemsSentAdd(batchSize);
+                    this.metrics.streamerItemsQueuedAdd(-batchSize);
 
                     inFlightItemCount.addAndGet(-batchSize);
                     requestMore();
