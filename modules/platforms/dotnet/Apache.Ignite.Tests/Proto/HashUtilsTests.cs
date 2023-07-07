@@ -19,7 +19,10 @@ namespace Apache.Ignite.Tests.Proto;
 
 using System;
 using System.Buffers.Binary;
+using Internal.Buffers;
 using Internal.Proto;
+using Internal.Proto.MsgPack;
+using MessagePack;
 using NUnit.Framework;
 
 public class HashUtilsTests
@@ -45,5 +48,21 @@ public class HashUtilsTests
         var combinedHash3 = HashUtils.Hash32(dataToHash[4..], hash2_1);
 
         Assert.AreEqual(combinedHash1, combinedHash3);
+    }
+
+    [Test]
+    public void Test2()
+    {
+        var val = (short)1;
+        var hash1 = HashUtils.Hash32(val, 0);
+
+        using var buf = new PooledArrayBuffer();
+        HashUtils.WriteHashBytes(val, buf.MessageWriter);
+        var hashes = buf.GetWrittenMemory();
+        var hashReader = new MsgPackReader(hashes.Span);
+        var hashBytes = hashReader.ReadBinary();
+        var hash2 = HashUtils.Hash32(hashBytes, 0);
+
+        Assert.AreEqual(hash1, hash2);
     }
 }
