@@ -88,7 +88,7 @@ class ErrorGroupTest {
     @SuppressWarnings({"rawtypes", "OptionalGetWithoutIsPresent"})
     @Test
     void groupIdsAreUnique() throws IllegalAccessException {
-        Map<Integer, ErrorGroup> errGroups = new HashMap<>();
+        Map<Short, ErrorGroup> errGroups = new HashMap<>();
 
         for (Class cls : ErrorGroups.class.getDeclaredClasses()) {
             var errGroupField = Arrays.stream(cls.getFields()).filter(f -> f.getName().endsWith("_ERR_GROUP")).findFirst().get();
