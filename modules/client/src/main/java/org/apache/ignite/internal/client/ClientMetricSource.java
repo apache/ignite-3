@@ -23,11 +23,12 @@ import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSetBuilder;
+import org.apache.ignite.internal.streamer.StreamerMetricSink;
 
 /**
  * Client-side metrics.
  */
-public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.Holder> {
+public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.Holder> implements StreamerMetricSink {
     /**
      * Constructor.
      */
@@ -361,6 +362,7 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
      *
      * @param batches Sent batches.
      */
+    @Override
     public void streamerBatchesSentAdd(long batches) {
         Holder h = holder();
 
@@ -383,6 +385,7 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
      *
      * @param items Sent items.
      */
+    @Override
     public void streamerItemsSentAdd(long items) {
         Holder h = holder();
 
@@ -405,6 +408,7 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
      *
      * @param batches Active batches.
      */
+    @Override
     public void streamerBatchesActiveAdd(long batches) {
         Holder h = holder();
 
@@ -427,6 +431,7 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
      *
      * @param items Queued items.
      */
+    @Override
     public void streamerItemsQueuedAdd(long items) {
         Holder h = holder();
 
