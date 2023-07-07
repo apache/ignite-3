@@ -228,18 +228,18 @@ public class ClientMetricsTest {
         Table table = oneColumnTable();
         CompletableFuture<Void> streamerFut;
 
-        var publisher = new SubmissionPublisher<Tuple>();
+        var publisher = new SubmissionPublisher<Tuple>(ForkJoinPool.commonPool(), 1);
         streamerFut = table.recordView().streamData(publisher, null);
 
         publisher.submit(Tuple.create().set("ID", "1"));
         publisher.submit(Tuple.create().set("ID", "2"));
-        publisher.close();
 
         assertEquals(0, metrics().streamerItemsSent());
         assertEquals(0, metrics().streamerBatchesSent());
         assertEquals(0, metrics().streamerBatchesActive());
         assertEquals(2, metrics().streamerItemsQueued());
 
+        publisher.close();
         streamerFut.orTimeout(3, TimeUnit.SECONDS).join();
 
         assertEquals(2, metrics().streamerItemsSent());

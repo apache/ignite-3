@@ -166,13 +166,13 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
                     log.error("Failed to send batch to partition " + partition + ": " + err.getMessage(), err);
                     close(err);
                 } else {
-                    fut.complete(null);
-                    pendingFuts.remove(fut);
-
                     this.metrics.streamerBatchesSentAdd(1);
                     this.metrics.streamerBatchesActiveAdd(-1);
                     this.metrics.streamerItemsSentAdd(batchSize);
                     this.metrics.streamerItemsQueuedAdd(-batchSize);
+
+                    fut.complete(null);
+                    pendingFuts.remove(fut);
 
                     inFlightItemCount.addAndGet(-batchSize);
                     requestMore();
