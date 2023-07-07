@@ -54,7 +54,7 @@ namespace Apache.Ignite.Internal.Table
 
         /// <inheritdoc/>
         public int HashedColumnOrder(int index) => index < KeyColumnCount
-            ? Columns[index].ColocationIndex ?? -1
+            ? Columns[index].ColocationIndex
             : -1;
     }
 }
