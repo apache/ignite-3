@@ -34,10 +34,8 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulator;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -84,7 +82,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         for (byte i = 0; i < grpSets.size(); i++) {
             ImmutableBitSet grpFields = grpSets.get(i);
-            groupings.add(new Grouping(i, grpFields));
+            groupings.add(new Grouping(grpFields));
 
             b.addAll(grpFields);
         }
@@ -160,10 +158,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         return this;
     }
 
-    private boolean hasAccumulators() {
-        return accFactory != null;
-    }
-
     private void flush() throws Exception {
         if (isClosed()) {
             return;
@@ -220,16 +214,13 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     }
 
     private class Grouping {
-        private final byte grpId;
-
         private final ImmutableBitSet grpFields;
 
         private final Map<GroupKey, List<AccumulatorWrapper<RowT>>> groups = new HashMap<>();
 
         private final RowHandler<RowT> handler;
 
-        private Grouping(byte grpId, ImmutableBitSet grpFields) {
-            this.grpId = grpId;
+        private Grouping(ImmutableBitSet grpFields) {
             this.grpFields = grpFields;
 
             handler = context().rowHandler();
@@ -251,33 +242,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private void add(RowT row) {
-//            if (type == AggregateType.REDUCE) {
-//                addOnReducer(row);
-//            } else {
-                addOnMapper(row);
-//            }
-        }
-
-        /**
-         * Get rows.
-         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-         *
-         * @param cnt Number of rows.
-         * @return Actually sent rows number.
-         */
-        private List<RowT> getRows(int cnt) {
-            if (nullOrEmpty(groups)) {
-                return Collections.emptyList();
-            }
-//            else if (type == AggregateType.MAP) {
-//                return getOnMapper(cnt);
-//            }
-            else {
-                return getOnReducer(cnt);
-            }
-        }
-
-        private void addOnMapper(RowT row) {
             GroupKey.Builder b = GroupKey.builder(grpFields.cardinality());
 
             for (Integer field : grpFields) {
@@ -293,49 +257,11 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             }
         }
 
-        private void addOnReducer(RowT row) {
-            byte targetGrpId = (byte) handler.get(0, row);
-
-            if (targetGrpId != grpId) {
-                return;
+        private List<RowT> getRows(int cnt) {
+            if (nullOrEmpty(groups)) {
+                return Collections.emptyList();
             }
 
-            GroupKey grpKey = (GroupKey) handler.get(1, row);
-
-            List<AccumulatorWrapper<RowT>> wrappers = groups.computeIfAbsent(grpKey, k -> create());
-            List<Accumulator> accums = hasAccumulators() ? (List<Accumulator>) handler.get(2, row) : Collections.emptyList();
-
-            for (int i = 0; i < wrappers.size(); i++) {
-                AccumulatorWrapper<RowT> wrapper = wrappers.get(i);
-                Accumulator accum = accums.get(i);
-
-                wrapper.apply(accum);
-            }
-        }
-
-        private List<RowT> getOnMapper(int cnt) {
-            Iterator<Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>>> it = groups.entrySet().iterator();
-
-            int amount = Math.min(cnt, groups.size());
-            List<RowT> res = new ArrayList<>(amount);
-
-            for (int i = 0; i < amount; i++) {
-                Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>> entry = it.next();
-
-                GroupKey grpKey = entry.getKey();
-                List<Accumulator> accums = Commons.transform(entry.getValue(), AccumulatorWrapper::accumulator);
-
-                RowT row = hasAccumulators() ? rowFactory.create(grpId, grpKey, accums) : rowFactory.create(grpId, grpKey);
-
-                res.add(row);
-
-                it.remove();
-            }
-
-            return res;
-        }
-
-        private List<RowT> getOnReducer(int cnt) {
             Iterator<Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>>> it = groups.entrySet().iterator();
 
             int amount = Math.min(cnt, groups.size());

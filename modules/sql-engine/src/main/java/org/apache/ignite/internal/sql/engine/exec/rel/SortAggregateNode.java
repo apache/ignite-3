@@ -31,7 +31,6 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulator;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
@@ -246,43 +245,12 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private void add(RowT row) {
-//            if (type == AggregateType.REDUCE) {
-//                addOnReducer(row);
-//            } else {
-                addOnMapper(row);
-//            }
-        }
-
-        private RowT row() {
-//            if (type == AggregateType.MAP) {
-//                return rowOnMapper();
-//            } else {
-                return rowOnReducer();
-//            }
-        }
-
-        private void addOnMapper(RowT row) {
             for (AccumulatorWrapper<RowT> wrapper : accumWrps) {
                 wrapper.add(row);
             }
         }
 
-        private void addOnReducer(RowT row) {
-            RowHandler<RowT> handler = context().rowHandler();
-
-            List<Accumulator> accums = hasAccumulators()
-                    ? (List<Accumulator>) handler.get(handler.columnCount(row) - 1, row) : Collections.emptyList();
-
-            for (int i = 0; i < accums.size(); i++) {
-                AccumulatorWrapper<RowT> wrapper = accumWrps.get(i);
-
-                Accumulator accum = accums.get(i);
-
-                wrapper.apply(accum);
-            }
-        }
-
-        private RowT rowOnMapper() {
+        private RowT row() {
             Object[] fields = new Object[grpSet.cardinality() + (accFactory != null ? 1 : 0)];
 
             int i = 0;
@@ -294,22 +262,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             // Last column is the accumulators collection.
             if (hasAccumulators()) {
                 fields[i] = Commons.transform(accumWrps, AccumulatorWrapper::accumulator);
-            }
-
-            return rowFactory.create(fields);
-        }
-
-        private RowT rowOnReducer() {
-            Object[] fields = new Object[grpSet.cardinality() + accumWrps.size()];
-
-            int i = 0;
-
-            for (Object grpKey : grpKeys) {
-                fields[i++] = grpKey;
-            }
-
-            for (AccumulatorWrapper<RowT> accWrp : accumWrps) {
-                fields[i++] = accWrp.end();
             }
 
             return rowFactory.create(fields);
