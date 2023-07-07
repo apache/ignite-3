@@ -23,7 +23,6 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHolder.Builder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.sql.Session;
@@ -134,12 +133,10 @@ public class SessionBuilderImpl implements SessionBuilder {
     /** {@inheritDoc} */
     @Override
     public Session build() {
-        Builder propBuilder = PropertiesHelper.newBuilder()
+        PropertiesHolder propsHolder = PropertiesHelper.newBuilder()
                 .set(SessionProperty.IDLE_TIMEOUT, sessionTimeout)
                 .set(QueryProperty.QUERY_TIMEOUT, queryTimeout)
-                .set(QueryProperty.DEFAULT_SCHEMA, schema);
-
-        PropertiesHolder propsHolder = propBuilder.build();
+                .set(QueryProperty.DEFAULT_SCHEMA, schema).build();
 
         SessionId sessionId = qryProc.createSession(propsHolder);
 
