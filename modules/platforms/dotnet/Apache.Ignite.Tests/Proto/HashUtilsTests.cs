@@ -53,7 +53,7 @@ public class HashUtilsTests
     [Test]
     public void Test2()
     {
-        var val = (short)1;
+        var val = (short)-11;
         var hash1 = HashUtils.Hash32(val, 0);
 
         using var buf = new PooledArrayBuffer();

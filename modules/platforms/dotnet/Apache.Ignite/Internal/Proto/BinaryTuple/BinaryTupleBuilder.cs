@@ -167,7 +167,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
             else if (hashOrder != NoHash)
             {
-                HashUtils.WriteHashBytes((sbyte)0, _hashBuffer!.MessageWriter);
+                HashUtils.WriteHashBytes(value, _hashBuffer!.MessageWriter);
             }
 
             PutByte(value);
@@ -202,7 +202,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
             else if (hashOrder != NoHash)
             {
-                PutHash(hashOrder, HashUtils.Hash32(value, 0));
+                HashUtils.WriteHashBytes(value, _hashBuffer!.MessageWriter);
             }
 
             if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
@@ -245,7 +245,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
             else if (hashOrder != NoHash)
             {
-                PutHash(hashOrder, HashUtils.Hash32(value, 0));
+                HashUtils.WriteHashBytes(value, _hashBuffer!.MessageWriter);
             }
 
             if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
@@ -292,7 +292,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
             else if (hashOrder != NoHash)
             {
-                PutHash(hashOrder, HashUtils.Hash32(value, 0));
+                HashUtils.WriteHashBytes(value, _hashBuffer!.MessageWriter);
             }
 
             if (value >= sbyte.MinValue && value <= sbyte.MaxValue)

@@ -67,7 +67,7 @@ internal static class HashUtils
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(short data, int seed) => Hash32Internal((ulong)(data & 0xffffL), (ulong)seed, 2);
+    public static int Hash32(short data, int seed) => Hash32Internal((ushort)data, (ulong)seed, 2);
 
     /// <summary>
     /// Writes bytes to be hashed later.
@@ -87,7 +87,7 @@ internal static class HashUtils
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(int data, int seed) => Hash32Internal((ulong)(data & 0xffffffffL), (ulong)seed, 4);
+    public static int Hash32(int data, int seed) => Hash32Internal((uint)data, (ulong)seed, 4);
 
     /// <summary>
     /// Writes bytes to be hashed later.
@@ -97,7 +97,7 @@ internal static class HashUtils
     public static void WriteHashBytes(int data, MsgPackWriter writer)
     {
         Span<byte> span = stackalloc byte[4];
-        BinaryPrimitives.WriteUInt32LittleEndian(span, unchecked((ushort)data));
+        BinaryPrimitives.WriteUInt32LittleEndian(span, unchecked((uint)data));
         writer.Write(span);
     }
 
@@ -108,6 +108,18 @@ internal static class HashUtils
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
     public static int Hash32(long data, int seed) => Hash32Internal((ulong)data, (ulong)seed, 8);
+
+    /// <summary>
+    /// Writes bytes to be hashed later.
+    /// </summary>
+    /// <param name="data">Data.</param>
+    /// <param name="writer">Writer.</param>
+    public static void WriteHashBytes(long data, MsgPackWriter writer)
+    {
+        Span<byte> span = stackalloc byte[8];
+        BinaryPrimitives.WriteUInt64LittleEndian(span, unchecked((ulong)data));
+        writer.Write(span);
+    }
 
     /// <summary>
     /// Generates 32-bit hash.
