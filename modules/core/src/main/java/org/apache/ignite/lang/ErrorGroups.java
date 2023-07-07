@@ -126,10 +126,10 @@ public class ErrorGroups {
         /** Cursor is already closed error. */
         public static final int CURSOR_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode(6);
 
-        /** Parsing error. */
+        /** Statement parsing error. */
         public static final int PARSE_ERR = SQL_ERR_GROUP.registerErrorCode(7);
 
-        /** Validation error. */
+        /** Statement validation error. */
         public static final int VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode(8);
 
         /** Constraint violation error. */
