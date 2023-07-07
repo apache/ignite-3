@@ -18,7 +18,7 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readSchema;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
@@ -47,16 +47,17 @@ public class ClientTupleReplaceExactRequest {
             IgniteTables tables,
             ClientResourceRegistry resources
     ) {
-        var table = readTable(in, tables);
-        var tx = readTx(in, resources);
-        var schema = readSchema(in, table);
+        return readTableAsync(in, tables).thenCompose(table -> {
+            var tx = readTx(in, resources);
+            var schema = readSchema(in, table);
 
-        var oldTuple = readTuple(in, false, schema);
-        var newTuple = readTuple(in, false, schema);
+            var oldTuple = readTuple(in, false, schema);
+            var newTuple = readTuple(in, false, schema);
 
-        return table.recordView().replaceAsync(tx, oldTuple, newTuple).thenAccept(res -> {
-            out.packInt(table.schemaView().lastSchemaVersion());
-            out.packBoolean(res);
+            return table.recordView().replaceAsync(tx, oldTuple, newTuple).thenAccept(res -> {
+                out.packInt(table.schemaView().lastSchemaVersion());
+                out.packBoolean(res);
+            });
         });
     }
 }

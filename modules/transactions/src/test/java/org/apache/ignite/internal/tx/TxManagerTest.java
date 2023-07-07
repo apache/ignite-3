@@ -48,9 +48,12 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -73,7 +76,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     /** Init test callback. */
     @BeforeEach
-    public void before() {
+    public void setup() {
         clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
 
         when(clusterService.topologyService().localMember().address()).thenReturn(ADDR);
@@ -81,6 +84,14 @@ public class TxManagerTest extends IgniteAbstractTest {
         replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
         txManager = new TxManagerImpl(replicaService, new HeapLockManager(), clock, new TransactionIdGenerator(0xdeadbeef));
+
+        txManager.start();
+    }
+
+    @AfterEach
+    public void tearDown() throws Exception {
+        txManager.beforeNodeStop();
+        txManager.stop();
     }
 
     @Test
@@ -164,5 +175,59 @@ public class TxManagerTest extends IgniteAbstractTest {
         txManager.begin(false);
 
         assertThat(txManager.updateLowWatermark(clock.now()), willSucceedFast());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testTestOnlyPendingCommit(boolean startReadOnlyTransaction) {
+        assertEquals(0, txManager.pending());
+        assertEquals(0, txManager.finished());
+
+        // Start transaction.
+        InternalTransaction tx = txManager.begin(startReadOnlyTransaction);
+        assertEquals(1, txManager.pending());
+        assertEquals(0, txManager.finished());
+
+        // Commit transaction.
+        tx.commit();
+        assertEquals(0, txManager.pending());
+        assertEquals(1, txManager.finished());
+
+        // Check that tx.commit() is idempotent within the scope of txManager.pending() and txManager.finished()
+        tx.commit();
+        assertEquals(0, txManager.pending());
+        assertEquals(1, txManager.finished());
+
+        // Check that tx.rollback() after tx.commit() won't effect txManager.pending() and txManager.finished()
+        tx.rollback();
+        assertEquals(0, txManager.pending());
+        assertEquals(1, txManager.finished());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testTestOnlyPendingRollback(boolean startReadOnlyTransaction) {
+        assertEquals(0, txManager.pending());
+        assertEquals(0, txManager.finished());
+
+        // Start transaction.
+        InternalTransaction tx = txManager.begin(startReadOnlyTransaction);
+        assertEquals(1, txManager.pending());
+        assertEquals(0, txManager.finished());
+
+        // Rollback transaction.
+        tx.rollback();
+        assertEquals(0, txManager.pending());
+        assertEquals(1, txManager.finished());
+
+        // Check that tx.rollback() is idempotent within the scope of txManager.pending() and txManager.finished()
+        tx.rollback();
+        assertEquals(0, txManager.pending());
+        assertEquals(1, txManager.finished());
+
+        // Check that tx.commit() after tx.rollback() won't effect txManager.pending() and txManager.finished()
+        tx.commit();
+        assertEquals(0, txManager.pending());
+        assertEquals(1, txManager.finished());
     }
 }

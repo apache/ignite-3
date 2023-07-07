@@ -498,10 +498,9 @@ namespace Apache.Ignite.Tests
                 writer.Write((int)ColumnType.Int32);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
+                writer.Write(0); // Colocation index.
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
-
-                writer.WriteArrayHeader(0); // Colocation columns (all key columns).
             }
             else if (tableId == CompositeKeyTableId)
             {
@@ -512,6 +511,7 @@ namespace Apache.Ignite.Tests
                 writer.Write((int)ColumnType.String);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
+                writer.Write(0); // Colocation index.
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
 
@@ -520,10 +520,9 @@ namespace Apache.Ignite.Tests
                 writer.Write((int)ColumnType.Uuid);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
+                writer.Write(1); // Colocation index.
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
-
-                writer.WriteArrayHeader(0); // Colocation columns (all key columns).
             }
             else if (tableId == CustomColocationKeyTableId)
             {
@@ -534,6 +533,7 @@ namespace Apache.Ignite.Tests
                 writer.Write((int)ColumnType.String);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
+                writer.Write(0); // Colocation index.
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
 
@@ -542,11 +542,9 @@ namespace Apache.Ignite.Tests
                 writer.Write((int)ColumnType.Uuid);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
+                writer.Write(-1); // Colocation index.
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
-
-                writer.WriteArrayHeader(1); // Colocation columns.
-                writer.Write(0); // Colocation column index.
             }
 
             Send(handler, requestId, arrayBufferWriter);

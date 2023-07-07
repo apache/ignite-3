@@ -383,7 +383,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         checkDml(2 * ROW_COUNT, ses, "DELETE FROM TEST WHERE VAL0 >= 0");
 
-        assertEquals(ROW_COUNT + 1 + 1 + 1 + 1 + 1, txManagerInternal.finished() - txPrevCnt);
+        assertEquals(ROW_COUNT + 1 + 1 + 1 + 1 + 1 + 1, txManagerInternal.finished() - txPrevCnt);
 
         var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
 
@@ -540,6 +540,8 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         assertEquals(-1, r.columnIndex("notExistColumn"));
 
         assertEquals(1, r.intValue("COL_A"));
+        // Unmute after https://issues.apache.org/jira/browse/IGNITE-19894
+        //assertEquals(1, r.intValue("COL_a"));
         assertEquals(2, r.intValue("COL_B"));
 
         assertThrowsWithCause(

@@ -22,8 +22,6 @@ import static org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreem
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.LeaseUpdater;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
@@ -35,8 +33,9 @@ import org.apache.ignite.network.ClusterService;
  * This class negotiates a lease with leaseholder. If the lease is negotiated, it is ready available to accept.
  */
 public class LeaseNegotiator {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(LeaseNegotiator.class);
+    // TODO https://issues.apache.org/jira/browse/IGNITE-18959 uncomment
+    ///** The logger. */
+    //private static final IgniteLogger LOG = Loggers.forClass(LeaseNegotiator.class);
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
@@ -61,12 +60,13 @@ public class LeaseNegotiator {
      * Tries negotiating a lease with its leaseholder.
      * The negotiation will achieve after the method is invoked. Use {@link #negotiated(ReplicationGroupId)} to check a result.
      *
-     * @param groupId Lease replication group id.
      * @param lease Lease to negotiate.
      * @param force If the flag is true, the process tries to insist of apply the lease.
      */
-    public void negotiate(ReplicationGroupId groupId, Lease lease, boolean force) {
+    public void negotiate(Lease lease, boolean force) {
         var fut = new CompletableFuture<LeaseGrantedMessageResponse>();
+
+        ReplicationGroupId groupId = lease.replicationGroupId();
 
         leaseToNegotiate.put(groupId, new LeaseAgreement(lease, fut));
 
@@ -83,7 +83,9 @@ public class LeaseNegotiator {
                         leaseInterval)
                 .handle((msg, throwable) -> {
                     if (throwable != null) {
-                        LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, lease);
+                        // TODO commented this because of log flooding due to incorrect lease cleanup
+                        // TODO https://issues.apache.org/jira/browse/IGNITE-18959
+                        // LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, lease);
                     } else {
                         assert msg instanceof LeaseGrantedMessageResponse : "Message type is unexpected [type="
                                 + msg.getClass().getSimpleName() + ']';

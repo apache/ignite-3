@@ -74,6 +74,8 @@ public class TestServer implements AutoCloseable {
 
     private final ClientHandlerMetricSource metrics;
 
+    private final Ignite ignite;
+
     /**
      * Constructor.
      *
@@ -137,6 +139,7 @@ public class TestServer implements AutoCloseable {
         }
 
         this.nodeName = nodeName;
+        this.ignite = ignite;
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(getNodeId(nodeName));
@@ -195,6 +198,15 @@ public class TestServer implements AutoCloseable {
                 : ((TestClientHandlerModule) module).localAddress();
 
         return ((InetSocketAddress) Objects.requireNonNull(addr)).getPort();
+    }
+
+    /**
+     * Gets the Ignite.
+     *
+     * @return Ignite
+     */
+    public Ignite ignite() {
+        return ignite;
     }
 
     /**

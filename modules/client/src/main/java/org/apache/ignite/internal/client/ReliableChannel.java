@@ -145,6 +145,15 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /**
+     * Gets the metrics.
+     *
+     * @return Metrics.
+     */
+    public ClientMetricSource metrics() {
+        return metrics;
+    }
+
+    /**
      * Gets active client connections.
      *
      * @return List of connected cluster nodes.
