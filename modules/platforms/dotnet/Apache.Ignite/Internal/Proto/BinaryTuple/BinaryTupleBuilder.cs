@@ -1158,7 +1158,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 }
                 else if (hashOrder != NoHash)
                 {
-                    PutHash(hashOrder, HashUtils.Hash32(Span<byte>.Empty, 0));
+                    _hashBuffer!.MessageWriter.Write(Span<byte>.Empty);
                 }
 
                 _buffer.GetSpan(1)[0] = BinaryTupleCommon.VarlenEmptyByte;
@@ -1170,14 +1170,15 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             var span = _buffer.GetSpan(maxByteCount);
 
             var actualBytes = ProtoCommon.StringEncoding.GetBytes(value, span);
+            span = span[..actualBytes];
 
             if (GetHashOrder() is var hashOrder2 && hashOrder2 == OrderedHash)
             {
-                _hash = HashUtils.Hash32(span[..actualBytes], _hash);
+                _hash = HashUtils.Hash32(span, _hash);
             }
             else if (hashOrder2 != NoHash)
             {
-                PutHash(hashOrder2, HashUtils.Hash32(span[..actualBytes], 0));
+                _hashBuffer!.MessageWriter.Write(span);
             }
 
             _buffer.Advance(actualBytes);
