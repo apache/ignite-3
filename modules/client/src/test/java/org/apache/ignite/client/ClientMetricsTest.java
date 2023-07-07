@@ -28,6 +28,7 @@ import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import org.apache.commons.math3.stat.inference.TestUtils;
 import org.apache.ignite.client.AbstractClientTableTest.PersonPojo;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -221,7 +222,7 @@ public class ClientMetricsTest {
     }
 
     @Test
-    public void testStreamer() {
+    public void testStreamer() throws InterruptedException {
         server = AbstractClientTest.startServer(0, new FakeIgnite());
         client = clientBuilder().build();
 
@@ -234,10 +235,10 @@ public class ClientMetricsTest {
         publisher.submit(Tuple.create().set("ID", "1"));
         publisher.submit(Tuple.create().set("ID", "2"));
 
+        assertTrue(IgniteTestUtils.waitForCondition(() -> metrics().streamerItemsQueued() == 2, 1000));
         assertEquals(0, metrics().streamerItemsSent());
         assertEquals(0, metrics().streamerBatchesSent());
         assertEquals(0, metrics().streamerBatchesActive());
-        assertEquals(2, metrics().streamerItemsQueued());
 
         publisher.close();
         streamerFut.orTimeout(3, TimeUnit.SECONDS).join();
