@@ -82,7 +82,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         for (byte i = 0; i < grpSets.size(); i++) {
             ImmutableBitSet grpFields = grpSets.get(i);
-            groupings.add(new Grouping(i, grpFields));
+            groupings.add(new Grouping(grpFields));
 
             b.addAll(grpFields);
         }
@@ -218,7 +218,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     }
 
     private class Grouping {
-        private final byte grpId;
 
         private final ImmutableBitSet grpFields;
 
@@ -226,8 +225,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         private final RowHandler<RowT> handler;
 
-        private Grouping(byte grpId, ImmutableBitSet grpFields) {
-            this.grpId = grpId;
+        private Grouping(ImmutableBitSet grpFields) {
             this.grpFields = grpFields;
 
             handler = context().rowHandler();

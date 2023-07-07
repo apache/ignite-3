@@ -304,10 +304,5 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             this.accumulator.apply(accumulator);
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public Accumulator accumulator() {
-            return accumulator;
-        }
     }
 }

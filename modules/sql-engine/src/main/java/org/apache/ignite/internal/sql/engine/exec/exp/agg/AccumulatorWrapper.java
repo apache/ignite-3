@@ -28,5 +28,4 @@ public interface AccumulatorWrapper<RowT> {
 
     void apply(Accumulator accumulator);
 
-    Accumulator accumulator();
 }
