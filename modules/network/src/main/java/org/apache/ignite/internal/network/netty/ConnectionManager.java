@@ -299,10 +299,7 @@ public class ConnectionManager implements ChannelCreationListener {
         );
 
         client.start(clientBootstrap).whenComplete((sender, throwable) -> {
-            if (throwable == null) {
-                ConnectorKey<String> key = new ConnectorKey<>(sender.consistentId(), getChannel(sender.channelId()));
-                channels.put(key, sender);
-            } else {
+            if (throwable != null) {
                 clients.remove(new ConnectorKey<>(address, channelType));
             }
         });
