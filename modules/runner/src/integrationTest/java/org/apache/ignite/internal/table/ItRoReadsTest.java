@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.runner.app.ItTablesApiTest.SCHEMA;
-import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -43,6 +42,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -52,6 +52,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.schema.testutils.SchemaToCatalogParamsConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -82,7 +83,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItRoReadsTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItRoReadsTest.class);
 
-    private static final String TABLE_NAME = "some-table";
+    private static final String TABLE_NAME = "some-table".toUpperCase();
 
     private static final SchemaDescriptor SCHEMA_1 = new SchemaDescriptor(
             1,
@@ -522,18 +523,23 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build());
 
         String zoneName = "zone_" + tableName;
-        int zoneId = await(createZone(((IgniteImpl) node).distributionZoneManager(), zoneName, 1, DEFAULT_REPLICA_COUNT));
+        await(createZone(((IgniteImpl) node).distributionZoneManager(), zoneName, 1, DEFAULT_REPLICA_COUNT));
 
-        return await(((TableManager) node.tables()).createTableAsync(
-                tableName,
-                zoneName,
-                tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(
-                        cols).withPrimaryKey("key").build(), tblCh)
+        TableManager tableManager = (TableManager) node.tables();
+
+        await(tableManager.createTableAsync(
+                SchemaToCatalogParamsConverter.toCreateTable(zoneName, SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(
+                        cols).withPrimaryKey("key").build())
         ));
+
+        return tableManager.table(tableName);
     }
 
     private static void stopTable(Ignite node, String tableName) {
-        await(((TableManager) node.tables()).dropTableAsync(tableName));
+        await(((TableManager) node.tables()).dropTableAsync(DropTableParams.builder()
+                .schemaName(SCHEMA)
+                .tableName(tableName)
+                .build()));
         await(((IgniteImpl) node).distributionZoneManager().dropZone("zone_" + tableName));
     }
 

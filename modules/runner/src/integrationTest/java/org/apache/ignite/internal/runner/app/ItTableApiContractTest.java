@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -34,8 +33,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.schema.testutils.SchemaToCatalogParamsConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -142,13 +147,19 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
      */
     @Test
     public void testDropTable() throws Exception {
-        CompletableFuture<Void> dropTblFut1 =  tableManager().dropTableAsync(TABLE_NAME);
+        CompletableFuture<Void> dropTblFut1 = tableManager().dropTableAsync(DropTableParams.builder()
+                .schemaName(SCHEMA)
+                .tableName(TABLE_NAME)
+                .build());
 
         dropTblFut1.get();
 
         assertNull(ignite.tables().table(TABLE_NAME));
 
-        CompletableFuture<Void> dropTblFut2 = tableManager().dropTableAsync(TABLE_NAME);
+        CompletableFuture<Void> dropTblFut2 = tableManager().dropTableAsync(DropTableParams.builder()
+                .schemaName(SCHEMA)
+                .tableName(TABLE_NAME)
+                .build());
 
         assertThrows(TableNotFoundException.class, () -> futureResult(dropTblFut2));
     }
@@ -160,23 +171,29 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
      */
     @Test
     public void testAlterTable() throws Exception {
-        await(tableManager().alterTableAsync(TABLE_NAME, chng -> {
-            chng.changeColumns(cols ->
-                    cols.create("NAME_1", colChg -> convert(SchemaBuilders.column("NAME_1", ColumnType.string()).asNullable(true)
-                            .withDefaultValue("default").build(), colChg)));
-            return true;
-        }));
+        await(tableManager().alterTableAddColumnAsync(AlterTableAddColumnParams.builder()
+                .schemaName(SCHEMA)
+                .tableName(TABLE_NAME)
+                .columns(List.of(
+                        ColumnParams.builder().name("NAME_1").type(org.apache.ignite.sql.ColumnType.STRING).nullable(true)
+                                .defaultValue(DefaultValue.constant("default")).build()
+                ))
+                .build()
+        ));
 
         assertNotNull(ignite.tables().table(TABLE_NAME));
 
-        assertNull(ignite.tables().table(TABLE_NAME + "_not_exist"));
+        assertNull(ignite.tables().table("UNKNOWN"));
 
-        assertThrows(TableNotFoundException.class, () -> await(tableManager().alterTableAsync(TABLE_NAME + "_not_exist", chng -> {
-            chng.changeColumns(cols ->
-                    cols.create("NAME_1", colChg -> convert(SchemaBuilders.column("NAME_1", ColumnType.string()).asNullable(true)
-                            .withDefaultValue("default").build(), colChg)));
-            return true;
-        })));
+        assertThrows(TableNotFoundException.class, () -> await(tableManager().alterTableAddColumnAsync(AlterTableAddColumnParams.builder()
+                .schemaName(SCHEMA)
+                .tableName("UNKNOWN")
+                .columns(List.of(
+                        ColumnParams.builder().name("NAME_1").type(org.apache.ignite.sql.ColumnType.STRING).nullable(true)
+                                .defaultValue(DefaultValue.constant("default")).build()
+                ))
+                .build()
+        )));
     }
 
     /**
@@ -186,25 +203,27 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
      */
     @Test
     public void testAlterTableAsync() throws Exception {
-        CompletableFuture<Void> altTblFut1 = tableManager().alterTableAsync(TABLE_NAME,
-                chng -> {
-                    chng.changeColumns(cols ->
-                            cols.create("NAME_1", colChg -> convert(SchemaBuilders.column("NAME_1",
-                                            ColumnType.string()).asNullable(true).withDefaultValue("default").build(), colChg)));
-                return true;
-            });
+        CompletableFuture<Void> altTblFut1 = tableManager().alterTableAddColumnAsync(AlterTableAddColumnParams.builder()
+                .schemaName(SCHEMA)
+                .tableName(TABLE_NAME)
+                .columns(List.of(
+                        ColumnParams.builder().name("NAME_1").type(org.apache.ignite.sql.ColumnType.STRING).nullable(true)
+                                .defaultValue(DefaultValue.constant("default")).build()
+                ))
+                .build());
 
-        CompletableFuture<Void> altTblFut2 = tableManager().alterTableAsync(TABLE_NAME + "_not_exist",
-                chng -> {
-                    chng.changeColumns(cols ->
-                            cols.create("NAME_1", colChg -> convert(SchemaBuilders.column("NAME_1",
-                                            ColumnType.string()).asNullable(true).withDefaultValue("default").build(), colChg)));
-                    return true;
-            });
+        CompletableFuture<Void> altTblFut2 = tableManager().alterTableAddColumnAsync(AlterTableAddColumnParams.builder()
+                .schemaName(SCHEMA)
+                .tableName("UNKNOWN")
+                .columns(List.of(
+                        ColumnParams.builder().name("NAME_1").type(org.apache.ignite.sql.ColumnType.STRING).nullable(true)
+                                .defaultValue(DefaultValue.constant("default")).build()
+                ))
+                .build());
 
         assertNotNull(ignite.tables().table(TABLE_NAME));
 
-        assertNull(ignite.tables().table(TABLE_NAME + "_not_exist"));
+        assertNull(ignite.tables().table("UNKNOWN"));
 
         altTblFut1.get();
 
@@ -212,42 +231,21 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
     }
 
     /**
-     * Checks a contract for table creation.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testCreateTable() throws Exception {
-        Table table = ignite.tables().table(TABLE_NAME);
-
-        assertNotNull(table);
-
-        assertThrows(TableAlreadyExistsException.class,
-                () -> await(tableManager().createTableAsync(TABLE_NAME, DEFAULT_ZONE_NAME,
-                        tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, TABLE_NAME)
-                                .columns(
-                                        SchemaBuilders.column("new_key", ColumnType.INT64).build(),
-                                        SchemaBuilders.column("new_val", ColumnType.string()).build())
-                                .withPrimaryKey("new_key")
-                                .build(), tableChange))));
-    }
-
-    /**
      * Checks a contract for asynchronous table creation.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    public void testCreateTableAsync() throws Exception {
+    public void testCreateTableAsync() {
         assertNotNull(ignite.tables().table(TABLE_NAME));
 
+        TableDefinition tableDefinition = SchemaBuilders.tableBuilder(SCHEMA, TABLE_NAME)
+                .columns(
+                        SchemaBuilders.column("new_key", ColumnType.INT64).build(),
+                        SchemaBuilders.column("new_val", ColumnType.string()).build())
+                .withPrimaryKey("new_key")
+                .build();
+
         CompletableFuture<Table> tableFut2 = tableManager()
-                .createTableAsync(TABLE_NAME, DEFAULT_ZONE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, TABLE_NAME)
-                        .columns(
-                                SchemaBuilders.column("new_key", ColumnType.INT64).build(),
-                                SchemaBuilders.column("new_val", ColumnType.string()).build())
-                        .withPrimaryKey("new_key")
-                        .build(), tableChange));
+                .createTableAsync(SchemaToCatalogParamsConverter.toCreateTable(DEFAULT_ZONE_NAME, tableDefinition));
 
         assertThrows(TableAlreadyExistsException.class, () -> futureResult(tableFut2));
     }

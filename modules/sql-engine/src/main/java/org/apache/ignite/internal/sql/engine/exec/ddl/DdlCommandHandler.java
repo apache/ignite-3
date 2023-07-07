@@ -104,7 +104,7 @@ import org.apache.ignite.sql.SqlException;
 public class DdlCommandHandler {
     private final DistributionZoneManager distributionZoneManager;
 
-    private final TableManager tableManager;
+    protected final TableManager tableManager;
 
     private final IndexManager indexManager;
 

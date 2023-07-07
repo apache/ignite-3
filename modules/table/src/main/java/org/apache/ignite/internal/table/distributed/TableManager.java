@@ -25,6 +25,8 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
@@ -34,6 +36,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.internal.utils.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX;
@@ -43,6 +46,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.extractPartitionNum
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.lang.ErrorGroups.Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
@@ -88,6 +92,12 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -125,10 +135,12 @@ import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.schema.CatalogDescriptorUtils;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.schema.configuration.PrimaryKeyView;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
@@ -184,6 +196,8 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.ColumnAlreadyExistsException;
+import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteExceptionUtils;
@@ -198,6 +212,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -207,8 +222,6 @@ import org.jetbrains.annotations.TestOnly;
  * Table manager.
  */
 public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTablesInternal, IgniteComponent {
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
     private static final long QUERY_DATA_NODES_COUNT_TIMEOUT = TimeUnit.SECONDS.toMillis(3);
 
     /** The logger. */
@@ -315,6 +328,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Schema manager. */
     private final SchemaManager schemaManager;
 
+    /** Catalog manager. */
+    private final CatalogManager catalogManager;
+
     private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
     /** Executor for scheduling retries of a rebalance. */
@@ -390,6 +406,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param baselineMgr Baseline manager.
      * @param txManager Transaction manager.
      * @param dataStorageMgr Data storage manager.
+     * @param catalogManager Catalog manager.
      * @param schemaManager Schema manager.
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
      *         volatile tables.
@@ -413,6 +430,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             DataStorageManager dataStorageMgr,
             Path storagePath,
             MetaStorageManager metaStorageMgr,
+            CatalogManager catalogManager,
             SchemaManager schemaManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             HybridClock clock,
@@ -437,6 +455,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.metaStorageMgr = metaStorageMgr;
         this.vaultManager = vaultManager;
         this.schemaManager = schemaManager;
+        this.catalogManager = catalogManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.clock = clock;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
@@ -1343,7 +1362,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Completes appropriate future to return result from API {@link TableManager#createTableAsync(String, String, Consumer)}.
+     * Completes appropriate future to return result from API {@link TableManager#createTableAsync(CreateTableParams)}.
      *
      * @param table Table.
      */
@@ -1473,19 +1492,59 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         </ul>
      * @see TableAlreadyExistsException
      */
+    @Deprecated
     public CompletableFuture<Table> createTableAsync(String name, String zoneName, Consumer<TableChange> tableInitChange) {
+        throw new UnsupportedOperationException("Method is no longer supported.");
+    }
+
+    /**
+     * Creates a new table from parameters.
+     *
+     * @param parameters Create table parameters.
+     * @return Future representing pending completion of the operation.
+     * @see TableAlreadyExistsException
+     */
+    @Deprecated(forRemoval = true)
+    public CompletableFuture<Table> createTableAsync(CreateTableParams parameters) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return createTableAsyncInternal(name, zoneName, tableInitChange);
+            String tableName = parameters.tableName();
+            String zoneName = Objects.requireNonNullElse(parameters.zone(), DEFAULT_ZONE_NAME);
+
+            // Copied from DdlCommandHandler
+            Consumer<TableChange> tblChanger = tableChange -> {
+                tableChange.changeColumns(columnsChange -> {
+                    for (var col : parameters.columns()) {
+                        columnsChange.create(col.name(), columnChange -> CatalogDescriptorUtils.convertColumnDefinition(col, columnChange));
+                    }
+                });
+
+                var colocationKeys = parameters.colocationColumns();
+
+                if (nullOrEmpty(colocationKeys)) {
+                    colocationKeys = parameters.primaryKeyColumns();
+                }
+
+                var colocationKeys0 = colocationKeys;
+
+                tableChange.changePrimaryKey(pkChange -> pkChange.changeColumns(parameters.primaryKeyColumns().toArray(String[]::new))
+                        .changeColocationColumns(colocationKeys0.toArray(String[]::new)));
+            };
+
+            return catalogManager.createTable(parameters)
+                    .thenApply(ignore -> catalogManager.table(tableName, Long.MAX_VALUE).id())
+                    .thenCompose(tableId -> createTableAsyncInternal(tableId, tableName, zoneName, tblChanger));
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    /** See {@link #createTableAsync(String, String, Consumer)} for details. */
+    /** See {@link #createTableAsync(CreateTableParams)} for details. */
+    @Deprecated(forRemoval = true)
     private CompletableFuture<Table> createTableAsyncInternal(
+            int tableId,
             String name,
             String zoneName,
             Consumer<TableChange> tableInitChange
@@ -1536,6 +1595,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                                         try {
                                                             changeTablesConfigurationOnTableCreate(
+                                                                    tableId,
                                                                     name,
                                                                     zoneId,
                                                                     tableInitChange,
@@ -1571,12 +1631,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Creates a new table in {@link TablesConfiguration}.
      *
+     * @param tableId Table id.
      * @param name Table name.
      * @param zoneId Distribution zone id.
      * @param tableInitChange Table changer.
      * @param tblFut Future representing pending completion of the table creation.
      */
     private void changeTablesConfigurationOnTableCreate(
+            int tableId,
             String name,
             int zoneId,
             Consumer<TableChange> tableInitChange,
@@ -1596,8 +1658,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     tableChange.changeZoneId(zoneId);
 
                     var extConfCh = ((ExtendedTableChange) tableChange);
-
-                    int tableId = tablesChange.globalIdCounter() + 1;
 
                     extConfCh.changeId(tableId);
 
@@ -1641,12 +1701,46 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         </ul>
      * @see TableNotFoundException
      */
+    @Deprecated(forRemoval = true)
     public CompletableFuture<Void> alterTableAsync(String name, Function<TableChange, Boolean> tableChange) {
+        throw new UnsupportedOperationException("Method is no longer supported.");
+    }
+
+    /**
+     * Alters a cluster table and adds columns to the table.
+     *
+     * @param params Create column params.
+     * @return Future representing pending completion of the operation.
+     * @see TableNotFoundException
+     */
+    @Deprecated
+    public CompletableFuture<Void> alterTableAddColumnAsync(AlterTableAddColumnParams params) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return alterTableAsyncInternal(name, tableChange);
+            return catalogManager.addColumn(params)
+                    .thenCompose(ignore -> addColumnInternal(params.tableName(), params.columns()));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Alters a cluster table and drops columns from the table.
+     *
+     * @param params Drop column params.
+     * @return Future representing pending completion of the operation.
+     * @see TableNotFoundException
+     */
+    @Deprecated
+    public CompletableFuture<Void> alterTableDropColumnAsync(AlterTableDropColumnParams params) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        try {
+            return catalogManager.dropColumn(params)
+                    .thenCompose(ignore -> dropColumnInternal(params.tableName(), params.columns()));
         } finally {
             busyLock.leaveBusy();
         }
@@ -1736,18 +1830,33 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         </ul>
      * @see TableNotFoundException
      */
+    @Deprecated(forRemoval = true)
     public CompletableFuture<Void> dropTableAsync(String name) {
+        throw new UnsupportedOperationException("Method is no longer supported.");
+    }
+
+    /**
+     * Drops a table with the name specified. If appropriate table does not be found, a future will be completed with
+     * {@link TableNotFoundException}.
+     *
+     * @param params Drop table parameters.
+     * @return Future representing pending completion of the operation.
+     * @see TableNotFoundException
+     */
+    @Deprecated
+    public CompletableFuture<Void> dropTableAsync(DropTableParams params) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return dropTableAsyncInternal(name);
+            return catalogManager.dropTable(params)
+                    .thenCompose(ignore -> dropTableAsyncInternal(params.tableName()));
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    /** See {@link #dropTableAsync(String)} for details. */
+    /** See {@link #dropTableAsync(DropTableParams)} for details. */
     private CompletableFuture<Void> dropTableAsyncInternal(String name) {
         return tableAsyncInternal(name).thenCompose(tbl -> {
             // In case of drop it's an optimization that allows not to fire drop-change-closure if there's no such
@@ -2717,5 +2826,80 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private CatalogZoneDescriptor getZoneDescriptor(int id) {
         return toZoneDescriptor(getZoneById(zonesConfig, id).value());
+    }
+
+    // Copied from DdlCommandHandler
+    @Deprecated(forRemoval = true)
+    private CompletableFuture<Void> addColumnInternal(String fullName, List<ColumnParams> columnParams) {
+        return alterTableAsyncInternal(
+                fullName,
+                chng -> {
+                    if (columnParams.isEmpty()) {
+                        return false;
+                    }
+
+                    chng.changeColumns(cols -> {
+                        Set<String> colNamesToOrders = new HashSet<>(cols.namedListKeys());
+
+                        columnParams.stream()
+                                .filter(k -> colNamesToOrders.contains(k.name()))
+                                .findAny()
+                                .ifPresent(c -> {
+                                    throw new ColumnAlreadyExistsException(c.name());
+                                });
+
+                        for (ColumnParams col : columnParams) {
+                            cols.create(col.name(), colChg -> CatalogDescriptorUtils.convertColumnDefinition(col, colChg));
+                        }
+                    });
+
+                    return true;
+                }
+        );
+    }
+
+    // Copied from DdlCommandHandler
+    // TODO: IGNITE-19082 Drop unused temporary method.
+    @Deprecated(forRemoval = true)
+    private CompletableFuture<Void> dropColumnInternal(String tableName, Set<String> colNames) {
+        AtomicBoolean ret = new AtomicBoolean(true);
+
+        return alterTableAsyncInternal(
+                tableName,
+                chng -> {
+                    chng.changeColumns(cols -> {
+                        ret.set(true); // Reset state if closure have been restarted.
+
+                        PrimaryKeyView priKey = chng.primaryKey();
+
+                        Set<String> colNamesToOrders = new HashSet<>(cols.namedListKeys());
+
+                        Set<String> colNames0 = new HashSet<>();
+
+                        Set<String> primaryCols = Set.of(priKey.columns());
+
+                        // Catalog verification passe, so we can omit validation here.
+                        // reportIndexedColumns(tableName, colNames, primaryCols);
+
+                        for (String colName : colNames) {
+                            if (!colNamesToOrders.contains(colName)) {
+                                ret.set(false);
+
+                                throw new ColumnNotFoundException(DEFAULT_SCHEMA_NAME, tableName, colName);
+                            } else {
+                                colNames0.add(colName);
+                            }
+
+                            if (primaryCols.contains(colName)) {
+                                throw new SqlException(DROP_IDX_COLUMN_CONSTRAINT_ERR, IgniteStringFormatter
+                                        .format("Can`t delete column, belongs to primary key: [name={}]", colName));
+                            }
+                        }
+
+                        colNames0.forEach(cols::delete);
+                    });
+
+                    return ret.get();
+                });
     }
 }

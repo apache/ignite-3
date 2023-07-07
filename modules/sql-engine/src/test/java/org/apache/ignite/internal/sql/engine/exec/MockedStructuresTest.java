@@ -31,6 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -46,6 +48,7 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -279,9 +282,13 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         schemaManager.start();
 
+        //TODO IGNITE-19082 drop mocked catalog manager.
         catalogManager = mock(CatalogManager.class);
+        CatalogTableDescriptor descriptor = mock(CatalogTableDescriptor.class);
+        when(descriptor.id()).thenReturn(1);
         when(catalogManager.createTable(any())).thenReturn(completedFuture(null));
         when(catalogManager.dropTable(any())).thenReturn(completedFuture(null));
+        when(catalogManager.table(anyString(), anyLong())).thenReturn(descriptor);
 
         cmgMgr = mock(ClusterManagementGroupManager.class);
 
@@ -585,6 +592,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 dataStorageManager,
                 workDir,
                 msm,
+                catalogManager,
                 schemaManager,
                 null,
                 clock,

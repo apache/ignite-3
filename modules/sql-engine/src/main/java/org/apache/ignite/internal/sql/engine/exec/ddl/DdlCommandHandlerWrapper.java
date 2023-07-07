@@ -66,40 +66,32 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
     /** Handles ddl commands. */
     @Override
     public CompletableFuture<Boolean> handle(DdlCommand cmd) {
-        // Handle command in usual way.
-        CompletableFuture<Boolean> ddlCommandFuture = super.handle(cmd);
-
-        // Pass supported commands to the Catalog.
+        // TODO IGNITE-19082 replace TableManager with CatalogManager calls.
         if (cmd instanceof CreateTableCommand) {
-            return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.createTable(DdlToCatalogCommandConverter.convert((CreateTableCommand) cmd))
-                            .handle(handleModificationResult(((CreateTableCommand) cmd).ifTableExists(), TableAlreadyExistsException.class))
-                    );
+            return tableManager.createTableAsync(DdlToCatalogCommandConverter.convert((CreateTableCommand) cmd))
+                    .handle(handleModificationResult(((CreateTableCommand) cmd).ifTableExists(), TableAlreadyExistsException.class));
         } else if (cmd instanceof DropTableCommand) {
-            return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.dropTable(DdlToCatalogCommandConverter.convert((DropTableCommand) cmd))
-                            .handle(handleModificationResult(((DropTableCommand) cmd).ifTableExists(), TableNotFoundException.class))
-                    );
+            return tableManager.dropTableAsync(DdlToCatalogCommandConverter.convert((DropTableCommand) cmd))
+                    .handle(handleModificationResult(((DropTableCommand) cmd).ifTableExists(), TableNotFoundException.class));
         } else if (cmd instanceof AlterTableAddCommand) {
             AlterTableAddCommand addCommand = (AlterTableAddCommand) cmd;
 
-            return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.addColumn(DdlToCatalogCommandConverter.convert(addCommand))
-                            .handle(handleModificationResult(addCommand.ifTableExists(), TableNotFoundException.class))
-                    );
+            return tableManager.alterTableAddColumnAsync(DdlToCatalogCommandConverter.convert(addCommand))
+                    .handle(handleModificationResult(addCommand.ifTableExists(), TableNotFoundException.class));
         } else if (cmd instanceof AlterTableDropCommand) {
             AlterTableDropCommand dropCommand = (AlterTableDropCommand) cmd;
 
-            return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.dropColumn(DdlToCatalogCommandConverter.convert(dropCommand))
-                            .handle(handleModificationResult(dropCommand.ifTableExists(), TableNotFoundException.class))
-                    );
+            return tableManager.alterTableDropColumnAsync(DdlToCatalogCommandConverter.convert(dropCommand))
+                    .handle(handleModificationResult(dropCommand.ifTableExists(), TableNotFoundException.class));
         } else if (cmd instanceof AlterColumnCommand) {
-            return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.alterColumn(DdlToCatalogCommandConverter.convert((AlterColumnCommand) cmd))
-                            .handle(handleModificationResult(((AlterColumnCommand) cmd).ifTableExists(), TableNotFoundException.class))
-                    );
-        } else if (cmd instanceof CreateIndexCommand) {
+            return catalogManager.alterColumn(DdlToCatalogCommandConverter.convert((AlterColumnCommand) cmd))
+                    .handle(handleModificationResult(((AlterColumnCommand) cmd).ifTableExists(), TableNotFoundException.class));
+        }
+
+        // Handle command in usual way.
+        CompletableFuture<Boolean> ddlCommandFuture = super.handle(cmd);
+
+        if (cmd instanceof CreateIndexCommand) {
             return ddlCommandFuture
                     .thenCompose(res -> {
                         AbstractIndexCommandParams params = DdlToCatalogCommandConverter.convert((CreateIndexCommand) cmd);

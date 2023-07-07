@@ -25,13 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
@@ -150,7 +145,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
                         IgniteException.class,
                         () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID1, ID0, ID1)")
                 ).getMessage(),
-                containsString("Colocation columns contains duplicates: [duplicates=[ID1]]]")
+                containsString("Colocation columns contains duplicates: ID1, ID0, ID1")
         );
     }
 
@@ -200,29 +195,6 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
         res = sql("SELECT c4 FROM my WHERE c1=3");
 
         assertEquals(3, res.get(0).get(0));
-    }
-
-    /**
-     * Checks that schema version is updated even if column names are intersected.
-     */
-    // Need to be removed after https://issues.apache.org/jira/browse/IGNITE-19082
-    @Test
-    public void checkSchemaUpdatedWithEqAlterColumn() {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-
-        Ignite node = CLUSTER_NODES.get(0);
-
-        ConfigurationManager cfgMgr = IgniteTestUtils.getFieldValue(node, "clusterCfgMgr");
-
-        TablesConfiguration tablesConfiguration = cfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
-
-        int schIdBefore = ((ExtendedTableView) tablesConfiguration.tables().get("TEST").value()).schemaId();
-
-        sql("ALTER TABLE TEST ADD COLUMN (VAL1 INT)");
-
-        int schIdAfter = ((ExtendedTableView) tablesConfiguration.tables().get("TEST").value()).schemaId();
-
-        assertEquals(schIdBefore + 1, schIdAfter);
     }
 
     /**
