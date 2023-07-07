@@ -676,13 +676,8 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         switch (testAgg) {
             case COLOCATED:
                 return createColocatedAggregateNodesChain(ctx, grpSets, aggCall, inRowType, rowFactory, scan);
-
-//            case MAP_REDUCE:
-//                return createMapReduceAggregateNodesChain(ctx, grpSets, aggCall, inRowType, aggRowType, rowFactory, scan);
-
             default:
                 assert false;
-
                 return null;
         }
     }
