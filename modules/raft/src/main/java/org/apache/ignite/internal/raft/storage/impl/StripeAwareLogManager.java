@@ -39,7 +39,7 @@ import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
  */
 public class StripeAwareLogManager extends LogManagerImpl {
     /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(LogManagerImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(StripeAwareLogManager.class);
 
     /** Log storage instance. */
     private LogStorage logStorage;
@@ -175,10 +175,8 @@ public class StripeAwareLogManager extends LogManagerImpl {
                 flush();
             }
 
-            // This part is a little bit hacky. We must provide a valid buffer size delta to a stripe. The easiest way to do so it to treat
-            // the entire buffer size of the current batcher as a size of a single entries list.
-            // We can do that, because buffer size of the stripe is never less than a valid buffer size of any individual batcher, thus
-            // it will always be the fist one to trigger the flush (see the code above).
+            // "super.append(done);" will calculate the size of update entries and put that value into "bufferSize".
+            // We use it later to add to "stripe.bufferSize".
             bufferSize = 0;
             super.append(done);
 
