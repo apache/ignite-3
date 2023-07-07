@@ -323,6 +323,9 @@ namespace Apache.Ignite.Internal.Table
             var schemaVersion = r.ReadInt32();
             var columnCount = r.ReadArrayHeader();
             var keyColumnCount = 0;
+            var colocationColumnCount = 0;
+            var prevColocationIndex = -1;
+            var colocationColumnsOrdered = true;
 
             var columns = new Column[columnCount];
 
@@ -351,15 +354,27 @@ namespace Apache.Ignite.Internal.Table
                 {
                     keyColumnCount++;
                 }
+
+                if (colocationIndex > 0)
+                {
+                    colocationColumnCount++;
+
+                    if (colocationIndex <= prevColocationIndex)
+                    {
+                        colocationColumnsOrdered = false;
+                    }
+
+                    prevColocationIndex = colocationIndex;
+                }
             }
 
             var schema = new Schema(
                 Version: schemaVersion,
                 TableId: Id,
                 KeyColumnCount: keyColumnCount,
-                ColocationColumnCount: keyColumnCount,
+                ColocationColumnCount: colocationColumnCount,
                 Columns: columns,
-                ColocationColumnsOrdered: true);
+                ColocationColumnsOrdered: colocationColumnsOrdered);
 
             _schemas[schemaVersion] = Task.FromResult(schema);
 
