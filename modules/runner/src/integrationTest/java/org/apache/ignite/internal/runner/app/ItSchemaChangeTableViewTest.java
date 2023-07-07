@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Ignition interface tests.
  */
+@Disabled("IGNITE-19499")
 class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
     /**
      * Check add a new column to table schema.

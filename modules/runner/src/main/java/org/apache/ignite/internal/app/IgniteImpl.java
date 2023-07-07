@@ -538,6 +538,7 @@ public class IgniteImpl implements Ignite {
                 dataStorageMgr,
                 storagePath,
                 metaStorageMgr,
+                catalogManager,
                 schemaManager,
                 volatileLogStorageFactoryCreator,
                 clock,

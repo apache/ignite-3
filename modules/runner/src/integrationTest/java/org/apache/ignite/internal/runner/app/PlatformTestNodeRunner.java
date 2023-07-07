@@ -48,7 +48,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.testutils.SchemaToCatalogParamsConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType.TemporalColumnType;
@@ -267,8 +267,8 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("val", ColumnType.string()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTbl.name(), ZONE_NAME, tblCh ->
-                SchemaConfigurationConverter.convert(schTbl, tblCh)
+        await(((TableManager) node.tables()).createTableAsync(
+                SchemaToCatalogParamsConverter.toCreateTable(ZONE_NAME, schTbl)
         ));
 
         int maxTimePrecision = TemporalColumnType.MAX_TIME_PRECISION;
@@ -295,8 +295,8 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTblAll.name(), ZONE_NAME, tblCh ->
-                SchemaConfigurationConverter.convert(schTblAll, tblCh)
+        await(((TableManager) node.tables()).createTableAsync(
+                SchemaToCatalogParamsConverter.toCreateTable(ZONE_NAME, schTblAll)
         ));
 
         // TODO IGNITE-18431 remove extra table, use TABLE_NAME_ALL_COLUMNS for SQL tests.
@@ -321,8 +321,8 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTblAllSql.name(), ZONE_NAME, tblCh ->
-                SchemaConfigurationConverter.convert(schTblAllSql, tblCh)
+        await(((TableManager) node.tables()).createTableAsync(
+                SchemaToCatalogParamsConverter.toCreateTable(ZONE_NAME, schTblAllSql)
         ));
 
         createTwoColumnTable(node, ColumnType.INT8);
@@ -351,8 +351,8 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("val", type).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTbl.name(), ZONE_NAME, tblCh ->
-                SchemaConfigurationConverter.convert(schTbl, tblCh)
+        await(((TableManager) node.tables()).createTableAsync(
+                SchemaToCatalogParamsConverter.toCreateTable(ZONE_NAME, schTbl)
         ));
     }
 

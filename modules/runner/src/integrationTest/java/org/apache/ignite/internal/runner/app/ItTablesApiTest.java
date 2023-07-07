@@ -20,7 +20,6 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -44,6 +43,9 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
+import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.schema.testutils.SchemaToCatalogParamsConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -442,7 +444,10 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         ignite1Inhibitor.startInhibit();
 
-        await(((TableManager) clusterNodes.get(0).tables()).dropTableAsync(TABLE_NAME));
+        await(((TableManager) clusterNodes.get(0).tables()).dropTableAsync(DropTableParams.builder()
+                .schemaName(SCHEMA)
+                .tableName(TABLE_NAME)
+                .build()));
 
         // Because the event inhibitor was started, last metastorage updates do not reach to one node.
         // Therefore the table still exists locally, but API prevents getting it.
@@ -466,11 +471,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @param tableName Table name.
      */
     protected Table createTable(Ignite node, String tableName) {
-        List<ColumnDefinition> cols = new ArrayList<>();
-        cols.add(SchemaBuilders.column("key", ColumnType.INT64).build());
-        cols.add(SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build());
-        cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build());
-
         var tmpl = "CREATE TABLE %s (key BIGINT PRIMARY KEY, valInt INT, valStr VARCHAR)";
         var sql = String.format(tmpl, tableName);
 
@@ -489,17 +489,19 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      */
     protected Table createTableIfNotExists(Ignite node, String tableName) {
         try {
-            return await(((TableManager) node.tables()).createTableAsync(
-                    tableName,
-                    DEFAULT_ZONE_NAME,
-                    tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(Arrays.asList(
+            TableManager tableManager = (TableManager) node.tables();
+
+            await(tableManager.createTableAsync(
+                    SchemaToCatalogParamsConverter.toCreateTable(DEFAULT_ZONE_NAME,
+                            SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(Arrays.asList(
                                     SchemaBuilders.column("key", ColumnType.INT64).build(),
                                     SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build(),
                                     SchemaBuilders.column("valStr", ColumnType.string())
                                             .withDefaultValue("default").build()
-                            )).withPrimaryKey("key").build(),
-                            tblCh)
+                            )).withPrimaryKey("key").build())
             ));
+
+            return tableManager.table(tableName);
         } catch (TableAlreadyExistsException ex) {
             return node.tables().table(tableName);
         }
@@ -512,7 +514,10 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @param tableName Table name.
      */
     protected void dropTable(Ignite node, String tableName) {
-        await(((TableManager) node.tables()).dropTableAsync(tableName));
+        await(((TableManager) node.tables()).dropTableAsync(DropTableParams.builder()
+                .schemaName(SCHEMA)
+                .tableName(TABLE_NAME)
+                .build()));
     }
 
     /**
@@ -523,7 +528,10 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      */
     protected void dropTableIfExists(Ignite node, String tableName) {
         try {
-            await(((TableManager) node.tables()).dropTableAsync(tableName));
+            await(((TableManager) node.tables()).dropTableAsync(DropTableParams.builder()
+                    .schemaName(SCHEMA)
+                    .tableName(tableName)
+                    .build()));
         } catch (TableNotFoundException ex) {
             log.info("Dropping the table ignored.", ex);
         }
@@ -550,18 +558,12 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @param colDefinition Column defenition.
      */
     private void addColumnInternal(Ignite node, String tableName, ColumnDefinition colDefinition) {
-        await(((TableManager) node.tables()).alterTableAsync(
-                tableName,
-                chng -> {
-                    chng.changeColumns(cols -> {
-                        try {
-                            cols.create(colDefinition.name(), colChg -> convert(colDefinition, colChg));
-                        } catch (IllegalArgumentException e) {
-                            throw new ColumnAlreadyExistsException(colDefinition.name());
-                        }
-                    });
-                    return true;
-                }));
+        await(((TableManager) node.tables()).alterTableAddColumnAsync(
+                AlterTableAddColumnParams.builder()
+                        .schemaName(SCHEMA)
+                        .tableName(tableName)
+                        .columns(List.of(SchemaToCatalogParamsConverter.convert(colDefinition)))
+                        .build()));
     }
 
     /**

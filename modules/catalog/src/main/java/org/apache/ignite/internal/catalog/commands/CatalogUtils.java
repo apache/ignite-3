@@ -38,6 +38,31 @@ import org.apache.ignite.sql.ColumnType;
  * Catalog utils.
  */
 public class CatalogUtils {
+    /**
+     * Default TIMESTAMP type precision: microseconds.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 36
+     */
+    public static final int DEFAULT_TIMESTAMP_PRECISION = 6;
+    /**
+     * Default TIME type precision: seconds.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 36
+     */
+    public static final int DEFAULT_TIME_PRECISION = 0;
+    /**
+     * Default DECIMAL precision is implementation-defined.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 25
+     */
+    public static final int DEFAULT_DECIMAL_PRECISION = 19;
+    /**
+     * Default DECIMAL scale is implementation-defined.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 25
+     */
+    public static final int DEFAULT_DECIMAL_SCALE = 3;
+
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
     static {
@@ -125,9 +150,9 @@ public class CatalogUtils {
      * @return Column descriptor.
      */
     public static CatalogTableColumnDescriptor fromParams(ColumnParams params) {
-        int precision = params.precision() != null ? params.precision() : 0;
-        int scale = params.scale() != null ? params.scale() : 0;
-        int length = params.length() != null ? params.length() : 0;
+        int precision = params.precision() != null ? params.precision() : defaultPrecision(params.type());
+        int scale = params.scale() != null ? params.scale() : defaultScale(params.type());
+        int length = params.length() != null ? params.length() : defaultLength(params.type());
         DefaultValue defaultValue = params.defaultValueDefinition();
 
         return new CatalogTableColumnDescriptor(params.name(), params.type(), params.nullable(),
@@ -146,4 +171,42 @@ public class CatalogUtils {
 
         return supportedTransitions != null && supportedTransitions.contains(target);
     }
+
+    private static int defaultPrecision(ColumnType columnType) {
+        //TODO IGNITE-19938: Add REAL,FLOAT and DOUBLE precision. See SQL`16 part 2 section 6.1 syntax rule 29-31
+        switch (columnType) {
+            case NUMBER:
+            case DECIMAL:
+                return DEFAULT_DECIMAL_PRECISION;
+            case TIME:
+                return DEFAULT_TIME_PRECISION;
+            case TIMESTAMP:
+            case DATETIME:
+                return DEFAULT_TIMESTAMP_PRECISION;
+            default:
+                return 0;
+        }
+    }
+
+    private static int defaultScale(ColumnType columnType) {
+        //TODO IGNITE-19938: Add REAL,FLOAT and DOUBLE precision. See SQL`16 part 2 section 6.1 syntax rule 29-31
+        if (columnType == ColumnType.DECIMAL) {
+            return DEFAULT_DECIMAL_SCALE;
+        }
+
+        return 0;
+    }
+
+    private static int defaultLength(ColumnType columnType) {
+        //TODO IGNITE-19938: Return length for other types. See SQL`16 part 2 section 6.1 syntax rule 39
+        switch (columnType) {
+            case BITMASK:
+            case STRING:
+            case BYTE_ARRAY:
+                return Integer.MAX_VALUE;
+            default:
+                return 0;
+        }
+    }
+
 }

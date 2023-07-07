@@ -22,7 +22,11 @@ import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollat
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
 
 import java.util.List;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.ConstantValue;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
@@ -30,6 +34,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.schema.configuration.ColumnChange;
+import org.apache.ignite.internal.schema.configuration.ColumnTypeChange;
 import org.apache.ignite.internal.schema.configuration.ColumnTypeView;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
@@ -38,8 +44,11 @@ import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.ValueSerializationHelper;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ColumnDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ColumnDefaultView;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultChange;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultView;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultChange;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultView;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultChange;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
 import org.apache.ignite.internal.schema.configuration.index.IndexColumnView;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
@@ -194,5 +203,107 @@ public class CatalogDescriptorUtils {
         CatalogColumnCollation collation = config.asc() ? ASC_NULLS_LAST : DESC_NULLS_FIRST;
 
         return new CatalogIndexColumnDescriptor(config.name(), collation);
+    }
+
+    /**
+     * Applies changes from params to the configuraiton changer.
+     *
+     * @param params Column change parameters.
+     * @param columnChange Configuration changer.
+     */
+    public static void convertColumnDefinition(ColumnParams params, ColumnChange columnChange) {
+        NativeType nativeType = getNativeType(CatalogUtils.fromParams(params));
+
+        columnChange.changeType(columnTypeChange -> convert(nativeType, columnTypeChange));
+        columnChange.changeNullable(params.nullable());
+        columnChange.changeDefaultValueProvider(defaultChange -> {
+            switch (params.defaultValueDefinition().type()) {
+                case CONSTANT:
+                    ConstantValue constantValue = params.defaultValueDefinition();
+
+                    var val = constantValue.value();
+
+                    if (val != null) {
+                        defaultChange.convert(ConstantValueDefaultChange.class)
+                                .changeDefaultValue(ValueSerializationHelper.toString(val, nativeType));
+                    } else {
+                        defaultChange.convert(NullValueDefaultChange.class);
+                    }
+
+                    break;
+                case FUNCTION_CALL:
+                    FunctionCall functionCall = params.defaultValueDefinition();
+
+                    defaultChange.convert(FunctionCallDefaultChange.class)
+                            .changeFunctionName(functionCall.functionName());
+
+                    break;
+                default:
+                    throw new IllegalStateException("Unknown default value definition type [type="
+                            + params.defaultValueDefinition().type() + ']');
+            }
+        });
+    }
+
+    private static void convert(NativeType colType, ColumnTypeChange colTypeChg) {
+        NativeTypeSpec spec = colType.spec();
+        String typeName = spec.name().toUpperCase();
+
+        colTypeChg.changeType(typeName);
+
+        switch (spec) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case FLOAT:
+            case DOUBLE:
+            case DATE:
+            case UUID:
+                // do nothing
+                break;
+
+            case BITMASK:
+                BitmaskNativeType bitmaskColType = (BitmaskNativeType) colType;
+
+                colTypeChg.changeLength(bitmaskColType.bits());
+
+                break;
+
+            case BYTES:
+            case STRING:
+                VarlenNativeType varLenColType = (VarlenNativeType) colType;
+
+                colTypeChg.changeLength(varLenColType.length());
+
+                break;
+
+            case DECIMAL:
+                DecimalNativeType numColType = (DecimalNativeType) colType;
+
+                colTypeChg.changePrecision(numColType.precision());
+                colTypeChg.changeScale(numColType.scale());
+
+                break;
+
+            case NUMBER:
+                NumberNativeType numType = (NumberNativeType) colType;
+
+                colTypeChg.changePrecision(numType.precision());
+
+                break;
+
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+                TemporalNativeType temporalColType = (TemporalNativeType) colType;
+
+                colTypeChg.changePrecision(temporalColType.precision());
+
+                break;
+
+            default:
+                throw new IllegalArgumentException("Unknown type " + colType.spec().name());
+        }
     }
 }
