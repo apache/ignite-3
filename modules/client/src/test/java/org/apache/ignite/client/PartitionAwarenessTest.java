@@ -170,8 +170,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         // Update partition assignment.
         var assignments = new ArrayList<String>();
 
-        assignments.add(testServer2.nodeId());
-        assignments.add(testServer.nodeId());
+        assignments.add(testServer2.nodeName());
+        assignments.add(testServer.nodeName());
 
         initPartitionAssignment(assignments);
 
@@ -195,14 +195,14 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         RecordView<Tuple> recordView = table(FakeIgniteTables.TABLE_COLOCATION_KEY).recordView();
 
         // COLO-2 is nullable and not set.
-        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0")));
-        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 2).set("COLO-1", "0")));
-        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 3).set("COLO-1", "0")));
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 3).set("COLO-1", "1")));
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0")));
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 2).set("COLO-1", "0")));
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 3).set("COLO-1", "0")));
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 3).set("COLO-1", "2")));
 
         // COLO-2 is set.
-        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 1)));
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 2)));
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 1)));
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 2)));
     }
 
     @Test
@@ -543,8 +543,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         // Update partition assignment.
         var assignments = new ArrayList<String>();
 
-        assignments.add(testServer2.nodeId());
-        assignments.add(testServer.nodeId());
+        assignments.add(testServer2.nodeName());
+        assignments.add(testServer.nodeName());
 
         initPartitionAssignment(assignments);
 
@@ -612,10 +612,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         if (assignments == null) {
             assignments = new ArrayList<>();
 
-            assignments.add(testServer.nodeId());
-            assignments.add(testServer2.nodeId());
-            assignments.add(testServer.nodeId());
-            assignments.add(testServer2.nodeId());
+            assignments.add(testServer.nodeName());
+            assignments.add(testServer2.nodeName());
+            assignments.add(testServer.nodeName());
+            assignments.add(testServer2.nodeName());
         }
 
         FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();

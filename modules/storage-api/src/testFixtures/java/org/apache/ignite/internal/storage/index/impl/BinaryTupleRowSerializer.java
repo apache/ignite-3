@@ -83,7 +83,7 @@ public class BinaryTupleRowSerializer {
             ));
         }
 
-        var builder = new BinaryTupleBuilder(tupleSchema.elementCount(), tupleSchema.hasNullableElements());
+        var builder = new BinaryTupleBuilder(tupleSchema.elementCount());
 
         for (Object value : columnValues) {
             appendValue(builder, value);

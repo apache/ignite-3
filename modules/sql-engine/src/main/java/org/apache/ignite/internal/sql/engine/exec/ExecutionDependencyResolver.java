@@ -24,9 +24,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 /**
  * Resolves components required for execution.
  */
-@FunctionalInterface
 public interface ExecutionDependencyResolver {
-
     /**
      * Resolves dependencies required to execute the given operator tree.
      */

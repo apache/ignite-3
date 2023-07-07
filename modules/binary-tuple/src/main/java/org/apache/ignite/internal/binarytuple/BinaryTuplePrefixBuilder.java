@@ -40,7 +40,7 @@ public class BinaryTuplePrefixBuilder extends BinaryTupleBuilder {
      * @param fullNumElements Number of elements in the Binary Tuple Schema.
      */
     public BinaryTuplePrefixBuilder(int prefixNumElements, int fullNumElements) {
-        super(fullNumElements, true);
+        super(fullNumElements);
 
         this.prefixNumElements = prefixNumElements;
     }
@@ -53,7 +53,7 @@ public class BinaryTuplePrefixBuilder extends BinaryTupleBuilder {
      * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
      */
     public BinaryTuplePrefixBuilder(int prefixNumElements, int fullNumElements, int totalValueSize) {
-        super(fullNumElements, true, totalValueSize);
+        super(fullNumElements, totalValueSize);
 
         assert fullNumElements >= prefixNumElements;
 

@@ -29,6 +29,7 @@ dependencies {
     implementation project(':ignite-network-api')
     implementation project(':ignite-vault')
     implementation project(':ignite-raft-api')
+    implementation project(':ignite-replicator')
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-rocksdb-common')
@@ -39,12 +40,15 @@ dependencies {
 
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-vault'))
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-replicator'))
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
 
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation project(":ignite-cluster-management")
     integrationTestImplementation project(':ignite-network')
+    integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-rest')
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(":ignite-raft-api")
@@ -61,6 +65,7 @@ dependencies {
     testFixturesImplementation project(':ignite-cluster-management')
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-raft-api')
+    testFixturesImplementation project(':ignite-replicator')
     testFixturesImplementation project(':ignite-rocksdb-common')
     testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation libs.jetbrains.annotations

@@ -192,6 +192,11 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     @Override
+    public CatalogTableDescriptor table(int tableId, int catalogVersion) {
+        return catalog(catalogVersion).table(tableId);
+    }
+
+    @Override
     public CatalogIndexDescriptor index(String indexName, long timestamp) {
         return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).index(indexName);
     }
@@ -275,11 +280,16 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogZoneDescriptor zone = getZone(catalog, Objects.requireNonNullElse(params.zone(), DEFAULT_ZONE_NAME));
 
-            CatalogTableDescriptor table = CatalogUtils.fromParams(catalog.objectIdGenState(), zone.id(), params);
+            int id = catalog.objectIdGenState();
+
+            CatalogTableDescriptor table = CatalogUtils.fromParams(id++, zone.id(), params);
+
+            CatalogHashIndexDescriptor pkIndex = createHashIndexDescriptor(table, id++, createPkIndexParams(params));
 
             return List.of(
                     new NewTableEntry(table),
-                    new ObjectIdGenUpdateEntry(1)
+                    new NewIndexEntry(pkIndex),
+                    new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
             );
         });
     }
@@ -295,7 +305,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             Arrays.stream(schema.indexes())
                     .filter(index -> index.tableId() == table.id())
-                    .forEach(index -> updateEntries.add(new DropIndexEntry(index.id())));
+                    .forEach(index -> updateEntries.add(new DropIndexEntry(index.id(), index.tableId())));
 
             updateEntries.add(new DropTableEntry(table.id()));
 
@@ -386,9 +396,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            validateCreateHashIndexParams(params, table);
-
-            CatalogHashIndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
+            CatalogHashIndexDescriptor index = createHashIndexDescriptor(table, catalog.objectIdGenState(), params);
 
             return List.of(
                     new NewIndexEntry(index),
@@ -431,7 +439,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             }
 
             return List.of(
-                    new DropIndexEntry(index.id())
+                    new DropIndexEntry(index.id(), index.tableId())
             );
         });
     }
@@ -615,7 +623,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     class OnUpdateHandlerImpl implements OnUpdateHandler {
         @Override
-        public void handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp) {
+        public void handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
             int version = update.version();
             Catalog catalog = catalogByVer.get(version - 1);
 
@@ -637,7 +645,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     eventFutures.add(fireEvent(
                             fireEvent.eventType(),
-                            fireEvent.createEventParameters(version)
+                            fireEvent.createEventParameters(causalityToken, version)
                     ));
                 }
             }
@@ -876,5 +884,25 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         } else if (target.precision() < origin.precision()) {
             throwUnsupportedDdl("Cannot decrease precision to {} for column '{}'.", target.precision(), origin.name());
         }
+    }
+
+    private static CreateHashIndexParams createPkIndexParams(CreateTableParams params) {
+        return CreateHashIndexParams.builder()
+                .schemaName(params.schemaName())
+                .tableName(params.tableName())
+                .indexName(params.tableName() + "_PK")
+                .columns(params.primaryKeyColumns())
+                .unique()
+                .build();
+    }
+
+    private static CatalogHashIndexDescriptor createHashIndexDescriptor(
+            CatalogTableDescriptor table,
+            int indexId,
+            CreateHashIndexParams params
+    ) {
+        validateCreateHashIndexParams(params, table);
+
+        return CatalogUtils.fromParams(indexId, table.id(), params);
     }
 }

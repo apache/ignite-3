@@ -29,7 +29,10 @@ dependencies {
     testImplementation libs.hamcrest.optional
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
+    testImplementation libs.auto.service.annotations
     testImplementation testFixtures(project(":ignite-core"))
+
+    testAnnotationProcessor libs.auto.service
 
     testFixturesAnnotationProcessor libs.micronaut.inject.annotation.processor
     testFixturesImplementation project(":ignite-core")

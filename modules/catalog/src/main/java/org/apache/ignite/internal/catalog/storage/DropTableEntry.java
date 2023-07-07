@@ -58,8 +58,8 @@ public class DropTableEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken) {
-        return new DropTableEventParameters(causalityToken, tableId);
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new DropTableEventParameters(causalityToken, catalogVersion, tableId);
     }
 
     @Override

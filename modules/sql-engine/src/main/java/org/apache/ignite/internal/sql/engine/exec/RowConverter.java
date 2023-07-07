@@ -116,7 +116,7 @@ public final class RowConverter {
             }
         }
 
-        BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(rowColumnsCount, binarySchema.hasNullableElements());
+        BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(rowColumnsCount);
 
         return new BinaryTuple(rowColumnsCount, toByteBuffer(ectx, binarySchema, handler, tupleBuilder, searchRow));
     }

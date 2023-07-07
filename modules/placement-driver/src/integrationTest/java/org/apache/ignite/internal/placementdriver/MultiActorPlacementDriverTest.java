@@ -19,13 +19,11 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
-import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
-import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
+import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.lang.ByteArray.fromString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -33,6 +31,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.Closeable;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -52,11 +53,13 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManagerTest.LogicalTopologyServiceTestImpl;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
+import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
@@ -65,10 +68,12 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplica
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
@@ -90,13 +95,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * There are tests of muti-nodes for placement driver.
  */
-@ExtendWith(ConfigurationExtension.class)
+@ExtendWith({ConfigurationExtension.class})
 public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     public static final int BASE_PORT = 1234;
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
-    private HybridClock clock = new HybridClockImpl();
+    private final HybridClock clock = new HybridClockImpl();
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
@@ -106,6 +111,9 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private DistributionZonesConfiguration dstZnsCfg;
+
+    @InjectConfiguration
+    private MetaStorageConfiguration metaStorageConfiguration;
 
     private List<String> placementDriverNodeNames;
 
@@ -119,27 +127,23 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     /** Cluster service by node name. */
     private Map<String, ClusterService> clusterServices;
 
-    private TestInfo testInfo;
-
     /** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. */
     private IgniteTriFunction<LeaseGrantedMessage, String, String, LeaseGrantedMessageResponse> leaseGrantHandler;
 
     private final AtomicInteger nextTableId = new AtomicInteger(1);
 
     @BeforeEach
-    public void beforeTest(TestInfo testInfo) throws Exception {
+    public void beforeTest(TestInfo testInfo, @WorkDirectory Path workDir) {
         this.placementDriverNodeNames = IntStream.range(BASE_PORT, BASE_PORT + 3).mapToObj(port -> testNodeName(testInfo, port))
                 .collect(Collectors.toList());
         this.nodeNames = IntStream.range(BASE_PORT, BASE_PORT + 5).mapToObj(port -> testNodeName(testInfo, port))
                 .collect(Collectors.toList());
 
-        this.testInfo = testInfo;
-
         this.clusterServices = startNodes();
 
         List<LogicalTopologyServiceTestImpl> logicalTopManagers = new ArrayList<>();
 
-        servicesToClose = startPlacementDriver(clusterServices, logicalTopManagers);
+        servicesToClose = startPlacementDriver(clusterServices, logicalTopManagers, workDir);
 
         for (String nodeName : nodeNames) {
             if (!placementDriverNodeNames.contains(nodeName)) {
@@ -236,7 +240,8 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
      */
     public List<Closeable> startPlacementDriver(
             Map<String, ClusterService> services,
-            List<LogicalTopologyServiceTestImpl> logicalTopManagers
+            List<LogicalTopologyServiceTestImpl> logicalTopManagers,
+            Path workDir
     ) {
         var res = new ArrayList<Closeable>(placementDriverNodeNames.size());
 
@@ -283,7 +288,9 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
                     logicalTopologyService,
                     raftManager,
                     storage,
-                    nodeClock
+                    nodeClock,
+                    topologyAwareRaftGroupServiceFactory,
+                    metaStorageConfiguration
             );
 
             if (this.metaStorageManager == null) {
@@ -494,9 +501,13 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         var leaseRenewRef = new AtomicReference<Lease>();
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart));
+            var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
-            Lease leaseRenew = fromBytes(fut.join().value());
+            Lease leaseRenew = leaseFromBytes(fut.join().value(), grpPart);
+
+            if (lease == null) {
+                return false;
+            }
 
             if (!lease.getLeaseholder().equals(leaseRenew.getLeaseholder())) {
                 leaseRenewRef.set(leaseRenew);
@@ -524,9 +535,13 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         var leaseRenewRef = new AtomicReference<Lease>();
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart));
+            var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
-            Lease leaseRenew = fromBytes(fut.join().value());
+            Lease leaseRenew = leaseFromBytes(fut.join().value(), grpPart);
+
+            if (lease == null) {
+                return false;
+            }
 
             if (lease.getExpirationTime().compareTo(leaseRenew.getExpirationTime()) < 0) {
                 leaseRenewRef.set(leaseRenew);
@@ -554,12 +569,16 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         AtomicReference<Lease> leaseRef = new AtomicReference<>();
 
         assertTrue(waitForCondition(() -> {
-            var leaseFut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPartId));
+            var leaseFut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
             var leaseEntry = leaseFut.join();
 
             if (leaseEntry != null && !leaseEntry.empty()) {
-                Lease lease = fromBytes(leaseEntry.value());
+                Lease lease = leaseFromBytes(leaseEntry.value(), grpPartId);
+
+                if (lease == null) {
+                    return false;
+                }
 
                 if (!waitAccept) {
                     leaseRef.set(lease);
@@ -588,7 +607,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         int zoneId = createZone();
 
         tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
-            tableViewTableChangeNamedListChange.create("test-table", tableChange -> {
+            tableViewTableChangeNamedListChange.create("test-table-" + tableId, tableChange -> {
                 var extConfCh = ((ExtendedTableChange) tableChange);
 
                 extConfCh.changeId(tableId);
@@ -623,6 +642,10 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
      * @return Id of created distribution zone.
      */
     private int createZone() {
+        if (dstZnsCfg.distributionZones().get("zone1") != null) {
+            return dstZnsCfg.distributionZones().get("zone1").value().zoneId();
+        }
+
         dstZnsCfg.distributionZones().change(zones -> {
             zones.create("zone1", ch -> {
                 ch.changePartitions(1);
@@ -632,5 +655,11 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         }).join();
 
         return dstZnsCfg.distributionZones().get("zone1").value().zoneId();
+    }
+
+    private Lease leaseFromBytes(byte[] bytes, ReplicationGroupId groupId) {
+        LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN));
+
+        return leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(groupId)).findAny().orElse(null);
     }
 }

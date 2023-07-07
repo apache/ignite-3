@@ -61,7 +61,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 /**
  * Class containing some common logic for Meta Storage Raft group listeners.
  */
-class MetaStorageWriteHandler {
+public class MetaStorageWriteHandler {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageWriteHandler.class);
 
@@ -80,17 +80,21 @@ class MetaStorageWriteHandler {
         WriteCommand command = clo.command();
 
         try {
-            HybridTimestamp safeTime;
-
             if (command instanceof MetaStorageWriteCommand) {
-                MetaStorageWriteCommand cmdWithTime = (MetaStorageWriteCommand) command;
+                var cmdWithTime = (MetaStorageWriteCommand) command;
 
-                safeTime = cmdWithTime.safeTime();
+                HybridTimestamp safeTime = cmdWithTime.safeTime();
 
                 handleWriteWithTime(clo, cmdWithTime, safeTime);
             } else if (command instanceof SyncTimeCommand) {
-                // TODO: IGNITE-19199 WatchProcessor must be notified of the new safe time.
-                throw new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-19199");
+                var syncTimeCommand = (SyncTimeCommand) command;
+
+                // Ignore the command if it has been sent by a stale leader.
+                if (clo.term() == syncTimeCommand.initiatorTerm()) {
+                    clusterTime.updateSafeTime(syncTimeCommand.safeTime());
+                }
+
+                clo.result(null);
             } else {
                 assert false : "Command was not found [cmd=" + command + ']';
             }
@@ -176,7 +180,7 @@ class MetaStorageWriteHandler {
         }
     }
 
-    private static If toIf(Iif iif) {
+    public static If toIf(Iif iif) {
         return new If(toCondition(iif.condition()), toConditionBranch(iif.andThen()), toConditionBranch(iif.orElse()));
     }
 

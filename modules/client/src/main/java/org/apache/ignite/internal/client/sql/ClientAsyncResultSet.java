@@ -318,7 +318,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
                     metaColumn.type(),
                     metaColumn.nullable(),
                     true,
-                    false,
+                    -1,
                     i,
                     metaColumn.scale(),
                     metaColumn.precision());
@@ -326,7 +326,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             schemaColumns[i] = schemaColumn;
         }
 
-        var schema = new ClientSchema(0, schemaColumns);
+        var schema = new ClientSchema(0, schemaColumns, null);
         return schema.getMarshaller(mapper, TuplePart.KEY_AND_VAL);
     }
 }
