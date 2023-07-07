@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
@@ -37,11 +38,13 @@ class ClientDataStreamer {
             DataStreamerOptions options,
             StreamerBatchSender<R, String> batchSender,
             StreamerPartitionAwarenessProvider<R, String> partitionAwarenessProvider,
-            ClientTable tbl) {
+            ClientTable tbl,
+            ClientMetricSource metrics) {
         //noinspection resource
         IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
         StreamerOptions streamerOpts = streamerOptions(options);
-        StreamerSubscriber<R, String> subscriber = new StreamerSubscriber<>(batchSender, partitionAwarenessProvider, streamerOpts, log);
+        StreamerSubscriber<R, String> subscriber = new StreamerSubscriber<>(
+                batchSender, partitionAwarenessProvider, streamerOpts, log, metrics); // TODO: Interface for metrics, because subscriber is in core module
 
         publisher.subscribe(subscriber);
 
