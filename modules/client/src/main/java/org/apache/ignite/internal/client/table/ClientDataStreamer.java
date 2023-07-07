@@ -33,18 +33,17 @@ import org.jetbrains.annotations.NotNull;
  * Client data streamer.
  */
 class ClientDataStreamer {
+    @SuppressWarnings("resource")
     static <R> CompletableFuture<Void> streamData(
             Publisher<R> publisher,
             DataStreamerOptions options,
             StreamerBatchSender<R, String> batchSender,
             StreamerPartitionAwarenessProvider<R, String> partitionAwarenessProvider,
-            ClientTable tbl,
-            ClientMetricSource metrics) {
-        //noinspection resource
+            ClientTable tbl) {
         IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
         StreamerOptions streamerOpts = streamerOptions(options);
         StreamerSubscriber<R, String> subscriber = new StreamerSubscriber<>(
-                batchSender, partitionAwarenessProvider, streamerOpts, log, metrics); // TODO: Interface for metrics, because subscriber is in core module
+                batchSender, partitionAwarenessProvider, streamerOpts, log, tbl.channel().metrics());
 
         publisher.subscribe(subscriber);
 

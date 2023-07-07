@@ -28,6 +28,7 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -57,6 +58,8 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
 
     private final IgniteLogger log;
 
+    private final StreamerMetricSink metrics;
+
     private @Nullable Flow.Subscription subscription;
 
     private @Nullable Timer flushTimer;
@@ -71,7 +74,8 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
             StreamerBatchSender<T, P> batchSender,
             StreamerPartitionAwarenessProvider<T, P> partitionAwarenessProvider,
             StreamerOptions options,
-            IgniteLogger log) {
+            IgniteLogger log,
+            @Nullable StreamerMetricSink metrics) {
         assert batchSender != null;
         assert partitionAwarenessProvider != null;
         assert options != null;
@@ -81,6 +85,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
         this.partitionAwarenessProvider = partitionAwarenessProvider;
         this.options = options;
         this.log = log;
+        this.metrics = getMetrics(metrics);
     }
 
     /** {@inheritDoc} */
@@ -242,6 +247,32 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
         timer.schedule(new PeriodicFlushTask(), interval, interval);
 
         return timer;
+    }
+
+    private static StreamerMetricSink getMetrics(@Nullable StreamerMetricSink metrics) {
+        return metrics != null ? metrics : new StreamerMetricSink() {
+            @Override
+            public void streamerBatchesSentAdd(long batches) {
+                // No-op.
+            }
+
+            @Override
+            public void streamerItemsSentAdd(long items) {
+                // No-op.
+
+            }
+
+            @Override
+            public void streamerBatchesActiveAdd(long batches) {
+                // No-op.
+
+            }
+
+            @Override
+            public void streamerItemsQueuedAdd(long items) {
+                // No-op.
+            }
+        };
     }
 
     /**
