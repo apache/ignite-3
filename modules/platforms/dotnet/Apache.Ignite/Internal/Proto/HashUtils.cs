@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Proto;
 using System;
 using System.Buffers.Binary;
 using System.Numerics;
+using MsgPack;
 using NodaTime;
 using Table;
 
@@ -49,6 +50,18 @@ internal static class HashUtils
     public static int Hash32(sbyte data, int seed) => Hash32Internal((ulong)(data & 0xffL), (ulong)seed, 1);
 
     /// <summary>
+    /// Writes bytes to be hashed later.
+    /// </summary>
+    /// <param name="data">Data.</param>
+    /// <param name="writer">Writer.</param>
+    public static void WriteHashBytes(sbyte data, MsgPackWriter writer)
+    {
+        Span<byte> span = stackalloc byte[1];
+        span[1] = unchecked((byte)data);
+        writer.Write(span);
+    }
+
+    /// <summary>
     /// Generates 32-bit hash.
     /// </summary>
     /// <param name="data">Input data.</param>
@@ -57,12 +70,36 @@ internal static class HashUtils
     public static int Hash32(short data, int seed) => Hash32Internal((ulong)(data & 0xffffL), (ulong)seed, 2);
 
     /// <summary>
+    /// Writes bytes to be hashed later.
+    /// </summary>
+    /// <param name="data">Data.</param>
+    /// <param name="writer">Writer.</param>
+    public static void WriteHashBytes(short data, MsgPackWriter writer)
+    {
+        Span<byte> span = stackalloc byte[2];
+        BinaryPrimitives.WriteUInt16LittleEndian(span, unchecked((ushort)data));
+        writer.Write(span);
+    }
+
+    /// <summary>
     /// Generates 32-bit hash.
     /// </summary>
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
     public static int Hash32(int data, int seed) => Hash32Internal((ulong)(data & 0xffffffffL), (ulong)seed, 4);
+
+    /// <summary>
+    /// Writes bytes to be hashed later.
+    /// </summary>
+    /// <param name="data">Data.</param>
+    /// <param name="writer">Writer.</param>
+    public static void WriteHashBytes(int data, MsgPackWriter writer)
+    {
+        Span<byte> span = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(span, unchecked((ushort)data));
+        writer.Write(span);
+    }
 
     /// <summary>
     /// Generates 32-bit hash.
@@ -94,7 +131,7 @@ internal static class HashUtils
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(Span<byte> data, int seed) => Hash32Internal(data, (ulong)seed & 0xffffffffL);
+    public static int Hash32(ReadOnlySpan<byte> data, int seed) => Hash32Internal(data, (ulong)seed & 0xffffffffL);
 
     /// <summary>
     /// Generates 32-bit hash.
@@ -165,14 +202,14 @@ internal static class HashUtils
         }
     }
 
-    private static int Hash32Internal(Span<byte> data, ulong seed)
+    private static int Hash32Internal(ReadOnlySpan<byte> data, ulong seed)
     {
         var hash64 = Hash64Internal(data, seed);
 
         return (int)(hash64 ^ (hash64 >> 32));
     }
 
-    private static ulong Hash64Internal(Span<byte> data, ulong seed)
+    private static ulong Hash64Internal(ReadOnlySpan<byte> data, ulong seed)
     {
         unchecked
         {

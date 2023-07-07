@@ -22,9 +22,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Collections;
     using System.Diagnostics;
     using System.Numerics;
-    using System.Runtime.InteropServices;
     using Buffers;
     using Ignite.Sql;
+    using MsgPack;
     using NodaTime;
     using Table;
 
@@ -57,6 +57,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /** Buffer for tuple content. */
         private readonly PooledArrayBuffer _buffer;
 
+        /** Buffer for tuple content. */
+        private readonly PooledArrayBuffer? _hashBuffer;
+
         /** Current element. */
         private int _elementIndex;
 
@@ -83,10 +86,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             _buffer = new();
             _elementIndex = 0;
 
-            // Reserve space for hash values in the beginning of the buffer when the hash order is not default.
-            _entryBase = _hashedColumnsPredicate is { HashedColumnsOrdered: false }
-                ? BinaryTupleCommon.HeaderSize + _hashedColumnsPredicate.HashedColumnCount * 4
-                : BinaryTupleCommon.HeaderSize;
+            // Reserve buffer for hash when the hash order is not default.
+            _hashBuffer = _hashedColumnsPredicate is { HashedColumnsOrdered: false } ? new() : null;
+
+            _entryBase = BinaryTupleCommon.HeaderSize;
 
             _entrySize = totalValueSize < 0
                 ? 4
@@ -121,13 +124,15 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             // Custom hash order. Combine hashes stored in the buffer.
             var hash = 0;
-            var hashes = GetHashSpan();
+            var hashes = _hashBuffer!.GetWrittenMemory();
+            var hashReader = new MsgPackReader(hashes.Span);
 
             for (var i = 0; i < _hashedColumnsPredicate.HashedColumnCount; i++)
             {
                 // TODO: How to combine hashes correctly?
                 // We can extract bytes to be hashed and store them. int hashes can't be combined it seems.
-                hash = HashUtils.Hash32(hashes[i], hash);
+                var hashBytes = hashReader.ReadBinary();
+                hash = HashUtils.Hash32(hashBytes, hash);
             }
 
             return hash;
@@ -144,7 +149,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
             else if (hashOrder != NoHash)
             {
-                PutHash(hashOrder, HashUtils.Hash32((sbyte)0, 0));
+                HashUtils.WriteHashBytes((sbyte)0, _hashBuffer!.MessageWriter);
             }
 
             OnWrite();
@@ -162,7 +167,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
             else if (hashOrder != NoHash)
             {
-                PutHash(hashOrder, HashUtils.Hash32(value, 0));
+                HashUtils.WriteHashBytes((sbyte)0, _hashBuffer!.MessageWriter);
             }
 
             PutByte(value);
@@ -1102,6 +1107,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public void Dispose()
         {
             _buffer.Dispose();
+            _hashBuffer?.Dispose();
         }
 
         private static int GetDecimalScale(decimal value)
@@ -1359,8 +1365,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 : order;
         }
 
-        private void PutHash(int index, int hash) => GetHashSpan()[index] = hash;
-
-        private Span<int> GetHashSpan() => MemoryMarshal.Cast<byte, int>(_buffer.GetWrittenMemory().Span);
+        private void PutHash(int index, int hash) => throw new InvalidOperationException("TODO Refactor " + _hash);
     }
 }
