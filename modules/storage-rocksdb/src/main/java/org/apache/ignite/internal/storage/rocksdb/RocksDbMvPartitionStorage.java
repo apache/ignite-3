@@ -648,9 +648,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             return ReadResult.empty(rowId);
         }
 
-        ByteBuffer readKeyBuf = MV_KEY_BUFFER.get().clear();
+        ByteBuffer readKeyBuf = DIRECT_KEY_BUFFER.get().clear();
 
         int keyLength = seekIterator.key(readKeyBuf);
+
+        readKeyBuf.position(0).limit(keyLength);
 
         if (!matches(rowId, readKeyBuf)) {
             // It is already a different row, so no version exists for our rowId.
@@ -916,7 +918,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             ByteBuffer keyBuf = prepareDirectKeyBuf(lowerBound)
-                    .duplicate()
                     .position(0)
                     .limit(ROW_PREFIX_SIZE);
 
@@ -929,11 +930,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     return null;
                 }
 
-                ByteBuffer readKeyBuf = MV_KEY_BUFFER.get().clear().limit(ROW_PREFIX_SIZE);
+                keyBuf.rewind();
 
-                it.key(readKeyBuf);
+                it.key(keyBuf);
 
-                return getRowId(readKeyBuf);
+                return getRowId(keyBuf);
             }
         });
     }
@@ -1280,7 +1281,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             currentRowId = null;
 
             // Prepare direct buffer slice to read keys from the iterator.
-            ByteBuffer currentKeyBuffer = MV_KEY_BUFFER.get().clear();
+            ByteBuffer currentKeyBuffer = DIRECT_KEY_BUFFER.get();
 
             while (true) {
                 // At this point, seekKeyBuf should contain row id that's above the one we already scanned, but not greater than any
@@ -1307,7 +1308,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 // Read the actual key into a direct buffer.
                 int keyLength = it.key(currentKeyBuffer.clear());
 
-                currentKeyBuffer.rewind();
+                currentKeyBuffer.position(0).limit(keyLength);
 
                 boolean isWriteIntent = keyLength == ROW_PREFIX_SIZE;
 
@@ -1391,7 +1392,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             currentRowId = null;
 
             // Prepare direct buffer slice to read keys from the iterator.
-            ByteBuffer directBuffer = MV_KEY_BUFFER.get().clear();
+            ByteBuffer directBuffer = DIRECT_KEY_BUFFER.get();
 
             while (true) {
                 it.seek(seekKeyBuf.duplicate().position(0).limit(ROW_PREFIX_SIZE));
@@ -1401,7 +1402,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 }
 
                 // We need to figure out what current row id is.
-                it.key(directBuffer.rewind());
+                it.key(directBuffer.clear());
 
                 RowId rowId = getRowId(directBuffer);
 
