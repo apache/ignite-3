@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv.io;
 
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putByte;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
@@ -55,26 +54,29 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
     protected void writeRowData(long pageAddr, int dataOff, int payloadSize, RowVersion rowVersion, boolean newRow) {
         assertPageType(pageAddr);
 
-        long addr = pageAddr + dataOff;
+        int offset = dataOff;
 
-        putShort(addr, 0, (short) payloadSize);
-        addr += Short.BYTES;
+        putShort(pageAddr, offset, (short) payloadSize);
+        offset += Short.BYTES;
 
-        addr += HybridTimestamps.writeTimestampToMemory(addr, 0, rowVersion.timestamp());
+        offset += HybridTimestamps.writeTimestampToMemory(pageAddr, offset, rowVersion.timestamp());
 
-        addr += writePartitionless(addr, rowVersion.nextLink());
+        offset += writePartitionless(pageAddr + offset, rowVersion.nextLink());
 
-        putInt(addr, 0, rowVersion.valueSize());
-        addr += Integer.BYTES;
+        putInt(pageAddr, offset, rowVersion.valueSize());
+        offset += Integer.BYTES;
 
         BinaryRow row = rowVersion.value();
 
         if (row != null) {
-            // Write schema version in LE order.
-            putByte(addr, 0, (byte) row.schemaVersion());
-            putByte(addr, 1, (byte) (row.schemaVersion() >> Byte.SIZE));
-            putByte(addr, 2, (byte) (row.hasValue() ? 1 : 0));
-            putByteBuffer(addr, 3, row.tupleSlice());
+            assert row.hasValue();
+
+            putShort(pageAddr, offset, (short) row.schemaVersion());
+            offset += Short.BYTES;
+
+            putByteBuffer(pageAddr, offset, row.tupleSlice());
+        } else {
+            putShort(pageAddr, offset, (short) 0);
         }
     }
 
@@ -82,10 +84,19 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
     protected void writeFragmentData(RowVersion rowVersion, ByteBuffer pageBuf, int rowOff, int payloadSize) {
         assertPageType(pageBuf);
 
+        int headerSize = rowVersion.headerSize();
+
+        BinaryRow row = rowVersion.value();
+
+        assert row == null || row.hasValue();
+
+        int bufferOffset;
+        int bufferSize;
+
         if (rowOff == 0) {
             // first fragment
-            assert rowVersion.headerSize() <= payloadSize : "Header must entirely fit in the first fragment, but header size is "
-                    + rowVersion.headerSize() + " and payload size is " + payloadSize;
+            assert headerSize <= payloadSize : "Header must entirely fit in the first fragment, but header size is "
+                    + headerSize + " and payload size is " + payloadSize;
 
             HybridTimestamps.writeTimestampToBuffer(pageBuf, rowVersion.timestamp());
 
@@ -93,61 +104,21 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
 
             pageBuf.putInt(rowVersion.valueSize());
 
-            payloadSize -= rowVersion.headerSize();
+            pageBuf.putShort(row == null ? 0 : (short) row.schemaVersion());
+
+            bufferOffset = 0;
+            bufferSize = payloadSize - headerSize;
         } else {
             // non-first fragment
-            assert rowOff >= rowVersion.headerSize();
+            assert rowOff >= headerSize;
 
-            rowOff -= rowVersion.headerSize();
+            bufferOffset = rowOff - headerSize;
+            bufferSize = payloadSize;
         }
 
-        BinaryRow row = rowVersion.value();
-
-        if (payloadSize == 0 || row == null) {
-            return;
+        if (row != null) {
+            putValueBufferIntoPage(pageBuf, row.tupleSlice(), bufferOffset, bufferSize);
         }
-
-        writeFragmentedBinaryRow(row, pageBuf, rowOff, payloadSize);
-    }
-
-    private void writeFragmentedBinaryRow(BinaryRow row, ByteBuffer pageBuf, int offset, int payloadSize) {
-        if (offset == 0) {
-            if (payloadSize == 1) {
-                // We only have space for the least significant byte.
-                pageBuf.put((byte) row.schemaVersion());
-
-                return;
-            } else {
-                pageBuf.put((byte) row.schemaVersion());
-                pageBuf.put((byte) (row.schemaVersion() >> Byte.SIZE));
-
-                payloadSize -= 2;
-                offset += 2;
-            }
-        } else if (offset == 1) {
-            // We could only write the least significant byte of the schema version during previous iteration.
-            pageBuf.put((byte) (row.schemaVersion() >> Byte.SIZE));
-
-            payloadSize -= 1;
-            offset += 1;
-        }
-
-        if (payloadSize == 0) {
-            return;
-        }
-
-        if (offset == 2) {
-            pageBuf.put((byte) (row.hasValue() ? 1 : 0));
-
-            payloadSize -= 1;
-            offset += 1;
-
-            if (payloadSize == 0) {
-                return;
-            }
-        }
-
-        putValueBufferIntoPage(pageBuf, row.tupleSlice(), offset - Short.BYTES - Byte.BYTES, payloadSize);
     }
 
     /**

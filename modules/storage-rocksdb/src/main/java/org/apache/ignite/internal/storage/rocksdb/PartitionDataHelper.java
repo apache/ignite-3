@@ -34,6 +34,8 @@ import java.nio.ByteOrder;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
@@ -249,6 +251,13 @@ public final class PartitionDataHelper implements ManuallyCloseable {
         }
 
         return it;
+    }
+
+    static BinaryRow deserializeRow(ByteBuffer buffer) {
+        int schemaVersion = Short.toUnsignedInt(buffer.getShort());
+        ByteBuffer binaryTupleSlice = buffer.slice().order(TABLE_ROW_BYTE_ORDER);
+
+        return new BinaryRowImpl(schemaVersion, true, binaryTupleSlice);
     }
 
     @Override

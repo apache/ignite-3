@@ -21,12 +21,15 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionIdFromLink;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 
+import java.nio.ByteBuffer;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
-import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,6 +52,8 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
     private long rowNextLink = NULL_LINK;
 
     private int rowValueSize;
+
+    private int schemaVersion;
 
     private @Nullable RowVersion result;
 
@@ -74,6 +79,7 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
         rowLink = link;
         rowTimestamp = HybridTimestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
         rowNextLink = nextLink;
+        schemaVersion = Short.toUnsignedInt(PageUtils.getShort(pageAddr, payload.offset() + RowVersion.SCHEMA_VERSION_OFFSET));
 
         if (loadValueBytes) {
             return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
@@ -95,9 +101,11 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
 
             byte[] valueBytes = readRowVersionValue.result();
 
-            var value = valueBytes.length == 0 ? null : new ByteBufferRow(readRowVersionValue.result());
+            BinaryRow row = valueBytes.length == 0
+                    ? null
+                    : new BinaryRowImpl(schemaVersion, true, ByteBuffer.wrap(valueBytes).order(BinaryTuple.ORDER));
 
-            result = new RowVersion(partitionId, rowLink, rowTimestamp, rowNextLink, value);
+            result = new RowVersion(partitionId, rowLink, rowTimestamp, rowNextLink, row);
         } else {
             result = new RowVersion(partitionId, rowLink, rowTimestamp, rowNextLink, rowValueSize);
         }

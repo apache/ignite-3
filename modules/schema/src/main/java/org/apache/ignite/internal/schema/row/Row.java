@@ -119,8 +119,8 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
     }
 
     @Override
-    public int length() {
-        return row.length();
+    public int tupleSliceLength() {
+        return row.tupleSliceLength();
     }
 
     /** {@inheritDoc} */

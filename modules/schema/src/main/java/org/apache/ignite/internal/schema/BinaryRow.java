@@ -47,7 +47,8 @@ public interface BinaryRow {
     /** Get has value flag: {@code true} if row has non-null value, {@code false} otherwise. */
     boolean hasValue();
 
-    int length();
+    /** Length of the {@link #tupleSlice}. */
+    int tupleSliceLength();
 
     /** Get ByteBuffer slice representing the binary tuple. */
     ByteBuffer tupleSlice();

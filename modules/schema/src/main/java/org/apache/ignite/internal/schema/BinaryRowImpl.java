@@ -54,12 +54,12 @@ public class BinaryRowImpl implements BinaryRow {
 
     @Override
     public ByteBuffer tupleSlice() {
-        return binaryTuple.slice().order(ORDER);
+        return binaryTuple.duplicate().order(ORDER);
     }
 
     @Override
     public ByteBuffer byteBuffer() {
-        return ByteBuffer.allocate(length())
+        return ByteBuffer.allocate(tupleSliceLength() + Short.BYTES + Byte.BYTES)
                 .order(ORDER)
                 .putShort((short) schemaVersion())
                 .put((byte) (hasValue ? 1 : 0))
@@ -68,8 +68,8 @@ public class BinaryRowImpl implements BinaryRow {
     }
 
     @Override
-    public int length() {
-        return Short.BYTES + Byte.BYTES + binaryTuple.remaining();
+    public int tupleSliceLength() {
+        return binaryTuple.remaining();
     }
 
     @Override

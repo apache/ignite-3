@@ -77,7 +77,7 @@ public class ByteBufferRow implements BinaryRow {
     }
 
     @Override
-    public int length() {
+    public int tupleSliceLength() {
         return buf.remaining();
     }
 }

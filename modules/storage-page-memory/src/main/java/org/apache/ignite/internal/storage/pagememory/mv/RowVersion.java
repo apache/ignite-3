@@ -37,11 +37,13 @@ import org.jetbrains.annotations.Nullable;
 public final class RowVersion implements Storable {
     private static final int NEXT_LINK_STORE_SIZE_BYTES = PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
     private static final int VALUE_SIZE_STORE_SIZE_BYTES = Integer.BYTES;
+    private static final int SCHEMA_VERSION_SIZE_BYTES = Short.BYTES;
 
     public static final int TIMESTAMP_OFFSET = 0;
     public static final int NEXT_LINK_OFFSET = TIMESTAMP_OFFSET + HYBRID_TIMESTAMP_SIZE;
     public static final int VALUE_SIZE_OFFSET = NEXT_LINK_OFFSET + NEXT_LINK_STORE_SIZE_BYTES;
-    public static final int VALUE_OFFSET = VALUE_SIZE_OFFSET + VALUE_SIZE_STORE_SIZE_BYTES;
+    public static final int SCHEMA_VERSION_OFFSET = VALUE_SIZE_OFFSET + VALUE_SIZE_STORE_SIZE_BYTES;
+    public static final int VALUE_OFFSET = SCHEMA_VERSION_OFFSET + SCHEMA_VERSION_SIZE_BYTES;
 
     private final int partitionId;
 
@@ -79,7 +81,7 @@ public final class RowVersion implements Storable {
 
         this.timestamp = timestamp;
         this.nextLink = nextLink;
-        this.valueSize = value == null ? 0 : value.length();
+        this.valueSize = value == null ? 0 : value.tupleSliceLength();
         this.value = value;
     }
 
@@ -132,17 +134,17 @@ public final class RowVersion implements Storable {
     }
 
     @Override
-    public final void link(long link) {
+    public void link(long link) {
         this.link = link;
     }
 
     @Override
-    public final long link() {
+    public long link() {
         return link;
     }
 
     @Override
-    public final int partition() {
+    public int partition() {
         return partitionId;
     }
 
@@ -153,7 +155,7 @@ public final class RowVersion implements Storable {
 
     @Override
     public int headerSize() {
-        return HYBRID_TIMESTAMP_SIZE + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES;
+        return HYBRID_TIMESTAMP_SIZE + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES + SCHEMA_VERSION_SIZE_BYTES;
     }
 
     @Override
