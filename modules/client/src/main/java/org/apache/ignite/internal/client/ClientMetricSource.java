@@ -23,11 +23,12 @@ import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSetBuilder;
+import org.apache.ignite.internal.streamer.StreamerMetricSink;
 
 /**
  * Client-side metrics.
  */
-public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.Holder> {
+public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.Holder> implements StreamerMetricSink {
     /**
      * Constructor.
      */
@@ -347,6 +348,98 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         }
     }
 
+    /**
+     * Gets streamer batches sent.
+     */
+    public long streamerBatchesSent() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.streamerBatchesSent.value();
+    }
+
+    /**
+     * Adds streamer batches sent.
+     *
+     * @param batches Sent batches.
+     */
+    @Override
+    public void streamerBatchesSentAdd(long batches) {
+        Holder h = holder();
+
+        if (h != null) {
+            h.streamerBatchesSent.add(batches);
+        }
+    }
+
+    /**
+     * Gets streamer items sent.
+     */
+    public long streamerItemsSent() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.streamerItemsSent.value();
+    }
+
+    /**
+     * Adds streamer items sent.
+     *
+     * @param items Sent items.
+     */
+    @Override
+    public void streamerItemsSentAdd(long items) {
+        Holder h = holder();
+
+        if (h != null) {
+            h.streamerItemsSent.add(items);
+        }
+    }
+
+    /**
+     * Gets streamer batches active.
+     */
+    public long streamerBatchesActive() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.streamerBatchesActive.value();
+    }
+
+    /**
+     * Adds streamer batches active.
+     *
+     * @param batches Active batches.
+     */
+    @Override
+    public void streamerBatchesActiveAdd(long batches) {
+        Holder h = holder();
+
+        if (h != null) {
+            h.streamerBatchesActive.add(batches);
+        }
+    }
+
+    /**
+     * Gets streamer items queued.
+     */
+    public long streamerItemsQueued() {
+        Holder h = holder();
+
+        return h == null ? 0 : h.streamerItemsQueued.value();
+    }
+
+    /**
+     * Adds streamer items queued.
+     *
+     * @param items Queued items.
+     */
+    @Override
+    public void streamerItemsQueuedAdd(long items) {
+        Holder h = holder();
+
+        if (h != null) {
+            h.streamerItemsQueued.add(items);
+        }
+    }
+
     @Override
     protected Holder createHolder() {
         return new Holder();
@@ -398,6 +491,18 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
         private final AtomicLongMetric bytesSent = new AtomicLongMetric("BytesSent", "Total bytes sent");
 
         private final AtomicLongMetric bytesReceived = new AtomicLongMetric("BytesReceived", "Total bytes received");
+
+        private final AtomicLongMetric streamerBatchesSent = new AtomicLongMetric(
+                "StreamerBatchesSent", "Total data streamer batches sent");
+
+        private final AtomicLongMetric streamerItemsSent = new AtomicLongMetric(
+                "StreamerItemsSent", "Total number of data streamer items sent");
+
+        private final AtomicLongMetric streamerBatchesActive = new AtomicLongMetric(
+                "StreamerBatchesActive", "Total number of existing data streamer batches");
+
+        private final AtomicLongMetric streamerItemsQueued = new AtomicLongMetric(
+                "StreamerItemsQueued", "Total number of queued data streamer items (rows)");
 
         final List<Metric> metrics = Arrays.asList(
                 connectionsActive,
