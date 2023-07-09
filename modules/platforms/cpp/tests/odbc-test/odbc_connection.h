@@ -41,22 +41,40 @@ namespace ignite {
 class odbc_connection {
 public:
     /**
-     * Constructor.
-     *
-     * @param connect_str Connection string.
+     * Destructor.
      */
-    explicit odbc_connection(std::string connect_str)
-        : m_connect_str(std::move(connect_str)) {}
-
     ~odbc_connection() {
-        ignite::odbc_clean_up(m_env, m_conn, m_statement);
+        odbc_clean_up();
     }
 
     /**
      * Prepare handles for connection.
      */
-    void connect() {
-        ignite::odbc_connect(m_connect_str, m_env, m_conn, m_statement);
+    void prepare_environment() {
+        ignite::prepare_environment(m_env, m_conn);
+    }
+
+    /**
+     * ODBC connect.
+     *
+     * @param connect_str Connect string.
+     */
+    void odbc_connect(std::string_view connect_str) {
+        ignite::odbc_connect(connect_str, m_env, m_conn, m_statement);
+    }
+
+    /**
+     * Disconnect.
+     */
+    void odbc_disconnect() {
+        ignite::odbc_disconnect(m_conn, m_statement);
+    }
+
+    /**
+     * Clean up handles.
+     */
+    void odbc_clean_up() {
+        ignite::odbc_clean_up(m_env, m_conn, m_statement);
     }
 
     /**
@@ -96,9 +114,6 @@ public:
     [[nodiscard]] std::string get_connection_error_state() const {
         return get_odbc_error_state(SQL_HANDLE_DBC, m_conn);
     }
-
-    /** Connection string. */
-    std::string m_connect_str;
 
     /** Environment handle. */
     SQLHENV m_env{SQL_NULL_HANDLE};
