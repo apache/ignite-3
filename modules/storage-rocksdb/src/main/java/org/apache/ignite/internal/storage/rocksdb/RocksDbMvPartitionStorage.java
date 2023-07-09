@@ -55,7 +55,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -452,13 +451,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     private static void writeBinaryRow(ByteBuffer dest, BinaryRow row) {
         assert dest.order() == ByteOrder.BIG_ENDIAN;
-        assert row.hasValue();
 
         dest
                 .putShort((short) row.schemaVersion())
-                .order(BinaryTuple.ORDER)
-                .put(row.tupleSlice())
-                .order(ByteOrder.BIG_ENDIAN);
+                .put(row.tupleSlice());
     }
 
     @Override
@@ -685,18 +681,14 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * @return Read result.
      */
     private ReadResult readByTimestamp(RocksIterator seekIterator, RowId rowId, HybridTimestamp timestamp) {
-        ByteBuffer keyBuf = prepareDirectKeyBuf(rowId);
+        ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
         // Put timestamp restriction according to N2O timestamps order.
         putTimestampDesc(keyBuf, timestamp);
 
-        keyBuf.rewind();
-
         // This seek will either find a key with timestamp that's less or equal than required value, or a different key whatsoever.
         // It is guaranteed by descending order of timestamps.
-        seekIterator.seek(keyBuf);
-
-        keyBuf.rewind();
+        seekIterator.seek(keyBuf.array());
 
         return handleReadByTimestampIterator(seekIterator, rowId, timestamp, keyBuf);
     }
@@ -729,7 +721,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             // There is no record older than timestamp.
             // There might be a write-intent which we should return.
             // Seek to *just* row id.
-            seekIterator.seek(keyBuf.duplicate().position(0).limit(ROW_PREFIX_SIZE));
+            seekIterator.seek(copyOf(keyBuf.array(), ROW_PREFIX_SIZE));
 
             if (invalid(seekIterator)) {
                 // There are no writes with row id.
@@ -1187,10 +1179,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         //  - no one guarantees that there will only be a single cursor;
         //  - no one guarantees that returned cursor will not be used by other threads.
         // The thing is, we need this buffer to preserve its content between invocations of "hasNext" method.
-        final ByteBuffer seekKeyBuf = allocateDirect(MAX_KEY_SIZE)
-                .order(KEY_BYTE_ORDER)
-                .putInt(tableId)
-                .putShort((short) partitionId);
+        final ByteBuffer seekKeyBuf = allocate(MAX_KEY_SIZE).order(KEY_BYTE_ORDER).putInt(tableId).putShort((short) partitionId);
 
         RowId currentRowId;
 
@@ -1221,9 +1210,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 setKeyBuffer(seekKeyBuf, currentRowId, timestamp);
 
-                it.seek(seekKeyBuf);
-
-                seekKeyBuf.rewind();
+                it.seek(seekKeyBuf.array());
 
                 ReadResult readResult = handleReadByTimestampIterator(it, currentRowId, timestamp, seekKeyBuf);
 
@@ -1292,7 +1279,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 //          - R1 > R0, this means that we found next row and T1 is either missing (pending row) or represents the latest
                 //            version of the row. It doesn't matter in this case, because this row id will be reused to find its value
                 //            at time T0. Additional "seek" will be required to do it.
-                it.seek(seekKeyBuf.duplicate().position(0).limit(ROW_PREFIX_SIZE));
+                //TODO IGNITE-18201 Remove copying.
+                it.seek(copyOf(seekKeyBuf.array(), ROW_PREFIX_SIZE));
 
                 // Finish scan if nothing was found.
                 if (invalid(it)) {
@@ -1389,7 +1377,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             ByteBuffer directBuffer = DIRECT_KEY_BUFFER.get();
 
             while (true) {
-                it.seek(seekKeyBuf.duplicate().position(0).limit(ROW_PREFIX_SIZE));
+                //TODO IGNITE-18201 Remove copying.
+                it.seek(copyOf(seekKeyBuf.array(), ROW_PREFIX_SIZE));
 
                 if (invalid(it)) {
                     return false;
@@ -1403,9 +1392,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 setKeyBuffer(seekKeyBuf, rowId, timestamp);
 
                 // Seek to current row id + timestamp.
-                it.seek(seekKeyBuf);
-
-                seekKeyBuf.rewind();
+                it.seek(seekKeyBuf.array());
 
                 ReadResult readResult = handleReadByTimestampIterator(it, rowId, timestamp, seekKeyBuf);
 

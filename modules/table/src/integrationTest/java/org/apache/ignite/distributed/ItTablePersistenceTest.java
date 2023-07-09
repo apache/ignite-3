@@ -227,20 +227,21 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     MvPartitionStorage partitionStorage = mvPartitionStorages.get(storageIndex);
 
                     Map<ByteBuffer, RowId> primaryIndex = rowsToRowIds(partitionStorage);
-                    RowId rowId = primaryIndex.get(req0.binaryRow().byteBuffer());
+                    RowId rowId = primaryIndex.get(req0.binaryRowBytes());
+
                     BinaryRow row = partitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
 
                     return completedFuture(row);
                 }
 
                 // Non-null binary row if UPSERT, otherwise it's implied that request type is DELETE.
-                BinaryRow binaryRow = req0.requestType() == RequestType.RW_UPSERT ? req0.binaryRow() : null;
+                ByteBuffer binaryRow = req0.requestType() == RequestType.RW_UPSERT ? req0.binaryRowBytes() : null;
 
                 UpdateCommand cmd = msgFactory.updateCommand()
                         .txId(req0.transactionId())
                         .tablePartitionId(tablePartitionId(new TablePartitionId(1, 0)))
                         .rowUuid(new RowId(0).uuid())
-                        .rowBuffer(binaryRow == null ? null : binaryRow.byteBuffer())
+                        .rowBuffer(binaryRow)
                         .safeTimeLong(hybridClock.nowLong())
                         .build();
 

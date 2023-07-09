@@ -97,7 +97,7 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> 
 
         BinaryRow row = valueBytes.length == 0
                 ? null
-                : new BinaryRowImpl(schemaVersion, true, ByteBuffer.wrap(valueBytes).order(BinaryTuple.ORDER));
+                : new BinaryRowImpl(schemaVersion, ByteBuffer.wrap(valueBytes).order(BinaryTuple.ORDER));
 
         result = new RowVersion(partitionIdFromLink(firstFragmentLink), firstFragmentLink, timestamp, nextLink, row);
     }

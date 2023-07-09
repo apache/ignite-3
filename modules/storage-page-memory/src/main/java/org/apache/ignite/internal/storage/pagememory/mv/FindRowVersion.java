@@ -103,7 +103,7 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
 
             BinaryRow row = valueBytes.length == 0
                     ? null
-                    : new BinaryRowImpl(schemaVersion, true, ByteBuffer.wrap(valueBytes).order(BinaryTuple.ORDER));
+                    : new BinaryRowImpl(schemaVersion, ByteBuffer.wrap(valueBytes).order(BinaryTuple.ORDER));
 
             result = new RowVersion(partitionId, rowLink, rowTimestamp, rowNextLink, row);
         } else {

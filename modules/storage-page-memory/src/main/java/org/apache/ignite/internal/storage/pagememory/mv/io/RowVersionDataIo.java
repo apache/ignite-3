@@ -69,8 +69,6 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
         BinaryRow row = rowVersion.value();
 
         if (row != null) {
-            assert row.hasValue();
-
             putShort(pageAddr, offset, (short) row.schemaVersion());
             offset += Short.BYTES;
 
@@ -87,8 +85,6 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
         int headerSize = rowVersion.headerSize();
 
         BinaryRow row = rowVersion.value();
-
-        assert row == null || row.hasValue();
 
         int bufferOffset;
         int bufferSize;

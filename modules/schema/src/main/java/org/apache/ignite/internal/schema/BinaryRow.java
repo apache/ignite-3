@@ -32,14 +32,8 @@ public interface BinaryRow {
     /** Row schema version field offset. */
     int SCHEMA_VERSION_OFFSET = 0;
 
-    /** Size of 'has value' field. */
-    int HAS_VALUE_FLD_LEN = Byte.BYTES;
-
-    /** Row 'has value' field offset. */
-    int HAS_VALUE_OFFSET = SCHEMA_VERSION_OFFSET + SCHEMA_VERSION_FLD_LEN;
-
     /** Row binary tuple field offset. */
-    int TUPLE_OFFSET = HAS_VALUE_OFFSET + HAS_VALUE_FLD_LEN;
+    int TUPLE_OFFSET = SCHEMA_VERSION_OFFSET + SCHEMA_VERSION_FLD_LEN;
 
     /** Get row schema version. */
     int schemaVersion();

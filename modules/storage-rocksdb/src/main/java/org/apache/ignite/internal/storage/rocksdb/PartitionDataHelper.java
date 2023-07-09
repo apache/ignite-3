@@ -253,11 +253,16 @@ public final class PartitionDataHelper implements ManuallyCloseable {
         return it;
     }
 
+    /**
+     * Converts an internal serialized presentation of a binary row into its Java Object counterpart.
+     */
     static BinaryRow deserializeRow(ByteBuffer buffer) {
+        assert buffer.order() == ByteOrder.BIG_ENDIAN;
+
         int schemaVersion = Short.toUnsignedInt(buffer.getShort());
         ByteBuffer binaryTupleSlice = buffer.slice().order(TABLE_ROW_BYTE_ORDER);
 
-        return new BinaryRowImpl(schemaVersion, true, binaryTupleSlice);
+        return new BinaryRowImpl(schemaVersion, binaryTupleSlice);
     }
 
     @Override

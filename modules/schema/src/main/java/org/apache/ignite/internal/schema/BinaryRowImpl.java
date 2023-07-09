@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema;
 
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.ROW_HAS_VALUE_FLAG;
+
 import java.nio.ByteBuffer;
 
 /**
@@ -25,20 +27,16 @@ import java.nio.ByteBuffer;
 public class BinaryRowImpl implements BinaryRow {
     private final int schemaVersion;
 
-    private final boolean hasValue;
-
     private final ByteBuffer binaryTuple;
 
     /**
      * Constructor.
      *
      * @param schemaVersion Schema version.
-     * @param hasValue {@code true} if the {@code binaryTuple} contains both a key and a value, {@code false} if it only contains a key.
      * @param binaryTuple Binary tuple.
      */
-    public BinaryRowImpl(int schemaVersion, boolean hasValue, ByteBuffer binaryTuple) {
+    public BinaryRowImpl(int schemaVersion, ByteBuffer binaryTuple) {
         this.schemaVersion = schemaVersion;
-        this.hasValue = hasValue;
         this.binaryTuple = binaryTuple;
     }
 
@@ -49,7 +47,7 @@ public class BinaryRowImpl implements BinaryRow {
 
     @Override
     public boolean hasValue() {
-        return hasValue;
+        return (binaryTuple.get(0) & ROW_HAS_VALUE_FLAG) != 0;
     }
 
     @Override
@@ -59,10 +57,9 @@ public class BinaryRowImpl implements BinaryRow {
 
     @Override
     public ByteBuffer byteBuffer() {
-        return ByteBuffer.allocate(tupleSliceLength() + Short.BYTES + Byte.BYTES)
+        return ByteBuffer.allocate(tupleSliceLength() + Short.BYTES)
                 .order(ORDER)
                 .putShort((short) schemaVersion())
-                .put((byte) (hasValue ? 1 : 0))
                 .put(tupleSlice())
                 .rewind();
     }
@@ -86,16 +83,13 @@ public class BinaryRowImpl implements BinaryRow {
         if (schemaVersion != binaryRow.schemaVersion) {
             return false;
         }
-        if (hasValue != binaryRow.hasValue) {
-            return false;
-        }
+
         return binaryTuple.equals(binaryRow.binaryTuple);
     }
 
     @Override
     public int hashCode() {
         int result = schemaVersion;
-        result = 31 * result + (hasValue ? 1 : 0);
         result = 31 * result + binaryTuple.hashCode();
         return result;
     }

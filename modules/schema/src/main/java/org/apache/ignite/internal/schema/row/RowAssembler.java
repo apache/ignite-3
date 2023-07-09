@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema.row;
 
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.ROW_HAS_VALUE_FLAG;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -649,7 +651,13 @@ public class RowAssembler {
      * @return Created {@link BinaryRow}.
      */
     public static BinaryRow build(ByteBuffer binTupleBuffer, int schemaVersion, boolean hasValue) {
-        return new BinaryRowImpl(schemaVersion, hasValue, binTupleBuffer);
+        if (hasValue) {
+            byte flags = binTupleBuffer.get(0);
+
+            binTupleBuffer.put(0, (byte) (flags | ROW_HAS_VALUE_FLAG));
+        }
+
+        return new BinaryRowImpl(schemaVersion, binTupleBuffer);
     }
 
     /**
