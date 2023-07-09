@@ -165,7 +165,7 @@ TEST_F(api_robustness_test, sql_prepare)
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR sql[] = "SELECT strField FROM TestType";
+    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
 
     // Everything is ok.
     SQLRETURN ret = SQLPrepare(m_statement, sql, sizeof(sql));
@@ -197,14 +197,12 @@ TEST_F(api_robustness_test, sql_exec_direct)
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR sql[] = "SELECT strField FROM TestType";
+    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
 
     // Everything is ok.
-    SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql));
+    SQLRETURN ret = SQLExecDirect(m_statement, sql, SQL_NTS);
 
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19212: Uncomment once query execution is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCloseCursor(m_statement);
 
@@ -360,7 +358,7 @@ TEST_F(api_robustness_test, sql_bind_parameter)
             sql_type, 100, 100, &ind1, sizeof(ind1), &len1);
 
         ASSERT_EQ(ret, SQL_ERROR);
-        // TODO IGNITE-19212: Uncomment once column binding is implemented.
+        // TODO IGNITE-19205: Uncomment once column binding is implemented.
         //EXPECT_EQ(get_statement_error_state(), "HY105");
     }
 
@@ -384,7 +382,7 @@ TEST_F(api_robustness_test, sql_native_sql)
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR sql[] = "SELECT strField FROM TestType";
+    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
     SQLCHAR buffer[ODBC_BUFFER_SIZE];
     SQLINTEGER resLen = 0;
 
@@ -419,7 +417,7 @@ TEST_F(api_robustness_test, sql_col_attribute)
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR sql[] = "SELECT strField FROM TestType";
+    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
 
     SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql));
 
@@ -465,7 +463,7 @@ TEST_F(api_robustness_test, sql_describe_col)
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR sql[] = "SELECT strField FROM TestType";
+    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
 
     SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql));
 
@@ -505,22 +503,16 @@ TEST_F(api_robustness_test, sql_row_count)
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR sql[] = "SELECT strField FROM TestType";
+    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
 
-    SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql));
-
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19212: Uncomment once query execution is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    SQLRETURN ret = SQLExecDirect(m_statement, sql, SQL_NTS);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLLEN rows = 0;
 
     // Everything is ok.
     ret = SQLRowCount(m_statement, &rows);
-
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19212: Uncomment once query execution is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLRowCount(m_statement, 0);
 }
@@ -687,7 +679,7 @@ TEST_F(api_robustness_test, sql_num_params)
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR sql[] = "SELECT strField FROM TestType";
+    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
 
     // Everything is ok.
     SQLRETURN ret = SQLPrepare(m_statement, sql, sizeof(sql));
