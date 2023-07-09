@@ -70,7 +70,7 @@ public:
      *
      * @return Fetch results page size.
      */
-    [[nodiscard]] value_with_default<std::int32_t> get_page_size() const {
+    [[nodiscard]] const value_with_default<std::int32_t> &get_page_size() const {
         return m_page_size;
     }
 
@@ -79,7 +79,7 @@ public:
      *
      * @return Schema.
      */
-    [[nodiscard]] value_with_default<std::string> get_schema() const {
+    [[nodiscard]] const value_with_default<std::string> &get_schema() const {
         return m_schema;
     }
 

@@ -17,6 +17,7 @@
 
 #include "ignite/common/config.h"
 #include "odbc_suite.h"
+#include "odbc_connection.h"
 
 #include <gtest/gtest.h>
 
@@ -170,6 +171,23 @@ void check_column_meta_with_sqlcol_attribute(SQLHSTMT stmt, SQLUSMALLINT idx, co
  */
 class meta_queries_test : public odbc_suite {
 public:
+    static void SetUpTestSuite() {
+        odbc_connection conn(get_basic_connection_string());
+        conn.connect();
+
+        SQLRETURN ret = conn.exec_query("CREATE TABLE META_QUERIES_TEST(ID INT PRIMARY KEY, VAL VARCHAR(60))");
+        if (!SQL_SUCCEEDED(ret)) {
+            FAIL() << conn.get_statement_error_message();
+        }
+    }
+
+    static void TearDownTestSuite() {
+        odbc_connection conn(get_basic_connection_string());
+        conn.connect();
+
+        conn.exec_query("DROP TABLE META_QUERIES_TEST");
+    }
+
     void SetUp() override {
         odbc_connect(get_basic_connection_string());
         exec_query("DELETE FROM " + std::string(TABLE_NAME_ALL_COLUMNS_SQL));
@@ -332,7 +350,7 @@ TEST_F(meta_queries_test, test_date_type_column_attribute_curdate)
 {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR req[] = "select CURDATE()";
+    SQLCHAR req[] = "select {fn CURDATE()}";
     SQLRETURN ret = SQLExecDirect(m_statement, req, SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret))
@@ -369,15 +387,23 @@ TEST_F(meta_queries_test, test_date_type_column_attribute_field)
 {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR req[] = "select CAST (dateField as DATE) from TestType";
-    SQLExecDirect(m_statement, req, SQL_NTS);
+    SQLCHAR req[] = "select {fn CONVERT(date, DATE)} from TBL_ALL_COLUMNS_SQL";
+    SQLRETURN ret = SQLExecDirect(m_statement, req, SQL_NTS);
+    if (!SQL_SUCCEEDED(ret))
+    {
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        return;
+    }
 
     SQLLEN int_val = 0;
 
-    SQLRETURN ret = SQLColAttribute(m_statement, 1, SQL_DESC_TYPE, nullptr, 0, nullptr, &int_val);
+    ret = SQLColAttribute(m_statement, 1, SQL_DESC_TYPE, nullptr, 0, nullptr, &int_val);
 
     if (!SQL_SUCCEEDED(ret))
+    {
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        return;
+    }
 
     EXPECT_EQ(int_val, SQL_TYPE_DATE);
 }
@@ -403,7 +429,7 @@ TEST_F(meta_queries_test, test_time_type_column_attribute_field)
 {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR req[] = "select timeField from TestType";
+    SQLCHAR req[] = "select time2 from TBL_ALL_COLUMNS_SQL";
     SQLExecDirect(m_statement, req, SQL_NTS);
 
     SQLLEN int_val = 0;
@@ -420,7 +446,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_length)
 {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR req[] = "select strField from TestType";
+    SQLCHAR req[] = "select str from TBL_ALL_COLUMNS_SQL";
     SQLExecDirect(m_statement, req, SQL_NTS);
 
     SQLLEN int_val;
@@ -439,7 +465,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_presicion)
 {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR req[] = "select strField from TestType";
+    SQLCHAR req[] = "select str from TBL_ALL_COLUMNS_SQL";
     SQLExecDirect(m_statement, req, SQL_NTS);
 
     SQLLEN int_val;
@@ -458,7 +484,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_scale)
 {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR req[] = "select strField from TestType";
+    SQLCHAR req[] = "select str from TBL_ALL_COLUMNS_SQL";
     SQLExecDirect(m_statement, req, SQL_NTS);
 
     SQLLEN int_val;
@@ -477,7 +503,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_length_prepare)
 
     insert_test_string();
 
-    SQLCHAR req[] = "select strField from TestType";
+    SQLCHAR req[] = "select str from TBL_ALL_COLUMNS_SQL";
     SQLPrepare(m_statement, req, SQL_NTS);
 
     SQLLEN int_val;
@@ -508,7 +534,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_presicion_prepare)
 
     insert_test_string();
 
-    SQLCHAR req[] = "select strField from TestType";
+    SQLCHAR req[] = "select str from TBL_ALL_COLUMNS_SQL";
     SQLPrepare(m_statement, req, SQL_NTS);
 
     SQLLEN int_val;
@@ -539,7 +565,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_scale_prepare)
 
     insert_test_string();
 
-    SQLCHAR req[] = "select strField from TestType";
+    SQLCHAR req[] = "select str from TBL_ALL_COLUMNS_SQL";
     SQLPrepare(m_statement, req, SQL_NTS);
 
     SQLLEN int_val;
@@ -593,7 +619,7 @@ TEST_F(meta_queries_test, test_get_data_with_columns)
 
     SQLCHAR empty[] = "";
     SQLCHAR table[] = "TestType";
-    SQLCHAR column[] = "strField";
+    SQLCHAR column[] = "str";
 
     SQLRETURN ret = SQLColumns(m_statement, empty, SQL_NTS, empty, SQL_NTS, table, SQL_NTS, column, SQL_NTS);
 
@@ -607,13 +633,13 @@ TEST_F(meta_queries_test, test_get_data_with_select_query)
 {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR insert_req[] = "insert into TestType(_key, strField) VALUES(1, 'Lorem ipsum')";
+    SQLCHAR insert_req[] = "insert into TestType(_key, str) VALUES(1, 'Lorem ipsum')";
     SQLRETURN ret = SQLExecDirect(m_statement, insert_req, SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    SQLCHAR select_req[] = "select strField from TestType";
+    SQLCHAR select_req[] = "select str from TBL_ALL_COLUMNS_SQL";
     ret = SQLExecDirect(m_statement, select_req, SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret))
@@ -627,7 +653,7 @@ TEST_F(meta_queries_test, test_insert_too_long_value_fail)
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR insert_req[] =
-        "insert into TestType(_key, strField) VALUES(42, '0123456789012345678901234567890123456789012345678901234567891')";
+        "insert into TestType(_key, str) VALUES(42, '0123456789012345678901234567890123456789012345678901234567891')";
 
     SQLRETURN ret = SQLExecDirect(m_statement, insert_req, SQL_NTS);
 
@@ -838,7 +864,7 @@ TEST_F(meta_queries_test, test_sqlnum_result_cols_after_sqlprepare)
 /**
  * Check that SQLDescribeCol return valid scale and precision for columns of different type after Prepare.
  */
-TEST_F(meta_queries_test, TestSQLDescribeColPrecisionAndScaleAfterPrepare)
+TEST_F(meta_queries_test, test_sqldescribe_col_precision_and_scale_after_prepare)
 {
     // TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
 //    check_sqldescribe_col_precision_and_scale(&odbc_suite::prepare_query);
@@ -847,7 +873,7 @@ TEST_F(meta_queries_test, TestSQLDescribeColPrecisionAndScaleAfterPrepare)
 /**
  * Check that SQLDescribeCol return valid scale and precision for columns of different type after Execute.
  */
-TEST_F(meta_queries_test, TestSQLDescribeColPrecisionAndScaleAfterExec)
+TEST_F(meta_queries_test, test_sqldescribe_col_precision_and_scale_after_exec)
 {
     check_sqldescribe_col_precision_and_scale(&odbc_suite::exec_query);
 }
@@ -855,7 +881,7 @@ TEST_F(meta_queries_test, TestSQLDescribeColPrecisionAndScaleAfterExec)
 /**
  * Check that SQLColAttribute return valid scale and precision for columns of different type after Prepare.
  */
-TEST_F(meta_queries_test, TestSQLColAttributePrecisionAndScaleAfterPrepare)
+TEST_F(meta_queries_test, test_sqlcol_attribute_precision_and_scale_after_prepare)
 {
     // TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
 //    check_sqlcol_attribute_precision_and_scale(&odbc_suite::prepare_query);
@@ -864,7 +890,7 @@ TEST_F(meta_queries_test, TestSQLColAttributePrecisionAndScaleAfterPrepare)
 /**
  * Check that SQLColAttribute return valid scale and precision for columns of different type after Execute.
  */
-TEST_F(meta_queries_test, TestSQLColAttributePrecisionAndScaleAfterExec)
+TEST_F(meta_queries_test, test_sqlcol_attribute_precision_and_scale_after_exec)
 {
     check_sqlcol_attribute_precision_and_scale(&odbc_suite::exec_query);
 }

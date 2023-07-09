@@ -195,13 +195,15 @@ bool data_query::is_closed_remotely() const
 
 sql_result data_query::make_request_execute()
 {
+    auto &schema = m_connection.get_schema();
+
     network::data_buffer_owning response;
     auto success = m_diag.catch_errors([&]{
         response = m_connection.sync_request(detail::client_operation::SQL_EXEC, [&](protocol::writer &writer) {
             // TODO: IGNITE-19399 Implement transactions support.
             writer.write_nil();
 
-            writer.write(m_connection.get_schema());
+            writer.write(schema);
             writer.write(m_connection.get_configuration().get_page_size().get_value());
             writer.write(std::int64_t(m_connection.get_timeout()) * 1000);
             writer.write_nil(); // Session timeout (unused, session is closed by the server immediately).

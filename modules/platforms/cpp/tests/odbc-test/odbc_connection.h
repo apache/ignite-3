@@ -21,7 +21,6 @@
 #   include <windows.h>
 #endif
 
-#include "ignite_runner.h"
 #include "odbc_test_utils.h"
 #include "test_utils.h"
 
@@ -29,78 +28,35 @@
 
 #include <memory>
 #include <string_view>
+#include <utility>
 
 #include <sql.h>
 #include <sqlext.h>
 
 namespace ignite {
 
-using namespace std::string_view_literals;
-
 /**
  * Test suite.
  */
-class odbc_suite : public ::testing::Test {
+class odbc_connection {
 public:
-    static constexpr std::string_view TABLE_1 = "tbl1"sv;
-    static constexpr std::string_view TABLE_NAME_ALL_COLUMNS = "tbl_all_columns"sv;
-    static constexpr std::string_view TABLE_NAME_ALL_COLUMNS_SQL = "tbl_all_columns_sql"sv;
-
-    static constexpr const char *KEY_COLUMN = "key";
-    static constexpr const char *VAL_COLUMN = "val";
-
-    static inline const std::string DRIVER_NAME = "Apache Ignite 3";
-
     /**
-     * Get node addresses to use for tests.
+     * Constructor.
      *
-     * @return Addresses.
+     * @param connect_str Connection string.
      */
-    static std::string get_nodes_address() {
-        std::string res;
-        for (const auto &addr : ignite_runner::get_node_addrs())
-            res += addr + ',';
+    explicit odbc_connection(std::string connect_str)
+        : m_connect_str(std::move(connect_str)) {}
 
-        return res;
-    }
-
-    /**
-     * Get node addresses to use for tests.
-     *
-     * @return Addresses.
-     */
-    static std::string get_basic_connection_string() {
-        return "driver={" + DRIVER_NAME + "};address=" + get_nodes_address() + ';';
+    ~odbc_connection() {
+        ignite::odbc_clean_up(m_env, m_conn, m_statement);
     }
 
     /**
      * Prepare handles for connection.
      */
-    void prepare_environment() {
-        ignite::prepare_environment(m_env, m_conn);
-    }
-
-    /**
-     * ODBC connect.
-     *
-     * @param connect_str Connect string.
-     */
-    void odbc_connect(std::string_view connect_str) {
-        ignite::odbc_connect(connect_str, m_env, m_conn, m_statement);
-    }
-
-    /**
-     * Disconnect.
-     */
-    void odbc_disconnect() {
-        ignite::odbc_disconnect(m_conn, m_statement);
-    }
-
-    /**
-     * Clean up handles.
-     */
-    void odbc_clean_up() {
-        ignite::odbc_clean_up(m_env, m_conn, m_statement);
+    void connect() {
+        ignite::odbc_connect(m_connect_str, m_env, m_conn, m_statement);
     }
 
     /**
@@ -124,6 +80,15 @@ public:
     }
 
     /**
+     * Get statement error message.
+     *
+     * @return Statement error message.
+     */
+    [[nodiscard]] std::string get_statement_error_message() const {
+        return get_odbc_error_message(SQL_HANDLE_STMT, m_statement);
+    }
+
+    /**
      * Get connection error state.
      *
      * @return Connection error state.
@@ -131,6 +96,9 @@ public:
     [[nodiscard]] std::string get_connection_error_state() const {
         return get_odbc_error_state(SQL_HANDLE_DBC, m_conn);
     }
+
+    /** Connection string. */
+    std::string m_connect_str;
 
     /** Environment handle. */
     SQLHENV m_env{SQL_NULL_HANDLE};

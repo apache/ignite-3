@@ -660,7 +660,7 @@ sql_result sql_connection::make_request_handshake()
 
 void sql_connection::ensure_connected()
 {
-    if (!m_socket)
+    if (m_socket)
         return;
 
     bool success = try_restore_connection();
