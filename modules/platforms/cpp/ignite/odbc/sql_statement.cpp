@@ -951,18 +951,18 @@ sql_result sql_statement::internal_get_column_attribute(uint16_t column_idx, uin
         return sql_result::AI_ERROR;
     }
 
-    const column_meta& columnMeta = meta->at(column_idx - 1);
+    const column_meta& column_meta = meta->at(column_idx - 1);
 
     bool found = false;
 
     if (numeric_buf)
-        found = columnMeta.get_attribute(attr_id, *numeric_buf);
+        found = column_meta.get_attribute(attr_id, *numeric_buf);
 
     if (!found)
     {
         std::string out;
 
-        found = columnMeta.get_attribute(attr_id, out);
+        found = column_meta.get_attribute(attr_id, out);
 
         size_t outSize = out.size();
 

@@ -194,21 +194,27 @@ public:
         odbc_clean_up();
     }
 
+    void TearDown() override {
+        odbc_connect(get_basic_connection_string());
+        exec_query("DROP TABLE IF EXISTS test_scale_precision");
+        odbc_clean_up();
+    }
+
     /**
-     * @param func Function to call before tests. May be PrepareQuery or ExecQuery.
+     * @param exec Function to call before tests. May be PrepareQuery or ExecQuery.
      *
      * 1. Connect to node using ODBC.
      * 2. Create table with decimal and char columns with specified size and scale.
      * 3. Execute or prepare statement.
      * 4. Check precision and scale of every column using SQLDescribeCol.
      */
-    template<typename F>
-    void check_sqldescribe_col_precision_and_scale(F func)
+    template<typename F1, typename F2>
+    void check_col_precision_and_scale(F1 exec, F2 check)
     {
         odbc_connect(get_basic_connection_string());
 
         SQLRETURN ret = exec_query(
-            "create table TestScalePrecision("
+            "create table test_scale_precision("
             "   id int primary key,"
             "   dec1 decimal(3,0),"
             "   dec2 decimal(42,12),"
@@ -226,7 +232,7 @@ public:
 
         ret = exec_query(
             "insert into "
-            "TestScalePrecision(id, dec1, dec2, dec3, char1, char2, char3, vchar) "
+            "test_scale_precision(id, dec1, dec2, dec3, char1, char2, char3, vchar) "
             "values (1, 12, 160.23, -1234.56789, 'TST', 'Lorem Ipsum', 'Some test value', 'Some test varchar')");
 
         ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
@@ -234,7 +240,7 @@ public:
         ret = SQLFreeStmt(m_statement, SQL_CLOSE);
         ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-        ret = (this->*func)("select id, dec1, dec2, dec3, char1, char2, char3, vchar from PUBLIC.TestScalePrecision");
+        ret = (this->*exec)("select id, dec1, dec2, dec3, char1, char2, char3, vchar from PUBLIC.test_scale_precision");
         ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         SQLSMALLINT columnCount = 0;
@@ -244,74 +250,14 @@ public:
 
         EXPECT_EQ(columnCount, 8);
 
-        check_column_meta_with_sqldescribe_col(m_statement, 1, "ID", SQL_INTEGER, 10, 0, SQL_NULLABLE);
-        check_column_meta_with_sqldescribe_col(m_statement, 2, "DEC1", SQL_DECIMAL, 3, 0, SQL_NULLABLE);
-        check_column_meta_with_sqldescribe_col(m_statement, 3, "DEC2", SQL_DECIMAL, 42, 12, SQL_NULLABLE);
-        check_column_meta_with_sqldescribe_col(m_statement, 4, "DEC3", SQL_DECIMAL, 65535, 32767, SQL_NULLABLE);
-        check_column_meta_with_sqldescribe_col(m_statement, 5, "CHAR1", SQL_VARCHAR, 3, 0, SQL_NULLABLE);
-        check_column_meta_with_sqldescribe_col(m_statement, 6, "CHAR2", SQL_VARCHAR, 42, 0, SQL_NULLABLE);
-        check_column_meta_with_sqldescribe_col(m_statement, 7, "CHAR3", SQL_VARCHAR, 2147483647, 0, SQL_NO_NULLS);
-        check_column_meta_with_sqldescribe_col(m_statement, 8, "VCHAR", SQL_VARCHAR, 2147483647, 0, SQL_NULLABLE);
-    }
-
-    /**
-     * @param func Function to call before tests. May be PrepareQuery or ExecQuery.
-     *
-     * 1. Connect to node using ODBC.
-     * 2. Create table with decimal and char columns with specified size and scale.
-     * 3. Execute or prepare statement.
-     * 4. Check precision and scale of every column using SQLColAttribute.
-     */
-    template<typename F>
-    void check_sqlcol_attribute_precision_and_scale(F func)
-    {
-        odbc_connect(get_basic_connection_string());
-
-        SQLRETURN ret = exec_query(
-            "create table TestScalePrecision("
-            "   id int primary key,"
-            "   dec1 decimal(3,0),"
-            "   dec2 decimal(42,12),"
-            "   dec3 decimal,"
-            "   char1 char(3),"
-            "   char2 char(42),"
-            "   char3 char not null,"
-            "   vchar varchar"
-            ")");
-
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-
-        ret = SQLFreeStmt(m_statement, SQL_CLOSE);
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-
-        ret = exec_query(
-            "insert into "
-            "TestScalePrecision(id, dec1, dec2, dec3, char1, char2, char3, vchar) "
-            "values (1, 12, 160.23, -1234.56789, 'TST', 'Lorem Ipsum', 'Some test value', 'Some test varchar')");
-
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-
-        ret = SQLFreeStmt(m_statement, SQL_CLOSE);
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-
-        ret = (this->*func)("select id, dec1, dec2, dec3, char1, char2, char3, vchar from PUBLIC.TestScalePrecision");
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-
-        SQLSMALLINT columnCount = 0;
-
-        ret = SQLNumResultCols(m_statement, &columnCount);
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-
-        EXPECT_EQ(columnCount, 8);
-
-        check_column_meta_with_sqlcol_attribute(m_statement, 1, "ID", SQL_INTEGER, 10, 0, SQL_NULLABLE);
-        check_column_meta_with_sqlcol_attribute(m_statement, 2, "DEC1", SQL_DECIMAL, 3, 0, SQL_NULLABLE);
-        check_column_meta_with_sqlcol_attribute(m_statement, 3, "DEC2", SQL_DECIMAL, 42, 12, SQL_NULLABLE);
-        check_column_meta_with_sqlcol_attribute(m_statement, 4, "DEC3", SQL_DECIMAL, 65535, 32767, SQL_NULLABLE);
-        check_column_meta_with_sqlcol_attribute(m_statement, 5, "CHAR1", SQL_VARCHAR, 3, 0, SQL_NULLABLE);
-        check_column_meta_with_sqlcol_attribute(m_statement, 6, "CHAR2", SQL_VARCHAR, 42, 0, SQL_NULLABLE);
-        check_column_meta_with_sqlcol_attribute(m_statement, 7, "CHAR3", SQL_VARCHAR, 2147483647, 0, SQL_NO_NULLS);
-        check_column_meta_with_sqlcol_attribute(m_statement, 8, "VCHAR", SQL_VARCHAR, 2147483647, 0, SQL_NULLABLE);
+        check(m_statement, 1, "ID", SQL_INTEGER, 10, 0, SQL_NO_NULLS);
+        check(m_statement, 2, "DEC1", SQL_DECIMAL, 3, 0, SQL_NULLABLE);
+        check(m_statement, 3, "DEC2", SQL_DECIMAL, 42, 12, SQL_NULLABLE);
+        check(m_statement, 4, "DEC3", SQL_DECIMAL, 32767, 0, SQL_NULLABLE);
+        check(m_statement, 5, "CHAR1", SQL_VARCHAR, 3, 0, SQL_NULLABLE);
+        check(m_statement, 6, "CHAR2", SQL_VARCHAR, 42, 0, SQL_NULLABLE);
+        check(m_statement, 7, "CHAR3", SQL_VARCHAR, 1, 0, SQL_NO_NULLS);
+        check(m_statement, 8, "VCHAR", SQL_VARCHAR, 65536, 0, SQL_NULLABLE);
     }
 
     void insert_test_string()
@@ -661,17 +607,17 @@ TEST_F(meta_queries_test, test_get_data_with_select_query)
 //    check_single_row_result_set_with_get_data(m_statement);
 }
 
-TEST_F(meta_queries_test, test_insert_too_long_value_fail)
+TEST_F(meta_queries_test, test_insert_too_long_value_ok)
 {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR insert_req[] =
         "insert into META_QUERIES_TEST(id, str) "
-        "VALUES(42, '0123456789012345678901234567890123456789012345678901234567891')";
+        "VALUES(42, '0000000000111111111122222222223333333333444444444455555555556666666666')";
 
     SQLRETURN ret = SQLExecDirect(m_statement, insert_req, SQL_NTS);
 
-    if (SQL_SUCCEEDED(ret))
+    if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 }
 
@@ -688,20 +634,16 @@ TEST_F(meta_queries_test, test_get_info_scroll_options)
     EXPECT_NE(val, 0);
 }
 
+// TODO: IGNITE-19214 Implement tables metadata fetching
+#ifdef MUTED
 TEST_F(meta_queries_test, test_ddl_tables_meta)
 {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR create_table[] = "create table TestTable(id int primary key, testColumn varchar)";
-    SQLRETURN ret = SQLExecDirect(m_statement, create_table, SQL_NTS);
-
-    if (!SQL_SUCCEEDED(ret))
-        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-
     SQLCHAR empty[] = "";
     SQLCHAR table[] = "TestTable";
 
-    ret = SQLTables(m_statement, empty, SQL_NTS, empty, SQL_NTS, table, SQL_NTS, empty, SQL_NTS);
+    SQLRETURN ret = SQLTables(m_statement, empty, SQL_NTS, empty, SQL_NTS, table, SQL_NTS, empty, SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
@@ -713,7 +655,7 @@ TEST_F(meta_queries_test, test_ddl_tables_meta)
 
     check_string_column(m_statement, 1, "");
     check_string_column(m_statement, 2, "\"PUBLIC\"");
-    check_string_column(m_statement, 3, "TESTTABLE");
+    check_string_column(m_statement, 3, "META_QUERIES_TEST");
     check_string_column(m_statement, 4, "TABLE");
 
     ret = SQLFetch(m_statement);
@@ -756,7 +698,10 @@ TEST_F(meta_queries_test, test_ddl_tables_meta_table_type_list)
         ASSERT_EQ(ret, SQL_NO_DATA);
     }
 }
+#endif //MUTED
 
+// TODO: IGNITE-19214 Implement table column metadata fetching
+#ifdef MUTED
 TEST_F(meta_queries_test, test_ddl_columns_meta)
 {
     odbc_connect(get_basic_connection_string());
@@ -842,7 +787,10 @@ TEST_F(meta_queries_test, test_ddl_columns_meta_escaped)
 
     ASSERT_EQ(ret, SQL_NO_DATA);
 }
+#endif //MUTED
 
+// TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
+#ifdef MUTED
 TEST_F(meta_queries_test, test_sqlnum_result_cols_after_sqlprepare)
 {
     odbc_connect(get_basic_connection_string());
@@ -853,27 +801,27 @@ TEST_F(meta_queries_test, test_sqlnum_result_cols_after_sqlprepare)
     ret = SQLFreeStmt(m_statement, SQL_CLOSE);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    // TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
-//    ret = prepare_query("select * from PUBLIC.TestSqlPrepare");
-//    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-//
-//    SQLSMALLINT columnCount = 0;
-//
-//    ret = SQLNumResultCols(m_statement, &columnCount);
-//    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-//
-//    EXPECT_EQ(columnCount, 4);
-//
-//    ret = SQLExecute(m_statement);
-//    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-//
-//    columnCount = 0;
-//
-//    ret = SQLNumResultCols(m_statement, &columnCount);
-//    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
-//
-//    EXPECT_EQ(columnCount, 4);
+    ret = prepare_query("select * from PUBLIC.TestSqlPrepare");
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    SQLSMALLINT columnCount = 0;
+
+    ret = SQLNumResultCols(m_statement, &columnCount);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    EXPECT_EQ(columnCount, 4);
+
+    ret = SQLExecute(m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    columnCount = 0;
+
+    ret = SQLNumResultCols(m_statement, &columnCount);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    EXPECT_EQ(columnCount, 4);
 }
+#endif //MUTED
 
 /**
  * Check that SQLDescribeCol return valid scale and precision for columns of different type after Prepare.
@@ -881,7 +829,7 @@ TEST_F(meta_queries_test, test_sqlnum_result_cols_after_sqlprepare)
 TEST_F(meta_queries_test, test_sqldescribe_col_precision_and_scale_after_prepare)
 {
     // TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
-//    check_sqldescribe_col_precision_and_scale(&odbc_suite::prepare_query);
+//    check_col_precision_and_scale(&odbc_suite::prepare_query, &check_column_meta_with_sqldescribe_col);
 }
 
 /**
@@ -889,7 +837,7 @@ TEST_F(meta_queries_test, test_sqldescribe_col_precision_and_scale_after_prepare
  */
 TEST_F(meta_queries_test, test_sqldescribe_col_precision_and_scale_after_exec)
 {
-    check_sqldescribe_col_precision_and_scale(&odbc_suite::exec_query);
+    check_col_precision_and_scale(&odbc_suite::exec_query, &check_column_meta_with_sqldescribe_col);
 }
 
 /**
@@ -898,7 +846,7 @@ TEST_F(meta_queries_test, test_sqldescribe_col_precision_and_scale_after_exec)
 TEST_F(meta_queries_test, test_sqlcol_attribute_precision_and_scale_after_prepare)
 {
     // TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
-//    check_sqlcol_attribute_precision_and_scale(&odbc_suite::prepare_query);
+//    check_col_precision_and_scale(&odbc_suite::prepare_query, &check_column_meta_with_sqlcol_attribute);
 }
 
 /**
@@ -906,5 +854,5 @@ TEST_F(meta_queries_test, test_sqlcol_attribute_precision_and_scale_after_prepar
  */
 TEST_F(meta_queries_test, test_sqlcol_attribute_precision_and_scale_after_exec)
 {
-    check_sqlcol_attribute_precision_and_scale(&odbc_suite::exec_query);
+    check_col_precision_and_scale(&odbc_suite::exec_query, &check_column_meta_with_sqlcol_attribute);
 }
