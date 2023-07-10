@@ -135,6 +135,7 @@ const column_meta_vector *data_query::get_meta()
 
 sql_result data_query::fetch_next_row(column_binding_map &column_bindings)
 {
+    UNUSED_VALUE column_bindings;
     // TODO: IGNITE-19213 Implement data fetching
     m_diag.add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Data fetching is not implemented");
     return sql_result::AI_ERROR;
@@ -142,6 +143,8 @@ sql_result data_query::fetch_next_row(column_binding_map &column_bindings)
 
 sql_result data_query::get_column(std::uint16_t column_idx, application_data_buffer &buffer)
 {
+    UNUSED_VALUE column_idx;
+    UNUSED_VALUE buffer;
     // TODO: IGNITE-19213 Implement data fetching
     m_diag.add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Data fetching is not implemented");
     return sql_result::AI_ERROR;
@@ -267,7 +270,7 @@ sql_result data_query::make_request_close()
         });
     });
 
-    return sql_result::AI_SUCCESS;
+    return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
 }
 
 sql_result data_query::make_request_fetch()
