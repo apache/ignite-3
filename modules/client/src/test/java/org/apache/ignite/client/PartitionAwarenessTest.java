@@ -435,11 +435,11 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testExecuteColocatedTupleKeyRoutesRequestToPrimaryNode() {
         Table table = defaultTable();
 
-        Tuple t1 = Tuple.create().set("ID", 0L);
-        Tuple t2 = Tuple.create().set("ID", 1L);
+        Tuple t1 = Tuple.create().set("ID", 1L);
+        Tuple t2 = Tuple.create().set("ID", 2L);
 
-        assertEquals("server-1", compute().executeColocated(table.name(), t1, List.of(), "job").join());
-        assertEquals("server-2", compute().executeColocated(table.name(), t2, List.of(), "job").join());
+        assertEquals(nodeKey1, compute().executeColocated(table.name(), t1, List.of(), "job").join());
+        assertEquals(nodeKey2, compute().executeColocated(table.name(), t2, List.of(), "job").join());
     }
 
     @Test
@@ -447,8 +447,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         var mapper = Mapper.of(Long.class);
         Table table = defaultTable();
 
-        assertEquals("server-1", compute().executeColocated(table.name(), 0L, mapper, List.of(), "job").join());
-        assertEquals("server-2", compute().executeColocated(table.name(), 1L, mapper, List.of(), "job").join());
+        assertEquals(nodeKey1, compute().executeColocated(table.name(), 1L, mapper, List.of(), "job").join());
+        assertEquals(nodeKey2, compute().executeColocated(table.name(), 2L, mapper, List.of(), "job").join());
     }
 
     @Test
@@ -463,10 +463,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             fut.join();
         };
 
-        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
-        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
-        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
-        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
+        assertOpOnNode(nodeKey0, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
+        assertOpOnNode(nodeKey1, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
+        assertOpOnNode(nodeKey3, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
     }
 
     @Test
