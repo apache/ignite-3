@@ -148,18 +148,18 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public void start() {
-        int objectIdGen = 1;
+        int objectIdGen = 0;
 
         // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
         CatalogSchemaDescriptor schemaPublic = new CatalogSchemaDescriptor(
-                0,
+                objectIdGen++,
                 DEFAULT_SCHEMA_NAME,
                 new CatalogTableDescriptor[0],
                 new CatalogIndexDescriptor[0]
         );
 
         CatalogZoneDescriptor defaultZone = new CatalogZoneDescriptor(
-                0,
+                objectIdGen++,
                 DEFAULT_ZONE_NAME,
                 25,
                 1,
