@@ -408,6 +408,8 @@ public class ItCliServiceTest {
         cluster.stop(peers.get(0));
         peers.remove(0);
 
+        sleep(1000);
+
         leader = cluster.waitAndGetLeader().getNodeId().getPeerId();
         assertNotNull(leader);
         assertArrayEquals(new HashSet<>(peers).toArray(),
