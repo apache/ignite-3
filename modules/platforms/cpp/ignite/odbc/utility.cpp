@@ -49,7 +49,7 @@ std::string sql_string_to_string(const unsigned char* sql_str, std::int32_t sql_
     else if (sql_str_len > 0)
         res.assign(sql_str_c, sql_str_len);
 
-    while (res.back() == 0)
+    while (!res.empty() && res.back() == 0)
         res.pop_back();
 
     return res;
