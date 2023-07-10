@@ -281,61 +281,61 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testAllRecordBinaryViewOperations() {
         RecordView<Tuple> recordView = defaultTable().recordView();
 
-        Tuple t1 = Tuple.create().set("ID", 0L);
-        Tuple t2 = Tuple.create().set("ID", 1L);
+        Tuple t1 = Tuple.create().set("ID", 1L);
+        Tuple t2 = Tuple.create().set("ID", 2L);
 
-        assertOpOnNode("server-1", "insert", x -> recordView.insert(null, t1));
-        assertOpOnNode("server-2", "insert", x -> recordView.insert(null, t2));
+        assertOpOnNode(nodeKey1, "insert", x -> recordView.insert(null, t1));
+        assertOpOnNode(nodeKey2, "insert", x -> recordView.insert(null, t2));
 
-        assertOpOnNode("server-1", "insertAll", x -> recordView.insertAll(null, List.of(t1)));
-        assertOpOnNode("server-2", "insertAll", x -> recordView.insertAll(null, List.of(t2)));
+        assertOpOnNode(nodeKey1, "insertAll", x -> recordView.insertAll(null, List.of(t1)));
+        assertOpOnNode(nodeKey2, "insertAll", x -> recordView.insertAll(null, List.of(t2)));
 
-        assertOpOnNode("server-1", "upsert", x -> recordView.upsert(null, t1));
-        assertOpOnNode("server-2", "upsert", x -> recordView.upsert(null, t2));
+        assertOpOnNode(nodeKey1, "upsert", x -> recordView.upsert(null, t1));
+        assertOpOnNode(nodeKey2, "upsert", x -> recordView.upsert(null, t2));
 
-        assertOpOnNode("server-1", "upsertAll", x -> recordView.upsertAll(null, List.of(t1)));
-        assertOpOnNode("server-2", "upsertAll", x -> recordView.upsertAll(null, List.of(t2)));
+        assertOpOnNode(nodeKey1, "upsertAll", x -> recordView.upsertAll(null, List.of(t1)));
+        assertOpOnNode(nodeKey2, "upsertAll", x -> recordView.upsertAll(null, List.of(t2)));
 
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, t1));
-        assertOpOnNode("server-2", "get", x -> recordView.get(null, t2));
+        assertOpOnNode(nodeKey1, "get", x -> recordView.get(null, t1));
+        assertOpOnNode(nodeKey2, "get", x -> recordView.get(null, t2));
 
-        assertOpOnNode("server-1", "getAll", x -> recordView.getAll(null, List.of(t1)));
-        assertOpOnNode("server-2", "getAll", x -> recordView.getAll(null, List.of(t2)));
+        assertOpOnNode(nodeKey1, "getAll", x -> recordView.getAll(null, List.of(t1)));
+        assertOpOnNode(nodeKey2, "getAll", x -> recordView.getAll(null, List.of(t2)));
 
-        assertOpOnNode("server-1", "getAndUpsert", x -> recordView.getAndUpsert(null, t1));
-        assertOpOnNode("server-2", "getAndUpsert", x -> recordView.getAndUpsert(null, t2));
+        assertOpOnNode(nodeKey1, "getAndUpsert", x -> recordView.getAndUpsert(null, t1));
+        assertOpOnNode(nodeKey2, "getAndUpsert", x -> recordView.getAndUpsert(null, t2));
 
-        assertOpOnNode("server-1", "getAndReplace", x -> recordView.getAndReplace(null, t1));
-        assertOpOnNode("server-2", "getAndReplace", x -> recordView.getAndReplace(null, t2));
+        assertOpOnNode(nodeKey1, "getAndReplace", x -> recordView.getAndReplace(null, t1));
+        assertOpOnNode(nodeKey2, "getAndReplace", x -> recordView.getAndReplace(null, t2));
 
-        assertOpOnNode("server-1", "getAndDelete", x -> recordView.getAndDelete(null, t1));
-        assertOpOnNode("server-2", "getAndDelete", x -> recordView.getAndDelete(null, t2));
+        assertOpOnNode(nodeKey1, "getAndDelete", x -> recordView.getAndDelete(null, t1));
+        assertOpOnNode(nodeKey2, "getAndDelete", x -> recordView.getAndDelete(null, t2));
 
-        assertOpOnNode("server-1", "replace", x -> recordView.replace(null, t1));
-        assertOpOnNode("server-2", "replace", x -> recordView.replace(null, t2));
+        assertOpOnNode(nodeKey1, "replace", x -> recordView.replace(null, t1));
+        assertOpOnNode(nodeKey2, "replace", x -> recordView.replace(null, t2));
 
-        assertOpOnNode("server-1", "replace", x -> recordView.replace(null, t1, t1));
-        assertOpOnNode("server-2", "replace", x -> recordView.replace(null, t2, t2));
+        assertOpOnNode(nodeKey1, "replace", x -> recordView.replace(null, t1, t1));
+        assertOpOnNode(nodeKey2, "replace", x -> recordView.replace(null, t2, t2));
 
-        assertOpOnNode("server-1", "delete", x -> recordView.delete(null, t1));
-        assertOpOnNode("server-2", "delete", x -> recordView.delete(null, t2));
+        assertOpOnNode(nodeKey1, "delete", x -> recordView.delete(null, t1));
+        assertOpOnNode(nodeKey2, "delete", x -> recordView.delete(null, t2));
 
-        assertOpOnNode("server-1", "deleteExact", x -> recordView.deleteExact(null, t1));
-        assertOpOnNode("server-2", "deleteExact", x -> recordView.deleteExact(null, t2));
+        assertOpOnNode(nodeKey1, "deleteExact", x -> recordView.deleteExact(null, t1));
+        assertOpOnNode(nodeKey2, "deleteExact", x -> recordView.deleteExact(null, t2));
 
-        assertOpOnNode("server-1", "deleteAll", x -> recordView.deleteAll(null, List.of(t1)));
-        assertOpOnNode("server-2", "deleteAll", x -> recordView.deleteAll(null, List.of(t2)));
+        assertOpOnNode(nodeKey1, "deleteAll", x -> recordView.deleteAll(null, List.of(t1)));
+        assertOpOnNode(nodeKey2, "deleteAll", x -> recordView.deleteAll(null, List.of(t2)));
 
-        assertOpOnNode("server-1", "deleteAllExact", x -> recordView.deleteAllExact(null, List.of(t1)));
-        assertOpOnNode("server-2", "deleteAllExact", x -> recordView.deleteAllExact(null, List.of(t2)));
+        assertOpOnNode(nodeKey1, "deleteAllExact", x -> recordView.deleteAllExact(null, List.of(t1)));
+        assertOpOnNode(nodeKey2, "deleteAllExact", x -> recordView.deleteAllExact(null, List.of(t2)));
     }
 
     @Test
     public void testAllKeyValueViewOperations() {
         KeyValueView<Long, String> kvView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        var k1 = 0L;
-        var k2 = 1L;
+        var k1 = 1L;
+        var k2 = 2L;
         var v = "v";
 
         assertOpOnNode("server-1", "insert", x -> kvView.putIfAbsent(null, k1, v));
