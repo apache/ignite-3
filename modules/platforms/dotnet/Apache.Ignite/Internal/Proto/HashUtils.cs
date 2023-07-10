@@ -123,7 +123,7 @@ internal static class HashUtils
     /// <param name="hash1">Hash 1.</param>
     /// <param name="hash2">Hash 2.</param>
     /// <returns>Combined hash.</returns>
-    public static int Combine(int hash1, int hash2) => Hash32Internal(unchecked((uint)hash1), unchecked((uint)hash2), 4);
+    public static int Combine(int hash1, int hash2) => Hash32Internal(unchecked((uint)hash1), unchecked((ulong)hash2), 4);
 
     /// <summary>
     /// Combines three hashes.
