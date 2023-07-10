@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.completedSuccessfully;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.isA;
@@ -38,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -352,6 +355,13 @@ public class ItConnectionManagerTest {
             assertNotNull(highlander);
             assertTrue(highlander.isOpen());
 
+            assertTrue(
+                    waitForCondition(
+                            () -> manager1.channels().size() == 1 && manager2.channels().size() == 1,
+                            TimeUnit.SECONDS.toMillis(1)
+                    )
+            );
+
             CompletableFuture<NettySender> channelFut1 = manager1.connectionManager.channel(
                     manager2.connectionManager.consistentId(),
                     ChannelType.DEFAULT,
@@ -364,13 +374,8 @@ public class ItConnectionManagerTest {
                     manager1.connectionManager.localAddress()
             ).toCompletableFuture();
 
-            assertTrue(channelFut1.isDone());
-            assertFalse(channelFut1.isCancelled());
-            assertFalse(channelFut1.isCompletedExceptionally());
-
-            assertTrue(channelFut2.isDone());
-            assertFalse(channelFut2.isCancelled());
-            assertFalse(channelFut2.isCompletedExceptionally());
+            assertThat(channelFut1, completedSuccessfully());
+            assertThat(channelFut2, completedSuccessfully());
 
             NettySender channel1 = channelFut1.getNow(null);
             NettySender channel2 = channelFut2.getNow(null);
@@ -474,5 +479,8 @@ public class ItConnectionManagerTest {
             );
         }
 
+        public Map<ConnectorKey<String>, NettySender> channels() {
+            return connectionManager.channels();
+        }
     }
 }

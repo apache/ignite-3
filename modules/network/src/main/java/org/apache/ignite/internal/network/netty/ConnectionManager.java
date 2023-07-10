@@ -23,6 +23,7 @@ import io.netty.bootstrap.Bootstrap;
 import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -92,7 +93,7 @@ public class ConnectionManager implements ChannelCreationListener {
     private final StaleIdDetector staleIdDetector;
 
     /** Factory producing {@link RecoveryClientHandshakeManager} instances. */
-    private @Nullable final RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory;
+    private final @Nullable RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory;
 
     /** Start flag. */
     private final AtomicBoolean started = new AtomicBoolean(false);
@@ -387,5 +388,15 @@ public class ConnectionManager implements ChannelCreationListener {
     @TestOnly
     public Collection<NettyClient> clients() {
         return Collections.unmodifiableCollection(clients.values());
+    }
+
+    /**
+     * Returns collection of all channels of this connection manager.
+     *
+     * @return Collection of all channels of this connection manager.
+     */
+    @TestOnly
+    public Map<ConnectorKey<String>, NettySender> channels() {
+        return new HashMap<>(channels);
     }
 }

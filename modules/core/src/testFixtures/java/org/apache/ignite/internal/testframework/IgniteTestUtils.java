@@ -53,6 +53,9 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.hamcrest.CustomMatcher;
+import org.hamcrest.Description;
+import org.hamcrest.Matcher;
+import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
@@ -890,5 +893,41 @@ public final class IgniteTestUtils {
         public boolean matches(Object o) {
             return predicate.test((DataT) o);
         }
+    }
+
+    /**
+     * Creates a matcher that tests if a CompletableFuture has completed successfully.
+     *
+     * @param <T> the type of the CompletableFuture
+     * @return a matcher for a successfully completed CompletableFuture
+     */
+    public static <T> Matcher<CompletableFuture<T>> completedSuccessfully() {
+        return new TypeSafeMatcher<>() {
+            @Override
+            protected boolean matchesSafely(CompletableFuture<T> future) {
+                return future.isDone() && !future.isCompletedExceptionally() && !future.isCancelled();
+            }
+
+            @Override
+            public void describeTo(Description description) {
+                description.appendText("is a successfully completed CompletableFuture");
+            }
+
+            @Override
+            public void describeMismatchSafely(CompletableFuture<T> item, Description mismatchDescription) {
+                if (!item.isDone()) {
+                    mismatchDescription.appendText("was not completed");
+                } else {
+                    if (item.isCompletedExceptionally()) {
+                        mismatchDescription.appendText("completed exceptionally");
+                    } else if (item.isCancelled()) {
+                        mismatchDescription.appendText("was cancelled");
+                    } else {
+                        // It might be successfully done now, but it wasn't at the moment of matchesSafely execution.
+                        mismatchDescription.appendText("was not completed");
+                    }
+                }
+            }
+        };
     }
 }
