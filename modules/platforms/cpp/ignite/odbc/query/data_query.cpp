@@ -221,14 +221,7 @@ sql_result data_query::make_request_execute()
 
             writer.write(m_query);
 
-            auto args_num = std::int32_t(m_params.get_parameters_number());
-            if (args_num == 0) {
-                writer.write_nil();
-                return;
-            }
-
-            // TODO: IGNITE-19205 Implement column bindings reading.
-            throw odbc_error(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Parameters are not yet supported");
+            m_params.write(writer);
         });
     });
 
