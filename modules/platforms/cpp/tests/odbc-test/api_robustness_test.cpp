@@ -197,7 +197,7 @@ TEST_F(api_robustness_test, sql_exec_direct)
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
+    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL ";
 
     // Everything is ok.
     SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql) - 1);
