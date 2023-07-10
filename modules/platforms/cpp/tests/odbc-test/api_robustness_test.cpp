@@ -200,8 +200,7 @@ TEST_F(api_robustness_test, sql_exec_direct)
     SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
 
     // Everything is ok.
-    SQLRETURN ret = SQLExecDirect(m_statement, sql, SQL_NTS);
-
+    SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql) - 1);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCloseCursor(m_statement);
@@ -387,7 +386,7 @@ TEST_F(api_robustness_test, sql_native_sql)
     SQLINTEGER resLen = 0;
 
     // Everything is ok.
-    SQLRETURN ret = SQLNativeSql(m_conn, sql, sizeof(sql), buffer, sizeof(buffer), &resLen);
+    SQLRETURN ret = SQLNativeSql(m_conn, sql, sizeof(sql) - 1, buffer, sizeof(buffer), &resLen);
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
@@ -395,16 +394,16 @@ TEST_F(api_robustness_test, sql_native_sql)
     SQLNativeSql(m_conn, sql, 0, buffer, sizeof(buffer), &resLen);
 
     // Buffer size is null.
-    SQLNativeSql(m_conn, sql, sizeof(sql), buffer, 0, &resLen);
+    SQLNativeSql(m_conn, sql, sizeof(sql) - 1, buffer, 0, &resLen);
 
     // Res size is null.
-    SQLNativeSql(m_conn, sql, sizeof(sql), buffer, sizeof(buffer), 0);
+    SQLNativeSql(m_conn, sql, sizeof(sql) - 1, buffer, sizeof(buffer), 0);
 
     // Value is null.
     SQLNativeSql(m_conn, sql, 0, buffer, sizeof(buffer), &resLen);
 
     // Buffer is null.
-    SQLNativeSql(m_conn, sql, sizeof(sql), 0, sizeof(buffer), &resLen);
+    SQLNativeSql(m_conn, sql, sizeof(sql) - 1, 0, sizeof(buffer), &resLen);
 
     // All nulls.
     SQLNativeSql(m_conn, sql, 0, 0, 0, 0);
@@ -419,11 +418,8 @@ TEST_F(api_robustness_test, sql_col_attribute)
 
     SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
 
-    SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql));
-
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql) - 1);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCHAR buffer[ODBC_BUFFER_SIZE];
     SQLSMALLINT resLen = 0;
@@ -465,11 +461,8 @@ TEST_F(api_robustness_test, sql_describe_col)
 
     SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
 
-    SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql));
-
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql) - 1);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCHAR columnName[ODBC_BUFFER_SIZE];
     SQLSMALLINT columnNameLen = 0;
