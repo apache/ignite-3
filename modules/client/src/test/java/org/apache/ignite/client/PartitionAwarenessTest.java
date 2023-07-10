@@ -160,9 +160,9 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         RecordView<Tuple> recordView = defaultTable().recordView();
         var tx = client2.transactions().begin();
 
-        assertOpOnNode("server-1", "get", x -> recordView.get(tx, Tuple.create().set("ID", 0L)));
-        assertOpOnNode("server-1", "get", x -> recordView.get(tx, Tuple.create().set("ID", 1L)));
-        assertOpOnNode("server-1", "get", x -> recordView.get(tx, Tuple.create().set("ID", 2L)));
+        assertOpOnNode(nodeKey0, "get", x -> recordView.get(tx, Tuple.create().set("ID", 0L)));
+        assertOpOnNode(nodeKey1, "get", x -> recordView.get(tx, Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, "get", x -> recordView.get(tx, Tuple.create().set("ID", 2L)));
     }
 
     @ParameterizedTest
@@ -205,11 +205,11 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0")));
         assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 2).set("COLO-1", "0")));
         assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 3).set("COLO-1", "0")));
-        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 3).set("COLO-1", "2")));
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 3).set("COLO-1", "4")));
 
         // COLO-2 is set.
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 1)));
-        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 2)));
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 1)));
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 8)));
     }
 
     @Test
@@ -481,10 +481,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             fut.join();
         };
 
-        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(new PersonPojo(0L)));
-        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(new PersonPojo(1L)));
-        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(new PersonPojo(2L)));
-        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(new PersonPojo(3L)));
+        assertOpOnNode(nodeKey0, "upsertAll", x -> stream.accept(new PersonPojo(0L)));
+        assertOpOnNode(nodeKey1, "upsertAll", x -> stream.accept(new PersonPojo(1L)));
+        assertOpOnNode(nodeKey2, "upsertAll", x -> stream.accept(new PersonPojo(2L)));
+        assertOpOnNode(nodeKey3, "upsertAll", x -> stream.accept(new PersonPojo(3L)));
     }
 
     @Test
@@ -499,10 +499,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             fut.join();
         };
 
-        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
-        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
-        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
-        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
+        assertOpOnNode(nodeKey0, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
+        assertOpOnNode(nodeKey1, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
+        assertOpOnNode(nodeKey3, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
     }
 
     @Test
@@ -517,10 +517,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             fut.join();
         };
 
-        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(0L));
-        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(1L));
-        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(2L));
-        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(3L));
+        assertOpOnNode(nodeKey0, "upsertAll", x -> stream.accept(0L));
+        assertOpOnNode(nodeKey1, "upsertAll", x -> stream.accept(1L));
+        assertOpOnNode(nodeKey2, "upsertAll", x -> stream.accept(2L));
+        assertOpOnNode(nodeKey3, "upsertAll", x -> stream.accept(3L));
     }
 
     @Test
@@ -544,8 +544,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             }
         };
 
-        assertOpOnNode("server-1", "upsertAll", x -> submit.accept(0L));
-        assertOpOnNode("server-2", "upsertAll", x -> submit.accept(1L));
+        assertOpOnNode(nodeKey1, "upsertAll", x -> submit.accept(1L));
+        assertOpOnNode(nodeKey2, "upsertAll", x -> submit.accept(2L));
 
         // Update partition assignment.
         var assignments = new ArrayList<String>();
@@ -557,16 +557,16 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         // Send some batches so that the client receives updated assignment.
         lastOpServerName = null;
-        submit.accept(0L);
-        assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
-
-        lastOpServerName = null;
         submit.accept(1L);
         assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
 
+        lastOpServerName = null;
+        submit.accept(2L);
+        assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
+
         // Check updated assignment.
-        assertOpOnNode("server-2", "upsertAll", x -> submit.accept(0L));
-        assertOpOnNode("server-1", "upsertAll", x -> submit.accept(1L));
+        assertOpOnNode(nodeKey2, "upsertAll", x -> submit.accept(1L));
+        assertOpOnNode(nodeKey1, "upsertAll", x -> submit.accept(2L));
 
         publisher.close();
         fut.join();
