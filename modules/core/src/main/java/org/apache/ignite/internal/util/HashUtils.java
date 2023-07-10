@@ -115,6 +115,44 @@ public class HashUtils {
     }
 
     /**
+     * Combines two hash values.
+     *
+     * @param hash1 The first hash.
+     * @param hash2 The second hash.
+     * @return The combined 32-bit hash.
+     */
+    public static int combine(int hash1, int hash2) {
+        long hash = hash64(hash1, hash2);
+
+        return (int) (hash ^ (hash >>> 32));
+    }
+
+    /**
+     * Combines three hash values.
+     *
+     * @param hash1 The first hash.
+     * @param hash2 The second hash.
+     * @param hash3 The third hash.
+     * @return The combined 32-bit hash.
+     */
+    public static int combine(int hash1, int hash2, int hash3) {
+        return combine(hash1, combine(hash2, hash3));
+    }
+
+    /**
+     * Combines four hash values.
+     *
+     * @param hash1 The first hash.
+     * @param hash2 The second hash.
+     * @param hash3 The third hash.
+     * @param hash4 The fourth hash.
+     * @return The combined 32-bit hash.
+     */
+    public static int combine(int hash1, int hash2, int hash3, int hash4) {
+        return combine(hash1, combine(hash2, hash3, hash4));
+    }
+
+    /**
      * Generates 32-bit hash from the long value.
      *
      * @param data The input long value.

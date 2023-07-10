@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.util;
 
+import static org.apache.ignite.internal.util.HashUtils.combine;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -98,7 +100,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendByte(byte v) {
-        hash = HashUtils.hash32(v, hash);
+        hash = combine(hash, HashUtils.hash32(v, 0));
     }
 
     /**
@@ -107,7 +109,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendShort(short v) {
-        hash = HashUtils.hash32(v, hash);
+        hash = combine(hash, HashUtils.hash32(v, 0));
     }
 
     /**
@@ -116,7 +118,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendInt(int v) {
-        hash = HashUtils.hash32(v, hash);
+        hash = combine(hash, HashUtils.hash32(v, 0));
     }
 
     /**
@@ -125,7 +127,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendLong(long v) {
-        hash = HashUtils.hash32(v, hash);
+        hash = combine(hash, HashUtils.hash32(v, 0));
     }
 
     /**
@@ -134,7 +136,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendFloat(float v) {
-        appendInt(Float.floatToRawIntBits(v));
+        hash = combine(hash, HashUtils.hash32(Float.floatToRawIntBits(v), 0));
     }
 
     /**
@@ -143,7 +145,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendDouble(double v) {
-        appendLong(Double.doubleToRawLongBits(v));
+        hash = combine(hash, HashUtils.hash32(Double.doubleToRawLongBits(v), 0));
     }
 
     /**
@@ -152,7 +154,8 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendDecimal(BigDecimal v, int columnScale) {
-        appendBytes(v.setScale(columnScale, RoundingMode.HALF_UP).unscaledValue().toByteArray());
+        byte[] v1 = v.setScale(columnScale, RoundingMode.HALF_UP).unscaledValue().toByteArray();
+        hash = combine(hash, HashUtils.hash32(v1, 0, v1.length, 0));
     }
 
     /**
@@ -161,7 +164,8 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendNumber(BigInteger v) {
-        appendBytes(v.toByteArray());
+        byte[] v1 = v.toByteArray();
+        hash = combine(hash, HashUtils.hash32(v1, 0, v1.length, 0));
     }
 
     /**
@@ -170,8 +174,11 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendUuid(UUID v) {
-        appendLong(v.getMostSignificantBits());
-        appendLong(v.getLeastSignificantBits());
+        int hash1 = HashUtils.hash32(v.getMostSignificantBits(), 0);
+        int hash2 = HashUtils.hash32(v.getLeastSignificantBits(), 0);
+
+        int vHash = combine(hash1, hash2);
+        hash = combine(hash, vHash);
     }
 
     /**
@@ -180,7 +187,8 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendString(String v) {
-        appendBytes(v.getBytes(StandardCharsets.UTF_8));
+        byte[] v1 = v.getBytes(StandardCharsets.UTF_8);
+        hash = combine(hash, HashUtils.hash32(v1, 0, v1.length, 0));
     }
 
     /**
@@ -189,7 +197,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendBytes(byte[] v) {
-        hash = HashUtils.hash32(v, 0, v.length, hash);
+        hash = combine(hash, HashUtils.hash32(v, 0, v.length, 0));
     }
 
     /**
@@ -198,7 +206,8 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendBitmask(BitSet v) {
-        appendBytes(v.toByteArray());
+        byte[] v1 = v.toByteArray();
+        hash = combine(hash, HashUtils.hash32(v1, 0, v1.length, 0));
     }
 
     /**
@@ -207,9 +216,15 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendDate(LocalDate v) {
-        appendLong(v.getYear());
-        appendLong(v.getMonthValue());
-        appendLong(v.getDayOfMonth());
+        hash = combine(hash, hash(v));
+    }
+
+    private static int hash(LocalDate v) {
+        int yearHash = HashUtils.hash32(v.getYear(), 0);
+        int monthHash = HashUtils.hash32(v.getMonthValue(), 0);
+        int dayHash = HashUtils.hash32(v.getDayOfMonth(), 0);
+
+        return combine(yearHash, monthHash, dayHash);
     }
 
     /**
@@ -219,10 +234,16 @@ public class HashCalculator {
      * @param precision Precision.
      */
     public void appendTime(LocalTime v, int precision) {
-        appendLong(v.getHour());
-        appendLong(v.getMinute());
-        appendLong(v.getSecond());
-        appendLong(TemporalTypeUtils.normalizeNanos(v.getNano(), precision));
+        hash = combine(hash, hash(v, precision));
+    }
+
+    private static int hash(LocalTime v, int precision) {
+        int hourHash = HashUtils.hash32(v.getHour(), 0);
+        int minuteHash = HashUtils.hash32(v.getMinute(), 0);
+        int secondHash = HashUtils.hash32(v.getSecond(), 0);
+        int nanoHash = HashUtils.hash32(TemporalTypeUtils.normalizeNanos(v.getNano(), precision), 0);
+
+        return combine(hourHash, minuteHash, secondHash, nanoHash);
     }
 
     /**
@@ -232,8 +253,8 @@ public class HashCalculator {
      * @param precision Precision.
      */
     public void appendDateTime(LocalDateTime v, int precision) {
-        appendDate(v.toLocalDate());
-        appendTime(v.toLocalTime(), precision);
+        int vHash = combine(hash(v.toLocalDate()), hash(v.toLocalTime(), precision));
+        hash = combine(hash, vHash);
     }
 
     /**
@@ -243,8 +264,11 @@ public class HashCalculator {
      * @param precision Precision.
      */
     public void appendTimestamp(Instant v, int precision) {
-        appendLong(v.getEpochSecond());
-        appendLong(TemporalTypeUtils.normalizeNanos(v.getNano(), precision));
+        int hash1 = HashUtils.hash32(v.getEpochSecond(), 0);
+        int hash2 = HashUtils.hash32(TemporalTypeUtils.normalizeNanos(v.getNano(), precision), 0);
+
+        int vHash = combine(hash1, hash2);
+        hash = combine(hash, vHash);
     }
 
     /**
