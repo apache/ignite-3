@@ -283,7 +283,7 @@ public class PartitionAwarenessTests
 
         // Both columns are part of key, but only string column is colocation key, so random Guid does not affect the hash.
         await Test("1", Guid.NewGuid(), _server2);
-        await Test("a", Guid.NewGuid(), _server1);
+        await Test("c", Guid.NewGuid(), _server1);
 
         async Task Test(string idStr, Guid idGuid, FakeServer node) =>
             await AssertOpOnNode(() => view.UpsertAsync(null, new CompositeKey(idStr, idGuid)), ClientOp.TupleUpsert, node);
