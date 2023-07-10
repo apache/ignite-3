@@ -210,7 +210,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
                                         .and(scan -> "[+($1, 2)]".equals(scan.getProjects().toString()))
                                         .and(input(isInstanceOf(IgniteTableScan.class)
                                                 .and(scan -> scan.condition() != null)
-                                                .and(scan -> "=($tx, $cor0.C)".equals(scan.condition().toString()))
+                                                .and(scan -> "=($t1, $cor0.C)".equals(scan.condition().toString()))
                                                 .and(scan -> ImmutableBitSet.of(0, 2).equals(scan.requiredColumns()))
                                         )))))))));
     }
