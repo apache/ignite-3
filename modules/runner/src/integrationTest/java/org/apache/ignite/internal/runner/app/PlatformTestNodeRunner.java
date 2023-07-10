@@ -452,6 +452,11 @@ public class PlatformTestNodeRunner {
                 String colName = "col" + i;
 
                 switch (type) {
+                    case BOOLEAN:
+                        columns[i] = new Column(i, colName, NativeTypes.BOOLEAN, false);
+                        tuple.set(colName, reader.booleanValue(valIdx));
+                        break;
+
                     case INT8:
                         columns[i] = new Column(i, colName, NativeTypes.INT8, false);
                         tuple.set(colName, reader.byteValue(valIdx));
