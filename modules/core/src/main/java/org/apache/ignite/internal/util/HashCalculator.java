@@ -155,7 +155,7 @@ public class HashCalculator {
      */
     public void appendDecimal(BigDecimal v, int columnScale) {
         byte[] v1 = v.setScale(columnScale, RoundingMode.HALF_UP).unscaledValue().toByteArray();
-        hash = combine(hash, HashUtils.hash32(v1, 0, v1.length, 0));
+        hash = combine(hash, HashUtils.hash32(v1));
     }
 
     /**
@@ -164,8 +164,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendNumber(BigInteger v) {
-        byte[] v1 = v.toByteArray();
-        hash = combine(hash, HashUtils.hash32(v1, 0, v1.length, 0));
+        hash = combine(hash, HashUtils.hash32(v.toByteArray()));
     }
 
     /**
@@ -187,8 +186,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendString(String v) {
-        byte[] v1 = v.getBytes(StandardCharsets.UTF_8);
-        hash = combine(hash, HashUtils.hash32(v1, 0, v1.length, 0));
+        hash = combine(hash, HashUtils.hash32(v.getBytes(StandardCharsets.UTF_8)));
     }
 
     /**
@@ -197,7 +195,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendBytes(byte[] v) {
-        hash = combine(hash, HashUtils.hash32(v, 0, v.length, 0));
+        hash = combine(hash, HashUtils.hash32(v));
     }
 
     /**
@@ -206,8 +204,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendBitmask(BitSet v) {
-        byte[] v1 = v.toByteArray();
-        hash = combine(hash, HashUtils.hash32(v1, 0, v1.length, 0));
+        hash = combine(hash, HashUtils.hash32(v.toByteArray()));
     }
 
     /**
