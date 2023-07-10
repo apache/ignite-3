@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT32;
 import static org.apache.ignite.internal.schema.NativeTypes.INT8;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -154,7 +155,6 @@ public class ColocationHashCalculationTest {
     }
 
     @Test
-    @Disabled("Manual test")
     void distribution() {
         int partitions = 100;
         var map = new HashMap<Integer, Integer>();
@@ -175,8 +175,12 @@ public class ColocationHashCalculationTest {
             }
         }
 
+        var maxSkew = 330;
+
         for (var entry : map.entrySet()) {
-            System.out.println(entry.getKey() + ", " + entry.getValue());
+            // CSV to plot: System.out.println(entry.getKey() + ", " + entry.getValue());
+            assertTrue(entry.getValue() < 10_000 + maxSkew, "Partition " + entry.getKey() + " keys: " + entry.getValue());
+            assertTrue(entry.getValue() > 10_000 - maxSkew, "Partition " + entry.getKey() + " keys: " + entry.getValue());
         }
     }
 
