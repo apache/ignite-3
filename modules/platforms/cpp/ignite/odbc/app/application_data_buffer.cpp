@@ -26,12 +26,24 @@
 #include <string>
 #include <sstream>
 #include <cstring>
+#include <ctime>
 
 namespace
 {
+using namespace ignite;
 
-// Just copy bytes currently.
-// Only works for the ASCII character set.
+/**
+ * Convert string to wstring.
+ * Just copies bytes currently so basically only works for the ASCII character set.
+ *
+ * TODO: IGNITE-19943 Implement wstring support
+ *
+ * @param str String.
+ * @param str_len String length.
+ * @param wstr Wide string.
+ * @param wstr_len Wide string length.
+ * @return Conversation result.
+ */
 ignite::conversion_result string_to_wstring(const char* str, std::int64_t str_len, SQLWCHAR* wstr,
     std::int64_t wstr_len)
 {
@@ -58,6 +70,86 @@ ignite::conversion_result string_to_wstring(const char* str, std::int64_t str_le
     return conversion_result::AI_SUCCESS;
 }
 
+/**
+ * Convert Ignite date to C standard tm struct.
+ *
+ * @warning This is not a proper conversion and only works for using with strftime with certain format options.
+ * @param value Ignite date.
+ * @return A tm structure to use with strftime.
+ */
+tm date_to_tm_for_strftime(const ignite_date &value) {
+    tm tm_time{};
+    tm_time.tm_year = value.get_year() - 1900;
+    tm_time.tm_mon = value.get_month() - 1; // NOLINT(cert-str34-c)
+    tm_time.tm_mday = value.get_day_of_month(); // NOLINT(cert-str34-c)
+
+    return tm_time;
+}
+
+/**
+ * Convert Ignite time to C standard tm struct.
+ *
+ * @warning This is not a proper conversion and only works for using with strftime with certain format options.
+ * @param value Ignite time.
+ * @return A tm structure to use with strftime.
+ */
+tm time_to_tm_for_strftime(const ignite_time &value) {
+    tm tm_time{};
+    tm_time.tm_hour = value.get_hour(); // NOLINT(cert-str34-c)
+    tm_time.tm_min = value.get_minute(); // NOLINT(cert-str34-c)
+    tm_time.tm_sec = value.get_second(); // NOLINT(cert-str34-c)
+
+    return tm_time;
+}
+
+/**
+ * Convert Ignite time to C standard tm struct.
+ *
+ * @warning This is not a proper conversion and only works for using with strftime with certain format options.
+ * @param value Ignite time.
+ * @return A tm structure to use with strftime.
+ */
+tm date_time_to_tm_for_strftime(const ignite_date_time &value) {
+    tm tm_time{};
+    tm_time.tm_year = value.get_year() - 1900;
+    tm_time.tm_mon = value.get_month() - 1; // NOLINT(cert-str34-c)
+    tm_time.tm_mday = value.get_day_of_month(); // NOLINT(cert-str34-c)
+    tm_time.tm_hour = value.get_hour(); // NOLINT(cert-str34-c)
+    tm_time.tm_min = value.get_minute(); // NOLINT(cert-str34-c)
+    tm_time.tm_sec = value.get_second(); // NOLINT(cert-str34-c)
+
+    return tm_time;
+}
+
+/**
+ * Convert time_t to struct tm.
+ *
+ * @param ctime Time.
+ * @return A tm instance.
+ */
+tm time_t_to_tm(time_t ctime) {
+    tm tm_time{};
+#ifdef WIN32
+    localtime_s(&tm_time, &ctime);
+#else
+    localtime_s(&ctime, &tm_time);
+#endif
+    return tm_time;
+}
+
+/**
+ * Convert Ignite timestamp to C standard tm struct.
+ *
+ * @warning This is not a proper conversion and only works for using with strftime with certain format options.
+ * @param value Ignite date.
+ * @return A tm structure to use with strftime.
+ */
+tm timestamp_to_tm(const ignite_timestamp &value) {
+    auto ctime = time_t(value.get_epoch_second());
+
+    return time_t_to_tm(ctime);
+}
+
 } // anonymous namespace
 
 namespace ignite
@@ -66,7 +158,7 @@ namespace ignite
 application_data_buffer::application_data_buffer(odbc_native_type type, void* buffer, SQLLEN buf_len, SQLLEN* res_len)
     : m_type(type)
     , m_buffer(buffer)
-    , m_buffer_len(buf_len)
+    , m_buffer_len(std::max(buf_len, SQLLEN(0)))
     , m_result_len(res_len)
     , m_byte_offset(0)
     , m_element_offset(0) { }
@@ -577,65 +669,31 @@ conversion_result application_data_buffer::put_decimal(const big_decimal& value)
 
 conversion_result application_data_buffer::put_date(const ignite_date& value)
 {
-    tm tm_time{};
-
-    // TODO: IGNITE-19205 Implement date-time type conversion.
-
-    UNUSED_VALUE(value);
-    //DateToCTm(value, tm_time);
-
-    SQLLEN* res_len_ptr = get_result_len();
-    void* data_ptr = get_data();
+    SQLLEN *res_len_ptr = get_result_len();
+    void *data_ptr = get_data();
+    if (!data_ptr)
+        return conversion_result::AI_FAILURE;
 
     switch (m_type)
     {
-        case odbc_native_type::AI_CHAR:
-        {
-            char* buffer = reinterpret_cast<char*>(data_ptr);
-            const std::size_t valLen = sizeof("HHHH-MM-DD") - 1;
-
-            if (res_len_ptr)
-                *res_len_ptr = valLen;
-
-            if (buffer)
-                strftime(buffer, get_size(), "%Y-%m-%d", &tm_time);
-
-            if (static_cast<SQLLEN>(valLen) + 1 > get_size())
-                return conversion_result::AI_VARLEN_DATA_TRUNCATED;
-
-            return conversion_result::AI_SUCCESS;
-        }
-
         case odbc_native_type::AI_WCHAR:
+        case odbc_native_type::AI_CHAR:
+        case odbc_native_type::AI_BINARY:
         {
-            auto* buffer = reinterpret_cast<SQLWCHAR*>(data_ptr);
-            const std::size_t valLen = sizeof("HHHH-MM-DD") - 1;
+            constexpr auto val_len = SQLLEN(sizeof("HHHH-MM-DD"));
+            auto tm_time = date_to_tm_for_strftime(value);
 
-            if (res_len_ptr)
-                *res_len_ptr = valLen;
-
-            if (buffer)
-            {
-                std::string tmp(valLen + 1, 0);
-
-                strftime(&tmp[0], tmp.size(), "%Y-%m-%d", &tm_time);
-
-                string_to_wstring(&tmp[0], std::int64_t(tmp.size()), buffer, get_size());
-            }
-
-            if (static_cast<SQLLEN>(valLen) + 1 > get_size())
-                return conversion_result::AI_VARLEN_DATA_TRUNCATED;
-
-            return conversion_result::AI_SUCCESS;
+            return put_tm_to_string(tm_time, val_len, "%Y-%m-%d");
         }
 
         case odbc_native_type::AI_TDATE:
         {
-            auto* buffer = reinterpret_cast<SQL_DATE_STRUCT*>(data_ptr);
+            auto *buffer = reinterpret_cast<SQL_DATE_STRUCT*>(data_ptr);
+            memset(buffer, 0, sizeof(*buffer));
 
-            buffer->year = SQLSMALLINT(tm_time.tm_year + 1900);
-            buffer->month = tm_time.tm_mon + 1;
-            buffer->day = tm_time.tm_mday;
+            buffer->year = SQLSMALLINT(value.get_year());
+            buffer->month = SQLUSMALLINT(value.get_month()); // NOLINT(cert-str34-c)
+            buffer->day = SQLUSMALLINT(value.get_day_of_month()); // NOLINT(cert-str34-c)
 
             if (res_len_ptr)
                 *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_DATE_STRUCT));
@@ -643,31 +701,14 @@ conversion_result application_data_buffer::put_date(const ignite_date& value)
             return conversion_result::AI_SUCCESS;
         }
 
-        case odbc_native_type::AI_TTIME:
-        {
-            auto* buffer = reinterpret_cast<SQL_TIME_STRUCT*>(data_ptr);
-
-            buffer->hour = tm_time.tm_hour;
-            buffer->minute = tm_time.tm_min;
-            buffer->second = tm_time.tm_sec;
-
-            if (res_len_ptr)
-                *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_TIME_STRUCT));
-
-            return conversion_result::AI_SUCCESS;
-        }
-
         case odbc_native_type::AI_TTIMESTAMP:
         {
-            auto* buffer = reinterpret_cast<SQL_TIMESTAMP_STRUCT*>(data_ptr);
+            auto *buffer = reinterpret_cast<SQL_TIMESTAMP_STRUCT*>(data_ptr);
+            memset(buffer, 0, sizeof(*buffer));
 
-            buffer->year = SQLSMALLINT(tm_time.tm_year + 1900);
-            buffer->month = tm_time.tm_mon + 1;
-            buffer->day = tm_time.tm_mday;
-            buffer->hour = tm_time.tm_hour;
-            buffer->minute = tm_time.tm_min;
-            buffer->second = tm_time.tm_sec;
-            buffer->fraction = 0;
+            buffer->year = SQLSMALLINT(value.get_year());
+            buffer->month = SQLUSMALLINT(value.get_month()); // NOLINT(cert-str34-c)
+            buffer->day = SQLUSMALLINT(value.get_day_of_month()); // NOLINT(cert-str34-c)
 
             if (res_len_ptr)
                 *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_TIMESTAMP_STRUCT));
@@ -675,7 +716,7 @@ conversion_result application_data_buffer::put_date(const ignite_date& value)
             return conversion_result::AI_SUCCESS;
         }
 
-        case odbc_native_type::AI_BINARY:
+        case odbc_native_type::AI_TTIME:
         case odbc_native_type::AI_DEFAULT:
         case odbc_native_type::AI_SIGNED_TINYINT:
         case odbc_native_type::AI_BIT:
@@ -698,63 +739,25 @@ conversion_result application_data_buffer::put_date(const ignite_date& value)
 
 conversion_result application_data_buffer::put_timestamp(const ignite_timestamp& value)
 {
-    tm tm_time{};
+    auto *res_len_ptr = get_result_len();
+    void *data_ptr = get_data();
+    if (!data_ptr)
+        return conversion_result::AI_FAILURE;
 
-    // TODO: IGNITE-19205 Implement date-time type conversion.
-
-    UNUSED_VALUE(value);
-    //TimestampToCTm(value, tm_time);
-
-    SQLLEN* res_len_ptr = get_result_len();
-    void* data_ptr = get_data();
-
+    auto tm_time = timestamp_to_tm(value);
     switch (m_type)
     {
-        case odbc_native_type::AI_CHAR:
-        {
-            const std::size_t valLen = sizeof("HHHH-MM-DD HH:MM:SS") - 1;
-
-            if (res_len_ptr)
-                *res_len_ptr = valLen;
-
-            char* buffer = reinterpret_cast<char*>(data_ptr);
-
-            if (buffer)
-                strftime(buffer, get_size(), "%Y-%m-%d %H:%M:%S", &tm_time);
-
-            if (static_cast<SQLLEN>(valLen) + 1 > get_size())
-                return conversion_result::AI_VARLEN_DATA_TRUNCATED;
-
-            return conversion_result::AI_SUCCESS;
-        }
-
         case odbc_native_type::AI_WCHAR:
+        case odbc_native_type::AI_CHAR:
+        case odbc_native_type::AI_BINARY:
         {
-            const std::size_t valLen = sizeof("HHHH-MM-DD HH:MM:SS") - 1;
-
-            if (res_len_ptr)
-                *res_len_ptr = valLen;
-
-            auto* buffer = reinterpret_cast<SQLWCHAR*>(data_ptr);
-
-            if (buffer)
-            {
-                std::string tmp(get_size(), 0);
-
-                strftime(&tmp[0], get_size(), "%Y-%m-%d %H:%M:%S", &tm_time);
-
-                string_to_wstring(&tmp[0], std::int64_t(tmp.size()), buffer, get_size());
-            }
-
-            if (static_cast<SQLLEN>(valLen) + 1 > get_size())
-                return conversion_result::AI_VARLEN_DATA_TRUNCATED;
-
-            return conversion_result::AI_SUCCESS;
+            constexpr auto val_len = SQLLEN(sizeof("HHHH-MM-DD HH:MM:SS"));
+            return put_tm_to_string(tm_time, val_len, "%Y-%m-%d %H:%M:%S");
         }
 
         case odbc_native_type::AI_TDATE:
         {
-            auto* buffer = reinterpret_cast<SQL_DATE_STRUCT*>(data_ptr);
+            auto *buffer = reinterpret_cast<SQL_DATE_STRUCT*>(data_ptr);
 
             buffer->year = SQLSMALLINT(tm_time.tm_year + 1900);
             buffer->month = tm_time.tm_mon + 1;
@@ -798,7 +801,6 @@ conversion_result application_data_buffer::put_timestamp(const ignite_timestamp&
             return conversion_result::AI_SUCCESS;
         }
 
-        case odbc_native_type::AI_BINARY:
         case odbc_native_type::AI_DEFAULT:
         case odbc_native_type::AI_SIGNED_TINYINT:
         case odbc_native_type::AI_BIT:
@@ -821,67 +823,29 @@ conversion_result application_data_buffer::put_timestamp(const ignite_timestamp&
 
 conversion_result application_data_buffer::put_time(const ignite_time& value)
 {
-    tm tm_time{};
-
-    // TODO: IGNITE-19205 Implement date-time type conversion.
-
-    UNUSED_VALUE(value);
-    //TimeToCTm(value, tm_time);
-
     SQLLEN* res_len_ptr = get_result_len();
     void* data_ptr = get_data();
 
     switch (m_type)
     {
-        case odbc_native_type::AI_CHAR:
-        {
-            const std::size_t valLen = sizeof("HH:MM:SS") - 1;
-
-            if (res_len_ptr)
-                *res_len_ptr = sizeof("HH:MM:SS") - 1;
-
-            char* buffer = reinterpret_cast<char*>(data_ptr);
-
-            if (buffer)
-                strftime(buffer, get_size(), "%H:%M:%S", &tm_time);
-
-            if (static_cast<SQLLEN>(valLen) + 1 > get_size())
-                return conversion_result::AI_VARLEN_DATA_TRUNCATED;
-
-            return conversion_result::AI_SUCCESS;
-        }
-
         case odbc_native_type::AI_WCHAR:
+        case odbc_native_type::AI_CHAR:
+        case odbc_native_type::AI_BINARY:
         {
-            const std::size_t valLen = sizeof("HH:MM:SS") - 1;
+            const auto val_len = SQLLEN(sizeof("HH:MM:SS"));
+            auto tm_time = time_to_tm_for_strftime(value);
 
-            if (res_len_ptr)
-                *res_len_ptr = sizeof("HH:MM:SS") - 1;
-
-            auto* buffer = reinterpret_cast<SQLWCHAR*>(data_ptr);
-
-            if (buffer)
-            {
-                std::string tmp(get_size(), 0);
-
-                strftime(&tmp[0], get_size(), "%H:%M:%S", &tm_time);
-
-                string_to_wstring(&tmp[0], std::int64_t(tmp.size()), buffer, get_size());
-            }
-
-            if (static_cast<SQLLEN>(valLen) + 1 > get_size())
-                return conversion_result::AI_VARLEN_DATA_TRUNCATED;
-
-            return conversion_result::AI_SUCCESS;
+            return put_tm_to_string(tm_time, val_len, "%H:%M:%S");
         }
 
         case odbc_native_type::AI_TTIME:
         {
             auto* buffer = reinterpret_cast<SQL_TIME_STRUCT*>(data_ptr);
+            memset(buffer, 0, sizeof(*buffer));
 
-            buffer->hour = tm_time.tm_hour;
-            buffer->minute = tm_time.tm_min;
-            buffer->second = tm_time.tm_sec;
+            buffer->hour = value.get_hour(); // NOLINT(cert-str34-c)
+            buffer->minute = value.get_minute(); // NOLINT(cert-str34-c)
+            buffer->second = value.get_second(); // NOLINT(cert-str34-c)
 
             if (res_len_ptr)
                 *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_TIME_STRUCT));
@@ -892,14 +856,20 @@ conversion_result application_data_buffer::put_time(const ignite_time& value)
         case odbc_native_type::AI_TTIMESTAMP:
         {
             auto* buffer = reinterpret_cast<SQL_TIMESTAMP_STRUCT*>(data_ptr);
+            memset(buffer, 0, sizeof(*buffer));
 
+            auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            auto tm_time = time_t_to_tm(now);
+
+            // According to ODBC specification, those should be set to current date.
             buffer->year = SQLSMALLINT(tm_time.tm_year + 1900);
             buffer->month = tm_time.tm_mon + 1;
             buffer->day = tm_time.tm_mday;
-            buffer->hour = tm_time.tm_hour;
-            buffer->minute = tm_time.tm_min;
-            buffer->second = tm_time.tm_sec;
-            buffer->fraction = 0;
+
+            buffer->hour = value.get_hour(); // NOLINT(cert-str34-c)
+            buffer->minute = value.get_minute(); // NOLINT(cert-str34-c)
+            buffer->second = value.get_second(); // NOLINT(cert-str34-c)
+            buffer->fraction = value.get_nano();
 
             if (res_len_ptr)
                 *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_TIMESTAMP_STRUCT));
@@ -907,7 +877,6 @@ conversion_result application_data_buffer::put_time(const ignite_time& value)
             return conversion_result::AI_SUCCESS;
         }
 
-        case odbc_native_type::AI_BINARY:
         case odbc_native_type::AI_DEFAULT:
         case odbc_native_type::AI_SIGNED_TINYINT:
         case odbc_native_type::AI_BIT:
@@ -927,6 +896,43 @@ conversion_result application_data_buffer::put_time(const ignite_time& value)
     }
 
     return conversion_result::AI_UNSUPPORTED_CONVERSION;
+}
+
+conversion_result application_data_buffer::put_tm_to_string(tm &tm_time, SQLLEN val_len, const char* fmt) {
+    void* data_ptr = get_data();
+    SQLLEN* res_len_ptr = get_result_len();
+    if (res_len_ptr)
+        *res_len_ptr = std::min(val_len, get_size());
+
+    switch (m_type)
+    {
+        case odbc_native_type::AI_CHAR:
+        case odbc_native_type::AI_BINARY:
+        {
+            auto *buffer = reinterpret_cast<char*>(data_ptr);
+            strftime(buffer, get_size(), fmt, &tm_time);
+            break;
+        }
+        case odbc_native_type::AI_WCHAR:
+        {
+            auto *buffer = reinterpret_cast<SQLWCHAR*>(data_ptr);
+            auto *tmp = reinterpret_cast<char*>(alloca(val_len));
+
+            strftime(tmp, val_len, fmt, &tm_time);
+
+            string_to_wstring(&tmp[0], int64_t(val_len), buffer, get_size());
+            break;
+        }
+        default:
+        {
+            return conversion_result::AI_UNSUPPORTED_CONVERSION;
+        }
+    }
+
+    if (SQLLEN(val_len) > get_size())
+        return conversion_result::AI_VARLEN_DATA_TRUNCATED;
+
+    return conversion_result::AI_SUCCESS;
 }
 
 std::string application_data_buffer::get_string(std::size_t maxLen) const
