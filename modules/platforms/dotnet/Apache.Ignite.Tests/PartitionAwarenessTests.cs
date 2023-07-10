@@ -33,14 +33,14 @@ public class PartitionAwarenessTests
 {
     private static readonly object[] KeyNodeCases =
     {
-        new object[] { 3, 1 },
-        new object[] { 5, 1 },
-        new object[] { 8, 1 },
+        new object[] { 0, 1 },
         new object[] { 1, 2 },
+        new object[] { 3, 1 },
         new object[] { 4, 2 },
-        new object[] { 0, 2 },
+        new object[] { 5, 2 },
+        new object[] { 8, 2 },
         new object[] { int.MaxValue, 2 },
-        new object[] { int.MaxValue - 1, 1 },
+        new object[] { int.MaxValue - 1, 2 },
         new object[] { int.MinValue, 2 }
     };
 
@@ -78,7 +78,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2, _server1);
         await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 3), ClientOp.TupleUpsert, _server1, _server2);
         await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 4), ClientOp.TupleUpsert, _server2, _server1);
-        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 5), ClientOp.TupleUpsert, _server1, _server2);
+        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 7), ClientOp.TupleUpsert, _server1, _server2);
     }
 
     [Test]
