@@ -1241,48 +1241,18 @@ T application_data_buffer::get_num() const
 
 ignite_date application_data_buffer::get_date() const
 {
-    tm tm_time{};
-
-    std::memset(&tm_time, 0, sizeof(tm_time));
-
     switch (m_type)
     {
         case odbc_native_type::AI_TDATE:
         {
             const auto* buffer = reinterpret_cast<const SQL_DATE_STRUCT*>(get_data());
-
-            tm_time.tm_year = buffer->year - 1900;
-            tm_time.tm_mon = buffer->month - 1;
-            tm_time.tm_mday = buffer->day;
-
-            break;
-        }
-
-        case odbc_native_type::AI_TTIME:
-        {
-            const auto* buffer = reinterpret_cast<const SQL_TIME_STRUCT*>(get_data());
-
-            tm_time.tm_year = 70;
-            tm_time.tm_mday = 1;
-            tm_time.tm_hour = buffer->hour;
-            tm_time.tm_min = buffer->minute;
-            tm_time.tm_sec = buffer->second;
-
-            break;
+            return {buffer->year, buffer->month, buffer->day};
         }
 
         case odbc_native_type::AI_TTIMESTAMP:
         {
             const auto* buffer = reinterpret_cast<const SQL_TIMESTAMP_STRUCT*>(get_data());
-
-            tm_time.tm_year = buffer->year - 1900;
-            tm_time.tm_mon = buffer->month - 1;
-            tm_time.tm_mday = buffer->day;
-            tm_time.tm_hour = buffer->hour;
-            tm_time.tm_min = buffer->minute;
-            tm_time.tm_sec = buffer->second;
-
-            break;
+            return {buffer->year, buffer->month, buffer->day};
         }
 
         case odbc_native_type::AI_CHAR:
@@ -1295,22 +1265,19 @@ ignite_date application_data_buffer::get_date() const
             std::string str = sql_string_to_string(
                 reinterpret_cast<const unsigned char*>(get_data()), static_cast<std::int32_t>(param_len));
 
-            sscanf(str.c_str(), "%d-%d-%d %d:%d:%d", &tm_time.tm_year, &tm_time.tm_mon, // NOLINT(cert-err34-c)
-                &tm_time.tm_mday, &tm_time.tm_hour, &tm_time.tm_min, &tm_time.tm_sec);
+            std::int32_t year;
+            std::int32_t month;
+            std::int32_t day_of_month;
 
-            tm_time.tm_year = tm_time.tm_year - 1900;
-            tm_time.tm_mon = tm_time.tm_mon - 1;
+            sscanf(str.c_str(), "%d-%d-%d", &year, &month, &day_of_month); // NOLINT(cert-err34-c)
 
-            break;
+            return {year, month, day_of_month};
         }
 
         default:
             break;
     }
 
-    // TODO: IGNITE-19205 Implement date-time type conversion.
-    //return CTmToDate(tm_time);
-    UNUSED_VALUE(tm_time);
     return {};
 }
 
@@ -1373,8 +1340,8 @@ ignite_timestamp application_data_buffer::get_timestamp() const
             std::string str = sql_string_to_string(
                 reinterpret_cast<const unsigned char*>(get_data()), static_cast<std::int32_t>(param_len));
 
-            sscanf(str.c_str(), "%d-%d-%d %d:%d:%d", &tm_time.tm_year, &tm_time.tm_mon, // NOLINT(cert-err34-c)
-                &tm_time.tm_mday, &tm_time.tm_hour, &tm_time.tm_min, &tm_time.tm_sec);
+            sscanf(str.c_str(), "%d-%d-%d %d:%d:%d.%d", &tm_time.tm_year, &tm_time.tm_mon, // NOLINT(cert-err34-c)
+                &tm_time.tm_mday, &tm_time.tm_hour, &tm_time.tm_min, &tm_time.tm_sec, &nanos);
 
             tm_time.tm_year = tm_time.tm_year - 1900;
             tm_time.tm_mon = tm_time.tm_mon - 1;
@@ -1386,44 +1353,33 @@ ignite_timestamp application_data_buffer::get_timestamp() const
             break;
     }
 
-    // TODO: IGNITE-19205 Implement date-time type conversion.
-    UNUSED_VALUE(nanos);
-    //return CTmToTimestamp(tm_time, nanos);
-    return {};
+    if (nanos < 0)
+        nanos = 0;
+
+    if (nanos > 999'999'999)
+        nanos = 999'999'999;
+
+    auto ctime = mktime(&tm_time);
+    return {ctime, nanos};
 }
 
 ignite_time application_data_buffer::get_time() const
 {
-    tm tm_time{};
-
-    std::memset(&tm_time, 0, sizeof(tm_time));
-
-    tm_time.tm_year = 70;
-    tm_time.tm_mon = 0;
-    tm_time.tm_mday = 1;
-
     switch (m_type)
     {
         case odbc_native_type::AI_TTIME:
         {
             const auto* buffer = reinterpret_cast<const SQL_TIME_STRUCT*>(get_data());
 
-            tm_time.tm_hour = buffer->hour;
-            tm_time.tm_min = buffer->minute;
-            tm_time.tm_sec = buffer->second;
-
-            break;
+            return {std::int_fast8_t(buffer->hour), std::int_fast8_t(buffer->minute), std::int_fast8_t(buffer->second)};
         }
 
         case odbc_native_type::AI_TTIMESTAMP:
         {
             const auto* buffer = reinterpret_cast<const SQL_TIMESTAMP_STRUCT*>(get_data());
 
-            tm_time.tm_hour = buffer->hour;
-            tm_time.tm_min = buffer->minute;
-            tm_time.tm_sec = buffer->second;
-
-            break;
+            return {std::int_fast8_t(buffer->hour), std::int_fast8_t(buffer->minute),
+                std::int_fast8_t(buffer->second), std::int32_t(buffer->fraction)};
         }
 
         case odbc_native_type::AI_CHAR:
@@ -1436,17 +1392,20 @@ ignite_time application_data_buffer::get_time() const
             std::string str = sql_string_to_string(
                 reinterpret_cast<const unsigned char*>(get_data()), static_cast<std::int32_t>(param_len));
 
-            sscanf(str.c_str(), "%d:%d:%d", &tm_time.tm_hour, &tm_time.tm_min, &tm_time.tm_sec); // NOLINT(cert-err34-c)
+            std::int32_t hour{};
+            std::int32_t min{};
+            std::int32_t sec{};
+            std::int32_t nano{};
 
-            break;
+            sscanf(str.c_str(), "%d:%d:%d.%d", &hour, &min, &sec, &nano); // NOLINT(cert-err34-c)
+
+            return {std::int8_t(hour), std::int8_t(min), std::int8_t(sec), nano};
         }
 
         default:
             break;
     }
 
-    // TODO: IGNITE-19205 Implement date-time type conversion.
-    //return CTmToTime(tm_time);
     return {};
 }
 
