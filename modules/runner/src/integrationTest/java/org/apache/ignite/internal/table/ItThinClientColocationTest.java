@@ -93,6 +93,7 @@ public class ItThinClientColocationTest {
 
     private static Stream<Arguments> nativeTypes() {
         var types = new NativeType[]{
+                NativeTypes.BOOLEAN,
                 NativeTypes.INT8,
                 NativeTypes.INT16,
                 NativeTypes.INT32,
