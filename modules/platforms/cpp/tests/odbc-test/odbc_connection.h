@@ -85,7 +85,7 @@ public:
      * @return Result.
      */
     SQLRETURN exec_query(const std::string& qry) { // NOLINT(readability-make-member-function-const)
-        auto sql = make_odbc_string(qry);
+        auto sql = to_sqlchar(qry);
         return SQLExecDirect(m_statement, sql.data(), static_cast<SQLINTEGER>(sql.size()));
     }
 
