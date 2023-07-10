@@ -136,9 +136,7 @@ public class RecoveryDescriptor {
      * @param ctx Channel handler context.
      */
     public void release(ChannelHandlerContext ctx) {
-        boolean result = ctxHolder.compareAndSet(ctx.channel(), null);
-
-        assert result : "Failed to release descriptor: " + ctx;
+        ctxHolder.compareAndSet(ctx.channel(), null);
     }
 
     /**
@@ -148,6 +146,10 @@ public class RecoveryDescriptor {
      */
     public boolean acquire(ChannelHandlerContext ctx) {
         return ctxHolder.compareAndSet(null, ctx.channel());
+    }
+
+    Channel holderChannel() {
+        return ctxHolder.get();
     }
 
     public String holder() {

@@ -32,6 +32,7 @@ import static org.mockito.Mockito.when;
 import io.netty.handler.codec.DecoderException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -59,6 +60,7 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -293,6 +295,95 @@ public class ItConnectionManagerTest {
 
         server.close();
         server.close();
+    }
+
+    /**
+     * Tests that if two nodes are opening channels to each other, only one channel survives.
+     *
+     * @throws Exception If failed.
+     */
+    @RepeatedTest(1000)
+    public void testOneChannelLeftIfConnectToEachOther() throws Exception {
+        try (
+                ConnectionManagerWrapper manager1 = startManager(4000);
+                ConnectionManagerWrapper manager2 = startManager(4001)
+        ) {
+            CompletableFuture<NettySender> fut1 = manager1.openChannelTo(manager2).toCompletableFuture();
+            CompletableFuture<NettySender> fut2 = manager2.openChannelTo(manager1).toCompletableFuture();
+
+            NettySender sender1 = null;
+            NettySender sender2 = null;
+
+            try {
+                sender1 = fut1.join();
+            } catch (Exception ignored) {
+                // No-op.
+            }
+            try {
+                sender2 = fut2.join();
+            } catch (Exception ignored) {
+                // No-op.
+            }
+
+            NettySender highlander = null;
+
+            assertTrue(sender1 != null || sender2 != null);
+
+            if (sender1 != null) {
+                if (sender1.isOpen()) {
+                    highlander = sender1;
+
+                    boolean sender2NullOrClosed = sender2 == null || !sender2.isOpen();
+
+                    assertTrue(sender2NullOrClosed);
+                }
+            }
+
+            if (sender2 != null) {
+                if (sender2.isOpen()) {
+                    highlander = sender2;
+
+                    boolean sender1NullOrClosed = sender1 == null || !sender1.isOpen();
+
+                    assertTrue(sender1NullOrClosed);
+                }
+            }
+
+            assertNotNull(highlander);
+            assertTrue(highlander.isOpen());
+
+            CompletableFuture<NettySender> channelFut1 = manager1.connectionManager.channel(
+                    manager2.connectionManager.consistentId(),
+                    ChannelType.DEFAULT,
+                    manager2.connectionManager.localAddress()
+            ).toCompletableFuture();
+
+            CompletableFuture<NettySender> channelFut2 = manager2.connectionManager.channel(
+                    manager1.connectionManager.consistentId(),
+                    ChannelType.DEFAULT,
+                    manager1.connectionManager.localAddress()
+            ).toCompletableFuture();
+
+            assertTrue(channelFut1.isDone());
+            assertFalse(channelFut1.isCancelled());
+            assertFalse(channelFut1.isCompletedExceptionally());
+
+            assertTrue(channelFut2.isDone());
+            assertFalse(channelFut2.isCancelled());
+            assertFalse(channelFut2.isCompletedExceptionally());
+
+            NettySender channel1 = channelFut1.getNow(null);
+            NettySender channel2 = channelFut2.getNow(null);
+
+            SocketAddress locAddr1 = channel1.channel().localAddress();
+            SocketAddress remoteAddr1 = channel1.channel().remoteAddress();
+
+            SocketAddress locAddr2 = channel2.channel().localAddress();
+            SocketAddress remoteAddr2 = channel2.channel().remoteAddress();
+
+            assertEquals(locAddr1, remoteAddr2);
+            assertEquals(locAddr2, remoteAddr1);
+        }
     }
 
     /**

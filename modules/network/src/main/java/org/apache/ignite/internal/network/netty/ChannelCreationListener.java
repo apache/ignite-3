@@ -17,19 +17,8 @@
 
 package org.apache.ignite.internal.network.netty;
 
-import java.util.concurrent.CompletableFuture;
-
 /** Channel creation listener. */
 public interface ChannelCreationListener {
-    /**
-     * Notifies of creation of a new channel before the handshake.
-     *
-     * @param consistentId Remote node's consistent id.
-     * @param channelId Channel id.
-     * @return A future which is completed when listener's action is done.
-     */
-    CompletableFuture<Void> notifyInboundChannelCreation(String consistentId, short channelId);
-
     /**
      * Notifies of the handshake's finish.
      *

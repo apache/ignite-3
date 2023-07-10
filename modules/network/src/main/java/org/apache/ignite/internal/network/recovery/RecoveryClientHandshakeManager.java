@@ -22,7 +22,6 @@ import static java.util.Collections.emptyList;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -73,9 +72,6 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     /** Handshake completion future. */
     private final CompletableFuture<NettySender> handshakeCompleteFuture = new CompletableFuture<>();
 
-    /** Channel creation listener. */
-    private final ChannelCreationListener channelCreationListener;
-
     /** Remote node's launch id. */
     private UUID remoteLaunchId;
 
@@ -116,7 +112,6 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         this.connectionId = connectionId;
         this.recoveryDescriptorProvider = recoveryDescriptorProvider;
         this.staleIdDetector = staleIdDetector;
-        this.channelCreationListener = channelCreationListener;
 
         this.handshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -162,29 +157,35 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             this.remoteLaunchId = msg.launchId();
             this.remoteConsistentId = msg.consistentId();
 
-            channelCreationListener.notifyInboundChannelCreation(this.remoteConsistentId, this.connectionId)
-                    .whenCompleteAsync((unused, throwable) -> {
-                        RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
-                                remoteConsistentId,
-                                remoteLaunchId,
-                                connectionId,
-                                false
-                        );
+            RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
+                    remoteConsistentId,
+                    remoteLaunchId,
+                    connectionId
+            );
 
-                        if (!descriptor.acquire(ctx)) {
-                            String err = "Failed to acquire recovery descriptor during handshake, it is held by: " + descriptor.holder();
+            while (!descriptor.acquire(ctx)) {
+                if (launchId.compareTo(remoteLaunchId) > 0) {
+                    Channel holderChannel = descriptor.holderChannel();
 
-                            LOG.warn(err);
+                    if (holderChannel == null) {
+                        continue;
+                    }
 
-                            handshakeCompleteFuture.completeExceptionally(new HandshakeException(err));
+                    holderChannel.close().awaitUninterruptibly();
+                } else {
+                    String err = "Failed to acquire recovery descriptor during handshake, it is held by: " + descriptor.holder();
 
-                            return;
-                        }
+                    LOG.warn(err);
 
-                        this.recoveryDescriptor = descriptor;
+                    handshakeCompleteFuture.completeExceptionally(new HandshakeException(err));
 
-                        handshake(this.recoveryDescriptor);
-                    }, ctx.executor());
+                    return;
+                }
+            }
+
+            this.recoveryDescriptor = descriptor;
+
+            handshake(this.recoveryDescriptor);
 
             return;
         }
@@ -273,7 +274,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
                 .connectionId(connectionId)
                 .build();
 
-        ChannelFuture sendFuture = ctx.channel().writeAndFlush(new OutNetworkObject(response, Collections.emptyList(), false));
+        ChannelFuture sendFuture = ctx.channel().writeAndFlush(new OutNetworkObject(response, emptyList(), false));
 
         NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, throwable) -> {
             if (throwable != null) {

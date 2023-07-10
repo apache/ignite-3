@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.network.netty;
 
-import static org.apache.ignite.internal.network.netty.NettyUtils.toCompletableFuture;
 import static org.apache.ignite.network.ChannelType.getChannel;
 
 import io.netty.bootstrap.Bootstrap;
@@ -269,18 +268,6 @@ public class ConnectionManager implements ChannelCreationListener {
         NettySender oldChannel = channels.put(key, channel);
 
         assert oldChannel == null : "Incorrect channel creation flow";
-    }
-
-    @Override
-    public CompletableFuture<Void> notifyInboundChannelCreation(String consistentId, short channelId) {
-        ConnectorKey<String> key = new ConnectorKey<>(consistentId, getChannel(channelId));
-        NettySender oldChannel = channels.remove(key);
-
-        if (oldChannel != null) {
-            return toCompletableFuture(oldChannel.close());
-        }
-
-        return CompletableFuture.completedFuture(null);
     }
 
     /**
