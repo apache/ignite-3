@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT8;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.HashSet;
 import java.util.Random;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.Loggers;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -122,6 +124,32 @@ public class ColocationHashCalculationTest {
 
             assertEquals(colocationHash(r), r.colocationHash());
         }
+    }
+
+    @Test
+    void collisions() {
+        var set = new HashSet<Integer>();
+        int collisions = 0;
+
+        for (var key1 = 0; key1 < 100; key1++) {
+            for (var key2 = 0; key2 < 100; key2++) {
+                for (var key3 = 0; key3 < 100; key3++) {
+                    HashCalculator hashCalc = new HashCalculator();
+                    hashCalc.appendInt(key1);
+                    hashCalc.appendInt(key2);
+                    hashCalc.appendInt(key3);
+
+                    int hash = hashCalc.hash();
+                    if (set.contains(hash)) {
+                        collisions++;
+                    } else {
+                        set.add(hash);
+                    }
+                }
+            }
+        }
+
+        assertEquals(125, collisions);
     }
 
     private static Row generateRandomRow(Random rnd, @NotNull SchemaDescriptor schema) throws TupleMarshallerException {
