@@ -115,7 +115,7 @@ internal static class HashUtils
     /// <param name="data">Input data.</param>
     /// <param name="precision">Precision.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(LocalDateTime data, int precision) => Combine(Hash32(data.TimeOfDay, precision), Hash32(data.Date));
+    public static int Hash32(LocalDateTime data, int precision) => Combine(Hash32(data.Date), Hash32(data.TimeOfDay, precision));
 
     /// <summary>
     /// Combines two hashes.
