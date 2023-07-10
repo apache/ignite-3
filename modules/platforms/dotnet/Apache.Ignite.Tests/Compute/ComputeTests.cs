@@ -233,16 +233,16 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        [TestCase(1, 4)]
-        [TestCase(2, 4)]
-        [TestCase(4, 2)]
-        [TestCase(5, 2)]
-        [TestCase(6, 1)]
-        [TestCase(7, 4)]
+        [TestCase(1, 2)]
+        [TestCase(2, 1)]
+        [TestCase(4, 3)]
+        [TestCase(5, 4)]
+        [TestCase(6, 3)]
+        [TestCase(7, 1)]
         [TestCase(8, 2)]
-        [TestCase(9, 3)]
-        [TestCase(10, 1)]
-        [TestCase(11, 2)]
+        [TestCase(9, 1)]
+        [TestCase(10, 2)]
+        [TestCase(11, 4)]
         public async Task TestExecuteColocated(long key, int nodeIdx)
         {
             var proxies = GetProxies();
