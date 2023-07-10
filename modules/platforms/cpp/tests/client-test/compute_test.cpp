@@ -248,7 +248,7 @@ TEST_F(compute_test, execute_colocated) {
         auto resNodeName = m_client.get_compute().execute_colocated(TABLE_1, key, NODE_NAME_JOB, {});
         auto expectedNodeName = PLATFORM_TEST_NODE_RUNNER + var.second;
 
-        EXPECT_EQ(expectedNodeName, resNodeName);
+        EXPECT_EQ(expectedNodeName, resNodeName.value().get<std::string>());
     }
 }
 

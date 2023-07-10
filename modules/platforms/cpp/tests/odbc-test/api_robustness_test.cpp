@@ -32,7 +32,18 @@ using namespace ignite;
 /**
  * Test suite.
  */
-class api_robustness_test : public odbc_suite {};
+class api_robustness_test : public odbc_suite {
+public:
+    static void SetUpTestSuite() {
+        odbc_connection conn;
+        conn.odbc_connect(get_basic_connection_string());
+
+        auto table_avail = conn.wait_for_table(TABLE_NAME_ALL_COLUMNS_SQL, std::chrono::seconds(10));
+        if (!table_avail) {
+            FAIL() << "Table '" + TABLE_NAME_ALL_COLUMNS_SQL + "' is not available";
+        }
+    }
+};
 
 std::vector<SQLSMALLINT> unsupported_c_types = {
     SQL_C_INTERVAL_YEAR,
@@ -197,7 +208,7 @@ TEST_F(api_robustness_test, sql_exec_direct)
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL ";
+    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
 
     // Everything is ok.
     SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql) - 1);

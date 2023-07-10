@@ -175,6 +175,11 @@ public:
         odbc_connection conn;
         conn.odbc_connect(get_basic_connection_string());
 
+        auto table_avail = conn.wait_for_table(TABLE_NAME_ALL_COLUMNS_SQL, std::chrono::seconds(10));
+        if (!table_avail) {
+            FAIL() << "Table '" + TABLE_NAME_ALL_COLUMNS_SQL + "' is not available";
+        }
+
         SQLRETURN ret = conn.exec_query("CREATE TABLE META_QUERIES_TEST(ID INT PRIMARY KEY, STR VARCHAR(60))");
         if (!SQL_SUCCEEDED(ret)) {
             FAIL() << conn.get_statement_error_message();
@@ -190,7 +195,7 @@ public:
 
     void SetUp() override {
         odbc_connect(get_basic_connection_string());
-        exec_query("DELETE FROM " + std::string(TABLE_NAME_ALL_COLUMNS_SQL));
+        exec_query("DELETE FROM " + TABLE_NAME_ALL_COLUMNS_SQL);
         odbc_clean_up();
     }
 
@@ -263,7 +268,7 @@ public:
     void insert_test_string()
     {
         auto insert_req =
-            "INSERT INTO " + std::string(TABLE_NAME_ALL_COLUMNS_SQL) + "(key, str) VALUES(42, 'Lorem ipsum')";
+            "INSERT INTO " + TABLE_NAME_ALL_COLUMNS_SQL + "(key, str) VALUES(42, 'Lorem ipsum')";
 
         SQLRETURN ret = exec_query(insert_req);
 

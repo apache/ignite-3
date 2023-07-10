@@ -36,16 +36,14 @@
 
 namespace ignite {
 
-using namespace std::string_view_literals;
-
 /**
  * Test suite.
  */
 class odbc_suite : public ::testing::Test, public odbc_connection {
 public:
-    static constexpr std::string_view TABLE_1 = "tbl1"sv;
-    static constexpr std::string_view TABLE_NAME_ALL_COLUMNS = "tbl_all_columns"sv;
-    static constexpr std::string_view TABLE_NAME_ALL_COLUMNS_SQL = "tbl_all_columns_sql"sv;
+    static inline const std::string TABLE_1 = "tbl1";
+    static inline const std::string TABLE_NAME_ALL_COLUMNS = "tbl_all_columns";
+    static inline const std::string TABLE_NAME_ALL_COLUMNS_SQL = "tbl_all_columns_sql";
 
     static constexpr const char *KEY_COLUMN = "key";
     static constexpr const char *VAL_COLUMN = "val";

@@ -29,6 +29,7 @@
 #include <memory>
 #include <string_view>
 #include <utility>
+#include <chrono>
 
 #include <sql.h>
 #include <sqlext.h>
@@ -113,6 +114,25 @@ public:
      */
     [[nodiscard]] std::string get_connection_error_state() const {
         return get_odbc_error_state(SQL_HANDLE_DBC, m_conn);
+    }
+
+    /**
+     * Wait for table to become available.
+     *
+     * @param table Table name to wait.
+     * @param timeout Timeout.
+     * @return @c true if table is available, @c false on timeout.
+     */
+    bool wait_for_table(const std::string &table, std::chrono::seconds timeout) {
+        auto start_time = std::chrono::steady_clock::now();
+        do {
+            auto res = exec_query("select * from " + table);
+            if (SQL_SUCCEEDED(res))
+                return true;
+
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        } while ((std::chrono::steady_clock::now() - start_time) < timeout);
+        return false;
     }
 
     /** Environment handle. */
