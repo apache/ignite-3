@@ -284,6 +284,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                         new Column("id".toUpperCase(), NativeTypes.STRING, false)
                 },
                 new Column[]{
+                        new Column("zboolean".toUpperCase(), NativeTypes.BOOLEAN, true),
                         new Column("zbyte".toUpperCase(), NativeTypes.INT8, true),
                         new Column("zshort".toUpperCase(), NativeTypes.INT16, true),
                         new Column("zint".toUpperCase(), NativeTypes.INT32, true),

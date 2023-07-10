@@ -31,7 +31,6 @@ import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
 
@@ -132,7 +131,7 @@ public class ClientBinaryTupleUtils {
             builder.appendNull(); // Value.
         } else if (obj instanceof Boolean) {
             appendTypeAndScale(builder, ColumnType.BOOLEAN);
-            builder.appendByte(ByteUtils.booleanToByte((Boolean) obj));
+            builder.appendBoolean((Boolean) obj);
         } else if (obj instanceof Byte) {
             appendTypeAndScale(builder, ColumnType.INT8);
             builder.appendByte((Byte) obj);
