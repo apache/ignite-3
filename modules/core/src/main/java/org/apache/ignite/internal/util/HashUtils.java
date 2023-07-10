@@ -100,6 +100,18 @@ public class HashUtils {
     }
 
     /**
+     * Generates 32-bit hash from the long value.
+     *
+     * @param data The input long value.
+     * @return The 32-bit hash.
+     */
+    public static int hash32(long data) {
+        long hash = hash64(data, 0);
+
+        return (int) (hash ^ (hash >>> 32));
+    }
+
+    /**
      * Combines two hash values.
      *
      * @param hash1 The first hash.
@@ -135,18 +147,6 @@ public class HashUtils {
      */
     public static int combine(int hash1, int hash2, int hash3, int hash4) {
         return combine(hash1, combine(hash2, hash3, hash4));
-    }
-
-    /**
-     * Generates 32-bit hash from the long value.
-     *
-     * @param data The input long value.
-     * @return The 32-bit hash.
-     */
-    public static int hash32(long data) {
-        long hash = hash64(data, 0);
-
-        return (int) (hash ^ (hash >>> 32));
     }
 
     /**

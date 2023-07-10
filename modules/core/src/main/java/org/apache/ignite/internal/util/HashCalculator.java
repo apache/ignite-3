@@ -103,6 +103,11 @@ public class HashCalculator {
         hash = combine(hash, hashByte(v));
     }
 
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
     public static int hashByte(byte v) {
         return HashUtils.hash32(v);
     }
@@ -116,6 +121,11 @@ public class HashCalculator {
         hash = combine(hash, hashShort(v));
     }
 
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
     public static int hashShort(short v) {
         return HashUtils.hash32(v);
     }
@@ -129,6 +139,11 @@ public class HashCalculator {
         hash = combine(hash, hashInt(v));
     }
 
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
     public static int hashInt(int v) {
         return HashUtils.hash32(v);
     }
@@ -142,6 +157,11 @@ public class HashCalculator {
         hash = combine(hash, hashLong(v));
     }
 
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
     public static int hashLong(long v) {
         return HashUtils.hash32(v);
     }
@@ -155,6 +175,11 @@ public class HashCalculator {
         hash = combine(hash, hashFloat(v));
     }
 
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
     public static int hashFloat(float v) {
         return HashUtils.hash32(Float.floatToRawIntBits(v));
     }
@@ -168,6 +193,11 @@ public class HashCalculator {
         hash = combine(hash, hashDouble(v));
     }
 
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
     public static int hashDouble(double v) {
         return HashUtils.hash32(Double.doubleToRawLongBits(v));
     }
@@ -181,6 +211,11 @@ public class HashCalculator {
         hash = combine(hash, hashDecimal(v, columnScale));
     }
 
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
     public static int hashDecimal(BigDecimal v, int columnScale) {
         return hashBytes(v.setScale(columnScale, RoundingMode.HALF_UP).unscaledValue().toByteArray());
     }
@@ -194,6 +229,11 @@ public class HashCalculator {
         hash = combine(hash, hashNumber(v));
     }
 
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
     public static int hashNumber(BigInteger v) {
         return hashBytes(v.toByteArray());
     }
@@ -207,6 +247,11 @@ public class HashCalculator {
         hash = combine(hash, hashUuid(v));
     }
 
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
     public static int hashUuid(UUID v) {
         int hash1 = hashLong(v.getMostSignificantBits());
         int hash2 = hashLong(v.getLeastSignificantBits());
@@ -223,6 +268,11 @@ public class HashCalculator {
         hash = combine(hash, hashString(v));
     }
 
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
     public static int hashString(String v) {
         return hashBytes(v.getBytes(StandardCharsets.UTF_8));
     }
@@ -236,6 +286,11 @@ public class HashCalculator {
         hash = combine(hash, hashBytes(v));
     }
 
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
     public static int hashBytes(byte[] v) {
         return HashUtils.hash32(v);
     }
@@ -249,6 +304,11 @@ public class HashCalculator {
         hash = combine(hash, hashBitmask(v));
     }
 
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
     public static int hashBitmask(BitSet v) {
         return hashBytes(v.toByteArray());
     }
@@ -262,6 +322,11 @@ public class HashCalculator {
         hash = combine(hash, hashDate(v));
     }
 
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
     public static int hashDate(LocalDate v) {
         int yearHash = hashInt(v.getYear());
         int monthHash = hashInt(v.getMonthValue());
@@ -280,6 +345,11 @@ public class HashCalculator {
         hash = combine(hash, hashTime(v, precision));
     }
 
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
     public static int hashTime(LocalTime v, int precision) {
         int hourHash = hashInt(v.getHour());
         int minuteHash = hashInt(v.getMinute());
@@ -299,6 +369,11 @@ public class HashCalculator {
         hash = combine(hash, hashDateTime(v, precision));
     }
 
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
     public static int hashDateTime(LocalDateTime v, int precision) {
         return combine(hashDate(v.toLocalDate()), hashTime(v.toLocalTime(), precision));
     }
@@ -313,6 +388,11 @@ public class HashCalculator {
         hash = combine(hash, hashTimestamp(v, precision));
     }
 
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
     public static int hashTimestamp(Instant v, int precision) {
         int hash1 = hashLong(v.getEpochSecond());
         int hash2 = hashInt(TemporalTypeUtils.normalizeNanos(v.getNano(), precision));
@@ -320,6 +400,11 @@ public class HashCalculator {
         return combine(hash1, hash2);
     }
 
+    /**
+     * Get сombined hash code.
+     *
+     * @param hashes Individual hash codes.
+     */
     public static int combinedHash(int[] hashes) {
         int hash = 0;
 
