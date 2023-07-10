@@ -597,7 +597,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (ShouldHash())
             {
-                _hash = HashUtils.Combine(HashUtils.Hash32(value, precision), _hash);
+                _hash = HashUtils.Combine(_hash, HashUtils.Hash32(value, precision));
             }
 
             PutTime(value, precision);
@@ -630,7 +630,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (ShouldHash())
             {
-                _hash = HashUtils.Combine(HashUtils.Hash32(value, precision), _hash);
+                _hash = HashUtils.Combine(_hash, HashUtils.Hash32(value, precision));
             }
 
             PutDate(value.Date);
@@ -666,7 +666,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             if (ShouldHash())
             {
-                var hash = HashUtils.Combine(HashUtils.Hash32(seconds), HashUtils.Hash32((long)nanos));
+                var hash = HashUtils.Combine(HashUtils.Hash32(seconds), HashUtils.Hash32(nanos));
                 _hash = HashUtils.Combine(_hash, hash);
             }
 

@@ -104,7 +104,7 @@ internal static class HashUtils
     /// <returns>Resulting hash.</returns>
     public static int Hash32(LocalTime data, int precision)
     {
-        var nanos = (long)TemporalTypes.NormalizeNanos(data.NanosecondOfSecond, precision);
+        var nanos = TemporalTypes.NormalizeNanos(data.NanosecondOfSecond, precision);
 
         return Combine(Hash32(data.Hour), Hash32(data.Minute), Hash32(data.Second), Hash32(nanos));
     }
