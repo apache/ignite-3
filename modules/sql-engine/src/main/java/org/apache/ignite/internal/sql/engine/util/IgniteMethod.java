@@ -24,6 +24,7 @@ import java.util.UUID;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.linq4j.tree.Types;
+import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.parser.SqlParserUtil;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -31,8 +32,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.BiScalar;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.exec.exp.SingleScalar;
-import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata.FragmentMappingMetadata;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 
 /**
  * Contains methods used in metadata definitions.
@@ -72,9 +71,6 @@ public enum IgniteMethod {
 
     STRING_TO_TIMESTAMP(IgniteSqlFunctions.class, "timestampStringToNumeric", String.class),
 
-    /** See {@link FragmentMappingMetadata#fragmentMapping(MappingQueryContext)}. */
-    FRAGMENT_MAPPING(FragmentMappingMetadata.class, "fragmentMapping", MappingQueryContext.class),
-
     /** See {@link SqlParserUtil#intervalToMonths(String, SqlIntervalQualifier)}. */
     PARSE_INTERVAL_YEAR_MONTH(SqlParserUtil.class, "intervalToMonths", String.class, SqlIntervalQualifier.class),
 
@@ -102,12 +98,16 @@ public enum IgniteMethod {
     /** See {@link UUID#randomUUID()}. */
     RAND_UUID(UUID.class, "randomUUID"),
 
+    LENGTH(IgniteSqlFunctions.class, "length", Object.class),
+
     /** See {@link IgniteSqlFunctions#genRandomUuid()}. */
     // TODO This function should removed when https://issues.apache.org/jira/browse/IGNITE-19103 is complete.
     GEN_RANDOM_UUID(IgniteSqlFunctions.class, "genRandomUuid"),
 
     /** See {@link IgniteSqlFunctions#consumeFirstArgument(Object, Object)}. **/
-    CONSUME_FIRST_ARGUMENT(IgniteSqlFunctions.class, "consumeFirstArgument", Object.class, Object.class);
+    CONSUME_FIRST_ARGUMENT(IgniteSqlFunctions.class, "consumeFirstArgument", Object.class, Object.class),
+
+    SUBSTR(SqlFunctions.class, "substring", String.class, int.class, int.class);
 
     private final Method method;
 

@@ -23,7 +23,6 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -31,6 +30,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
@@ -114,11 +114,6 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
-        return partitionStorage.pollForVacuum(lowWatermark);
-    }
-
-    @Override
     public MvPartitionStorage getStorage() {
         return partitionStorage;
     }
@@ -130,5 +125,15 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
         return partitionStorage.scan(timestamp);
+    }
+
+    @Override
+    public @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
+        return partitionStorage.peek(lowWatermark);
+    }
+
+    @Override
+    public @Nullable BinaryRow vacuum(GcEntry entry) {
+        return partitionStorage.vacuum(entry);
     }
 }

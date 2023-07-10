@@ -25,6 +25,7 @@ using System.Linq;
 using System.Numerics;
 using System.Reflection;
 using System.Threading.Tasks;
+using Ignite.Compute;
 using Ignite.Sql;
 using Ignite.Table;
 using Internal.Buffers;
@@ -78,6 +79,7 @@ public class ColocationHashTests : IgniteTestsBase
         decimal.MaxValue,
         string.Empty,
         "abc αβγ 🔥",
+        ((char)BinaryTupleCommon.VarlenEmptyByte).ToString(),
         Guid.Empty,
         Guid.NewGuid(),
         BigInteger.One,
@@ -214,7 +216,7 @@ public class ColocationHashTests : IgniteTestsBase
     {
         var columns = arr.Select((obj, ci) => GetColumn(obj, ci, timePrecision, timestampPrecision)).ToArray();
 
-        return new Schema(Version: 0, arr.Count, columns);
+        return new Schema(Version: 0, 0, arr.Count, columns);
     }
 
     private static Column GetColumn(object value, int schemaIndex, int timePrecision, int timestampPrecision)
@@ -279,7 +281,14 @@ public class ColocationHashTests : IgniteTestsBase
     {
         var nodes = await Client.GetClusterNodesAsync();
 
-        return await Client.Compute.ExecuteAsync<int>(nodes, ColocationHashJob, count, bytes, timePrecision, timestampPrecision);
+        return await Client.Compute.ExecuteAsync<int>(
+            nodes,
+            Array.Empty<DeploymentUnit>(),
+            ColocationHashJob,
+            count,
+            bytes,
+            timePrecision,
+            timestampPrecision);
     }
 
     private record TestIndexProvider(Func<int, bool> Delegate) : IHashedColumnIndexProvider

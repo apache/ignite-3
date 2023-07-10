@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.ThreadLocalRandom.current;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerResponse;
@@ -61,6 +62,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
@@ -678,7 +680,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private Peer randomNode(@Nullable Peer excludedPeer) {
         List<Peer> peers0 = peers;
 
-        assert peers0 != null && !peers0.isEmpty();
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19466
+        // assert peers0 != null && !peers0.isEmpty();
+        if (peers0 == null || peers0.isEmpty()) {
+            throw new IgniteInternalException(INTERNAL_ERR, "Peers are not ready [groupId=" + groupId + ']');
+        }
 
         if (peers0.size() == 1) {
             return peers0.get(0);
@@ -694,7 +700,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             newIdx = random.nextInt(peers0.size());
 
             if (newIdx != lastPeerIndex) {
-                break;
+                Peer peer = peers0.get(newIdx);
+
+                if (cluster.topologyService().getByConsistentId(peer.consistentId()) != null) {
+                    break;
+                }
             }
         }
 

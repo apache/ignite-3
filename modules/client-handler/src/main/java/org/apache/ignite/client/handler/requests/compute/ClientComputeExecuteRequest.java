@@ -17,8 +17,11 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -53,11 +56,12 @@ public class ClientComputeExecuteRequest {
             throw new IgniteException("Specified node is not present in the cluster: " + nodeName);
         }
 
+        List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
         String jobClassName = in.unpackString();
 
         Object[] args = unpackArgs(in);
 
-        return compute.execute(Set.of(node), jobClassName, args).thenAccept(out::packObjectAsBinaryTuple);
+        return compute.execute(Set.of(node), deploymentUnits, jobClassName, args).thenAccept(out::packObjectAsBinaryTuple);
     }
 
     /**
@@ -68,5 +72,22 @@ public class ClientComputeExecuteRequest {
      */
     static Object[] unpackArgs(ClientMessageUnpacker in) {
         return in.unpackObjectArrayFromBinaryTuple();
+    }
+
+    /**
+     * Unpacks deployment units.
+     *
+     * @param in Unpacker.
+     * @return Deployment units.
+     */
+    static List<DeploymentUnit> unpackDeploymentUnits(ClientMessageUnpacker in) {
+        int size = in.tryUnpackNil() ? 0 : in.unpackArrayHeader();
+        List<DeploymentUnit> res = new ArrayList<>(size);
+
+        for (int i = 0; i < size; i++) {
+            res.add(new DeploymentUnit(in.unpackString(), in.unpackString()));
+        }
+
+        return res;
     }
 }

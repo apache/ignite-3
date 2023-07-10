@@ -19,11 +19,8 @@ package org.apache.ignite.internal.storage.index;
 
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
-import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -33,15 +30,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class TestHashIndexStorageTest extends AbstractHashIndexStorageTest {
     @BeforeEach
-    void setUp(
-            @InjectConfiguration("mock.tables.foo {}")
-            TablesConfiguration tablesConfig,
-            @InjectConfiguration("mock { partitions = 10, dataStorage.name = " + TestStorageEngine.ENGINE_NAME + " }")
-            DistributionZoneConfiguration distributionZoneConfiguration
-    ) {
-        TableConfiguration tableConfig = tablesConfig.tables().get("foo");
-
-        var storage = new TestMvTableStorage(tableConfig, tablesConfig, distributionZoneConfiguration);
+    void setUp(@InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig) {
+        var storage = new TestMvTableStorage(1, 10);
 
         initialize(storage, tablesConfig);
     }

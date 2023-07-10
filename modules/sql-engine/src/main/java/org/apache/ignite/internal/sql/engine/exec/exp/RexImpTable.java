@@ -353,7 +353,6 @@ import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SLICE;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SOME;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.STRUCT_ACCESS;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SUBMULTISET_OF;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SUBSTRING;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SUM;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SUM0;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SYSTEM_USER;
@@ -370,12 +369,15 @@ import static org.apache.calcite.sql.fun.SqlStdOperatorTable.USER;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.NULL_BOUND;
+import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SUBSTR;
+import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SUBSTRING;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SYSTEM_RANGE;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.TYPEOF;
 
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.GEN_RANDOM_UUID;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.GREATEST2;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.LEAST2;
+import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.LENGTH;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.RAND_UUID;
 
 /**
@@ -385,6 +387,7 @@ import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.RAND_UUID;
  * 2. NotImplementor -> nullPolicy inheritance
  * 3. ExtractImplementor isIntervalType info
  * 4. DefaultImplementor DEFAULT_VALUE_PLACEHOLDER
+ * 5. Custom SUBSTRING and additional support for SUBSTR
  *
  * <p>Immutable.
  */
@@ -446,6 +449,7 @@ public class RexImpTable {
             defineMethod(MD5, BuiltInMethod.MD5.method, NullPolicy.STRICT);
             defineMethod(SHA1, BuiltInMethod.SHA1.method, NullPolicy.STRICT);
             defineMethod(SUBSTRING, BuiltInMethod.SUBSTRING.method, NullPolicy.STRICT);
+            defineMethod(SUBSTR, IgniteMethod.SUBSTR.method(), NullPolicy.STRICT);
             defineMethod(LEFT, BuiltInMethod.LEFT.method, NullPolicy.ANY);
             defineMethod(RIGHT, BuiltInMethod.RIGHT.method, NullPolicy.ANY);
             defineMethod(LPAD, BuiltInMethod.LPAD.method, NullPolicy.STRICT);
@@ -851,6 +855,7 @@ public class RexImpTable {
             defineMethod(IgniteSqlOperatorTable.GEN_RANDOM_UUID, GEN_RANDOM_UUID.method(), NullPolicy.NONE);
             defineMethod(IS_NOT_DISTINCT_FROM, IgniteMethod.IS_NOT_DISTINCT_FROM.method(), NullPolicy.NONE);
             defineMethod(IgniteSqlOperatorTable.LEAST2, LEAST2.method(), NullPolicy.NONE);
+            defineMethod(IgniteSqlOperatorTable.LENGTH, LENGTH.method(), NullPolicy.STRICT);
 
             map.put(TYPEOF, systemFunctionImplementor);
             map.put(NULL_BOUND, systemFunctionImplementor);

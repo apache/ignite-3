@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import org.apache.ignite.internal.deployunit.version.Version;
-import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
+import org.apache.ignite.compute.version.Version;
 
 /**
  * Unit meta data class.
  */
-public class UnitStatus {
+public abstract class UnitStatus {
     /**
      * Unit id.
      */
@@ -39,17 +38,21 @@ public class UnitStatus {
      */
     private DeploymentStatus status;
 
+    private final long opId;
+
     /**
      * Constructor.
      *
      * @param id Unit identifier.
      * @param version Unit version.
      * @param status Unit status.
+     * @param opId Deployment unit operation identifier.
      */
-    public UnitStatus(String id, Version version, DeploymentStatus status) {
+    public UnitStatus(String id, Version version, DeploymentStatus status, long opId) {
         this.id = id;
         this.version = version;
         this.status = status;
+        this.opId = opId;
     }
 
     /**
@@ -70,12 +73,31 @@ public class UnitStatus {
         return version;
     }
 
+    /**
+     * Returns status of deployment unit.
+     *
+     * @return Status of deployment unit.
+     */
     public DeploymentStatus status() {
         return status;
     }
 
+    /**
+     * Updates deployment status.
+     *
+     * @param status new deployment status.
+     */
     public void updateStatus(DeploymentStatus status) {
         this.status = status;
+    }
+
+    /**
+     * Returns operation identifier of deployment unit creation.
+     *
+     * @return Operation identifier of deployment unit creation.
+     */
+    public long opId() {
+        return opId;
     }
 
     @Override
@@ -112,6 +134,7 @@ public class UnitStatus {
                 + "id='" + id + '\''
                 + ", version=" + version
                 + ", status=" + status
+                + ", opId=" + opId
                 + '}';
     }
 }

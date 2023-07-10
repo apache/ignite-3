@@ -23,7 +23,10 @@ import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.
 import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.lang.ByteArray.fromString;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -36,6 +39,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -48,6 +52,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
@@ -68,6 +73,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteTriFunction;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -91,7 +97,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
-    private HybridClock clock = new HybridClockImpl();
+    private final HybridClock clock = new HybridClockImpl();
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
@@ -101,6 +107,9 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private DistributionZonesConfiguration dstZnsCfg;
+
+    @InjectConfiguration
+    private MetaStorageConfiguration metaStorageConfiguration;
 
     private List<String> placementDriverNodeNames;
 
@@ -114,8 +123,6 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     /** Cluster service by node name. */
     private Map<String, ClusterService> clusterServices;
 
-    private TestInfo testInfo;
-
     /** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. */
     private IgniteTriFunction<LeaseGrantedMessage, String, String, LeaseGrantedMessageResponse> leaseGrantHandler;
 
@@ -127,8 +134,6 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
                 .collect(Collectors.toList());
         this.nodeNames = IntStream.range(BASE_PORT, BASE_PORT + 5).mapToObj(port -> testNodeName(testInfo, port))
                 .collect(Collectors.toList());
-
-        this.testInfo = testInfo;
 
         this.clusterServices = startNodes();
 
@@ -189,7 +194,6 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
             if (resp == null) {
                 resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                        .groupId(((LeaseGrantedMessage) msg).groupId())
                         .accepted(true)
                         .build();
             }
@@ -229,15 +233,17 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
      * @param services Cluster services.
      * @param logicalTopManagers The list to update in the method. The list might be used for driving of the logical topology.
      * @return List of closures to stop the services.
-     * @throws Exception If something goes wrong.
      */
     public List<Closeable> startPlacementDriver(
             Map<String, ClusterService> services,
             List<LogicalTopologyServiceTestImpl> logicalTopManagers
-    ) throws Exception {
+    ) {
         var res = new ArrayList<Closeable>(placementDriverNodeNames.size());
 
-        for (String nodeName : placementDriverNodeNames) {
+        var msFutures = new CompletableFuture[placementDriverNodeNames.size()];
+
+        for (int i = 0; i < placementDriverNodeNames.size(); i++) {
+            String nodeName = placementDriverNodeNames.get(i);
             var vaultManager = new VaultManager(new InMemoryVaultService());
             var clusterService = services.get(nodeName);
 
@@ -277,7 +283,9 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
                     logicalTopologyService,
                     raftManager,
                     storage,
-                    nodeClock
+                    nodeClock,
+                    topologyAwareRaftGroupServiceFactory,
+                    metaStorageConfiguration
             );
 
             if (this.metaStorageManager == null) {
@@ -304,7 +312,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
             metaStorageManager.start();
             placementDriverManager.start();
 
-            metaStorageManager.deployWatches();
+            msFutures[i] = metaStorageManager.deployWatches();
 
             res.add(() -> {
                         try {
@@ -325,6 +333,8 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
                     }
             );
         }
+
+        assertThat("Nodes were not started", CompletableFuture.allOf(msFutures), willCompleteSuccessfully());
 
         return res;
     }
@@ -582,12 +592,25 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
             tableViewTableChangeNamedListChange.create("test-table", tableChange -> {
                 var extConfCh = ((ExtendedTableChange) tableChange);
-                extConfCh.changeId(tableId);
-                extConfCh.changeZoneId(zoneId);
 
-                extConfCh.changeAssignments(ByteUtils.toBytes(assignments));
+                extConfCh.changeId(tableId);
+
+                extConfCh.changeZoneId(zoneId);
             });
-        }).get();
+        }).thenCompose(v -> {
+            Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
+
+            for (int i = 0; i < assignments.size(); i++) {
+                partitionAssignments.put(
+                        stablePartAssignmentsKey(
+                                new TablePartitionId(tableId, i)),
+                        ByteUtils.toBytes(assignments.get(i)));
+
+            }
+
+            return metaStorageManager.putAll(partitionAssignments);
+        })
+        .get();
 
         var grpPart0 = new TablePartitionId(tableId, 0);
 

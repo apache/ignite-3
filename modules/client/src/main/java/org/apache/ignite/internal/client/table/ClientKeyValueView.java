@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -40,8 +42,10 @@ import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -430,7 +434,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     }
 
     private void writeKeyValueRaw(ClientSchema s, PayloadOutputChannel w, @NotNull K key, V val) {
-        var builder = new BinaryTupleBuilder(s.columns().length, true);
+        var builder = new BinaryTupleBuilder(s.columns().length);
         var noValueSet = new BitSet();
         ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 
@@ -460,16 +464,44 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         try {
             for (int i = 0; i < cnt; i++) {
-                in.unpackBoolean(); // TODO: Optimize (IGNITE-16022).
-
-                var tupleReader = new BinaryTupleReader(schema.columns().length, in.readBinaryUnsafe());
-                var reader = new ClientMarshallerReader(tupleReader);
-                res.put((K) keyMarsh.readObject(reader, null), (V) valMarsh.readObject(reader, null));
+                // TODO: Optimize (IGNITE-16022).
+                if (in.unpackBoolean()) {
+                    var tupleReader = new BinaryTupleReader(schema.columns().length, in.readBinaryUnsafe());
+                    var reader = new ClientMarshallerReader(tupleReader);
+                    res.put((K) keyMarsh.readObject(reader, null), (V) valMarsh.readObject(reader, null));
+                }
             }
 
             return res;
         } catch (MarshallerException e) {
             throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> streamData(Publisher<Entry<K, V>> publisher, @Nullable DataStreamerOptions options) {
+        Objects.requireNonNull(publisher);
+
+        var provider = new KeyValuePojoStreamerPartitionAwarenessProvider<K, V>(tbl, keySer.mapper());
+        var opts = options == null ? DataStreamerOptions.DEFAULT : options;
+
+        // Partition-aware (best effort) sender with retries.
+        // The batch may go to a different node when a direct connection is not available.
+        StreamerBatchSender<Entry<K, V>, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_UPSERT_ALL,
+                (s, w) -> {
+                    writeSchemaAndTx(s, w, null);
+                    w.out().packInt(items.size());
+
+                    for (Entry<K, V> e : items) {
+                        writeKeyValueRaw(s, w, e.getKey(), e.getValue());
+                    }
+                },
+                r -> null,
+                PartitionAwarenessProvider.of(nodeId),
+                new RetryLimitPolicy().retryLimit(opts.retryLimit()));
+
+        return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 }

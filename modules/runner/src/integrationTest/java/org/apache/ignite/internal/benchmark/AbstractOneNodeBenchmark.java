@@ -36,6 +36,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.intellij.lang.annotations.Language;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -57,6 +58,9 @@ public class AbstractOneNodeBenchmark {
 
     protected static IgniteImpl clusterNode;
 
+    @Param({"true", "false"})
+    private boolean fsync;
+
     /**
      * Starts ignite node and creates table {@link #TABLE_NAME}.
      */
@@ -69,11 +73,12 @@ public class AbstractOneNodeBenchmark {
                         + "  nodeFinder:{\n"
                         + "    netClusterNodes: [ \"localhost:" + PORT + "\"] \n"
                         + "  }\n"
-                        + "}";
+                        + "},"
+                        + "raft.fsync = " + fsync;
 
         var fut =  TestIgnitionManager.start(NODE_NAME, config, workDir.resolve(NODE_NAME));
 
-        IgnitionManager.init(new InitParametersBuilder()
+        TestIgnitionManager.init(new InitParametersBuilder()
                 .clusterName("cluster")
                 .destinationNodeName(NODE_NAME)
                 .cmgNodeNames(List.of(NODE_NAME))

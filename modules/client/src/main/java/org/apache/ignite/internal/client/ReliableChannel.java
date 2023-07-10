@@ -44,7 +44,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
@@ -80,11 +79,8 @@ public final class ReliableChannel implements AutoCloseable {
     /** Client configuration. */
     private final IgniteClientConfiguration clientCfg;
 
-    /** Node channels. */
+    /** Node channels by name (consistent id). */
     private final Map<String, ClientChannelHolder> nodeChannelsByName = new ConcurrentHashMap<>();
-
-    /** Node channels. */
-    private final Map<String, ClientChannelHolder> nodeChannelsById = new ConcurrentHashMap<>();
 
     /** Channels reinit was scheduled. */
     private final AtomicBoolean scheduledChannelsReinit = new AtomicBoolean();
@@ -184,8 +180,7 @@ public final class ReliableChannel implements AutoCloseable {
      * @param <T>           response type.
      * @param preferredNodeName Unique name (consistent id) of the preferred target node. When a connection to the specified node exists,
      *                          it will be used to handle the request; otherwise, default connection will be used.
-     * @param preferredNodeId   ID of the preferred target node. When a connection to the specified node exists,
-     *                          it will be used to handle the request; otherwise, default connection will be used.
+     * @param retryPolicyOverride Retry policy override.
      * @return Future for the operation.
      */
     public <T> CompletableFuture<T> serviceAsync(
@@ -193,13 +188,13 @@ public final class ReliableChannel implements AutoCloseable {
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader,
             @Nullable String preferredNodeName,
-            @Nullable String preferredNodeId
+            @Nullable RetryPolicy retryPolicyOverride
     ) {
         return ClientFutureUtils.doWithRetryAsync(
-                () -> getChannelAsync(preferredNodeName, preferredNodeId)
+                () -> getChannelAsync(preferredNodeName)
                         .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, ch)),
                 null,
-                ctx -> shouldRetry(opCode, ctx));
+                ctx -> shouldRetry(opCode, ctx, retryPolicyOverride));
     }
 
     /**
@@ -243,24 +238,20 @@ public final class ReliableChannel implements AutoCloseable {
         });
     }
 
-    private CompletableFuture<ClientChannel> getChannelAsync(@Nullable String preferredNodeName, @Nullable String preferredNodeId) {
-        ClientChannelHolder holder = null;
-
+    private CompletableFuture<ClientChannel> getChannelAsync(@Nullable String preferredNodeName) {
         // 1. Preferred node connection.
         if (preferredNodeName != null) {
-            holder = nodeChannelsByName.get(preferredNodeName);
-        } else if (preferredNodeId != null) {
-            holder = nodeChannelsById.get(preferredNodeId);
-        }
+            ClientChannelHolder holder = nodeChannelsByName.get(preferredNodeName);
 
-        if (holder != null) {
-            return holder.getOrCreateChannelAsync().thenCompose(ch -> {
-                if (ch != null) {
-                    return CompletableFuture.completedFuture(ch);
-                } else {
-                    return getDefaultChannelAsync();
-                }
-            });
+            if (holder != null) {
+                return holder.getOrCreateChannelAsync().thenCompose(ch -> {
+                    if (ch != null) {
+                        return CompletableFuture.completedFuture(ch);
+                    } else {
+                        return getDefaultChannelAsync();
+                    }
+                });
+            }
         }
 
         // 2. Round-robin connection.
@@ -286,22 +277,14 @@ public final class ReliableChannel implements AutoCloseable {
             throw new IgniteException(CONFIGURATION_ERR, "Empty addresses");
         }
 
-        Collection<HostAndPortRange> ranges = new ArrayList<>(addrs.length);
+        Collection<HostAndPort> ranges = new ArrayList<>(addrs.length);
 
         for (String a : addrs) {
-            ranges.add(HostAndPortRange.parse(
-                    a,
-                    IgniteClientConfiguration.DFLT_PORT,
-                    IgniteClientConfiguration.DFLT_PORT + IgniteClientConfiguration.DFLT_PORT_RANGE,
-                    "Failed to parse Ignite server address"
-            ));
+            ranges.add(HostAndPort.parse(a, IgniteClientConfiguration.DFLT_PORT, "Failed to parse Ignite server address"));
         }
 
         return ranges.stream()
-                .flatMap(r -> IntStream
-                        .rangeClosed(r.portFrom(), r.portTo()).boxed()
-                        .map(p -> InetSocketAddress.createUnresolved(r.host(), p))
-                )
+                .map(p -> InetSocketAddress.createUnresolved(p.host(), p.port()))
                 .collect(Collectors.toMap(a -> a, a -> 1, Integer::sum));
     }
 
@@ -541,7 +524,7 @@ public final class ReliableChannel implements AutoCloseable {
                     return hld.getOrCreateChannelAsync();
                 },
                 Objects::nonNull,
-                ctx -> shouldRetry(ClientOperationType.CHANNEL_CONNECT, ctx));
+                ctx -> shouldRetry(ClientOperationType.CHANNEL_CONNECT, ctx, null));
     }
 
     private CompletableFuture<ClientChannel> getCurChannelAsync() {
@@ -566,10 +549,10 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /** Determines whether specified operation should be retried. */
-    private boolean shouldRetry(int opCode, ClientFutureUtils.RetryContext ctx) {
+    private boolean shouldRetry(int opCode, ClientFutureUtils.RetryContext ctx, @Nullable RetryPolicy retryPolicyOverride) {
         ClientOperationType opType = ClientUtils.opCodeToClientOperationType(opCode);
 
-        boolean res = shouldRetry(opType, ctx);
+        boolean res = shouldRetry(opType, ctx, retryPolicyOverride);
 
         if (log.isDebugEnabled()) {
             if (res) {
@@ -589,12 +572,15 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /** Determines whether specified operation should be retried. */
-    private boolean shouldRetry(@Nullable ClientOperationType opType, ClientFutureUtils.RetryContext ctx) {
+    private boolean shouldRetry(
+            @Nullable ClientOperationType opType,
+            ClientFutureUtils.RetryContext ctx,
+            @Nullable RetryPolicy retryPolicyOverride) {
         var err = ctx.lastError();
 
         if (err == null) {
             // Closed channel situation - no error, but connection should be retried.
-            return opType == ClientOperationType.CHANNEL_CONNECT;
+            return opType == ClientOperationType.CHANNEL_CONNECT && ctx.attempt < RetryLimitPolicy.DFLT_RETRY_LIMIT;
         }
 
         IgniteClientConnectionException exception = unwrapConnectionException(err);
@@ -612,7 +598,7 @@ public final class ReliableChannel implements AutoCloseable {
             return ctx.attempt < RetryLimitPolicy.DFLT_RETRY_LIMIT;
         }
 
-        RetryPolicy plc = clientCfg.retryPolicy();
+        RetryPolicy plc = retryPolicyOverride != null ? retryPolicyOverride : clientCfg.retryPolicy();
 
         if (plc == null) {
             return false;
@@ -804,13 +790,11 @@ public final class ReliableChannel implements AutoCloseable {
                     // There could be multiple holders map to the same serverNodeId if user provide the same
                     // address multiple times in configuration.
                     nodeChannelsByName.put(newNode.name(), this);
-                    nodeChannelsById.put(newNode.id(), this);
 
                     var oldServerNode = serverNode;
                     if (oldServerNode != null && !oldServerNode.id().equals(newNode.id())) {
                         // New node on the old address.
                         nodeChannelsByName.remove(oldServerNode.name(), this);
-                        nodeChannelsById.remove(oldServerNode.id(), this);
                     }
 
                     serverNode = newNode;
@@ -875,7 +859,6 @@ public final class ReliableChannel implements AutoCloseable {
 
                 if (oldServerNode != null) {
                     nodeChannelsByName.remove(oldServerNode.name(), this);
-                    nodeChannelsById.remove(oldServerNode.id(), this);
                 }
 
                 chFut = null;
@@ -892,7 +875,6 @@ public final class ReliableChannel implements AutoCloseable {
 
             if (oldServerNode != null) {
                 nodeChannelsByName.remove(oldServerNode.name(), this);
-                nodeChannelsById.remove(oldServerNode.id(), this);
             }
 
             closeChannel();

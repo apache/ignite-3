@@ -113,7 +113,8 @@ abstract class AbstractRestTestBase extends IgniteIntegrationTest {
                         + "    nodeFinder: {\n"
                         + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "    }\n"
-                        + "  }\n"
+                        + "  },\n"
+                        + "  clientConnector.port: 10800"
                         + "}"
         );
 
@@ -125,7 +126,8 @@ abstract class AbstractRestTestBase extends IgniteIntegrationTest {
                         + "    nodeFinder: {\n"
                         + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "    }\n"
-                        + "  }\n"
+                        + "  },\n"
+                        + "  clientConnector.port: 10801"
                         + "}"
         );
 
@@ -137,7 +139,8 @@ abstract class AbstractRestTestBase extends IgniteIntegrationTest {
                         + "    nodeFinder: {\n"
                         + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "    }\n"
-                        + "  }\n"
+                        + "  },\n"
+                        + "  clientConnector.port: 10802"
                         + "}"
         );
 

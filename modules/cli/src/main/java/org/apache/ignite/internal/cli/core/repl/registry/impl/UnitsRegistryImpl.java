@@ -23,13 +23,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.cli.call.unit.ListUnitCall;
-import org.apache.ignite.internal.cli.call.unit.UnitStatusRecord;
+import org.apache.ignite.internal.cli.call.cluster.unit.ClusterListUnitCall;
+import org.apache.ignite.internal.cli.call.unit.ListUnitCallInput;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
-import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
+import org.apache.ignite.rest.client.model.UnitStatus;
+import org.apache.ignite.rest.client.model.UnitVersionStatus;
 
 /** Implementation of {@link UnitsRegistry}. */
 @Singleton
@@ -37,11 +38,11 @@ public class UnitsRegistryImpl implements UnitsRegistry, AsyncSessionEventListen
 
     private final AtomicReference<String> lastKnownUrl = new AtomicReference<>(null);
 
-    private final ListUnitCall call;
+    private final ClusterListUnitCall call;
 
     private LazyObjectRef<Map<String, Set<String>>> idToVersionsRef;
 
-    public UnitsRegistryImpl(ListUnitCall call) {
+    public UnitsRegistryImpl(ClusterListUnitCall call) {
         this.call = call;
     }
 
@@ -54,13 +55,17 @@ public class UnitsRegistryImpl implements UnitsRegistry, AsyncSessionEventListen
         lastKnownUrl.set(url);
 
         idToVersionsRef = new LazyObjectRef<>(() -> {
-            CallOutput<List<UnitStatusRecord>> output = call.execute(new UrlCallInput(url));
+            ListUnitCallInput input = ListUnitCallInput.builder()
+                    .url(url)
+                    .build();
+            CallOutput<List<UnitStatus>> output = call.execute(input);
             if (!output.hasError() && !output.isEmpty()) {
 
                 return output.body().stream()
                         .collect(Collectors.toMap(
-                                UnitStatusRecord::id,
-                                record -> record.versionToStatus().keySet())
+                                UnitStatus::getId,
+                                status -> status.getVersionToStatus()
+                                        .stream().map(UnitVersionStatus::getVersion).collect(Collectors.toSet()))
                         );
             } else {
                 return null;

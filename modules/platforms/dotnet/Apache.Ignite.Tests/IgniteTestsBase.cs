@@ -18,8 +18,11 @@
 namespace Apache.Ignite.Tests
 {
     using System;
+    using System.Collections.Generic;
+    using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
+    using Internal.Proto;
     using Log;
     using NUnit.Framework;
     using Table;
@@ -57,6 +60,8 @@ namespace Apache.Ignite.Tests
         protected static readonly TimeSpan ServerIdleTimeout = TimeSpan.FromMilliseconds(3000); // See PlatformTestNodeRunner.
 
         private static readonly JavaServer ServerNode;
+
+        private readonly List<IDisposable> _disposables = new();
 
         private TestEventListener _eventListener = null!;
 
@@ -119,7 +124,29 @@ namespace Apache.Ignite.Tests
         }
 
         [TearDown]
-        public void TearDown() => CheckPooledBufferLeak();
+        public void TearDown()
+        {
+            CheckPooledBufferLeak();
+
+            _disposables.ForEach(x => x.Dispose());
+            _disposables.Clear();
+        }
+
+        internal static string GetRequestTargetNodeName(IEnumerable<IgniteProxy> proxies, ClientOp op)
+        {
+            foreach (var proxy in proxies)
+            {
+                var ops = proxy.ClientOps;
+                proxy.ClearOps();
+
+                if (ops.Contains(op))
+                {
+                    return proxy.NodeName;
+                }
+            }
+
+            return string.Empty;
+        }
 
         protected static IIgniteTuple GetTuple(long id) => new IgniteTuple { [KeyCol] = id };
 
@@ -133,9 +160,25 @@ namespace Apache.Ignite.Tests
 
         protected static IgniteClientConfiguration GetConfig() => new()
         {
-            Endpoints = { "127.0.0.1:" + ServerNode.Port },
+            Endpoints =
+            {
+                "127.0.0.1:" + ServerNode.Port,
+                "127.0.0.1:" + (ServerNode.Port + 1)
+            },
             Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
         };
+
+        protected static IgniteClientConfiguration GetConfig(IEnumerable<IgniteProxy> proxies) =>
+            new(proxies.Select(x => x.Endpoint).ToArray());
+
+        protected List<IgniteProxy> GetProxies()
+        {
+            var proxies = Client.GetConnections().Select(c => new IgniteProxy(c.Node.Address, c.Node.Name)).ToList();
+
+            _disposables.AddRange(proxies);
+
+            return proxies;
+        }
 
         private void CheckPooledBufferLeak()
         {

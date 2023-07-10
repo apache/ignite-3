@@ -214,7 +214,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
             assert handler != null : format("Group of the event is unsupported [nodeId={}, event={}]", event.nodeId(), event);
 
             //TODO: IGNITE-15568 endOfBatch should be set to true to prevent caching tasks until IGNITE-15568 has fixed.
-            handler.onEvent(event, sequence, true);
+            handler.onEvent(event, sequence, subscribers.size() > 1 ? true : endOfBatch);
         }
     }
 

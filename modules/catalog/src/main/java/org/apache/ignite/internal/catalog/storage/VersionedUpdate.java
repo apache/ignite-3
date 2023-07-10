@@ -31,6 +31,8 @@ public class VersionedUpdate implements Serializable {
 
     private final int version;
 
+    private final long delayDurationMs;
+
     @IgniteToStringInclude
     private final List<UpdateEntry> entries;
 
@@ -38,10 +40,13 @@ public class VersionedUpdate implements Serializable {
      * Constructs the object.
      *
      * @param version A version the changes relate to.
+     * @param delayDurationMs Delay duration that, when added to the update's entry timestamp assigned by the MetaStorage, will produce the
+     *     activation timestamp (milliseconds).
      * @param entries A list of changes.
      */
-    public VersionedUpdate(int version, List<UpdateEntry> entries) {
+    public VersionedUpdate(int version, long delayDurationMs, List<UpdateEntry> entries) {
         this.version = version;
+        this.delayDurationMs = delayDurationMs;
         this.entries = List.copyOf(
                 Objects.requireNonNull(entries, "entries")
         );
@@ -50,6 +55,11 @@ public class VersionedUpdate implements Serializable {
     /** Returns version. */
     public int version() {
         return version;
+    }
+
+    /** Returns Delay Duration for this update (in milliseconds). */
+    public long delayDurationMs() {
+        return delayDurationMs;
     }
 
     /** Returns list of changes. */

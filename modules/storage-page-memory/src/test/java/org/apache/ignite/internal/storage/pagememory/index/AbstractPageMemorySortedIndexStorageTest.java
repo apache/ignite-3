@@ -51,7 +51,7 @@ abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIn
      *
      * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
      */
-    protected final void initialize(
+    final void initialize(
             MvTableStorage tableStorage,
             TablesConfiguration tablesCfg,
             BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig

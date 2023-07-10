@@ -58,10 +58,6 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
         sql("CREATE INDEX test_idx ON test(grp0, grp1)");
         sql("CREATE INDEX test_one_col_idx_idx ON test_one_col_idx(col0)");
 
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
-        waitForIndex("test_idx");
-        waitForIndex("test_one_col_idx_idx");
-
         for (int i = 0; i < ROWS; i++) {
             sql("INSERT INTO test (id, grp0, grp1, val0, val1) VALUES (?, ?, ?, ?, ?)", i, i / 10, i / 100, 1, 2);
             sql("INSERT INTO test_one_col_idx (pk, col0) VALUES (?, ?)", i, i);

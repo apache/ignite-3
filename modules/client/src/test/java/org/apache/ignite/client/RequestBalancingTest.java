@@ -48,9 +48,9 @@ public class RequestBalancingTest {
     @BeforeEach
     void setUp() {
         FakeIgnite ignite = new FakeIgnite();
-        server1 = AbstractClientTest.startServer(10900, 10, 0, ignite, "s1");
-        server2 = AbstractClientTest.startServer(10900, 10, 0, ignite, "s2");
-        server3 = AbstractClientTest.startServer(10900, 10, 0, ignite, "s3");
+        server1 = new TestServer(0, ignite, null, null, "s1", AbstractClientTest.clusterId, null, 10991);
+        server2 = new TestServer(0, ignite, null, null, "s2", AbstractClientTest.clusterId, null, 10992);
+        server3 = new TestServer(0, ignite, null, null, "s3", AbstractClientTest.clusterId, null, 10993);
     }
 
     @AfterEach
@@ -65,7 +65,7 @@ public class RequestBalancingTest {
 
             // Execute on unknown node to fall back to balancing.
             List<String> res = IntStream.range(0, 5)
-                    .mapToObj(i -> client.compute().<String>execute(getClusterNodes("s123"), "job").join())
+                    .mapToObj(i -> client.compute().<String>execute(getClusterNodes("s123"), List.of(), "job").join())
                     .collect(Collectors.toList());
 
             assertEquals(5, res.size());

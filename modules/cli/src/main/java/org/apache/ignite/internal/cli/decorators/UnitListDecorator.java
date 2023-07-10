@@ -18,34 +18,49 @@
 package org.apache.ignite.internal.cli.decorators;
 
 import com.jakewharton.fliptables.FlipTable;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.cli.call.unit.UnitStatusRecord;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.rest.client.model.DeploymentStatus;
+import org.apache.ignite.internal.cli.util.PlainTableRenderer;
+import org.apache.ignite.rest.client.model.UnitStatus;
+import org.apache.ignite.rest.client.model.UnitVersionStatus;
 
 /** Decorates list of units as a table. */
-public class UnitListDecorator implements Decorator<List<UnitStatusRecord>, TerminalOutput> {
+public class UnitListDecorator implements Decorator<List<UnitStatus>, TerminalOutput> {
 
     private static final String[] HEADERS = {"id", "version", "status"};
+    private final boolean plain;
 
-    private String[][] toContent(List<UnitStatusRecord> data) {
-        return data.stream().flatMap(this::unfoldRecordWithVersions).toArray(String[][]::new);
+    public UnitListDecorator(boolean plain) {
+        this.plain = plain;
     }
 
     @Override
-    public TerminalOutput decorate(List<UnitStatusRecord> data) {
-        return () -> FlipTable.of(HEADERS, toContent(data));
+    public TerminalOutput decorate(List<UnitStatus> data) {
+        if (plain) {
+            return () -> PlainTableRenderer.render(HEADERS, toContent(data));
+        } else {
+            return () -> FlipTable.of(HEADERS, toContent(data));
+        }
     }
 
-    private Stream<String[]> unfoldRecordWithVersions(UnitStatusRecord record) {
-        Map<String, DeploymentStatus> map = record.versionToStatus();
-        return map.entrySet().stream().map(entry -> new String[]{
-                record.id(),
-                entry.getKey(),
-                entry.getValue().getValue()
-        });
+    private static String[][] toContent(List<UnitStatus> data) {
+        return data.stream().flatMap(UnitListDecorator::unfoldRecordWithVersions).toArray(String[][]::new);
+    }
+
+    private static Stream<String[]> unfoldRecordWithVersions(UnitStatus status) {
+        List<String[]> result = new ArrayList<>();
+        List<UnitVersionStatus> versionStatuses = status.getVersionToStatus();
+        for (int i = 0, size = versionStatuses.size(); i < size; i++) {
+            UnitVersionStatus entry = versionStatuses.get(i);
+            result.add(new String[]{
+                    status.getId(),
+                    (i == size - 1 ? "*" : "") + entry.getVersion(),
+                    entry.getStatus().getValue()
+            });
+        }
+        return result.stream();
     }
 }

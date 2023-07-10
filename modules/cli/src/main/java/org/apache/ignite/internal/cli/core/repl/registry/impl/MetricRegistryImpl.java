@@ -19,14 +19,17 @@ package org.apache.ignite.internal.cli.core.repl.registry.impl;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
+import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.MetricRegistry;
 import org.apache.ignite.rest.client.model.MetricSource;
+import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link MetricRegistry}. */
 @Singleton
@@ -54,9 +57,13 @@ public class MetricRegistryImpl implements MetricRegistry, AsyncSessionEventList
         metricSourcesRef = new LazyObjectRef<>(() -> fetchMetricSources(sessionInfo));
     }
 
+    @Nullable
     private Set<String> fetchMetricSources(SessionInfo sessionInfo) {
-        return metricSourceListCall.execute(new UrlCallInput(sessionInfo.nodeUrl()))
-                .body().stream()
+        CallOutput<List<MetricSource>> output = metricSourceListCall.execute(new UrlCallInput(sessionInfo.nodeUrl()));
+        if (output.hasError()) {
+            return null;
+        }
+        return output.body().stream()
                 .map(MetricSource::getName)
                 .collect(Collectors.toSet());
     }

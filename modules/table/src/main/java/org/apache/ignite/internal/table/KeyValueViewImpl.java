@@ -22,8 +22,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -33,11 +35,13 @@ import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -166,7 +170,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<K, V> pairs) {
-        Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(pairs));
+        Collection<BinaryRowEx> rows = marshalPairs(Objects.requireNonNull(pairs).entrySet());
 
         return tbl.upsertAll(rows, (InternalTransaction) tx);
     }
@@ -365,13 +369,22 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /**
+     * Returns marshaller for the latest schema.
+     *
+     * @return Marshaller.
+     */
+    private KvMarshaller<K, V> marshaller() {
+        return marshaller(schemaReg.lastSchemaVersion());
+    }
+
+    /**
      * Marshal key.
      *
      * @param key Key object.
      * @return Binary row.
      */
     private BinaryRowEx marshal(@NotNull K key) {
-        final KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+        final KvMarshaller<K, V> marsh = marshaller();
 
         try {
             return marsh.marshal(key);
@@ -388,7 +401,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @return Binary row.
      */
     private BinaryRowEx marshal(@NotNull K key, V val) {
-        final KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+        final KvMarshaller<K, V> marsh = marshaller();
 
         try {
             return marsh.marshal(key, val);
@@ -408,7 +421,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
             return Collections.emptyList();
         }
 
-        KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+        KvMarshaller<K, V> marsh = marshaller();
 
         List<BinaryRowEx> keyRows = new ArrayList<>(keys.size());
 
@@ -429,17 +442,17 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param pairs Key-value map.
      * @return Binary rows.
      */
-    private List<BinaryRowEx> marshal(Map<K, V> pairs) {
+    private List<BinaryRowEx> marshalPairs(Collection<Entry<K, V>> pairs) {
         if (pairs.isEmpty()) {
             return Collections.emptyList();
         }
 
-        KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+        KvMarshaller<K, V> marsh = marshaller();
 
         List<BinaryRowEx> rows = new ArrayList<>(pairs.size());
 
         try {
-            for (Map.Entry<K, V> pair : pairs.entrySet()) {
+            for (Map.Entry<K, V> pair : pairs) {
                 rows.add(marsh.marshal(Objects.requireNonNull(pair.getKey()), pair.getValue()));
             }
         } catch (MarshallerException e) {
@@ -460,7 +473,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
             return Collections.emptyList();
         }
 
-        KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+        KvMarshaller<K, V> marsh = marshaller();
 
         List<K> keys = new ArrayList<>(rows.size());
 
@@ -510,13 +523,15 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
             return Collections.emptyMap();
         }
 
-        KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+        KvMarshaller<K, V> marsh = marshaller();
 
         Map<K, V> pairs = IgniteUtils.newHashMap(rows.size());
 
         try {
             for (Row row : schemaReg.resolve(rows)) {
-                pairs.put(marsh.unmarshalKey(row), marsh.unmarshalValue(row));
+                if (row != null) {
+                    pairs.put(marsh.unmarshalKey(row), marsh.unmarshalValue(row));
+                }
             }
 
             return pairs;
@@ -545,5 +560,16 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         }
 
         return v;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> streamData(Publisher<Entry<K, V>> publisher, @Nullable DataStreamerOptions options) {
+        Objects.requireNonNull(publisher);
+
+        var partitioner = new KeyValuePojoStreamerPartitionAwarenessProvider<>(schemaReg, tbl.partitions(), marshaller());
+        StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshalPairs(items), partitionId);
+
+        return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
 }

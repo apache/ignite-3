@@ -159,15 +159,6 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    public long persistedIndex() {
-        return busy(() -> {
-            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
-
-            return lastAppliedIndex;
-        });
-    }
-
-    @Override
     public byte @Nullable [] committedGroupConfiguration() {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
@@ -253,13 +244,21 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         try {
             destructionExecutor.execute(
                     versionChainTree.startGradualDestruction(chainKey -> destroyVersionChain((VersionChain) chainKey), false)
-            ).whenComplete((res, ex) -> {
-                if (ex != null) {
-                    LOG.error("Version chains destruction failed in group={}, partition={}", ex, groupId, partitionId);
+            ).whenComplete((res, e) -> {
+                if (e != null) {
+                    LOG.error(
+                            "Version chains destruction failed: [tableId={}, partitionId={}]",
+                            e,
+                            tableStorage.getTableId(), partitionId
+                    );
                 }
             });
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot destroy MV partition in group=" + groupId + ", partition=" + partitionId, e);
+            throw new StorageException(
+                    "Cannot destroy MV partition: [tableId={}, partitionId={}]",
+                    e,
+                    tableStorage.getTableId(), partitionId
+            );
         }
     }
 
@@ -287,13 +286,21 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         try {
             destructionExecutor.execute(
                     indexMetaTree.startGradualDestruction(null, false)
-            ).whenComplete((res, ex) -> {
-                if (ex != null) {
-                    LOG.error("Index meta tree destruction failed in group={}, partition={}", ex, groupId, partitionId);
+            ).whenComplete((res, e) -> {
+                if (e != null) {
+                    LOG.error(
+                            "Index meta tree destruction failed: [tableId={}, partitionId={}",
+                            e,
+                            tableStorage.getTableId(), partitionId
+                    );
                 }
             });
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot destroy index meta tree in group=" + groupId + ", partition=" + partitionId, e);
+            throw new StorageException(
+                    "Cannot destroy index meta tree: [tableId={}, partitionId={}]",
+                    e,
+                    tableStorage.getTableId(), partitionId
+            );
         }
     }
 
@@ -301,13 +308,21 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         try {
             destructionExecutor.execute(
                     gcQueue.startGradualDestruction(null, false)
-            ).whenComplete((res, ex) -> {
-                if (ex != null) {
-                    LOG.error("Garbage collection tree destruction failed in group={}, partition={}", ex, groupId, partitionId);
+            ).whenComplete((res, e) -> {
+                if (e != null) {
+                    LOG.error(
+                            "Garbage collection tree destruction failed: [tableId={}, partitionId={}]",
+                            e,
+                            tableStorage.getTableId(), partitionId
+                    );
                 }
             });
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot destroy garbage collection tree in group=" + groupId + ", partition=" + partitionId, e);
+            throw new StorageException(
+                    "Cannot destroy garbage collection tree: [tableId={}, partitionId={}]",
+                    e,
+                    tableStorage.getTableId(), partitionId
+            );
         }
     }
 

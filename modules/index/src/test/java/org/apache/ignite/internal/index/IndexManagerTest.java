@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
@@ -28,6 +29,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -35,7 +37,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -47,8 +48,10 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexChange;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -57,7 +60,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 
 /**
  * Test class to verify {@link IndexManager}.
@@ -83,10 +85,20 @@ public class IndexManagerTest {
         when(tableManagerMock.tableAsync(anyLong(), anyInt())).thenAnswer(inv -> {
             InternalTable tbl = mock(InternalTable.class);
 
-            Mockito.doReturn(inv.getArgument(1)).when(tbl).tableId();
+            doReturn(inv.getArgument(1)).when(tbl).tableId();
 
             return completedFuture(new TableImpl(tbl, new HeapLockManager()));
         });
+
+        when(tableManagerMock.getTable(anyInt())).thenAnswer(inv -> {
+            InternalTable tbl = mock(InternalTable.class);
+
+            doReturn(inv.getArgument(0)).when(tbl).tableId();
+
+            return new TableImpl(tbl, new HeapLockManager());
+        });
+
+        when(tableManagerMock.localPartitionSetAsync(anyLong(), anyInt())).thenReturn(completedFuture(PartitionSet.EMPTY_SET));
 
         SchemaManager schManager = mock(SchemaManager.class);
 
@@ -97,7 +109,7 @@ public class IndexManagerTest {
 
         assertThat(
                 tablesConfig.tables().get("tName")
-                        .change(tableChange -> ((ExtendedTableChange) tableChange).changeSchemaId(1).changeAssignments((byte) 1)),
+                        .change(tableChange -> ((ExtendedTableChange) tableChange).changeSchemaId(1)),
                 willCompleteSuccessfully()
         );
     }
@@ -139,7 +151,8 @@ public class IndexManagerTest {
                         "name", indexName,
                         "type", "SORTED",
                         "uniq", false,
-                        "tableId", tableId()
+                        "tableId", tableId(),
+                        "id", 1
                 )
         );
 
@@ -191,11 +204,13 @@ public class IndexManagerTest {
             sortedIndexChange.changeTableId(tableId());
         }), willCompleteSuccessfully());
 
-        List<UUID> indexIds = tablesConfig.indexes().internalIds();
+        List<Integer> indexIds = tablesConfig.indexes().value().stream()
+                .map(TableIndexView::id)
+                .collect(toList());
 
         assertThat(indexIds, hasSize(1));
 
-        UUID indexId = indexIds.get(0);
+        int indexId = indexIds.get(0);
 
         assertThat(holder.get(), notNullValue());
         assertThat(holder.get().indexId(), equalTo(indexId));

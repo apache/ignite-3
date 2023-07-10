@@ -17,20 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import java.util.BitSet;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
-import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -47,8 +42,6 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
 
     private final @Nullable Function<RowT, RowT> rowTransformer;
 
-    private final Function<BinaryRow, RowT> tableRowConverter;
-
     private int requested;
 
     private int waiting;
@@ -64,25 +57,17 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
      * Constructor.
      *
      * @param ctx Execution context.
-     * @param rowFactory Row factory.
-     * @param schemaTable The table this node should scan.
      * @param filters Optional filter to filter out rows.
      * @param rowTransformer Optional projection function.
-     * @param requiredColumns Optional set of column of interest.
      */
     public StorageScanNode(
             ExecutionContext<RowT> ctx,
-            RowHandler.RowFactory<RowT> rowFactory,
-            IgniteTable schemaTable,
             @Nullable Predicate<RowT> filters,
-            @Nullable Function<RowT, RowT> rowTransformer,
-            @Nullable BitSet requiredColumns
+            @Nullable Function<RowT, RowT> rowTransformer
     ) {
         super(ctx);
 
         assert ctx.txAttributes() != null : "Transaction not initialized.";
-
-        tableRowConverter = row -> schemaTable.toRow(context(), row, rowFactory, requiredColumns);
 
         this.filters = filters;
         this.rowTransformer = rowTransformer;
@@ -136,43 +121,6 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
      *  @return Publisher of datasource.
      */
     protected abstract Publisher<RowT> scan();
-
-    /**
-     * Proxy publisher with singe goal convert rows from {@code BinaryRow} to {@code RowT}.
-     *
-     * @param pub {@code BinaryRow} Publisher.
-     *
-     * @return Proxy publisher with conversion from {@code BinaryRow} to {@code RowT}.
-     */
-    protected Publisher<RowT> convertPublisher(Publisher<BinaryRow> pub) {
-        Publisher<RowT> convPub = downstream -> {
-            // BinaryRow -> RowT converter.
-            Subscriber<BinaryRow> subs = new Subscriber<>() {
-                @Override
-                public void onSubscribe(Subscription subscription) {
-                    downstream.onSubscribe(subscription);
-                }
-
-                @Override
-                public void onNext(BinaryRow item) {
-                    downstream.onNext(convert(item));
-                }
-
-                @Override
-                public void onError(Throwable throwable) {
-                    downstream.onError(throwable);
-                }
-
-                @Override
-                public void onComplete() {
-                    downstream.onComplete();
-                }
-            };
-
-            pub.subscribe(subs);
-        };
-        return convPub;
-    }
 
     private void push() throws Exception {
         if (isClosed()) {
@@ -241,11 +189,6 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         } else {
             waiting = NOT_WAITING;
         }
-    }
-
-    /** Convert row from {@code BinaryRow} to internal SQL row format {@code RowT}. */
-    private RowT convert(BinaryRow binaryRow) {
-        return tableRowConverter.apply(binaryRow);
     }
 
     /** {@inheritDoc} */

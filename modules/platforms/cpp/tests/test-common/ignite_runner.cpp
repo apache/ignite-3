@@ -38,8 +38,8 @@ constexpr std::string_view GRADLEW_SCRIPT = IGNITE_SWITCH_WIN_OTHER("gradlew.bat
 
 namespace ignite {
 
-void IgniteRunner::start() {
-    std::string home = resolveIgniteHome();
+void ignite_runner::start() {
+    std::string home = resolve_ignite_home();
     if (home.empty())
         throw std::runtime_error("Can not resolve Ignite home directory. Try setting IGNITE_HOME explicitly");
 
@@ -68,12 +68,12 @@ void IgniteRunner::start() {
     }
 }
 
-void IgniteRunner::stop() {
+void ignite_runner::stop() {
     if (m_process)
         m_process->kill();
 }
 
-void IgniteRunner::join(std::chrono::milliseconds timeout) {
+void ignite_runner::join(std::chrono::milliseconds timeout) {
     if (m_process)
         m_process->join(timeout);
 }

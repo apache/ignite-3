@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
+import org.apache.ignite.internal.storage.pagememory.index.common.IndexRowKey;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 
 /**
  * Key to search for a {@link SortedIndexRow} in the {@link SortedIndexTree}.
  */
-public class SortedIndexRowKey {
+public class SortedIndexRowKey implements IndexRowKey {
     private final IndexColumns indexColumns;
 
     /**
@@ -30,13 +31,11 @@ public class SortedIndexRowKey {
      *
      * @param indexColumns Index columns.
      */
-    public SortedIndexRowKey(IndexColumns indexColumns) {
+    SortedIndexRowKey(IndexColumns indexColumns) {
         this.indexColumns = indexColumns;
     }
 
-    /**
-     * Returns an indexed columns value.
-     */
+    @Override
     public IndexColumns indexColumns() {
         return indexColumns;
     }

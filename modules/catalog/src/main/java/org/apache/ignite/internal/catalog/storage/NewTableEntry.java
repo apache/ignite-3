@@ -17,32 +17,69 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+
+import java.util.List;
+import java.util.Objects;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
  * Describes addition of a new table.
  */
-public class NewTableEntry implements UpdateEntry {
+public class NewTableEntry implements UpdateEntry, Fireable {
     private static final long serialVersionUID = 2970125889493580121L;
 
-    private final TableDescriptor descriptor;
+    private final CatalogTableDescriptor descriptor;
 
     /**
      * Constructs the object.
      *
      * @param descriptor A descriptor of a table to add.
      */
-    public NewTableEntry(TableDescriptor descriptor) {
+    public NewTableEntry(CatalogTableDescriptor descriptor) {
         this.descriptor = descriptor;
     }
 
     /** Returns descriptor of a table to add. */
-    public TableDescriptor descriptor() {
+    public CatalogTableDescriptor descriptor() {
         return descriptor;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public CatalogEvent eventType() {
+        return CatalogEvent.TABLE_CREATE;
+    }
+
+    @Override
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new CreateTableEventParameters(causalityToken, catalogVersion, descriptor);
+    }
+
+    @Override
+    public Catalog applyUpdate(Catalog catalog) {
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+
+        return new Catalog(
+                catalog.version(),
+                catalog.time(),
+                catalog.objectIdGenState(),
+                catalog.zones(),
+                List.of(new CatalogSchemaDescriptor(
+                        schema.id(),
+                        schema.name(),
+                        ArrayUtils.concat(schema.tables(), descriptor),
+                        schema.indexes()
+                ))
+        );
+    }
+
     @Override
     public String toString() {
         return S.toString(this);

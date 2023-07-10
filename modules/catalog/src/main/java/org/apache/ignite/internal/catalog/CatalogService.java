@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.catalog;
 
-import java.util.Collection;
-import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.manager.EventListener;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Catalog service provides methods to access schema object's descriptors of exact version and/or last actual version at given timestamp,
@@ -35,19 +36,33 @@ import org.apache.ignite.internal.manager.EventListener;
  * <p>TBD: events
  */
 public interface CatalogService {
-    String PUBLIC = "PUBLIC";
+    String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
-    TableDescriptor table(String tableName, long timestamp);
+    String DEFAULT_ZONE_NAME = "Default";
 
-    TableDescriptor table(int tableId, long timestamp);
+    CatalogTableDescriptor table(String tableName, long timestamp);
 
-    IndexDescriptor index(int indexId, long timestamp);
+    CatalogTableDescriptor table(int tableId, long timestamp);
 
-    Collection<IndexDescriptor> tableIndexes(int tableId, long timestamp);
+    CatalogTableDescriptor table(int tableId, int catalogVersion);
 
-    SchemaDescriptor schema(int version);
+    CatalogIndexDescriptor index(String indexName, long timestamp);
 
-    SchemaDescriptor activeSchema(long timestamp);
+    CatalogIndexDescriptor index(int indexId, long timestamp);
+
+    CatalogSchemaDescriptor schema(int version);
+
+    CatalogSchemaDescriptor schema(@Nullable String schemaName, int version);
+
+    CatalogZoneDescriptor zone(String zoneName, long timestamp);
+
+    CatalogZoneDescriptor zone(int zoneId, long timestamp);
+
+    CatalogSchemaDescriptor activeSchema(long timestamp);
+
+    CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
+
+    int activeCatalogVersion(long timestamp);
 
     void listen(CatalogEvent evt, EventListener<CatalogEventParameters> closure);
 }

@@ -20,8 +20,8 @@ package org.apache.ignite.internal.table.distributed.schema;
 import static java.util.Collections.emptyList;
 
 import java.util.List;
-import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 
 /**
  * Captures the difference between two versions of the same table definition.
@@ -31,12 +31,12 @@ public class TableDefinitionDiff {
             emptyList(), emptyList(), emptyList(), emptyList(), emptyList()
     );
 
-    private final List<TableColumnDescriptor> addedColumns;
-    private final List<TableColumnDescriptor> removedColumns;
+    private final List<CatalogTableColumnDescriptor> addedColumns;
+    private final List<CatalogTableColumnDescriptor> removedColumns;
     private final List<ColumnDefinitionDiff> changedColumns;
 
-    private final List<IndexDescriptor> addedIndexes;
-    private final List<IndexDescriptor> removedIndexes;
+    private final List<CatalogIndexDescriptor> addedIndexes;
+    private final List<CatalogIndexDescriptor> removedIndexes;
 
     // TODO: IGNITE-19229 - other change types
 
@@ -53,11 +53,11 @@ public class TableDefinitionDiff {
      * Constructor.
      */
     public TableDefinitionDiff(
-            List<TableColumnDescriptor> addedColumns,
-            List<TableColumnDescriptor> removedColumns,
+            List<CatalogTableColumnDescriptor> addedColumns,
+            List<CatalogTableColumnDescriptor> removedColumns,
             List<ColumnDefinitionDiff> changedColumns,
-            List<IndexDescriptor> addedIndexes,
-            List<IndexDescriptor> removedIndexes
+            List<CatalogIndexDescriptor> addedIndexes,
+            List<CatalogIndexDescriptor> removedIndexes
     ) {
         this.addedColumns = List.copyOf(addedColumns);
         this.removedColumns = List.copyOf(removedColumns);
@@ -69,14 +69,14 @@ public class TableDefinitionDiff {
     /**
      * Returns columns that were added.
      */
-    public List<TableColumnDescriptor> addedColumns() {
+    public List<CatalogTableColumnDescriptor> addedColumns() {
         return addedColumns;
     }
 
     /**
      * Returns columns that were removed.
      */
-    public List<TableColumnDescriptor> removedColumns() {
+    public List<CatalogTableColumnDescriptor> removedColumns() {
         return removedColumns;
     }
 
@@ -90,14 +90,14 @@ public class TableDefinitionDiff {
     /**
      * Returns indexes that were added.
      */
-    public List<IndexDescriptor> addedIndexes() {
+    public List<CatalogIndexDescriptor> addedIndexes() {
         return addedIndexes;
     }
 
     /**
      * Returns indexes that were removed.
      */
-    public List<IndexDescriptor> removedIndexes() {
+    public List<CatalogIndexDescriptor> removedIndexes() {
         return removedIndexes;
     }
 

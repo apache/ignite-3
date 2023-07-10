@@ -45,9 +45,11 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -56,6 +58,7 @@ import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -76,6 +79,9 @@ public class ItDistributedConfigurationStorageTest {
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
 
+    @InjectConfiguration
+    private static MetaStorageConfiguration metaStorageConfiguration;
+
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
      */
@@ -91,6 +97,9 @@ public class ItDistributedConfigurationStorageTest {
         private final MetaStorageManager metaStorageManager;
 
         private final DistributedConfigurationStorage cfgStorage;
+
+        /** The future have to be complete after the node start and all Meta storage watches are deployd. */
+        private final CompletableFuture<Void> deployWatchesFut;
 
         /**
          * Constructor that simply creates a subset of components of this node.
@@ -108,7 +117,9 @@ public class ItDistributedConfigurationStorageTest {
 
             HybridClock clock = new HybridClockImpl();
 
-            raftManager = new Loza(clusterService, raftConfiguration, workDir, clock);
+            var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
+
+            raftManager = new Loza(clusterService, raftConfiguration, workDir, clock, raftGroupEventsClientListener);
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
@@ -123,15 +134,28 @@ public class ItDistributedConfigurationStorageTest {
                     nodeAttributes,
                     new TestConfigurationValidator());
 
+            var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
+
+            var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                    clusterService,
+                    logicalTopologyService,
+                    Loza.FACTORY,
+                    raftGroupEventsClientListener
+            );
+
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
                     clusterService,
                     cmgManager,
-                    new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
+                    logicalTopologyService,
                     raftManager,
                     new SimpleInMemoryKeyValueStorage(name()),
-                    clock
+                    clock,
+                    topologyAwareRaftGroupServiceFactory,
+                    metaStorageConfiguration
             );
+
+            deployWatchesFut = metaStorageManager.deployWatches();
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
         }
@@ -157,9 +181,13 @@ public class ItDistributedConfigurationStorageTest {
                     return completedFuture(null);
                 }
             });
+        }
 
-            // deploy watches to propagate data from the metastore into the vault
-            metaStorageManager.deployWatches();
+        /**
+         * Waits for watches deployed.
+         */
+        void waitWatches() {
+            assertThat("Watches were not deployed", deployWatchesFut, willCompleteSuccessfully());
         }
 
         /**
@@ -200,8 +228,11 @@ public class ItDistributedConfigurationStorageTest {
 
             node.cmgManager.initCluster(List.of(node.name()), List.of(), "cluster");
 
+            node.waitWatches();
+
             assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
-            assertThat(node.cfgStorage.writeConfigurationRevision(0, 1), willCompleteSuccessfully());
+
+            node.cfgStorage.writeConfigurationRevision(0, 1);
 
             assertTrue(waitForCondition(
                     () -> node.metaStorageManager.appliedRevision() != 0,
@@ -215,6 +246,8 @@ public class ItDistributedConfigurationStorageTest {
 
         try {
             node2.start();
+
+            node2.waitWatches();
 
             CompletableFuture<Data> storageData = node2.cfgStorage.readDataOnRecovery();
 

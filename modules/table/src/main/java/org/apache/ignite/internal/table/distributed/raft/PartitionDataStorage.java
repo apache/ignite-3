@@ -22,7 +22,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -30,6 +29,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -37,7 +37,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Provides access to MV (multi-version) data of a partition.
  *
- * <p>Methods writing to MV storage ({@link #addWrite(RowId, BinaryRow, UUID, UUID, int)}, {@link #abortWrite(RowId)}
+ * <p>Methods writing to MV storage ({@link #addWrite(RowId, BinaryRow, UUID, int, int)}, {@link #abortWrite(RowId)}
  * and {@link #commitWrite(RowId, HybridTimestamp)}) and TX data storage MUST be invoked under a lock acquired using
  * {@link #acquirePartitionSnapshotsReadLock()}.
  *
@@ -70,10 +70,8 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     void releasePartitionSnapshotsReadLock();
 
     /**
-     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be
-     * completed when the underlying storage {@link MvPartitionStorage#persistedIndex()} is higher
-     * than {@link #lastAppliedIndex()} at the moment of the method's call. This feature
-     * allows implementing a batch flush for several partitions at once.
+     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage.
+     * This feature allows implementing a batch flush for several partitions at once.
      *
      * @return Future that's completed when flushing of the data is completed.
      * @see MvPartitionStorage#flush()
@@ -168,13 +166,6 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException;
 
     /**
-     * Tries to garbage collect the oldest stale entry of the partition.
-     *
-     * @see MvPartitionStorage#pollForVacuum(HybridTimestamp)
-     */
-    @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark);
-
-    /**
      * Returns the underlying {@link MvPartitionStorage}. Only for tests!
      *
      * @return Underlying {@link MvPartitionStorage}.
@@ -197,4 +188,18 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @throws StorageException If failed to read data from the storage.
      */
     PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException;
+
+    /**
+     * Returns the head of GC queue.
+     *
+     * @see MvPartitionStorage#peek(HybridTimestamp)
+     */
+    @Nullable GcEntry peek(HybridTimestamp lowWatermark);
+
+    /**
+     * Delete GC entry from the GC queue and corresponding version chain.
+     *
+     * @see MvPartitionStorage#vacuum(GcEntry)
+     */
+    @Nullable BinaryRow vacuum(GcEntry entry);
 }

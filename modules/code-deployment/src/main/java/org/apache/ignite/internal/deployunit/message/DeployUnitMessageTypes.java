@@ -26,26 +26,22 @@ import org.apache.ignite.network.annotations.MessageGroup;
 @MessageGroup(groupType = 10, groupName = "DeploymentUnit")
 public class DeployUnitMessageTypes {
     /**
-     * Message type for {@link DeployUnitRequest}.
+     * Message type for {@link DownloadUnitRequest}.
      */
-    public static final short DEPLOY_UNIT_REQUEST = 0;
+    public static final short DOWNLOAD_UNIT_REQUEST = 0;
 
     /**
-     * Message type for {@link DeployUnitResponse}.
+     * Message type for {@link DownloadUnitResponse}.
      */
-    public static final short DEPLOY_UNIT_RESPONSE = 1;
+    public static final short DOWNLOAD_UNIT_RESPONSE = 1;
 
     /**
-     * Message type for {@link UndeployUnitRequest}.
+     * Message type for {@link StopDeployRequest}.
      */
-    public static final short UNDEPLOY_UNIT_REQUEST = 2;
+    public static final short STOP_DEPLOY_REQUEST = 2;
 
     /**
-     * Message type for {@link UndeployUnitResponse}.
+     * Message type for {@link StopDeployResponse}.
      */
-    public static final short UNDEPLOY_UNIT_RESPONSE = 3;
-
-    public static final short STOP_DEPLOY_REQUEST = 4;
-
-    public static final short STOP_DEPLOY_RESPONSE = 5;
+    public static final short STOP_DEPLOY_RESPONSE = 3;
 }

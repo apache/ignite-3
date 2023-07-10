@@ -19,7 +19,6 @@ package org.apache.ignite.internal.raftsnapshot;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
-import static org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest.waitForIndex;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -116,7 +115,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             + "      netClusterNodes: [ {} ]\n"
             + "    }\n"
             + "  },\n"
-            + "  raft.rpcInstallSnapshotTimeout: 10000"
+            + "  raft.rpcInstallSnapshotTimeout: 10000,\n"
+            + "  clientConnector.port: {}\n"
             + "}";
 
     /**
@@ -166,7 +166,10 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * until {@code shouldStop} returns {@code true}, in that case this method throws {@link UnableToRetry} exception.
      */
     private static <T> T withRetry(Supplier<T> action, Predicate<RuntimeException> shouldStop) {
-        int maxAttempts = 5;
+        // The following allows to retry for up to 16 seconds (we need so much time to account
+        // for a node restart).
+        int maxAttempts = 10;
+        float backoffFactor = 1.3f;
         int sleepMillis = 500;
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -193,7 +196,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
                 fail("Interrupted while waiting for next attempt");
             }
 
-            sleepMillis = sleepMillis * 2;
+            //noinspection NumericCastThatLosesPrecision
+            sleepMillis = (int) (sleepMillis * backoffFactor);
         }
 
         throw new AssertionError("Should not reach here");
@@ -256,14 +260,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         }
 
         return rows;
-    }
-
-    /**
-     * Tests that a leader successfully feeds a follower with a RAFT snapshot.
-     */
-    @Test
-    void leaderFeedsFollowerWithSnapshot() throws Exception {
-        testLeaderFeedsFollowerWithSnapshot(DEFAULT_STORAGE_ENGINE);
     }
 
     /**
@@ -353,6 +349,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
     private void knockoutNode(int nodeIndex) {
         cluster.stopNode(nodeIndex);
+
+        LOG.info("Node {} knocked out", nodeIndex);
     }
 
     private void createTestTableWith3Replicas(String storageEngine) throws InterruptedException {
@@ -361,8 +359,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
                 + " with partitions=1, replicas=3;";
         String sql = "create table test (key int primary key, value varchar(20))"
                 + " with primary_zone='TEST_ZONE'";
-
-        waitForIndex("test_PK");
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);

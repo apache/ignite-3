@@ -48,7 +48,6 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -172,11 +171,6 @@ public class TestClientHandlerModule implements IgniteComponent {
     private ChannelFuture startEndpoint() throws InterruptedException {
         var configuration = registry.getConfiguration(ClientConnectorConfiguration.KEY).value();
 
-        int desiredPort = configuration.port();
-        int portRange = configuration.portRange();
-
-        Channel ch = null;
-
         var requestCounter = new AtomicInteger();
 
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
@@ -195,7 +189,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         configuration,
                                         compute,
                                         clusterService,
-                                        mock(IgniteSql.class),
+                                        ignite.sql(),
                                         clusterId,
                                         metrics,
                                         authenticationManager(authenticationConfiguration)));
@@ -203,21 +197,18 @@ public class TestClientHandlerModule implements IgniteComponent {
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
 
-        for (int portCandidate = desiredPort; portCandidate <= desiredPort + portRange; portCandidate++) {
-            ChannelFuture bindRes = bootstrap.bind(portCandidate).await();
+        int port = configuration.port();
+        Channel ch = null;
+        ChannelFuture bindRes = bootstrap.bind(port).await();
 
-            if (bindRes.isSuccess()) {
-                ch = bindRes.channel();
-
-                break;
-            } else if (!(bindRes.cause() instanceof BindException)) {
-                throw new IgniteException(bindRes.cause());
-            }
+        if (bindRes.isSuccess()) {
+            ch = bindRes.channel();
+        } else if (!(bindRes.cause() instanceof BindException)) {
+            throw new IgniteException(bindRes.cause());
         }
 
         if (ch == null) {
-            String msg = "Cannot start thin client connector endpoint. "
-                    + "All ports in range [" + desiredPort + ", " + (desiredPort + portRange) + "] are in use.";
+            String msg = "Cannot start thin client connector endpoint. Port " + port + " is in use.";
 
             throw new IgniteException(msg);
         }

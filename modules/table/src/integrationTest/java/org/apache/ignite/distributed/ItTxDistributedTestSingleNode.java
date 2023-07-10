@@ -20,6 +20,7 @@ package org.apache.ignite.distributed;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -37,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -53,7 +53,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -77,8 +76,8 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -144,13 +143,10 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     private static RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    private static DataStorageConfiguration dsCfg;
+    private static GcConfiguration gcConfig;
 
     @InjectConfiguration("mock.tables.foo {}")
     private static TablesConfiguration tablesConfig;
-
-    @InjectConfiguration
-    private static DistributionZoneConfiguration distributionZoneConfig;
 
     private static final IgniteLogger LOG = Loggers.forClass(ItTxDistributedTestSingleNode.class);
 
@@ -429,13 +425,15 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         List<CompletableFuture<Void>> partitionReadyFutures = new ArrayList<>();
 
+        int globalIndexId = 1;
+
         for (int p = 0; p < assignments.size(); p++) {
             Set<String> partAssignments = assignments.get(p);
 
             TablePartitionId grpId = grpIds.get(p);
 
             for (String assignment : partAssignments) {
-                var mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZoneConfig);
+                var mvTableStorage = new TestMvTableStorage(tblId, DEFAULT_PARTITION_COUNT);
                 var mvPartStorage = new TestMvPartitionStorage(0);
                 var txStateStorage = txStateStorages.get(assignment);
                 var placementDriver = new PlacementDriver(replicaServices.get(assignment), consistentIdToNode);
@@ -446,7 +444,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 int partId = p;
 
-                UUID indexId = UUID.randomUUID();
+                int indexId = globalIndexId++;
 
                 Function<BinaryRow, BinaryTuple> row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
@@ -473,7 +471,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                         partId,
                         partitionDataStorage,
-                        dsCfg,
+                        gcConfig,
                         mock(LowWatermark.class),
                         indexUpdateHandler,
                         new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
@@ -525,7 +523,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 completedFuture(schemaManager),
                                                 consistentIdToNode.apply(assignment),
                                                 mvTableStorage,
-                                                mock(IndexBuilder.class)
+                                                mock(IndexBuilder.class),
+                                                tablesConfig
                                         ),
                                         raftSvc,
                                         storageIndexTracker
@@ -642,7 +641,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             ReplicaManager replicaMgr = replicaManagers.get(entry.getKey());
 
             for (ReplicationGroupId grp : replicaMgr.startedGroups()) {
-                replicaMgr.stopReplica(grp);
+                replicaMgr.stopReplica(grp).join();
             }
 
             for (RaftNodeId nodeId : rs.localNodes()) {

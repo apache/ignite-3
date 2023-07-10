@@ -30,6 +30,15 @@
         }                                                           \
     } while (false)
 
+#define TRACE_MSG(param)                                        \
+    do {                                                        \
+        ignite::odbc_logger* p = ignite::odbc_logger::get();    \
+        if (p && p->is_trace_enabled()) {                       \
+            ignite::log_stream lstream(p);                      \
+            lstream << __FUNCTION__ << ": " << param;           \
+        }                                                       \
+    } while (false)
+
 namespace ignite
 {
 
@@ -109,6 +118,15 @@ public:
     [[nodiscard]] bool is_enabled() const;
 
     /**
+     * Checks if tracing is enabled.
+     *
+     * @return True, if tracing is enabled.
+     */
+    [[nodiscard]] bool is_trace_enabled() const {
+        return m_trace_enabled;
+    }
+
+    /**
      * Outputs the message to log file
      * @param message The message to write
      */
@@ -119,8 +137,9 @@ private:
      * Constructor.
      *
      * @param path to log file.
+     * @param trace_enabled Tracing enabled.
      */
-    explicit odbc_logger(const char* path);
+    odbc_logger(const char* path, bool trace_enabled);
 
     /**
      * Destructor.
@@ -132,6 +151,9 @@ private:
 
     /** File stream. */
     std::ofstream m_stream{};
+
+    /** Trace enabled. */
+    bool m_trace_enabled{false};
 };
 
 } // namespace ignite

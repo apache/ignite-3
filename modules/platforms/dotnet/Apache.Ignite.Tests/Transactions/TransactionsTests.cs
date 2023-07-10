@@ -58,7 +58,7 @@ namespace Apache.Ignite.Tests.Transactions
             Assert.IsFalse(await TupleView.DeleteAsync(tx, key));
 
             await TupleView.UpsertAllAsync(tx, new[] { GetTuple(1, "6"), GetTuple(2, "7") });
-            Assert.AreEqual(2, (await TupleView.GetAllAsync(tx, new[] { key, GetTuple(2), GetTuple(3) })).Count);
+            Assert.AreEqual(3, (await TupleView.GetAllAsync(tx, new[] { key, GetTuple(2), GetTuple(3) })).Count);
 
             var insertAllRes = await TupleView.InsertAllAsync(tx, new[] { GetTuple(1, "8"), GetTuple(3, "9") });
             Assert.AreEqual(GetTuple(1, "6"), (await TupleView.GetAsync(tx, key)).Value);
@@ -266,9 +266,12 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestToString()
         {
-            await using var tx1 = await Client.Transactions.BeginAsync();
-            await using var tx2 = await Client.Transactions.BeginAsync(new(ReadOnly: true));
-            await using var tx3 = await Client.Transactions.BeginAsync();
+            // Single connection.
+            using var client = await IgniteClient.StartAsync(new() { Endpoints = { "127.0.0.1:" + ServerPort } });
+
+            await using var tx1 = await client.Transactions.BeginAsync();
+            await using var tx2 = await client.Transactions.BeginAsync(new(ReadOnly: true));
+            await using var tx3 = await client.Transactions.BeginAsync();
 
             await tx2.RollbackAsync();
             await tx3.CommitAsync();

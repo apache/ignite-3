@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Table;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Apache.Ignite.Transactions;
 using Common;
@@ -157,6 +158,13 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     }
 
     /// <inheritdoc/>
+    public async Task StreamDataAsync(
+        IAsyncEnumerable<KeyValuePair<TK, TV>> data,
+        DataStreamerOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        await _recordView.StreamDataAsync(ToKv(data), options, cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc/>
     public override string ToString() =>
         new IgniteToStringBuilder(GetType())
             .Append(_recordView.Table, "Table")
@@ -183,5 +191,13 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         IgniteArgumentCheck.NotNull(v, "val");
 
         return new(k, v);
+    }
+
+    private static async IAsyncEnumerable<KvPair<TK, TV>> ToKv(IAsyncEnumerable<KeyValuePair<TK, TV>> pairs)
+    {
+        await foreach (var pair in pairs)
+        {
+            yield return ToKv(pair);
+        }
     }
 }

@@ -203,7 +203,8 @@ public class ErrorGroup {
      * @return New error message with predefined prefix.
      */
     public static String errorMessage(UUID traceId, String groupName, int code, String message) {
-        return ERR_PREFIX + groupName + '-' + extractErrorCode(code) + " TraceId:" + traceId + ((message != null) ? ' ' + message : "");
+        return ERR_PREFIX + groupName + '-' + extractErrorCode(code) + " TraceId:" + traceId
+                + ((message != null && !message.isEmpty()) ? ' ' + message : "");
     }
 
     /**

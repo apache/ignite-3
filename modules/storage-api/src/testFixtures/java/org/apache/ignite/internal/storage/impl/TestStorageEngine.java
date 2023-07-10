@@ -20,12 +20,10 @@ package org.apache.ignite.internal.storage.impl;
 import static org.mockito.Mockito.spy;
 
 import java.util.concurrent.ConcurrentSkipListMap;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 
 /**
  * Test implementation of the {@link StorageEngine} based on class {@link ConcurrentSkipListMap}.
@@ -39,27 +37,21 @@ public class TestStorageEngine implements StorageEngine {
         return ENGINE_NAME;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
         // No-op.
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
         // No-op.
     }
 
-    /** {@inheritDoc} */
     @Override
-    public MvTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
-            DistributionZoneConfiguration distributionZoneCfg)
-            throws StorageException {
-        String dataStorageName = distributionZoneCfg.dataStorage().name().value();
-
-        assert dataStorageName.equals(ENGINE_NAME) : dataStorageName;
-
-        return spy(new TestMvTableStorage(tableCfg, tablesCfg, distributionZoneCfg));
+    public TestMvTableStorage createMvTable(
+            StorageTableDescriptor tableDescriptor,
+            StorageIndexDescriptorSupplier indexDescriptorSupplier
+    ) throws StorageException {
+        return spy(new TestMvTableStorage(tableDescriptor));
     }
 }

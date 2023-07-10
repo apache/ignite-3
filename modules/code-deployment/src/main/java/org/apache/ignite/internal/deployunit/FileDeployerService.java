@@ -24,13 +24,19 @@ import static java.nio.file.StandardOpenOption.SYNC;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -60,23 +66,21 @@ public class FileDeployerService {
     }
 
     /**
-     * Deploy provided unit on local fs.
+     * Deploys provided unit on local fs.
      *
      * @param id Deploy unit identifier.
      * @param version Deploy unit version.
-     * @param unitFileContent Map of deploy unit file names to file content.
+     * @param unitContent Map of deploy unit file names to file content.
      * @return Future with deploy result.
      */
-    public CompletableFuture<Boolean> deploy(String id, String version, Map<String, byte[]> unitFileContent) {
+    public CompletableFuture<Boolean> deploy(String id, Version version, UnitContent unitContent) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                Path unitFolder = unitsFolder
-                        .resolve(id)
-                        .resolve(version);
+                Path unitFolder = unitPath(id, version);
 
                 Files.createDirectories(unitFolder);
 
-                for (Entry<String, byte[]> entry : unitFileContent.entrySet()) {
+                for (Entry<String, byte[]> entry : unitContent) {
                     String fileName = entry.getKey();
                     Path unitPath = unitFolder.resolve(fileName);
                     Path unitPathTmp = unitFolder.resolve(fileName + TMP_SUFFIX);
@@ -92,25 +96,81 @@ public class FileDeployerService {
     }
 
     /**
-     * Undeploy unit with provided identifier and version.
+     * Undeploys unit with provided identifier and version.
      *
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
      * @return Future with undeploy result
      */
-    public CompletableFuture<Boolean> undeploy(String id, String version) {
+    public CompletableFuture<Boolean> undeploy(String id, Version version) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                Path unitPath = unitsFolder
-                        .resolve(id)
-                        .resolve(version);
-
-                IgniteUtils.deleteIfExistsThrowable(unitPath);
+                IgniteUtils.deleteIfExistsThrowable(unitPath(id, version));
                 return true;
             } catch (IOException e) {
                 LOG.debug("Failed to undeploy unit " + id + ":" + version, e);
                 return false;
             }
         }, executor);
+    }
+
+    /**
+     * Reads from local FileSystem and returns deployment unit content.
+     *
+     * @param id Deployment unit identifier.
+     * @param version Deployment unit version.
+     * @return Deployment unit content.
+     */
+    public CompletableFuture<UnitContent> getUnitContent(String id, Version version) {
+        return CompletableFuture.supplyAsync(() -> {
+            Map<String, byte[]> result = new HashMap<>();
+            try {
+                Files.walkFileTree(unitPath(id, version), new SimpleFileVisitor<>() {
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                        result.put(file.getFileName().toString(), Files.readAllBytes(file));
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+            } catch (IOException e) {
+                LOG.debug("Failed to get content for unit " + id + ":" + version, e);
+            }
+            return new UnitContent(result);
+        }, executor);
+    }
+
+    /**
+     * Returns path to unit folder.
+     *
+     * @param id Deployment unit identifier.
+     * @param version Deployment unit version.
+     * @param checkExistence If {@code true} then check that unit exists.
+     * @return Path to unit folder.
+     * @throws DeploymentUnitNotFoundException If unit doesn't exist and {@code checkExistence} is {@code true}.
+     */
+    Path unitPath(String id, Version version, boolean checkExistence) {
+        Path path = unitPath(id, version);
+        if (checkExistence && !Files.exists(path)) {
+            throw new DeploymentUnitNotFoundException(id, version);
+        }
+        return path;
+    }
+
+    /**
+     * Returns path to unit folder.
+     *
+     * @param id Deployment unit identifier.
+     * @param version Deployment unit version.
+     * @return Path to unit folder.
+     */
+    Path unitPath(String id, Version version) {
+        return unitsFolder.resolve(id).resolve(version.render());
+    }
+
+    /**
+     * Stops the deployer service.
+     */
+    public void stop() {
+        executor.shutdown();
     }
 }

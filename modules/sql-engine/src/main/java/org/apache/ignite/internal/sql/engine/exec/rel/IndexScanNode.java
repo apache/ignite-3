@@ -21,29 +21,21 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.index.SortedIndex;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowConverter;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
+import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
-import org.apache.ignite.internal.utils.PrimaryReplica;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -53,8 +45,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     /** Schema index. */
     private final IgniteIndex schemaIndex;
 
-    /** Index row layout. */
-    private final BinaryTupleSchema indexRowSchema;
+    private final ScannableTable table;
 
     private final RowHandler.RowFactory<RowT> factory;
 
@@ -73,7 +64,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
      *
      * @param ctx Execution context.
      * @param rowFactory Row factory.
-     * @param schemaTable The table this node should scan.
+     * @param tableDescriptor Table descriptor.
      * @param partsWithTerms List of pairs containing the partition number to scan with the corresponding primary replica term.
      * @param comp Rows comparator.
      * @param rangeConditions Range conditions.
@@ -85,7 +76,8 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
             IgniteIndex schemaIndex,
-            IgniteTable schemaTable,
+            ScannableTable table,
+            TableDescriptor tableDescriptor,
             Collection<PartitionWithTerm> partsWithTerms,
             @Nullable Comparator<RowT> comp,
             @Nullable RangeIterable<RowT> rangeConditions,
@@ -93,18 +85,17 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
     ) {
-        super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
+        super(ctx, filters, rowTransformer);
 
         assert partsWithTerms != null && !partsWithTerms.isEmpty();
 
         this.schemaIndex = schemaIndex;
+        this.table = table;
         this.partsWithTerms = partsWithTerms;
         this.requiredColumns = requiredColumns;
         this.rangeConditions = rangeConditions;
         this.comp = comp;
         this.factory = rowFactory;
-
-        indexRowSchema = RowConverter.createIndexRowSchema(schemaIndex.columns(), schemaTable.descriptor());
     }
 
     /** {@inheritDoc} */
@@ -132,88 +123,21 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     }
 
     private Publisher<RowT> partitionPublisher(PartitionWithTerm partWithTerm, @Nullable RangeCondition<RowT> cond) {
-        Publisher<BinaryRow> pub;
-        TxAttributes txAttributes = context().txAttributes();
+        int indexId = schemaIndex.id();
+        List<String> columns = schemaIndex.columns();
+        ExecutionContext<RowT> ctx = context();
 
-        if (schemaIndex.type() == Type.SORTED) {
-            int flags = 0;
-            BinaryTuplePrefix lower = null;
-            BinaryTuplePrefix upper = null;
+        switch (schemaIndex.type()) {
+            case SORTED:
+                return table.indexRangeScan(ctx, partWithTerm, factory, indexId,
+                        columns, cond, requiredColumns);
 
-            if (cond == null) {
-                flags = SortedIndex.INCLUDE_LEFT | SortedIndex.INCLUDE_RIGHT;
-            } else {
-                lower = toBinaryTuplePrefix(cond.lower());
-                upper = toBinaryTuplePrefix(cond.upper());
+            case HASH:
+                return table.indexLookup(ctx, partWithTerm, factory, indexId,
+                        columns, cond.lower(), requiredColumns);
 
-                flags |= (cond.lowerInclude()) ? SortedIndex.INCLUDE_LEFT : 0;
-                flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
-            }
-
-            if (txAttributes.readOnly()) {
-                pub = ((SortedIndex) schemaIndex.index()).scan(
-                        partWithTerm.partId(),
-                        txAttributes.time(),
-                        context().localNode(),
-                        lower,
-                        upper,
-                        flags,
-                        requiredColumns
-                );
-            } else {
-                pub = ((SortedIndex) schemaIndex.index()).scan(
-                        partWithTerm.partId(),
-                        txAttributes.id(),
-                        new PrimaryReplica(context().localNode(), partWithTerm.term()),
-                        lower,
-                        upper,
-                        flags,
-                        requiredColumns
-                );
-            }
-        } else {
-            assert schemaIndex.type() == Type.HASH;
-            assert cond != null && cond.lower() != null : "Invalid hash index condition.";
-
-            BinaryTuple key = toBinaryTuple(cond.lower());
-
-            if (txAttributes.readOnly()) {
-                pub = schemaIndex.index().lookup(
-                        partWithTerm.partId(),
-                        txAttributes.time(),
-                        context().localNode(),
-                        key,
-                        requiredColumns
-                );
-            } else {
-                pub = schemaIndex.index().lookup(
-                        partWithTerm.partId(),
-                        txAttributes.id(),
-                        new PrimaryReplica(context().localNode(), partWithTerm.term()),
-                        key,
-                        requiredColumns
-                );
-            }
+            default:
+                throw new AssertionError("Unexpected index type: " + schemaIndex.type());
         }
-
-        return convertPublisher(pub);
-    }
-
-    @Contract("null -> null")
-    private @Nullable BinaryTuplePrefix toBinaryTuplePrefix(@Nullable RowT condition) {
-        if (condition == null) {
-            return null;
-        }
-
-        return RowConverter.toBinaryTuplePrefix(context(), indexRowSchema, factory, condition);
-    }
-
-    @Contract("null -> null")
-    private @Nullable BinaryTuple toBinaryTuple(@Nullable RowT condition) {
-        if (condition == null) {
-            return null;
-        }
-
-        return RowConverter.toBinaryTuple(context(), indexRowSchema, factory, condition);
     }
 }

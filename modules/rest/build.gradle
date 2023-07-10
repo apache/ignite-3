@@ -77,9 +77,11 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation testFixtures(project(":ignite-api"))
+    integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.micronaut.junit5
     integrationTestImplementation libs.micronaut.test
     integrationTestImplementation libs.micronaut.http.client
     integrationTestImplementation libs.micronaut.http.server.netty
     integrationTestImplementation libs.typesafe.config
+    integrationTestImplementation libs.swaggerv3.annotations
 }

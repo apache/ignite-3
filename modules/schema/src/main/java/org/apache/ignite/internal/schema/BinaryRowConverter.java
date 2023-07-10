@@ -73,18 +73,13 @@ public class BinaryRowConverter {
         ByteBuffer tupleBuffer = binaryRow.tupleSlice();
         var parser = new BinaryTupleParser(srcSchema.elementCount(), tupleBuffer);
 
-        // See if there are any NULL values and estimate total data size.
+        // Estimate total data size.
         var stats = new Sink() {
-            boolean hasNulls = false;
             int estimatedValueSize = 0;
 
             @Override
             public void nextElement(int index, int begin, int end) {
-                if (begin == 0) {
-                    hasNulls = true;
-                } else {
-                    estimatedValueSize += end - begin;
-                }
+                estimatedValueSize += end - begin;
             }
         };
 
@@ -94,21 +89,19 @@ public class BinaryRowConverter {
         }
 
         // Now compose the tuple.
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(dstSchema.elementCount(), stats.hasNulls, stats.estimatedValueSize);
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(dstSchema.elementCount(), stats.estimatedValueSize);
 
         for (int elementIndex = 0; elementIndex < dstSchema.elementCount(); elementIndex++) {
             int columnIndex = dstSchema.columnIndex(elementIndex);
             parser.fetch(columnIndex, (index, begin, end) -> {
-                if (begin == 0) {
+                if (begin == end) {
                     builder.appendNull();
-                } else if (begin == end) { // Explicitly append default, although appendElementBytes would work fine in this case.
-                    builder.appendDefault();
                 } else {
                     builder.appendElementBytes(tupleBuffer, begin, end - begin);
                 }
             });
         }
-        return new BinaryTuple(dstSchema, builder.build());
+        return new BinaryTuple(dstSchema.elementCount(), builder.build());
     }
 
     /**
@@ -170,13 +163,13 @@ public class BinaryRowConverter {
     /** Helper method to convert from a full row or key-only row to the key-only tuple. */
     public static Function<BinaryRow, BinaryTuple> keyExtractor(SchemaDescriptor schema) {
         return binaryRow -> {
-            BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schema);
-            BinaryTupleSchema keySchema = BinaryTupleSchema.createKeySchema(schema);
-
             if (binaryRow.hasValue()) {
+                BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schema);
+                BinaryTupleSchema keySchema = BinaryTupleSchema.createKeySchema(schema);
+
                 return new BinaryRowConverter(rowSchema, keySchema).toTuple(binaryRow);
             } else {
-                return new BinaryTuple(keySchema, binaryRow.tupleSlice());
+                return new BinaryTuple(schema.keyColumns().length(), binaryRow.tupleSlice());
             }
         };
     }

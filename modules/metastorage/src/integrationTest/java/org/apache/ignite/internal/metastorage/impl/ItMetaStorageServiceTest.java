@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscr
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CursorUtils.emptyCursor;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -193,7 +194,7 @@ public class ItMetaStorageServiceTest {
                     clock
             );
 
-            this.clusterTime = new ClusterTimeImpl(new IgniteSpinBusyLock(), clock);
+            this.clusterTime = new ClusterTimeImpl(clusterService.nodeName(), new IgniteSpinBusyLock(), clock);
 
             this.mockStorage = mock(KeyValueStorage.class);
         }
@@ -234,7 +235,9 @@ public class ItMetaStorageServiceTest {
             var raftNodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, peer);
 
             try {
-                return raftManager.startRaftGroupNode(raftNodeId, configuration, listener, RaftGroupEventsListener.noopLsnr);
+                return raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(
+                        raftNodeId, configuration, listener, RaftGroupEventsListener.noopLsnr
+                );
             } catch (NodeStoppingException e) {
                 throw new IllegalStateException(e);
             }
@@ -592,7 +595,7 @@ public class ItMetaStorageServiceTest {
 
         long expRevUpperBound = 10;
 
-        when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), expRevUpperBound)).thenReturn(mock(Cursor.class));
+        when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), expRevUpperBound)).thenReturn(emptyCursor());
 
         node.metaStorageService.range(expKeyFrom, expKeyTo, expRevUpperBound).subscribe(singleElementSubscriber());
 
@@ -611,7 +614,7 @@ public class ItMetaStorageServiceTest {
 
         ByteArray expKeyTo = new ByteArray(new byte[]{3});
 
-        when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes())).thenReturn(mock(Cursor.class));
+        when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes())).thenReturn(emptyCursor());
 
         node.metaStorageService.range(expKeyFrom, expKeyTo, false).subscribe(singleElementSubscriber());
 
@@ -628,7 +631,7 @@ public class ItMetaStorageServiceTest {
 
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
-        when(node.mockStorage.range(expKeyFrom.bytes(), null)).thenReturn(mock(Cursor.class));
+        when(node.mockStorage.range(expKeyFrom.bytes(), null)).thenReturn(emptyCursor());
 
         node.metaStorageService.range(expKeyFrom, null, false).subscribe(singleElementSubscriber());
 

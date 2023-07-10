@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <string>
 #include <sstream>
+#include <cstring>
 
 namespace
 {
@@ -516,7 +517,7 @@ conversion_result application_data_buffer::put_decimal(const big_decimal& value)
         case odbc_native_type::AI_FLOAT:
         case odbc_native_type::AI_DOUBLE:
         {
-            put_num<double>(value.ToDouble());
+            put_num<double>(value.to_double());
 
             return conversion_result::AI_FRACTIONAL_TRUNCATED;
         }

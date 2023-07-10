@@ -18,26 +18,18 @@
 package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Base test for MV partition storages.
  */
-@ExtendWith(ConfigurationExtension.class)
 public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     protected static final int PARTITION_ID = 1;
 
@@ -53,14 +45,6 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
 
     protected static final BinaryRow TABLE_ROW2 = binaryRow(KEY, new TestValue(30, "bar"));
 
-    protected @InjectConfiguration("mock.tables.foo = {}") TablesConfiguration tablesCfg;
-
-    protected @InjectConfiguration DistributionZoneConfiguration distributionZoneCfg;
-
-    protected StorageEngine engine;
-
-    protected MvTableStorage table;
-
     protected MvPartitionStorage storage;
 
     /**
@@ -70,33 +54,18 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
         return UUID.randomUUID();
     }
 
-    protected abstract StorageEngine createEngine();
-
-    @BeforeEach
-    protected void setUp() {
-        TableConfiguration tableCfg = tablesCfg.tables().get("foo");
-
-        engine = createEngine();
-
-        engine.start();
-
-        distributionZoneCfg.dataStorage()
-                .change(ds -> ds.convert(engine.name())).join();
-
-        table = engine.createMvTable(tableCfg, tablesCfg, distributionZoneCfg);
-
-        table.start();
-
-        storage = getOrCreateMvPartition(table, PARTITION_ID);
-    }
-
     @AfterEach
     protected void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                storage == null ? null : storage::close,
-                table == null ? null : table::stop,
-                engine == null ? null : engine::stop
-        );
+        IgniteUtils.closeAllManually(storage);
+    }
+
+    /**
+     * Initializes the internal structures needed for tests.
+     *
+     * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
+     */
+    protected final void initialize(MvTableStorage tableStorage) {
+        storage = getOrCreateMvPartition(tableStorage, PARTITION_ID);
     }
 
     /**
@@ -159,7 +128,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     }
 
     /**
-     * Writes a row to storage like if it was first added using {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)}
+     * Writes a row to storage like if it was first added using {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)}
      * and immediately committed with {@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)}.
      */
     protected void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) {
@@ -192,8 +161,37 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
         });
     }
 
-    protected BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
-        //TODO IGNITE-19367 Remove or replace with some other method.
-        return storage.pollForVacuum(lowWatermark);
+    /**
+     * Polls the oldest row in the partition, removing it at the same time.
+     *
+     * @param lowWatermark A time threshold for the row. Only rows that have versions with timestamp higher or equal to the watermark
+     *      can be removed.
+     * @return A pair of table row and row id, where a timestamp of the row is less than or equal to {@code lowWatermark}.
+     *      {@code null} if there's no such value.
+     */
+    @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+        while (true) {
+            BinaryRowAndRowId binaryRowAndRowId = storage.runConsistently(locker -> {
+                GcEntry gcEntry = storage.peek(lowWatermark);
+
+                if (gcEntry == null) {
+                    return null;
+                }
+
+                locker.lock(gcEntry.getRowId());
+
+                return new BinaryRowAndRowId(storage.vacuum(gcEntry), gcEntry.getRowId());
+            });
+
+            if (binaryRowAndRowId == null) {
+                return null;
+            }
+
+            if (binaryRowAndRowId.binaryRow() == null) {
+                continue;
+            }
+
+            return binaryRowAndRowId;
+        }
     }
 }

@@ -18,12 +18,8 @@
 package org.apache.ignite.internal.table.distributed.replication.request;
 
 import java.util.BitSet;
-import java.util.UUID;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
-import org.apache.ignite.network.annotations.Marshallable;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -38,11 +34,8 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
 
     /**
      * Gets an index to use fot the retrieve request.
-     *
-     * @return Index id.
      */
-    @Nullable
-    UUID indexToUse();
+    @Nullable Integer indexToUse();
 
     /**
      * Gets a key which is used for exact comparison in the index.
@@ -50,8 +43,7 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
      * @return Key to search.
      */
     @Nullable
-    @Marshallable
-    BinaryTuple exactKey();
+    BinaryTupleMessage exactKey();
 
     /**
      * Gets a lower bound to choose entries from {@link SortedIndexStorage}. Exclusivity is controlled by a {@link
@@ -60,8 +52,7 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
      * @return lower bound.
      */
     @Nullable
-    @Marshallable
-    BinaryTuplePrefix lowerBound();
+    BinaryTupleMessage lowerBoundPrefix();
 
     /**
      * Gets an upper bound to choose entries from {@link SortedIndexStorage}. Upper bound. Exclusivity is controlled by a {@link
@@ -70,8 +61,7 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
      * @return upper bound.
      */
     @Nullable
-    @Marshallable
-    BinaryTuplePrefix upperBound();
+    BinaryTupleMessage upperBoundPrefix();
 
     /**
      * Gets control flags for {@link SortedIndexStorage}. {@link SortedIndexStorage#GREATER} | {@link SortedIndexStorage#LESS} by default.
@@ -87,6 +77,5 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
      * @return Bitset to include columns.
      */
     @Nullable
-    @Marshallable
     BitSet columnsToInclude();
 }

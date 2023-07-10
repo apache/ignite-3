@@ -49,6 +49,7 @@ import java.util.RandomAccess;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.IntFunction;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.util.ArrayFactory;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -80,7 +81,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     protected ByteBuffer buf;
 
-    protected byte[] heapArr;
+    protected byte @Nullable [] heapArr;
 
     protected long baseOff;
 
@@ -108,6 +109,15 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      * message type.
      */
     private short msgGroupType;
+
+    /**
+     * Flag needed for reading boxed primitives.
+     *
+     * <p>Boxed primitives are encoded as a boolean flag ({@code false} meaning that the boxed value is {@code null}), followed by the
+     * unboxed value (if not null). Therefore, this flag value must be cached between two unsuccessful read calls in case the received boxed
+     * primitive was not {@code null}.
+     */
+    private boolean boxedTypeNotNull;
 
     @Nullable
     private MessageDeserializer<NetworkMessage> msgDeserializer;
@@ -178,7 +188,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             this.buf = buf;
 
             heapArr = buf.isDirect() ? null : buf.array();
-            baseOff = buf.isDirect() ? GridUnsafe.bufferAddress(buf) : BYTE_ARR_OFF;
+            baseOff = buf.isDirect() ? GridUnsafe.bufferAddress(buf) : BYTE_ARR_OFF + buf.arrayOffset();
         }
     }
 
@@ -208,6 +218,21 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
     }
 
+    @Override
+    public void writeBoxedByte(@Nullable Byte val) {
+        if (val != null) {
+            lastFinished = buf.remaining() >= 1 + 1;
+
+            if (lastFinished) {
+                writeBoolean(true);
+
+                writeByte(val);
+            }
+        } else {
+            writeBoolean(false);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeShort(short val) {
@@ -225,6 +250,21 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             }
 
             buf.position(pos + 2);
+        }
+    }
+
+    @Override
+    public void writeBoxedShort(@Nullable Short val) {
+        if (val != null) {
+            lastFinished = buf.remaining() >= 1 + 2;
+
+            if (lastFinished) {
+                writeBoolean(true);
+
+                writeShort(val);
+            }
+        } else {
+            writeBoolean(false);
         }
     }
 
@@ -253,7 +293,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     }
 
     @Override
-    public void writeBoxedInt(Integer val) {
+    public void writeBoxedInt(@Nullable Integer val) {
         if (val != null) {
             lastFinished = buf.remaining() >= 1 + 5;
 
@@ -291,6 +331,21 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
     }
 
+    @Override
+    public void writeBoxedLong(@Nullable Long val) {
+        if (val != null) {
+            lastFinished = buf.remaining() >= 1 + 10;
+
+            if (lastFinished) {
+                writeBoolean(true);
+
+                writeLong(val);
+            }
+        } else {
+            writeBoolean(false);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeFloat(float val) {
@@ -308,6 +363,21 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             }
 
             buf.position(pos + 4);
+        }
+    }
+
+    @Override
+    public void writeBoxedFloat(@Nullable Float val) {
+        if (val != null) {
+            lastFinished = buf.remaining() >= 1 + 4;
+
+            if (lastFinished) {
+                writeBoolean(true);
+
+                writeFloat(val);
+            }
+        } else {
+            writeBoolean(false);
         }
     }
 
@@ -331,6 +401,21 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
     }
 
+    @Override
+    public void writeBoxedDouble(@Nullable Double val) {
+        if (val != null) {
+            lastFinished = buf.remaining() >= 1 + 8;
+
+            if (lastFinished) {
+                writeBoolean(true);
+
+                writeDouble(val);
+            }
+        } else {
+            writeBoolean(false);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeChar(char val) {
@@ -351,6 +436,21 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
     }
 
+    @Override
+    public void writeBoxedChar(@Nullable Character val) {
+        if (val != null) {
+            lastFinished = buf.remaining() >= 1 + 2;
+
+            if (lastFinished) {
+                writeBoolean(true);
+
+                writeChar(val);
+            }
+        } else {
+            writeBoolean(false);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBoolean(boolean val) {
@@ -362,6 +462,21 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             GridUnsafe.putBoolean(heapArr, baseOff + pos, val);
 
             buf.position(pos + 1);
+        }
+    }
+
+    @Override
+    public void writeBoxedBoolean(@Nullable Boolean val) {
+        if (val != null) {
+            lastFinished = buf.remaining() >= 1 + 1;
+
+            if (lastFinished) {
+                writeBoolean(true);
+
+                writeBoolean(val);
+            }
+        } else {
+            writeBoolean(false);
         }
     }
 
@@ -869,6 +984,29 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
     }
 
+    @Override
+    public @Nullable Byte readBoxedByte() {
+        return readBoxedValue(this::readByte);
+    }
+
+    private <T> @Nullable T readBoxedValue(Supplier<T> valueReader) {
+        // First, check if we have read the null flag in a previous call.
+        if (boxedTypeNotNull || readBoolean()) {
+            boxedTypeNotNull = true;
+
+            T result = valueReader.get();
+
+            // If the whole value has been read successfully, reset the state.
+            if (lastFinished) {
+                boxedTypeNotNull = false;
+            }
+
+            return result;
+        } else {
+            return null;
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public short readShort() {
@@ -885,6 +1023,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         } else {
             return 0;
         }
+    }
+
+    @Override
+    public @Nullable Short readBoxedShort() {
+        return readBoxedValue(this::readShort);
     }
 
     /** {@inheritDoc} */
@@ -925,20 +1068,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     }
 
     @Override
-    public Integer readBoxedInt() {
-        int pos = buf.position();
-
-        int limit = buf.limit();
-
-        if (limit - pos >= 5) {
-            if (readBoolean()) {
-                return readInt();
-            } else {
-                return null;
-            }
-        }
-
-        return null;
+    public @Nullable Integer readBoxedInt() {
+        return readBoxedValue(this::readInt);
     }
 
     /** {@inheritDoc} */
@@ -978,6 +1109,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         return val;
     }
 
+    @Override
+    public @Nullable Long readBoxedLong() {
+        return readBoxedValue(this::readLong);
+    }
+
     /** {@inheritDoc} */
     @Override
     public float readFloat() {
@@ -994,6 +1130,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         } else {
             return 0;
         }
+    }
+
+    @Override
+    public @Nullable Float readBoxedFloat() {
+        return readBoxedValue(this::readFloat);
     }
 
     /** {@inheritDoc} */
@@ -1014,6 +1155,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
     }
 
+    @Override
+    public @Nullable Double readBoxedDouble() {
+        return readBoxedValue(this::readDouble);
+    }
+
     /** {@inheritDoc} */
     @Override
     public char readChar() {
@@ -1032,6 +1178,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
     }
 
+    @Override
+    public @Nullable Character readBoxedChar() {
+        return readBoxedValue(this::readChar);
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean readBoolean() {
@@ -1046,6 +1197,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         } else {
             return false;
         }
+    }
+
+    @Override
+    public @Nullable Boolean readBoxedBoolean() {
+        return readBoxedValue(this::readBoolean);
     }
 
     /** {@inheritDoc} */

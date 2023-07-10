@@ -79,7 +79,7 @@ public class ClientPutGetBenchmark {
         ignite = new FakeIgnite("server-1");
         ((FakeIgniteTables) ignite.tables()).createTable(DEFAULT_TABLE);
 
-        testServer = new TestServer(10800, 10, 1000, ignite);
+        testServer = new TestServer(1000, ignite);
 
         client = IgniteClient.builder()
                 .addresses("127.0.0.1:" + testServer.port())

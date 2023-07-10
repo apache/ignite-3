@@ -23,30 +23,39 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneVersionedConfigurationKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVault;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributesVault;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneConfiguration;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
@@ -57,7 +66,6 @@ import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
 
@@ -291,7 +299,7 @@ public class DistributionZonesTestUtil {
      * @param keyValueStorage Key-value storage.
      * @throws InterruptedException If thread was interrupted.
      */
-    public static void assertLogicalTopologyVersion(long topVer, KeyValueStorage keyValueStorage) throws InterruptedException {
+    public static void assertLogicalTopologyVersion(@Nullable Long topVer, KeyValueStorage keyValueStorage) throws InterruptedException {
         assertValueInStorage(
                 keyValueStorage,
                 zonesLogicalTopologyVersionKey().bytes(),
@@ -306,24 +314,22 @@ public class DistributionZonesTestUtil {
      * TODO: IGNITE-19403 Watch listeners must be deployed after the zone manager starts.
      *
      * @param metaStorageManager Meta storage manager.
-     * @throws NodeStoppingException If node is stopping.
      * @throws InterruptedException If thread was interrupted.
      */
-    public static void deployWatchesAndUpdateMetaStorageRevision(MetaStorageManager metaStorageManager)
-            throws NodeStoppingException, InterruptedException {
+    public static void deployWatchesAndUpdateMetaStorageRevision(MetaStorageManager metaStorageManager) throws InterruptedException {
         // Watches are deployed before distributionZoneManager start in order to update Meta Storage revision before
         // distributionZoneManager's recovery.
-        metaStorageManager.deployWatches();
+        CompletableFuture<Void> deployWatchesFut = metaStorageManager.deployWatches();
 
         // Bump Meta Storage applied revision by modifying a fake key. DistributionZoneManager breaks on start if Vault is not empty, but
         // Meta Storage revision is equal to 0.
         var fakeKey = new ByteArray("foobar");
 
-        CompletableFuture<Boolean> invokeFuture = metaStorageManager.invoke(
+        CompletableFuture<Boolean> invokeFuture = deployWatchesFut.thenCompose(unused -> metaStorageManager.invoke(
                 Conditions.notExists(fakeKey),
                 Operations.put(fakeKey, fakeKey.bytes()),
                 Operations.noop()
-        );
+        ));
 
         assertThat(invokeFuture, willBe(true));
 
@@ -336,14 +342,28 @@ public class DistributionZonesTestUtil {
      * @param nodes Logical topology
      * @param vaultMgr Vault manager
      */
-    public static void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes, VaultManager vaultMgr) {
+    public static void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes, VaultManager vaultMgr, long appliedRevision) {
         Set<NodeWithAttributes> nodesWithAttributes = nodes.stream()
                 .map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes()))
                 .collect(Collectors.toSet());
 
         byte[] newLogicalTopology = toBytes(nodesWithAttributes);
 
-        assertThat(vaultMgr.put(zonesLogicalTopologyKey(), newLogicalTopology), willCompleteSuccessfully());
+        Map<String, Map<String, String>> nodesAttributes = new ConcurrentHashMap<>();
+        nodesWithAttributes.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
+        assertThat(vaultMgr.put(zonesNodesAttributesVault(), toBytes(nodesAttributes)), willCompleteSuccessfully());
+
+        assertThat(vaultMgr.put(zonesLogicalTopologyVault(), newLogicalTopology), willCompleteSuccessfully());
+
+        assertThat(vaultMgr.put(zonesGlobalStateRevision(), longToBytes(appliedRevision)), willCompleteSuccessfully());
+
+        ConcurrentSkipListMap<Long, ZoneConfiguration> map = new ConcurrentSkipListMap<>();
+
+        map.put(1L, new ZoneConfiguration(false, 2, 3, "asd"));
+
+        assertThat(vaultMgr.put(zoneVersionedConfigurationKey(123456789), toBytes(map)), willCompleteSuccessfully());
+
+        System.out.println();
     }
 
     /**
@@ -441,6 +461,36 @@ public class DistributionZonesTestUtil {
             }
 
             assertThat(storageValue == null ? null : valueTransformer.apply(storageValue), is(expectedValue));
+        }
+    }
+
+    /**
+     * Asserts data nodes from the distribution zone manager.
+     *
+     * @param distributionZoneManager Distribution zone manager.
+     * @param zoneId Zone id.
+     * @param expectedValue Expected value.
+     * @param timeoutMillis Timeout in milliseconds.
+     * @throws InterruptedException If interrupted.
+     */
+    public static void assertDataNodesFromManager(
+            DistributionZoneManager distributionZoneManager,
+            int zoneId,
+            @Nullable Set<String> expectedValue,
+            long timeoutMillis
+    ) throws InterruptedException {
+        boolean success = waitForCondition(() -> {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 change this to the causality versioned call to dataNodes.
+            Set<String> dataNodes = distributionZoneManager.dataNodes(zoneId);
+
+            return Objects.equals(dataNodes, expectedValue);
+        }, timeoutMillis);
+
+        // We do a second check simply to print a nice error message in case the condition above is not achieved.
+        if (!success) {
+            Set<String> dataNodes = distributionZoneManager.dataNodes(zoneId);
+
+            assertThat(dataNodes, is(expectedValue));
         }
     }
 }

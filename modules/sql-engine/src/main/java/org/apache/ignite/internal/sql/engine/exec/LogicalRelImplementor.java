@@ -131,6 +131,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
     private final ExpressionFactory<RowT> expressionFactory;
 
+    private final ResolvedDependencies resolvedDependencies;
+
     /**
      * Constructor.
      *
@@ -138,17 +140,19 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
      * @param hashFuncFactory Factory to create a hash function for the row, from which the destination nodes are calculated.
      * @param mailboxRegistry Mailbox registry.
      * @param exchangeSvc Exchange service.
+     * @param resolvedDependencies  Dependencies required to execute this query.
      */
     public LogicalRelImplementor(
             ExecutionContext<RowT> ctx,
             HashFunctionFactory<RowT> hashFuncFactory,
             MailboxRegistry mailboxRegistry,
-            ExchangeService exchangeSvc
-    ) {
+            ExchangeService exchangeSvc,
+            ResolvedDependencies resolvedDependencies) {
         this.hashFuncFactory = hashFuncFactory;
         this.mailboxRegistry = mailboxRegistry;
         this.exchangeSvc = exchangeSvc;
         this.ctx = ctx;
+        this.resolvedDependencies = resolvedDependencies;
 
         expressionFactory = ctx.expressionFactory();
     }
@@ -323,6 +327,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         IgniteTypeFactory typeFactory = ctx.getTypeFactory();
         ImmutableBitSet requiredColumns = rel.requiredColumns();
         RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
+        ScannableTable scannableTable = resolvedDependencies.scannableTable(tbl.id());
 
         IgniteIndex idx = tbl.getIndex(rel.indexName());
 
@@ -366,7 +371,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx,
                 ctx.rowHandler().factory(ctx.getTypeFactory(), rowType),
                 idx,
-                tbl,
+                scannableTable,
+                tbl.descriptor(),
                 group.partitionsWithTerms(ctx.localNode().name()),
                 comp,
                 ranges,
@@ -383,9 +389,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         List<RexNode> projects = rel.projects();
         ImmutableBitSet requiredColumns = rel.requiredColumns();
 
-        IgniteTable tbl = rel.getTable().unwrap(IgniteTable.class);
-
-        assert tbl != null;
+        IgniteTable tbl = rel.getTable().unwrapOrThrow(IgniteTable.class);
+        ScannableTable scannableTable = resolvedDependencies.scannableTable(tbl.id());
 
         IgniteTypeFactory typeFactory = ctx.getTypeFactory();
 
@@ -403,7 +408,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         return new TableScanNode<>(
                 ctx,
                 ctx.rowHandler().factory(ctx.getTypeFactory(), rowType),
-                tbl,
+                scannableTable,
                 group.partitionsWithTerms(ctx.localNode().name()),
                 filters,
                 prj,
@@ -566,11 +571,10 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteTableModify rel) {
-        UpdateableTable table = rel.getTable().unwrap(UpdateableTable.class);
+        IgniteTable table = rel.getTable().unwrapOrThrow(IgniteTable.class);
+        UpdatableTable updatableTable = resolvedDependencies.updatableTable(table.id());
 
-        assert table != null;
-
-        ModifyNode<RowT> node = new ModifyNode<>(ctx, table, rel.getOperation(), rel.getUpdateColumnList());
+        ModifyNode<RowT> node = new ModifyNode<>(ctx, updatableTable, rel.getOperation(), rel.getUpdateColumnList());
 
         Node<RowT> input = visit(rel.getInput());
 

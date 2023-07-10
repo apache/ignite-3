@@ -17,585 +17,271 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.UNSPECIFIED_VALUE_PLACEHOLDER;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.IsEqual.equalTo;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doCallRealMethod;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Comparator;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
+import java.util.Objects;
+import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Consumer;
-import java.util.stream.IntStream;
+import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.index.ColumnCollation;
+import org.apache.ignite.internal.index.HashIndex;
 import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
-import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.index.SortedIndexImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
-import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
-import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
+import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.hamcrest.Matchers;
+import org.apache.ignite.internal.table.InternalTable;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 /**
- * Test {@link IndexScanNode} contract.
- * Note: we just bounds are valid and don't care that data meets bound conditions.
- * Bound condition applies in underlying storage, which is mocked here.
+ * Test {@link IndexScanNode} execution.
  */
-@SuppressWarnings("ThrowableNotThrown")
 public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
-    private static final Comparator<Object[]> comp = Comparator.comparingLong(v -> (long) ((Object[]) v)[0]);
 
-    private static Object[][] sortedIndexData;
-    private static Object[][] hashIndexData;
-
-    private static Object[][] sortedScanResult;
-    private static Object[][] hashScanResult;
-
-    @BeforeAll
-    public static void generateData() {
-        sortedIndexData = generateIndexData(2, Commons.IN_BUFFER_SIZE * 2, true);
-        hashIndexData = generateIndexData(2, Commons.IN_BUFFER_SIZE * 2, false);
-        sortedScanResult = Arrays.stream(sortedIndexData).map(Object[]::clone).sorted(comp).toArray(Object[][]::new);
-        hashScanResult = hashIndexData;
-    }
-
+    /**
+     * Sorted index scan execution.
+     */
     @Test
-    public void sortedIndexScanOverEmptyIndex() {
-        validateSortedIndexScan(
-                EMPTY,
-                null,
-                null,
-                EMPTY
-        );
+    public void testSortedIndex() {
+        Index<?> index = newSortedIndex();
+
+        ExecutionContext<Object[]> ctx = executionContext();
+
+        Tester tester = new Tester(ctx);
+
+        TestScannableTable<Object[]> scannableTable = new TestScannableTable<>();
+        scannableTable.setPartitionData(0, new Object[]{4}, new Object[]{5});
+        scannableTable.setPartitionData(2, new Object[]{1}, new Object[]{2});
+
+        Comparator<Object[]> cmp = Comparator.comparing(row -> (Comparable<Object>) row[0]);
+
+        IndexScanNode<Object[]> node = tester.createSortedIndex(index, scannableTable, cmp);
+        List<Object[]> result = tester.execute(node);
+
+        validateResult(result, List.of(new Object[]{1}, new Object[]{2}, new Object[]{4}, new Object[]{5}));
     }
 
+    /**
+     * Hash index lookup execution.
+     */
     @Test
-    public void sortedIndexScanWithNoBounds() {
-        validateSortedIndexScan(
-                sortedIndexData,
-                null,
-                null,
-                sortedScanResult
-        );
+    public void testHashIndex() {
+        Index<?> index = newHashIndex();
+
+        ExecutionContext<Object[]> ctx = executionContext();
+
+        Tester tester = new Tester(ctx);
+
+        TestScannableTable<Object[]> scannableTable = new TestScannableTable<>();
+        scannableTable.setPartitionData(0, new Object[]{2}, new Object[]{1});
+        scannableTable.setPartitionData(2, new Object[]{0});
+
+        IndexScanNode<Object[]> node = tester.createHashIndex(index, scannableTable);
+        List<Object[]> result = tester.execute(node);
+
+        validateResult(result, List.of(new Object[]{2}, new Object[]{1}, new Object[]{0}));
     }
 
-    @Test
-    public void sortedIndexScanWithExactBound() {
-        // Lower bound.
-        validateSortedIndexScan(
-                sortedIndexData,
-                new Object[]{2L, 1},
-                null,
-                sortedScanResult
-        );
-        validateSortedIndexScan(
-                sortedIndexData,
-                new Object[]{2L, null},
-                null,
-                sortedScanResult
-        );
-        validateSortedIndexScan(
-                sortedIndexData,
-                new Object[]{null, 1},
-                null,
-                sortedScanResult
-        );
-        validateSortedIndexScan(
-                sortedIndexData,
-                new Object[]{null, null},
-                null,
-                sortedScanResult
-        );
-        // Upper bound.
-        validateSortedIndexScan(
-                sortedIndexData,
-                null,
-                new Object[]{4L, 0},
-                sortedScanResult
-        );
-        validateSortedIndexScan(
-                sortedIndexData,
-                null,
-                new Object[]{4L, null},
-                sortedScanResult
-        );
-        validateSortedIndexScan(
-                sortedIndexData,
-                null,
-                new Object[]{null, 0},
-                sortedScanResult
-        );
-        validateSortedIndexScan(
-                sortedIndexData,
-                null,
-                new Object[]{null, null},
-                sortedScanResult
-        );
-    }
+    private class Tester {
 
-    @Test
-    public void sortedIndexScanWithPrefixBound() {
-        validateSortedIndexScan(
-                sortedIndexData,
-                new Object[]{2L, UNSPECIFIED_VALUE_PLACEHOLDER},
-                null,
-                sortedScanResult
-        );
-        validateSortedIndexScan(
-                sortedIndexData,
-                new Object[]{null, UNSPECIFIED_VALUE_PLACEHOLDER},
-                null,
-                sortedScanResult
-        );
+        private final ExecutionContext<Object[]> ctx;
 
-        validateSortedIndexScan(
-                sortedIndexData,
-                null,
-                new Object[]{4L, UNSPECIFIED_VALUE_PLACEHOLDER},
-                sortedScanResult
-        );
-        validateSortedIndexScan(
-                sortedIndexData,
-                null,
-                new Object[]{null, UNSPECIFIED_VALUE_PLACEHOLDER},
-                sortedScanResult
-        );
-    }
-
-    @Test
-    public void sortedIndexScanInvalidBounds() {
-        assertThrowsWithCause(() ->
-                validateSortedIndexScan(
-                        sortedIndexData,
-                        new Object[]{2L, "Brutus"},
-                        null,
-                        EMPTY
-                ), ClassCastException.class, "class java.lang.String cannot be cast to class java.lang.Integer");
-
-        assertThrowsWithCause(() ->
-                validateSortedIndexScan(
-                        sortedIndexData,
-                        null,
-                        new Object[]{3.9, 0},
-                        EMPTY
-                ), ClassCastException.class, "class java.lang.Double cannot be cast to class java.lang.Long");
-
-        assertThrowsWithCause(() ->
-                validateSortedIndexScan(
-                        sortedIndexData,
-                        new Object[]{1L},
-                        null,
-                        EMPTY
-                ), AssertionError.class, "Invalid range condition");
-    }
-
-    @Test
-    public void hashIndexLookupOverEmptyIndex() {
-        validateHashIndexScan(
-                EMPTY,
-                new Object[]{1L, 3},
-                EMPTY
-        );
-    }
-
-    @Test
-    public void hashIndexLookupNoKey() {
-        assertThrowsWithCause(() ->
-                validateHashIndexScan(
-                        hashIndexData,
-                        null,
-                        hashScanResult
-                ), AssertionError.class, "Invalid hash index condition.");
-    }
-
-    @Test
-    public void hashIndexLookup() {
-        validateHashIndexScan(
-                hashIndexData,
-                new Object[]{4L, 2},
-                hashScanResult);
-
-        validateHashIndexScan(
-                hashIndexData,
-                new Object[]{null, null},
-                hashScanResult);
-    }
-
-    @Test
-    public void hashIndexLookupInvalidKey() {
-        // Hash index doesn't support range scans with prefix bounds.
-        assertThrowsWithCause(() ->
-                validateHashIndexScan(
-                        hashIndexData,
-                        new Object[]{2L},
-                        EMPTY
-                ), AssertionError.class, "Invalid lookup key");
-
-        assertThrowsWithCause(() ->
-                validateHashIndexScan(
-                        hashIndexData,
-                        new Object[]{2L, "Brutus"},
-                        EMPTY
-                ), ClassCastException.class, "class java.lang.String cannot be cast to class java.lang.Integer");
-
-        assertThrowsWithCause(() ->
-                validateHashIndexScan(
-                        sortedIndexData,
-                        new Object[]{1L, UNSPECIFIED_VALUE_PLACEHOLDER},
-                        EMPTY
-                ), AssertionError.class, "Invalid lookup key");
-    }
-
-    private static Object[][] generateIndexData(int partCnt, int partSize, boolean sorted) {
-        Set<Long> uniqueNumbers = new HashSet<>();
-
-        while (uniqueNumbers.size() < partCnt * partSize) {
-            uniqueNumbers.add(ThreadLocalRandom.current().nextLong());
+        Tester(ExecutionContext<Object[]> ctx) {
+            this.ctx = ctx;
         }
 
-        List<Long> uniqueNumList = new ArrayList<>(uniqueNumbers);
+        IndexScanNode<Object[]> createSortedIndex(Index<?> index, TestScannableTable<?> scannableTable, Comparator<Object[]> cmp) {
+            return createIndexNode(ctx, index, scannableTable, cmp);
+        }
 
-        Object[][] data = new Object[partCnt * partSize][4];
+        IndexScanNode<Object[]> createHashIndex(Index<?> index, TestScannableTable<?> scannableTable) {
+            return createIndexNode(ctx, index, scannableTable, null);
+        }
 
-        for (int p = 0; p < partCnt; p++) {
-            if (sorted) {
-                uniqueNumList.subList(p * partSize, (p + 1) * partSize).sort(Comparator.comparingLong(v -> v));
+        List<Object[]> execute(IndexScanNode<Object[]> indexNode) {
+            RootNode<Object[]> root = new RootNode<>(ctx);
+
+            root.register(indexNode);
+
+            List<Object[]> actual = new ArrayList<>();
+            while (root.hasNext()) {
+                Object[] row = root.next();
+                actual.add(row);
             }
 
-            for (int j = 0; j < partSize; j++) {
-                int rowNum = p * partSize + j;
+            root.close();
 
-                data[rowNum] = new Object[4];
-
-                int bound1 = ThreadLocalRandom.current().nextInt(3);
-                long bound2 = ThreadLocalRandom.current().nextLong(3);
-
-                data[rowNum][0] = uniqueNumList.get(rowNum);
-                data[rowNum][1] = bound1 == 0 ? null : bound1;
-                data[rowNum][2] = bound2 == 0 ? null : bound2;
-                data[rowNum][3] = "row-" + rowNum;
-            }
-        }
-
-        return data;
-    }
-
-    private void validateHashIndexScan(Object[][] tableData, @Nullable Object @Nullable [] key, Object[][] expRes) {
-        SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("key", NativeTypes.INT64, false)},
-                new Column[]{
-                        new Column("idxCol1", NativeTypes.INT32, true),
-                        new Column("idxCol2", NativeTypes.INT64, true),
-                        new Column("val", NativeTypes.stringOf(Integer.MAX_VALUE), true)
-                }
-        );
-
-        IndexDescriptor indexDescriptor = new IndexDescriptor("IDX1", List.of("idxCol2", "idxCol1"));
-
-        Index<IndexDescriptor> hashIndexMock = mock(Index.class);
-
-        Mockito.doReturn(indexDescriptor).when(hashIndexMock).descriptor();
-        //CHECKSTYLE:OFF:Indentation
-        Mockito.doAnswer(invocation -> {
-                    if (key != null) {
-                        validateBound(indexDescriptor, schemaDescriptor, invocation.getArgument(3));
-                    }
-
-                    return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
-                })
-                .when(hashIndexMock)
-                .lookup(Mockito.anyInt(), any(HybridTimestamp.class), any(), any(), any());
-        //CHECKSTYLE:ON:Indentation
-
-        IgniteIndex indexMock = mock(IgniteIndex.class);
-        Mockito.doReturn(IgniteIndex.Type.HASH).when(indexMock).type();
-        Mockito.doReturn(hashIndexMock).when(indexMock).index();
-        Mockito.doReturn(indexDescriptor.columns()).when(indexMock).columns();
-
-        validateIndexScan(schemaDescriptor, indexMock, key, key, expRes);
-    }
-
-    private void validateSortedIndexScan(
-            Object[][] tableData,
-            Object @Nullable [] lowerBound,
-            Object @Nullable [] upperBound,
-            Object[][] expectedData
-    ) {
-        SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("key", NativeTypes.INT64, false)},
-                new Column[]{
-                        new Column("idxCol1", NativeTypes.INT32, true),
-                        new Column("idxCol2", NativeTypes.INT64, true),
-                        new Column("val", NativeTypes.stringOf(Integer.MAX_VALUE), true)
-                }
-        );
-
-        SortedIndexDescriptor indexDescriptor = new SortedIndexDescriptor(
-                "IDX1",
-                List.of("idxCol2", "idxCol1"),
-                List.of(ColumnCollation.ASC_NULLS_LAST, ColumnCollation.ASC_NULLS_LAST)
-
-        );
-
-        SortedIndex sortedIndexMock = mock(SortedIndex.class);
-
-        //CHECKSTYLE:OFF:Indentation
-        Mockito.doAnswer(invocation -> {
-                    if (lowerBound != null) {
-                        validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(3));
-                    }
-                    if (upperBound != null) {
-                        validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(4));
-                    }
-
-                    return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
-                }).when(sortedIndexMock)
-                .scan(Mockito.anyInt(), any(HybridTimestamp.class), any(), any(), any(), Mockito.anyInt(), any());
-        //CHECKSTYLE:ON:Indentation
-
-        IgniteIndex indexMock = mock(IgniteIndex.class);
-        Mockito.doReturn(Type.SORTED).when(indexMock).type();
-        Mockito.doReturn(sortedIndexMock).when(indexMock).index();
-        Mockito.doReturn(indexDescriptor.columns()).when(indexMock).columns();
-
-        validateIndexScan(schemaDescriptor, indexMock, lowerBound, upperBound, expectedData);
-    }
-
-    private void validateIndexScan(
-            SchemaDescriptor schemaDescriptor,
-            IgniteIndex index,
-            Object @Nullable [] lowerBound,
-            Object @Nullable [] upperBound,
-            Object[][] expectedData
-    ) {
-        ExecutionContext<Object[]> ectx = executionContext(true);
-
-        RelDataType rowType = createRowTypeFromSchema(ectx.getTypeFactory(), schemaDescriptor);
-
-        RangeIterable<Object[]> rangeIterable = null;
-
-        if (lowerBound != null || upperBound != null) {
-            RangeCondition<Object[]> range = mock(RangeCondition.class);
-
-            when(range.lower()).thenReturn(lowerBound);
-            when(range.upper()).thenReturn(upperBound);
-            when(range.lowerInclude()).thenReturn(true);
-            when(range.upperInclude()).thenReturn(true);
-
-            rangeIterable = mock(RangeIterable.class);
-
-            Iterator mockIterator = mock(Iterator.class);
-            doCallRealMethod().when(rangeIterable).forEach(any(Consumer.class));
-            when(rangeIterable.iterator()).thenReturn(mockIterator);
-            when(mockIterator.hasNext()).thenReturn(true, false);
-            when(mockIterator.next()).thenReturn(range);
-            when(rangeIterable.multiBounds()).thenReturn(false);
-        }
-
-        IndexScanNode<Object[]> scanNode = new IndexScanNode<>(
-                ectx,
-                ectx.rowHandler().factory(ectx.getTypeFactory(), rowType),
-                index,
-                new TestTable(rowType, schemaDescriptor),
-                List.of(new PartitionWithTerm(0, -1L), new PartitionWithTerm(2, -1L)),
-                index.type() == Type.SORTED ? comp : null,
-                rangeIterable,
-                null,
-                null,
-                null
-        );
-
-        RootNode<Object[]> node = new RootNode<>(ectx);
-        node.register(scanNode);
-
-        int n = 0;
-
-        while (node.hasNext()) {
-            assertThat(node.next(), equalTo(expectedData[n++]));
-        }
-
-        assertThat(n, equalTo(expectedData.length));
-    }
-
-    private static RelDataType createRowTypeFromSchema(IgniteTypeFactory typeFactory, SchemaDescriptor schemaDescriptor) {
-        Builder rowTypeBuilder = new Builder(typeFactory);
-
-        IntStream.range(0, schemaDescriptor.length())
-                .mapToObj(schemaDescriptor::column)
-                .forEach(col -> rowTypeBuilder.add(col.name(), TypeUtils.native2relationalType(typeFactory, col.type(), col.nullable())));
-
-        return rowTypeBuilder.build();
-    }
-
-    private BinaryRow[] partitionData(Object[][] tableData, SchemaDescriptor schemaDescriptor, int partition) {
-        switch (partition) {
-            case 0: {
-
-                return Arrays.stream(tableData).limit(tableData.length / 2)
-                        .map(r -> convertToRow(schemaDescriptor, r))
-                        .toArray(BinaryRow[]::new);
-            }
-            case 2: {
-                return Arrays.stream(tableData).skip(tableData.length / 2)
-                        .map(r -> convertToRow(schemaDescriptor, r))
-                        .toArray(BinaryRow[]::new);
-            }
-            default: {
-                throw new AssertionError("Undefined partition");
-            }
+            return actual;
         }
     }
 
-    private BinaryRow convertToRow(SchemaDescriptor schemaDescriptor, Object[] row) {
-        RowAssembler asm = new RowAssembler(schemaDescriptor);
+    static void validateResult(List<Object[]> actual, List<Object[]> expected) {
+        assertEquals(expected.size(), actual.size(), "row count");
 
-        for (int i = 0; i < row.length; i++) {
-            RowAssembler.writeValue(asm, schemaDescriptor.column(i), row[i]);
-        }
+        for (int i = 0; i < expected.size(); i++) {
+            Object[] expectedRow = expected.get(i);
+            Object[] actualRow = actual.get(i);
 
-        return asm.build();
-    }
-
-    private static Publisher<BinaryRow> dummyPublisher(BinaryRow[] rows) {
-        return s -> {
-            s.onSubscribe(new Subscription() {
-                int off = 0;
-                boolean completed = false;
-
-                @Override
-                public void request(long n) {
-                    int start = off;
-                    int end = Math.min(start + (int) n, rows.length);
-
-                    off = end;
-
-                    for (int i = start; i < end; i++) {
-                        s.onNext(rows[i]);
-                    }
-
-                    if (off >= rows.length && !completed) {
-                        completed = true;
-
-                        s.onComplete();
-                    }
-                }
-
-                @Override
-                public void cancel() {
-                    // No-op.
-                }
-            });
-        };
-    }
-
-    private void validateBoundPrefix(IndexDescriptor indexDescriptor, SchemaDescriptor schemaDescriptor, BinaryTuplePrefix boundPrefix) {
-        List<String> idxCols = indexDescriptor.columns();
-
-        assertThat(boundPrefix.count(), Matchers.lessThanOrEqualTo(idxCols.size()));
-
-        for (int i = 0; i < boundPrefix.elementCount(); i++) {
-            Column col = schemaDescriptor.column(idxCols.get(i));
-
-            if (boundPrefix.hasNullValue(i)) {
-                continue;
-            }
-
-            Object val = col.type().spec().objectValue(boundPrefix, i);
-
-            assertThat("Column type doesn't match: columnName=" + idxCols.get(i), NativeTypes.fromObject(val), equalTo(col.type()));
+            assertArrayEquals(expectedRow, actualRow, "Row#" + i);
         }
     }
 
-    private void validateBound(IndexDescriptor indexDescriptor, SchemaDescriptor schemaDescriptor, BinaryTuple bound) {
-        List<String> idxCols = indexDescriptor.columns();
+    private Index<?> newHashIndex() {
+        IndexDescriptor descriptor = new IndexDescriptor("IDX", List.of("C1"));
 
-        assertThat(bound.count(), Matchers.equalTo(idxCols.size()));
-
-        for (int i = 0; i < bound.count(); i++) {
-            Column col = schemaDescriptor.column(idxCols.get(i));
-            Object val = bound.hasNullValue(i) ? null : bound.value(i);
-
-            if (val == null) {
-                assertThat("Unexpected null value: columnName" + idxCols.get(i), col.nullable(), Matchers.is(Boolean.TRUE));
-
-                continue;
-            }
-
-            assertThat("Column type doesn't match: columnName=" + idxCols.get(i), NativeTypes.fromObject(val), equalTo(col.type()));
-        }
+        return new HashIndex(1, Mockito.mock(InternalTable.class), descriptor);
     }
 
-    private static class TestTable extends AbstractPlannerTest.TestTable {
+    private Index<?> newSortedIndex() {
+        List<String> columnNames = List.of("C1");
+        List<ColumnCollation> columnCollations = List.of(ColumnCollation.ASC_NULLS_LAST);
+        SortedIndexDescriptor descriptor = new SortedIndexDescriptor("IDX", columnNames, columnCollations);
 
-        private final SchemaDescriptor schemaDesc;
+        return new SortedIndexImpl(1, Mockito.mock(InternalTable.class), descriptor);
+    }
 
-        public TestTable(RelDataType rowType, SchemaDescriptor schemaDescriptor) {
-            super(rowType);
+    private IndexScanNode<Object[]> createIndexNode(ExecutionContext<Object[]> ctx, Index<?> index,
+            TestScannableTable<?> scannableTable, @Nullable Comparator<Object[]> comparator) {
 
-            schemaDesc = schemaDescriptor;
+        RelDataTypeFactory.Builder rowTypeBuilder = new Builder(Commons.typeFactory());
+
+        for (String column : index.descriptor().columns()) {
+            rowTypeBuilder = rowTypeBuilder.add(column, SqlTypeName.INTEGER);
         }
 
+        RelDataType rowType = rowTypeBuilder.build();
+
+        TableDescriptor tableDescriptor = new TestTableDescriptor(IgniteDistributions::single, rowType);
+
+        IgniteIndex schemaIndex = new IgniteIndex(index);
+        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
+        SingleRangeIterable<Object[]> conditions = new SingleRangeIterable<>(new Object[]{}, null, false, false);
+        List<PartitionWithTerm> partitions = scannableTable.getPartitions();
+
+        return new IndexScanNode<>(ctx, rowFactory, schemaIndex, scannableTable, tableDescriptor, partitions,
+                comparator, conditions, null, null, null);
+    }
+
+    static class TestScannableTable<T> implements ScannableTable {
+
+        private final Map<Integer, List<T>> partitionedData = new ConcurrentHashMap<>();
+
+        void setPartitionData(int partitionId, T... rows) {
+            partitionedData.put(partitionId, List.of(rows));
+        }
+
+        List<PartitionWithTerm> getPartitions() {
+            return new TreeSet<>(partitionedData.keySet())
+                    .stream()
+                    .map(k -> new PartitionWithTerm(k, 2L))
+                    .collect(Collectors.toList());
+        }
+
+        /** {@inheritDoc} */
         @Override
-        public IgniteDistribution distribution() {
-            return IgniteDistributions.broadcast();
-        }
-
-        @Override
-        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow binaryRow, RowFactory<RowT> factory,
+        public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm, RowFactory<RowT> rowFactory,
                 @Nullable BitSet requiredColumns) {
-            TableDescriptor desc = descriptor();
-            Row tableRow = new Row(schemaDesc, binaryRow);
 
-            RowT row = factory.create();
-            RowHandler<RowT> handler = factory.handler();
+            throw new UnsupportedOperationException("Not supported");
+        }
 
-            for (int i = 0; i < desc.columnsCount(); i++) {
-                handler.set(i, row, TypeUtils.toInternal(tableRow.value(desc.columnDescriptor(i).physicalIndex())));
+        /** {@inheritDoc} */
+        @Override
+        public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+                RowFactory<RowT> rowFactory, int indexId, List<String> columns,
+                @Nullable RangeCondition<RowT> cond, @Nullable BitSet requiredColumns) {
+
+            List<T> list = partitionedData.get(partWithTerm.partId());
+            return new ScanPublisher<>(list, ctx, rowFactory);
+        }
+
+        @Override
+        public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+                RowFactory<RowT> rowFactory, int indexId, List<String> columns,
+                RowT key, @Nullable BitSet requiredColumns) {
+
+            return newPublisher(ctx, partWithTerm, rowFactory);
+        }
+
+        private <RowT> ScanPublisher<RowT> newPublisher(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+                RowFactory<RowT> rowFactory) {
+
+            int partId = partWithTerm.partId();
+            List<T> list = partitionedData.get(partId);
+            Objects.requireNonNull(list, "No data for partition " + partId);
+
+            return new ScanPublisher<>(list, ctx, rowFactory);
+        }
+
+        private final class ScanPublisher<R> implements Publisher<R> {
+
+            final List<T> rows;
+
+            final ExecutionContext<R> ctx;
+
+            final RowFactory<R> rowFactory;
+
+            ScanPublisher(List<T> rows, ExecutionContext<R> ctx, RowFactory<R> rowFactory) {
+                this.rows = rows;
+                this.ctx = ctx;
+                this.rowFactory = rowFactory;
             }
 
-            return row;
+            @Override
+            public void subscribe(Subscriber<? super R> subscriber) {
+                subscriber.onSubscribe(new Subscription() {
+                    int off = 0;
+                    boolean completed = false;
+
+                    @Override
+                    public void request(long n) {
+                        int start = off;
+                        int end = Math.min(start + (int) n, rows.size());
+
+                        off = end;
+
+                        for (int i = start; i < end; i++) {
+                            T row = rows.get(i);
+                            subscriber.onNext((R) row);
+                        }
+
+                        if (off >= rows.size() && !completed) {
+                            completed = true;
+
+                            subscriber.onComplete();
+                        }
+                    }
+
+                    @Override
+                    public void cancel() {
+                        // No-op.
+                    }
+                });
+            }
         }
     }
 }

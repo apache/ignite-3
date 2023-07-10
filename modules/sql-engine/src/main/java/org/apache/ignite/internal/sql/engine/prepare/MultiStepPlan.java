@@ -26,9 +26,7 @@ import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
  * Regular query or DML.
  */
 public interface MultiStepPlan extends QueryPlan {
-    /**
-     * Get query fragments.
-     */
+    /** Get execution fragments. */
     List<Fragment> fragments();
 
     /**

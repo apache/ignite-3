@@ -206,28 +206,17 @@ public class RowAssembler {
      * @param schema Schema descriptor.
      */
     public RowAssembler(SchemaDescriptor schema) {
-        this(schema, hasNulls(schema.keyColumns()) || hasNulls(schema.valueColumns()));
+        this(schema, -1);
     }
 
     /**
      * Creates a builder.
      *
      * @param schema Schema descriptor.
-     * @param hasNulls {@code true} if NULL values are possible.
-     */
-    public RowAssembler(SchemaDescriptor schema, boolean hasNulls) {
-        this(schema, hasNulls, -1);
-    }
-
-    /**
-     * Creates a builder.
-     *
-     * @param schema Schema descriptor.
-     * @param hasNulls {@code true} if NULL values are possible.
      * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
      */
-    public RowAssembler(SchemaDescriptor schema, boolean hasNulls, int totalValueSize) {
-        this(schema.keyColumns(), schema.valueColumns(), schema.version(), hasNulls, totalValueSize);
+    public RowAssembler(SchemaDescriptor schema, int totalValueSize) {
+        this(schema.keyColumns(), schema.valueColumns(), schema.version(), totalValueSize);
     }
 
     /**
@@ -236,15 +225,14 @@ public class RowAssembler {
      * @param keyColumns Key columns.
      * @param valueColumns Value columns, {@code null} if only key should be assembled.
      * @param schemaVersion Schema version.
-     * @param hasNulls {@code true} if NULL values are possible.
      * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
      */
-    public RowAssembler(Columns keyColumns, @Nullable Columns valueColumns, int schemaVersion, boolean hasNulls, int totalValueSize) {
+    public RowAssembler(Columns keyColumns, @Nullable Columns valueColumns, int schemaVersion, int totalValueSize) {
         this.keyColumns = keyColumns;
         this.valueColumns = valueColumns;
         this.schemaVersion = schemaVersion;
         int numElements = keyColumns.length() + (valueColumns != null ? valueColumns.length() : 0);
-        builder = new BinaryTupleBuilder(numElements, hasNulls, totalValueSize);
+        builder = new BinaryTupleBuilder(numElements, totalValueSize);
         curCols = keyColumns;
         curCol = 0;
     }
@@ -262,19 +250,6 @@ public class RowAssembler {
         }
 
         builder.appendNull();
-
-        shiftColumn();
-
-        return this;
-    }
-
-    /**
-     * Appends a default (empty) value for the current element.
-     *
-     * @return {@code this} for chaining.
-     */
-    public RowAssembler appendDefault() {
-        builder.appendDefault();
 
         shiftColumn();
 
@@ -754,17 +729,6 @@ public class RowAssembler {
      * @return Created assembler.
      */
     public static RowAssembler keyAssembler(SchemaDescriptor schema) {
-        return keyAssembler(schema, hasNulls(schema.keyColumns()));
-    }
-
-    /**
-     * Creates an assembler which allows only key to be added.
-     *
-     * @param schema Schema descriptor.
-     * @param hasNulls Whether the key could have nulls.
-     * @return Created assembler.
-     */
-    public static RowAssembler keyAssembler(SchemaDescriptor schema, boolean hasNulls) {
-        return new RowAssembler(schema.keyColumns(), null, schema.version(), hasNulls, -1);
+        return new RowAssembler(schema.keyColumns(), null, schema.version(), -1);
     }
 }

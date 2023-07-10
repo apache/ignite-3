@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -51,19 +52,21 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -91,10 +94,10 @@ public class ItDistributedConfigurationPropertiesTest {
     private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     @InjectConfiguration
-    private static SecurityConfiguration securityConfiguration;
+    private static NodeAttributesConfiguration nodeAttributes;
 
     @InjectConfiguration
-    private static NodeAttributesConfiguration nodeAttributes;
+    private static MetaStorageConfiguration metaStorageConfiguration;
 
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
@@ -113,6 +116,9 @@ public class ItDistributedConfigurationPropertiesTest {
         private final ConfigurationTreeGenerator generator;
 
         private final ConfigurationManager distributedCfgManager;
+
+        /** The future have to be complete after the node start and all Meta storage watches are deployd. */
+        private final CompletableFuture<Void> deployWatchesFut;
 
         /** Flag that disables storage updates. */
         private volatile boolean receivesUpdates = true;
@@ -136,7 +142,10 @@ public class ItDistributedConfigurationPropertiesTest {
             );
 
             HybridClock clock = new HybridClockImpl();
-            raftManager = new Loza(clusterService, raftConfiguration, workDir, clock);
+
+            var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
+
+            raftManager = new Loza(clusterService, raftConfiguration, workDir, clock, raftGroupEventsClientListener);
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
@@ -151,15 +160,28 @@ public class ItDistributedConfigurationPropertiesTest {
                     nodeAttributes,
                     new TestConfigurationValidator());
 
+            var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
+
+            var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                    clusterService,
+                    logicalTopologyService,
+                    Loza.FACTORY,
+                    raftGroupEventsClientListener
+            );
+
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
                     clusterService,
                     cmgManager,
-                    new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
+                    logicalTopologyService,
                     raftManager,
                     new SimpleInMemoryKeyValueStorage(name()),
-                    clock
+                    clock,
+                    topologyAwareRaftGroupServiceFactory,
+                    metaStorageConfiguration
             );
+
+            deployWatchesFut = metaStorageManager.deployWatches();
 
             // create a custom storage implementation that is able to "lose" some storage updates
             var distributedCfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager) {
@@ -206,14 +228,14 @@ public class ItDistributedConfigurationPropertiesTest {
             Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
                     .forEach(IgniteComponent::start);
 
-            // deploy watches to propagate data from the metastore into the vault
-            try {
-                metaStorageManager.deployWatches();
-            } catch (NodeStoppingException e) {
-                throw new RuntimeException(e);
-            }
-
             distributedCfgManager.start();
+        }
+
+        /**
+         * Waits for watches deployed.
+         */
+        void waitWatches() {
+            assertThat("Watches were not deployed", deployWatchesFut, willCompleteSuccessfully());
         }
 
         /**
@@ -286,6 +308,8 @@ public class ItDistributedConfigurationPropertiesTest {
         Stream.of(firstNode, secondNode).parallel().forEach(Node::start);
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(), "cluster");
+
+        Stream.of(firstNode, secondNode).parallel().forEach(Node::waitWatches);
     }
 
     /**

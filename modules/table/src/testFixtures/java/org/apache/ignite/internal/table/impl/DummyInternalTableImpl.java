@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -57,7 +56,8 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -261,7 +261,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         ).when(svc).run(any());
 
         int tableId = tableId();
-        UUID indexId = UUID.randomUUID();
+        int indexId = 1;
 
         Function<BinaryRow, BinaryTuple> row2Tuple = BinaryRowConverter.keyExtractor(schema);
 
@@ -278,17 +278,17 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
         TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
 
-        DataStorageConfiguration dsCfg = mock(DataStorageConfiguration.class);
+        GcConfiguration gcConfig = mock(GcConfiguration.class);
         ConfigurationValue<Integer> gcBatchSizeValue = mock(ConfigurationValue.class);
         lenient().when(gcBatchSizeValue.value()).thenReturn(5);
-        lenient().when(dsCfg.gcOnUpdateBatchSize()).thenReturn(gcBatchSizeValue);
+        lenient().when(gcConfig.onUpdateBatchSize()).thenReturn(gcBatchSizeValue);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(indexes);
 
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 PART_ID,
                 partitionDataStorage,
-                dsCfg,
+                gcConfig,
                 mock(LowWatermark.class),
                 indexUpdateHandler,
                 new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
@@ -306,7 +306,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 tableId,
                 () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
-                () -> Map.of(),
+                Map::of,
                 CLOCK,
                 safeTime,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
@@ -316,7 +316,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 completedFuture(schemaManager),
                 mock(ClusterNode.class),
                 mock(MvTableStorage.class),
-                mock(IndexBuilder.class)
+                mock(IndexBuilder.class),
+                mock(TablesConfiguration.class)
         );
 
         partitionListener = new PartitionListener(
@@ -429,16 +430,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *
      * @param indexes Index storage by ID.
      */
-    public static TableIndexStoragesSupplier createTableIndexStoragesSupplier(Map<UUID, TableSchemaAwareIndexStorage> indexes) {
+    public static TableIndexStoragesSupplier createTableIndexStoragesSupplier(Map<Integer, TableSchemaAwareIndexStorage> indexes) {
         return new TableIndexStoragesSupplier() {
             @Override
-            public Map<UUID, TableSchemaAwareIndexStorage> get() {
+            public Map<Integer, TableSchemaAwareIndexStorage> get() {
                 return indexes;
             }
 
             @Override
-            public void addIndexToWaitIfAbsent(UUID indexId) {
-                fail("not supported");
+            public void addIndexToWaitIfAbsent(int indexId) {
             }
         };
     }

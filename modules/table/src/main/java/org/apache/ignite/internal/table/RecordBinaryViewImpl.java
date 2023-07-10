@@ -20,16 +20,20 @@ package org.apache.ignite.internal.table;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -71,18 +75,16 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         return tbl.get(keyRow, (InternalTransaction) tx).thenApply(this::wrap);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Collection<Tuple> getAll(@Nullable Transaction tx, @NotNull Collection<Tuple> keyRecs) {
+    public List<Tuple> getAll(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         return sync(getAllAsync(tx, keyRecs));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<Tuple>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keyRecs) {
+    public CompletableFuture<List<Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return tbl.getAll(mapToBinary(keyRecs, true), (InternalTransaction) tx).thenApply(this::wrap);
+        return tbl.getAll(mapToBinary(keyRecs, true), (InternalTransaction) tx).thenApply(binaryRows -> wrap(binaryRows, true));
     }
 
     /** {@inheritDoc} */
@@ -158,7 +160,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public @NotNull CompletableFuture<Collection<Tuple>> insertAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        return tbl.insertAll(mapToBinary(recs, false), (InternalTransaction) tx).thenApply(this::wrap);
+        return tbl.insertAll(mapToBinary(recs, false), (InternalTransaction) tx).thenApply(rows -> wrap(rows, false));
     }
 
     /** {@inheritDoc} */
@@ -270,7 +272,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public @NotNull CompletableFuture<Collection<Tuple>> deleteAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return tbl.deleteAll(mapToBinary(keyRecs, true), (InternalTransaction) tx).thenApply(this::wrap);
+        return tbl.deleteAll(mapToBinary(keyRecs, true), (InternalTransaction) tx).thenApply(rows -> wrap(rows, false));
     }
 
     /** {@inheritDoc} */
@@ -284,7 +286,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public @NotNull CompletableFuture<Collection<Tuple>> deleteAllExactAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        return tbl.deleteAllExact(mapToBinary(recs, false), (InternalTransaction) tx).thenApply(this::wrap);
+        return tbl.deleteAllExact(mapToBinary(recs, false), (InternalTransaction) tx).thenApply(rows -> wrap(rows, false));
     }
 
     /**
@@ -320,17 +322,20 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
      * Returns table rows.
      *
      * @param rows Binary rows.
+     * @param addNull {@code true} if {@code null} is added for missing rows.
      */
-    private Collection<Tuple> wrap(Collection<BinaryRow> rows) {
+    private List<Tuple> wrap(Collection<BinaryRow> rows, boolean addNull) {
         if (rows.isEmpty()) {
             return Collections.emptyList();
         }
 
-        Collection<Tuple> wrapped = new ArrayList<>(rows.size());
+        var wrapped = new ArrayList<Tuple>(rows.size());
 
         for (Row row : schemaReg.resolve(rows)) {
             if (row != null) {
                 wrapped.add(TableRow.tuple(row));
+            } else if (addNull) {
+                wrapped.add(null);
             }
         }
 
@@ -352,5 +357,16 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         }
 
         return mapped;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
+        Objects.requireNonNull(publisher);
+
+        var partitioner = new TupleStreamerPartitionAwarenessProvider(schemaReg, tbl.partitions());
+        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(mapToBinary(items, false), partitionId);
+
+        return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
 }

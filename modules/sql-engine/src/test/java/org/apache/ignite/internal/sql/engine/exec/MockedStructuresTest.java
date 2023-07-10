@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -27,17 +26,16 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -45,7 +43,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -57,13 +55,13 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -71,6 +69,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
+import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
@@ -95,6 +94,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -156,6 +156,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Mock
     MetaStorageManager msm;
 
+    /** Replica manager. */
+    @Mock
+    ReplicaManager replicaManager;
+
     @Mock
     HybridClock clock;
 
@@ -172,14 +176,19 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     private ConfigurationStorageRevisionListenerHolder fieldRevisionListenerHolder;
 
     /** Revision updater. */
-    private Consumer<Function<Long, CompletableFuture<?>>> revisionUpdater;
+    private Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater;
 
     /** Tables configuration. */
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
 
+    /** Distribution zones configuration. */
     @InjectConfiguration("mock.distributionZones." + ZONE_NAME + "{dataStorage.name = " + ENGINE_NAME + ", zoneId = " + ZONE_ID + "}")
     private DistributionZonesConfiguration dstZnsCfg;
+
+    /** Garbage collector configuration. */
+    @InjectConfiguration
+    private GcConfiguration gcConfig;
 
     TableManager tblManager;
 
@@ -242,7 +251,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         mockVault();
         mockMetastore();
 
-        revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
+        revisionUpdater = (LongFunction<CompletableFuture<?>> function) -> {
             await(function.apply(0L));
 
             fieldRevisionListenerHolder.listenUpdateStorageRevision(newStorageRevision -> {
@@ -285,8 +294,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.getZoneId(ZONE_NAME)).thenReturn(ZONE_ID);
         when(distributionZoneManager.zoneIdAsyncInternal(ZONE_NAME)).thenReturn(completedFuture(ZONE_ID));
-
-        when(distributionZoneManager.topologyVersionedDataNodes(anyInt(), anyLong())).thenReturn(completedFuture(emptySet()));
 
         tblManager = mockManagers();
 
@@ -338,6 +345,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         });
 
         when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(completedFuture(null));
+
+        //noinspection unchecked
+        when(msm.invoke(any(), any(Collection.class), any(Collection.class))).thenReturn(completedFuture(null));
     }
 
     /**
@@ -435,49 +445,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         );
 
         assertTrue(IgniteTestUtils.hasCause(exception.getCause(), DistributionZoneNotFoundException.class, null));
-
-        log.info("Creating a table with a ClusterManagementGroupManager throwing an exception.");
-
-        String expectedMessage0 = "Expected exception 0";
-
-        when(cmgMgr.logicalTopology()).thenReturn(failedFuture(new Exception(expectedMessage0)));
-
-        exception = assertThrows(
-                IgniteException.class,
-                () -> readFirst(queryProc.querySingleAsync(sessionId, context,
-                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                                + "with primary_zone='%s'", tableName, DEFAULT_ZONE_NAME)))
-        );
-
-        assertInstanceOf(Exception.class, exception.getCause().getCause());
-
-        String actualMessage0 = exception.getCause().getCause().getMessage();
-
-        assertTrue(actualMessage0.contains(expectedMessage0),
-                "Expected message: " + expectedMessage0 + ". Actual message: " + actualMessage0);
-
-        when(cmgMgr.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
-
-        log.info("Creating a table with a DistributionZoneManager throwing an exception.");
-
-        String expectedMessage1 = "Expected exception 1";
-
-        when(distributionZoneManager.topologyVersionedDataNodes(anyInt(), anyLong()))
-                .thenReturn(failedFuture(new Exception(expectedMessage1)));
-
-        exception = assertThrows(
-                IgniteException.class,
-                () -> readFirst(queryProc.querySingleAsync(sessionId, context,
-                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                                + "with primary_zone='%s'", tableName, DEFAULT_ZONE_NAME)))
-        );
-
-        assertInstanceOf(Exception.class, exception.getCause().getCause());
-
-        String actualMessage1 = exception.getCause().getCause().getMessage();
-
-        assertTrue(actualMessage1.contains(expectedMessage1),
-                "Expected message: " + expectedMessage1 + ". Actual message: " + actualMessage1);
     }
 
     /**
@@ -552,7 +519,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      * @return Table manager.
      */
     private TableManager mockManagers() throws NodeStoppingException {
-        when(rm.startRaftGroupNode(any(), any(), any(), any())).thenAnswer(mock -> {
+        when(rm.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer("test"));
@@ -560,8 +527,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             return completedFuture(raftGrpSrvcMock);
         });
 
-        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> {
-            RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
+        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> {
+            RaftGroupService raftGrpSrvcMock = mock(TopologyAwareRaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer("test"));
 
@@ -595,6 +562,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             return ret;
         });
 
+        when(replicaManager.stopReplica(any())).thenReturn(completedFuture(true));
+
         return createTableManager();
     }
 
@@ -604,9 +573,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 revisionUpdater,
                 tblsCfg,
                 dstZnsCfg,
+                gcConfig,
                 cs,
                 rm,
-                mock(ReplicaManager.class),
+                replicaManager,
                 null,
                 null,
                 bm,

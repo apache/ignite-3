@@ -31,7 +31,9 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -136,7 +138,7 @@ public class ClientTupleSerializer {
         var columns = schema.columns();
         var count = keyOnly ? schema.keyColumnCount() : columns.length;
 
-        var builder = new BinaryTupleBuilder(count, true);
+        var builder = new BinaryTupleBuilder(count);
         var noValueSet = new BitSet(count);
 
         for (var i = 0; i < count; i++) {
@@ -174,7 +176,7 @@ public class ClientTupleSerializer {
 
         var columns = schema.columns();
         var noValueSet = new BitSet(columns.length);
-        var builder = new BinaryTupleBuilder(columns.length, true);
+        var builder = new BinaryTupleBuilder(columns.length);
 
         for (ClientColumn col : columns) {
             Object v = col.key()
@@ -196,13 +198,13 @@ public class ClientTupleSerializer {
      * @param schema Schema.
      * @param out Out.
      */
-    void writeKvTuples(@Nullable Transaction tx, Map<Tuple, Tuple> pairs, ClientSchema schema, PayloadOutputChannel out) {
+    void writeKvTuples(@Nullable Transaction tx, Collection<Entry<Tuple, Tuple>> pairs, ClientSchema schema, PayloadOutputChannel out) {
         out.out().packInt(tableId);
         writeTx(tx, out);
         out.out().packInt(schema.version());
         out.out().packInt(pairs.size());
 
-        for (Map.Entry<Tuple, Tuple> pair : pairs.entrySet()) {
+        for (Map.Entry<Tuple, Tuple> pair : pairs) {
             writeKvTuple(tx, pair.getKey(), pair.getValue(), schema, out, true);
         }
     }
@@ -298,7 +300,7 @@ public class ClientTupleSerializer {
         return res;
     }
 
-    static Collection<Tuple> readTuplesNullable(ClientSchema schema, ClientMessageUnpacker in) {
+    static List<Tuple> readTuplesNullable(ClientSchema schema, ClientMessageUnpacker in) {
         var cnt = in.unpackInt();
         var res = new ArrayList<Tuple>(cnt);
 
@@ -321,7 +323,7 @@ public class ClientTupleSerializer {
 
         if (v == NO_VALUE) {
             noValueSet.set(col.schemaIndex());
-            builder.appendDefault();
+            builder.appendNull();
             return;
         }
 
@@ -408,7 +410,8 @@ public class ClientTupleSerializer {
      */
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(@Nullable Transaction tx, @NotNull Tuple rec) {
         if (tx != null) {
-            return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel());
+            //noinspection resource
+            return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel().protocolContext().clusterNode().name());
         }
 
         return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, rec));
@@ -424,7 +427,8 @@ public class ClientTupleSerializer {
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(
             @Nullable Transaction tx, Mapper<?> mapper, @NotNull Object rec) {
         if (tx != null) {
-            return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel());
+            //noinspection resource
+            return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel().protocolContext().clusterNode().name());
         }
 
         return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, mapper, rec));
@@ -437,10 +441,11 @@ public class ClientTupleSerializer {
      * @param rec Tuple.
      * @return Colocation hash.
      */
-    public static Integer getColocationHash(ClientSchema schema, Tuple rec) {
+    public static int getColocationHash(ClientSchema schema, Tuple rec) {
         var hashCalc = new HashCalculator();
 
         for (ClientColumn col : schema.colocationColumns()) {
+            // Colocation columns are always part of the key and can't be missing; serializer will check this.
             Object value = rec.valueOrDefault(col.name(), null);
             hashCalc.append(value, col.scale(), col.precision());
         }
@@ -448,7 +453,7 @@ public class ClientTupleSerializer {
         return hashCalc.hash();
     }
 
-    private static Integer getColocationHash(ClientSchema schema, Mapper<?> mapper, Object rec) {
+    static Integer getColocationHash(ClientSchema schema, Mapper<?> mapper, Object rec) {
         // Colocation columns are always part of the key - https://cwiki.apache.org/confluence/display/IGNITE/IEP-86%3A+Colocation+Key.
         var hashCalc = new HashCalculator();
         var marsh = schema.getMarshaller(mapper, TuplePart.KEY);

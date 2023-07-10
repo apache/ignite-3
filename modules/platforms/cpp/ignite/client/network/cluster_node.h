@@ -41,7 +41,7 @@ public:
      * @param name Name.
      * @param address Address.
      */
-    cluster_node(std::string id, std::string name, network::end_point address)
+    cluster_node(std::string id, std::string name, end_point address)
         : m_id(std::move(id))
         , m_name(std::move(name))
         , m_address(std::move(address)) {}
@@ -65,7 +65,7 @@ public:
      *
      * @return Node address.
      */
-    [[nodiscard]] const network::end_point &get_address() const { return m_address; }
+    [[nodiscard]] const end_point &get_address() const { return m_address; }
 
     /**
      * compare to another instance.
@@ -94,7 +94,7 @@ private:
     std::string m_name{};
 
     /** Address. */
-    network::end_point m_address{};
+    end_point m_address{};
 };
 
 /**

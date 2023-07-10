@@ -590,7 +590,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         try {
             return raftManager
-                    .startRaftGroupNode(
+                    .startRaftGroupNodeAndWaitNodeReadyFuture(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             raftConfiguration,
                             new CmgRaftGroupListener(clusterStateStorage, logicalTopology, this::onLogicalTopologyChanged),
@@ -779,19 +779,20 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     /**
-     * Returns a future that, when complete, resolves into a list of node names that host the CMG.
+     * Returns a future that, when complete, resolves into a list of node names of the majority of the voting peers in the CMG including a
+     * leader.
      *
-     * @return Future that, when complete, resolves into a list of node names that host the CMG.
+     * @return Future that, when complete, resolves into a list of node names of the majority of the voting peers in the CMG including a
+     *         leader.
      */
-    public CompletableFuture<Set<String>> cmgNodes() {
+    public CompletableFuture<Set<String>> majority() {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
 
         try {
             return raftServiceAfterJoin()
-                    .thenCompose(CmgRaftService::readClusterState)
-                    .thenApply(ClusterState::cmgNodes);
+                    .thenCompose(CmgRaftService::majority);
         } finally {
             busyLock.leaveBusy();
         }

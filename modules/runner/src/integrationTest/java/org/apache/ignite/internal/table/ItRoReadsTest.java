@@ -133,7 +133,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
                 .clusterName("cluster")
                 .build();
 
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         assertThat(future, willCompleteSuccessfully());
 
@@ -327,7 +327,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         Collection<BinaryRow> res = internalTable.getAll(rowsToSearch, node.clock().now(), node.node()).get();
 
-        assertEquals(res.size(), 0);
+        assertEquals(res.size(), 3);
 
         node.transactions().runInTransaction(txs -> {
             for (int i = 0; i < 15; i++) {
@@ -362,7 +362,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         Collection<BinaryRow> res = internalTable.getAll(rowsToSearch, node.clock().now(), node.node()).get();
 
-        assertEquals(res.size(), 0);
+        assertEquals(res.size(), 3);
 
         populateData(node(), keyValueView, false);
 
@@ -480,7 +480,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
     }
 
     private static Row createKeyValueRow(long id, int value, String str) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA_1, false, -1);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA_1, -1);
 
         rowBuilder.appendLong(id);
         rowBuilder.appendInt(value);

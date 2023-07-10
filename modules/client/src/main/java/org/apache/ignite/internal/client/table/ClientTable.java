@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import org.apache.ignite.internal.client.ClientChannel;
+import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
@@ -72,9 +72,9 @@ public class ClientTable implements Table {
 
     private final Object partitionAssignmentLock = new Object();
 
-    private CompletableFuture<List<String>> partitionAssignment = null;
+    private volatile CompletableFuture<List<String>> partitionAssignment = null;
 
-    private long partitionAssignmentVersion = -1;
+    private volatile long partitionAssignmentVersion = -1;
 
     /**
      * Constructor.
@@ -100,6 +100,15 @@ public class ClientTable implements Table {
      */
     public int tableId() {
         return id;
+    }
+
+    /**
+     * Gets the channel.
+     *
+     * @return Channel.
+     */
+    ReliableChannel channel() {
+        return ch;
     }
 
     /** {@inheritDoc} */
@@ -136,7 +145,7 @@ public class ClientTable implements Table {
         return new ClientKeyValueBinaryView(this);
     }
 
-    private CompletableFuture<ClientSchema> getLatestSchema() {
+    CompletableFuture<ClientSchema> getLatestSchema() {
         // latestSchemaVer can be -1 (unknown) or a valid version.
         // In case of unknown version, we request latest from the server and cache it with -1 key
         // to avoid duplicate requests for latest schema.
@@ -269,13 +278,13 @@ public class ClientTable implements Table {
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
-                    String preferredNodeId = getPreferredNodeId(provider, partitionsFut.getNow(null), schema);
+                    String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
                             r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue),
-                            null,
-                            preferredNodeId);
+                            preferredNodeName,
+                            null);
                 })
                 .thenCompose(t -> loadSchemaAndReadData(t, reader));
     }
@@ -295,6 +304,25 @@ public class ClientTable implements Table {
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<ClientMessageUnpacker, T> reader,
             @Nullable PartitionAwarenessProvider provider) {
+        return doSchemaOutOpAsync(opCode, writer, reader, provider, null);
+    }
+
+    /**
+     * Performs a schema-based operation.
+     *
+     * @param opCode Op code.
+     * @param writer Writer.
+     * @param reader Reader.
+     * @param provider Partition awareness provider.
+     * @param <T> Result type.
+     * @return Future representing pending completion of the operation.
+     */
+    public <T> CompletableFuture<T> doSchemaOutOpAsync(
+            int opCode,
+            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            Function<ClientMessageUnpacker, T> reader,
+            @Nullable PartitionAwarenessProvider provider,
+            @Nullable RetryPolicy retryPolicyOverride) {
 
         CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
         CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled()
@@ -304,7 +332,7 @@ public class ClientTable implements Table {
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
-                    String preferredNodeId = getPreferredNodeId(provider, partitionsFut.getNow(null), schema);
+                    String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
@@ -313,8 +341,8 @@ public class ClientTable implements Table {
 
                                 return reader.apply(r.in());
                             },
-                            null,
-                            preferredNodeId);
+                            preferredNodeName,
+                            retryPolicyOverride);
                 });
     }
 
@@ -378,10 +406,16 @@ public class ClientTable implements Table {
         }
     }
 
-    private synchronized CompletableFuture<List<String>> getPartitionAssignment() {
-        synchronized (partitionAssignmentLock) {
-            long currentVersion = ch.partitionAssignmentVersion();
+    synchronized CompletableFuture<List<String>> getPartitionAssignment() {
+        long currentVersion = ch.partitionAssignmentVersion();
 
+        if (partitionAssignmentVersion == currentVersion
+                && partitionAssignment != null
+                && !partitionAssignment.isCompletedExceptionally()) {
+            return partitionAssignment;
+        }
+
+        synchronized (partitionAssignmentLock) {
             if (partitionAssignmentVersion == currentVersion
                     && partitionAssignment != null
                     && !partitionAssignment.isCompletedExceptionally()) {
@@ -409,7 +443,7 @@ public class ClientTable implements Table {
     }
 
     @Nullable
-    private static String getPreferredNodeId(
+    private static String getPreferredNodeName(
             @Nullable PartitionAwarenessProvider provider,
             @Nullable List<String> partitions,
             ClientSchema schema) {
@@ -417,11 +451,10 @@ public class ClientTable implements Table {
             return null;
         }
 
-        @SuppressWarnings("resource")
-        ClientChannel ch = provider.channel();
+        String nodeName = provider.nodeName();
 
-        if (ch != null) {
-            return ch.protocolContext().clusterNode().id();
+        if (nodeName != null) {
+            return nodeName;
         }
 
         if (partitions == null || partitions.isEmpty()) {

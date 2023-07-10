@@ -20,6 +20,8 @@ package org.apache.ignite.internal.rest;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.rest.client.model.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.rest.client.model.DeploymentStatus.UPLOADING;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -29,7 +31,6 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -52,7 +53,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
-import org.apache.ignite.internal.cli.call.unit.DeployUnitClient;
+import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitClient;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -68,11 +69,13 @@ import org.apache.ignite.rest.client.api.TopologyApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.ClusterState;
+import org.apache.ignite.rest.client.model.DeployMode;
 import org.apache.ignite.rest.client.model.InitCommand;
 import org.apache.ignite.rest.client.model.MetricSource;
 import org.apache.ignite.rest.client.model.NodeState;
 import org.apache.ignite.rest.client.model.Problem;
 import org.apache.ignite.rest.client.model.UnitStatus;
+import org.apache.ignite.rest.client.model.UnitVersionStatus;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -93,6 +96,8 @@ public class ItGeneratedRestClientTest {
 
     /** Start rest server port. */
     private static final int BASE_REST_PORT = 10300;
+
+    private static final int BASE_CLIENT_PORT = 10800;
 
     @WorkDirectory
     private static Path WORK_DIR;
@@ -132,7 +137,8 @@ public class ItGeneratedRestClientTest {
                 + "    nodeFinder: {\n"
                 + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ] \n"
                 + "    }\n"
-                + "  }\n"
+                + "  },\n"
+                + "  clientConnector.port: " + (BASE_CLIENT_PORT + nodeIdx) + "\n"
                 + "}";
     }
 
@@ -150,7 +156,7 @@ public class ItGeneratedRestClientTest {
                 .clusterName("cluster")
                 .build();
 
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());
@@ -386,19 +392,30 @@ public class ItGeneratedRestClientTest {
 
     @Test
     void deployUndeployUnitSync() throws ApiException {
-        assertThat(deploymentApi.units(), empty());
+        assertThat(deploymentApi.listClusterStatuses(null), empty());
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-19295
-        new DeployUnitClient(apiClient).deployUnit("test.unit.id", List.of(emptyFile()), "1.0.0");
-        List<UnitStatus> units = deploymentApi.units();
-        assertThat(units, hasSize(1));
-        assertThat(units.get(0).getId(), equalTo("test.unit.id"));
-        assertThat(units.get(0).getVersionToStatus().values(), not(empty()));
+        String unitId = "test.unit.id";
+        String unitVersion = "1.0.0";
 
-        assertThat(deploymentApi.versions("test.unit.id"), contains("1.0.0"));
+        new DeployUnitClient(apiClient).deployUnit(unitId, List.of(emptyFile()), unitVersion, DeployMode.MAJORITY, List.of());
 
-        deploymentApi.undeployUnit("test.unit.id", "1.0.0");
-        await().untilAsserted(() -> assertThat(deploymentApi.units(), empty()));
+        UnitStatus expectedStatus = new UnitStatus().id(unitId)
+                .addVersionToStatusItem((new UnitVersionStatus()).version(unitVersion).status(DEPLOYED));
+
+        await().untilAsserted(() -> assertThat(deploymentApi.listClusterStatuses(null), contains(expectedStatus)));
+
+        assertThat(deploymentApi.listClusterStatusesByUnit(unitId, "0.0.0", null), empty());
+        assertThat(deploymentApi.listClusterStatusesByUnit(unitId, unitVersion, null), contains(expectedStatus));
+
+        assertThat(deploymentApi.listClusterStatusesByUnit(unitId, null, List.of(UPLOADING)), empty());
+        assertThat(deploymentApi.listClusterStatusesByUnit(unitId, null, List.of(DEPLOYED)), contains(expectedStatus));
+
+        assertThat(deploymentApi.listClusterStatuses(List.of(UPLOADING)), empty());
+        assertThat(deploymentApi.listClusterStatuses(List.of(DEPLOYED)), contains(expectedStatus));
+
+        deploymentApi.undeployUnit(unitId, unitVersion);
+        await().untilAsserted(() -> assertThat(deploymentApi.listClusterStatuses(null), empty()));
     }
 
     @Test
@@ -412,7 +429,7 @@ public class ItGeneratedRestClientTest {
 
         Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
         assertThat(problem.getStatus(), equalTo(404));
-        assertThat(problem.getDetail(), containsString("Unit test.unit.id with version 0.0.0 doesn't exist"));
+        assertThat(problem.getDetail(), containsString("Unit test.unit.id:0.0.0 not found"));
     }
 
     private static File emptyFile() {
@@ -431,4 +448,3 @@ public class ItGeneratedRestClientTest {
         return TestIgnitionManager.start(nodeName, buildConfig(index), WORK_DIR.resolve(nodeName));
     }
 }
-

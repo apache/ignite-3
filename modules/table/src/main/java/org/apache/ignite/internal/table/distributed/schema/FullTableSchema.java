@@ -28,8 +28,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Function;
-import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 
 /**
  * Represents a full table schema: that is, the definition of the table and all objects (indexes, constraints, etc)
@@ -39,9 +39,9 @@ public class FullTableSchema {
     private final int schemaVersion;
     private final int tableId;
 
-    private final List<TableColumnDescriptor> columns;
+    private final List<CatalogTableColumnDescriptor> columns;
 
-    private final List<IndexDescriptor> indexes;
+    private final List<CatalogIndexDescriptor> indexes;
 
     /**
      * Constructor.
@@ -49,8 +49,8 @@ public class FullTableSchema {
     public FullTableSchema(
             int schemaVersion,
             int tableId,
-            List<TableColumnDescriptor> columns,
-            List<IndexDescriptor> indexes
+            List<CatalogTableColumnDescriptor> columns,
+            List<CatalogIndexDescriptor> indexes
     ) {
         this.schemaVersion = schemaVersion;
         this.tableId = tableId;
@@ -81,7 +81,7 @@ public class FullTableSchema {
      *
      * @return Definitions of the columns of the table.
      */
-    public List<TableColumnDescriptor> columns() {
+    public List<CatalogTableColumnDescriptor> columns() {
         return columns;
     }
 
@@ -90,7 +90,7 @@ public class FullTableSchema {
      *
      * @return Definitions of indexes belonging to the table.
      */
-    public List<IndexDescriptor> indexes() {
+    public List<CatalogIndexDescriptor> indexes() {
         return indexes;
     }
 
@@ -101,28 +101,28 @@ public class FullTableSchema {
      * @return Difference between the schemas.
      */
     public TableDefinitionDiff diffFrom(FullTableSchema prevSchema) {
-        Map<String, TableColumnDescriptor> prevColumnsByName = toMapByName(prevSchema.columns, TableColumnDescriptor::name);
-        Map<String, TableColumnDescriptor> thisColumnsByName = toMapByName(this.columns, TableColumnDescriptor::name);
+        Map<String, CatalogTableColumnDescriptor> prevColumnsByName = toMapByName(prevSchema.columns, CatalogTableColumnDescriptor::name);
+        Map<String, CatalogTableColumnDescriptor> thisColumnsByName = toMapByName(this.columns, CatalogTableColumnDescriptor::name);
 
-        List<TableColumnDescriptor> addedColumns = subtractKeyed(thisColumnsByName, prevColumnsByName);
-        List<TableColumnDescriptor> removedColumns = subtractKeyed(prevColumnsByName, thisColumnsByName);
+        List<CatalogTableColumnDescriptor> addedColumns = subtractKeyed(thisColumnsByName, prevColumnsByName);
+        List<CatalogTableColumnDescriptor> removedColumns = subtractKeyed(prevColumnsByName, thisColumnsByName);
 
         Set<String> intersectionColumnNames = intersect(thisColumnsByName.keySet(), prevColumnsByName.keySet());
         List<ColumnDefinitionDiff> changedColumns = new ArrayList<>();
         for (String commonColumnName : intersectionColumnNames) {
-            TableColumnDescriptor prevColumn = prevColumnsByName.get(commonColumnName);
-            TableColumnDescriptor thisColumn = thisColumnsByName.get(commonColumnName);
+            CatalogTableColumnDescriptor prevColumn = prevColumnsByName.get(commonColumnName);
+            CatalogTableColumnDescriptor thisColumn = thisColumnsByName.get(commonColumnName);
 
             if (columnChanged(prevColumn, thisColumn)) {
                 changedColumns.add(new ColumnDefinitionDiff(prevColumn, thisColumn));
             }
         }
 
-        Map<String, IndexDescriptor> prevIndexesByName = toMapByName(prevSchema.indexes, IndexDescriptor::name);
-        Map<String, IndexDescriptor> thisIndexesByName = toMapByName(this.indexes, IndexDescriptor::name);
+        Map<String, CatalogIndexDescriptor> prevIndexesByName = toMapByName(prevSchema.indexes, CatalogIndexDescriptor::name);
+        Map<String, CatalogIndexDescriptor> thisIndexesByName = toMapByName(this.indexes, CatalogIndexDescriptor::name);
 
-        List<IndexDescriptor> addedIndexes = subtractKeyed(thisIndexesByName, prevIndexesByName);
-        List<IndexDescriptor> removedIndexes = subtractKeyed(prevIndexesByName, thisIndexesByName);
+        List<CatalogIndexDescriptor> addedIndexes = subtractKeyed(thisIndexesByName, prevIndexesByName);
+        List<CatalogIndexDescriptor> removedIndexes = subtractKeyed(prevIndexesByName, thisIndexesByName);
 
         return new TableDefinitionDiff(addedColumns, removedColumns, changedColumns, addedIndexes, removedIndexes);
     }
@@ -138,7 +138,7 @@ public class FullTableSchema {
                 .collect(toList());
     }
 
-    private static boolean columnChanged(TableColumnDescriptor prevColumn, TableColumnDescriptor newColumn) {
+    private static boolean columnChanged(CatalogTableColumnDescriptor prevColumn, CatalogTableColumnDescriptor newColumn) {
         return !prevColumn.equals(newColumn);
     }
 }

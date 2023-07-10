@@ -34,17 +34,14 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
-import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -74,7 +71,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class SqlSchemaManagerTest {
     private final int tableId = 1;
 
-    private final UUID indexId = UUID.randomUUID();
+    private final int indexId = 2;
 
     private final SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
             1,
@@ -97,12 +94,6 @@ public class SqlSchemaManagerTest {
     @Mock
     private SchemaRegistryImpl schemaRegistry;
 
-    @Mock
-    private ReplicaService replicaService;
-
-    @Mock
-    private HybridClock clock;
-
     private SqlSchemaManagerImpl sqlSchemaManager;
 
     private TestRevisionRegister testRevisionRegister;
@@ -121,8 +112,6 @@ public class SqlSchemaManagerTest {
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 tableManager,
                 schemaManager,
-                replicaService,
-                clock,
                 testRevisionRegister,
                 busyLock
         );
@@ -161,7 +150,7 @@ public class SqlSchemaManagerTest {
 
         assertNotNull(schemaTable);
         IgniteTableImpl igniteTable = assertInstanceOf(IgniteTableImpl.class, schemaTable);
-        assertEquals(tableId, igniteTable.table().tableId());
+        assertEquals(tableId, igniteTable.id());
 
         sqlSchemaManager.onTableDropped("PUBLIC", tableId, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
@@ -213,7 +202,7 @@ public class SqlSchemaManagerTest {
 
         IgniteTableImpl igniteTable = assertInstanceOf(IgniteTableImpl.class, schemaTable);
 
-        assertEquals(igniteTable.id(), igniteIndex.index().tableId());
+        assertEquals(igniteTable.id(), igniteIndex.tableId());
         assertSame(igniteIndex, igniteTable.indexes().get("PUBLIC.I"));
 
         sqlSchemaManager.onIndexDropped("PUBLIC", igniteTable.id(), indexId, testRevisionRegister.actualToken() + 1);
@@ -299,11 +288,11 @@ public class SqlSchemaManagerTest {
     /**
      * Test revision register.
      */
-    private static class TestRevisionRegister implements Consumer<Function<Long, CompletableFuture<?>>> {
+    private static class TestRevisionRegister implements Consumer<LongFunction<CompletableFuture<?>>> {
         AtomicLong token = new AtomicLong(-1);
 
         /** Revision consumer. */
-        private Function<Long, CompletableFuture<?>> moveRevision;
+        private LongFunction<CompletableFuture<?>> moveRevision;
 
         /**
          * Moves forward token.
@@ -323,11 +312,11 @@ public class SqlSchemaManagerTest {
 
         /** {@inheritDoc} */
         @Override
-        public void accept(Function<Long, CompletableFuture<?>> function) {
+        public void accept(LongFunction<CompletableFuture<?>> function) {
             if (moveRevision == null) {
                 moveRevision = function;
             } else {
-                Function<Long, CompletableFuture<?>> old = moveRevision;
+                LongFunction<CompletableFuture<?>> old = moveRevision;
 
                 moveRevision = rev -> allOf(
                         old.apply(rev),

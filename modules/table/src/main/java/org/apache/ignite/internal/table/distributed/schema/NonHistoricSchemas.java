@@ -23,12 +23,19 @@ import static java.util.stream.Collectors.toList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DecimalNativeType;
+import org.apache.ignite.internal.schema.DefaultValueProvider;
+import org.apache.ignite.internal.schema.DefaultValueProvider.FunctionalValueProvider;
+import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.TemporalNativeType;
+import org.apache.ignite.internal.schema.VarlenNativeType;
 
 /**
  * A dummy implementation over {@link SchemaManager}. It is dummy because:
@@ -65,7 +72,7 @@ public class NonHistoricSchemas implements Schemas {
         SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(tableId);
         SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
 
-        List<TableColumnDescriptor> columns = schemaDescriptor.columnNames().stream()
+        List<CatalogTableColumnDescriptor> columns = schemaDescriptor.columnNames().stream()
                 .map(colName -> {
                     Column column = schemaDescriptor.column(colName);
 
@@ -93,18 +100,80 @@ public class NonHistoricSchemas implements Schemas {
     }
 
     /**
-     * Converts a {@link Column} to a {@link TableColumnDescriptor}. Please note that the conversion is not full; it's
+     * Converts a {@link Column} to a {@link CatalogTableColumnDescriptor}. Please note that the conversion is not full; it's
      * used in the code that actually doesn't care about columns.
      *
      * @param column Column to convert.
      * @return Conversion result.
      */
-    public static TableColumnDescriptor columnDescriptor(Column column) {
-        return new TableColumnDescriptor(
+    public static CatalogTableColumnDescriptor columnDescriptor(Column column) {
+        NativeType nativeType = column.type();
+        int precision;
+        int scale;
+        int length;
+
+        switch (nativeType.spec()) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case FLOAT:
+            case DOUBLE:
+            case NUMBER:
+            case DATE:
+            case UUID:
+                precision = 0;
+                scale = 0;
+                length = 0;
+                break;
+            case DECIMAL:
+                DecimalNativeType decimalNativeType = (DecimalNativeType) nativeType;
+                precision = decimalNativeType.precision();
+                scale = decimalNativeType.scale();
+                length = 0;
+                break;
+            case STRING:
+            case BYTES:
+                VarlenNativeType varlenNativeType = (VarlenNativeType) nativeType;
+                precision = 0;
+                scale = 0;
+                length = varlenNativeType.length();
+                break;
+            case BITMASK:
+                BitmaskNativeType bitmaskNativeType = (BitmaskNativeType) nativeType;
+                precision = 0;
+                scale = 0;
+                length = bitmaskNativeType.bits();
+                break;
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+                TemporalNativeType temporalNativeType = (TemporalNativeType) nativeType;
+                precision = temporalNativeType.precision();
+                scale = 0;
+                length = 0;
+                break;
+            default:
+                throw new IllegalArgumentException("Unexpected native type: " + nativeType);
+        }
+
+        return new CatalogTableColumnDescriptor(
                 column.name(),
-                column.type().spec().asColumnType(),
+                nativeType.spec().asColumnType(),
                 column.nullable(),
-                DefaultValue.constant(column.defaultValue())
+                precision,
+                scale,
+                length,
+                defaultValue(column.defaultValueProvider())
         );
+    }
+
+    private static DefaultValue defaultValue(DefaultValueProvider defaultValueProvider) {
+        if (defaultValueProvider instanceof FunctionalValueProvider) {
+            FunctionalValueProvider functionalProvider = (FunctionalValueProvider) defaultValueProvider;
+            return DefaultValue.functionCall(functionalProvider.name());
+        } else {
+            return DefaultValue.constant(defaultValueProvider.get());
+        }
     }
 }

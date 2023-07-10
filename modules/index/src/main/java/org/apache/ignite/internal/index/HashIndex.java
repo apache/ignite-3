@@ -25,7 +25,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -34,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
  * An object that represents a hash index.
  */
 public class HashIndex implements Index<IndexDescriptor> {
-    private final UUID id;
+    private final int id;
     private final InternalTable table;
     private final IndexDescriptor descriptor;
 
@@ -45,15 +44,14 @@ public class HashIndex implements Index<IndexDescriptor> {
      * @param table A table this index relates to.
      * @param descriptor A descriptor of the index.
      */
-    public HashIndex(UUID id, TableImpl table, IndexDescriptor descriptor) {
-        this.id = Objects.requireNonNull(id, "id");
-        this.table = Objects.requireNonNull(table.internalTable(), "table");
+    public HashIndex(int id, InternalTable table, IndexDescriptor descriptor) {
+        this.id = id;
+        this.table = Objects.requireNonNull(table, "table");
         this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
     }
 
-    /** {@inheritDoc} */
     @Override
-    public UUID id() {
+    public int id() {
         return id;
     }
 

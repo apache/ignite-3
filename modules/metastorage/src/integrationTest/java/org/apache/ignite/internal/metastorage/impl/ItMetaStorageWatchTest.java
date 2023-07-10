@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -52,10 +53,12 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -66,6 +69,7 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -81,6 +85,9 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
+
+    @InjectConfiguration
+    private static MetaStorageConfiguration metaStorageConfiguration;
 
     private static class Node {
         private final List<IgniteComponent> components = new ArrayList<>();
@@ -103,11 +110,15 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             Path basePath = dataPath.resolve(name());
 
             HybridClock clock = new HybridClockImpl();
+
+            var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
+
             var raftManager = new Loza(
                     clusterService,
                     raftConfiguration,
                     basePath.resolve("raft"),
-                    clock
+                    clock,
+                    raftGroupEventsClientListener
             );
 
             components.add(raftManager);
@@ -130,14 +141,25 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             components.add(cmgManager);
 
+            var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
+
+            var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                    clusterService,
+                    logicalTopologyService,
+                    Loza.FACTORY,
+                    raftGroupEventsClientListener
+            );
+
             this.metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
                     clusterService,
                     cmgManager,
-                    new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
+                    logicalTopologyService,
                     raftManager,
                     new RocksDbKeyValueStorage(name(), basePath.resolve("storage")),
-                    clock
+                    clock,
+                    topologyAwareRaftGroupServiceFactory,
+                    metaStorageConfiguration
             );
 
             components.add(metaStorageManager);
@@ -273,7 +295,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         for (Node node : nodes) {
             registerWatchAction.accept(node, latch);
 
-            node.metaStorageManager.deployWatches();
+            assertThat("Watches were not deployed", node.metaStorageManager.deployWatches(), willCompleteSuccessfully());
         }
 
         var key = new ByteArray("foo");
@@ -364,13 +386,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
         assertThat(invokeFuture, willBe(true));
 
-        nodes.forEach(node -> {
-            try {
-                node.metaStorageManager.deployWatches();
-            } catch (NodeStoppingException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        nodes.forEach(node -> assertThat("Watches were not deployed", node.metaStorageManager.deployWatches(), willCompleteSuccessfully()));
 
         assertTrue(exactLatch.await(10, TimeUnit.SECONDS));
         assertTrue(prefixLatch.await(10, TimeUnit.SECONDS));

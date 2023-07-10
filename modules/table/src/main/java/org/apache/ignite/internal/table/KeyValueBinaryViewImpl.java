@@ -22,18 +22,22 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -166,15 +170,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<@NotNull Tuple, @NotNull Tuple> pairs) {
         Objects.requireNonNull(pairs);
 
-        List<BinaryRowEx> rows = new ArrayList<>(pairs.size());
-
-        for (Map.Entry<Tuple, Tuple> pair : pairs.entrySet()) {
-            final Row row = marshal(Objects.requireNonNull(pair.getKey()), Objects.requireNonNull(pair.getValue()));
-
-            rows.add(row);
-        }
-
-        return tbl.upsertAll(rows, (InternalTransaction) tx);
+        return tbl.upsertAll(marshalPairs(pairs.entrySet()), (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -433,7 +429,9 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Map<Tuple, Tuple> pairs = IgniteUtils.newHashMap(rows.size());
 
         for (Row row : schemaReg.resolve(rows)) {
-            pairs.put(TableRow.keyTuple(row), TableRow.valueTuple(row));
+            if (row != null) {
+                pairs.put(TableRow.keyTuple(row), TableRow.valueTuple(row));
+            }
         }
 
         return pairs;
@@ -478,5 +476,29 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         }
 
         return tuples;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> streamData(Publisher<Entry<Tuple, Tuple>> publisher, @Nullable DataStreamerOptions options) {
+        Objects.requireNonNull(publisher);
+
+        var partitioner = new KeyValueTupleStreamerPartitionAwarenessProvider(schemaReg, tbl.partitions());
+        StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender =
+                (partitionId, items) -> tbl.upsertAll(marshalPairs(items), partitionId);
+
+        return DataStreamer.streamData(publisher, options, batchSender, partitioner);
+    }
+
+    private List<BinaryRowEx> marshalPairs(Collection<Entry<Tuple, Tuple>> pairs) {
+        List<BinaryRowEx> rows = new ArrayList<>(pairs.size());
+
+        for (Entry<Tuple, Tuple> pair : pairs) {
+            Row row = marshal(Objects.requireNonNull(pair.getKey()), Objects.requireNonNull(pair.getValue()));
+
+            rows.add(row);
+        }
+
+        return rows;
     }
 }

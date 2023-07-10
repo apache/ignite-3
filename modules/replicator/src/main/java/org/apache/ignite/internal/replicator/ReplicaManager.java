@@ -44,6 +44,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.exception.ReplicaIsAlreadyStartedException;
+import org.apache.ignite.internal.replicator.exception.ReplicaStoppingException;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.AwaitReplicaRequest;
@@ -160,13 +161,24 @@ public class ReplicaManager implements IgniteComponent {
                     }
 
                     if (!replicaFut.isDone()) {
-                        replicaFut.thenAccept(createdReplica ->
-                                createdReplica.ready().thenAccept(unused ->
-                                        IgniteUtils.inBusyLock(
-                                                busyLock,
-                                                () -> sendAwaitReplicaResponse(senderConsistentId, correlationId)
-                                        )
-                                )
+                        replicaFut.whenComplete((createdReplica, ex) -> {
+                                    if (ex != null) {
+                                        clusterNetSvc.messagingService().respond(
+                                                senderConsistentId,
+                                                REPLICA_MESSAGES_FACTORY
+                                                        .errorReplicaResponse()
+                                                        .throwable(ex)
+                                                        .build(),
+                                                correlationId);
+                                    } else {
+                                        createdReplica.ready().thenAccept(unused ->
+                                                IgniteUtils.inBusyLock(
+                                                        busyLock,
+                                                        () -> sendAwaitReplicaResponse(senderConsistentId, correlationId)
+                                                )
+                                        );
+                                    }
+                                }
                         );
 
                         return replicaFut;
@@ -364,7 +376,7 @@ public class ReplicaManager implements IgniteComponent {
      * @return True if the replica is found and closed, false otherwise.
      * @throws NodeStoppingException If the node is stopping.
      */
-    public boolean stopReplica(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
+    public CompletableFuture<Boolean> stopReplica(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
@@ -382,21 +394,35 @@ public class ReplicaManager implements IgniteComponent {
      * @param replicaGrpId Replication group id.
      * @return True if the replica is found and closed, false otherwise.
      */
-    // TODO: IGNITE-19494 We need to correctly stop the replica
-    private boolean stopReplicaInternal(ReplicationGroupId replicaGrpId) {
+    private CompletableFuture<Boolean> stopReplicaInternal(ReplicationGroupId replicaGrpId) {
         CompletableFuture<Replica> removed = replicas.remove(replicaGrpId);
 
         if (removed != null) {
-            removed.whenComplete((replica, throwable) -> {
-                if (throwable != null) {
-                    replica.shutdown();
-                }
-            });
+            if (!removed.isDone()) {
+                removed.completeExceptionally(new ReplicaStoppingException(
+                        replicaGrpId,
+                        clusterNetSvc.topologyService().localMember()
+                ));
+            }
 
-            return true;
+            if (!removed.isCompletedExceptionally()) {
+                return removed
+                        .thenCompose(Replica::shutdown)
+                        .handle((notUsed, throwable) -> {
+                            if (throwable == null) {
+                                return true;
+                            } else {
+                                LOG.error("Failed to stop replica [replicaGrpId={}]", throwable, replicaGrpId);
+
+                                return false;
+                            }
+                        });
+            }
+
+            return completedFuture(true);
         }
 
-        return false;
+        return completedFuture(false);
     }
 
     /** {@inheritDoc} */

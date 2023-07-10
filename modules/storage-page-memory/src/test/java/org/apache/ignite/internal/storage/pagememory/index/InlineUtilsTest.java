@@ -41,8 +41,8 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.storage.index.IndexDescriptor;
-import org.apache.ignite.internal.storage.index.IndexDescriptor.ColumnDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageColumnDescriptor;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -131,7 +131,7 @@ public class InlineUtilsTest {
 
     @Test
     void testBinaryTupleInlineSize() {
-        IndexDescriptor indexDescriptor = testIndexDescriptor(testColumnDescriptor(NativeTypes.INT8, false));
+        StorageIndexDescriptor indexDescriptor = testIndexDescriptor(testColumnDescriptor(NativeTypes.INT8, false));
 
         assertEquals(
                 BinaryTupleCommon.HEADER_SIZE + 1 + NativeTypes.INT8.sizeInBytes(), // Without a nullMap card.
@@ -141,7 +141,7 @@ public class InlineUtilsTest {
         indexDescriptor = testIndexDescriptor(testColumnDescriptor(NativeTypes.INT32, true));
 
         assertEquals(
-                BinaryTupleCommon.HEADER_SIZE + 1 + 1 + NativeTypes.INT32.sizeInBytes(), // With a nullMap card.
+                BinaryTupleCommon.HEADER_SIZE + 1 + NativeTypes.INT32.sizeInBytes(), // With a nullMap card.
                 binaryTupleInlineSize(indexDescriptor)
         );
 
@@ -167,16 +167,16 @@ public class InlineUtilsTest {
         );
 
         assertEquals(
-                BinaryTupleCommon.HEADER_SIZE + 4 * 2 + 1 + 4 * MAX_VARLEN_INLINE_SIZE, // With a nullMap card.
+                BinaryTupleCommon.HEADER_SIZE + 4 * 2 + 4 * MAX_VARLEN_INLINE_SIZE, // With a nullMap card.
                 binaryTupleInlineSize(indexDescriptor)
         );
 
         // Let's check that it does not exceed the MAX_BINARY_TUPLE_INLINE_SIZE.
 
-        ColumnDescriptor[] columnDescriptors = IntStream.range(0, MAX_BINARY_TUPLE_INLINE_SIZE / MAX_VARLEN_INLINE_SIZE)
+        StorageColumnDescriptor[] columnDescriptors = IntStream.range(0, MAX_BINARY_TUPLE_INLINE_SIZE / MAX_VARLEN_INLINE_SIZE)
                 .mapToObj(i -> NativeTypes.stringOf(MAX_VARLEN_INLINE_SIZE))
                 .map(nativeType -> testColumnDescriptor(nativeType, false))
-                .toArray(ColumnDescriptor[]::new);
+                .toArray(StorageColumnDescriptor[]::new);
 
         assertEquals(
                 MAX_BINARY_TUPLE_INLINE_SIZE, // Without a nullMap card.
@@ -186,7 +186,7 @@ public class InlineUtilsTest {
         columnDescriptors = IntStream.range(0, MAX_BINARY_TUPLE_INLINE_SIZE / MAX_VARLEN_INLINE_SIZE)
                 .mapToObj(i -> NativeTypes.stringOf(MAX_VARLEN_INLINE_SIZE))
                 .map(nativeType -> testColumnDescriptor(nativeType, true))
-                .toArray(ColumnDescriptor[]::new);
+                .toArray(StorageColumnDescriptor[]::new);
 
         assertEquals(
                 MAX_BINARY_TUPLE_INLINE_SIZE, // With a nullMap card.
@@ -223,7 +223,7 @@ public class InlineUtilsTest {
 
         // Let's check without variable length columns.
 
-        IndexDescriptor indexDescriptor = testIndexDescriptor(
+        StorageIndexDescriptor indexDescriptor = testIndexDescriptor(
                 testColumnDescriptor(NativeTypes.INT64, false),
                 testColumnDescriptor(NativeTypes.UUID, false)
         );
@@ -262,11 +262,11 @@ public class InlineUtilsTest {
                 testColumnDescriptor(NativeTypes.UUID, false),
                 testColumnDescriptor(NativeTypes.UUID, false),
                 testColumnDescriptor(NativeTypes.UUID, false),
-                testColumnDescriptor(NativeTypes.stringOf(32), true)
+                testColumnDescriptor(NativeTypes.stringOf(33), true)
         );
 
         assertEquals(
-                BinaryTupleCommon.HEADER_SIZE + 1 + 5 + NativeTypes.INT64.sizeInBytes() + 3 * NativeTypes.UUID.sizeInBytes() + 32 + 6,
+                BinaryTupleCommon.HEADER_SIZE + 5 + NativeTypes.INT64.sizeInBytes() + 3 * NativeTypes.UUID.sizeInBytes() + 33 + 6,
                 binaryTupleInlineSize(pageSize, itemHeaderSize, indexDescriptor)
         );
     }
@@ -278,16 +278,16 @@ public class InlineUtilsTest {
         assertEquals(333, optimizeItemSize(1000, 330));
     }
 
-    private static IndexDescriptor testIndexDescriptor(ColumnDescriptor... columnDescriptors) {
-        IndexDescriptor indexDescriptor = mock(IndexDescriptor.class);
+    private static StorageIndexDescriptor testIndexDescriptor(StorageColumnDescriptor... columnDescriptors) {
+        StorageIndexDescriptor indexDescriptor = mock(StorageIndexDescriptor.class);
 
         when(indexDescriptor.columns()).then(answer -> List.of(columnDescriptors));
 
         return indexDescriptor;
     }
 
-    private static ColumnDescriptor testColumnDescriptor(NativeType nativeType, boolean nullable) {
-        ColumnDescriptor columnDescriptor = mock(ColumnDescriptor.class);
+    private static StorageColumnDescriptor testColumnDescriptor(NativeType nativeType, boolean nullable) {
+        StorageColumnDescriptor columnDescriptor = mock(StorageColumnDescriptor.class);
 
         when(columnDescriptor.type()).thenReturn(nativeType);
         when(columnDescriptor.nullable()).thenReturn(nullable);

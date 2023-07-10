@@ -29,8 +29,11 @@ import org.apache.calcite.plan.RelRule;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.immutables.value.Value;
 
@@ -42,7 +45,7 @@ import org.immutables.value.Value;
 public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
     public static final RelOptRule INSTANCE = Config.DEFAULT.withDescription("ExposeIndexRule").toRule();
 
-    public ExposeIndexRule(Config config) {
+    private ExposeIndexRule(Config config) {
         super(config);
     }
 
@@ -65,6 +68,7 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
 
         List<IgniteLogicalIndexScan> indexes = igniteTable.indexes().keySet().stream()
                 .map(idxName -> igniteTable.toRel(cluster, optTable, idxName, proj, condition, requiredCols))
+                .filter(idx -> filter(igniteTable, idx.indexName(), idx.searchBounds()))
                 .collect(Collectors.toList());
 
         if (indexes.isEmpty()) {
@@ -77,6 +81,14 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
         }
 
         call.transformTo(indexes.get(0), equivMap);
+    }
+
+    /** Filter pre known not applicable variants. Significant shrink search space in some cases. */
+    private static boolean filter(IgniteTable table, String idxName, List<SearchBounds> searchBounds) {
+        IgniteIndex index = table.getIndex(idxName);
+
+        return index.type() == Type.SORTED || (searchBounds != null
+                && searchBounds.stream().noneMatch(bound -> bound.type() == SearchBounds.Type.RANGE));
     }
 
     /**

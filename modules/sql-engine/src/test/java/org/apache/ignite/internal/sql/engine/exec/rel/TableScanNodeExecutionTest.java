@@ -23,12 +23,13 @@ import static org.mockito.Mockito.mock;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.BitSet;
 import java.util.List;
-import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -40,16 +41,16 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
+import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
-import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -63,19 +64,18 @@ import org.junit.jupiter.api.Test;
  * Tests execution flow of TableScanNode.
  */
 public class TableScanNodeExecutionTest extends AbstractExecutionTest {
-    private static int dataAmount;
 
     // Ensures that all data from TableScanNode is being propagated correctly.
     @Test
-    public void testScanNodeDataPropagation() {
+    public void testScanNodeDataPropagation() throws InterruptedException {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, int.class);
 
         int inBufSize = Commons.IN_BUFFER_SIZE;
 
-        List<PartitionWithTerm> partsWithTerms = Stream.of(0, 1, 2)
-                .map(p -> new PartitionWithTerm(p, -1L))
+        List<PartitionWithTerm> partsWithTerms = IntStream.range(0, TestInternalTableImpl.PART_CNT)
+                .mapToObj(p -> new PartitionWithTerm(p, -1L))
                 .collect(Collectors.toList());
 
         int probingCnt = 50;
@@ -86,8 +86,6 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
             sizes[i] = inBufSize * (i + 1) + ThreadLocalRandom.current().nextInt(100);
         }
 
-        IgniteTable tbl = new TestTable(rowType);
-
         RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
         int i = 0;
@@ -95,9 +93,19 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
         for (int size : sizes) {
             log.info("Check: size=" + size);
 
-            dataAmount = size;
+            TestInternalTableImpl internalTable = new TestInternalTableImpl(mock(ReplicaService.class), size);
 
-            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, tbl, partsWithTerms, null, null, null);
+            TableRowConverter rowConverter = new TableRowConverter() {
+                @Override
+                public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
+                        @Nullable BitSet requiredColumns) {
+                    return (RowT) TestInternalTableImpl.ROW;
+                }
+            };
+            TableDescriptor descriptor = new TestTableDescriptor(IgniteDistributions::single, rowType);
+            ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rowConverter, descriptor);
+            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scanableTable,
+                    partsWithTerms, null, null, null);
 
             RootNode<Object[]> root = new RootNode<>(ctx);
 
@@ -110,44 +118,28 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                 ++cnt;
             }
 
+            internalTable.scanComplete.await();
             assertEquals(sizes[i++] * partsWithTerms.size(), cnt);
         }
     }
 
-    private static class TestTable extends AbstractPlannerTest.TestTable {
-        private static final Object[] res = {1, "2", 3};
-
-        public TestTable(RelDataType rowType) {
-            super(rowType);
-        }
-
-        @Override
-        public IgniteDistribution distribution() {
-            return IgniteDistributions.broadcast();
-        }
-
-        @Override
-        public InternalTable table() {
-            return new TestInternalTableImpl(mock(ReplicaService.class));
-        }
-
-        @Override
-        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
-                @Nullable BitSet requiredColumns) {
-            return (RowT) res;
-        }
-    }
-
     private static class TestInternalTableImpl extends InternalTableImpl {
-        private int[] processedPerPart;
+
+        private static final Object[] ROW = {1, "2", 3};
 
         private static final int PART_CNT = 3;
 
+        private final int[] processedPerPart;
+
+        private final int dataAmount;
+
         private final ByteBufferRow bbRow = new ByteBufferRow(new byte[1]);
 
-        public TestInternalTableImpl(
-                ReplicaService replicaSvc
-        ) {
+        private final CopyOnWriteArraySet<Integer> partitions = new CopyOnWriteArraySet<>();
+
+        private final CountDownLatch scanComplete = new CountDownLatch(1);
+
+        TestInternalTableImpl(ReplicaService replicaSvc, int dataAmount) {
             super(
                     "test",
                     1,
@@ -160,6 +152,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                     replicaSvc,
                     mock(HybridClock.class)
             );
+            this.dataAmount = dataAmount;
 
             processedPerPart = new int[PART_CNT];
         }
@@ -169,7 +162,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                 int partId,
                 HybridTimestamp readTime,
                 ClusterNode recipient,
-                @Nullable UUID indexId,
+                @Nullable Integer indexId,
                 @Nullable BinaryTuplePrefix lowerBound,
                 @Nullable BinaryTuplePrefix upperBound,
                 int flags,
@@ -188,7 +181,13 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                         }
 
                         if (processedPerPart[partId] == dataAmount) {
-                            s.onComplete();
+                            if (partitions.add(partId)) {
+                                s.onComplete();
+
+                                if (partitions.size() == PART_CNT) {
+                                    scanComplete.countDown();
+                                }
+                            }
                         }
                     }
 

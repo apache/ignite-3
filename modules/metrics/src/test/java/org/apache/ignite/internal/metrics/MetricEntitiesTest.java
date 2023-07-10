@@ -37,8 +37,8 @@ import org.junit.jupiter.api.Test;
  */
 public class MetricEntitiesTest {
     private static final String SOURCE_NAME = "testSource";
-    private static final String SCALAR_METRIC_NAME = "testScalarMetric";
-    private static final String COMPOSITE_METRIC_NAME = "testCompositeMetric";
+    private static final String SCALAR_METRIC_NAME = "TestScalarMetric";
+    private static final String COMPOSITE_METRIC_NAME = "TestCompositeMetric";
     private static final long[] DISTRIBUTION_BOUNDS = new long[] { 10, 100, 1000 };
 
     @Test

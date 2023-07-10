@@ -17,29 +17,24 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.sql.Date;
-import java.time.Duration;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.Period;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Stream;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.internal.sql.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
@@ -47,12 +42,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Dynamic parameters checks. */
 public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
-    private static final ThreadLocalRandom RND = ThreadLocalRandom.current();
 
     @BeforeEach
     public void createTable() {
@@ -66,17 +62,16 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(value = ColumnType.class,
-            //    https://issues.apache.org/jira/browse/IGNITE-18789
             //    https://issues.apache.org/jira/browse/IGNITE-18414
-            names = {"DECIMAL", "NUMBER", "BITMASK", "DURATION", "PERIOD"},
+            names = {"NUMBER", "BITMASK", "DURATION", "PERIOD"},
             mode = Mode.EXCLUDE
     )
     void testMetadataTypesForDynamicParameters(ColumnType type) {
-        Object param = generateValueByType(RND.nextInt(), type);
+        Object param = SqlTestUtils.generateValueByType(type);
         List<List<Object>> ret = sql("SELECT typeof(?)", param);
         String type0 = (String) ret.get(0).get(0);
 
-        assertTrue(type0.startsWith(toSqlType(type)));
+        assertTrue(type0.startsWith(SqlTestUtils.toSqlType(type)));
         assertQuery("SELECT ?").withParams(param).returns(param).columnMetadata(new MetadataMatcher().type(type)).check();
     }
 
@@ -164,13 +159,28 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
      */
     @Test
     public void testWithDifferentParametersTypesMismatch() {
-        assertThrows(CalciteContextException.class, () -> assertQuery("SELECT COALESCE(12.2, ?)").withParams("b").returns(12.2).check());
-        assertThrows(CalciteContextException.class, () -> assertQuery("SELECT COALESCE(?, ?)").withParams(12.2, "b").returns(12.2).check());
+        assertThrows(CalciteContextException.class, () -> assertQuery("SELECT COALESCE(12.2, ?)").withParams("b").check());
+        assertThrows(CalciteContextException.class, () -> assertQuery("SELECT COALESCE(?, ?)").withParams(12.2, "b").check());
     }
 
     @Test
     public void testUnspecifiedDynamicParameterInExplain() {
         assertUnexpectedNumberOfParameters("EXPLAIN PLAN FOR SELECT * FROM t1 WHERE id > ?");
+    }
+
+    @Test
+    public void testNullExprs() {
+        Object[] rowNull = {null};
+
+        assertQuery("SELECT 1 + NULL").returns(rowNull).check();
+        assertQuery("SELECT 1 * NULL").returns(rowNull).check();
+
+        assertQuery("SELECT 1 + ?").withParams(rowNull).returns(rowNull).check();
+        assertQuery("SELECT ? + 1").withParams(rowNull).returns(rowNull).check();
+
+        assertQuery("SELECT ? + ?").withParams(1, null).returns(rowNull).check();
+        assertQuery("SELECT ? + ?").withParams(null, 1).returns(rowNull).check();
+        assertQuery("SELECT ? + ?").withParams(null, null).returns(rowNull).check();
     }
 
     @Test
@@ -232,95 +242,41 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
         assertUnexpectedNumberOfParameters("SELECT * FROM t1 OFFSET ?", 1, 2);
     }
 
-    private Object generateValueByType(int i, ColumnType type) {
-        switch (type) {
-            case BOOLEAN:
-                return i % 2 == 0;
-            case INT8:
-                return (byte) i;
-            case INT16:
-                return (short) i;
-            case INT32:
-                return i;
-            case INT64:
-                return (long) i;
-            case FLOAT:
-                return (float) i + ((float) i / 1000);
-            case DOUBLE:
-                return (double) i + ((double) i / 1000);
-            case STRING:
-                return "str_" + i;
-            case BYTE_ARRAY:
-                return new byte[]{(byte) i, (byte) (i + 1), (byte) (i + 2)};
-            case NULL:
-                return null;
-            case DECIMAL:
-                return BigDecimal.valueOf((double) i + ((double) i / 1000));
-            case NUMBER:
-                return BigInteger.valueOf(i);
-            case UUID:
-                return new UUID(i, i);
-            case BITMASK:
-                return new byte[]{(byte) i};
-            case DURATION:
-                return Duration.ofNanos(i);
-            case DATETIME:
-                return LocalDateTime.of(
-                        (LocalDate) generateValueByType(i, ColumnType.DATE),
-                        (LocalTime) generateValueByType(i, ColumnType.TIME)
-                );
-            case TIMESTAMP:
-                return Instant.from(ZonedDateTime.of((LocalDateTime) generateValueByType(i, ColumnType.DATETIME), ZoneId.systemDefault()));
-            case DATE:
-                return LocalDate.of(2022, 01, 01).plusDays(i % 30);
-            case TIME:
-                return LocalTime.of(0, 00, 00).plusSeconds(i % 1000);
-            case PERIOD:
-                return Period.of(i % 2, i % 12, i % 29);
-            default:
-                throw new IllegalArgumentException("unsupported type " + type);
-        }
+    /** varchar casts - literals. */
+    @ParameterizedTest
+    @MethodSource("varcharCasts")
+    public void testVarcharCastsLiterals(String value, RelDataType type, String result) {
+        String query = format("SELECT CAST('{}' AS {})", value, type);
+        assertQuery(query).returns(result).check();
     }
 
-    private static String toSqlType(ColumnType columnType) {
-        switch (columnType) {
-            case BOOLEAN:
-                return SqlTypeName.BOOLEAN.getName();
-            case INT8:
-                return SqlTypeName.TINYINT.getName();
-            case INT16:
-                return SqlTypeName.SMALLINT.getName();
-            case INT32:
-                return SqlTypeName.INTEGER.getName();
-            case INT64:
-                return SqlTypeName.BIGINT.getName();
-            case FLOAT:
-                return SqlTypeName.REAL.getName();
-            case DOUBLE:
-                return SqlTypeName.DOUBLE.getName();
-            case DECIMAL:
-                return SqlTypeName.DECIMAL.getName();
-            case DATE:
-                return SqlTypeName.DATE.getName();
-            case TIME:
-                return SqlTypeName.TIME.getName();
-            case DATETIME:
-                return SqlTypeName.TIMESTAMP.getName();
-            case TIMESTAMP:
-                return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName();
-            case UUID:
-                return UuidType.NAME;
-            case STRING:
-                return SqlTypeName.VARCHAR.getName();
-            case BYTE_ARRAY:
-                return SqlTypeName.VARBINARY.getName();
-            case NUMBER:
-                return SqlTypeName.INTEGER.getName();
-            case NULL:
-                return SqlTypeName.NULL.getName();
-            default:
-                throw new IllegalArgumentException("Unsupported type " + columnType);
-        }
+    /** varchar casts - dynamic params. */
+    @ParameterizedTest
+    @MethodSource("varcharCasts")
+    public void testVarcharCastsDynamicParams(String value, RelDataType type, String result) {
+        String query = format("SELECT CAST(? AS {})", type);
+        assertQuery(query).withParams(value).returns(result).check();
+    }
+
+    private static Stream<Arguments> varcharCasts() {
+        IgniteTypeFactory typeFactory = Commons.typeFactory();
+
+        return Stream.of(
+                // varchar
+                arguments("abcde", typeFactory.createSqlType(SqlTypeName.VARCHAR, 3), "abc"),
+                arguments("abcde", typeFactory.createSqlType(SqlTypeName.VARCHAR, 5), "abcde"),
+                arguments("abcde", typeFactory.createSqlType(SqlTypeName.VARCHAR, 6), "abcde"),
+                arguments("abcde", typeFactory.createSqlType(SqlTypeName.VARCHAR), "abcde"),
+
+                // char
+                arguments("abcde", typeFactory.createSqlType(SqlTypeName.CHAR), "a"),
+                arguments("abcde", typeFactory.createSqlType(SqlTypeName.CHAR, 3), "abc")
+        );
+    }
+
+    @Override
+    protected int nodes() {
+        return 1;
     }
 
     private static void assertUnexpectedNumberOfParameters(String query, Object... params) {

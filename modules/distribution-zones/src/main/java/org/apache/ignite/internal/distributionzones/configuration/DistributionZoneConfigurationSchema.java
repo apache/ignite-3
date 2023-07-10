@@ -48,6 +48,7 @@ public class DistributionZoneConfigurationSchema {
     public int zoneId = DEFAULT_ZONE_ID;
 
     /** Count of zone partitions. */
+    @Immutable
     @Range(min = 1, max = 65_000)
     @Value(hasDefault = true)
     public int partitions = DEFAULT_PARTITION_COUNT;
@@ -79,6 +80,8 @@ public class DistributionZoneConfigurationSchema {
     /**
      * Filter to form nodes which must be included to data nodes of this zone.
      * Default value is {@code $..*}, which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of nodes.
+     *
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/distribution-zones/tech-notes/filters.md">Filter documentation</a>
      */
     @ValidFilter
     @Value(hasDefault = true)

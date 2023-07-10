@@ -139,7 +139,7 @@ public class Replica {
         return whenReplicaReady;
     }
 
-    private void onLeaderElected(ClusterNode clusterNode, Long term) {
+    private void onLeaderElected(ClusterNode clusterNode, long term) {
         leaderRef.set(clusterNode);
 
         if (!leaderFuture.isDone()) {
@@ -273,7 +273,8 @@ public class Replica {
     /**
      * Shutdowns the replica.
      */
-    public void shutdown() {
+    public CompletableFuture<Void> shutdown() {
         listener.onShutdown();
+        return raftClient.unsubscribeLeader();
     }
 }

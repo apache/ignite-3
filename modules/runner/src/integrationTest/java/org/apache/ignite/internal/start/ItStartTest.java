@@ -71,7 +71,8 @@ class ItStartTest extends IgniteIntegrationTest {
     @Test
     void igniteStartsInStartPool() {
         List<Expectation> expectations = List.of(
-                new Expectation("joinComplete", IgniteImpl.class, "Join complete, starting the remaining components"),
+                new Expectation("joinComplete", IgniteImpl.class, "Join complete, starting MetaStorage"),
+                new Expectation("msComplete", IgniteImpl.class, "MetaStorage started, starting the remaining components"),
                 new Expectation("indexManager", IndexManager.class, "Index manager started"),
                 new Expectation("componentsStarted", IgniteImpl.class, "Components started, performing recovery"),
                 new Expectation("recoveryComplete", IgniteImpl.class, "Recovery complete, finishing join"),
@@ -128,7 +129,7 @@ class ItStartTest extends IgniteIntegrationTest {
 
         AtomicReference<String> threadNameRef = new AtomicReference<>();
 
-        CompletableFuture<IgniteImpl> future = cluster.startClusterNode(1).whenComplete((res, ex) -> {
+        CompletableFuture<IgniteImpl> future = cluster.startNodeAsync(1).whenComplete((res, ex) -> {
             threadNameRef.set(Thread.currentThread().getName());
         });
 

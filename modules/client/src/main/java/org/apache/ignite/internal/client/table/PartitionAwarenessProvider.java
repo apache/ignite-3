@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.table;
 
 import java.util.function.Function;
-import org.apache.ignite.internal.client.ClientChannel;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -29,27 +28,27 @@ import org.jetbrains.annotations.Nullable;
  * 3. Null instance = No partition awareness and no transaction. Use any channel.
  */
 class PartitionAwarenessProvider {
-    private final @Nullable ClientChannel channel;
+    private final @Nullable String nodeName;
 
     private final @Nullable Function<ClientSchema, Integer> hashFunc;
 
-    private PartitionAwarenessProvider(@Nullable ClientChannel channel, @Nullable Function<ClientSchema, Integer> hashFunc) {
-        assert (channel == null) ^ (hashFunc == null) : "One must be null, another not null: channel, hashFunc";
+    private PartitionAwarenessProvider(@Nullable String nodeName, @Nullable Function<ClientSchema, Integer> hashFunc) {
+        assert (nodeName == null) ^ (hashFunc == null) : "One must be null, another not null: nodeId, hashFunc";
 
-        this.channel = channel;
+        this.nodeName = nodeName;
         this.hashFunc = hashFunc;
     }
 
-    public static PartitionAwarenessProvider of(ClientChannel channel) {
-        return new PartitionAwarenessProvider(channel, null);
+    public static PartitionAwarenessProvider of(String nodeName) {
+        return new PartitionAwarenessProvider(nodeName, null);
     }
 
     public static PartitionAwarenessProvider of(Function<ClientSchema, Integer> hashFunc) {
         return new PartitionAwarenessProvider(null, hashFunc);
     }
 
-    @Nullable ClientChannel channel() {
-        return channel;
+    @Nullable String nodeName() {
+        return nodeName;
     }
 
     Integer getObjectHashCode(ClientSchema schema) {

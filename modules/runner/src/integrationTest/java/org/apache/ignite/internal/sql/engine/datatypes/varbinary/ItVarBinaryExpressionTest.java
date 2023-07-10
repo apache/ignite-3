@@ -19,11 +19,14 @@ package org.apache.ignite.internal.sql.engine.datatypes.varbinary;
 
 import static org.apache.ignite.internal.sql.engine.util.VarBinary.varBinary;
 
+import java.math.BigDecimal;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseExpressionDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.util.VarBinary;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -31,6 +34,10 @@ import org.junit.jupiter.api.Test;
  * Tests for expressions for {@link SqlTypeName#VARBINARY} type.
  */
 public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBinary> {
+    @Override
+    protected int nodes() {
+        return 1;
+    }
 
     /** Bit-string literal. */
     @Test
@@ -67,24 +74,42 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
                 .check();
     }
 
-    /** {@code LENGTH} expression. */
+    /** {@code LENGTH} and {@code OCTET_LENGTH} expression. */
     @Test
     public void testLengthExpression() {
         checkQuery("SELECT LENGTH(x'010203')")
-                .withParams(varBinary(new byte[]{2}))
-                .returns(3);
+                .returns(3).check();
+
+        checkQuery("SELECT OCTET_LENGTH(x'010203')")
+                .returns(3).check();
     }
 
-    /** {@code LENGTH} expression. */
+    /** {@code LENGTH} and {@code OCTET_LENGTH} expression with dynamic params. */
     @Test
     public void testLengthExpressionWithDynamicParameter() {
+        checkQuery("SELECT OCTET_LENGTH(?)")
+                .withParams(varBinary(new byte[]{1, 2, 3}))
+                .returns(3).check();
+
+        checkQuery("SELECT OCTET_LENGTH(?)")
+                .withParams(varBinary(new byte[0]))
+                .returns(0).check();
+
         checkQuery("SELECT LENGTH(?)")
                 .withParams(varBinary(new byte[]{1, 2, 3}))
-                .returns(3);
+                .returns(3).check();
 
         checkQuery("SELECT LENGTH(?)")
                 .withParams(varBinary(new byte[0]))
-                .returns(0);
+                .returns(0).check();
+    }
+
+    /** Throws correct exception. */
+    @Test
+    public void testErroneousParamToLegth() {
+        IgniteTestUtils.assertThrowsWithCause(() -> checkQuery("SELECT LENGTH(?)")
+                .withParams(new BigDecimal(1)).check(), SqlValidatorException.class,
+                "Values passed to LENGTH operator must have compatible types");
     }
 
     /**

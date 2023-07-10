@@ -21,6 +21,7 @@ import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -28,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
-import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -75,14 +76,9 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args) {
-        return execute(nodes, jobClass.getName(), args);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, String jobClassName, Object... args) {
+    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
         Objects.requireNonNull(nodes);
+        Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
         if (nodes.isEmpty()) {
@@ -91,13 +87,31 @@ public class ClientCompute implements IgniteCompute {
 
         ClusterNode node = randomNode(nodes);
 
-        return executeOnOneNode(node, jobClassName, args);
+        return executeOnOneNode(node, units, jobClassName, args);
     }
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, Class<? extends ComputeJob<R>> jobClass, Object... args) {
-        return executeColocated(tableName, key, jobClass.getName(), args);
+    public <R> CompletableFuture<R> executeColocated(
+            String tableName,
+            Tuple key,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        Objects.requireNonNull(tableName);
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(units);
+        Objects.requireNonNull(jobClassName);
+
+        return getTable(tableName)
+                .thenCompose(table -> (CompletableFuture<R>) executeColocatedTupleKey(table, key, units, jobClassName, args))
+                .handle((res, err) -> handleMissingTable(tableName, res, err))
+                .thenCompose(r ->
+                        // If a table was dropped, try again: maybe a new table was created with the same name and new id.
+                        r == MISSING_TABLE_TOKEN
+                                ? executeColocated(tableName, key, units, jobClassName, args)
+                                : CompletableFuture.completedFuture(r));
     }
 
     /** {@inheritDoc} */
@@ -106,64 +120,42 @@ public class ClientCompute implements IgniteCompute {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            Class<? extends ComputeJob<R>> jobClass,
+            List<DeploymentUnit> units,
+            String jobClassName,
             Object... args
     ) {
-        return executeColocated(tableName, key, keyMapper, jobClass.getName(), args);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, String jobClassName, Object... args) {
-        Objects.requireNonNull(tableName);
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(jobClassName);
-
-        return getTable(tableName)
-                .thenCompose(table -> (CompletableFuture<R>) executeColocatedTupleKey(table, key, jobClassName, args))
-                .handle((res, err) -> handleMissingTable(tableName, res, err))
-                .thenCompose(r ->
-                        // If a table was dropped, try again: maybe a new table was created with the same name and new id.
-                        r == MISSING_TABLE_TOKEN
-                                ? executeColocated(tableName, key, jobClassName, args)
-                                : CompletableFuture.completedFuture(r));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <K, R> CompletableFuture<R> executeColocated(String tableName, K key, Mapper<K> keyMapper, String jobClassName, Object... args) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
+        Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
         return getTable(tableName)
-                .thenCompose(table -> (CompletableFuture<R>) executeColocatedObjectKey(table, key, keyMapper, jobClassName, args))
+                .thenCompose(table -> (CompletableFuture<R>) executeColocatedObjectKey(table, key, keyMapper, units, jobClassName, args))
                 .handle((res, err) -> handleMissingTable(tableName, res, err))
                 .thenCompose(r ->
                         // If a table was dropped, try again: maybe a new table was created with the same name and new id.
                         r == MISSING_TABLE_TOKEN
-                                ? executeColocated(tableName, key, keyMapper, jobClassName, args)
+                                ? executeColocated(tableName, key, keyMapper, units, jobClassName, args)
                                 : CompletableFuture.completedFuture(r));
     }
 
     /** {@inheritDoc} */
     @Override
-    public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass,
-            Object... args) {
-        return broadcast(nodes, jobClass.getName(), args);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, String jobClassName, Object... args) {
+    public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(
+            Set<ClusterNode> nodes,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
         Objects.requireNonNull(nodes);
+        Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
         Map<ClusterNode, CompletableFuture<R>> map = new HashMap<>(nodes.size());
 
         for (ClusterNode node : nodes) {
-            if (map.put(node, executeOnOneNode(node, jobClassName, args)) != null) {
+            if (map.put(node, executeOnOneNode(node, units, jobClassName, args)) != null) {
                 throw new IllegalStateException("Node can't be specified more than once: " + node);
             }
         }
@@ -171,7 +163,7 @@ public class ClientCompute implements IgniteCompute {
         return map;
     }
 
-    private <R> CompletableFuture<R> executeOnOneNode(ClusterNode node, String jobClassName, Object[] args) {
+    private <R> CompletableFuture<R> executeOnOneNode(ClusterNode node, List<DeploymentUnit> units, String jobClassName, Object[] args) {
         return ch.serviceAsync(ClientOp.COMPUTE_EXECUTE, w -> {
             if (w.clientChannel().protocolContext().clusterNode().name().equals(node.name())) {
                 w.out().packNil();
@@ -179,8 +171,7 @@ public class ClientCompute implements IgniteCompute {
                 w.out().packString(node.name());
             }
 
-            w.out().packString(jobClassName);
-            w.out().packObjectArrayAsBinaryTuple(args);
+            packJob(w.out(), units, jobClassName, args);
         }, r -> (R) r.in().unpackObjectFromBinaryTuple(), node.name(), null);
     }
 
@@ -203,6 +194,7 @@ public class ClientCompute implements IgniteCompute {
             ClientTable t,
             K key,
             Mapper<K> keyMapper,
+            List<DeploymentUnit> units,
             String jobClassName,
             Object[] args) {
         return t.doSchemaOutOpAsync(
@@ -215,8 +207,7 @@ public class ClientCompute implements IgniteCompute {
 
                     ClientRecordSerializer.writeRecRaw(key, keyMapper, schema, w, TuplePart.KEY);
 
-                    w.packString(jobClassName);
-                    w.packObjectArrayAsBinaryTuple(args);
+                    packJob(w, units, jobClassName, args);
                 },
                 r -> (R) r.unpackObjectFromBinaryTuple(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(null, keyMapper, key));
@@ -225,6 +216,7 @@ public class ClientCompute implements IgniteCompute {
     private static <R> CompletableFuture<R> executeColocatedTupleKey(
             ClientTable t,
             Tuple key,
+            List<DeploymentUnit> units,
             String jobClassName,
             Object[] args) {
         return t.doSchemaOutOpAsync(
@@ -237,8 +229,7 @@ public class ClientCompute implements IgniteCompute {
 
                     ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true);
 
-                    w.packString(jobClassName);
-                    w.packObjectArrayAsBinaryTuple(args);
+                    packJob(w, units, jobClassName, args);
                 },
                 r -> (R) r.unpackObjectFromBinaryTuple(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(null, key));
@@ -285,5 +276,16 @@ public class ClientCompute implements IgniteCompute {
         }
 
         return res;
+    }
+
+    private static void packJob(ClientMessagePacker w, List<DeploymentUnit> units, String jobClassName, Object[] args) {
+        w.packArrayHeader(units.size());
+        for (DeploymentUnit unit : units) {
+            w.packString(unit.name());
+            w.packString(unit.version().render());
+        }
+
+        w.packString(jobClassName);
+        w.packObjectArrayAsBinaryTuple(args);
     }
 }

@@ -17,50 +17,29 @@
 
 package org.apache.ignite.internal.cli.call.unit;
 
-import jakarta.inject.Singleton;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
-import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
-import org.apache.ignite.rest.client.api.DeploymentApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.UnitStatus;
 
 /** List units call. */
-@Singleton
-public class ListUnitCall implements Call<UrlCallInput, List<UnitStatusRecord>> {
-
-    private final ApiClientFactory clientFactory;
-
-    public ListUnitCall(ApiClientFactory clientFactory) {
-        this.clientFactory = clientFactory;
-    }
+public abstract class ListUnitCall implements Call<ListUnitCallInput, List<UnitStatus>> {
 
     @Override
-    public CallOutput<List<UnitStatusRecord>> execute(UrlCallInput input) {
+    public CallOutput<List<UnitStatus>> execute(ListUnitCallInput input) {
         try {
-            List<UnitStatus> units = new DeploymentApi(clientFactory.getClient(input.getUrl())).units();
+            List<UnitStatus> units = getStatuses(input);
             if (units.isEmpty()) {
                 return DefaultCallOutput.empty();
             }
-            return DefaultCallOutput.success(
-                    units.stream()
-                            .map(this::toRecord)
-                            .collect(Collectors.toList())
-            );
+            return DefaultCallOutput.success(units);
         } catch (ApiException e) {
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getUrl()));
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.url()));
         }
     }
 
-    private UnitStatusRecord toRecord(UnitStatus unitStatus) {
-        return new UnitStatusRecord(
-                unitStatus.getId(),
-                unitStatus.getVersionToStatus()
-        );
-    }
+    protected abstract List<UnitStatus> getStatuses(ListUnitCallInput input) throws ApiException;
 }

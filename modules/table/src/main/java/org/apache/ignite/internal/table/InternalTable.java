@@ -38,7 +38,6 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -56,7 +55,7 @@ public interface InternalTable extends ManuallyCloseable {
     /**
      * Gets a table id.
      *
-     * @return Table id as UUID.
+     * @return Table id.
      */
     int tableId();
 
@@ -96,18 +95,20 @@ public interface InternalTable extends ManuallyCloseable {
      */
     CompletableFuture<BinaryRow> get(
             BinaryRowEx keyRow,
-            @NotNull HybridTimestamp readTimestamp,
-            @NotNull ClusterNode recipientNode
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode
     );
 
     /**
      * Asynchronously get rows from the table.
      *
      * @param keyRows Rows with key columns set.
-     * @param tx      The transaction.
-     * @return Future representing pending completion of the operation.
+     * @param tx      Transaction or {@code null} to auto-commit.
+     * @return Future that will return rows with all columns filled from the table. The order of collection elements is
+     *      guaranteed to be the same as the order of {@code keyRows}. If a record does not exist, the
+     *      element at the corresponding index of the resulting collection is {@code null}.
      */
-    CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, @Nullable InternalTransaction tx);
+    CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, @Nullable InternalTransaction tx);
 
     /**
      * Asynchronously get rows from the table for the proposed read timestamp.
@@ -115,12 +116,14 @@ public interface InternalTable extends ManuallyCloseable {
      * @param keyRows       Rows with key columns set.
      * @param readTimestamp Read timestamp.
      * @param recipientNode Cluster node that will handle given get request.
-     * @return Future representing pending completion of the operation.
+     * @return Future that will return rows with all columns filled from the table. The order of collection elements is
+     *      guaranteed to be the same as the order of {@code keyRows}. If a record does not exist, the
+     *      element at the corresponding index of the resulting collection is {@code null}.
      */
-    CompletableFuture<Collection<BinaryRow>> getAll(
+    CompletableFuture<List<BinaryRow>> getAll(
             Collection<BinaryRowEx> keyRows,
-            @NotNull HybridTimestamp readTimestamp,
-            @NotNull ClusterNode recipientNode
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode
     );
 
 
@@ -134,13 +137,22 @@ public interface InternalTable extends ManuallyCloseable {
     CompletableFuture<Void> upsert(BinaryRowEx row, @Nullable InternalTransaction tx);
 
     /**
-     * Asynchronously inserts a row into the table if does not exist or replaces the existed one.
+     * Asynchronously inserts records into a table, if they do not exist, or replaces the existing ones.
      *
      * @param rows Rows to insert into the table.
      * @param tx   The transaction.
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
+
+    /**
+     * Asynchronously inserts records into a table, if they do not exist, or replaces the existing ones.
+     *
+     * @param rows Rows to insert into the table.
+     * @param partition Partition that the rows belong to.
+     * @return Future representing pending completion of the operation.
+     */
+    CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition);
 
     /**
      * Asynchronously inserts a row into the table or replaces if exists and return replaced previous row.
@@ -275,8 +287,8 @@ public interface InternalTable extends ManuallyCloseable {
      */
     default Publisher<BinaryRow> scan(
             int partId,
-            @NotNull HybridTimestamp readTimestamp,
-            @NotNull ClusterNode recipientNode
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode
     ) {
         return scan(partId, readTimestamp, recipientNode, null, null, null, 0, null);
     }
@@ -297,9 +309,9 @@ public interface InternalTable extends ManuallyCloseable {
      */
     Publisher<BinaryRow> scan(
             int partId,
-            @NotNull HybridTimestamp readTimestamp,
-            @NotNull ClusterNode recipientNode,
-            @NotNull UUID indexId,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode,
+            @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
@@ -322,7 +334,7 @@ public interface InternalTable extends ManuallyCloseable {
             int partId,
             UUID txId,
             PrimaryReplica recipient,
-            @Nullable UUID indexId,
+            @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
@@ -344,7 +356,7 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> scan(
             int partId,
             @Nullable InternalTransaction tx,
-            @Nullable UUID indexId,
+            @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
@@ -364,9 +376,9 @@ public interface InternalTable extends ManuallyCloseable {
      */
     Publisher<BinaryRow> lookup(
             int partId,
-            @NotNull HybridTimestamp readTimestamp,
-            @NotNull ClusterNode recipientNode,
-            @NotNull UUID indexId,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode,
+            int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
     );
@@ -387,7 +399,7 @@ public interface InternalTable extends ManuallyCloseable {
             int partId,
             UUID txId,
             PrimaryReplica recipient,
-            UUID indexId,
+            int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
     );

@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -32,8 +33,10 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -77,18 +80,16 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         return tbl.get(keyRow, (InternalTransaction) tx).thenApply(this::unmarshal);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Collection<R> getAll(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
+    public List<R> getAll(@Nullable Transaction tx, Collection<R> keyRecs) {
         return sync(getAllAsync(tx, keyRecs));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
+    public CompletableFuture<List<R>> getAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return tbl.getAll(marshalKeys(keyRecs), (InternalTransaction) tx).thenApply(this::unmarshal);
+        return tbl.getAll(marshalKeys(keyRecs), (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, true));
     }
 
     /** {@inheritDoc} */
@@ -158,7 +159,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<Collection<R>> insertAllAsync(@Nullable Transaction tx, @NotNull Collection<R> recs) {
         Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(recs));
 
-        return tbl.insertAll(rows, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return tbl.insertAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, false));
     }
 
     /** {@inheritDoc} */
@@ -257,7 +258,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
         Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(keyRecs));
 
-        return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, false));
     }
 
     /** {@inheritDoc} */
@@ -271,7 +272,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
         Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(keyRecs));
 
-        return tbl.deleteAllExact(rows, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return tbl.deleteAllExact(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, false));
     }
 
     /**
@@ -293,13 +294,22 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     }
 
     /**
+     * Returns marshaller for the latest schema.
+     *
+     * @return Marshaller.
+     */
+    private RecordMarshaller<R> marshaller() {
+        return marshaller(schemaReg.lastSchemaVersion());
+    }
+
+    /**
      * Marshals given record to a row.
      *
      * @param rec Record object.
      * @return Binary row.
      */
     private BinaryRowEx marshal(R rec) {
-        RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+        RecordMarshaller<R> marsh = marshaller();
 
         try {
             return marsh.marshal(rec);
@@ -315,7 +325,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @return Binary rows collection.
      */
     private Collection<BinaryRowEx> marshal(Collection<R> recs) {
-        RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+        RecordMarshaller<R> marsh = marshaller();
 
         List<BinaryRowEx> rows = new ArrayList<>(recs.size());
 
@@ -339,7 +349,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @return Binary row.
      */
     private BinaryRowEx marshalKey(@NotNull R rec) {
-        RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+        RecordMarshaller<R> marsh = marshaller();
 
         try {
             return marsh.marshalKey(rec);
@@ -355,7 +365,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @return Binary rows collection.
      */
     private Collection<BinaryRowEx> marshalKeys(Collection<R> recs) {
-        RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+        RecordMarshaller<R> marsh = marshaller();
 
         List<BinaryRowEx> rows = new ArrayList<>(recs.size());
 
@@ -398,25 +408,41 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * Unmarshal records.
      *
      * @param rows Row collection.
+     * @param addNull {@code true} if {@code null} is added for missing rows.
      * @return Records collection.
      */
-    private Collection<R> unmarshal(Collection<BinaryRow> rows) {
+    private List<R> unmarshal(Collection<BinaryRow> rows, boolean addNull) {
         if (rows.isEmpty()) {
             return Collections.emptyList();
         }
 
-        RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+        RecordMarshaller<R> marsh = marshaller();
 
-        List<R> recs = new ArrayList<>(rows.size());
+        var recs = new ArrayList<R>(rows.size());
 
         try {
             for (Row row : schemaReg.resolve(rows)) {
-                recs.add(marsh.unmarshal(row));
+                if (row != null) {
+                    recs.add(marsh.unmarshal(row));
+                } else if (addNull) {
+                    recs.add(null);
+                }
             }
 
             return recs;
         } catch (MarshallerException e) {
             throw new IgniteException(e);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> streamData(Publisher<R> publisher, @Nullable DataStreamerOptions options) {
+        Objects.requireNonNull(publisher);
+
+        var partitioner = new PojoStreamerPartitionAwarenessProvider<>(schemaReg, tbl.partitions(), marshaller());
+        StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshal(items), partitionId);
+
+        return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
 }

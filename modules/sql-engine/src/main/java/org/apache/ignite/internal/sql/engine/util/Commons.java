@@ -566,8 +566,10 @@ public final class Commons {
     }
 
     /**
-     * NativeTypeToClass.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Provide mapping Native types to java classes.
+     *
+     * @param type Native type
+     * @return Java corresponding class.
      */
     public static Class<?> nativeTypeToClass(NativeType type) {
         assert type != null;
@@ -623,6 +625,28 @@ public final class Commons {
 
             default:
                 throw new IllegalArgumentException("Unsupported type " + type.spec());
+        }
+    }
+
+    /**
+     * Provide mapping Native types to JDBC classes.
+     *
+     * @param type Native type
+     * @return JDBC corresponding class.
+     */
+    public static Class<?> nativeTypeToJdbcClass(NativeType type) {
+        assert type != null;
+
+        switch (type.spec()) {
+            case DATE:
+                return java.sql.Date.class;
+            case TIME:
+                return java.sql.Time.class;
+            case DATETIME:
+            case TIMESTAMP:
+                return java.sql.Timestamp.class;
+            default:
+                return nativeTypeToClass(type);
         }
     }
 

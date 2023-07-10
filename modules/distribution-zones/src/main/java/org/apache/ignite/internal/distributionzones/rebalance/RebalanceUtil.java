@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static java.util.Collections.emptySet;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -28,19 +29,29 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.vault.VaultEntry;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.NotNull;
 
@@ -85,7 +96,7 @@ public class RebalanceUtil {
     /**
      * Update keys that related to rebalance algorithm in Meta Storage. Keys are specific for partition.
      *
-     * @param tableName Table name.
+     * @param tableView Table config view.
      * @param partId Unique identifier of a partition.
      * @param dataNodes Data nodes.
      * @param replicas Number of replicas for a table.
@@ -96,7 +107,7 @@ public class RebalanceUtil {
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
     public static @NotNull CompletableFuture<Void> updatePendingAssignmentsKeys(
-            String tableName,
+            TableView tableView,
             TablePartitionId partId,
             Collection<String> dataNodes,
             int replicas,
@@ -174,46 +185,104 @@ public class RebalanceUtil {
             switch (sr.getAsInt()) {
                 case PENDING_KEY_UPDATED:
                     LOG.info(
-                            "Update metastore pending partitions key [key={}, partition={}, table={}, newVal={}]",
-                            partAssignmentsPendingKey.toString(), partNum, tableName,
+                            "Update metastore pending partitions key [key={}, partition={}, table={}/{}, newVal={}]",
+                            partAssignmentsPendingKey.toString(), partNum, tableView.id(), tableView.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
                 case PLANNED_KEY_UPDATED:
                     LOG.info(
-                            "Update metastore planned partitions key [key={}, partition={}, table={}, newVal={}]",
-                            partAssignmentsPlannedKey, partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
+                            "Update metastore planned partitions key [key={}, partition={}, table={}/{}, newVal={}]",
+                            partAssignmentsPlannedKey, partNum, tableView.id(), tableView.name(),
+                            ByteUtils.fromBytes(partAssignmentsBytes)
+                    );
 
                     break;
                 case PLANNED_KEY_REMOVED_EQUALS_PENDING:
                     LOG.info(
-                            "Remove planned key because current pending key has the same value [key={}, partition={}, table={}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
+                            "Remove planned key because current pending key has the same value [key={}, partition={}, table={}/{}, val={}]",
+                            partAssignmentsPlannedKey.toString(), partNum, tableView.id(), tableView.name(),
+                            ByteUtils.fromBytes(partAssignmentsBytes)
+                    );
 
                     break;
                 case PLANNED_KEY_REMOVED_EMPTY_PENDING:
                     LOG.info(
                             "Remove planned key because pending is empty and calculated assignments are equal to current assignments "
-                                    + "[key={}, partition={}, table={}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
+                                    + "[key={}, partition={}, table={}/{}, val={}]",
+                            partAssignmentsPlannedKey.toString(), partNum, tableView.id(), tableView.name(),
+                            ByteUtils.fromBytes(partAssignmentsBytes)
+                    );
 
                     break;
                 case ASSIGNMENT_NOT_UPDATED:
                     LOG.debug(
-                            "Assignments are not updated [key={}, partition={}, table={}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
+                            "Assignments are not updated [key={}, partition={}, table={}/{}, val={}]",
+                            partAssignmentsPlannedKey.toString(), partNum, tableView.id(), tableView.name(),
+                            ByteUtils.fromBytes(partAssignmentsBytes)
+                    );
 
                     break;
                 case OUTDATED_UPDATE_RECEIVED:
                     LOG.debug(
-                            "Received outdated rebalance trigger event [revision={}, partition={}, table={}]",
-                            revision, partNum, tableName);
+                            "Received outdated rebalance trigger event [revision={}, partition={}, table={}/{}]",
+                            revision, partNum, tableView.id(), tableView.name());
 
                     break;
                 default:
                     throw new IllegalStateException("Unknown return code for rebalance metastore multi-invoke");
             }
         });
+    }
+
+    /**
+     * Triggers rebalance on all partitions of the provided table: that is, reads table assignments from
+     * the MetaStorage, computes new ones based on the current properties of the table, its zone and the
+     * provided data nodes, and, if the calculated assignments are different from the ones loaded from the
+     * MetaStorages, writes them as pending assignments.
+     *
+     * @param tableCfg Table configuration snapshot.
+     * @param zoneCfg Zone configuration snapshot.
+     * @param dataNodes Data nodes to use.
+     * @param storageRevision MetaStorage revision corresponding to this request.
+     * @param metaStorageManager MetaStorage manager used to read/write assignments.
+     * @return Array of futures, one per partition of the table; the futures complete when the described
+     *     rebalance triggering completes.
+     */
+    public static CompletableFuture<?>[] triggerAllTablePartitionsRebalance(
+            TableView tableCfg,
+            DistributionZoneView zoneCfg,
+            Set<String> dataNodes,
+            long storageRevision,
+            MetaStorageManager metaStorageManager
+    ) {
+        CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = tableAssignments(
+                metaStorageManager,
+                tableCfg.id(),
+                zoneCfg.partitions()
+        );
+
+        CompletableFuture<?>[] futures = new CompletableFuture[zoneCfg.partitions()];
+
+        for (int partId = 0; partId < zoneCfg.partitions(); partId++) {
+            TablePartitionId replicaGrpId = new TablePartitionId(tableCfg.id(), partId);
+
+            int finalPartId = partId;
+
+            futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments ->
+                    updatePendingAssignmentsKeys(
+                            tableCfg,
+                            replicaGrpId,
+                            dataNodes,
+                            zoneCfg.replicas(),
+                            storageRevision,
+                            metaStorageManager,
+                            finalPartId,
+                            tableAssignments.isEmpty() ? emptySet() : tableAssignments.get(finalPartId)
+                    ));
+        }
+
+        return futures;
     }
 
     /** Key prefix for pending assignments. */
@@ -375,5 +444,94 @@ public class RebalanceUtil {
      */
     public static <T> Set<T> intersect(Set<T> op1, Set<T> op2) {
         return op1.stream().filter(op2::contains).collect(Collectors.toSet());
+    }
+
+    /**
+     * Returns partition assignments from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param tableId Table id.
+     * @param partitionNumber Partition number.
+     * @return Future with partition assignments as a value.
+     */
+    public static CompletableFuture<Set<Assignment>> partitionAssignments(
+            MetaStorageManager metaStorageManager, int tableId, int partitionNumber) {
+        return metaStorageManager
+                .get(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
+                .thenApply(e -> (e.value() == null) ? null : ByteUtils.fromBytes(e.value()));
+    }
+
+    /**
+     * Returns partition assignments from vault.
+     *
+     * @param vaultManager Vault manager.
+     * @param tableId Table id.
+     * @param partitionNumber Partition number.
+     * @return Returns partition assignments from vault or {@code null} if assignments is absent.
+     */
+    public static Set<Assignment> partitionAssignments(
+            VaultManager vaultManager, int tableId, int partitionNumber) {
+        VaultEntry entry =
+                vaultManager.get(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber))).join();
+
+        return (entry == null) ? null : ByteUtils.fromBytes(entry.value());
+    }
+
+    /**
+     * Returns table assignments for all table partitions from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param tableId Table id.
+     * @param numberOfPartitions Number of partitions.
+     * @return Future with table assignments as a value.
+     */
+    static CompletableFuture<List<Set<Assignment>>> tableAssignments(
+            MetaStorageManager metaStorageManager,
+            int tableId,
+            int numberOfPartitions
+    ) {
+        Map<ByteArray, Integer> partitionKeysToPartitionNumber = new HashMap<>();
+
+        for (int i = 0; i < numberOfPartitions; i++) {
+            partitionKeysToPartitionNumber.put(stablePartAssignmentsKey(new TablePartitionId(tableId, i)), i);
+        }
+
+        return metaStorageManager.getAll(partitionKeysToPartitionNumber.keySet())
+                .thenApply(entries -> {
+                    if (entries.isEmpty()) {
+                        return Collections.emptyList();
+                    }
+
+                    Set<Assignment>[] result = new Set[numberOfPartitions];
+
+                    for (var entry : entries.entrySet()) {
+                        result[partitionKeysToPartitionNumber.get(entry.getKey())] = ByteUtils.fromBytes(entry.getValue().value());
+                    }
+
+                    return Arrays.asList(result);
+                });
+    }
+
+    /**
+     * Returns table assignments for all table partitions from vault.
+     *
+     * @param vaultManager Vault manager.
+     * @param tableId Table id.
+     * @param numberOfPartitions Number of partitions.
+     * @return Future with table assignments as a value.
+     */
+    public static List<Set<Assignment>> tableAssignments(
+            VaultManager vaultManager,
+            int tableId,
+            int numberOfPartitions
+    ) {
+        return IntStream.range(0, numberOfPartitions)
+                .mapToObj(i ->
+                        (Set<Assignment>) ByteUtils.fromBytes(
+                                vaultManager.get(
+                                        stablePartAssignmentsKey(new TablePartitionId(tableId, i))
+                                ).join().value())
+                )
+                .collect(Collectors.toList());
     }
 }

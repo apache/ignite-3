@@ -52,9 +52,6 @@ namespace Apache.Ignite.Internal
         /** Cluster node unique name to endpoint map. */
         private readonly ConcurrentDictionary<string, SocketEndpoint> _endpointsByName = new();
 
-        /** Cluster node id to endpoint map. */
-        private readonly ConcurrentDictionary<string, SocketEndpoint> _endpointsById = new();
-
         /** Socket connection lock. */
         [SuppressMessage(
             "Microsoft.Design",
@@ -157,12 +154,14 @@ namespace Apache.Ignite.Internal
         /// <param name="tx">Transaction.</param>
         /// <param name="request">Request data.</param>
         /// <param name="preferredNode">Preferred node.</param>
+        /// <param name="retryPolicyOverride">Retry policy.</param>
         /// <returns>Response data and socket.</returns>
         public async Task<(PooledBuffer Buffer, ClientSocket Socket)> DoOutInOpAndGetSocketAsync(
             ClientOp clientOp,
             Transaction? tx = null,
             PooledArrayBuffer? request = null,
-            PreferredNode preferredNode = default)
+            PreferredNode preferredNode = default,
+            IRetryPolicy? retryPolicyOverride = null)
         {
             if (tx != null)
             {
@@ -194,7 +193,7 @@ namespace Apache.Ignite.Internal
                     // Preferred node connection may not be available, do not use it after first failure.
                     preferredNode = default;
 
-                    if (!HandleOpError(e, clientOp, ref attempt, ref errors))
+                    if (!HandleOpError(e, clientOp, ref attempt, ref errors, retryPolicyOverride ?? Configuration.RetryPolicy))
                     {
                         throw;
                     }
@@ -260,21 +259,15 @@ namespace Apache.Ignite.Internal
             ThrowIfDisposed();
 
             // 1. Preferred node connection.
-            if (preferredNode != default)
+            if (preferredNode != default && _endpointsByName.TryGetValue(preferredNode.Name, out var endpoint))
             {
-                var key = preferredNode.Id ?? preferredNode.Name;
-                var map = preferredNode.Id != null ? _endpointsById : _endpointsByName;
-
-                if (map.TryGetValue(key!, out var endpoint))
+                try
                 {
-                    try
-                    {
-                        return await ConnectAsync(endpoint).ConfigureAwait(false);
-                    }
-                    catch (Exception e)
-                    {
-                        _logger?.Warn(e, $"Failed to connect to preferred node [{preferredNode}]: {e.Message}");
-                    }
+                    return await ConnectAsync(endpoint).ConfigureAwait(false);
+                }
+                catch (Exception e)
+                {
+                    _logger?.Warn(e, $"Failed to connect to preferred node [{preferredNode}]: {e.Message}");
                 }
             }
 
@@ -437,7 +430,6 @@ namespace Apache.Ignite.Internal
                 endpoint.Socket = socket;
 
                 _endpointsByName[socket.ConnectionContext.ClusterNode.Name] = endpoint;
-                _endpointsById[socket.ConnectionContext.ClusterNode.Id] = endpoint;
                 _lastConnectedSocket = socket;
 
                 return socket;
@@ -472,14 +464,11 @@ namespace Apache.Ignite.Internal
             foreach (var e in Endpoint.GetEndpoints(cfg))
             {
                 var host = e.Host;
-                Debug.Assert(host != null, "host != null");  // Checked by GetEndpoints.
+                Debug.Assert(host != null, "host != null"); // Checked by GetEndpoints.
 
-                for (var port = e.Port; port <= e.PortRange + e.Port; port++)
+                foreach (var ip in GetIps(host))
                 {
-                    foreach (var ip in GetIps(host))
-                    {
-                        yield return new SocketEndpoint(new IPEndPoint(ip, port), host);
-                    }
+                    yield return new SocketEndpoint(new IPEndPoint(ip, e.Port), host);
                 }
             }
         }
@@ -514,10 +503,11 @@ namespace Apache.Ignite.Internal
         /// <param name="exception">Exception that caused the operation to fail.</param>
         /// <param name="op">Operation code.</param>
         /// <param name="attempt">Current attempt.</param>
+        /// <param name="retryPolicy">Retry policy.</param>
         /// <returns>
         /// <c>true</c> if the operation should be retried on another connection, <c>false</c> otherwise.
         /// </returns>
-        private bool ShouldRetry(Exception exception, ClientOp op, int attempt)
+        private bool ShouldRetry(Exception exception, ClientOp op, int attempt, IRetryPolicy? retryPolicy)
         {
             var e = exception;
 
@@ -532,7 +522,7 @@ namespace Apache.Ignite.Internal
                 return false;
             }
 
-            if (Configuration.RetryPolicy is null or RetryNonePolicy)
+            if (retryPolicy is null or RetryNonePolicy)
             {
                 return false;
             }
@@ -547,7 +537,7 @@ namespace Apache.Ignite.Internal
 
             var ctx = new RetryPolicyContext(new(Configuration), publicOpType.Value, attempt, exception);
 
-            return Configuration.RetryPolicy.ShouldRetry(ctx);
+            return retryPolicy.ShouldRetry(ctx);
         }
 
         /// <summary>
@@ -557,15 +547,17 @@ namespace Apache.Ignite.Internal
         /// <param name="op">Operation code.</param>
         /// <param name="attempt">Current attempt.</param>
         /// <param name="errors">Previous errors.</param>
+        /// <param name="retryPolicy">Retry policy.</param>
         /// <returns>True if the error was handled, false otherwise.</returns>
         [SuppressMessage("Microsoft.Design", "CA1002:DoNotExposeGenericLists", Justification = "Private.")]
         private bool HandleOpError(
             Exception exception,
             ClientOp op,
             ref int attempt,
-            ref List<Exception>? errors)
+            ref List<Exception>? errors,
+            IRetryPolicy? retryPolicy)
         {
-            if (!ShouldRetry(exception, op, attempt))
+            if (!ShouldRetry(exception, op, attempt, retryPolicy))
             {
                 if (_logger?.IsEnabled(LogLevel.Debug) == true)
                 {

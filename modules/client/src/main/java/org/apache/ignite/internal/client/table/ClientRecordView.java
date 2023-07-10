@@ -17,15 +17,21 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -48,7 +54,7 @@ public class ClientRecordView<R> implements RecordView<R> {
      * @param tbl Underlying table.
      * @param recMapper Mapper.
      */
-    public ClientRecordView(ClientTable tbl, Mapper<R> recMapper) {
+    ClientRecordView(ClientTable tbl, Mapper<R> recMapper) {
         this.tbl = tbl;
         ser = new ClientRecordSerializer<>(tbl.tableId(), recMapper);
     }
@@ -72,19 +78,17 @@ public class ClientRecordView<R> implements RecordView<R> {
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRec));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Collection<R> getAll(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
+    public List<R> getAll(@Nullable Transaction tx, Collection<R> keyRecs) {
         return sync(getAllAsync(tx, keyRecs));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
+    public CompletableFuture<List<R>> getAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
         if (keyRecs.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
+            return completedFuture(Collections.emptyList());
         }
 
         return tbl.doSchemaOutInOpAsync(
@@ -92,7 +96,8 @@ public class ClientRecordView<R> implements RecordView<R> {
                 (s, w) -> ser.writeRecs(tx, keyRecs, s, w, TuplePart.KEY),
                 (s, r) -> ser.readRecs(s, r, true, TuplePart.KEY_AND_VAL),
                 Collections.emptyList(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRecs.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRecs.iterator().next())
+        );
     }
 
     /** {@inheritDoc} */
@@ -350,5 +355,25 @@ public class ClientRecordView<R> implements RecordView<R> {
                 (s, r) -> ser.readRecs(s, r, false, TuplePart.KEY_AND_VAL),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), recs.iterator().next()));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> streamData(Publisher<R> publisher, @Nullable DataStreamerOptions options) {
+        Objects.requireNonNull(publisher);
+
+        var provider = new PojoStreamerPartitionAwarenessProvider<>(tbl, ser.mapper());
+        var opts = options == null ? DataStreamerOptions.DEFAULT : options;
+
+        // Partition-aware (best effort) sender with retries.
+        // The batch may go to a different node when a direct connection is not available.
+        StreamerBatchSender<R, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_UPSERT_ALL,
+                (s, w) -> ser.writeRecs(null, items, s, w, TuplePart.KEY_AND_VAL),
+                r -> null,
+                PartitionAwarenessProvider.of(nodeId),
+                new RetryLimitPolicy().retryLimit(opts.retryLimit()));
+
+        return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 }

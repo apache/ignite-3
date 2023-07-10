@@ -17,14 +17,20 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -72,19 +78,17 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRec));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Collection<Tuple> getAll(@Nullable Transaction tx, @NotNull Collection<Tuple> keyRecs) {
+    public List<Tuple> getAll(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         return sync(getAllAsync(tx, keyRecs));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<Tuple>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keyRecs) {
+    public CompletableFuture<List<Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
         if (keyRecs.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
+            return completedFuture(Collections.emptyList());
         }
 
         return tbl.doSchemaOutInOpAsync(
@@ -92,7 +96,8 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 (s, w) -> ser.writeTuples(tx, keyRecs, s, w, true),
                 ClientTupleSerializer::readTuplesNullable,
                 Collections.emptyList(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRecs.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRecs.iterator().next())
+        );
     }
 
     /** {@inheritDoc} */
@@ -353,5 +358,26 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 ClientTupleSerializer::readTuples,
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, recs.iterator().next()));
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
+        Objects.requireNonNull(publisher);
+
+        var provider = new TupleStreamerPartitionAwarenessProvider(tbl);
+        var opts = options == null ? DataStreamerOptions.DEFAULT : options;
+
+        // Partition-aware (best effort) sender with retries.
+        // The batch may go to a different node when a direct connection is not available.
+        StreamerBatchSender<Tuple, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_UPSERT_ALL,
+                (s, w) -> ser.writeTuples(null, items, s, w, false),
+                r -> null,
+                PartitionAwarenessProvider.of(nodeId),
+                new RetryLimitPolicy().retryLimit(opts.retryLimit()));
+
+        return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 }

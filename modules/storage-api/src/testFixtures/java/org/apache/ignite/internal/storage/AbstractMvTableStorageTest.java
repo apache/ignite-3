@@ -19,6 +19,10 @@ package org.apache.ignite.internal.storage;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toHashIndexDescriptor;
+import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toSortedIndexDescriptor;
+import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
+import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -49,7 +53,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -59,24 +63,24 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesView;
+import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
+import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.IndexDefinition;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
-import org.apache.ignite.internal.storage.index.IndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.PeekCursor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteTuple3;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -94,61 +98,54 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     protected static final int PARTITION_ID = 0;
 
     /** Partition id for 0 storage. */
-    protected static final int PARTITION_ID_0 = 42;
+    protected static final int PARTITION_ID_0 = 10;
 
     /** Partition id for 1 storage. */
-    protected static final int PARTITION_ID_1 = 1 << 8;
+    protected static final int PARTITION_ID_1 = 9;
 
     protected static final int COMMIT_TABLE_ID = 999;
 
     protected MvTableStorage tableStorage;
 
-    protected SortedIndexDescriptor sortedIdx;
+    protected StorageSortedIndexDescriptor sortedIdx;
 
-    protected HashIndexDescriptor hashIdx;
+    protected StorageHashIndexDescriptor hashIdx;
 
-    protected StorageEngine storageEngine;
+    protected TablesConfiguration tablesConfig;
 
     /**
      * Initializes the internal structures needed for tests.
      *
      * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
      */
-    protected final void initialize(StorageEngine storageEngine, TablesConfiguration tablesConfig,
-            DistributionZoneConfiguration distributionZoneConfiguration) {
-        createTestTable(getTableConfig(tablesConfig));
+    protected final void initialize(TablesConfiguration tablesConfig) {
+        createTestTable(tablesConfig.tables().get("foo"));
         createTestIndexes(tablesConfig);
 
-        this.storageEngine = storageEngine;
+        this.tablesConfig = tablesConfig;
 
-        this.storageEngine.start();
-
-        this.tableStorage = createMvTableStorage(tablesConfig, distributionZoneConfiguration);
-
+        this.tableStorage = createMvTableStorage();
         this.tableStorage.start();
 
         TablesView tablesView = tablesConfig.value();
 
-        sortedIdx = new SortedIndexDescriptor(tablesView.indexes().get(SORTED_INDEX_NAME).id(), tablesView);
-        hashIdx = new HashIndexDescriptor(tablesView.indexes().get(HASH_INDEX_NAME).id(), tablesView);
+        SortedIndexView sortedIndexView = (SortedIndexView) tablesView.indexes().get(SORTED_INDEX_NAME);
+        HashIndexView hashIndexView = (HashIndexView) tablesView.indexes().get(HASH_INDEX_NAME);
+
+        CatalogTableDescriptor catalogTableDescriptor = toTableDescriptor(findTableView(tablesView, sortedIndexView.tableId()));
+
+        sortedIdx = new StorageSortedIndexDescriptor(catalogTableDescriptor, toSortedIndexDescriptor(sortedIndexView));
+        hashIdx = new StorageHashIndexDescriptor(catalogTableDescriptor, toHashIndexDescriptor(hashIndexView));
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                tableStorage == null ? null : tableStorage::stop,
-                storageEngine == null ? null : storageEngine::stop
-        );
+    protected void tearDown() throws Exception {
+        if (tableStorage != null) {
+            tableStorage.close();
+        }
     }
 
-    protected MvTableStorage createMvTableStorage(TablesConfiguration tablesConfig,
-            DistributionZoneConfiguration distributionZoneConfiguration) {
-        return storageEngine.createMvTable(getTableConfig(tablesConfig), tablesConfig, distributionZoneConfiguration);
-    }
-
-    private TableConfiguration getTableConfig(TablesConfiguration tablesConfig) {
-        return tablesConfig.tables().get("foo");
-    }
+    protected abstract MvTableStorage createMvTableStorage();
 
     /**
      * Tests that {@link MvTableStorage#getMvPartition(int)} correctly returns an existing partition.
@@ -228,7 +225,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx), is(instanceOf(SortedIndexStorage.class)));
         assertThat(tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx), is(instanceOf(HashIndexStorage.class)));
 
-        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, mock(IndexDescriptor.class)));
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, mock(StorageIndexDescriptor.class)));
     }
 
     /**
@@ -299,12 +296,12 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 new Element(NativeTypes.INT32, false)
         });
 
-        ByteBuffer buffer = new BinaryTupleBuilder(schema.elementCount(), schema.hasNullableElements())
+        ByteBuffer buffer = new BinaryTupleBuilder(schema.elementCount())
                 .appendInt(1)
                 .appendInt(2)
                 .build();
 
-        BinaryTuple tuple = new BinaryTuple(schema, buffer);
+        BinaryTuple tuple = new BinaryTuple(schema.elementCount(), buffer);
 
         partitionStorage1.runConsistently(locker -> {
             storage1.put(new IndexRowImpl(tuple, rowId1));
@@ -320,59 +317,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThat(getAll(storage1.get(tuple)), contains(rowId1));
         assertThat(getAll(storage2.get(tuple)), contains(rowId2));
-    }
-
-    /**
-     * Tests that exceptions are thrown if indices are not configured correctly.
-     */
-    @Test
-    public void testMisconfiguredIndices() {
-        Exception e = assertThrows(
-                StorageException.class,
-                () -> tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx)
-        );
-
-        assertThat(e.getMessage(), containsString("Partition ID " + PARTITION_ID + " does not exist"));
-
-        e = assertThrows(
-                StorageException.class,
-                () -> tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx)
-        );
-
-        assertThat(e.getMessage(), containsString("Partition ID " + PARTITION_ID + " does not exist"));
-
-        tableStorage.createMvPartition(PARTITION_ID);
-
-        UUID invalidUuid = UUID.randomUUID();
-
-        TablesView tablesView = tableStorage.tablesConfiguration().value();
-
-        e = assertThrows(
-                StorageException.class,
-                () -> new HashIndexDescriptor(invalidUuid, tablesView)
-        );
-
-        assertThat(e.getMessage(), containsString(String.format("Index configuration for \"%s\" could not be found", invalidUuid)));
-
-        e = assertThrows(
-                StorageException.class,
-                () -> new HashIndexDescriptor(sortedIdx.id(), tablesView)
-        );
-
-        assertThat(
-                e.getMessage(),
-                containsString(String.format("Index \"%s\" is not configured as a Hash Index. Actual type: SORTED", sortedIdx.id()))
-        );
-
-        e = assertThrows(
-                StorageException.class,
-                () -> new SortedIndexDescriptor(hashIdx.id(), tablesView)
-        );
-
-        assertThat(
-                e.getMessage(),
-                containsString(String.format("Index \"%s\" is not configured as a Sorted Index. Actual type: HASH", hashIdx.id()))
-        );
     }
 
     @Test
@@ -618,8 +562,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(tableStorage.destroy(), willCompleteSuccessfully());
 
         // Let's check that after restarting the table we will have an empty partition.
-        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration(),
-                tableStorage.distributionZoneConfiguration());
+        tableStorage = createMvTableStorage();
 
         tableStorage.start();
 
@@ -657,7 +600,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Restart storages.
         tableStorage.stop();
 
-        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration(), tableStorage.distributionZoneConfiguration());
+        tableStorage = createMvTableStorage();
 
         tableStorage.start();
 
@@ -801,7 +744,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Restart storages.
         tableStorage.stop();
 
-        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration(), tableStorage.distributionZoneConfiguration());
+        tableStorage = createMvTableStorage();
 
         tableStorage.start();
 
@@ -833,7 +776,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         CompletableFuture<Void> indexCreateFut = tablesConfig.indexes().change(ch ->
                 indexDefinitions.forEach(idxDef -> ch.create(idxDef.name(),
-                        c -> SchemaConfigurationConverter.addIndex(idxDef, tableId, c)
+                        c -> SchemaConfigurationConverter.addIndex(idxDef, tableId, idxDef.name().hashCode(), c)
                 ))
         );
 
@@ -873,7 +816,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThrows(StorageClosedException.class, storage::lastAppliedIndex);
         assertThrows(StorageClosedException.class, storage::lastAppliedTerm);
-        assertThrows(StorageClosedException.class, storage::persistedIndex);
         assertThrows(StorageClosedException.class, storage::committedGroupConfiguration);
 
         RowId rowId = new RowId(partId);
@@ -913,7 +855,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     private int getPartitionIdOutOfRange() {
-        return tableStorage.distributionZoneConfiguration().partitions().value();
+        return tableStorage.getTableDescriptor().getPartitions();
     }
 
     private void startRebalanceWithChecks(
@@ -1111,7 +1053,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             long expLastAppliedTerm
     ) {
         assertEquals(expLastAppliedIndex, storage.lastAppliedIndex());
-        assertEquals(expPersistentIndex, storage.persistedIndex());
         assertEquals(expLastAppliedTerm, storage.lastAppliedTerm());
     }
 
