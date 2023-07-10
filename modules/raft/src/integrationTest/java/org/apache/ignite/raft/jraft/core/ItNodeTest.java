@@ -3267,7 +3267,7 @@ public class ItNodeTest {
 
         assertTrue(cluster.start(peer3));
         Thread.sleep(1000);
-        leader = cluster.waitAndGetLeader();
+        leader = cluster.waitAndGetLeader(Set.of(peer2.getPeerId(), peer3.getPeerId()));
         List<PeerId> thePeers = leader.listPeers();
         assertTrue(!thePeers.isEmpty());
         assertEquals(conf.getPeerSet(), new HashSet<>(thePeers));

@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -403,6 +404,25 @@ public class TestCluster {
             node.set(getLeader());
 
             return node.get() != null;
+        }, 10_000L));
+
+        return node.get();
+    }
+
+    /**
+     * Wait until a leader is elected and a leader is from the expected set of nodes {@code expectedLeaderPeer} and return it.
+     *
+     * @param expectedLeaderPeer Set of nodes with the expected node;
+     * @return Leader.
+     * @throws InterruptedException If failed.
+     */
+    public Node waitAndGetLeader(Set<PeerId> expectedLeaderPeer) throws InterruptedException {
+        AtomicReference<Node> node = new AtomicReference<>();
+
+        assertTrue(waitForCondition(() -> {
+            node.set(getLeader());
+
+            return node.get() != null && expectedLeaderPeer.contains(node.get().getNodeId().getPeerId());
         }, 10_000L));
 
         return node.get();
