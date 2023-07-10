@@ -103,7 +103,7 @@ public class HashCalculator {
         hash = combine(hash, hashByte(v));
     }
 
-    private static int hashByte(byte v) {
+    public static int hashByte(byte v) {
         return HashUtils.hash32(v);
     }
 
@@ -116,7 +116,7 @@ public class HashCalculator {
         hash = combine(hash, hashShort(v));
     }
 
-    private static int hashShort(short v) {
+    public static int hashShort(short v) {
         return HashUtils.hash32(v);
     }
 
@@ -129,7 +129,7 @@ public class HashCalculator {
         hash = combine(hash, hashInt(v));
     }
 
-    private static int hashInt(int v) {
+    public static int hashInt(int v) {
         return HashUtils.hash32(v);
     }
 
@@ -142,7 +142,7 @@ public class HashCalculator {
         hash = combine(hash, hashLong(v));
     }
 
-    private static int hashLong(long v) {
+    public static int hashLong(long v) {
         return HashUtils.hash32(v);
     }
 
@@ -152,7 +152,11 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendFloat(float v) {
-        hash = combine(hash, HashUtils.hash32(Float.floatToRawIntBits(v)));
+        hash = combine(hash, hashFloat(v));
+    }
+
+    public static int hashFloat(float v) {
+        return HashUtils.hash32(Float.floatToRawIntBits(v));
     }
 
     /**
@@ -161,7 +165,11 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendDouble(double v) {
-        hash = combine(hash, HashUtils.hash32(Double.doubleToRawLongBits(v)));
+        hash = combine(hash, hashDouble(v));
+    }
+
+    public static int hashDouble(double v) {
+        return HashUtils.hash32(Double.doubleToRawLongBits(v));
     }
 
     /**
@@ -170,8 +178,11 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendDecimal(BigDecimal v, int columnScale) {
-        byte[] v1 = v.setScale(columnScale, RoundingMode.HALF_UP).unscaledValue().toByteArray();
-        hash = combine(hash, HashUtils.hash32(v1));
+        hash = combine(hash, hashDecimal(v, columnScale));
+    }
+
+    public static int hashDecimal(BigDecimal v, int columnScale) {
+        return hashBytes(v.setScale(columnScale, RoundingMode.HALF_UP).unscaledValue().toByteArray());
     }
 
     /**
@@ -180,7 +191,11 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendNumber(BigInteger v) {
-        hash = combine(hash, HashUtils.hash32(v.toByteArray()));
+        hash = combine(hash, hashNumber(v));
+    }
+
+    public static int hashNumber(BigInteger v) {
+        return hashBytes(v.toByteArray());
     }
 
     /**
@@ -303,6 +318,16 @@ public class HashCalculator {
         int hash2 = hashInt(TemporalTypeUtils.normalizeNanos(v.getNano(), precision));
 
         return combine(hash1, hash2);
+    }
+
+    public static int combinedHash(int[] hashes) {
+        int hash = 0;
+
+        for (int h : hashes) {
+            hash = combine(hash, h);
+        }
+
+        return hash;
     }
 
     /**
