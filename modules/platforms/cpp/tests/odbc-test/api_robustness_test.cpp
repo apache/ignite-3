@@ -212,7 +212,7 @@ TEST_F(api_robustness_test, sql_exec_direct)
     SQLCloseCursor(m_statement);
 
     // Value is null.
-    SQLExecDirect(m_statement, 0, sizeof(sql));
+    SQLExecDirect(m_statement, 0, SQL_NTS);
 
     SQLCloseCursor(m_statement);
 
