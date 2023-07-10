@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileVisitResult;
@@ -1086,5 +1087,57 @@ public class IgniteUtils {
     public static boolean startsWith(byte[] key, byte[] prefix) {
         return key.length >= prefix.length
                 && Arrays.equals(key, 0, prefix.length, prefix, 0, prefix.length);
+    }
+
+    /**
+     * Serializes collection to bytes.
+     *
+     * @param collection Collection.
+     * @param transform Tranform function for the collection element.
+     * @return Byte array.
+     */
+    public static <T> byte[] collectionToBytes(Collection<T> collection, Function<T, byte[]> transform) {
+        int bytesObjects = 0;
+        List<byte[]> objects = new ArrayList<>();
+
+        for (T o : collection) {
+            byte[] b = transform.apply(o);
+            objects.add(b);
+            bytesObjects += b.length;
+        }
+
+        bytesObjects += Integer.BYTES;
+        ByteBuffer buf = ByteBuffer.allocate(bytesObjects).order(ByteOrder.LITTLE_ENDIAN);
+
+        buf.putInt(objects.size());
+
+        for (byte[] o : objects) {
+            buf.put(o);
+        }
+
+        return buf.array();
+    }
+
+    /**
+     * Deserializes the list from byte buffer. Requires little-endian byte order.
+     *
+     * @param buf Byte buffer.
+     * @param transform Transform function to create list element.
+     * @return List.
+     */
+    public static <T> List<T> bytesToList(ByteBuffer buf, Function<ByteBuffer, T> transform) {
+        int length = buf.getInt();
+        assert length >= 0 : "Negative collection size: " + length;
+
+        List<T> result = new ArrayList<>(length);
+
+        for (int i = 0; i < length; i++) {
+            assert buf.position() < buf.limit() : "Can't read an object from the given buffer [position=" + buf.position()
+                    + ", limit=" + buf.limit() + ']';
+
+            result.add(transform.apply(buf));
+        }
+
+        return result;
     }
 }

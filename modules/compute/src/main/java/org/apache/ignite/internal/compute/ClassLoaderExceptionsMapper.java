@@ -24,13 +24,13 @@ import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundExc
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
 
 class ClassLoaderExceptionsMapper {
-    // <class_fqdn>. Deployment unit <deployment_unit_id_and ver> doesn’t exist.
-    private static final String DEPLOYMENT_UNIT_DOES_NOT_EXIST_MSG = "%s. Deployment unit %s:%s doesn’t exist";
+    // <class_fqdn>. Deployment unit <deployment_unit_id_and ver> doesn't exist.
+    private static final String DEPLOYMENT_UNIT_DOES_NOT_EXIST_MSG = "%s. Deployment unit %s:%s doesn't exist";
 
 
-    // <class_fqdn>. Deployment unit <deployment_unit_id> can’t be used:
+    // <class_fqdn>. Deployment unit <deployment_unit_id> can't be used:
     // [clusterStatus = <clusterDURecord.status>, nodeStatus = <nodeDURecord.status>].
-    private static final String DEPLOYMENT_UNIT_NOT_AVAILABLE_MSG = "%s. Deployment unit %s:%s can’t be used: "
+    private static final String DEPLOYMENT_UNIT_NOT_AVAILABLE_MSG = "%s. Deployment unit %s:%s can't be used: "
             + "[clusterStatus = %s, nodeStatus = %s]";
 
     static CompletableFuture<JobContext> mapClassLoaderExceptions(

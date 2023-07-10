@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.BitSet;
+import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.jetbrains.annotations.Nullable;
 
@@ -41,4 +43,37 @@ public interface ScannableTable {
     <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
             RowFactory<RowT> rowFactory, @Nullable BitSet requiredColumns);
 
+    /**
+     * Performs range scan using the given index.
+     *
+     * @param <RowT> A type of row.
+     * @param ctx Execution context.
+     * @param partWithTerm Partition.
+     * @param rowFactory Row factory.
+     * @param indexId Index id.
+     * @param columns Index columns.
+     * @param cond Index condition.
+     * @param requiredColumns Required columns.
+     * @return A publisher that produces rows.
+     */
+    <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            RowFactory<RowT> rowFactory, int indexId, List<String> columns,
+            @Nullable RangeCondition<RowT> cond, @Nullable BitSet requiredColumns);
+
+    /**
+     * Performs a lookup scan using the given index.
+     *
+     * @param <RowT> A type of row.
+     * @param ctx Execution context.
+     * @param partWithTerm Partition.
+     * @param rowFactory Row factory.
+     * @param indexId Index id.
+     * @param columns Index columns.
+     * @param key A key to lookup.
+     * @param requiredColumns Required columns.
+     * @return A publisher that produces rows.
+     */
+    <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            RowFactory<RowT> rowFactory, int indexId, List<String> columns,
+            RowT key, @Nullable BitSet requiredColumns);
 }

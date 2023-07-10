@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.C
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -44,6 +45,9 @@ import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
 import java.util.function.LongFunction;
@@ -82,13 +86,19 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStateIds;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -112,10 +122,13 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.raft.jraft.RaftGroupService;
+import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -123,12 +136,15 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
+import org.awaitility.Awaitility;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * These tests check node restart scenarios.
@@ -154,6 +170,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
+
+    @InjectConfiguration
+    private static MetaStorageConfiguration metaStorageConfiguration;
 
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
@@ -224,7 +243,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         HybridClock hybridClock = new HybridClockImpl();
 
-        var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock);
+        var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
+
+        var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock, raftGroupEventsClientListener);
 
         var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
 
@@ -255,14 +276,25 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock, new TransactionIdGenerator(idx));
 
+        var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
+
+        var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                clusterSvc,
+                logicalTopologyService,
+                Loza.FACTORY,
+                raftGroupEventsClientListener
+        );
+
         var metaStorageMgr = new MetaStorageManagerImpl(
                 vault,
                 clusterSvc,
                 cmgManager,
-                new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
+                logicalTopologyService,
                 raftMgr,
                 new RocksDbKeyValueStorage(name, dir.resolve("metastorage")),
-                hybridClock
+                hybridClock,
+                topologyAwareRaftGroupServiceFactory,
+                metaStorageConfiguration
         );
 
         var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vault);
@@ -306,8 +338,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
-        LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
-
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 zonesConfig,
                 tablesConfig,
@@ -315,13 +345,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopologyService,
                 vault,
                 name
-        );
-
-        TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
-                clusterSvc,
-                new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
-                Loza.FACTORY,
-                new RaftGroupEventsClientListener()
         );
 
         var clockWaiter = new ClockWaiter("test", hybridClock);
@@ -722,8 +745,79 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Restarts the node which stores some data.
      */
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void metastorageRecoveryTest(boolean useSnapshot) throws InterruptedException {
+        List<IgniteImpl> nodes = startNodes(2);
+        IgniteImpl main = nodes.get(0);
+
+        createTableWithData(List.of(main), TABLE_NAME, 1);
+
+        stopNode(1);
+
+        MetaStorageManager metaStorageManager = main.metaStorageManager();
+
+        CompletableFuture[] futs = new CompletableFuture[10];
+
+        for (int i = 0; i < 10; i++) {
+            // Put some data to the MetaStorage so that there would be new entries to apply to the restarting node.
+            ByteArray key = ByteArray.fromString("some-test-key-" + i);
+            futs[i] = metaStorageManager.put(key, new byte[]{(byte) i});
+        }
+
+        assertThat(CompletableFuture.allOf(futs), willSucceedFast());
+
+        if (useSnapshot) {
+            forceSnapshotUsageOnRestart(main);
+        }
+
+        IgniteImpl second = startNode(1);
+
+        checkTableWithData(second, TABLE_NAME);
+
+        MetaStorageManager restartedMs = second.metaStorageManager();
+        for (int i = 0; i < 10; i++) {
+            ByteArray key = ByteArray.fromString("some-test-key-" + i);
+
+            byte[] value = restartedMs.getLocally(key.bytes(), 100).value();
+
+            assertEquals(1, value.length);
+            assertEquals((byte) i, value[0]);
+        }
+    }
+
+    private static void forceSnapshotUsageOnRestart(IgniteImpl main) throws InterruptedException {
+        // Force log truncation, so that restarting node would request a snapshot.
+        JraftServerImpl server = (JraftServerImpl) main.raftManager().server();
+        List<Peer> peers = server.localPeers(MetastorageGroupId.INSTANCE);
+
+        Peer learnerPeer = peers.stream().filter(peer -> peer.idx() == 0).findFirst().orElseThrow(
+                () -> new IllegalStateException(String.format("No leader peer"))
+        );
+
+        var nodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, learnerPeer);
+        RaftGroupService raftGroupService = server.raftGroupService(nodeId);
+
+        for (int i = 0; i < 2; i++) {
+            // Log must be truncated twice.
+            CountDownLatch snapshotLatch = new CountDownLatch(1);
+            AtomicReference<Status> snapshotStatus = new AtomicReference<>();
+
+            raftGroupService.getRaftNode().snapshot(status -> {
+                snapshotStatus.set(status);
+                snapshotLatch.countDown();
+            });
+
+            assertTrue(snapshotLatch.await(10, TimeUnit.SECONDS), "Snapshot was not finished in time");
+            assertTrue(snapshotStatus.get().isOk(), "Snapshot failed: " + snapshotStatus.get());
+        }
+    }
+
+    /**
+     * Restarts the node which stores some data.
+     */
     @Test
-    public void nodeWithDataAndIndexRebuildTest() throws InterruptedException {
+    public void nodeWithDataAndIndexRebuildTest() {
         IgniteImpl ignite = startNode(0);
 
         int partitions = 20;
@@ -1007,7 +1101,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17770")
     public void testCfgGap() throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(4);
 
@@ -1065,9 +1158,25 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         assertNotNull(table);
 
         for (int i = 0; i < 100; i++) {
-            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i));
+            int fi = i;
 
-            assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));
+            Awaitility.with()
+                    .await()
+                    .pollInterval(100, TimeUnit.MILLISECONDS)
+                    .pollDelay(0, TimeUnit.MILLISECONDS)
+                    .atMost(30, TimeUnit.SECONDS)
+                    .until(() -> {
+                        try {
+                            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", fi));
+
+                            assertEquals(VALUE_PRODUCER.apply(fi), row.stringValue("name"));
+
+                            return true;
+                        } catch (TransactionException te) {
+                            // There may be an exception if the primary replica node was stopped. We should wait for new primary to appear.
+                            return false;
+                        }
+                    });
         }
     }
 

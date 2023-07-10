@@ -103,9 +103,9 @@ import org.apache.ignite.internal.security.authentication.UsernamePasswordReques
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.security.AuthenticationException;
@@ -237,18 +237,17 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         ByteBuf byteBuf = (ByteBuf) msg;
 
         // Each inbound handler in a pipeline has to release the received messages.
-        try (var unpacker = getUnpacker(byteBuf)) {
-            metrics.bytesReceivedAdd(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
+        var unpacker = getUnpacker(byteBuf);
+        metrics.bytesReceivedAdd(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
 
-            // Packer buffer is released by Netty on send, or by inner exception handlers below.
-            var packer = getPacker(ctx.alloc());
+        // Packer buffer is released by Netty on send, or by inner exception handlers below.
+        var packer = getPacker(ctx.alloc());
 
-            if (clientContext == null) {
-                metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
-                handshake(ctx, unpacker, packer);
-            } else {
-                processOperation(ctx, unpacker, packer);
-            }
+        if (clientContext == null) {
+            metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
+            handshake(ctx, unpacker, packer);
+        } else {
+            processOperation(ctx, unpacker, packer);
         }
     }
 
@@ -325,6 +324,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             }
 
             metrics.sessionsRejectedIncrement();
+        } finally {
+            unpacker.close();
         }
     }
 
@@ -395,12 +396,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
         err = ExceptionUtils.unwrapCause(err);
 
-        if (err instanceof IgniteException) {
-            IgniteException iex = (IgniteException) err;
-            packer.packUuid(iex.traceId());
-            packer.packInt(iex.code());
-        } else if (err instanceof IgniteCheckedException) {
-            IgniteCheckedException iex = (IgniteCheckedException) err;
+        if (err instanceof TraceableException) {
+            TraceableException iex = (TraceableException) err;
             packer.packUuid(iex.traceId());
             packer.packInt(iex.code());
         } else {
@@ -457,6 +454,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             if (fut == null) {
                 // Operation completed synchronously.
+                in.close();
                 write(out, ctx);
 
                 if (LOG.isTraceEnabled()) {
@@ -471,6 +469,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 var op = opCode;
 
                 fut.whenComplete((Object res, Object err) -> {
+                    in.close();
                     metrics.requestsActiveDecrement();
 
                     if (err != null) {
@@ -489,6 +488,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 });
             }
         } catch (Throwable t) {
+            in.close();
             out.close();
 
             writeError(requestId, opCode, t, ctx);

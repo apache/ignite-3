@@ -96,6 +96,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -197,6 +198,9 @@ public class ItRebalanceDistributedTest {
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
+
+    @InjectConfiguration
+    private static MetaStorageConfiguration metaStorageConfiguration;
 
     @Target(ElementType.METHOD)
     @Retention(RetentionPolicy.RUNTIME)
@@ -647,7 +651,11 @@ public class ItRebalanceDistributedTest {
 
             lockManager = new HeapLockManager();
 
-            raftManager = new Loza(clusterService, raftConfiguration, dir, new HybridClockImpl());
+            HybridClock hybridClock = new HybridClockImpl();
+
+            var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
+
+            raftManager = new Loza(clusterService, raftConfiguration, dir, hybridClock, raftGroupEventsClientListener);
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
@@ -665,11 +673,9 @@ public class ItRebalanceDistributedTest {
             replicaManager = new ReplicaManager(
                     clusterService,
                     cmgManager,
-                    new HybridClockImpl(),
+                    hybridClock,
                     Set.of(TableMessageGroup.class, TxMessageGroup.class)
             );
-
-            HybridClock hybridClock = new HybridClockImpl();
 
             ReplicaService replicaSvc = new ReplicaService(
                     clusterService.messagingService(),
@@ -682,9 +688,17 @@ public class ItRebalanceDistributedTest {
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
+            var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                    clusterService,
+                    logicalTopologyService,
+                    Loza.FACTORY,
+                    raftGroupEventsClientListener
+            );
+
             KeyValueStorage keyValueStorage = testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
                     ? new RocksDbKeyValueStorage(nodeName, resolveDir(dir, "metaStorage"))
                     : new SimpleInMemoryKeyValueStorage(nodeName);
+
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
                     clusterService,
@@ -692,7 +706,9 @@ public class ItRebalanceDistributedTest {
                     logicalTopologyService,
                     raftManager,
                     keyValueStorage,
-                    hybridClock
+                    hybridClock,
+                    topologyAwareRaftGroupServiceFactory,
+                    metaStorageConfiguration
             );
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
@@ -733,7 +749,7 @@ public class ItRebalanceDistributedTest {
             ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
             Consumer<LongFunction<CompletableFuture<?>>> registry = (LongFunction<CompletableFuture<?>> function) ->
-                    clusterConfigRegistry.listenUpdateStorageRevision(function::apply);
+                    metaStorageManager.registerRevisionUpdateListener(function::apply);
 
             TablesConfiguration tablesCfg = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
@@ -770,13 +786,6 @@ public class ItRebalanceDistributedTest {
             );
 
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
-
-            TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
-                    clusterService,
-                    logicalTopologyService,
-                    Loza.FACTORY,
-                    new RaftGroupEventsClientListener()
-            );
 
             distributionZoneManager = new DistributionZoneManager(
                     zonesCfg,
@@ -878,7 +887,11 @@ public class ItRebalanceDistributedTest {
             assertThat(
                     allOf(
                             nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                            clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
+                            clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
+                            // Why "-1"? I don't know, it just works like that.
+                            ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart(
+                                    metaStorageManager.appliedRevision() - 1
+                            )
                     ),
                     willSucceedIn(1, TimeUnit.MINUTES)
             );

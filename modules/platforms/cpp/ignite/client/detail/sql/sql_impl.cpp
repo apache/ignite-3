@@ -48,13 +48,13 @@ void sql_impl::execute_async(transaction *tx, const sql_statement &statement, st
 
         prop_builder.start();
         for (const auto &property : properties) {
-            prop_builder.claim_string(property.first);
+            prop_builder.claim_varlen(property.first);
             claim_primitive_with_type(prop_builder, property.second);
         }
 
         prop_builder.layout();
         for (const auto &property : properties) {
-            prop_builder.append_string(property.first);
+            prop_builder.append_varlen(property.first);
             append_primitive_with_type(prop_builder, property.second);
         }
 

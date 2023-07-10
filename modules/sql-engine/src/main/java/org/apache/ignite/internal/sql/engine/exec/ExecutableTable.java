@@ -25,16 +25,10 @@ public interface ExecutableTable {
     /**
      * Returns read API.
      */
-    ScannableTable scanableTable();
+    ScannableTable scannableTable();
 
     /**
      * Returns table modification API.
      */
     UpdatableTable updatableTable();
-
-    /**
-     * Returns a row converter that converts rows to execution engine representation.
-     */
-    //TODO: Remove this method after is https://issues.apache.org/jira/browse/IGNITE-19726
-    TableRowConverter rowConverter();
 }

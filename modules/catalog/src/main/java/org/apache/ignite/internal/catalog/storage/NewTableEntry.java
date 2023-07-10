@@ -58,8 +58,8 @@ public class NewTableEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken) {
-        return new CreateTableEventParameters(causalityToken, descriptor);
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new CreateTableEventParameters(causalityToken, catalogVersion, descriptor);
     }
 
     @Override

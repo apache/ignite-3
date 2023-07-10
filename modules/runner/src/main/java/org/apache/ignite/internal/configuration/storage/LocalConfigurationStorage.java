@@ -223,11 +223,9 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
                 .thenApply(entry -> entry == null ? 0 : (Long) fromBytes(entry.value()));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> writeConfigurationRevision(long prevRevision, long currentRevision) {
+    public void writeConfigurationRevision(long prevRevision, long currentRevision) {
         // No-op.
-        return CompletableFuture.completedFuture(null);
     }
 
     /**

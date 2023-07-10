@@ -27,6 +27,7 @@ namespace Apache.Ignite.Tests.Compute
     using Ignite.Compute;
     using Ignite.Table;
     using Internal.Network;
+    using Internal.Proto;
     using Network;
     using NodaTime;
     using NUnit.Framework;
@@ -37,11 +38,11 @@ namespace Apache.Ignite.Tests.Compute
     /// </summary>
     public class ComputeTests : IgniteTestsBase
     {
+        public const string NodeNameJob = ItThinClientComputeTest + "$NodeNameJob";
+
         private const string ItThinClientComputeTest = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest";
 
         private const string ConcatJob = ItThinClientComputeTest + "$ConcatJob";
-
-        private const string NodeNameJob = ItThinClientComputeTest + "$NodeNameJob";
 
         private const string ErrorJob = ItThinClientComputeTest + "$IgniteExceptionJob";
 
@@ -232,26 +233,50 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        [TestCase(1, "_4")]
-        [TestCase(5, "_2")]
-        [TestCase(9, "_3")]
-        [TestCase(10, "")]
-        [TestCase(11, "_2")]
-        public async Task TestExecuteColocated(long key, string nodeName)
+        [TestCase(1, 4)]
+        [TestCase(2, 4)]
+        [TestCase(4, 2)]
+        [TestCase(5, 2)]
+        [TestCase(6, 1)]
+        [TestCase(7, 4)]
+        [TestCase(8, 2)]
+        [TestCase(9, 3)]
+        [TestCase(10, 1)]
+        [TestCase(11, 2)]
+        public async Task TestExecuteColocated(long key, int nodeIdx)
         {
+            var proxies = GetProxies();
+            using var client = await IgniteClient.StartAsync(GetConfig(proxies));
+
+            // ReSharper disable once AccessToDisposedClosure
+            TestUtils.WaitForCondition(() => client.GetConnections().Count == proxies.Count);
+
             var keyTuple = new IgniteTuple { [KeyCol] = key };
-            var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, Units, NodeNameJob);
+            var resNodeName = await client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, Units, NodeNameJob);
+            var requestTargetNodeName = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var keyPoco = new Poco { Key = key };
-            var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string, Poco>(TableName, keyPoco, Units.Reverse(), NodeNameJob);
+            var resNodeName2 = await client.Compute.ExecuteColocatedAsync<string, Poco>(TableName, keyPoco, Units.Reverse(), NodeNameJob);
+            var requestTargetNodeName2 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var keyPocoStruct = new PocoStruct(key, null);
-            var resNodeName3 = await Client.Compute.ExecuteColocatedAsync<string, PocoStruct>(TableName, keyPocoStruct, Units, NodeNameJob);
+            var resNodeName3 = await client.Compute.ExecuteColocatedAsync<string, PocoStruct>(TableName, keyPocoStruct, Units, NodeNameJob);
+            var requestTargetNodeName3 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
+            var nodeName = nodeIdx == 1 ? string.Empty : "_" + nodeIdx;
             var expectedNodeName = PlatformTestNodeRunner + nodeName;
+
             Assert.AreEqual(expectedNodeName, resNodeName);
             Assert.AreEqual(expectedNodeName, resNodeName2);
             Assert.AreEqual(expectedNodeName, resNodeName3);
+
+            // We only connect to 2 of 4 nodes because of different auth settings.
+            if (nodeIdx < 3)
+            {
+                Assert.AreEqual(expectedNodeName, requestTargetNodeName);
+                Assert.AreEqual(expectedNodeName, requestTargetNodeName2);
+                Assert.AreEqual(expectedNodeName, requestTargetNodeName3);
+            }
         }
 
         [Test]
@@ -350,7 +375,7 @@ namespace Apache.Ignite.Tests.Compute
             var ex = Assert.ThrowsAsync<IgniteException>(
                 async () => await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
 
-            StringAssert.Contains("Deployment unit unit-latest:latest doesn’t exist", ex!.Message);
+            StringAssert.Contains("Deployment unit unit-latest:latest doesn't exist", ex!.Message);
         }
 
         [Test]
@@ -362,7 +387,7 @@ namespace Apache.Ignite.Tests.Compute
             var ex = Assert.ThrowsAsync<IgniteException>(
                 async () => await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, deploymentUnits, NodeNameJob));
 
-            StringAssert.Contains("Deployment unit unit-latest:latest doesn’t exist", ex!.Message);
+            StringAssert.Contains("Deployment unit unit-latest:latest doesn't exist", ex!.Message);
         }
 
         [Test]
