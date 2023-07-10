@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_EXECUTION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.Collection;
