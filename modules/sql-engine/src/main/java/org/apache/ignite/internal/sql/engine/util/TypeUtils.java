@@ -485,7 +485,7 @@ public class TypeUtils {
     public static NativeType columnType2NativeType(ColumnType columnType, int precision, int scale) {
         switch (columnType) {
             case BOOLEAN:
-                throw new IllegalArgumentException("No NativeType for type: " + columnType);
+                return NativeTypes.BOOLEAN;
             case INT8:
                 return NativeTypes.INT8;
             case INT16:

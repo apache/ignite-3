@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import static org.apache.ignite.internal.schema.DefaultValueProvider.constantProvider;
+import static org.apache.ignite.internal.schema.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -429,12 +430,14 @@ public class RecordMarshallerTest {
 
     private Column[] valueColumnsAllTypes() {
         return new Column[]{
+                new Column("primitiveBooleanCol".toUpperCase(), BOOLEAN, false, constantProvider(true)),
                 new Column("primitiveByteCol".toUpperCase(), INT8, false, constantProvider((byte) 0x42)),
                 new Column("primitiveShortCol".toUpperCase(), INT16, false, constantProvider((short) 0x4242)),
                 new Column("primitiveIntCol".toUpperCase(), INT32, false, constantProvider(0x42424242)),
                 new Column("primitiveFloatCol".toUpperCase(), FLOAT, false),
                 new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
 
+                new Column("booleanCol".toUpperCase(), BOOLEAN, true),
                 new Column("byteCol".toUpperCase(), INT8, true),
                 new Column("shortCol".toUpperCase(), INT16, true),
                 new Column("longCol".toUpperCase(), INT64, true),
