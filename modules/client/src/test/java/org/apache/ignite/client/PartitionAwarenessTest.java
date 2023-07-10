@@ -54,6 +54,13 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests partition awareness.
  */
 public class PartitionAwarenessTest extends AbstractClientTest {
+    private static final String nodeKey0 = "server-2";
+    private static final String nodeKey1 = "server-2";
+
+    private static final String nodeKey2 = "server-1";
+
+    private static final String nodeKey3 = "server-2";
+
     private static TestServer testServer2;
 
     private static Ignite server2;
@@ -112,40 +119,40 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testGetTupleRoutesRequestToPrimaryNode() {
         RecordView<Tuple> recordView = defaultTable().recordView();
 
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0L)));
-        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 2L)));
-        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 3L)));
+        assertOpOnNode(nodeKey0, "get", x -> recordView.get(null, Tuple.create().set("ID", 0L)));
+        assertOpOnNode(nodeKey1, "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, "get", x -> recordView.get(null, Tuple.create().set("ID", 2L)));
+        assertOpOnNode(nodeKey3, "get", x -> recordView.get(null, Tuple.create().set("ID", 3L)));
     }
 
     @Test
     public void testGetRecordRoutesRequestToPrimaryNode() {
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
-        assertOpOnNode("server-1", "get", x -> pojoView.get(null, new PersonPojo(0L)));
-        assertOpOnNode("server-2", "get", x -> pojoView.get(null, new PersonPojo(1L)));
-        assertOpOnNode("server-1", "get", x -> pojoView.get(null, new PersonPojo(2L)));
-        assertOpOnNode("server-2", "get", x -> pojoView.get(null, new PersonPojo(3L)));
+        assertOpOnNode(nodeKey0, "get", x -> pojoView.get(null, new PersonPojo(0L)));
+        assertOpOnNode(nodeKey1, "get", x -> pojoView.get(null, new PersonPojo(1L)));
+        assertOpOnNode(nodeKey2, "get", x -> pojoView.get(null, new PersonPojo(2L)));
+        assertOpOnNode(nodeKey3, "get", x -> pojoView.get(null, new PersonPojo(3L)));
     }
 
     @Test
     public void testGetKeyValueRoutesRequestToPrimaryNode() {
         KeyValueView<Long, String> kvView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        assertOpOnNode("server-1", "get", x -> kvView.get(null, 0L));
-        assertOpOnNode("server-2", "get", x -> kvView.get(null, 1L));
-        assertOpOnNode("server-1", "get", x -> kvView.get(null, 2L));
-        assertOpOnNode("server-2", "get", x -> kvView.get(null, 3L));
+        assertOpOnNode(nodeKey0, "get", x -> kvView.get(null, 0L));
+        assertOpOnNode(nodeKey1, "get", x -> kvView.get(null, 1L));
+        assertOpOnNode(nodeKey2, "get", x -> kvView.get(null, 2L));
+        assertOpOnNode(nodeKey3, "get", x -> kvView.get(null, 3L));
     }
 
     @Test
     public void testGetKeyValueBinaryRoutesRequestToPrimaryNode() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
 
-        assertOpOnNode("server-1", "get", x -> kvView.get(null, Tuple.create().set("ID", 0L)));
-        assertOpOnNode("server-2", "get", x -> kvView.get(null, Tuple.create().set("ID", 1L)));
-        assertOpOnNode("server-1", "get", x -> kvView.get(null, Tuple.create().set("ID", 2L)));
-        assertOpOnNode("server-2", "get", x -> kvView.get(null, Tuple.create().set("ID", 3L)));
+        assertOpOnNode(nodeKey0, "get", x -> kvView.get(null, Tuple.create().set("ID", 0L)));
+        assertOpOnNode(nodeKey1, "get", x -> kvView.get(null, Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, "get", x -> kvView.get(null, Tuple.create().set("ID", 2L)));
+        assertOpOnNode(nodeKey3, "get", x -> kvView.get(null, Tuple.create().set("ID", 3L)));
     }
 
     @Test
@@ -164,8 +171,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         // Check default assignment.
         RecordView<Tuple> recordView = defaultTable().recordView();
 
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0L)));
-        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey1, "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, "get", x -> recordView.get(null, Tuple.create().set("ID", 2L)));
 
         // Update partition assignment.
         var assignments = new ArrayList<String>();
@@ -224,50 +231,50 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         var t1 = new PersonPojo(0L);
         var t2 = new PersonPojo(1L);
 
-        assertOpOnNode("server-1", "insert", x -> pojoView.insert(null, t1));
-        assertOpOnNode("server-2", "insert", x -> pojoView.insert(null, t2));
+        assertOpOnNode(nodeKey0, "insert", x -> pojoView.insert(null, t1));
+        assertOpOnNode(nodeKey1, "insert", x -> pojoView.insert(null, t2));
 
-        assertOpOnNode("server-1", "insertAll", x -> pojoView.insertAll(null, List.of(t1)));
-        assertOpOnNode("server-2", "insertAll", x -> pojoView.insertAll(null, List.of(t2)));
+        assertOpOnNode(nodeKey0, "insertAll", x -> pojoView.insertAll(null, List.of(t1)));
+        assertOpOnNode(nodeKey1, "insertAll", x -> pojoView.insertAll(null, List.of(t2)));
 
-        assertOpOnNode("server-1", "upsert", x -> pojoView.upsert(null, t1));
-        assertOpOnNode("server-2", "upsert", x -> pojoView.upsert(null, t2));
+        assertOpOnNode(nodeKey0, "upsert", x -> pojoView.upsert(null, t1));
+        assertOpOnNode(nodeKey1, "upsert", x -> pojoView.upsert(null, t2));
 
-        assertOpOnNode("server-1", "upsertAll", x -> pojoView.upsertAll(null, List.of(t1)));
-        assertOpOnNode("server-2", "upsertAll", x -> pojoView.upsertAll(null, List.of(t2)));
+        assertOpOnNode(nodeKey0, "upsertAll", x -> pojoView.upsertAll(null, List.of(t1)));
+        assertOpOnNode(nodeKey1, "upsertAll", x -> pojoView.upsertAll(null, List.of(t2)));
 
-        assertOpOnNode("server-1", "get", x -> pojoView.get(null, t1));
-        assertOpOnNode("server-2", "get", x -> pojoView.get(null, t2));
+        assertOpOnNode(nodeKey0, "get", x -> pojoView.get(null, t1));
+        assertOpOnNode(nodeKey1, "get", x -> pojoView.get(null, t2));
 
-        assertOpOnNode("server-1", "getAll", x -> pojoView.getAll(null, List.of(t1)));
-        assertOpOnNode("server-2", "getAll", x -> pojoView.getAll(null, List.of(t2)));
+        assertOpOnNode(nodeKey0, "getAll", x -> pojoView.getAll(null, List.of(t1)));
+        assertOpOnNode(nodeKey1, "getAll", x -> pojoView.getAll(null, List.of(t2)));
 
-        assertOpOnNode("server-1", "getAndUpsert", x -> pojoView.getAndUpsert(null, t1));
-        assertOpOnNode("server-2", "getAndUpsert", x -> pojoView.getAndUpsert(null, t2));
+        assertOpOnNode(nodeKey0, "getAndUpsert", x -> pojoView.getAndUpsert(null, t1));
+        assertOpOnNode(nodeKey1, "getAndUpsert", x -> pojoView.getAndUpsert(null, t2));
 
-        assertOpOnNode("server-1", "getAndReplace", x -> pojoView.getAndReplace(null, t1));
-        assertOpOnNode("server-2", "getAndReplace", x -> pojoView.getAndReplace(null, t2));
+        assertOpOnNode(nodeKey0, "getAndReplace", x -> pojoView.getAndReplace(null, t1));
+        assertOpOnNode(nodeKey1, "getAndReplace", x -> pojoView.getAndReplace(null, t2));
 
-        assertOpOnNode("server-1", "getAndDelete", x -> pojoView.getAndDelete(null, t1));
-        assertOpOnNode("server-2", "getAndDelete", x -> pojoView.getAndDelete(null, t2));
+        assertOpOnNode(nodeKey0, "getAndDelete", x -> pojoView.getAndDelete(null, t1));
+        assertOpOnNode(nodeKey1, "getAndDelete", x -> pojoView.getAndDelete(null, t2));
 
-        assertOpOnNode("server-1", "replace", x -> pojoView.replace(null, t1));
-        assertOpOnNode("server-2", "replace", x -> pojoView.replace(null, t2));
+        assertOpOnNode(nodeKey0, "replace", x -> pojoView.replace(null, t1));
+        assertOpOnNode(nodeKey1, "replace", x -> pojoView.replace(null, t2));
 
-        assertOpOnNode("server-1", "replace", x -> pojoView.replace(null, t1, t1));
-        assertOpOnNode("server-2", "replace", x -> pojoView.replace(null, t2, t2));
+        assertOpOnNode(nodeKey0, "replace", x -> pojoView.replace(null, t1, t1));
+        assertOpOnNode(nodeKey1, "replace", x -> pojoView.replace(null, t2, t2));
 
-        assertOpOnNode("server-1", "delete", x -> pojoView.delete(null, t1));
-        assertOpOnNode("server-2", "delete", x -> pojoView.delete(null, t2));
+        assertOpOnNode(nodeKey0, "delete", x -> pojoView.delete(null, t1));
+        assertOpOnNode(nodeKey1, "delete", x -> pojoView.delete(null, t2));
 
-        assertOpOnNode("server-1", "deleteExact", x -> pojoView.deleteExact(null, t1));
-        assertOpOnNode("server-2", "deleteExact", x -> pojoView.deleteExact(null, t2));
+        assertOpOnNode(nodeKey0, "deleteExact", x -> pojoView.deleteExact(null, t1));
+        assertOpOnNode(nodeKey1, "deleteExact", x -> pojoView.deleteExact(null, t2));
 
-        assertOpOnNode("server-1", "deleteAll", x -> pojoView.deleteAll(null, List.of(t1)));
-        assertOpOnNode("server-2", "deleteAll", x -> pojoView.deleteAll(null, List.of(t2)));
+        assertOpOnNode(nodeKey0, "deleteAll", x -> pojoView.deleteAll(null, List.of(t1)));
+        assertOpOnNode(nodeKey1, "deleteAll", x -> pojoView.deleteAll(null, List.of(t2)));
 
-        assertOpOnNode("server-1", "deleteAllExact", x -> pojoView.deleteAllExact(null, List.of(t1)));
-        assertOpOnNode("server-2", "deleteAllExact", x -> pojoView.deleteAllExact(null, List.of(t2)));
+        assertOpOnNode(nodeKey0, "deleteAllExact", x -> pojoView.deleteAllExact(null, List.of(t1)));
+        assertOpOnNode(nodeKey1, "deleteAllExact", x -> pojoView.deleteAllExact(null, List.of(t2)));
     }
 
     @Test
