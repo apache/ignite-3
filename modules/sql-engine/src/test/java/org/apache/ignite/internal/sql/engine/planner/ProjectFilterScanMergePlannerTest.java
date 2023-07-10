@@ -28,8 +28,11 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
+import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -199,14 +202,17 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
         String sql = "SELECT /*+ DISABLE_RULE('ExposeIndexRule') */(SELECT a+2 FROM (SELECT c, a+1 AS a FROM tbl) "
                 + "AS t2 WHERE t2.c = t1.c) FROM tbl AS t1";
 
-        assertPlan(sql, publicSchema, hasChildThat(isInstanceOf(IgniteAggregate.class)
-                .and(input(isInstanceOf(IgniteTableScan.class)
-                        .and(scan -> scan.projects() != null)
-                        .and(scan -> "[+(+($t0, 1), 2)]".equals(scan.projects().toString()))
-                        .and(scan -> scan.condition() != null)
-                        .and(scan -> "=($t1, $cor0.C)".equals(scan.condition().toString()))
-                        .and(scan -> ImmutableBitSet.of(0, 2).equals(scan.requiredColumns()))
-                ))));
+        assertPlan(sql, publicSchema, isInstanceOf(IgniteProject.class)
+                .and(input(0, isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
+                        .and(input(1, isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(input(isInstanceOf(IgniteProject.class)
+                                        .and(scan -> scan.getProjects() != null)
+                                        .and(scan -> "[+($1, 2)]".equals(scan.getProjects().toString()))
+                                        .and(input(isInstanceOf(IgniteTableScan.class)
+                                                .and(scan -> scan.condition() != null)
+                                                .and(scan -> "=($tx, $cor0.C)".equals(scan.condition().toString()))
+                                                .and(scan -> ImmutableBitSet.of(0, 2).equals(scan.requiredColumns()))
+                                        )))))))));
     }
 
     @Test
@@ -242,14 +248,17 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
         // merge rule.
         String sql = "SELECT (SELECT a+2 FROM (SELECT a, c FROM tbl) AS t2 WHERE t2.c = t1.c) FROM tbl AS t1";
 
-        assertPlan(sql, publicSchema, hasChildThat(isInstanceOf(IgniteAggregate.class)
-                .and(input(isInstanceOf(IgniteTableScan.class)
-                        .and(scan -> scan.projects() != null)
-                        .and(scan -> "[+($t0, 2)]".equals(scan.projects().toString()))
-                        .and(scan -> scan.condition() != null)
-                        .and(scan -> "=($t1, $cor0.C)".equals(scan.condition().toString()))
-                        .and(scan -> ImmutableBitSet.of(0, 2).equals(scan.requiredColumns()))
-                ))));
+        assertPlan(sql, publicSchema, isInstanceOf(IgniteProject.class)
+                .and(input(0, isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
+                        .and(input(1, isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(input(isInstanceOf(IgniteProject.class)
+                                        .and(scan -> scan.getProjects() != null)
+                                        .and(scan -> "[+($0, 2)]".equals(scan.getProjects().toString()))
+                                        .and(input(isInstanceOf(IgniteTableScan.class)
+                                                .and(scan -> scan.condition() != null)
+                                                .and(scan -> "=($t1, $cor0.C)".equals(scan.condition().toString()))
+                                                .and(scan -> ImmutableBitSet.of(0, 2).equals(scan.requiredColumns()))
+                                        )))))))));
     }
 
     @Test
