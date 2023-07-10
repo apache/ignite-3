@@ -216,9 +216,9 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testCompositeKey() {
         RecordView<Tuple> recordView = table(FakeIgniteTables.TABLE_COMPOSITE_KEY).recordView();
 
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID1", 0).set("ID2", "0")));
-        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID1", 1).set("ID2", "0")));
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID1", 0).set("ID2", "1")));
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID1", 0).set("ID2", "0")));
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID1", 1).set("ID2", "0")));
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID1", 0).set("ID2", "1")));
         assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID1", 1).set("ID2", "1")));
         assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID1", 1).set("ID2", "2")));
     }
