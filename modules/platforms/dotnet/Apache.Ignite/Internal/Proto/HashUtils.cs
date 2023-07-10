@@ -94,7 +94,7 @@ internal static class HashUtils
     /// </summary>
     /// <param name="data">Input data.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(LocalDate data) => Combine(Hash32(data.Day), Hash32(data.Month), Hash32(data.Year));
+    public static int Hash32(LocalDate data) => Combine(Hash32(data.Year), Hash32(data.Month), Hash32(data.Day));
 
     /// <summary>
     /// Generates 32-bit hash.
