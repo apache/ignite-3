@@ -29,7 +29,6 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -89,7 +88,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
     public boolean booleanValue(int index) {
         seek(index);
 
-        return ByteUtils.byteToBoolean(byteValue(begin, end));
+        return booleanValue(begin, end);
     }
 
     /**
@@ -105,7 +104,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
             return null;
         }
 
-        return ByteUtils.byteToBoolean(byteValue(begin, end));
+        return booleanValue(begin, end);
     }
 
     /**

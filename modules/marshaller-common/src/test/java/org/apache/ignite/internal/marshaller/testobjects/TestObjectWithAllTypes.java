@@ -41,6 +41,7 @@ public class TestObjectWithAllTypes {
     public static TestObjectWithAllTypes randomObject(Random rnd) {
         final TestObjectWithAllTypes obj = new TestObjectWithAllTypes();
 
+        obj.primitiveBooleanCol = true;
         obj.primitiveByteCol = (byte) rnd.nextInt(255);
         obj.primitiveShortCol = (short) rnd.nextInt(65535);
         obj.primitiveIntCol = rnd.nextInt();
@@ -48,6 +49,7 @@ public class TestObjectWithAllTypes {
         obj.primitiveFloatCol = rnd.nextFloat();
         obj.primitiveDoubleCol = rnd.nextDouble();
 
+        obj.booleanCol = true;
         obj.byteCol = (byte) rnd.nextInt(255);
         obj.shortCol = (short) rnd.nextInt(65535);
         obj.intCol = rnd.nextInt();
@@ -75,6 +77,8 @@ public class TestObjectWithAllTypes {
     }
 
     // Primitive typed
+    private boolean primitiveBooleanCol;
+
     private byte primitiveByteCol;
 
     private short primitiveShortCol;
@@ -88,6 +92,8 @@ public class TestObjectWithAllTypes {
     private double primitiveDoubleCol;
 
     // Reference typed
+    private Boolean booleanCol;
+
     private Byte byteCol;
 
     private Short shortCol;
@@ -136,12 +142,14 @@ public class TestObjectWithAllTypes {
 
         TestObjectWithAllTypes object = (TestObjectWithAllTypes) o;
 
-        return primitiveByteCol == object.primitiveByteCol
+        return primitiveBooleanCol == object.primitiveBooleanCol
+                && primitiveByteCol == object.primitiveByteCol
                 && primitiveShortCol == object.primitiveShortCol
                 && primitiveIntCol == object.primitiveIntCol
                 && primitiveLongCol == object.primitiveLongCol
                 && Float.compare(object.primitiveFloatCol, primitiveFloatCol) == 0
                 && Double.compare(object.primitiveDoubleCol, primitiveDoubleCol) == 0
+                && Objects.equals(booleanCol, object.booleanCol)
                 && Objects.equals(byteCol, object.byteCol)
                 && Objects.equals(shortCol, object.shortCol)
                 && Objects.equals(intCol, object.intCol)
@@ -166,6 +174,14 @@ public class TestObjectWithAllTypes {
     @Override
     public int hashCode() {
         return 73;
+    }
+
+    public boolean getPrimitiveBooleanCol() {
+        return primitiveBooleanCol;
+    }
+
+    public void setPrimitiveBooleanCol(boolean primitiveBooleanCol) {
+        this.primitiveBooleanCol = primitiveBooleanCol;
     }
 
     public byte getPrimitiveByteCol() {
@@ -214,6 +230,14 @@ public class TestObjectWithAllTypes {
 
     public void setPrimitiveDoubleCol(double primitiveDoubleCol) {
         this.primitiveDoubleCol = primitiveDoubleCol;
+    }
+
+    public Boolean getBooleanCol() {
+        return booleanCol;
+    }
+
+    public void setBooleanCol(Boolean booleanCol) {
+        this.booleanCol = booleanCol;
     }
 
     public Byte getByteCol() {

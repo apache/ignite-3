@@ -29,7 +29,6 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
-import org.apache.ignite.internal.util.ByteUtils;
 
 /**
  * Field accessor to speedup access.
@@ -596,15 +595,15 @@ abstract class FieldAccessor {
         protected void write0(MarshallerWriter writer, Object obj) {
             final boolean val = (boolean) varHandle.get(obj);
 
-            writer.writeByte(ByteUtils.booleanToByte(val));
+            writer.writeBoolean(val);
         }
 
         /** {@inheritDoc} */
         @Override
         protected void read0(MarshallerReader reader, Object obj) {
-            final byte val = reader.readByte();
+            final boolean val = reader.readBoolean();
 
-            varHandle.set(obj, ByteUtils.byteToBoolean(val));
+            varHandle.set(obj, val);
         }
     }
 
