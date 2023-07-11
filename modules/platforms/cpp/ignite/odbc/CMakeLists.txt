@@ -96,4 +96,5 @@ endif()
 ignite_test(connection_info_test config/connection_info_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 ignite_test(config_tools_test config/config_tools_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 ignite_test(string_utils_test string_utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
+ignite_test(application_data_buffer_test app/application_data_buffer_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 
