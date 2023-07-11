@@ -22,6 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.INTERNAL_EXECUTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_EXECUTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.IgniteExceptionUtils.extractCodeFrom;
+import static org.apache.ignite.lang.IgniteExceptionUtils.sneakyThrow;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlBatchException;
@@ -332,7 +334,7 @@ public class SessionImpl implements Session {
         try {
             closeAsync().toCompletableFuture().get();
         } catch (ExecutionException e) {
-            throw new SqlException(RUNTIME_EXECUTION_ERR, e.getCause());
+            sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
         } catch (Throwable e) {
             throw new SqlException(RUNTIME_EXECUTION_ERR, e);
         }
