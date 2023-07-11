@@ -53,7 +53,6 @@ import java.time.temporal.Temporal;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -222,7 +221,7 @@ public class MutableRowTupleAdapterTest {
 
         TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
 
-        Row row = new Row(schema, new ByteBufferRow(marshaller.marshal(original).bytes()));
+        Row row = marshaller.marshal(original);
 
         Tuple key = TableRow.keyTuple(row);
         Tuple val = TableRow.valueTuple(row);
@@ -248,7 +247,7 @@ public class MutableRowTupleAdapterTest {
     public void testRowTupleMutability() throws TupleMarshallerException {
         TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
 
-        Row row = new Row(schema, new ByteBufferRow(marshaller.marshal(Tuple.create().set("id", 1L).set("name", "Shirt")).bytes()));
+        Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("name", "Shirt"));
 
         Tuple tuple = TableRow.tuple(row);
         Tuple key = TableRow.keyTuple(row);
@@ -275,7 +274,7 @@ public class MutableRowTupleAdapterTest {
     public void testKeyValueTupleMutability() throws TupleMarshallerException {
         TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
 
-        Row row = new Row(schema, new ByteBufferRow(marshaller.marshal(Tuple.create().set("id", 1L).set("name", "Shirt")).bytes()));
+        Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("name", "Shirt"));
 
         Tuple tuple = TableRow.tuple(row);
         Tuple key = TableRow.keyTuple(row);
@@ -304,7 +303,7 @@ public class MutableRowTupleAdapterTest {
     public void testRowTupleSchemaAwareness() throws TupleMarshallerException {
         TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
 
-        Row row = new Row(schema, new ByteBufferRow(marshaller.marshal(Tuple.create().set("id", 1L).set("name", "Shirt")).bytes()));
+        Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("name", "Shirt"));
 
         Tuple tuple = TableRow.tuple(row);
         Tuple key = TableRow.keyTuple(row);
@@ -327,7 +326,7 @@ public class MutableRowTupleAdapterTest {
     public void testKeyValueTupleSchemaAwareness() throws TupleMarshallerException {
         TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
 
-        Row row = new Row(schema, new ByteBufferRow(marshaller.marshal(Tuple.create().set("id", 1L).set("name", "Shirt")).bytes()));
+        Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("name", "Shirt"));
 
         Tuple tuple = TableRow.tuple(row);
         Tuple key = TableRow.keyTuple(row);
@@ -372,7 +371,7 @@ public class MutableRowTupleAdapterTest {
                 .set("valNumberCol", BigInteger.valueOf(rnd.nextLong()))
                 .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5));
 
-        Tuple rowTuple = TableRow.tuple(new Row(fullSchema, new ByteBufferRow(marshaller.marshal(tuple).bytes())));
+        Tuple rowTuple = TableRow.tuple(marshaller.marshal(tuple));
 
         assertEquals(tuple, rowTuple);
 
@@ -406,7 +405,7 @@ public class MutableRowTupleAdapterTest {
 
         TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(fullSchema));
 
-        Row row = new Row(fullSchema, new ByteBufferRow(marshaller.marshal(tup1).bytes()));
+        Row row = marshaller.marshal(tup1);
 
         Tuple tup2 = deserializeTuple(serializeTuple(TableRow.tuple(row)));
 
@@ -454,11 +453,11 @@ public class MutableRowTupleAdapterTest {
         // Check tuples backed with Row.
         TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(fullSchema));
 
-        Row row = new Row(fullSchema, new ByteBufferRow(marshaller.marshal(keyTuple, valTuple).bytes()));
+        Row row = marshaller.marshal(keyTuple, valTuple);
 
         Tuple rowKeyTuple = TableRow.keyTuple(row);
         Tuple rowValTuple = TableRow.valueTuple(row);
-        final Tuple rowTuple = TableRow.tuple(new Row(fullSchema, new ByteBufferRow(marshaller.marshal(tuple).bytes())));
+        final Tuple rowTuple = TableRow.tuple(marshaller.marshal(tuple));
 
         assertEquals(keyTuple, rowKeyTuple);
         assertEquals(rowKeyTuple, keyTuple);
@@ -537,7 +536,7 @@ public class MutableRowTupleAdapterTest {
 
         TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(fullSchema));
 
-        Row row = new Row(fullSchema, new ByteBufferRow(marshaller.marshal(key1, val1).bytes()));
+        Row row = marshaller.marshal(key1, val1);
 
         Tuple key2 = deserializeTuple(serializeTuple(TableRow.keyTuple(row)));
         Tuple val2 = deserializeTuple(serializeTuple(TableRow.valueTuple(row)));
@@ -568,7 +567,7 @@ public class MutableRowTupleAdapterTest {
 
         TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
 
-        Row row = new Row(schemaDescriptor, new ByteBufferRow(marshaller.marshal(tuple).bytes()));
+        Row row = marshaller.marshal(tuple);
 
         Tuple tuple1 = deserializeTuple(serializeTuple(TableRow.tuple(row)));
 
@@ -594,14 +593,14 @@ public class MutableRowTupleAdapterTest {
                 .set("string", "abcefghi")
                 .set("bytes", new byte[]{1, 2, 3, 4, 5});
 
-        assertThrowsWithCause(() -> marshaller.marshal(tuple1).bytes(), InvalidTypeException.class, "Column's type mismatch");
-        assertThrowsWithCause(() -> marshaller.marshal(tuple2).bytes(), InvalidTypeException.class, "Column's type mismatch");
+        assertThrowsWithCause(() -> marshaller.marshal(tuple1), InvalidTypeException.class, "Column's type mismatch");
+        assertThrowsWithCause(() -> marshaller.marshal(tuple2), InvalidTypeException.class, "Column's type mismatch");
 
         Tuple expected = Tuple.create().set("key", 1)
                 .set("string", "abc")
                 .set("bytes", new byte[]{1, 2, 3});
 
-        Row row = new Row(schemaDescriptor, new ByteBufferRow(marshaller.marshal(expected).bytes()));
+        Row row = marshaller.marshal(expected);
 
         assertEquals(expected, deserializeTuple(serializeTuple(TableRow.tuple(row))));
     }
@@ -619,7 +618,7 @@ public class MutableRowTupleAdapterTest {
 
         Tuple tuple1 = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123456.7"));
 
-        assertThrowsWithCause(() -> marshaller.marshal(tuple1).bytes(), SchemaMismatchException.class,
+        assertThrowsWithCause(() -> marshaller.marshal(tuple1), SchemaMismatchException.class,
                 "Failed to set decimal value for column 'decimal' (max precision exceeds allocated precision)");
     }
 
@@ -637,7 +636,7 @@ public class MutableRowTupleAdapterTest {
         Tuple tuple = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123.458"));
         Tuple expected = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123.46")); // Rounded.
 
-        Row row = new Row(schemaDescriptor, new ByteBufferRow(marshaller.marshal(tuple).bytes()));
+        Row row = marshaller.marshal(tuple);
 
         assertEquals(expected, deserializeTuple(serializeTuple(TableRow.tuple(row))));
     }
@@ -700,7 +699,7 @@ public class MutableRowTupleAdapterTest {
 
             TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
 
-            return TableRow.tuple(new Row(schema, new ByteBufferRow(marshaller.marshal(original).bytes())));
+            return TableRow.tuple(marshaller.marshal(original));
         } catch (TupleMarshallerException e) {
             return fail();
         }

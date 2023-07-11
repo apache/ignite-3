@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.Random;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
@@ -112,7 +111,7 @@ public class ColocationHashCalculationTest {
             Tuple t = TableRow.tuple(r);
             t.set(rndCol.name(), SchemaTestUtils.generateRandomValue(rnd, rndCol.type()));
 
-            r = new Row(schema, new ByteBufferRow(marshaller.marshal(t).bytes()));
+            r = marshaller.marshal(t);
 
             assertEquals(colocationHash(r), r.colocationHash());
         }
@@ -129,7 +128,7 @@ public class ColocationHashCalculationTest {
             t.set(c.name(), SchemaTestUtils.generateRandomValue(rnd, c.type()));
         }
 
-        return new Row(schema, new ByteBufferRow(marshaller.marshal(t).bytes()));
+        return marshaller.marshal(t);
     }
 
     private int colocationHash(Row r) {
