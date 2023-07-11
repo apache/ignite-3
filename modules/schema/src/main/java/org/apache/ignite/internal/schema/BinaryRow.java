@@ -48,5 +48,6 @@ public interface BinaryRow {
     ByteBuffer tupleSlice();
 
     /** Returns the representation of this row as a Byte Buffer. */
+    // TODO: remove this method, see https://issues.apache.org/jira/browse/IGNITE-19937
     ByteBuffer byteBuffer();
 }

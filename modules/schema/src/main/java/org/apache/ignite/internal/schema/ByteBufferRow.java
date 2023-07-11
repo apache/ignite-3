@@ -24,6 +24,7 @@ import java.nio.ByteBuffer;
 /**
  * Heap byte buffer-based row.
  */
+// TODO: remove this class, see https://issues.apache.org/jira/browse/IGNITE-19937
 public class ByteBufferRow implements BinaryRow {
     /** Row buffer. */
     private final ByteBuffer buf;
