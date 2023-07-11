@@ -118,6 +118,9 @@ private:
  */
 class data_buffer_owning {
 public:
+    // Default.
+    data_buffer_owning() = default;
+
     /**
      * Constructor.
      *

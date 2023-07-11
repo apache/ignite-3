@@ -154,7 +154,7 @@ public:
      *
      * @return @c true if there are more pages with results and @c false otherwise.
      */
-    [[nodiscard]] IGNITE_API bool has_more_pages() { return m_resource_id.has_value() && m_has_more_pages; }
+    [[nodiscard]] bool has_more_pages() { return m_resource_id.has_value() && m_has_more_pages; }
 
     /**
      * Fetch the next page of results asynchronously.
@@ -162,7 +162,7 @@ public:
      *
      * @param callback Callback to call on completion.
      */
-    IGNITE_API void fetch_next_page_async(std::function<void(ignite_result<void>)> callback) {
+    void fetch_next_page_async(std::function<void(ignite_result<void>)> callback) {
         require_result_set();
 
         if (!m_resource_id)
@@ -213,8 +213,8 @@ private:
 
             const msgpack_object_array &arr = obj.via.array;
 
-            constexpr std::uint32_t minCount = 6;
-            assert(arr.size >= minCount);
+            constexpr std::uint32_t min_count = 6;
+            assert(arr.size >= min_count);
 
             auto name = protocol::unpack_object<std::string>(arr.ptr[0]);
             auto nullable = protocol::unpack_object<bool>(arr.ptr[1]);
@@ -229,7 +229,7 @@ private:
                 return;
             }
 
-            assert(arr.size >= minCount + 3);
+            assert(arr.size >= min_count + 3);
             auto origin_name =
                 arr.ptr[6].type == MSGPACK_OBJECT_NIL ? name : protocol::unpack_object<std::string>(arr.ptr[6]);
 

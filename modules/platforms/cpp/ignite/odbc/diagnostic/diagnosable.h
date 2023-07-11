@@ -17,7 +17,11 @@
 
 #pragma once
 
+#include "ignite/common/ignite_error.h"
 #include "ignite/odbc/diagnostic/diagnostic_record_storage.h"
+#include "ignite/odbc/odbc_error.h"
+
+#include <functional>
 
 namespace ignite
 {
@@ -79,6 +83,30 @@ public:
      * @param rec Record.
      */
     virtual void add_status_record(const diagnostic_record& rec) = 0;
+
+    /**
+     * Catch and handle any known errors that can happen in function.
+     *
+     * @param func Code to handle.
+     * @return @c true if no error happened and false otherwise.
+     */
+    bool catch_errors(const std::function<void()>& func) {
+        try {
+            func();
+        }
+        catch (const odbc_error& err)
+        {
+            add_status_record(err);
+            return false;
+        }
+        catch (const ignite_error& err)
+        {
+            add_status_record(sql_state::SHY000_GENERAL_ERROR, err.what_str());
+            return false;
+        }
+
+        return true;
+    }
 
 protected:
     // Default

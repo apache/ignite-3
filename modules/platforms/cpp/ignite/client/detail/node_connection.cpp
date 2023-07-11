@@ -80,19 +80,19 @@ bool node_connection::handshake() {
 
 void node_connection::process_message(bytes_view msg) {
     protocol::reader reader(msg);
-    auto responseType = reader.read_int32();
-    if (message_type(responseType) != message_type::RESPONSE) {
-        m_logger->log_warning("Unsupported message type: " + std::to_string(responseType));
+    auto response_type = reader.read_int32();
+    if (message_type(response_type) != message_type::RESPONSE) {
+        m_logger->log_warning("Unsupported message type: " + std::to_string(response_type));
         return;
     }
 
-    auto reqId = reader.read_int64();
+    auto req_id = reader.read_int64();
     auto flags = reader.read_int32();
     UNUSED_VALUE flags; // Flags are unused for now.
 
-    auto handler = get_and_remove_handler(reqId);
+    auto handler = get_and_remove_handler(req_id);
     if (!handler) {
-        m_logger->log_error("Missing handler for request with id=" + std::to_string(reqId));
+        m_logger->log_error("Missing handler for request with id=" + std::to_string(req_id));
         return;
     }
 
@@ -108,9 +108,9 @@ void node_connection::process_message(bytes_view msg) {
 
     auto pos = reader.position();
     bytes_view data{msg.data() + pos, msg.size() - pos};
-    auto handlingRes = handler->handle(shared_from_this(), data);
-    if (handlingRes.has_error())
-        m_logger->log_error("Uncaught user callback exception: " + handlingRes.error().what_str());
+    auto handling_res = handler->handle(shared_from_this(), data);
+    if (handling_res.has_error())
+        m_logger->log_error("Uncaught user callback exception: " + handling_res.error().what_str());
 }
 
 ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
