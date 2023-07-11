@@ -21,7 +21,10 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT32;
 import static org.apache.ignite.internal.schema.NativeTypes.INT8;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Random;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.Loggers;
@@ -120,6 +123,62 @@ public class ColocationHashCalculationTest {
             r = marshaller.marshal(t);
 
             assertEquals(colocationHash(r), r.colocationHash());
+        }
+    }
+
+    @Test
+    void collisions() {
+        var set = new HashSet<Integer>();
+        int collisions = 0;
+
+        for (var key1 = 0; key1 < 100; key1++) {
+            for (var key2 = 0; key2 < 100; key2++) {
+                for (var key3 = 0; key3 < 100; key3++) {
+                    HashCalculator hashCalc = new HashCalculator();
+                    hashCalc.appendInt(key1);
+                    hashCalc.appendInt(key2);
+                    hashCalc.appendInt(key3);
+
+                    int hash = hashCalc.hash();
+                    if (set.contains(hash)) {
+                        collisions++;
+                    } else {
+                        set.add(hash);
+                    }
+                }
+            }
+        }
+
+        assertEquals(125, collisions);
+    }
+
+    @Test
+    void distribution() {
+        int partitions = 100;
+        var map = new HashMap<Integer, Integer>();
+
+        for (var key1 = 0; key1 < 100; key1++) {
+            for (var key2 = 0; key2 < 100; key2++) {
+                for (var key3 = 0; key3 < 100; key3++) {
+                    HashCalculator hashCalc = new HashCalculator();
+                    hashCalc.appendInt(key1);
+                    hashCalc.appendInt(key2);
+                    hashCalc.appendInt(key3);
+
+                    int hash = hashCalc.hash();
+                    int partition = Math.abs(hash % partitions);
+
+                    map.put(partition, map.getOrDefault(partition, 0) + 1);
+                }
+            }
+        }
+
+        var maxSkew = 326;
+
+        for (var entry : map.entrySet()) {
+            // CSV to plot: System.out.println(entry.getKey() + ", " + entry.getValue());
+            assertTrue(entry.getValue() < 10_000 + maxSkew, "Partition " + entry.getKey() + " keys: " + entry.getValue());
+            assertTrue(entry.getValue() > 10_000 - maxSkew, "Partition " + entry.getKey() + " keys: " + entry.getValue());
         }
     }
 
