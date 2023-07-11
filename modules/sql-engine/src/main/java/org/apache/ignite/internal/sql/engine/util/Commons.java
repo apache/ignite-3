@@ -683,6 +683,7 @@ public final class Commons {
             case DECIMAL:
                 return ((DecimalNativeType) type).precision();
 
+            case BOOLEAN:
             case UUID:
             case DATE:
                 return -1;
@@ -710,6 +711,7 @@ public final class Commons {
      */
     public static int nativeTypeScale(NativeType type) {
         switch (type.spec()) {
+            case BOOLEAN:
             case INT8:
             case INT16:
             case INT32:
