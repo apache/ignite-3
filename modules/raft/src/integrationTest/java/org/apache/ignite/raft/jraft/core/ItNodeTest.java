@@ -2931,7 +2931,7 @@ public class ItNodeTest {
         NodeOptions nodeOpts = new NodeOptions();
 
         BootstrapOptions opts = new BootstrapOptions();
-        DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path, nodeOpts.getStripes());
+        DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path);
         logStorageProvider.start();
         opts.setServiceFactory(new IgniteJraftServiceFactory(logStorageProvider));
         opts.setLastLogIndex(fsm.getLogs().size());
@@ -2949,7 +2949,7 @@ public class ItNodeTest {
         nodeOpts.setRaftMetaUri(dataPath + File.separator + "meta");
         nodeOpts.setSnapshotUri(dataPath + File.separator + "snapshot");
         nodeOpts.setLogUri("test");
-        DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path, nodeOpts.getStripes());
+        DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path);
         log2.start();
         nodeOpts.setServiceFactory(new IgniteJraftServiceFactory(log2));
         nodeOpts.setFsm(fsm);
@@ -2980,7 +2980,7 @@ public class ItNodeTest {
         NodeOptions nodeOpts = new NodeOptions();
 
         BootstrapOptions opts = new BootstrapOptions();
-        DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path, nodeOpts.getStripes());
+        DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path);
         logStorageProvider.start();
         opts.setServiceFactory(new IgniteJraftServiceFactory(logStorageProvider));
         opts.setLastLogIndex(0);
@@ -2998,7 +2998,7 @@ public class ItNodeTest {
         nodeOpts.setSnapshotUri(dataPath + File.separator + "snapshot");
         nodeOpts.setLogUri("test");
         nodeOpts.setFsm(fsm);
-        DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path, nodeOpts.getStripes());
+        DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path);
         log2.start();
         nodeOpts.setServiceFactory(new IgniteJraftServiceFactory(log2));
 
@@ -3874,7 +3874,7 @@ public class ItNodeTest {
     private NodeOptions createNodeOptions(int nodeIdx) {
         NodeOptions options = new NodeOptions();
 
-        DefaultLogStorageFactory log = new DefaultLogStorageFactory(Path.of(dataPath, "node" + nodeIdx, "log"), options.getStripes());
+        DefaultLogStorageFactory log = new DefaultLogStorageFactory(Path.of(dataPath, "node" + nodeIdx, "log"));
         log.start();
 
         options.setServiceFactory(new IgniteJraftServiceFactory(log));

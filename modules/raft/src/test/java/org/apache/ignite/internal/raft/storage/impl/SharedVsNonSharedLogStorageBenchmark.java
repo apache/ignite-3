@@ -187,7 +187,7 @@ public class SharedVsNonSharedLogStorageBenchmark {
 
         System.out.println("Test log storage path: " + testPath);
 
-        LogStorageFactory provider = new DefaultLogStorageFactory(benchmarkPath, 1);
+        LogStorageFactory provider = new DefaultLogStorageFactory(benchmarkPath);
 
         provider.start();
 

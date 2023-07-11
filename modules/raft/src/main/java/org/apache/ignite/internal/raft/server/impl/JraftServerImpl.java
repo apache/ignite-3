@@ -156,7 +156,7 @@ public class JraftServerImpl implements RaftServer {
         this.service = service;
         this.dataPath = dataPath;
         this.nodeManager = new NodeManager();
-        this.logStorageFactory = new DefaultLogStorageFactory(dataPath.resolve("log"), opts.getStripes());
+        this.logStorageFactory = new DefaultLogStorageFactory(dataPath.resolve("log"));
         this.opts = opts;
         this.raftGroupEventsClientListener = raftGroupEventsClientListener;
 

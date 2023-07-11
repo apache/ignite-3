@@ -84,7 +84,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      *
      * @param path Path to the storage.
      */
-    public DefaultLogStorageFactory(Path path, int stripes) {
+    public DefaultLogStorageFactory(Path path) {
         this.path = path;
 
         executorService = Executors.newSingleThreadExecutor(
