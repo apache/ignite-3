@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-#include <algorithm>
-
+#include "ignite/odbc/app/parameter.h"
 #include "ignite/odbc/utility.h"
 #include "ignite/odbc/system/odbc_constants.h"
-#include "ignite/odbc/app/parameter.h"
+#include "ignite/protocol/utils.h"
+
+#include <algorithm>
 
 namespace ignite {
 
-void parameter::write(protocol::writer& writer, int offset, SQLULEN idx) const
+void parameter::claim(binary_tuple_builder& builder, int offset, SQLULEN idx) const
 {
-    if (m_buffer.get_input_size() == SQL_NULL_DATA)
-    {
-        writer.write_nil();
+    if (m_buffer.get_input_size() == SQL_NULL_DATA) {
+        builder.claim_null(); // Type.
+        builder.claim_null(); // Scale.
+        builder.claim_null(); // Value.
         return;
     }
 
@@ -41,7 +43,7 @@ void parameter::write(protocol::writer& writer, int offset, SQLULEN idx) const
     if (m_buffer.is_data_at_exec())
     {
         buf = application_data_buffer(m_buffer.get_type(),
-            const_cast<std::int8_t*>(&m_stored_data[0]), stored_data_len, &stored_data_len);
+            const_cast<std::byte*>(&m_stored_data[0]), stored_data_len, &stored_data_len);
     }
 
     switch (m_sql_type)
@@ -50,75 +52,81 @@ void parameter::write(protocol::writer& writer, int offset, SQLULEN idx) const
         case SQL_VARCHAR:
         case SQL_LONGVARCHAR:
         {
-            writer.write(buf.get_string(m_column_size));
+            protocol::claim_type_and_scale(builder, ignite_type::STRING);
+            builder.claim_varlen(buf.get_string(m_column_size));
             break;
         }
 
         case SQL_TINYINT:
         {
-            writer.write(buf.get_int8());
+            protocol::claim_type_and_scale(builder, ignite_type::INT8);
+            builder.claim_int8(buf.get_int8());
             break;
         }
 
         case SQL_SMALLINT:
         {
-            writer.write(buf.get_int16());
+            protocol::claim_type_and_scale(builder, ignite_type::INT16);
+            builder.claim_int16(buf.get_int16());
             break;
         }
 
         case SQL_INTEGER:
         {
-            writer.write(buf.get_int32());
+            protocol::claim_type_and_scale(builder, ignite_type::INT32);
+            builder.claim_int32(buf.get_int32());
             break;
         }
 
         case SQL_BIGINT:
         {
-            writer.write(buf.get_int64());
+            protocol::claim_type_and_scale(builder, ignite_type::INT64);
+            builder.claim_int64(buf.get_int64());
             break;
         }
 
         case SQL_FLOAT:
         {
-            // TODO: IGNITE-19205 Implement proper parameter data writing.
-            //writer.write(buf.get_float());
+            protocol::claim_type_and_scale(builder, ignite_type::FLOAT);
+            builder.claim_float(buf.get_float());
             break;
         }
 
         case SQL_DOUBLE:
         {
-            // TODO: IGNITE-19205 Implement proper parameter data writing.
-            //writer.write<double>(buf.get_double());
+            protocol::claim_type_and_scale(builder, ignite_type::DOUBLE);
+            builder.claim_double(buf.get_double());
             break;
         }
 
         case SQL_BIT:
         {
-            writer.write_bool(buf.get_int8() != 0);
+            protocol::claim_type_and_scale(builder, ignite_type::BOOLEAN);
+            builder.claim_bool(buf.get_int8() != 0);
             break;
         }
 
         case SQL_TYPE_DATE:
         case SQL_DATE:
         {
-            // TODO: IGNITE-19205 Implement proper parameter data writing.
-            //writer.write(buf.get_date());
+            protocol::claim_type_and_scale(builder, ignite_type::DATE);
+            builder.claim_date(buf.get_date());
             break;
         }
 
         case SQL_TYPE_TIMESTAMP:
         case SQL_TIMESTAMP:
         {
-            // TODO: IGNITE-19205 Implement proper parameter data writing.
-            //writer.write(buf.get_timestamp());
+            protocol::claim_type_and_scale(builder, ignite_type::TIMESTAMP);
+            builder.claim_timestamp(buf.get_timestamp());
             break;
         }
 
         case SQL_TYPE_TIME:
         case SQL_TIME:
         {
-            // TODO: IGNITE-19205 Implement proper parameter data writing.
-            //writer.write(buf.get_time());
+            protocol::claim_type_and_scale(builder, ignite_type::TIME);
+            builder.claim_time(buf.get_time());
             break;
         }
 
@@ -126,32 +134,178 @@ void parameter::write(protocol::writer& writer, int offset, SQLULEN idx) const
         case SQL_VARBINARY:
         case SQL_LONGVARBINARY:
         {
+            protocol::claim_type_and_scale(builder, ignite_type::BYTE_ARRAY);
+
             const application_data_buffer& const_buf = buf;
             const SQLLEN* res_len_ptr = const_buf.get_result_len();
             if (!res_len_ptr)
                 break;
 
             auto param_len = static_cast<std::size_t>(*res_len_ptr);
-            writer.write_binary({const_buf.get_data(), param_len});
-
+            builder.claim_varlen({const_buf.get_data(), param_len});
             break;
         }
 
         case SQL_GUID:
         {
-            writer.write(buf.get_uuid());
+            protocol::claim_type_and_scale(builder, ignite_type::UUID);
+            builder.claim_uuid(buf.get_uuid());
 
             break;
         }
 
         case SQL_DECIMAL:
         {
-            big_decimal dec;
-            buf.get_decimal(dec);
+            big_decimal dec_value;
+            buf.get_decimal(dec_value);
 
-            // TODO: IGNITE-19205 Implement proper parameter data writing.
-            //writer.write(dec);
+            protocol::claim_type_and_scale(builder, ignite_type::DECIMAL, dec_value.get_scale());
+            builder.claim_number(dec_value);
+            break;
+        }
 
+        default:
+            break;
+    }
+}
+
+void parameter::append(binary_tuple_builder& builder, int offset, SQLULEN idx) const
+{
+    if (m_buffer.get_input_size() == SQL_NULL_DATA) {
+        builder.append_null(); // Type.
+        builder.append_null(); // Scale.
+        builder.append_null(); // Value.
+        return;
+    }
+
+    // Buffer to use to get data.
+    application_data_buffer buf(m_buffer);
+    buf.set_byte_offset(offset);
+    buf.set_element_offset(idx);
+
+    auto stored_data_len = static_cast<SQLLEN>(m_stored_data.size());
+
+    if (m_buffer.is_data_at_exec())
+    {
+        buf = application_data_buffer(m_buffer.get_type(),
+            const_cast<std::byte*>(&m_stored_data[0]), stored_data_len, &stored_data_len);
+    }
+
+    switch (m_sql_type)
+    {
+        case SQL_CHAR:
+        case SQL_VARCHAR:
+        case SQL_LONGVARCHAR:
+        {
+            protocol::append_type_and_scale(builder, ignite_type::STRING);
+            builder.append_varlen(buf.get_string(m_column_size));
+            break;
+        }
+
+        case SQL_TINYINT:
+        {
+            protocol::append_type_and_scale(builder, ignite_type::BOOLEAN);
+            builder.append_int8(buf.get_int8());
+            break;
+        }
+
+        case SQL_SMALLINT:
+        {
+            protocol::append_type_and_scale(builder, ignite_type::INT16);
+            builder.append_int16(buf.get_int16());
+            break;
+        }
+
+        case SQL_INTEGER:
+        {
+            protocol::append_type_and_scale(builder, ignite_type::INT32);
+            builder.append_int32(buf.get_int32());
+            break;
+        }
+
+        case SQL_BIGINT:
+        {
+            protocol::append_type_and_scale(builder, ignite_type::INT64);
+            builder.append_int64(buf.get_int64());
+            break;
+        }
+
+        case SQL_FLOAT:
+        {
+            protocol::append_type_and_scale(builder, ignite_type::FLOAT);
+            builder.append_float(buf.get_float());
+            break;
+        }
+
+        case SQL_DOUBLE:
+        {
+            protocol::append_type_and_scale(builder, ignite_type::DOUBLE);
+            builder.append_double(buf.get_double());
+            break;
+        }
+
+        case SQL_BIT:
+        {
+            protocol::append_type_and_scale(builder, ignite_type::INT8);
+            builder.append_bool(buf.get_int8() != 0);
+            break;
+        }
+
+        case SQL_TYPE_DATE:
+        case SQL_DATE:
+        {
+            protocol::append_type_and_scale(builder, ignite_type::DATE);
+            builder.append_date(buf.get_date());
+            break;
+        }
+
+        case SQL_TYPE_TIMESTAMP:
+        case SQL_TIMESTAMP:
+        {
+            protocol::append_type_and_scale(builder, ignite_type::TIMESTAMP);
+            builder.append_timestamp(buf.get_timestamp());
+            break;
+        }
+
+        case SQL_TYPE_TIME:
+        case SQL_TIME:
+        {
+            protocol::append_type_and_scale(builder, ignite_type::TIME);
+            builder.append_time(buf.get_time());
+            break;
+        }
+
+        case SQL_BINARY:
+        case SQL_VARBINARY:
+        case SQL_LONGVARBINARY:
+        {
+            protocol::append_type_and_scale(builder, ignite_type::BYTE_ARRAY);
+
+            const application_data_buffer& const_buf = buf;
+            const SQLLEN* res_len_ptr = const_buf.get_result_len();
+            if (!res_len_ptr)
+                break;
+
+            auto param_len = static_cast<std::size_t>(*res_len_ptr);
+            builder.append_varlen({const_buf.get_data(), param_len});
+            break;
+        }
+
+        case SQL_GUID:
+        {
+            protocol::append_type_and_scale(builder, ignite_type::UUID);
+            builder.append_uuid(buf.get_uuid());
+
+            break;
+        }
+
+        case SQL_DECIMAL:
+        {
+            big_decimal dec_value;
+            buf.get_decimal(dec_value);
+
+            protocol::append_type_and_scale(builder, ignite_type::DECIMAL, dec_value.get_scale());
+            builder.append_number(dec_value);
             break;
         }
 
@@ -210,16 +364,16 @@ void parameter::put_data(void* data, SQLLEN len)
         if (s_len <= 0)
             return;
 
-        size_t beginPos = m_stored_data.size();
+        size_t begin_pos = m_stored_data.size();
         m_stored_data.resize(m_stored_data.size() + static_cast<size_t>(s_len));
-        memcpy(&m_stored_data[beginPos], data, static_cast<size_t>(s_len));
+        memcpy(&m_stored_data[begin_pos], data, static_cast<size_t>(s_len));
 
         return;
     }
 
-    size_t dataSize = m_buffer.get_data_at_exec_size();
-    m_stored_data.resize(dataSize);
-    memcpy(&m_stored_data[0], data, dataSize);
+    size_t data_size = m_buffer.get_data_at_exec_size();
+    m_stored_data.resize(data_size);
+    memcpy(&m_stored_data[0], data, data_size);
 }
 
 } // namespace ignite

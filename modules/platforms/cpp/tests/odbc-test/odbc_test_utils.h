@@ -98,16 +98,6 @@ constexpr size_t ODBC_BUFFER_SIZE = 1024;
 }
 
 /**
- * Convert string to SQLCHAR vector.
- *
- * @param str String.
- * @return SQLCHAR vector.
- */
-[[nodiscard]] inline std::vector<SQLCHAR> make_odbc_string(std::string_view str) {
-    return {str.begin(), str.end()};
-}
-
-/**
   * Prepare handles for connection.
   *
   * @param env Environment handle.
@@ -140,7 +130,7 @@ inline void odbc_connect(std::string_view connect_str, SQLHENV &env, SQLHDBC &co
     prepare_environment(env, conn);
 
     // Connect string
-    auto connect_str0 = make_odbc_string(connect_str);
+    auto connect_str0 = to_sqlchar(connect_str);
 
     SQLCHAR out_str[ODBC_BUFFER_SIZE];
     SQLSMALLINT out_str_len;
