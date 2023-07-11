@@ -849,7 +849,7 @@ TEST_F(application_data_buffer_test, get_time_from_string)
 
 TEST_F(application_data_buffer_test, get_timestamp_from_string)
 {
-    char buf[] = "2018-11-01 17:45:59";
+    char buf[] = "2018-11-01 13:45:59";
     SQLLEN res_len = sizeof(buf);
 
     application_data_buffer app_buf(odbc_native_type::AI_CHAR, &buf[0], sizeof(buf), &res_len);
