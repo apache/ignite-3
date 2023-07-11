@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema;
 
 import static org.apache.ignite.internal.util.TemporalTypeUtils.normalizeNanos;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -27,8 +28,13 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Year;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 
 /**
@@ -141,6 +147,21 @@ public final class SchemaTestUtils {
             default:
                 throw new IllegalArgumentException("Unsupported type: " + type);
         }
+    }
+
+    /**
+     * Ensure specified columns contains all type spec, presented in NativeTypeSpec.
+     *
+     * @param allColumns Columns to test.
+     */
+    public static void ensureAllTypesChecked(Stream<Column> allColumns) {
+        Set<NativeTypeSpec> testedTypes = allColumns.map(c -> c.type().spec())
+                .collect(Collectors.toSet());
+
+        Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
+                .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
+
+        assertEquals(Collections.emptySet(), missedTypes);
     }
 
     /**

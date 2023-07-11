@@ -44,7 +44,7 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.RecordMarshallerTest;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -133,7 +133,7 @@ public class InteropOperationsTest {
      */
     @Test
     public void ensureAllTypesTested() {
-        RecordMarshallerTest.ensureAllTypesChecked(Arrays.stream(SCHEMA.valueColumns().columns()));
+        SchemaTestUtils.ensureAllTypesChecked(Arrays.stream(SCHEMA.valueColumns().columns()));
     }
 
     @AfterEach
