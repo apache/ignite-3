@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -977,7 +976,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Checks that the table created in cluster of 2 nodes, is recovered on a node after restart of this node.
      */
     @Test
-    public void testRecoveryOnOneNode() throws InterruptedException {
+    public void testRecoveryOnOneNode() {
         IgniteImpl ignite = startNode(0);
 
         IgniteImpl node = startNode(1);
@@ -1060,7 +1059,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     @Test
     @Disabled(value = "https://issues.apache.org/jira/browse/IGNITE-18919")
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
-    public void testMetastorageStop() throws InterruptedException {
+    public void testMetastorageStop() {
         int cfgGap = 4;
 
         List<IgniteImpl> nodes = startNodes(3);
@@ -1194,7 +1193,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * @param name Table name.
      * @param replicas Replica factor.
      */
-    private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas) throws InterruptedException {
+    private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas) {
         createTableWithData(nodes, name, replicas, 2);
     }
 
