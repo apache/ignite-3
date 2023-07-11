@@ -32,7 +32,6 @@ testing {
                 implementation libs.junit5.params
                 implementation libs.mockito.core
                 implementation libs.mockito.junit
-                implementation libs.mockito.inline
                 implementation libs.hamcrest.core
                 implementation libs.hamcrest.optional
                 implementation libs.hamcrest.path

@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -118,7 +119,7 @@ public class RepeatedFinishClientTransactionTest {
 
     @Test
     public void testRepeatedCommitRollbackAfterCommitWithException() throws Exception {
-        TestClientChannel clientChannel = mock(TestClientChannel.class);
+        TestClientChannel clientChannel = mock(TestClientChannel.class, withSettings().stubOnly());
 
         when(clientChannel.serviceAsync(anyInt(), any(), any())).thenReturn(failedFuture(new Exception("Expected exception.")));
 
@@ -144,7 +145,7 @@ public class RepeatedFinishClientTransactionTest {
 
     @Test
     public void testRepeatedCommitRollbackAfterRollbackWithException() throws Exception {
-        TestClientChannel clientChannel = mock(TestClientChannel.class);
+        TestClientChannel clientChannel = mock(TestClientChannel.class, withSettings().stubOnly());
 
         when(clientChannel.serviceAsync(anyInt(), any(), any())).thenReturn(failedFuture(new Exception("Expected exception.")));
 
