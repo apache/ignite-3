@@ -196,7 +196,7 @@ public class ColocationHashCalculationTest {
         return marshaller.marshal(t);
     }
 
-    private int colocationHash(Row r) {
+    private static int colocationHash(Row r) {
         HashCalculator hashCalc = new HashCalculator();
         for (Column c : r.schema().colocationColumns()) {
             var scale = c.type() instanceof DecimalNativeType ? ((DecimalNativeType) c.type()).scale() : 0;
