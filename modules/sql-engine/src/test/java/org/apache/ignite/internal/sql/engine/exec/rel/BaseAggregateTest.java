@@ -45,21 +45,19 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.api.Test;
 
 /**
  * BaseAggregateTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public abstract class BaseAggregateTest extends AbstractExecutionTest {
+
     /**
-     * Count.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Count. Aggregate function.
      */
-    @ParameterizedTest
-    @EnumSource
-    public void count(TestAggregateType testAgg) {
+    @Test
+    public void count() {
         ExecutionContext<Object[]> ctx = executionContext(true);
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
@@ -105,12 +103,10 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     }
 
     /**
-     * Min.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Min aggregate function.
      */
-    @ParameterizedTest
-    @EnumSource
-    public void min(TestAggregateType testAgg) {
+    @Test
+    public void min() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
@@ -155,12 +151,10 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     }
 
     /**
-     * Max.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Max aggregate function.
      */
-    @ParameterizedTest
-    @EnumSource
-    public void max(TestAggregateType testAgg) {
+    @Test
+    public void max() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
@@ -205,12 +199,10 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     }
 
     /**
-     * Avg.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * AVG aggregate function.
      */
-    @ParameterizedTest
-    @EnumSource
-    public void avg(TestAggregateType testAgg) {
+    @Test
+    public void avg() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
@@ -255,12 +247,10 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     }
 
     /**
-     * Single.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * SINGLE_VALUE aggregate function.
      */
-    @ParameterizedTest
-    @EnumSource
-    public void single(TestAggregateType testAgg) {
+    @Test
+    public void single() {
         Object[] res = {null, null};
 
         List<Object[]> arr = Arrays.asList(
@@ -268,7 +258,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 row(1, res[1])
         );
 
-        singleAggr(testAgg, arr, res, false);
+        singleAggr(arr, res, false);
 
         res = new Object[]{1, 2};
 
@@ -277,7 +267,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 row(1, res[1])
         );
 
-        singleAggr(testAgg, arr, res, false);
+        singleAggr(arr, res, false);
 
         arr = Arrays.asList(
                 row(0, res[0]),
@@ -286,7 +276,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 row(1, res[1])
         );
 
-        singleAggr(testAgg, arr, res, true);
+        singleAggr(arr, res, true);
 
         arr = Arrays.asList(
                 row(0, null),
@@ -295,19 +285,18 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 row(1, null)
         );
 
-        singleAggr(testAgg, arr, res, true);
+        singleAggr(arr, res, true);
     }
 
     /**
      * Checks single aggregate and appropriate {@link Accumulators.SingleVal} implementation.
      *
      * @param scanInput Input data.
-     * @param output    Expectation result.
-     * @param mustFail  {@code true} If expression must throw exception.
+     * @param output Expectation result.
+     * @param mustFail {@code true} If expression must throw exception.
      **/
     @SuppressWarnings("ThrowableNotThrown")
     public void singleAggr(
-            TestAggregateType testAgg,
             List<Object[]> scanInput,
             Object[] output,
             boolean mustFail
@@ -359,12 +348,11 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     }
 
     /**
-     * Distinct sum.
+     * SUM DISTINCT aggregate function.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    @ParameterizedTest
-    @EnumSource
-    public void distinctSum(TestAggregateType testAgg) {
+    @Test
+    public void distinctSum() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
@@ -415,11 +403,9 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
     /**
      * SumOnDifferentRowsCount.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    @ParameterizedTest
-    @EnumSource
-    public void sumOnDifferentRowsCount(TestAggregateType testAgg) {
+    @Test
+    public void sumOnDifferentRowsCount() {
         int bufSize = Commons.IN_BUFFER_SIZE;
 
         int[] grpsCount = {1, bufSize / 2, bufSize, bufSize + 1, bufSize * 4};
@@ -483,9 +469,11 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         }
     }
 
-    @ParameterizedTest
-    @EnumSource
-    public void sumIntegerOverflow(TestAggregateType testAgg) {
+    /**
+     * SUM aggregate. Integer overflow to long value.
+     */
+    @Test
+    public void sumIntegerOverflow() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
@@ -527,9 +515,11 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         assertFalse(root.hasNext());
     }
 
-    @ParameterizedTest
-    @EnumSource
-    public void sumLongOverflow(TestAggregateType testAgg) {
+    /**
+     * SUM aggregate. Long overflow to BigDecimal value.
+     */
+    @Test
+    public void sumLongOverflow() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, long.class);
@@ -573,9 +563,8 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     /**
      * Test verifies that after rewind all groups are properly initialized.
      */
-    @ParameterizedTest
-    @EnumSource
-    public void countOfEmptyWithRewind(TestAggregateType testAgg) {
+    @Test
+    public void countOfEmptyWithRewind() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
@@ -638,9 +627,5 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
             RelDataType rowType
     ) {
         return ctx.expressionFactory().accumulatorsFactory(asList(call), rowType);
-    }
-
-    enum TestAggregateType {
-        COLOCATED,
     }
 }
