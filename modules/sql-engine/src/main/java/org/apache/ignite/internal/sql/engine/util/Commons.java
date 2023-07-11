@@ -711,7 +711,6 @@ public final class Commons {
      */
     public static int nativeTypeScale(NativeType type) {
         switch (type.spec()) {
-            case BOOLEAN:
             case INT8:
             case INT16:
             case INT32:
@@ -719,6 +718,7 @@ public final class Commons {
             case NUMBER:
                 return 0;
 
+            case BOOLEAN:
             case FLOAT:
             case DOUBLE:
             case UUID:
