@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesDataNodesPrefix;
@@ -33,8 +34,11 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -54,6 +58,7 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -70,9 +75,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     private static final String ZONE_NAME_2 = "zone2";
 
+    private static final String ZONE_NAME_3 = "zone3";
+
     private static final int ZONE_ID_1 = 1;
 
     private static final int ZONE_ID_2 = 2;
+
+    private static final int ZONE_ID_3 = 3;
 
     private static final LogicalNode NODE_0 =
             new LogicalNode("node_id_0", "node_name_0", new NetworkAddress("localhost", 123));
@@ -82,6 +91,9 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     private static final LogicalNode NODE_2 =
             new LogicalNode("node_id_2", "node_name_2", new NetworkAddress("localhost", 123));
+
+    private static final LogicalNode NODE_3 =
+            new LogicalNode("node_id_3", "node_name_3", new NetworkAddress("localhost", 123));
 
     /**
      * Contains futures that is completed when the topology watch listener receive the event with expected logical topology.
@@ -851,6 +863,204 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertThat(dataNodesFut10, willBe(twoNodesNames1));
     }
 
+    @Test
+    void deadlocks() throws Exception {
+        // Create zones with immediate timers.
+        distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
+                        new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
+                                .build()
+                )
+                .get(3, SECONDS);
+
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
+                        .build()
+                )
+                .get(3, SECONDS);
+
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_2)
+                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
+                        .build()
+                )
+                .get(3, SECONDS);
+
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_3)
+                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
+                        .build()
+                )
+                .get(3, SECONDS);
+
+        Set<LogicalNode> oneNode = Set.of(NODE_0);
+        Set<String> oneNodeName = Set.of(NODE_0.name());
+
+        Set<LogicalNode> twoNodes = Set.of(NODE_0, NODE_1);
+        Set<String> twoNodesNames = Set.of(NODE_0.name(), NODE_1.name());
+
+        Set<LogicalNode> threeNodes = Set.of(NODE_0, NODE_1, NODE_2);
+        Set<String> threeNodesNames = Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name());
+
+        Set<LogicalNode> fourNodes = Set.of(NODE_0, NODE_1, NODE_2, NODE_3);
+        Set<String> fourNodesNames = Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name(), NODE_3.name());
+
+        // Change logical topology. NODE_0 is added.
+        long topologyRevision0 = putNodeInLogicalTopologyAndGetRevision(NODE_0, oneNode);
+
+//        Thread.sleep(300);
+//        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision0, 3000));
+        // Wait when dataNodes will be contain NODE_0.
+        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, oneNodeName, 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, oneNodeName, 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_2, oneNodeName, 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_3, oneNodeName, 3000);
+
+        distributionZoneManager.alterZone(ZONE_NAME_1,
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
+                                .build()
+                )
+                .get(3, SECONDS);
+
+        distributionZoneManager.alterZone(ZONE_NAME_2,
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_2)
+                                .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
+                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
+                                .build()
+                )
+                .get(3, SECONDS);
+
+        distributionZoneManager.alterZone(ZONE_NAME_3,
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_3)
+                                .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
+                                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
+                                .build()
+                )
+                .get(3, SECONDS);
+
+        // NODE_1
+
+        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision0, DEFAULT_ZONE_ID);
+        assertThat(dataNodesFut1, willBe(oneNodeName));
+        CompletableFuture<Set<String>> dataNodesFut2 = distributionZoneManager.dataNodes(topologyRevision0, ZONE_ID_1);
+        assertThat(dataNodesFut2, willBe(oneNodeName));
+        CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(topologyRevision0, ZONE_ID_2);
+        assertThat(dataNodesFut3, willBe(oneNodeName));
+        CompletableFuture<Set<String>> dataNodesFut4 = distributionZoneManager.dataNodes(topologyRevision0, ZONE_ID_3);
+        assertThat(dataNodesFut4, willBe(oneNodeName));
+
+//        Thread.sleep(5000);
+
+        CompletableFuture<Void> dummyScaleUpFut = new CompletableFuture<>();
+
+        Runnable dummyScaleUpRun = () -> {
+            try {
+                dummyScaleUpFut.get(5, SECONDS);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        };
+
+        CompletableFuture<Void> dummyScaleDownFut = new CompletableFuture<>();
+
+        Runnable dummyScaleDownRun = () -> {
+            try {
+                dummyScaleDownFut.get(5, SECONDS);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        };
+
+        distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID)
+                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpRun);
+        distributionZoneManager.zonesState().get(ZONE_ID_1)
+                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpRun);
+        distributionZoneManager.zonesState().get(ZONE_ID_2)
+                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpRun);
+        distributionZoneManager.zonesState().get(ZONE_ID_3)
+                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpRun);
+
+        distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID)
+                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownRun);
+        distributionZoneManager.zonesState().get(ZONE_ID_1)
+                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownRun);
+        distributionZoneManager.zonesState().get(ZONE_ID_2)
+                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownRun);
+        distributionZoneManager.zonesState().get(ZONE_ID_3)
+                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownRun);
+
+        // Change logical topology. NODE_1 is added.
+        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes);
+        waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision1, 3000);
+
+        // Change logical topology. NODE_1 is added.
+        long topologyRevision2 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), oneNode);
+        waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision2, 3000);
+
+        // Change logical topology. NODE_1 is added.
+        long topologyRevision3 = putNodeInLogicalTopologyAndGetRevision(NODE_2, Set.of(NODE_0, NODE_2));
+        waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision3, 3000);
+
+        CompletableFuture<Set<String>> dataNodesFut5 = getDataNodesFromListener(DEFAULT_ZONE_ID);
+        assertThat(dataNodesFut5, willBe(Set.of(NODE_0.name(), NODE_2.name())));
+
+        CompletableFuture<Set<String>> dataNodesFut6 = getDataNodesFromListener(ZONE_ID_1);
+        assertThat(dataNodesFut6, willBe(Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name())));
+
+        CompletableFuture<Set<String>> dataNodesFut7 = getDataNodesFromListener(ZONE_ID_2);
+        assertThat(dataNodesFut7, willBe(Set.of(NODE_0.name())));
+
+        CompletableFuture<Set<String>> dataNodesFut8 = getDataNodesFromListener(ZONE_ID_3);
+        assertThat(dataNodesFut8, willBe(Set.of(NODE_0.name())));
+
+        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, oneNodeName, 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, oneNodeName, 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_2, oneNodeName, 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_3, oneNodeName, 3000);
+
+        dummyScaleUpFut.complete(null);
+        dummyScaleDownFut.complete(null);
+
+        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, Set.of(NODE_0.name(), NODE_2.name()), 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name()), 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_2, Set.of(NODE_0.name()), 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_3, Set.of(NODE_0.name()), 3000);
+
+        CompletableFuture<Set<String>> dataNodesFut9 = getDataNodesFromListener(DEFAULT_ZONE_ID);
+        assertThat(dataNodesFut9, willBe(Set.of(NODE_0.name(), NODE_2.name())));
+
+        CompletableFuture<Set<String>> dataNodesFut10 = getDataNodesFromListener(ZONE_ID_1);
+        assertThat(dataNodesFut10, willBe(Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name())));
+
+        CompletableFuture<Set<String>> dataNodesFut11 = getDataNodesFromListener(ZONE_ID_2);
+        assertThat(dataNodesFut11, willBe(Set.of(NODE_0.name())));
+
+        CompletableFuture<Set<String>> dataNodesFut12 = getDataNodesFromListener(ZONE_ID_3);
+        assertThat(dataNodesFut12, willBe(Set.of(NODE_0.name())));
+    }
+
+    private CompletableFuture<Set<String>> getDataNodesFromListener(int zoneId) {
+        CompletableFuture<Set<String>> dataNodesFut = new CompletableFuture<>();
+
+        WatchListener dataNodesSupplier = createMetastorageDataNodeSupplierListener(zoneId, dataNodesFut);
+
+        var dataNodesSupplierTrigger = new ByteArray("dataNodesSupplierTrigger");
+
+        metaStorageManager.registerExactWatch(dataNodesSupplierTrigger, dataNodesSupplier);
+
+        metaStorageManager.put(dataNodesSupplierTrigger, toBytes("foo"));
+
+        assertThat(dataNodesFut, willCompleteSuccessfully());
+
+        metaStorageManager.unregisterWatch(dataNodesSupplier);
+
+        return dataNodesFut;
+    }
+
     /**
      * Puts a given node as a part of the logical topology and return revision of a topology watch listener event.
      *
@@ -871,7 +1081,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         topology.putNode(node);
 
-        return revisionFut.get(3, SECONDS);
+        return revisionFut.get(5, SECONDS);
     }
 
     /**
@@ -1143,6 +1353,12 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent evt) {
 
+//                try {
+//                    Thread.sleep(300);
+//                } catch (InterruptedException e) {
+//                    throw new RuntimeException(e);
+//                }
+
                 Set<NodeWithAttributes> newLogicalTopology = null;
 
                 long revision = 0;
@@ -1159,7 +1375,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
                 Set<String> nodeNames = newLogicalTopology.stream().map(node -> node.nodeName()).collect(toSet());
 
-                System.out.println("MetastorageTopologyListener " + nodeNames);
+                System.out.println("MetastorageTopologyListener test " + nodeNames);
 
                 if (topologyRevisions.containsKey(nodeNames)) {
                     topologyRevisions.remove(nodeNames).complete(revision);
@@ -1218,6 +1434,35 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 }
 
                 return completedFuture(null);
+            }
+
+            @Override
+            public void onError(Throwable e) {
+            }
+        };
+    }
+
+    /**
+     * Creates a data nodes watch listener which completes futures from {@code zoneDataNodesRevisions}
+     * when receives event with expected data nodes.
+     *
+     * @return Watch listener.
+     */
+    private WatchListener createMetastorageDataNodeSupplierListener(int zoneId, CompletableFuture<Set<String>> dataNodesFut) {
+        return new WatchListener() {
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent evt) {
+
+                return distributionZoneManager.dataNodes(evt.revision(), zoneId)
+                        .handle((dataNodes, ex) -> {
+                            if (ex == null) {
+                                dataNodesFut.complete(dataNodes);
+                            } else {
+                                dataNodesFut.completeExceptionally(ex);
+                            }
+
+                            return null;
+                        });
             }
 
             @Override

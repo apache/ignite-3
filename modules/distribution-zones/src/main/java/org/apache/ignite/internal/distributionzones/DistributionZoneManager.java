@@ -75,6 +75,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -670,6 +671,9 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return The future which will be completed with data nodes for the zoneId or with exception.
      */
     public CompletableFuture<Set<String>> dataNodes(long causalityToken, int zoneId) {
+        LOG.info("+++++++ dataNodes " + zoneId);
+
+
         if (causalityToken < 1) {
             return failedFuture(new IllegalArgumentException("Invalid causalityToken"));
         }
@@ -711,32 +715,128 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         if (!isZoneRemoved) {
+            ZoneState zoneState = zonesState.get(zoneId);
+
+            TreeMap<Long, Augmentation> subAugmentationMap = new TreeMap<>(zoneState.topologyAugmentationMap()
+                    .subMap(0L, false, causalityToken, true));
+
             // Wait if needed when the data nodes value will be updated in the meta storage according to calculated lastScaleUpRevision, lastScaleDownRevision and causalityToken.
-            CompletableFuture<Long> scaleUpDataNodesRevisionFut = waitTriggerKey(lastScaleUpRevision, zoneId, zoneScaleUpChangeTriggerKey(zoneId));
+            long scaleUpDataNodesRevision = waitTriggerKey(lastScaleUpRevision, zoneId, zoneScaleUpChangeTriggerKey(zoneId));
 
-            CompletableFuture<Long> scaleDownDataNodesRevisionFut = waitTriggerKey(lastScaleDownRevision, zoneId, zoneScaleDownChangeTriggerKey(zoneId));
+            long scaleDownDataNodesRevision = waitTriggerKey(lastScaleDownRevision, zoneId, zoneScaleDownChangeTriggerKey(zoneId));
 
-            return scaleUpDataNodesRevisionFut.thenCompose(
-                    scaleUpDataNodesRevision -> scaleDownDataNodesRevisionFut.thenCompose(scaleDownDataNodesRevision -> {
-                        // Use the highest revision from revision.
-                        long dataNodesRevision = max(causalityToken, max(scaleUpDataNodesRevision, scaleDownDataNodesRevision));
+            long dataNodesRevision = max(causalityToken, max(scaleUpDataNodesRevision, scaleDownDataNodesRevision));
 
-                        // Get the latest data nodes value for a calculated revision.
-                        Entry dataNodesEntry = metaStorageManager.get(zoneDataNodesKey(zoneId), dataNodesRevision).join();
+            Entry dataNodesEntry = metaStorageManager.get(zoneDataNodesKey(zoneId), dataNodesRevision).join();
+            Entry scaleUpChangeTriggerKey = metaStorageManager.get(zoneScaleUpChangeTriggerKey(zoneId), dataNodesRevision).join();
+            Entry scaleDownChangeTriggerKey = metaStorageManager.get(zoneScaleDownChangeTriggerKey(zoneId), dataNodesRevision).join();
 
-                        Set<Node> dataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesEntry.value()));
+            Set<Node> baseDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesEntry.value()));
+            long scaleUpTriggerRevision = bytesToLong(scaleUpChangeTriggerKey.value());
+            long scaleDownTriggerRevision = bytesToLong(scaleDownChangeTriggerKey.value());
 
-                        //Get a filter for the calculated revision.
-                        String filter = zonesVersionedCfg.get(zoneId).floorEntry(dataNodesRevision).getValue().getFilter();
+            long finalLastScaleUpRevision = lastScaleUpRevision;
 
-                        Set<String> dataNodesNames = filterDataNodes(dataNodes, filter, nodesAttributes);
+            long finalLastScaleDownRevision = lastScaleDownRevision;
 
-                        return completedFuture(dataNodesNames);
-                    }));
+            Set<Node> finalDataNodes = new HashSet<>(baseDataNodes);
+
+            subAugmentationMap.forEach((rev, augmentation) -> {
+                if (isScaleUpImmediate && augmentation.addition && scaleUpTriggerRevision < rev && scaleUpTriggerRevision <= finalLastScaleUpRevision) {
+                    for (Node node : augmentation.nodes) {
+                        LOG.info("+++++++ dataNodes finalDataNodes.add " + node);
+                        finalDataNodes.add(node);
+                    }
+                } else {
+                    if (isScaleDownImmediate && !augmentation.addition && scaleDownTriggerRevision < rev && scaleDownTriggerRevision <= finalLastScaleDownRevision) {
+                        for (Node node : augmentation.nodes) {
+                            LOG.info("+++++++ dataNodes finalDataNodes.remove " + node);
+                            finalDataNodes.remove(node);
+                        }
+                    }
+                }
+            });
+
+            //Get a filter for the calculated revision.
+            String filter = zoneLastCfg.getFilter();
+
+            Set<String> dataNodesNames = filterDataNodes(finalDataNodes, filter, nodesAttributes);
+
+            return completedFuture(dataNodesNames);
         } else {
             return failedFuture(new DistributionZoneNotFoundException(zoneId));
         }
     }
+
+    /**
+     * Asynchronously gets data nodes of the zone using causality token.
+     *
+     * <p>The returned future can be completed with {@link DistributionZoneNotFoundException} if the zone with the provided {@code zoneId}
+     * does not exist.
+     *
+     * @param causalityToken Causality token.
+     * @param zoneId Zone id.
+     * @return The future which will be completed with data nodes for the zoneId or with exception.
+     */
+//    public CompletableFuture<Set<String>> dataNodes2(long causalityToken, int zoneId) {
+//        if (causalityToken < 1) {
+//            return failedFuture(new IllegalArgumentException("Invalid causalityToken"));
+//        }
+//
+//        if (zoneId < DEFAULT_ZONE_ID) {
+//            return failedFuture(new IllegalArgumentException("Invalid zoneId"));
+//        }
+//
+//        ZoneState zoneState = zonesState.get(zoneId);
+//
+//        Map<Long, Augmentation> subMap = new HashMap<>(zoneState.topologyAugmentationMap()
+//                .subMap(0L, false, causalityToken, true));
+//
+//        Entry dataNodesEntry = metaStorageManager.get(zoneDataNodesKey(zoneId), causalityToken).join();
+//        Entry scaleUpChangeTriggerKey = metaStorageManager.get(zoneScaleUpChangeTriggerKey(zoneId), causalityToken).join();
+//        Entry scaleDownChangeTriggerKey = metaStorageManager.get(zoneScaleDownChangeTriggerKey(zoneId), causalityToken).join();
+//
+//        Set<Node> baseDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesEntry.value()));
+//        long scaleUpTriggerRevision = bytesToLong(scaleUpChangeTriggerKey.value());
+//        long scaleDownTriggerRevision = bytesToLong(scaleDownChangeTriggerKey.value());
+//
+//        LOG.info("+++++++ dataNodes baseDataNodes " + baseDataNodes);
+//
+//        Set<Node> finalDataNodes = new HashSet<>(baseDataNodes);
+//
+//        ZoneConfiguration zoneCfg = zonesVersionedCfg.get(zoneId).floorEntry(causalityToken).getValue();
+//
+//        boolean isScaleUpImmediate = zoneCfg.getDataNodesAutoAdjustScaleUp() == IMMEDIATE_TIMER_VALUE;;
+//        boolean isScaleDownImmediate = zoneCfg.getDataNodesAutoAdjustScaleDown() == IMMEDIATE_TIMER_VALUE;
+//
+//        for (long i = Math.min(scaleUpTriggerRevision, scaleDownTriggerRevision); i <= causalityToken; i++) {
+//            Augmentation augmentation = subMap.get(i);
+//
+//            if (augmentation != null) {
+//                if (isScaleUpImmediate && augmentation.addition && i > scaleUpTriggerRevision) {
+//                    for (Node node : augmentation.nodes) {
+//                        LOG.info("+++++++ dataNodes finalDataNodes.add " + node);
+//                        finalDataNodes.add(node);
+//                    }
+//                }
+//
+//                if (isScaleDownImmediate && !augmentation.addition && i > scaleDownTriggerRevision) {
+//                    for (Node node : augmentation.nodes) {
+//                        LOG.info("+++++++ dataNodes finalDataNodes.remove " + node);
+//                        finalDataNodes.remove(node);
+//                    }
+//                }
+//            }
+//        }
+//
+//        String filter = zoneCfg.getFilter();
+//
+//        Set<String> dataNodesNames = filterDataNodes(finalDataNodes, filter, nodesAttributes);
+//
+//        LOG.info("+++++++ dataNodes result " + dataNodesNames);
+//
+//        return completedFuture(dataNodesNames);
+//    }
 
     /**
      * These revisions correspond to the last configuration and topology events after which need to wait for the data nodes recalculation.
@@ -921,50 +1021,8 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param triggerKey Trigger key.
      * @return Future with the revision.
      */
-    private CompletableFuture<Long> waitTriggerKey(Long scaleRevision, int zoneId, ByteArray triggerKey) {
+    private long waitTriggerKey(Long scaleRevision, int zoneId, ByteArray triggerKey) {
         System.out.println("waitTriggerKey " + scaleRevision + " " + zoneId);
-
-        CompletableFuture<Long> watchEntryFut = new CompletableFuture<>();
-
-        // This watch listener listen to events with zoneScaleUpChangeTriggerKey/zoneScaleDownChangeTriggerKey and save the revision
-        // of the first event with the value equals or greater than scaleRevision.
-        WatchListener listener = new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                System.out.println("waitTriggerKey watchListener");
-
-                // scaleRevision is null if the zone was removed.
-                if (scaleRevision == null) {
-                    byte[] value = event.entryEvent().newEntry().value();
-
-                    if (value == null && !watchEntryFut.isDone()) {
-                        watchEntryFut.complete(event.revision());
-                    }
-                } else {
-                    long eventValue = bytesToLong(event.entryEvent().newEntry().value());
-
-                    if (eventValue >= scaleRevision && !watchEntryFut.isDone()) {
-                        watchEntryFut.complete(event.revision());
-                    }
-                }
-
-                return completedFuture(null);
-            }
-
-            @Override
-            public void onError(Throwable e) {
-            }
-        };
-
-        // Unregister watch listener if it received entry with expected value.
-        watchEntryFut.handle((ignored, ex) -> {
-                    metaStorageManager.unregisterWatch(listener);
-
-                    return null;
-                }
-        );
-
-        metaStorageManager.registerExactWatch(triggerKey, listener);
 
         System.out.println("waitTriggerKey after registerExactWatch");
 
@@ -1002,13 +1060,7 @@ public class DistributionZoneManager implements IgniteComponent {
             }
         }
 
-        if (revision == 0) {
-            return watchEntryFut;
-        } else {
-            metaStorageManager.unregisterWatch(listener);
-
-            return completedFuture(revision);
-        }
+        return revision;
     }
 
     /**
@@ -1843,6 +1895,12 @@ public class DistributionZoneManager implements IgniteComponent {
                     zoneScaleDownChangeTriggerKey(zoneId)
             );
 
+//            try {
+//                Thread.sleep(2500);
+//            } catch (InterruptedException e) {
+//                throw new RuntimeException(e);
+//            }
+
             return metaStorageManager.getAll(keysToGetFromMs).thenCompose(values -> inBusyLock(busyLock, () -> {
                 if (values.containsValue(null)) {
                     // Zone was deleted
@@ -1909,6 +1967,8 @@ public class DistributionZoneManager implements IgniteComponent {
                                         revision,
                                         deltaToAdd
                                 );
+
+                                System.out.println("zoneState.cleanUp " + scaleDownTriggerRevision + " " + revision);
                                 zoneState.cleanUp(Math.min(scaleDownTriggerRevision, revision));
                             } else {
                                 LOG.debug("Updating data nodes for a zone after scale up has not succeeded "
@@ -1959,6 +2019,12 @@ public class DistributionZoneManager implements IgniteComponent {
                     zoneScaleUpChangeTriggerKey(zoneId),
                     zoneScaleDownChangeTriggerKey(zoneId)
             );
+
+//            try {
+//                Thread.sleep(3000);
+//            } catch (InterruptedException e) {
+//                throw new RuntimeException(e);
+//            }
 
             return metaStorageManager.getAll(keysToGetFromMs).thenCompose(values -> inBusyLock(busyLock, () -> {
                 if (values.containsValue(null)) {
