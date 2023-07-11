@@ -598,8 +598,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 .get(3, SECONDS);
 
         // Create logical topology with NODE_0.
-        topology.putNode(NODE_0);
-
         Set<LogicalNode> oneNode = Set.of(NODE_0);
         Set<String> oneNodeName = Set.of(NODE_0.name());
 

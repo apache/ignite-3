@@ -56,7 +56,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
@@ -713,10 +712,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
         if (!isZoneRemoved) {
             // Wait if needed when the data nodes value will be updated in the meta storage according to calculated lastScaleUpRevision, lastScaleDownRevision and causalityToken.
-            CompletableFuture<Long> scaleUpDataNodesRevisionFut = waitTriggerKey(lastScaleUpRevision, zoneId, zoneScaleUpChangeTriggerKey(zoneId), isZoneRemoved);
+            CompletableFuture<Long> scaleUpDataNodesRevisionFut = waitTriggerKey(lastScaleUpRevision, zoneId, zoneScaleUpChangeTriggerKey(zoneId));
 
-            CompletableFuture<Long> scaleDownDataNodesRevisionFut = waitTriggerKey(lastScaleDownRevision, zoneId, zoneScaleDownChangeTriggerKey(zoneId),
-                    isZoneRemoved);
+            CompletableFuture<Long> scaleDownDataNodesRevisionFut = waitTriggerKey(lastScaleDownRevision, zoneId, zoneScaleDownChangeTriggerKey(zoneId));
 
             return scaleUpDataNodesRevisionFut.thenCompose(
                     scaleUpDataNodesRevision -> scaleDownDataNodesRevisionFut.thenCompose(scaleDownDataNodesRevision -> {
@@ -912,27 +910,40 @@ public class DistributionZoneManager implements IgniteComponent {
         return new IgniteBiTuple<>(scaleUpTopologyRevision, scaleDownTopologyRevision);
     }
 
-    private CompletableFuture<Long> waitTriggerKey(long scaleRevision, int zoneId, ByteArray triggerKey, boolean isRemoved) {
+    /**
+     * Wait when a value of zoneScaleUpChangeTriggerKey/zoneScaleDownChangeTriggerKey will be equals or greater than scaleRevision.
+     * First it iterates over the entries in the local metastorage. If there is an entry with a value equal to or greater than
+     * the scaleRevision, then it returns the revision of that entry. Шf there is no such entry en it waits this entry by
+     * the watch listener.
+     *
+     * @param scaleRevision Scale revision.
+     * @param zoneId Zone id.
+     * @param triggerKey Trigger key.
+     * @return Future with the revision.
+     */
+    private CompletableFuture<Long> waitTriggerKey(Long scaleRevision, int zoneId, ByteArray triggerKey) {
         System.out.println("waitTriggerKey " + scaleRevision + " " + zoneId);
 
         CompletableFuture<Long> watchEntryFut = new CompletableFuture<>();
 
-        // Register watch listener to handle new events.
+        // This watch listener listen to events with zoneScaleUpChangeTriggerKey/zoneScaleDownChangeTriggerKey and save the revision
+        // of the first event with the value equals or greater than scaleRevision.
         WatchListener listener = new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 System.out.println("waitTriggerKey watchListener");
 
-                if (!isRemoved) {
-                    long eventValue = bytesToLong(event.entryEvent().newEntry().value());
-
-                    if (eventValue >= scaleRevision && !watchEntryFut.isDone()) {
-                        watchEntryFut.complete(event.revision());
-                    }
-                } else {
+                // scaleRevision is null if the zone was removed.
+                if (scaleRevision == null) {
                     byte[] value = event.entryEvent().newEntry().value();
 
                     if (value == null && !watchEntryFut.isDone()) {
+                        watchEntryFut.complete(event.revision());
+                    }
+                } else {
+                    long eventValue = bytesToLong(event.entryEvent().newEntry().value());
+
+                    if (eventValue >= scaleRevision && !watchEntryFut.isDone()) {
                         watchEntryFut.complete(event.revision());
                     }
                 }
@@ -946,12 +957,19 @@ public class DistributionZoneManager implements IgniteComponent {
         };
 
         // Unregister watch listener if it received entry with expected value.
-        watchEntryFut.thenRun(() -> metaStorageManager.unregisterWatch(listener));
+        watchEntryFut.handle((ignored, ex) -> {
+                    metaStorageManager.unregisterWatch(listener);
+
+                    return null;
+                }
+        );
 
         metaStorageManager.registerExactWatch(triggerKey, listener);
 
         System.out.println("waitTriggerKey after registerExactWatch");
 
+        // Must first register the watch listener to listen to new entries. Then read entries from scaleRevision to appliedRevision() + 2.
+        // In this case, we are guaranteed to get all entries from the start revision.
         long revAfterRegister = metaStorageManager.appliedRevision() + 2;
 
         System.out.println("waitTriggerKey revAfterRegister " + revAfterRegister);
@@ -961,37 +979,30 @@ public class DistributionZoneManager implements IgniteComponent {
         // Gets old entries from storage to check if the expected value was handled before watch listener was registered.
         List<Entry> entryList = metaStorageManager.getLocally(triggerKey.bytes(), scaleRevision, upperRevision);
 
-        long revision = Long.MAX_VALUE;
+        long revision = 0;
 
         for (Entry entry : entryList) {
-            long entryValue = 0;
-
             System.out.println("waitTriggerKey iteration revision " + entry.value());
 
-            if (!isRemoved) {
-                try {
-                    // An entry when the zone was removed.
-                    if (entry.value() == null) {
-                        assert revision < Long.MAX_VALUE;
-
-                        break;
-                    }
-                    entryValue = bytesToLong(entry.value());
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-
-                if (entryValue >= scaleRevision && entry.revision() < revision) {
+            // scaleRevision is null if the zone was removed.
+            if (scaleRevision == null) {
+                if (entry.value() == null) {
                     revision = entry.revision();
+
+                    break;
                 }
             } else {
-                if (entry.value() == null && entry.revision() < revision) {
+                long entryValue = bytesToLong(entry.value());
+
+                if (entryValue >= scaleRevision) {
                     revision = entry.revision();
+
+                    break;
                 }
             }
         }
 
-        if (revision == Long.MAX_VALUE) {
+        if (revision == 0) {
             return watchEntryFut;
         } else {
             metaStorageManager.unregisterWatch(listener);
