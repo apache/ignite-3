@@ -19,6 +19,7 @@
 
 #include "ignite/odbc/app/parameter_set.h"
 #include "ignite/odbc/query/query.h"
+#include "ignite/odbc/query/result_page.h"
 #include "ignite/odbc/sql_connection.h"
 
 namespace ignite
@@ -199,8 +200,20 @@ private:
     /** Result set metadata. */
     column_meta_vector m_result_meta;
 
+    /** Indicate whether result set is available. */
+    bool m_has_rowset{false};
+
+    /** Indicate whether there are more pages available on server side. */
+    bool m_has_more_pages{false};
+
+    /** Indicate whether query was applied. */
+    bool m_was_applied{false};
+
     /** Number of rows affected. */
     std::int64_t m_rows_affected{-1};
+
+    /** Currently cached page of a result set. */
+    std::unique_ptr<result_page> m_cached_page;
 
     /** Cursor. */
     std::unique_ptr<cursor> m_cursor;

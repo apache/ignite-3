@@ -335,10 +335,10 @@ private:
     msgpack_unpack_return m_move_res;
 
     /** Offset to next value. */
-    size_t m_offset_next{0};
+    std::size_t m_offset_next{0};
 
     /** Offset. */
-    size_t m_offset{0};
+    std::size_t m_offset{0};
 };
 
 } // namespace ignite::protocol

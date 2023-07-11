@@ -176,7 +176,7 @@ sql_result data_query::internal_close()
 
 bool data_query::is_data_available() const
 {
-    return m_cursor.get() && m_cursor->has_data();
+    return m_has_more_pages || (m_cursor && m_cursor->has_data());
 }
 
 std::int64_t data_query::affected_rows() const
@@ -193,7 +193,7 @@ sql_result data_query::next_result_set()
 
 bool data_query::is_closed_remotely() const
 {
-    return m_rows_affected < 0 || m_cursor->is_closed_remotely();
+    return !m_has_more_pages;
 }
 
 sql_result data_query::make_request_execute()
@@ -228,22 +228,22 @@ sql_result data_query::make_request_execute()
     if (!success)
         return sql_result::AI_ERROR;
 
-    protocol::reader reader(response.get_bytes_view());
+    auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
 
-    auto resource_id = reader.read_object_nullable<std::int64_t>();
+    auto resource_id = reader->read_object_nullable<std::int64_t>();
     if (resource_id) {
         m_cursor = std::make_unique<cursor>(*resource_id);
     }
 
-    bool has_rowset = reader.read_bool();
-    UNUSED_VALUE reader.read_bool(); // has_more_pages
-    UNUSED_VALUE reader.read_bool(); // was_applied
-    m_rows_affected = reader.read_int64();
+    m_has_rowset = reader->read_bool();
+    m_has_more_pages = reader->read_bool();
+    m_was_applied = reader->read_bool();
+    m_rows_affected = reader->read_int64();
 
-    if (has_rowset) {
-        auto columns = read_meta(reader);
+    if (m_has_rowset) {
+        auto columns = read_meta(*reader);
         set_resultset_meta(columns);
-        // TODO: IGNITE-19213 Implement data fetching
+        m_cached_page = std::make_unique<result_page>(std::move(response), std::move(reader));
     }
 
     return sql_result::AI_SUCCESS;
