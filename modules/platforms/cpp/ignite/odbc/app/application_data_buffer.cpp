@@ -630,8 +630,12 @@ conversion_result application_data_buffer::put_decimal(const big_decimal& value)
         {
             auto* numeric = reinterpret_cast<SQL_NUMERIC_STRUCT*>(get_data());
 
+            auto sign = value.is_negative() ? 0 : 1;
             big_decimal zero_scaled;
             value.set_scale(0, zero_scaled);
+
+            if (zero_scaled.is_negative())
+                zero_scaled.negate();
 
             const big_integer& unscaled = zero_scaled.get_unscaled_value();
             std::vector<std::byte> bytes_buffer = unscaled.to_bytes();
@@ -646,7 +650,7 @@ conversion_result application_data_buffer::put_decimal(const big_decimal& value)
             }
 
             numeric->scale = 0;
-            numeric->sign = unscaled.get_sign() < 0 ? 0 : 1;
+            numeric->sign = sign;
             numeric->precision = unscaled.get_precision();
 
             if (res_len_ptr)
@@ -1284,8 +1288,9 @@ ignite_date application_data_buffer::get_date() const
 ignite_timestamp application_data_buffer::get_timestamp() const
 {
     tm tm_time{};
-
     std::memset(&tm_time, 0, sizeof(tm_time));
+    tm_time.tm_isdst = -1;
+
     std::int32_t nanos = 0;
 
     switch (m_type)

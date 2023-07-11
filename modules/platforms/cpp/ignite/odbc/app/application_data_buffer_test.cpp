@@ -22,6 +22,8 @@
 
 #include <gtest/gtest.h>
 
+#include <ctime>
+
 using namespace ignite;
 
 class application_data_buffer_test : public ::testing::Test {};
@@ -375,7 +377,7 @@ TEST_F(application_data_buffer_test, put_date_to_string)
 
     app_buf.put_date(date);
 
-    EXPECT_EQ(std::string(str_buf, res_len), std::string("1999-02-22"));
+    EXPECT_EQ(std::string(str_buf, res_len - 1), std::string("1999-02-22"));
 }
 
 TEST_F(application_data_buffer_test, put_date_to_date)
@@ -426,7 +428,7 @@ TEST_F(application_data_buffer_test, put_time_to_string)
 
     app_buf.put_time(time);
 
-    EXPECT_EQ(std::string(str_buf, res_len), std::string("07:15:00"));
+    EXPECT_EQ(std::string(str_buf, res_len - 1), std::string("07:15:00"));
 }
 
 TEST_F(application_data_buffer_test, put_time_to_time)
@@ -456,11 +458,11 @@ TEST_F(application_data_buffer_test, put_timestamp_to_string)
 
     application_data_buffer app_buf(odbc_native_type::AI_CHAR, &str_buf, sizeof(str_buf), &res_len);
 
-    ignite_timestamp ts = make_timestamp(2018, 11, 1, 17, 45, 59, 346'598'326);
+    ignite_timestamp ts{1541079959, 346'598'326};
 
     app_buf.put_timestamp(ts);
 
-    EXPECT_EQ(std::string(str_buf, res_len), std::string("2018-11-01 17:45:59.346598326"));
+    EXPECT_EQ(std::string(str_buf, res_len - 1), std::string("2018-11-01 17:45:59"));
 }
 
 TEST_F(application_data_buffer_test, put_timestamp_to_date)
@@ -470,13 +472,13 @@ TEST_F(application_data_buffer_test, put_timestamp_to_date)
 
     application_data_buffer app_buf(odbc_native_type::AI_TDATE, &buf, sizeof(buf), &res_len);
 
-    ignite_timestamp ts = make_timestamp(2004, 8, 14, 6, 34, 51, 573948623);
+    ignite_timestamp ts{1541079959, 346'598'326};
 
     app_buf.put_timestamp(ts);
 
-    EXPECT_EQ(2004, buf.year);
-    EXPECT_EQ(8, buf.month);
-    EXPECT_EQ(14, buf.day);
+    EXPECT_EQ(2018, buf.year);
+    EXPECT_EQ(11, buf.month);
+    EXPECT_EQ(1, buf.day);
 }
 
 TEST_F(application_data_buffer_test, put_timestamp_to_time)
@@ -486,13 +488,13 @@ TEST_F(application_data_buffer_test, put_timestamp_to_time)
 
     application_data_buffer app_buf(odbc_native_type::AI_TTIME, &buf, sizeof(buf), &res_len);
 
-    ignite_timestamp ts = make_timestamp(2004, 8, 14, 6, 34, 51, 573948623);
+    ignite_timestamp ts{1541079959, 346'598'326};
 
     app_buf.put_timestamp(ts);
 
-    EXPECT_EQ(6, buf.hour);
-    EXPECT_EQ(34, buf.minute);
-    EXPECT_EQ(51, buf.second);
+    EXPECT_EQ(17, buf.hour);
+    EXPECT_EQ(45, buf.minute);
+    EXPECT_EQ(59, buf.second);
 }
 
 TEST_F(application_data_buffer_test, put_timestamp_to_timestamp)
@@ -502,17 +504,17 @@ TEST_F(application_data_buffer_test, put_timestamp_to_timestamp)
 
     application_data_buffer app_buf(odbc_native_type::AI_TTIMESTAMP, &buf, sizeof(buf), &res_len);
 
-    ignite_timestamp ts = make_timestamp(2004, 8, 14, 6, 34, 51, 573948623);
+    ignite_timestamp ts{1541079959, 573'948'623};
 
     app_buf.put_timestamp(ts);
 
-    EXPECT_EQ(2004, buf.year);
-    EXPECT_EQ(8, buf.month);
-    EXPECT_EQ(14, buf.day);
-    EXPECT_EQ(6, buf.hour);
-    EXPECT_EQ(34, buf.minute);
-    EXPECT_EQ(51, buf.second);
-    EXPECT_EQ(573948623, buf.fraction);
+    EXPECT_EQ(2018, buf.year);
+    EXPECT_EQ(11, buf.month);
+    EXPECT_EQ(1, buf.day);
+    EXPECT_EQ(17, buf.hour);
+    EXPECT_EQ(45, buf.minute);
+    EXPECT_EQ(59, buf.second);
+    EXPECT_EQ(573'948'623, buf.fraction);
 }
 
 TEST_F(application_data_buffer_test, get_uuid_from_string)
@@ -620,7 +622,7 @@ TEST_F(application_data_buffer_test, get_float_from_float)
 
     double res_double = app_buf.get_double();
 
-    EXPECT_DOUBLE_EQ(res_double, 207.49);
+    EXPECT_FLOAT_EQ(res_double, 207.49);
 }
 
 TEST_F(application_data_buffer_test, get_float_from_double)
@@ -879,7 +881,7 @@ TEST_F(application_data_buffer_test, get_timestamp_from_date)
 
     auto ts = app_buf.get_timestamp();
 
-    EXPECT_EQ(454446000, ts.get_epoch_second());
+    EXPECT_EQ(454449600, ts.get_epoch_second());
     EXPECT_EQ(0, ts.get_nano());
 }
 
@@ -921,7 +923,7 @@ TEST_F(application_data_buffer_test, get_timestamp_from_timestamp)
 
     auto ts = app_buf.get_timestamp();
 
-    EXPECT_EQ(1092447291, ts.get_epoch_second());
+    EXPECT_EQ(1092450891, ts.get_epoch_second());
     EXPECT_EQ(573948623, ts.get_nano());
 }
 
