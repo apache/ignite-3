@@ -242,7 +242,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     }
 
     private void handleStaleClientId(HandshakeStartResponseMessage msg) {
-        String reason = msg.launchId() + " is stale, client should be restarted to be allowed to connect";
+        String reason = msg.consistentId() + ":" + msg.launchId() + " is stale, client should be restarted to be allowed to connect";
         HandshakeRejectedMessage rejectionMessage = messageFactory.handshakeRejectedMessage()
                 .reason(reason)
                 .build();

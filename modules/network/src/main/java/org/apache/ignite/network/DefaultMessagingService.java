@@ -507,4 +507,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
     public void stopDroppingMessages() {
         dropMessagesPredicate = null;
     }
+
+    @TestOnly
+    public ConnectionManager connectionManager() {
+        return connectionManager;
+    }
 }
