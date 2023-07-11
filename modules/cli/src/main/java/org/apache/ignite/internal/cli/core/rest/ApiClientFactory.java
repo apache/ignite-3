@@ -79,24 +79,47 @@ public class ApiClientFactory {
      * @return created API client.
      */
     public ApiClient getClient(String path) {
-        ApiClient apiClient = clientMap.computeIfAbsent(settings(path), ApiClientFactory::buildClient);
-        CliLoggers.addApiClient(path, apiClient);
+        return getClientFromSettings(settings(path, true));
+    }
+
+    /**
+     * Returns {@link ApiClient} for the base path without basic authentication.
+     *
+     * @param path Base path.
+     * @return created API client.
+     */
+    public ApiClient getClientWithoutBasicAuthentication(String path) {
+        return getClientFromSettings(settings(path, false));
+    }
+
+    private ApiClient getClientFromSettings(ApiClientSettings settings) {
+        ApiClient apiClient = clientMap.computeIfAbsent(settings, ApiClientFactory::buildClient);
+        CliLoggers.addApiClient(settings.basePath(), apiClient);
         return apiClient;
     }
 
-    private ApiClientSettings settings(String path) {
+    private ApiClientSettings settings(String path, boolean enableBasicAuthentication) {
         ConfigManager configManager = configManagerProvider.get();
-        return ApiClientSettings.builder()
+        ApiClientSettingsBuilder builder = ApiClientSettings.builder()
                 .basePath(path)
                 .keyStorePath(configManager.getCurrentProperty(REST_KEY_STORE_PATH.value()))
                 .keyStorePassword(configManager.getCurrentProperty(REST_KEY_STORE_PASSWORD.value()))
                 .trustStorePath(configManager.getCurrentProperty(REST_TRUST_STORE_PATH.value()))
-                .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()))
-                .basicAuthenticationUsername(configManager.getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value()))
-                .basicAuthenticationPassword(configManager.getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value()))
-                .build();
+                .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()));
+
+        if (enableBasicAuthentication) {
+            builder
+                    .basicAuthenticationUsername(configManager.getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value()))
+                    .basicAuthenticationPassword(configManager.getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value()));
+        }
+
+        return builder.build();
     }
 
+    public String basicAuthenticationUsername() {
+        ConfigManager configManager = configManagerProvider.get();
+        return configManager.getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value());
+    }
 
     /**
      * Builds {@link ApiClient} using provided settings.

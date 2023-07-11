@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.cli.call.connect;
 
+import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
+
 import jakarta.inject.Singleton;
 import java.util.Objects;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
@@ -27,6 +29,7 @@ import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
+import org.apache.ignite.internal.cli.core.exception.handler.IgniteCliApiExceptionHandler;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
@@ -35,6 +38,8 @@ import org.apache.ignite.internal.cli.core.style.element.UiElements;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
+import org.apache.ignite.rest.client.model.Problem;
+import org.jetbrains.annotations.Nullable;
 
 
 /**
@@ -70,11 +75,12 @@ public class ConnectCall implements Call<UrlCallInput, String> {
             return DefaultCallOutput.success(message.render());
         }
         try {
+            String username = getAuthenticatedUsername(nodeUrl);
             String configuration = fetchNodeConfiguration(nodeUrl);
             stateConfigProvider.get().setProperty(CliConfigKeys.LAST_CONNECTED_URL.value(), nodeUrl);
 
             String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(configuration, nodeUrl);
-            session.connect(new SessionInfo(nodeUrl, fetchNodeName(nodeUrl), jdbcUrl));
+            session.connect(new SessionInfo(nodeUrl, fetchNodeName(nodeUrl), jdbcUrl, username));
 
             return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
         } catch (Exception e) {
@@ -85,6 +91,35 @@ public class ConnectCall implements Call<UrlCallInput, String> {
 
     private String fetchNodeName(String nodeUrl) throws ApiException {
         return new NodeManagementApi(clientFactory.getClient(nodeUrl)).nodeState().getName();
+    }
+
+    /**
+     * Deduces whether the cluster has the authentication turned on and returns a name of successfully authenticated user or {@code null}.
+     *
+     * @param nodeUrl Node URL.
+     * @return Username if authentication was successful or {@code null} if not or if the cluster has no authentication turned on.
+     * @throws ApiException If fails to call an API.
+     */
+    @Nullable
+    private String getAuthenticatedUsername(String nodeUrl) throws ApiException {
+        // Try without authentication first to check whether the authentication is enabled on the cluster.
+        String username = clientFactory.basicAuthenticationUsername();
+        if (!nullOrBlank(username)) {
+            try {
+                new NodeConfigurationApi(clientFactory.getClientWithoutBasicAuthentication(nodeUrl)).getNodeConfiguration();
+                return null;
+            } catch (ApiException e) {
+                if (e.getCause() == null) {
+                    Problem problem = IgniteCliApiExceptionHandler.extractProblem(e);
+                    if (problem.getStatus() == 401) {
+                        new NodeConfigurationApi(clientFactory.getClient(nodeUrl)).getNodeConfiguration();
+                        return username;
+                    }
+                }
+                throw e;
+            }
+        }
+        return null;
     }
 
     private String fetchNodeConfiguration(String nodeUrl) throws ApiException {
