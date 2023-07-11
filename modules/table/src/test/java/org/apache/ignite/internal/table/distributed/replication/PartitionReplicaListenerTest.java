@@ -29,7 +29,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -1073,7 +1072,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
                 BinaryRow row = testMvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
 
-                if (row != null && Arrays.equals(binaryRow.bytes(), row.bytes())) {
+                if (rowEquals(binaryRow, row)) {
                     found = true;
                 }
             }
@@ -1084,7 +1083,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             BinaryRow row = testMvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
 
-            assertTrue(row == null || !Arrays.equals(row.bytes(), binaryRow.bytes()));
+            assertTrue(row == null || !rowEquals(row, binaryRow));
         }
     }
 
@@ -1230,7 +1229,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             if (expected == null) {
                 assertNull(res);
             } else {
-                assertArrayEquals(expected.bytes(), res.bytes());
+                assertTrue(rowEquals(expected, res));
             }
         }
 
@@ -1655,6 +1654,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }
     }
 
+    private static boolean rowEquals(BinaryRow row1, BinaryRow row2) {
+        return row1.schemaVersion() == row2.schemaVersion()
+                && row1.hasValue() == row2.hasValue()
+                && row1.tupleSlice().equals(row2.tupleSlice());
+    }
 
     /**
      * Test pojo key.

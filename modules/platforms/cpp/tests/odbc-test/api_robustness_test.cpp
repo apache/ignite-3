@@ -32,7 +32,18 @@ using namespace ignite;
 /**
  * Test suite.
  */
-class api_robustness_test : public odbc_suite {};
+class api_robustness_test : public odbc_suite {
+public:
+    static void SetUpTestSuite() {
+        odbc_connection conn;
+        conn.odbc_connect(get_basic_connection_string());
+
+        auto table_avail = conn.wait_for_table(TABLE_NAME_ALL_COLUMNS_SQL, std::chrono::seconds(10));
+        if (!table_avail) {
+            FAIL() << "Table '" + TABLE_NAME_ALL_COLUMNS_SQL + "' is not available";
+        }
+    }
+};
 
 std::vector<SQLSMALLINT> unsupported_c_types = {
     SQL_C_INTERVAL_YEAR,
@@ -165,7 +176,7 @@ TEST_F(api_robustness_test, sql_prepare)
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR sql[] = "SELECT strField FROM TestType";
+    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
 
     // Everything is ok.
     SQLRETURN ret = SQLPrepare(m_statement, sql, sizeof(sql));
@@ -197,14 +208,11 @@ TEST_F(api_robustness_test, sql_exec_direct)
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR sql[] = "SELECT strField FROM TestType";
+    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
 
     // Everything is ok.
-    SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql));
-
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19212: Uncomment once query execution is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql) - 1);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCloseCursor(m_statement);
 
@@ -214,7 +222,7 @@ TEST_F(api_robustness_test, sql_exec_direct)
     SQLCloseCursor(m_statement);
 
     // Value is null.
-    SQLExecDirect(m_statement, 0, sizeof(sql));
+    SQLExecDirect(m_statement, 0, SQL_NTS);
 
     SQLCloseCursor(m_statement);
 
@@ -360,7 +368,7 @@ TEST_F(api_robustness_test, sql_bind_parameter)
             sql_type, 100, 100, &ind1, sizeof(ind1), &len1);
 
         ASSERT_EQ(ret, SQL_ERROR);
-        // TODO IGNITE-19212: Uncomment once column binding is implemented.
+        // TODO IGNITE-19205: Uncomment once column binding is implemented.
         //EXPECT_EQ(get_statement_error_state(), "HY105");
     }
 
@@ -384,12 +392,12 @@ TEST_F(api_robustness_test, sql_native_sql)
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR sql[] = "SELECT strField FROM TestType";
+    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
     SQLCHAR buffer[ODBC_BUFFER_SIZE];
     SQLINTEGER resLen = 0;
 
     // Everything is ok.
-    SQLRETURN ret = SQLNativeSql(m_conn, sql, sizeof(sql), buffer, sizeof(buffer), &resLen);
+    SQLRETURN ret = SQLNativeSql(m_conn, sql, sizeof(sql) - 1, buffer, sizeof(buffer), &resLen);
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
@@ -397,16 +405,16 @@ TEST_F(api_robustness_test, sql_native_sql)
     SQLNativeSql(m_conn, sql, 0, buffer, sizeof(buffer), &resLen);
 
     // Buffer size is null.
-    SQLNativeSql(m_conn, sql, sizeof(sql), buffer, 0, &resLen);
+    SQLNativeSql(m_conn, sql, sizeof(sql) - 1, buffer, 0, &resLen);
 
     // Res size is null.
-    SQLNativeSql(m_conn, sql, sizeof(sql), buffer, sizeof(buffer), 0);
+    SQLNativeSql(m_conn, sql, sizeof(sql) - 1, buffer, sizeof(buffer), 0);
 
     // Value is null.
     SQLNativeSql(m_conn, sql, 0, buffer, sizeof(buffer), &resLen);
 
     // Buffer is null.
-    SQLNativeSql(m_conn, sql, sizeof(sql), 0, sizeof(buffer), &resLen);
+    SQLNativeSql(m_conn, sql, sizeof(sql) - 1, 0, sizeof(buffer), &resLen);
 
     // All nulls.
     SQLNativeSql(m_conn, sql, 0, 0, 0, 0);
@@ -419,13 +427,10 @@ TEST_F(api_robustness_test, sql_col_attribute)
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR sql[] = "SELECT strField FROM TestType";
+    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
 
-    SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql));
-
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql) - 1);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCHAR buffer[ODBC_BUFFER_SIZE];
     SQLSMALLINT resLen = 0;
@@ -465,13 +470,10 @@ TEST_F(api_robustness_test, sql_describe_col)
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR sql[] = "SELECT strField FROM TestType";
+    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
 
-    SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql));
-
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql) - 1);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCHAR columnName[ODBC_BUFFER_SIZE];
     SQLSMALLINT columnNameLen = 0;
@@ -505,22 +507,16 @@ TEST_F(api_robustness_test, sql_row_count)
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR sql[] = "SELECT strField FROM TestType";
+    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
 
-    SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql));
-
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19212: Uncomment once query execution is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    SQLRETURN ret = SQLExecDirect(m_statement, sql, SQL_NTS);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLLEN rows = 0;
 
     // Everything is ok.
     ret = SQLRowCount(m_statement, &rows);
-
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19212: Uncomment once query execution is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLRowCount(m_statement, 0);
 }
@@ -687,7 +683,7 @@ TEST_F(api_robustness_test, sql_num_params)
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR sql[] = "SELECT strField FROM TestType";
+    SQLCHAR sql[] = "select str from TBL_ALL_COLUMNS_SQL";
 
     // Everything is ok.
     SQLRETURN ret = SQLPrepare(m_statement, sql, sizeof(sql));

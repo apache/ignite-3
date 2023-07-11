@@ -458,6 +458,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 PartitionAwarenessProvider.of(nodeName),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
+        //noinspection resource
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 }
