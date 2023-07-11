@@ -34,7 +34,6 @@ import static org.mockito.Mockito.when;
 import io.netty.handler.codec.DecoderException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.Collection;

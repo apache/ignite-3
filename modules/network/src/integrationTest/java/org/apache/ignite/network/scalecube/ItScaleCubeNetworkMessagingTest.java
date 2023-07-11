@@ -377,9 +377,9 @@ class ItScaleCubeNetworkMessagingTest {
         });
 
         notOutcasts.forEach(service -> {
-                    DefaultMessagingService messagingService = (DefaultMessagingService) service.messagingService();
-                    messagingService.dropMessages((recipientConsistentId, message) -> outcastName.equals(recipientConsistentId));
-                });
+            DefaultMessagingService messagingService = (DefaultMessagingService) service.messagingService();
+            messagingService.dropMessages((recipientConsistentId, message) -> outcastName.equals(recipientConsistentId));
+        });
 
         // Wait until all nodes see disappearance of the outcast.
         assertTrue(disappeared.await(10, TimeUnit.SECONDS), "Node did not disappear in time");
