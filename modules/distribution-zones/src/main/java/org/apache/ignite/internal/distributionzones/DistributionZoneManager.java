@@ -44,6 +44,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneTopologyAugmentationVault;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesDataNodesPrefix;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesFilterUpdateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyPrefix;
@@ -753,7 +754,22 @@ public class DistributionZoneManager implements IgniteComponent {
 
             int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
 
-            saveDataNodesToMetaStorageOnScaleUp(zoneId, ctx.storageRevision());
+            VaultEntry filterUpdateRevision = vaultMgr.get(zonesFilterUpdateRevision()).join();
+
+            long eventRevision = ctx.storageRevision();
+
+            if (filterUpdateRevision != null) {
+                // This means that we have already handled event with this revision.
+                // It is possible when node was restarted after this listener completed,
+                // but applied revision didn't have time to be propagated to the Vault.
+                if (bytesToLong(filterUpdateRevision.value()) >= eventRevision) {
+                    return completedFuture(null);
+                }
+            }
+
+            vaultMgr.put(zonesFilterUpdateRevision(), longToBytes(eventRevision)).join();
+
+            saveDataNodesToMetaStorageOnScaleUp(zoneId, eventRevision);
 
             return completedFuture(null);
         };
@@ -826,27 +842,72 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Optional<Long> maxScaleUpRevision = zoneState.highestRevision(true);
 
-            // Take the highest revision from the topologyAugmentationMap and schedule scale up/scale down,
-            // meaning that all augmentation of nodes will be taken into account in newly created timers. If the augmentation has already
-            // been proposed to data nodes in the metastorage before restart,
-            // that means we have updated corresponding trigger key and it's value will be greater than
-            // the highest revision from the topologyAugmentationMap, and current timer won't affect data nodes.
-            maxScaleUpRevision.ifPresent(
-                    rev -> zoneState.rescheduleScaleUp(
-                            zone.dataNodesAutoAdjustScaleUp(),
-                            () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, rev)
-                    )
-            );
-
             Optional<Long> maxScaleDownRevision = zoneState.highestRevision(false);
 
-            maxScaleDownRevision.ifPresent(
-                    rev -> zoneState.rescheduleScaleDown(
-                            zone.dataNodesAutoAdjustScaleDown(),
-                            () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, rev)
-                    )
-            );
+            VaultEntry filterUpdateRevision = vaultMgr.get(zonesFilterUpdateRevision()).join();
+
+            restoreTimers(zone, zoneState, maxScaleUpRevision, maxScaleDownRevision, filterUpdateRevision);
         }
+    }
+
+    /**
+     * Restores timers that were scheduled before a node's restart.
+     * Take the highest revision from the {@link ZoneState#topologyAugmentationMap()}, compare it with the revision
+     * of the last update of the zone's filter and schedule scale up/scale down timers. Filter revision is taken into account because
+     * any filter update triggers immediate scale up.
+     *
+     * @param zone Zone's view.
+     * @param zoneState Zone's state from Distribution Zone Manager
+     * @param maxScaleUpRevisionOptional Max revision from the {@link ZoneState#topologyAugmentationMap()} for node joins.
+     * @param maxScaleDownRevisionOptional Max revision from the {@link ZoneState#topologyAugmentationMap()} for node removals.
+     * @param filterUpdateRevisionVaultEntry Revision of the last update of the zone's filter.
+     */
+    private void restoreTimers(
+            DistributionZoneView zone,
+            ZoneState zoneState,
+            Optional<Long> maxScaleUpRevisionOptional,
+            Optional<Long> maxScaleDownRevisionOptional,
+            VaultEntry filterUpdateRevisionVaultEntry
+    ) {
+        int zoneId = zone.zoneId();
+
+        maxScaleUpRevisionOptional.ifPresent(
+                maxScaleUpRevision -> {
+                    if (filterUpdateRevisionVaultEntry != null) {
+                        long filterUpdateRevision = bytesToLong(filterUpdateRevisionVaultEntry.value());
+
+                        // Immediately trigger scale up, that was planned to be invoked before restart.
+                        // If this invoke was successful before restart, then current call just will be skipped.
+                        saveDataNodesToMetaStorageOnScaleUp(zoneId, filterUpdateRevision);
+
+                        if (maxScaleUpRevision < filterUpdateRevision) {
+                            // Don't need to trigger additional scale up for the scenario, when filter update event happened after the last
+                            // node join event.
+
+                            // TODO: IGNITE-19506 Think carefully for the scenario when scale up timer was immediate before restart and
+                            // causality data nodes is implemented.
+                            return;
+                        }
+                    }
+
+                    // Take the highest revision from the topologyAugmentationMap and schedule scale up/scale down,
+                    // meaning that all augmentations of nodes will be taken into account in newly created timers.
+                    // If augmentations have already been proposed to data nodes in the metastorage before restart,
+                    // that means we have updated corresponding trigger key and it's value will be greater than
+                    // the highest revision from the topologyAugmentationMap, and current timer won't affect data nodes.
+                    zoneState.rescheduleScaleUp(
+                            zone.dataNodesAutoAdjustScaleUp(),
+                            () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, maxScaleUpRevision)
+                    );
+                }
+        );
+
+        maxScaleDownRevisionOptional.ifPresent(
+                maxScaleDownRevision -> zoneState.rescheduleScaleDown(
+                        zone.dataNodesAutoAdjustScaleDown(),
+                        () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, maxScaleDownRevision)
+                )
+        );
     }
 
     /**

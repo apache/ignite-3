@@ -36,10 +36,20 @@ static inline const std::string port{"port"};
 /** Key for address attribute. */
 static inline const std::string address{"address"};
 
+/** Key for address attribute. */
+static inline const std::string schema{"schema"};
+
 } // namespace key;
 
 
 namespace ignite {
+
+void try_get_string_param(value_with_default<std::string> &dst, const config_map &config_params, const std::string &key) {
+    auto it = config_params.find(key);
+    if (it != config_params.end()) {
+        dst = {it->second, true};
+    }
+}
 
 void configuration::from_config_map(const config_map &config_params) {
     *this = configuration();
@@ -73,6 +83,8 @@ void configuration::from_config_map(const config_map &config_params) {
 
         m_end_points = {{{host, port}}, true};
     }
+
+    try_get_string_param(m_schema, config_params, key::schema);
 }
 
 } // namespace ignite

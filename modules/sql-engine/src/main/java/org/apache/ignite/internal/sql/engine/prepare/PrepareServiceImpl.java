@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_VALIDATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_SQL_OPERATION_KIND_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
@@ -46,12 +45,11 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
+import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -143,34 +141,27 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx) {
+    public CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, BaseQueryContext ctx) {
         try {
-            assert single(sqlNode);
-
-            SqlQueryType queryType = Commons.getQueryType(sqlNode);
-            assert queryType != null : "No query type for query: " + sqlNode;
-
             PlanningContext planningContext = PlanningContext.builder()
                     .parentContext(ctx)
                     .build();
 
-            switch (queryType) {
+            switch (parsedResult.queryType()) {
                 case QUERY:
-                    return prepareQuery(sqlNode, planningContext);
+                    return prepareQuery(parsedResult, planningContext);
 
                 case DDL:
-                    return prepareDdl(sqlNode, planningContext);
+                    return prepareDdl(parsedResult, planningContext);
 
                 case DML:
-                    return prepareDml(sqlNode, planningContext);
+                    return prepareDml(parsedResult, planningContext);
 
                 case EXPLAIN:
-                    return prepareExplain(sqlNode, planningContext);
+                    return prepareExplain(parsedResult, planningContext);
 
                 default:
-                    throw new IgniteInternalException(UNSUPPORTED_SQL_OPERATION_KIND_ERR, "Unsupported operation ["
-                            + "sqlNodeKind=" + sqlNode.getKind() + "; "
-                            + "querySql=\"" + planningContext.query() + "\"]");
+                    throw new AssertionError("Unexpected queryType=" + parsedResult.queryType());
             }
         } catch (CalciteContextException e) {
             throw new IgniteInternalException(QUERY_VALIDATION_ERR, "Failed to validate query. " + e.getMessage(), e);
@@ -183,19 +174,25 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         cache.clear();
     }
 
-    private CompletableFuture<QueryPlan> prepareDdl(SqlNode sqlNode, PlanningContext ctx) {
+    private CompletableFuture<QueryPlan> prepareDdl(ParsedResult parsedResult, PlanningContext ctx) {
+        SqlNode sqlNode = parsedResult.parsedTree();
+
         assert sqlNode instanceof SqlDdl : sqlNode == null ? "null" : sqlNode.getClass().getName();
 
         return CompletableFuture.completedFuture(new DdlPlan(ddlConverter.convert((SqlDdl) sqlNode, ctx)));
     }
 
-    private CompletableFuture<QueryPlan> prepareExplain(SqlNode explain, PlanningContext ctx) {
+    private CompletableFuture<QueryPlan> prepareExplain(ParsedResult parsedResult, PlanningContext ctx) {
         return CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
+            SqlNode sqlNode = parsedResult.parsedTree();
+
+            assert single(sqlNode);
+
             // Validate
             // We extract query subtree inside the validator.
-            SqlNode explainNode = planner.validate(explain);
+            SqlNode explainNode = planner.validate(sqlNode);
             // Extract validated query.
             SqlNode validNode = ((SqlExplain) explainNode).getExplicandum();
 
@@ -208,15 +205,19 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         }, planningPool);
     }
 
-    private boolean single(SqlNode sqlNode) {
+    private static boolean single(SqlNode sqlNode) {
         return !(sqlNode instanceof SqlNodeList);
     }
 
-    private CompletableFuture<QueryPlan> prepareQuery(SqlNode sqlNode, PlanningContext ctx) {
-        CacheKey key = createCacheKey(sqlNode, ctx);
+    private CompletableFuture<QueryPlan> prepareQuery(ParsedResult parsedResult, PlanningContext ctx) {
+        CacheKey key = createCacheKey(parsedResult, ctx);
 
         CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
+
+            SqlNode sqlNode = parsedResult.parsedTree();
+
+            assert single(sqlNode);
 
             // Validate
             ValidationResult validated = planner.validateAndGetTypeMetadata(sqlNode);
@@ -236,11 +237,15 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         return planFut.thenApply(QueryPlan::copy);
     }
 
-    private CompletableFuture<QueryPlan> prepareDml(SqlNode sqlNode, PlanningContext ctx) {
-        var key = createCacheKey(sqlNode, ctx);
+    private CompletableFuture<QueryPlan> prepareDml(ParsedResult parsedResult, PlanningContext ctx) {
+        var key = createCacheKey(parsedResult, ctx);
 
         CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
+
+            SqlNode sqlNode = parsedResult.parsedTree();
+
+            assert single(sqlNode);
 
             // Validate
             SqlNode validatedNode = planner.validate(sqlNode);
@@ -259,14 +264,14 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         return planFut.thenApply(QueryPlan::copy);
     }
 
-    private static CacheKey createCacheKey(SqlNode sqlNode, PlanningContext ctx) {
+    private static CacheKey createCacheKey(ParsedResult parsedResult, PlanningContext ctx) {
         boolean distributed = distributionPresent(ctx.config().getTraitDefs());
 
         Class[] paramTypes = ctx.parameters().length == 0
                 ? EMPTY_CLASS_ARRAY :
                 Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
 
-        return new CacheKey(ctx.schemaName(), sqlNode.toString(), distributed, paramTypes);
+        return new CacheKey(ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
     }
 
     private ResultSetMetadata resultSetMetadata(

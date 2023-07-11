@@ -137,7 +137,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
                     .thenApply(page -> {
                         curPage = page;
 
-                        return AsyncResultSetImpl.this;
+                        return this;
                     });
         }
     }

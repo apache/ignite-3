@@ -82,12 +82,19 @@ public:
      * @param table_name Table name.
      * @param column_name Column name.
      * @param data_type Data type.
+     * @param precision Precision.
+     * @param scale Scale.
+     * @param nullable Nullable.
      */
-    column_meta(std::string schema_name, std::string table_name, std::string column_name, ignite_type data_type)
+    column_meta(std::string schema_name, std::string table_name, std::string column_name, ignite_type data_type,
+        std::int32_t precision, std::int32_t scale, bool nullable)
         : m_schema_name(std::move(schema_name))
         , m_table_name(std::move(table_name))
         , m_column_name(std::move(column_name))
-        , m_data_type(data_type) { }
+        , m_data_type(data_type)
+        , m_precision(precision)
+        , m_scale(scale)
+        , m_nullability(nullable ? nullability::NULLABLE : nullability::NO_NULL) { }
 
     /**
      * Read using reader.

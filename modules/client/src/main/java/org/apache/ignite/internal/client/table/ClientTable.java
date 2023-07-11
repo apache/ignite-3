@@ -200,8 +200,8 @@ public class ClientTable implements Table {
     private ClientSchema readSchema(ClientMessageUnpacker in) {
         var schemaVer = in.unpackInt();
         var colCnt = in.unpackArrayHeader();
-
         var columns = new ClientColumn[colCnt];
+        int colocationColumnCnt = 0;
 
         for (int i = 0; i < colCnt; i++) {
             var propCnt = in.unpackArrayHeader();
@@ -212,18 +212,32 @@ public class ClientTable implements Table {
             var type = ColumnTypeConverter.fromOrdinalOrThrow(in.unpackInt());
             var isKey = in.unpackBoolean();
             var isNullable = in.unpackBoolean();
-            var isColocation = in.unpackBoolean();
+            var colocationIndex = in.unpackInt();
             var scale = in.unpackInt();
             var precision = in.unpackInt();
 
             // Skip unknown extra properties, if any.
             in.skipValues(propCnt - 7);
 
-            var column = new ClientColumn(name, type, isNullable, isKey, isColocation, i, scale, precision);
+            var column = new ClientColumn(name, type, isNullable, isKey, colocationIndex, i, scale, precision);
             columns[i] = column;
+
+            if (colocationIndex >= 0) {
+                colocationColumnCnt++;
+            }
         }
 
-        var schema = new ClientSchema(schemaVer, columns);
+        var colocationColumns = colocationColumnCnt > 0 ? new ClientColumn[colocationColumnCnt] : null;
+        if (colocationColumns != null) {
+            for (ClientColumn col : columns) {
+                int idx = col.colocationIndex();
+                if (idx >= 0) {
+                    colocationColumns[idx] = col;
+                }
+            }
+        }
+
+        var schema = new ClientSchema(schemaVer, columns, colocationColumns);
 
         schemas.put(schemaVer, CompletableFuture.completedFuture(schema));
 
