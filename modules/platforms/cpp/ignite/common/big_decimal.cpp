@@ -22,11 +22,11 @@
 
 namespace ignite {
 
-void big_decimal::set_scale(int32_t newScale, big_decimal &res) const {
-    if (m_scale == newScale)
+void big_decimal::set_scale(int32_t new_scale, big_decimal &res) const {
+    if (m_scale == new_scale)
         return;
 
-    int32_t diff = m_scale - newScale;
+    int32_t diff = m_scale - new_scale;
 
     big_integer adjustment;
 
@@ -40,7 +40,7 @@ void big_decimal::set_scale(int32_t newScale, big_decimal &res) const {
         m_magnitude.multiply(adjustment, res.m_magnitude);
     }
 
-    res.m_scale = newScale;
+    res.m_scale = new_scale;
 }
 
 int big_decimal::compare(const big_decimal &other) const {

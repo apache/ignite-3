@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include "ignite/client/detail/client_operation.h"
 #include "ignite/client/detail/node_connection.h"
 #include "ignite/client/detail/protocol_context.h"
 #include "ignite/client/detail/response_handler.h"
@@ -26,6 +25,7 @@
 
 #include "ignite/common/ignite_result.h"
 #include "ignite/network/async_client_pool.h"
+#include "ignite/protocol/client_operation.h"
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/writer.h"
 

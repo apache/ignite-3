@@ -28,6 +28,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.util.PartitionlessLinks;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.pagememory.mv.HybridTimestamps;
 import org.apache.ignite.internal.storage.pagememory.mv.RowVersion;
 import org.apache.ignite.lang.IgniteStringBuilder;
@@ -50,45 +51,69 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
     }
 
     @Override
-    protected void writeRowData(long pageAddr, int dataOff, int payloadSize, RowVersion row, boolean newRow) {
+    protected void writeRowData(long pageAddr, int dataOff, int payloadSize, RowVersion rowVersion, boolean newRow) {
         assertPageType(pageAddr);
 
-        long addr = pageAddr + dataOff;
+        int offset = dataOff;
 
-        putShort(addr, 0, (short) payloadSize);
-        addr += Short.BYTES;
+        putShort(pageAddr, offset, (short) payloadSize);
+        offset += Short.BYTES;
 
-        addr += HybridTimestamps.writeTimestampToMemory(addr, 0, row.timestamp());
+        offset += HybridTimestamps.writeTimestampToMemory(pageAddr, offset, rowVersion.timestamp());
 
-        addr += writePartitionless(addr, row.nextLink());
+        offset += writePartitionless(pageAddr + offset, rowVersion.nextLink());
 
-        putInt(addr, 0, row.valueSize());
-        addr += Integer.BYTES;
+        putInt(pageAddr, offset, rowVersion.valueSize());
+        offset += Integer.BYTES;
 
-        putByteBuffer(addr, 0, row.value());
+        BinaryRow row = rowVersion.value();
+
+        if (row != null) {
+            putShort(pageAddr, offset, (short) row.schemaVersion());
+            offset += Short.BYTES;
+
+            putByteBuffer(pageAddr, offset, row.tupleSlice());
+        } else {
+            putShort(pageAddr, offset, (short) 0);
+        }
     }
 
     @Override
-    protected void writeFragmentData(RowVersion row, ByteBuffer pageBuf, int rowOff, int payloadSize) {
+    protected void writeFragmentData(RowVersion rowVersion, ByteBuffer pageBuf, int rowOff, int payloadSize) {
         assertPageType(pageBuf);
+
+        int headerSize = rowVersion.headerSize();
+
+        BinaryRow row = rowVersion.value();
+
+        int bufferOffset;
+        int bufferSize;
 
         if (rowOff == 0) {
             // first fragment
-            assert row.headerSize() <= payloadSize : "Header must entirely fit in the first fragment, but header size is "
-                    + row.headerSize() + " and payload size is " + payloadSize;
+            assert headerSize <= payloadSize : "Header must entirely fit in the first fragment, but header size is "
+                    + headerSize + " and payload size is " + payloadSize;
 
-            HybridTimestamps.writeTimestampToBuffer(pageBuf, row.timestamp());
+            HybridTimestamps.writeTimestampToBuffer(pageBuf, rowVersion.timestamp());
 
-            PartitionlessLinks.writeToBuffer(pageBuf, row.nextLink());
+            PartitionlessLinks.writeToBuffer(pageBuf, rowVersion.nextLink());
 
-            pageBuf.putInt(row.valueSize());
+            pageBuf.putInt(rowVersion.valueSize());
 
-            putValueBufferIntoPage(pageBuf, row.value(), 0, payloadSize - row.headerSize());
+            pageBuf.putShort(row == null ? 0 : (short) row.schemaVersion());
+
+            bufferOffset = 0;
+            bufferSize = payloadSize - headerSize;
         } else {
             // non-first fragment
-            assert rowOff >= row.headerSize();
+            assert rowOff >= headerSize;
 
-            putValueBufferIntoPage(pageBuf, row.value(), rowOff - row.headerSize(), payloadSize);
+            bufferOffset = rowOff - headerSize;
+            bufferSize = payloadSize;
+        }
+
+        if (row != null) {
+            putValueBufferIntoPage(pageBuf, row.tupleSlice(), bufferOffset, bufferSize);
         }
     }
 

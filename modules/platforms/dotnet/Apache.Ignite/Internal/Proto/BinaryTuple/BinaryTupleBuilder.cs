@@ -145,7 +145,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
-                _hash = HashUtils.Hash32((sbyte)0, _hash);
+                _hash = HashUtils.Combine(_hash, HashUtils.Hash32((sbyte)0));
             }
             else if (hashOrder != NoHash)
             {
@@ -163,7 +163,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
-                _hash = HashUtils.Hash32(value, _hash);
+                _hash = HashUtils.Combine(_hash, HashUtils.Hash32(value));
             }
             else if (hashOrder != NoHash)
             {
@@ -198,7 +198,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
-                _hash = HashUtils.Hash32(value, _hash);
+                _hash = HashUtils.Combine(_hash, HashUtils.Hash32(value));
             }
             else if (hashOrder != NoHash)
             {
@@ -241,7 +241,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
-                _hash = HashUtils.Hash32(value, _hash);
+                _hash = HashUtils.Combine(_hash, HashUtils.Hash32(value));
             }
             else if (hashOrder != NoHash)
             {
@@ -288,7 +288,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
-                _hash = HashUtils.Hash32(value, _hash);
+                _hash = HashUtils.Combine(_hash, HashUtils.Hash32(value));
             }
             else if (hashOrder != NoHash)
             {
@@ -339,7 +339,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
-                _hash = HashUtils.Hash32(value, _hash);
+                _hash = HashUtils.Combine(_hash, HashUtils.Hash32(value));
             }
             else if (hashOrder != NoHash)
             {
@@ -374,7 +374,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
-                _hash = HashUtils.Hash32(value, _hash);
+                _hash = HashUtils.Combine(_hash, HashUtils.Hash32(value));
             }
             else if (hashOrder != NoHash)
             {
@@ -445,7 +445,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
-                _hash = HashUtils.Hash32(value, _hash);
+                _hash = HashUtils.Combine(_hash, HashUtils.Hash32(value));
             }
             else if (hashOrder != NoHash)
             {
@@ -491,14 +491,15 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             {
                 var lo = BinaryPrimitives.ReadInt64LittleEndian(span[..8]);
                 var hi = BinaryPrimitives.ReadInt64LittleEndian(span[8..]);
+                var hash = HashUtils.Hash32(hi, HashUtils.Hash32(lo));
 
                 if (hashOrder == OrderedHash)
                 {
-                    _hash = HashUtils.Hash32(hi, HashUtils.Hash32(lo, _hash));
+                    _hash = HashUtils.Combine(_hash, hash);
                 }
                 else
                 {
-                    PutHash(hashOrder, HashUtils.Hash32(hi, HashUtils.Hash32(lo, 0)));
+                    PutHash(hashOrder, hash);
                 }
             }
 
@@ -544,7 +545,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                 if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
                 {
-                    _hash = HashUtils.Hash32(resBytes, _hash);
+                    _hash = HashUtils.Combine(_hash, HashUtils.Hash32(resBytes));
                 }
                 else if (hashOrder != NoHash)
                 {
@@ -614,7 +615,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
-                _hash = HashUtils.Hash32(destination[..written], _hash);
+                _hash = HashUtils.Combine(_hash, HashUtils.Hash32(destination[..written]));
             }
             else if (hashOrder != NoHash)
             {
@@ -651,7 +652,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
-                _hash = HashUtils.Hash32(value, _hash);
+                _hash = HashUtils.Combine(_hash, HashUtils.Hash32(value));
             }
             else if (hashOrder != NoHash)
             {
@@ -687,7 +688,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
-                _hash = HashUtils.Hash32(value, precision, _hash);
+                _hash = HashUtils.Combine(_hash, HashUtils.Hash32(value, precision));
             }
             else if (hashOrder != NoHash)
             {
@@ -724,7 +725,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
-                _hash = HashUtils.Hash32(value, precision, _hash);
+                _hash = HashUtils.Combine(_hash, HashUtils.Hash32(value, precision));
             }
             else if (hashOrder != NoHash)
             {
@@ -764,11 +765,14 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
             {
-                _hash = HashUtils.Hash32((long)nanos, HashUtils.Hash32(seconds, _hash));
+                // TODO: Deduplicate
+                var hash = HashUtils.Hash32(nanos, HashUtils.Hash32(seconds));
+                _hash = HashUtils.Combine(_hash, hash);
             }
             else if (hashOrder != NoHash)
             {
-                PutHash(hashOrder, HashUtils.Hash32((long)nanos, HashUtils.Hash32(seconds, 0)));
+                var hash = HashUtils.Hash32(nanos, HashUtils.Hash32(seconds));
+                PutHash(hashOrder, hash);
             }
 
             OnWrite();
@@ -1154,7 +1158,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             {
                 if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
                 {
-                    _hash = HashUtils.Hash32(Span<byte>.Empty, _hash);
+                    _hash = HashUtils.Combine(_hash, HashUtils.Hash32(Span<byte>.Empty));
                 }
                 else if (hashOrder != NoHash)
                 {
@@ -1174,11 +1178,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             if (GetHashOrder() is var hashOrder2 && hashOrder2 == OrderedHash)
             {
-                _hash = HashUtils.Hash32(span, _hash);
+                _hash = HashUtils.Combine(_hash, HashUtils.Hash32(span[..actualBytes]));
             }
             else if (hashOrder2 != NoHash)
             {
-                _hashBuffer!.MessageWriter.Write(span);
+                var hash = HashUtils.Combine(_hash, HashUtils.Hash32(span[..actualBytes]));
+                PutHash(hashOrder2, hash);
             }
 
             _buffer.Advance(actualBytes);

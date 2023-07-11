@@ -46,6 +46,7 @@ void diagnosable_adapter::add_status_record(const odbc_error& err)
 
 void diagnosable_adapter::add_status_record(const diagnostic_record& rec)
 {
+    LOG_MSG("Adding new record: " << rec.get_sql_state() << " " << rec.get_message_text());
     m_diagnostic_records.add_status_record(rec);
 }
 

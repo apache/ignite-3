@@ -17,12 +17,13 @@
 
 #pragma once
 
-#include <cstdint>
+#include "ignite/odbc/app/application_data_buffer.h"
+#include "ignite/protocol/writer.h"
+#include "ignite/tuple/binary_tuple_builder.h"
 
 #include <map>
 
-#include "ignite/odbc/app/application_data_buffer.h"
-#include "ignite/protocol/writer.h"
+#include <cstdint>
 
 namespace ignite {
 
@@ -43,20 +44,30 @@ public:
      * @param column_size IPD column size.
      * @param dec_digits IPD decimal digits.
      */
-    parameter(const application_data_buffer& buffer, int16_t sql_type, size_t column_size, int16_t dec_digits)
+    parameter(const application_data_buffer& buffer, std::int16_t sql_type, std::size_t column_size,
+        std::int16_t dec_digits)
         : m_buffer(buffer)
         , m_sql_type(sql_type)
         , m_column_size(column_size)
         , m_dec_digits(dec_digits) { }
 
     /**
-     * Write parameter using provided writer.
+     * Claim space for the parameter using provided builder.
      *
-     * @param writer Writer.
+     * @param builder Builder.
      * @param offset Offset for the buffer.
      * @param idx Index for the array-of-m_parameters case.
      */
-    void write(protocol::writer& writer, int offset = 0, SQLULEN idx = 0) const;
+    void claim(binary_tuple_builder& builder, int offset = 0, SQLULEN idx = 0) const;
+
+    /**
+     * Append parameter using provided writer.
+     *
+     * @param builder Builder.
+     * @param offset Offset for the buffer.
+     * @param idx Index for the array-of-m_parameters case.
+     */
+    void append(binary_tuple_builder& builder, int offset = 0, SQLULEN idx = 0) const;
 
     /**
      * Get data buffer.
@@ -96,19 +107,19 @@ private:
     application_data_buffer m_buffer{};
 
     /** IPD type. */
-    int16_t m_sql_type{0};
+    std::int16_t m_sql_type{0};
 
     /** IPD column size. */
-    size_t m_column_size{0};
+    std::size_t m_column_size{0};
 
     /** IPD decimal digits. */
-    int16_t m_dec_digits{0};
+    std::int16_t m_dec_digits{0};
 
     /** User provided null data at execution. */
     bool m_null_data{false};
 
     /** Stored at-execution data. */
-    std::vector<int8_t> m_stored_data;
+    std::vector<std::byte> m_stored_data;
 };
 
 } // namespace ignite

@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Proto;
 using System;
 using System.Buffers.Binary;
 using System.Numerics;
-using MsgPack;
 using NodaTime;
 using Table;
 
@@ -45,126 +44,85 @@ internal static class HashUtils
     /// Generates 32-bit hash.
     /// </summary>
     /// <param name="data">Input data.</param>
-    /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(sbyte data, int seed) => Hash32Internal((ulong)(data & 0xffL), (ulong)seed, 1);
-
-    /// <summary>
-    /// Writes bytes to be hashed later.
-    /// </summary>
-    /// <param name="data">Data.</param>
-    /// <param name="writer">Writer.</param>
-    public static void WriteHashBytes(sbyte data, MsgPackWriter writer)
-    {
-        Span<byte> span = stackalloc byte[1];
-        span[1] = unchecked((byte)data);
-        writer.Write(span);
-    }
+    public static int Hash32(sbyte data) => Hash32Internal(unchecked((byte)data), 0, 1);
 
     /// <summary>
     /// Generates 32-bit hash.
     /// </summary>
     /// <param name="data">Input data.</param>
-    /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(short data, int seed) => Hash32Internal((ushort)data, (ulong)seed, 2);
-
-    /// <summary>
-    /// Writes bytes to be hashed later.
-    /// </summary>
-    /// <param name="data">Data.</param>
-    /// <param name="writer">Writer.</param>
-    public static void WriteHashBytes(short data, MsgPackWriter writer)
-    {
-        Span<byte> span = stackalloc byte[2];
-        BinaryPrimitives.WriteUInt16LittleEndian(span, unchecked((ushort)data));
-        writer.Write(span);
-    }
+    public static int Hash32(short data) => Hash32Internal(unchecked((ushort)data), 0, 2);
 
     /// <summary>
     /// Generates 32-bit hash.
     /// </summary>
     /// <param name="data">Input data.</param>
-    /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(int data, int seed) => Hash32Internal((uint)data, (ulong)seed, 4);
-
-    /// <summary>
-    /// Writes bytes to be hashed later.
-    /// </summary>
-    /// <param name="data">Data.</param>
-    /// <param name="writer">Writer.</param>
-    public static void WriteHashBytes(int data, MsgPackWriter writer)
-    {
-        Span<byte> span = stackalloc byte[4];
-        BinaryPrimitives.WriteUInt32LittleEndian(span, unchecked((uint)data));
-        writer.Write(span);
-    }
+    public static int Hash32(int data) => Hash32(data, 0);
 
     /// <summary>
     /// Generates 32-bit hash.
     /// </summary>
     /// <param name="data">Input data.</param>
-    /// <param name="seed">Current hash.</param>
+    /// <param name="seed">Seed.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(long data, int seed) => Hash32Internal((ulong)data, (ulong)seed, 8);
-
-    /// <summary>
-    /// Writes bytes to be hashed later.
-    /// </summary>
-    /// <param name="data">Data.</param>
-    /// <param name="writer">Writer.</param>
-    public static void WriteHashBytes(long data, MsgPackWriter writer)
-    {
-        Span<byte> span = stackalloc byte[8];
-        BinaryPrimitives.WriteUInt64LittleEndian(span, unchecked((ulong)data));
-        writer.Write(span);
-    }
+    public static int Hash32(int data, int seed) => Hash32Internal(unchecked((uint)data), (ulong)seed, 4);
 
     /// <summary>
     /// Generates 32-bit hash.
     /// </summary>
     /// <param name="data">Input data.</param>
-    /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(float data, int seed) => Hash32(BitConverter.SingleToInt32Bits(data), seed);
+    public static int Hash32(long data) => Hash32(data, 0);
 
     /// <summary>
     /// Generates 32-bit hash.
     /// </summary>
     /// <param name="data">Input data.</param>
-    /// <param name="seed">Current hash.</param>
+    /// <param name="seed">Seed.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(double data, int seed) => Hash32(BitConverter.DoubleToInt64Bits(data), seed);
+    public static int Hash32(long data, int seed) => Hash32Internal(unchecked((ulong)data), (ulong)seed, 8);
 
     /// <summary>
     /// Generates 32-bit hash.
     /// </summary>
     /// <param name="data">Input data.</param>
-    /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(ReadOnlySpan<byte> data, int seed) => Hash32Internal(data, (ulong)seed & 0xffffffffL);
+    public static int Hash32(float data) => Hash32(BitConverter.SingleToInt32Bits(data));
 
     /// <summary>
     /// Generates 32-bit hash.
     /// </summary>
     /// <param name="data">Input data.</param>
-    /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(LocalDate data, int seed) => Hash32((long)data.Day, Hash32((long)data.Month, Hash32((long)data.Year, seed)));
+    public static int Hash32(double data) => Hash32(BitConverter.DoubleToInt64Bits(data));
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(Span<byte> data) => Hash32Internal(data, 0);
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(LocalDate data) => Hash32(data.Day, Hash32(data.Month, Hash32(data.Year)));
 
     /// <summary>
     /// Generates 32-bit hash.
     /// </summary>
     /// <param name="data">Input data.</param>
     /// <param name="precision">Precision.</param>
-    /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(LocalTime data, int precision, int seed)
+    public static int Hash32(LocalTime data, int precision)
     {
-        var nanos = (long)TemporalTypes.NormalizeNanos(data.NanosecondOfSecond, precision);
+        var nanos = TemporalTypes.NormalizeNanos(data.NanosecondOfSecond, precision);
 
-        return Hash32(nanos, Hash32((long)data.Second, Hash32((long)data.Minute, Hash32((long)data.Hour, seed))));
+        return Hash32(nanos, Hash32(data.Second, Hash32(data.Minute, Hash32(data.Hour))));
     }
 
     /// <summary>
@@ -172,15 +130,20 @@ internal static class HashUtils
     /// </summary>
     /// <param name="data">Input data.</param>
     /// <param name="precision">Precision.</param>
-    /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(LocalDateTime data, int precision, int seed) => Hash32(data.TimeOfDay, precision, Hash32(data.Date, seed));
+    public static int Hash32(LocalDateTime data, int precision) => Combine(Hash32(data.Date), Hash32(data.TimeOfDay, precision));
+
+    /// <summary>
+    /// Combines two hashes.
+    /// </summary>
+    /// <param name="hash1">Hash 1.</param>
+    /// <param name="hash2">Hash 2.</param>
+    /// <returns>Combined hash.</returns>
+    public static int Combine(int hash1, int hash2) => Hash32Internal(unchecked((uint)hash1), unchecked((ulong)hash2), 4);
 
     private static int Hash32Internal(ulong data, ulong seed, byte byteCount)
     {
-        Span<byte> bytes = stackalloc byte[8];
-        BinaryPrimitives.WriteUInt64LittleEndian(bytes, data);
-        var hash64 = Hash64Internal(bytes[..byteCount], seed);
+        var hash64 = Hash64Internal(data, seed, byteCount);
 
         return (int)(hash64 ^ (hash64 >> 32));
     }
@@ -214,14 +177,14 @@ internal static class HashUtils
         }
     }
 
-    private static int Hash32Internal(ReadOnlySpan<byte> data, ulong seed)
+    private static int Hash32Internal(Span<byte> data, ulong seed)
     {
         var hash64 = Hash64Internal(data, seed);
 
         return (int)(hash64 ^ (hash64 >> 32));
     }
 
-    private static ulong Hash64Internal(ReadOnlySpan<byte> data, ulong seed)
+    private static ulong Hash64Internal(Span<byte> data, ulong seed)
     {
         unchecked
         {

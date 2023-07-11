@@ -22,6 +22,7 @@
 #include <ignite/common/ignite_error.h>
 #include <ignite/common/uuid.h>
 #include <ignite/protocol/extension_types.h>
+#include <ignite/tuple/binary_tuple_builder.h>
 
 #include <array>
 #include <functional>
@@ -199,5 +200,30 @@ void unpack_array_raw(const msgpack_object &object, const std::function<void(con
  * @return Error if there is any.
  */
 [[nodiscard]] std::optional<ignite_error> read_error(protocol::reader &reader);
+
+
+/**
+ * Claim type and scale header for a value written in binary tuple.
+ *
+ * @param builder Tuple builder.
+ * @param typ Type.
+ * @param scale Scale.
+ */
+inline void claim_type_and_scale(binary_tuple_builder &builder, ignite_type typ, std::int32_t scale = 0) {
+    builder.claim_int32(static_cast<std::int32_t>(typ));
+    builder.claim_int32(scale);
+}
+
+/**
+ * Append type and scale header for a value written in binary tuple.
+ *
+ * @param builder Tuple builder.
+ * @param typ Type.
+ * @param scale Scale.
+ */
+inline void append_type_and_scale(binary_tuple_builder &builder, ignite_type typ, std::int32_t scale = 0) {
+    builder.append_int32(static_cast<std::int32_t>(typ));
+    builder.append_int32(scale);
+}
 
 } // namespace ignite::protocol
