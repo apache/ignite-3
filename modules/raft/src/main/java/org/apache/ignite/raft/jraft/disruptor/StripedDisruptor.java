@@ -223,7 +223,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
 
             assert handler != null : format("Group of the event is unsupported [nodeId={}, event={}]", event.nodeId(), event);
 
-            handler.onEvent(event, sequence, endOfBatch || !supportsBatches);
+            handler.onEvent(event, sequence, endOfBatch || subscribers.size() > 1 && !supportsBatches);
         }
     }
 
