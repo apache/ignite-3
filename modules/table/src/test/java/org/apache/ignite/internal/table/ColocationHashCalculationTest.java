@@ -86,7 +86,13 @@ public class ColocationHashCalculationTest {
         hashCalc.appendInt(2);
         hashCalc.appendString("key_" + 3);
 
+        int[] hashes = new int[3];
+        hashes[0] = HashCalculator.hashByte((byte) 1);
+        hashes[1] = HashCalculator.hashInt(2);
+        hashes[2] = HashCalculator.hashString("key_" + 3);
+
         assertEquals(hashCalc.hash(), colocationHash(r));
+        assertEquals(hashCalc.hash(), HashCalculator.combinedHash(hashes));
     }
 
     @Test
