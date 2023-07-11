@@ -134,7 +134,7 @@ public class HashUtils {
     /**
      * Combines two hash values, using second value as a seed for the hash of the first one.
      *
-     * <p> The operation is not commutative - the order of the arguments matters.
+     * <p>The operation is not commutative - the order of the arguments matters.
      *
      * @param hash1 The first hash.
      * @param hash2 The second hash.
