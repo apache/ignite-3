@@ -45,7 +45,6 @@ import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.TemporalNativeType;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.TemporalTypeUtils;
 import org.jetbrains.annotations.Nullable;
 
