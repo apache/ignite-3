@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.call.connect;
 
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
+import io.micronaut.http.HttpStatus;
 import jakarta.inject.Singleton;
 import java.util.Objects;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
@@ -111,7 +112,7 @@ public class ConnectCall implements Call<UrlCallInput, String> {
             } catch (ApiException e) {
                 if (e.getCause() == null) {
                     Problem problem = IgniteCliApiExceptionHandler.extractProblem(e);
-                    if (problem.getStatus() == 401) {
+                    if (problem.getStatus() == HttpStatus.UNAUTHORIZED.getCode()) {
                         new NodeConfigurationApi(clientFactory.getClient(nodeUrl)).getNodeConfiguration();
                         return username;
                     }
