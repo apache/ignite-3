@@ -106,7 +106,7 @@ public class DdlCommandHandler {
 
     protected final TableManager tableManager;
 
-    private final IndexManager indexManager;
+    protected final IndexManager indexManager;
 
     private final DataStorageManager dataStorageManager;
 

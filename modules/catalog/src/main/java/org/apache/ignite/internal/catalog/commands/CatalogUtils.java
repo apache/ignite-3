@@ -208,5 +208,4 @@ public class CatalogUtils {
                 return 0;
         }
     }
-
 }

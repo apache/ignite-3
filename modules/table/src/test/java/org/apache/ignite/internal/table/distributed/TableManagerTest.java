@@ -68,7 +68,10 @@ import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -861,10 +864,16 @@ public class TableManagerTest extends IgniteAbstractTest {
         //TODO IGNITE-19082 drop mocked catalog manager.
         CatalogManager catalogManager = mock(CatalogManager.class);
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
-        when(catalogManager.createTable(any())).thenReturn(completedFuture(null));
-        when(catalogManager.dropTable(any())).thenReturn(completedFuture(null));
-        when(catalogManager.table(anyString(), anyLong())).thenReturn(tableDescriptor);
+        CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
         when(tableDescriptor.id()).thenReturn(1);
+        when(indexDescriptor.id()).thenReturn(1);
+        when(catalogManager.createTable(any())).thenReturn(completedFuture(null));
+        when(catalogManager.createIndex(any(CreateHashIndexParams.class))).thenReturn(completedFuture(null));
+        when(catalogManager.createIndex(any(CreateSortedIndexParams.class))).thenReturn(completedFuture(null));
+        when(catalogManager.dropTable(any())).thenReturn(completedFuture(null));
+        when(catalogManager.dropIndex(any())).thenReturn(completedFuture(null));
+        when(catalogManager.table(anyString(), anyLong())).thenReturn(tableDescriptor);
+        when(catalogManager.index(anyString(), anyLong())).thenReturn(indexDescriptor);
 
         TableManager tableManager = new TableManager(
                 "test",
