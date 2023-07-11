@@ -32,7 +32,7 @@ import java.util.UUID;
  * Predefined column types.
  */
 public enum ColumnType {
-    /** Boolaen. */
+    /** Boolean. */
     BOOLEAN,
 
     /** 8-bit signed integer. */
