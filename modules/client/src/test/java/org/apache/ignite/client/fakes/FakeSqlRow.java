@@ -124,7 +124,7 @@ public class FakeSqlRow implements SqlRow {
 
     /** {@inheritDoc} */
     @Override
-    public boolean booleanValue(@NotNull String columnName) {
+    public boolean booleanValue(String columnName) {
         return (boolean) row.get(columnIndexChecked(columnName));
     }
 

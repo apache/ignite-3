@@ -125,7 +125,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
 
     /** {@inheritDoc} */
     @Override
-    public boolean booleanValue(@NotNull String columnName) {
+    public boolean booleanValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
         return row.booleanValue(col.schemaIndex());

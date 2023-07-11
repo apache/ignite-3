@@ -99,7 +99,7 @@ public class TestTupleBuilder implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public boolean booleanValue(@NotNull String columnName) {
+    public boolean booleanValue(String columnName) {
         return value(columnName);
     }
 

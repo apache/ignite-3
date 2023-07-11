@@ -182,7 +182,7 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public boolean booleanValue(@NotNull String columnName) {
+    public boolean booleanValue(String columnName) {
         return value(columnName);
     }
 

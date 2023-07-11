@@ -274,7 +274,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IllegalArgumentException If no column with given name exists.
      */
-    boolean booleanValue(@NotNull String columnName);
+    boolean booleanValue(String columnName);
 
     /**
      * Gets {@code boolean} column value.

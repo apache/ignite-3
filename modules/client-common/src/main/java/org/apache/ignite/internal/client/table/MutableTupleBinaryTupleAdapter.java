@@ -163,7 +163,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
     /** {@inheritDoc} */
     @Override
-    public boolean booleanValue(@NotNull String columnName) {
+    public boolean booleanValue(String columnName) {
         return tuple != null
                 ? tuple.booleanValue(columnName)
                 : binaryTuple.booleanValue(validateSchemaColumnType(columnName, ColumnType.BOOLEAN));

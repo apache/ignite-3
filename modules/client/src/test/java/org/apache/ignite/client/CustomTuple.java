@@ -149,7 +149,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public boolean booleanValue(@NotNull String columnName) {
+    public boolean booleanValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
