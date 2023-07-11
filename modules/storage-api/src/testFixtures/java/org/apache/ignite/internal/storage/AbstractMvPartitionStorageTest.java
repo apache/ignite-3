@@ -83,7 +83,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     /**
-     * Tests basic invariants of {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)}.
+     * Tests basic invariants of {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)}.
      */
     @Test
     public void testAddWrite() {

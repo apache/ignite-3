@@ -34,6 +34,7 @@ set(SOURCES
     diagnostic/diagnostic_record_storage.cpp
     meta/column_meta.cpp
     meta/table_meta.cpp
+    query/data_query.cpp
     odbc.cpp
     entry_points.cpp
     ssl_mode.cpp

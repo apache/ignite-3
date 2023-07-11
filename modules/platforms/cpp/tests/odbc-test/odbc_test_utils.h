@@ -97,4 +97,104 @@ constexpr size_t ODBC_BUFFER_SIZE = 1024;
     return {str.begin(), str.end()};
 }
 
+/**
+ * Convert string to SQLCHAR vector.
+ *
+ * @param str String.
+ * @return SQLCHAR vector.
+ */
+[[nodiscard]] inline std::vector<SQLCHAR> make_odbc_string(std::string_view str) {
+    return {str.begin(), str.end()};
+}
+
+/**
+  * Prepare handles for connection.
+  *
+  * @param env Environment handle.
+  * @param conn Connection handle.
+ */
+inline void prepare_environment(SQLHENV &env, SQLHDBC &conn) {
+    // Allocate an environment handle
+    SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env);
+
+    EXPECT_TRUE(env != SQL_NULL_HANDLE);
+
+    // We want ODBC 3 support
+    SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, reinterpret_cast<void*>(SQL_OV_ODBC3), 0);
+
+    // Allocate a connection handle
+    SQLAllocHandle(SQL_HANDLE_DBC, env, &conn);
+
+    EXPECT_TRUE(conn != SQL_NULL_HANDLE);
+}
+
+/**
+ * ODBC connect.
+ *
+ * @param connect_str Connect string.
+ * @param env Environment handle.
+ * @param conn Connection handle.
+ * @param stmt Statement handle.
+ */
+inline void odbc_connect(std::string_view connect_str, SQLHENV &env, SQLHDBC &conn, SQLHSTMT &stmt) {
+    prepare_environment(env, conn);
+
+    // Connect string
+    auto connect_str0 = make_odbc_string(connect_str);
+
+    SQLCHAR out_str[ODBC_BUFFER_SIZE];
+    SQLSMALLINT out_str_len;
+
+    // Connecting to ODBC server.
+    SQLRETURN ret = SQLDriverConnect(conn, nullptr, &connect_str0[0],
+        static_cast<SQLSMALLINT>(connect_str0.size()), out_str, sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
+
+    if (!SQL_SUCCEEDED(ret)) {
+        FAIL() << get_odbc_error_message(SQL_HANDLE_DBC, conn);
+    }
+
+    // Allocate a statement handle
+    SQLAllocHandle(SQL_HANDLE_STMT, conn, &stmt);
+
+    EXPECT_TRUE(stmt != SQL_NULL_HANDLE);
+}
+
+/**
+ * Disconnect.
+ * @param conn Connection handle.
+ * @param stmt Statement handle.
+ */
+inline void odbc_disconnect(SQLHDBC &conn, SQLHSTMT &stmt) {
+    if (stmt) {
+        // Releasing the statement handle.
+        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        stmt = SQL_NULL_HANDLE;
+    }
+
+    if (conn) {
+        // Disconnecting from the server.
+        SQLDisconnect(conn);
+
+        // Releasing allocated handles.
+        SQLFreeHandle(SQL_HANDLE_DBC, conn);
+        conn = SQL_NULL_HANDLE;
+    }
+}
+
+/**
+ * Clean up handles.
+ * @param env Environment handle.
+ * @param conn Connection handle.
+ * @param stmt Statement handle.
+ */
+inline void odbc_clean_up(SQLHENV &env, SQLHDBC &conn, SQLHSTMT &stmt) {
+    odbc_disconnect(conn, stmt);
+
+    if (env) {
+        // Releasing allocated handles.
+        SQLFreeHandle(SQL_HANDLE_ENV, env);
+        env = SQL_NULL_HANDLE;
+    }
+}
+
 } // namespace ignite
