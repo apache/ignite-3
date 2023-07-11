@@ -484,7 +484,7 @@ TEST_F(application_data_buffer_test, put_timestamp_to_date)
 
     application_data_buffer app_buf(odbc_native_type::AI_TDATE, &buf, sizeof(buf), &res_len);
 
-    ignite_timestamp ts{1541079959 + _timezone, 346'598'326};
+    auto ts = make_timestamp(2018, 11, 1, 13, 45, 59, 346'598'326);
 
     app_buf.put_timestamp(ts);
 
