@@ -253,10 +253,7 @@ public class HashCalculator {
      * @param v Value to hash.
      */
     public static int hashUuid(UUID v) {
-        int hash1 = hashLong(v.getMostSignificantBits());
-        int hash2 = hashLong(v.getLeastSignificantBits());
-
-        return combine(hash1, hash2);
+        return HashUtils.hash32(v.getLeastSignificantBits(), HashUtils.hash32(v.getMostSignificantBits()));
     }
 
     /**
@@ -328,11 +325,9 @@ public class HashCalculator {
      * @param v Value to hash.
      */
     public static int hashDate(LocalDate v) {
-        int yearHash = hashInt(v.getYear());
-        int monthHash = hashInt(v.getMonthValue());
-        int dayHash = hashInt(v.getDayOfMonth());
-
-        return combine(yearHash, monthHash, dayHash);
+        return HashUtils.hash32(v.getDayOfMonth(),
+                HashUtils.hash32(v.getMonthValue(),
+                        HashUtils.hash32(v.getYear())));
     }
 
     /**
@@ -351,12 +346,10 @@ public class HashCalculator {
      * @param v Value to hash.
      */
     public static int hashTime(LocalTime v, int precision) {
-        int hourHash = hashInt(v.getHour());
-        int minuteHash = hashInt(v.getMinute());
-        int secondHash = hashInt(v.getSecond());
-        int nanoHash = hashInt(TemporalTypeUtils.normalizeNanos(v.getNano(), precision));
-
-        return combine(hourHash, minuteHash, secondHash, nanoHash);
+        int hourHash = HashUtils.hash32(v.getHour());
+        int minuteHash = HashUtils.hash32(v.getMinute(), hourHash);
+        int secondHash = HashUtils.hash32(v.getSecond(), minuteHash);
+        return HashUtils.hash32(TemporalTypeUtils.normalizeNanos(v.getNano(), precision), secondHash);
     }
 
     /**
@@ -394,10 +387,7 @@ public class HashCalculator {
      * @param v Value to hash.
      */
     public static int hashTimestamp(Instant v, int precision) {
-        int hash1 = hashLong(v.getEpochSecond());
-        int hash2 = hashInt(TemporalTypeUtils.normalizeNanos(v.getNano(), precision));
-
-        return combine(hash1, hash2);
+        return HashUtils.hash32(TemporalTypeUtils.normalizeNanos(v.getNano(), precision), hashLong(v.getEpochSecond()));
     }
 
     /**
