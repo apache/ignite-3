@@ -84,15 +84,11 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
-
-        SingleNode<Object[]> aggChain = createAggregateNodesChain(
-                testAgg,
+        SingleNode<Object[]> aggChain = createColocatedAggregateNodesChain(
                 ctx,
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
                 rowFactory(),
                 scan
         );
@@ -138,15 +134,11 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
-
-        SingleNode<Object[]> aggChain = createAggregateNodesChain(
-                testAgg,
+        SingleNode<Object[]> aggChain = createColocatedAggregateNodesChain(
                 ctx,
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
                 rowFactory(),
                 scan
         );
@@ -192,15 +184,11 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
-
-        SingleNode<Object[]> aggChain = createAggregateNodesChain(
-                testAgg,
+        SingleNode<Object[]> aggChain = createColocatedAggregateNodesChain(
                 ctx,
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
                 rowFactory(),
                 scan
         );
@@ -246,15 +234,11 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
-
-        SingleNode<Object[]> aggChain = createAggregateNodesChain(
-                testAgg,
+        SingleNode<Object[]> aggChain = createColocatedAggregateNodesChain(
                 ctx,
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
                 rowFactory(),
                 scan
         );
@@ -346,15 +330,11 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
-
-        SingleNode<Object[]> aggChain = createAggregateNodesChain(
-                testAgg,
+        SingleNode<Object[]> aggChain = createColocatedAggregateNodesChain(
                 ctx,
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
                 rowFactory(),
                 scan
         );
@@ -413,15 +393,11 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
-
-        SingleNode<Object[]> aggChain = createAggregateNodesChain(
-                testAgg,
+        SingleNode<Object[]> aggChain = createColocatedAggregateNodesChain(
                 ctx,
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
                 rowFactory(),
                 scan
         );
@@ -480,15 +456,11 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
                 List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-                RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
-
-                SingleNode<Object[]> aggChain = createAggregateNodesChain(
-                        testAgg,
+                SingleNode<Object[]> aggChain = createColocatedAggregateNodesChain(
                         ctx,
                         grpSets,
                         call,
                         rowType,
-                        aggRowType,
                         rowFactory(),
                         scan
                 );
@@ -536,15 +508,11 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
-
-        SingleNode<Object[]> aggChain = createAggregateNodesChain(
-                testAgg,
+        SingleNode<Object[]> aggChain = createColocatedAggregateNodesChain(
                 ctx,
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
                 rowFactory(),
                 scan
         );
@@ -583,15 +551,11 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
-
-        SingleNode<Object[]> aggChain = createAggregateNodesChain(
-                testAgg,
+        SingleNode<Object[]> aggChain = createColocatedAggregateNodesChain(
                 ctx,
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
                 rowFactory(),
                 scan
         );
@@ -632,15 +596,11 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
-
-        SingleNode<Object[]> aggChain = createAggregateNodesChain(
-                testAgg,
+        SingleNode<Object[]> aggChain = createColocatedAggregateNodesChain(
                 ctx,
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
                 rowFactory(),
                 scan
         );
@@ -663,40 +623,11 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         }
     }
 
-    protected SingleNode<Object[]> createAggregateNodesChain(
-            TestAggregateType testAgg,
-            ExecutionContext<Object[]> ctx,
-            List<ImmutableBitSet> grpSets,
-            AggregateCall aggCall,
-            RelDataType inRowType,
-            RelDataType aggRowType,
-            RowHandler.RowFactory<Object[]> rowFactory,
-            ScanNode<Object[]> scan
-    ) {
-        switch (testAgg) {
-            case COLOCATED:
-                return createColocatedAggregateNodesChain(ctx, grpSets, aggCall, inRowType, rowFactory, scan);
-            default:
-                assert false;
-                return null;
-        }
-    }
-
     protected abstract SingleNode<Object[]> createColocatedAggregateNodesChain(
             ExecutionContext<Object[]> ctx,
             List<ImmutableBitSet> grpSets,
             AggregateCall aggCall,
             RelDataType inRowType,
-            RowHandler.RowFactory<Object[]> rowFactory,
-            ScanNode<Object[]> scan
-    );
-
-    protected abstract SingleNode<Object[]> createMapReduceAggregateNodesChain(
-            ExecutionContext<Object[]> ctx,
-            List<ImmutableBitSet> grpSets,
-            AggregateCall call,
-            RelDataType inRowType,
-            RelDataType aggRowType,
             RowHandler.RowFactory<Object[]> rowFactory,
             ScanNode<Object[]> scan
     );

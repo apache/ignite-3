@@ -21,8 +21,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.first;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -74,70 +72,5 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
         agg.register(sort);
 
         return agg;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected SingleNode<Object[]> createMapReduceAggregateNodesChain(
-            ExecutionContext<Object[]> ctx,
-            List<ImmutableBitSet> grpSets,
-            AggregateCall call,
-            RelDataType inRowType,
-            RelDataType aggRowType,
-            RowHandler.RowFactory<Object[]> rowFactory,
-            ScanNode<Object[]> scan
-    ) {
-        assert grpSets.size() == 1;
-
-        ImmutableBitSet grpSet = first(grpSets);
-
-        RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(grpSet.asList()));
-
-        Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
-
-        SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
-
-        sort.register(scan);
-
-        if (grpSet.isEmpty() && cmp == null) {
-            cmp = (k1, k2) -> 0;
-        }
-
-        SortAggregateNode<Object[]> aggMap = new SortAggregateNode<>(
-                ctx,
-                grpSet,
-                accFactory(ctx, call, inRowType),
-                rowFactory,
-                cmp
-        );
-
-        aggMap.register(sort);
-
-        // The group's fields placed on the begin of the output row (planner
-        // does this by Projection node for aggregate input).
-        // Hash aggregate doesn't use groups set on reducer because send GroupKey as object.
-        ImmutableIntList reduceGrpFields = ImmutableIntList.copyOf(
-                IntStream.range(0, grpSet.cardinality()).boxed().collect(Collectors.toList())
-        );
-
-        RelCollation rdcCollation = RelCollations.of(reduceGrpFields);
-
-        Comparator<Object[]> rdcCmp = ctx.expressionFactory().comparator(rdcCollation);
-
-        if (grpSet.isEmpty() && rdcCmp == null) {
-            rdcCmp = (k1, k2) -> 0;
-        }
-
-        SortAggregateNode<Object[]> aggRdc = new SortAggregateNode<>(
-                ctx,
-                ImmutableBitSet.of(reduceGrpFields),
-                accFactory(ctx, call, aggRowType),
-                rowFactory,
-                rdcCmp
-        );
-
-        aggRdc.register(aggMap);
-
-        return aggRdc;
     }
 }

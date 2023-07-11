@@ -84,47 +84,4 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         return collation;
     }
-
-    /** {@inheritDoc} */
-    @Override
-    protected SingleNode<Object[]> createMapReduceAggregateNodesChain(
-            ExecutionContext<Object[]> ctx,
-            List<ImmutableBitSet> grpSets,
-            AggregateCall call,
-            RelDataType inRowType,
-            RelDataType aggRowType,
-            RowHandler.RowFactory<Object[]> rowFactory,
-            ScanNode<Object[]> scan
-    ) {
-        assert grpSets.size() == 1 : "Test checks only simple GROUP BY";
-
-        HashAggregateNode<Object[]> aggMap = new HashAggregateNode<>(
-                ctx,
-                grpSets,
-                accFactory(ctx, call, inRowType),
-                rowFactory
-        );
-
-        aggMap.register(scan);
-
-        HashAggregateNode<Object[]> aggRdc = new HashAggregateNode<>(
-                ctx,
-                grpSets,
-                accFactory(ctx, call, aggRowType),
-                rowFactory
-        );
-
-        aggRdc.register(aggMap);
-
-        RelCollation collation = createOutCollation(grpSets);
-
-        Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
-
-        // Create sort node on the top to check sorted results
-        SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
-
-        sort.register(aggRdc);
-
-        return sort;
-    }
 }

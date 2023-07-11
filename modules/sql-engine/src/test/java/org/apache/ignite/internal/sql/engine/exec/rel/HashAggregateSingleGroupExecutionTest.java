@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.MAP;
-import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.REDUCE;
-import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.SINGLE;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -36,10 +33,8 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -47,227 +42,6 @@ import org.junit.jupiter.api.Test;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest {
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19785")
-    public void mapReduceAvg() {
-        ExecutionContext<Object[]> ctx = executionContext();
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
-                row("Igor", 200),
-                row("Roman", 300),
-                row("Ivan", 1400),
-                row("Alexey", 1000)
-        ));
-
-        AggregateCall call = AggregateCall.create(
-                SqlStdOperatorTable.AVG,
-                false,
-                false,
-                false,
-                ImmutableIntList.of(1),
-                -1,
-                null,
-                RelCollations.EMPTY,
-                tf.createJavaType(double.class),
-                null);
-
-        List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
-
-        HashAggregateNode<Object[]> map = new HashAggregateNode<>(
-                ctx,
-                grpSets,
-                accFactory(ctx, call, MAP, rowType),
-                rowFactory()
-        );
-
-        map.register(scan);
-
-        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(
-                ctx,
-                grpSets,
-                accFactory(ctx, call, REDUCE, null),
-                rowFactory()
-        );
-
-        reduce.register(map);
-
-        RootNode<Object[]> root = new RootNode<>(ctx);
-        root.register(reduce);
-
-        assertTrue(root.hasNext());
-        assertEquals(725d, root.next()[0]);
-        assertFalse(root.hasNext());
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19785")
-    public void mapReduceSum() {
-        ExecutionContext<Object[]> ctx = executionContext();
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
-                row("Igor", 200),
-                row("Roman", 300),
-                row("Ivan", 1400),
-                row("Alexey", 1000)
-        ));
-
-        AggregateCall call = AggregateCall.create(
-                SqlStdOperatorTable.SUM,
-                false,
-                false,
-                false,
-                ImmutableIntList.of(1),
-                -1,
-                RelCollations.EMPTY,
-                tf.createJavaType(int.class),
-                null);
-
-        List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
-
-        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, grpSets,
-                accFactory(ctx, call, MAP, rowType), rowFactory());
-        map.register(scan);
-
-        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, grpSets,
-                accFactory(ctx, call, REDUCE, null), rowFactory());
-        reduce.register(map);
-
-        RootNode<Object[]> root = new RootNode<>(ctx);
-        root.register(reduce);
-
-        assertTrue(root.hasNext());
-        assertEquals(2900, root.next()[0]);
-        assertFalse(root.hasNext());
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19785")
-    public void mapReduceMin() {
-        ExecutionContext<Object[]> ctx = executionContext();
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
-                row("Igor", 200),
-                row("Roman", 300),
-                row("Ivan", 1400),
-                row("Alexey", 1000)
-        ));
-
-        AggregateCall call = AggregateCall.create(
-                SqlStdOperatorTable.MIN,
-                false,
-                false,
-                false,
-                ImmutableIntList.of(1),
-                -1,
-                RelCollations.EMPTY,
-                tf.createJavaType(int.class),
-                null);
-
-        List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
-
-        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, grpSets,
-                accFactory(ctx, call, MAP, rowType), rowFactory());
-        map.register(scan);
-
-        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, grpSets,
-                accFactory(ctx, call, REDUCE, null), rowFactory());
-        reduce.register(map);
-
-        RootNode<Object[]> root = new RootNode<>(ctx);
-        root.register(reduce);
-
-        assertTrue(root.hasNext());
-        assertEquals(200, root.next()[0]);
-        assertFalse(root.hasNext());
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19785")
-    public void mapReduceMax() {
-        ExecutionContext<Object[]> ctx = executionContext();
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
-                row("Igor", 200),
-                row("Roman", 300),
-                row("Ivan", 1400),
-                row("Alexey", 1000)
-        ));
-
-        AggregateCall call = AggregateCall.create(
-                SqlStdOperatorTable.MAX,
-                false,
-                false,
-                false,
-                ImmutableIntList.of(1),
-                -1,
-                RelCollations.EMPTY,
-                tf.createJavaType(int.class),
-                null);
-
-        List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
-
-        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, grpSets,
-                accFactory(ctx, call, MAP, rowType), rowFactory());
-        map.register(scan);
-
-        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, grpSets,
-                accFactory(ctx, call, REDUCE, null), rowFactory());
-        reduce.register(map);
-
-        RootNode<Object[]> root = new RootNode<>(ctx);
-        root.register(reduce);
-
-        assertTrue(root.hasNext());
-        assertEquals(1400, root.next()[0]);
-        assertFalse(root.hasNext());
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19785")
-    public void mapReduceCount() {
-        ExecutionContext<Object[]> ctx = executionContext();
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
-                row("Igor", 200),
-                row("Roman", 300),
-                row("Ivan", 1400),
-                row("Alexey", 1000)
-        ));
-
-        AggregateCall call = AggregateCall.create(
-                SqlStdOperatorTable.COUNT,
-                false,
-                false,
-                false,
-                ImmutableIntList.of(),
-                -1,
-                RelCollations.EMPTY,
-                tf.createJavaType(int.class),
-                null);
-
-        List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
-
-        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, grpSets,
-                accFactory(ctx, call, MAP, rowType), rowFactory());
-        map.register(scan);
-
-        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, grpSets,
-                accFactory(ctx, call, REDUCE, null), rowFactory());
-        reduce.register(map);
-
-        RootNode<Object[]> root = new RootNode<>(ctx);
-        root.register(reduce);
-
-        assertTrue(root.hasNext());
-        assertEquals(4, root.next()[0]);
-        assertFalse(root.hasNext());
-    }
 
     @Test
     public void singleAvg() {
@@ -295,7 +69,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, grpSets,
-                accFactory(ctx, call, SINGLE, rowType), rowFactory());
+                accFactory(ctx, call, rowType), rowFactory());
         agg.register(scan);
 
         RootNode<Object[]> root = new RootNode<>(ctx);
@@ -332,7 +106,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, grpSets,
-                accFactory(ctx, call, SINGLE, rowType), rowFactory());
+                accFactory(ctx, call, rowType), rowFactory());
         agg.register(scan);
 
         RootNode<Object[]> root = new RootNode<>(ctx);
@@ -369,7 +143,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, grpSets,
-                accFactory(ctx, call, SINGLE, rowType), rowFactory());
+                accFactory(ctx, call, rowType), rowFactory());
         agg.register(scan);
 
         RootNode<Object[]> root = new RootNode<>(ctx);
@@ -406,7 +180,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, grpSets,
-                accFactory(ctx, call, SINGLE, rowType), rowFactory());
+                accFactory(ctx, call, rowType), rowFactory());
         agg.register(scan);
 
         RootNode<Object[]> root = new RootNode<>(ctx);
@@ -446,7 +220,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(
                 ctx,
                 grpSets,
-                accFactory(ctx, call, SINGLE, rowType),
+                accFactory(ctx, call, rowType),
                 rowFactory()
         );
 
@@ -463,7 +237,6 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
     protected Supplier<List<AccumulatorWrapper<Object[]>>> accFactory(
             ExecutionContext<Object[]> ctx,
             AggregateCall call,
-            AggregateType type,
             RelDataType rowType
     ) {
         return ctx.expressionFactory().accumulatorsFactory(asList(call), rowType);
