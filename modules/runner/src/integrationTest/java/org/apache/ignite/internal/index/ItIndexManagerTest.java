@@ -23,12 +23,14 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.notNullValue;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -68,12 +70,13 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<IndexEventParameters> indexCreatedFuture = registerListener(indexManager, IndexEvent.CREATE);
 
-        await(indexManager.createIndexAsync(
-                "PUBLIC",
-                "INAME",
-                "TNAME",
-                true,
-                tableIndexChange -> tableIndexChange.convert(HashIndexChange.class).changeColumnNames("C3", "C2")
+        await(indexManager.createHashIndexAsync(
+                CreateHashIndexParams.builder()
+                        .schemaName("PUBLIC")
+                        .indexName("INAME")
+                        .tableName("TNAME")
+                        .columns(List.of("C3", "C2"))
+                        .build()
                 ));
 
         int createdIndexId;
@@ -90,7 +93,11 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<IndexEventParameters> indexDroppedFuture = registerListener(indexManager, IndexEvent.DROP);
 
-        await(indexManager.dropIndexAsync("PUBLIC", "INAME", true));
+        await(indexManager.dropIndexAsync(
+                DropIndexParams.builder()
+                        .schemaName("PUBLIC")
+                        .indexName("INAME")
+                        .build()));
 
         {
             IndexEventParameters params = await(indexDroppedFuture);

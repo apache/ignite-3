@@ -27,8 +27,10 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -38,6 +40,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
+import org.apache.ignite.internal.catalog.commands.DropIndexParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
@@ -47,7 +55,6 @@ import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
@@ -104,7 +111,16 @@ public class IndexManagerTest {
 
         when(schManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(null));
 
-        indexManager = new IndexManager(tablesConfig, schManager, tableManagerMock);
+        //TODO IGNITE-19082 drop mocked catalog manager.
+        CatalogManager catalogManager = mock(CatalogManager.class);
+        CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
+        when(catalogManager.createIndex(any(CreateHashIndexParams.class))).thenReturn(completedFuture(null));
+        when(catalogManager.createIndex(any(CreateSortedIndexParams.class))).thenReturn(completedFuture(null));
+        when(catalogManager.dropIndex(any())).thenReturn(completedFuture(null));
+        when(catalogManager.index(anyString(), anyLong())).thenReturn(indexDescriptor);
+        when(indexDescriptor.id()).thenReturn(1);
+
+        indexManager = new IndexManager(tablesConfig, catalogManager, schManager, tableManagerMock);
         indexManager.start();
 
         assertThat(
@@ -125,16 +141,14 @@ public class IndexManagerTest {
     void configurationChangedWhenCreateIsInvoked() {
         String indexName = "idx";
 
-        assertThat(indexManager.createIndexAsync("sName", indexName, "tName", true, indexChange -> {
-            SortedIndexChange sortedIndexChange = indexChange.convert(SortedIndexChange.class);
-
-            sortedIndexChange.changeColumns(columns -> {
-                columns.create("c1", columnChange -> columnChange.changeAsc(true));
-                columns.create("c2", columnChange -> columnChange.changeAsc(false));
-            });
-
-            sortedIndexChange.changeTableId(tableId());
-        }), willCompleteSuccessfully());
+        assertThat(indexManager.createSortedIndexAsync(
+                CreateSortedIndexParams.builder()
+                        .schemaName(CatalogManager.DEFAULT_SCHEMA_NAME)
+                        .tableName("tName")
+                        .indexName(indexName)
+                        .columns(List.of("c1", "c2"))
+                        .collations(List.of(CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST))
+                        .build()), willCompleteSuccessfully());
 
         var expected = List.of(
                 Map.of(
@@ -162,7 +176,24 @@ public class IndexManagerTest {
     @Test
     public void createIndexWithEmptyName() {
         assertThat(
-                indexManager.createIndexAsync("sName", "", "tName", true, indexChange -> {/* doesn't matter */}),
+                indexManager.createHashIndexAsync(
+                        CreateHashIndexParams.builder()
+                                .schemaName(CatalogManager.DEFAULT_SCHEMA_NAME)
+                                .tableName("tName")
+                                .indexName("")
+                                .columns(List.of("c1"))
+                                .build()),
+                willThrowFast(IgniteInternalException.class, "Index name should be at least 1 character long")
+        );
+
+        assertThat(
+                indexManager.createSortedIndexAsync(
+                        CreateSortedIndexParams.builder()
+                                .schemaName(CatalogManager.DEFAULT_SCHEMA_NAME)
+                                .tableName("tName")
+                                .indexName("")
+                                .columns(List.of("c1"))
+                                .build()),
                 willThrowFast(IgniteInternalException.class, "Index name should be at least 1 character long")
         );
     }
@@ -170,8 +201,12 @@ public class IndexManagerTest {
     @Test
     public void dropNonExistingIndex() {
         assertThat(
-                indexManager.dropIndexAsync("sName", "nonExisting", true),
-                willThrowFast(IndexNotFoundException.class, "Index does not exist [name=\"sName\".\"nonExisting\"]")
+                indexManager.dropIndexAsync(
+                        DropIndexParams.builder()
+                                .schemaName(CatalogManager.DEFAULT_SCHEMA_NAME)
+                                .indexName("nonExisting")
+                                .build()),
+                willThrowFast(IndexNotFoundException.class, "Index does not exist [name=\"PUBLIC\".\"nonExisting\"]")
         );
     }
 
@@ -194,15 +229,15 @@ public class IndexManagerTest {
             return completedFuture(true);
         });
 
-        assertThat(indexManager.createIndexAsync("sName", indexName, "tName", true, indexChange -> {
-            SortedIndexChange sortedIndexChange = indexChange.convert(SortedIndexChange.class);
-
-            sortedIndexChange.changeColumns(columns -> {
-                columns.create("c2", columnChange -> columnChange.changeAsc(true));
-            });
-
-            sortedIndexChange.changeTableId(tableId());
-        }), willCompleteSuccessfully());
+        assertThat(indexManager.createSortedIndexAsync(
+                        CreateSortedIndexParams.builder()
+                                .schemaName(CatalogManager.DEFAULT_SCHEMA_NAME)
+                                .indexName(indexName)
+                                .tableName("tName")
+                                .columns(List.of("c2"))
+                                .collations(List.of(CatalogColumnCollation.ASC_NULLS_LAST))
+                                .build()),
+                willCompleteSuccessfully());
 
         List<Integer> indexIds = tablesConfig.indexes().value().stream()
                 .map(TableIndexView::id)
@@ -217,7 +252,12 @@ public class IndexManagerTest {
         assertThat(holder.get().tableId(), equalTo(tableId()));
         assertThat(holder.get().indexDescriptor().name(), equalTo(indexName));
 
-        assertThat(indexManager.dropIndexAsync("sName", indexName, true), willCompleteSuccessfully());
+        assertThat(indexManager.dropIndexAsync(
+                DropIndexParams.builder()
+                        .schemaName(CatalogManager.DEFAULT_SCHEMA_NAME)
+                        .indexName(indexName)
+                        .build()),
+                willCompleteSuccessfully());
 
         assertThat(holder.get(), notNullValue());
         assertThat(holder.get().indexId(), equalTo(indexId));

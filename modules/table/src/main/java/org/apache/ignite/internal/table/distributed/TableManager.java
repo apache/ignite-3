@@ -1744,7 +1744,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    /** See {@link #alterTableAsync(String, Function)} for details. */
+    /**
+     * Alter table configuration.
+     *
+     * @see AlterTableAddColumnParams
+     * @see AlterTableDropColumnParams
+     */
+    @Deprecated(forRemoval = true)
     private CompletableFuture<Void> alterTableAsyncInternal(String name, Function<TableChange, Boolean> tableChange) {
         CompletableFuture<Void> tblFut = new CompletableFuture<>();
 
