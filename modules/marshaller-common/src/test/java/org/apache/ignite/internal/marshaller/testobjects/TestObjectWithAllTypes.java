@@ -41,7 +41,7 @@ public class TestObjectWithAllTypes {
     public static TestObjectWithAllTypes randomObject(Random rnd) {
         final TestObjectWithAllTypes obj = new TestObjectWithAllTypes();
 
-        obj.primitiveBooleanCol = true;
+        obj.primitiveBooleanCol = rnd.nextInt() % 2 == 0;
         obj.primitiveByteCol = (byte) rnd.nextInt(255);
         obj.primitiveShortCol = (short) rnd.nextInt(65535);
         obj.primitiveIntCol = rnd.nextInt();
@@ -49,7 +49,7 @@ public class TestObjectWithAllTypes {
         obj.primitiveFloatCol = rnd.nextFloat();
         obj.primitiveDoubleCol = rnd.nextDouble();
 
-        obj.booleanCol = true;
+        obj.booleanCol = rnd.nextInt() % 2 == 0;
         obj.byteCol = (byte) rnd.nextInt(255);
         obj.shortCol = (short) rnd.nextInt(65535);
         obj.intCol = rnd.nextInt();
