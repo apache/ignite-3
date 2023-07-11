@@ -856,7 +856,9 @@ TEST_F(application_data_buffer_test, get_timestamp_from_string)
 
     auto ts = app_buf.get_timestamp();
 
-    EXPECT_EQ(make_timestamp(2018, 11, 1, 13, 45, 59, 0), ts);
+    auto expected = make_timestamp(2018, 11, 1, 13, 45, 59, 0);
+    EXPECT_EQ(expected.get_epoch_second(), ts.get_epoch_second());
+    EXPECT_EQ(expected.get_nano(), ts.get_nano());
 }
 
 TEST_F(application_data_buffer_test, get_date_from_date)
