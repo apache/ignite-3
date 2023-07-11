@@ -77,7 +77,7 @@ public final class SchemaTestUtils {
     public static Object generateRandomValue(Random rnd, NativeType type) {
         switch (type.spec()) {
             case BOOLEAN:
-                return rnd.nextInt() % 2 == 0;
+                return rnd.nextBoolean();
 
             case INT8:
                 return (byte) rnd.nextInt(255);
