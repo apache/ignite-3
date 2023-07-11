@@ -109,17 +109,17 @@ tm time_to_tm_for_strftime(const ignite_time &value) {
  * @param value Ignite time.
  * @return A tm structure to use with strftime.
  */
-tm date_time_to_tm_for_strftime(const ignite_date_time &value) {
-    tm tm_time{};
-    tm_time.tm_year = value.get_year() - 1900;
-    tm_time.tm_mon = value.get_month() - 1; // NOLINT(cert-str34-c)
-    tm_time.tm_mday = value.get_day_of_month(); // NOLINT(cert-str34-c)
-    tm_time.tm_hour = value.get_hour(); // NOLINT(cert-str34-c)
-    tm_time.tm_min = value.get_minute(); // NOLINT(cert-str34-c)
-    tm_time.tm_sec = value.get_second(); // NOLINT(cert-str34-c)
-
-    return tm_time;
-}
+//tm date_time_to_tm_for_strftime(const ignite_date_time &value) {
+//    tm tm_time{};
+//    tm_time.tm_year = value.get_year() - 1900;
+//    tm_time.tm_mon = value.get_month() - 1; // NOLINT(cert-str34-c)
+//    tm_time.tm_mday = value.get_day_of_month(); // NOLINT(cert-str34-c)
+//    tm_time.tm_hour = value.get_hour(); // NOLINT(cert-str34-c)
+//    tm_time.tm_min = value.get_minute(); // NOLINT(cert-str34-c)
+//    tm_time.tm_sec = value.get_second(); // NOLINT(cert-str34-c)
+//
+//    return tm_time;
+//}
 
 /**
  * Convert time_t to struct tm.
@@ -132,7 +132,7 @@ tm time_t_to_tm(time_t ctime) {
 #ifdef WIN32
     localtime_s(&tm_time, &ctime);
 #else
-    localtime_s(&ctime, &tm_time);
+    localtime_r(&ctime, &tm_time);
 #endif
     return tm_time;
 }

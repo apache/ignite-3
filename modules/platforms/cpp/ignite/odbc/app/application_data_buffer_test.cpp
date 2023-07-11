@@ -446,10 +446,6 @@ TEST_F(application_data_buffer_test, put_time_to_time)
     EXPECT_EQ(1, buf.second);
 }
 
-ignite_timestamp make_timestamp(int year, int month, int day, int hour, int min, int sec, int nano) {
-    return {};
-}
-
 TEST_F(application_data_buffer_test, put_timestamp_to_string)
 {
     char str_buf[64];

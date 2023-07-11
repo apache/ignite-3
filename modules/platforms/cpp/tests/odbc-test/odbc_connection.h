@@ -26,10 +26,11 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <memory>
 #include <string_view>
 #include <utility>
-#include <chrono>
+#include <thread>
 
 #include <sql.h>
 #include <sqlext.h>
