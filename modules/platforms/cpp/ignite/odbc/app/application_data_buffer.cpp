@@ -103,25 +103,6 @@ tm time_to_tm_for_strftime(const ignite_time &value) {
 }
 
 /**
- * Convert Ignite time to C standard tm struct.
- *
- * @warning This is not a proper conversion and only works for using with strftime with certain format options.
- * @param value Ignite time.
- * @return A tm structure to use with strftime.
- */
-//tm date_time_to_tm_for_strftime(const ignite_date_time &value) {
-//    tm tm_time{};
-//    tm_time.tm_year = value.get_year() - 1900;
-//    tm_time.tm_mon = value.get_month() - 1; // NOLINT(cert-str34-c)
-//    tm_time.tm_mday = value.get_day_of_month(); // NOLINT(cert-str34-c)
-//    tm_time.tm_hour = value.get_hour(); // NOLINT(cert-str34-c)
-//    tm_time.tm_min = value.get_minute(); // NOLINT(cert-str34-c)
-//    tm_time.tm_sec = value.get_second(); // NOLINT(cert-str34-c)
-//
-//    return tm_time;
-//}
-
-/**
  * Convert time_t to struct tm.
  *
  * @param ctime Time.
