@@ -96,6 +96,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      *
      * @throws Exception If failed.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19955 also blocks this.
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
     @Test
     void testFilteredDataNodesPropagatedToStable() throws Exception {
