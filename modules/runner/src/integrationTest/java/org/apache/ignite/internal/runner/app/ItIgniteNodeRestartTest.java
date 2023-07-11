@@ -316,6 +316,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = (c) -> clusterConfigRegistry.listenUpdateStorageRevision(c::apply);
 
+        var baselineManager = new BaselineManager(
+                clusterCfgMgr,
+                metaStorageMgr,
+                clusterSvc
+        );
+
         DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));
 
         Path storagePath = getPartitionsStorePath(dir);
@@ -365,7 +371,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 replicaMgr,
                 lockManager,
                 replicaService,
-                mock(BaselineManager.class),
+                baselineManager,
                 clusterSvc.topologyService(),
                 txManager,
                 dataStorageManager,
@@ -419,6 +425,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 cmgManager,
                 replicaMgr,
                 txManager,
+                baselineManager,
                 metaStorageMgr,
                 clusterCfgMgr,
                 dataStorageManager,
