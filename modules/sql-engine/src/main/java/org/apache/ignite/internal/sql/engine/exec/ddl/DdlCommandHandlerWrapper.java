@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
+
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -35,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -86,28 +90,25 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
         } else if (cmd instanceof AlterColumnCommand) {
             return catalogManager.alterColumn(DdlToCatalogCommandConverter.convert((AlterColumnCommand) cmd))
                     .handle(handleModificationResult(((AlterColumnCommand) cmd).ifTableExists(), TableNotFoundException.class));
-        }
+        } else if (cmd instanceof CreateIndexCommand) {
+            AbstractIndexCommandParams params = DdlToCatalogCommandConverter.convert((CreateIndexCommand) cmd);
 
-        // Handle command in usual way.
-        CompletableFuture<Boolean> ddlCommandFuture = super.handle(cmd);
+            if (params instanceof CreateSortedIndexParams) {
+                return indexManager.createSortedIndexAsync((CreateSortedIndexParams) params)
+                        .handle(handleModificationResult(((CreateIndexCommand) cmd).ifNotExists(), IndexAlreadyExistsException.class));
+            } else if (params instanceof CreateHashIndexParams) {
+                return indexManager.createHashIndexAsync((CreateHashIndexParams) params)
+                        .handle(handleModificationResult(((CreateIndexCommand) cmd).ifNotExists(), IndexAlreadyExistsException.class));
+            }
 
-        if (cmd instanceof CreateIndexCommand) {
-            return ddlCommandFuture
-                    .thenCompose(res -> {
-                        AbstractIndexCommandParams params = DdlToCatalogCommandConverter.convert((CreateIndexCommand) cmd);
-                        if (params instanceof CreateSortedIndexParams) {
-                            return catalogManager.createIndex((CreateSortedIndexParams) params);
-                        } else {
-                            return catalogManager.createIndex((CreateHashIndexParams) params);
-                        }
-                    }).handle(handleModificationResult(((CreateIndexCommand) cmd).ifNotExists(), IndexAlreadyExistsException.class));
+            return failedFuture(new IgniteInternalCheckedException(UNSUPPORTED_DDL_OPERATION_ERR, "Unsupported DDL operation ["
+                    + "cmdName=" + cmd.getClass().getSimpleName() + "]"));
         } else if (cmd instanceof DropIndexCommand) {
-            return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.dropIndex(DdlToCatalogCommandConverter.convert((DropIndexCommand) cmd))
-                            .handle(handleModificationResult(((DropIndexCommand) cmd).ifNotExists(), IndexNotFoundException.class))
-                    );
+            return indexManager.dropIndexAsync(DdlToCatalogCommandConverter.convert((DropIndexCommand) cmd))
+                    .handle(handleModificationResult(((DropIndexCommand) cmd).ifNotExists(), IndexNotFoundException.class));
         }
 
-        return ddlCommandFuture;
+        // Handle other commands in usual way.
+        return super.handle(cmd);
     }
 }

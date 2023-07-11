@@ -48,6 +48,9 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -284,11 +287,17 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         //TODO IGNITE-19082 drop mocked catalog manager.
         catalogManager = mock(CatalogManager.class);
-        CatalogTableDescriptor descriptor = mock(CatalogTableDescriptor.class);
-        when(descriptor.id()).thenReturn(1);
+        CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
+        CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
+        when(tableDescriptor.id()).thenReturn(1);
+        when(indexDescriptor.id()).thenReturn(1);
         when(catalogManager.createTable(any())).thenReturn(completedFuture(null));
+        when(catalogManager.createIndex(any(CreateHashIndexParams.class))).thenReturn(completedFuture(null));
+        when(catalogManager.createIndex(any(CreateSortedIndexParams.class))).thenReturn(completedFuture(null));
         when(catalogManager.dropTable(any())).thenReturn(completedFuture(null));
-        when(catalogManager.table(anyString(), anyLong())).thenReturn(descriptor);
+        when(catalogManager.dropIndex(any())).thenReturn(completedFuture(null));
+        when(catalogManager.table(anyString(), anyLong())).thenReturn(tableDescriptor);
+        when(catalogManager.index(anyString(), anyLong())).thenReturn(indexDescriptor);
 
         cmgMgr = mock(ClusterManagementGroupManager.class);
 
@@ -304,7 +313,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         tblManager = mockManagers();
 
-        idxManager = new IndexManager(tblsCfg, schemaManager, tblManager);
+        idxManager = new IndexManager(tblsCfg, catalogManager, schemaManager, tblManager);
 
         idxManager.start();
 

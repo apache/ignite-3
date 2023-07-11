@@ -386,7 +386,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 null
         );
 
-        var indexManager = new IndexManager(tablesConfig, schemaManager, tableManager);
+        var indexManager = new IndexManager(tablesConfig, catalogManager, schemaManager, tableManager);
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,
@@ -1205,9 +1205,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas, int partitions) {
         try (Session session = nodes.get(0).sql().createSession()) {
-            session.execute(null,
-                    String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
-            session.execute(null, "CREATE TABLE IF NOT EXISTS " + name
+            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d",
+                            name.toUpperCase(), replicas, partitions));
+            session.execute(null, "CREATE TABLE IF NOT EXISTS " + name.toUpperCase()
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
 
             for (int i = 0; i < 100; i++) {

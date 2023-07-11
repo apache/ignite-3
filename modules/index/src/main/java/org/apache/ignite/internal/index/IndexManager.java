@@ -36,6 +36,10 @@ import java.util.function.Function;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
+import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
@@ -59,6 +63,7 @@ import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
+import org.apache.ignite.internal.schema.configuration.index.SortedIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
@@ -73,6 +78,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
@@ -96,6 +102,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /** Table manager. */
     private final TableManager tableManager;
 
+    /** Catalog manager. */
+    private final CatalogManager catalogManager;
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -106,17 +115,20 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * Constructor.
      *
      * @param tablesCfg Tables and indexes configuration.
+     * @param catalogManager Catalog manager.
      * @param schemaManager Schema manager.
      * @param tableManager Table manager.
      */
     public IndexManager(
             TablesConfiguration tablesCfg,
+            CatalogManager catalogManager,
             SchemaManager schemaManager,
             TableManager tableManager
     ) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
         this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
         this.tableManager = tableManager;
+        this.catalogManager = catalogManager;
     }
 
     /** {@inheritDoc} */
@@ -142,8 +154,10 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                                 .toArray(String[]::new);
 
                         String pkName = table.name() + "_PK";
+                        int pkId = table.tableId() + 1;
 
-                        return createIndexAsync("PUBLIC", pkName, table.name(), false,
+                        // Update config bypassing the Catalog, because PK has just been created in Catalog with the table.
+                        return createIndexInternal(pkId, "PUBLIC", pkName, table.name(), false,
                                 change -> change.changeUniq(true).convert(HashIndexChange.class)
                                         .changeColumnNames(pkColumns)
                         );
@@ -186,7 +200,99 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @param indexChange A consumer that suppose to change the configuration in order to provide description of an index.
      * @return A future represented the result of creation.
      */
+    @Deprecated(forRemoval = true)
     public CompletableFuture<Boolean> createIndexAsync(
+            String schemaName,
+            String indexName,
+            String tableName,
+            boolean failIfExists,
+            Consumer<TableIndexChange> indexChange
+    ) {
+        throw new UnsupportedOperationException("Method is no longer supported.");
+    }
+
+    /**
+     * Creates sorted index from provided parameters.
+     */
+    @Deprecated(forRemoval = true)
+    public CompletableFuture<Boolean> createSortedIndexAsync(CreateSortedIndexParams params) {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            Consumer<TableIndexChange> indexChanger = tableIndexChange -> {
+                tableIndexChange.convert(SortedIndexChange.class).changeColumns(colsInit -> {
+                    for (int i = 0; i < params.columns().size(); i++) {
+                        String columnName = params.columns().get(i);
+                        CatalogColumnCollation collation = params.collations().get(i);
+                        //TODO: https://issues.apache.org/jira/browse/IGNITE-17563 Pass null ordering for columns.
+                        colsInit.create(columnName, colInit -> colInit.changeAsc(collation.asc()));
+                    }
+                });
+            };
+
+            return catalogManager.createIndex(params)
+                    .thenApply(ignore -> {
+                        CatalogIndexDescriptor index = catalogManager.index(params.indexName(), Long.MAX_VALUE);
+                        return index.id();
+                    })
+                    .thenCompose(indexId ->
+                            createIndexInternal(
+                                    indexId,
+                                    params.schemaName(),
+                                    params.indexName(),
+                                    params.tableName(),
+                                    true,
+                                    indexChanger
+                            )
+                    );
+        } catch (Exception ex) {
+            return failedFuture(ex);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Creates hash index from provided parameters.
+     */
+    @Deprecated(forRemoval = true)
+    public CompletableFuture<Boolean> createHashIndexAsync(CreateHashIndexParams params) {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            Consumer<TableIndexChange> indexChanger = tableIndexChange -> {
+                tableIndexChange.convert(HashIndexChange.class)
+                        .changeColumnNames(params.columns().toArray(STRING_EMPTY_ARRAY));
+            };
+
+            return catalogManager.createIndex(params)
+                    .thenApply(ignore -> {
+                        CatalogIndexDescriptor index = catalogManager.index(params.indexName(), Long.MAX_VALUE);
+                        return index.id();
+                    })
+                    .thenCompose(indexId ->
+                            createIndexInternal(
+                                    indexId,
+                                    params.schemaName(),
+                                    params.indexName(),
+                                    params.tableName(),
+                                    true,
+                                    indexChanger
+                            )
+                    );
+        } catch (Exception ex) {
+            return failedFuture(ex);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private CompletableFuture<Boolean> createIndexInternal(
+            int indexId,
             String schemaName,
             String indexName,
             String tableName,
@@ -223,8 +329,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 }
 
                 int tableId = tableCfg.id();
-
-                int indexId = tablesChange.globalIdCounter() + 1;
 
                 tablesChange.changeGlobalIdCounter(indexId);
 
@@ -282,6 +386,33 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             String indexName,
             boolean failIfNotExists
     ) {
+        throw new UnsupportedOperationException("Method is no longer supported.");
+    }
+
+    /**
+     * Drops the index with a given parameters asynchronously.
+     */
+    public CompletableFuture<Boolean> dropIndexAsync(DropIndexParams params) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        try {
+            CompletableFuture<Boolean> future = catalogManager.dropIndex(params)
+                    .thenCompose(ignore -> dropIndexAsyncInternal(params.schemaName(), params.indexName(), true));
+
+            future.whenComplete((res, ex) -> ex.printStackTrace());
+
+            return future;
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private CompletableFuture<Boolean> dropIndexAsyncInternal(
+            String schemaName,
+            String indexName,
+            boolean failIfNotExists
+    ) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -325,6 +456,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             });
 
             return future;
+        } catch (Exception ex) {
+            return failedFuture(ex);
         } finally {
             busyLock.leaveBusy();
         }
