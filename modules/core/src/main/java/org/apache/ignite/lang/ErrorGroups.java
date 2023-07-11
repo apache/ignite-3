@@ -39,6 +39,9 @@ public class ErrorGroups {
         /** SSL can not be configured error. */
         public static final int SSL_CONFIGURATION_ERR = COMMON_ERR_GROUP.registerErrorCode(4);
 
+        /** Operation failed because a node has the left cluster. */
+        public static final int NODE_LEFT_ERR = COMMON_ERR_GROUP.registerErrorCode(5);
+
         /**
          * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase.
          * In general, this error code should be considered as a non-recoverable error

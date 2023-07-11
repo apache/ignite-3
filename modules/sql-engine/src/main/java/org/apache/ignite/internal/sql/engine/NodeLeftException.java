@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_EXECUTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_LEFT_ERR;
 
 import org.apache.ignite.lang.IgniteException;
 
@@ -30,6 +30,6 @@ public class NodeLeftException extends IgniteException {
 
     /** Constructor. */
     public NodeLeftException(String nodeName) {
-        super(RUNTIME_EXECUTION_ERR, "Node left the cluster. Node: " + nodeName);
+        super(NODE_LEFT_ERR, "Node left the cluster. Node: " + nodeName);
     }
 }
