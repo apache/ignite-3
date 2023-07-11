@@ -2928,8 +2928,6 @@ public class ItNodeTest {
         for (char ch = 'a'; ch <= 'z'; ch++)
             fsm.getLogs().add(ByteBuffer.wrap(new byte[] {(byte) ch}));
 
-        NodeOptions nodeOpts = new NodeOptions();
-
         BootstrapOptions opts = new BootstrapOptions();
         DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path);
         logStorageProvider.start();
@@ -2941,6 +2939,7 @@ public class ItNodeTest {
         opts.setGroupConf(JRaftUtils.getConfiguration(peer.getPeerId().toString()));
         opts.setFsm(fsm);
 
+        NodeOptions nodeOpts = new NodeOptions();
         opts.setNodeOptions(nodeOpts);
 
         assertTrue(JRaftUtils.bootstrap(opts));
@@ -2977,8 +2976,6 @@ public class ItNodeTest {
         Path path = Path.of(dataPath, "node0", "log");
         Files.createDirectories(path);
 
-        NodeOptions nodeOpts = new NodeOptions();
-
         BootstrapOptions opts = new BootstrapOptions();
         DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path);
         logStorageProvider.start();
@@ -2989,6 +2986,7 @@ public class ItNodeTest {
         opts.setLogUri("test");
         opts.setGroupConf(JRaftUtils.getConfiguration(peer.getPeerId().toString()));
         opts.setFsm(fsm);
+        NodeOptions nodeOpts = new NodeOptions();
         opts.setNodeOptions(nodeOpts);
 
         assertTrue(JRaftUtils.bootstrap(opts));
