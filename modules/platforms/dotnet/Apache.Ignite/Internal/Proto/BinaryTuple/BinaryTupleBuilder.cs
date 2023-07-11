@@ -419,7 +419,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             {
                 var lo = BinaryPrimitives.ReadInt64LittleEndian(span[..8]);
                 var hi = BinaryPrimitives.ReadInt64LittleEndian(span[8..]);
-                var hash = HashUtils.Combine(HashUtils.Hash32(lo), HashUtils.Hash32(hi));
+                var hash = HashUtils.Hash32(hi, HashUtils.Hash32(lo));
 
                 _hash = HashUtils.Combine(_hash, hash);
             }
@@ -666,7 +666,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             if (ShouldHash())
             {
-                var hash = HashUtils.Combine(HashUtils.Hash32(seconds), HashUtils.Hash32(nanos));
+                var hash = HashUtils.Hash32(nanos, HashUtils.Hash32(seconds));
                 _hash = HashUtils.Combine(_hash, hash);
             }
 

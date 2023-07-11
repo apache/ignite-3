@@ -59,14 +59,30 @@ internal static class HashUtils
     /// </summary>
     /// <param name="data">Input data.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(int data) => Hash32Internal(unchecked((uint)data), 0, 4);
+    public static int Hash32(int data) => Hash32(data, 0);
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Seed.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(int data, int seed) => Hash32Internal(unchecked((uint)data), (ulong)seed, 4);
 
     /// <summary>
     /// Generates 32-bit hash.
     /// </summary>
     /// <param name="data">Input data.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(long data) => Hash32Internal(unchecked((ulong)data), 0, 8);
+    public static int Hash32(long data) => Hash32(data, 0);
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Seed.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(long data, int seed) => Hash32Internal(unchecked((ulong)data), (ulong)seed, 8);
 
     /// <summary>
     /// Generates 32-bit hash.
@@ -94,7 +110,7 @@ internal static class HashUtils
     /// </summary>
     /// <param name="data">Input data.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(LocalDate data) => Combine(Hash32(data.Year), Hash32(data.Month), Hash32(data.Day));
+    public static int Hash32(LocalDate data) => Hash32(data.Day, Hash32(data.Month, Hash32(data.Year)));
 
     /// <summary>
     /// Generates 32-bit hash.
@@ -106,7 +122,7 @@ internal static class HashUtils
     {
         var nanos = TemporalTypes.NormalizeNanos(data.NanosecondOfSecond, precision);
 
-        return Combine(Hash32(data.Hour), Hash32(data.Minute), Hash32(data.Second), Hash32(nanos));
+        return Hash32(nanos, Hash32(data.Second, Hash32(data.Minute, Hash32(data.Hour))));
     }
 
     /// <summary>
@@ -124,25 +140,6 @@ internal static class HashUtils
     /// <param name="hash2">Hash 2.</param>
     /// <returns>Combined hash.</returns>
     public static int Combine(int hash1, int hash2) => Hash32Internal(unchecked((uint)hash1), unchecked((ulong)hash2), 4);
-
-    /// <summary>
-    /// Combines three hashes.
-    /// </summary>
-    /// <param name="hash1">Hash 1.</param>
-    /// <param name="hash2">Hash 2.</param>
-    /// <param name="hash3">Hash 3.</param>
-    /// <returns>Combined hash.</returns>
-    public static int Combine(int hash1, int hash2, int hash3) => Combine(hash1, Combine(hash2, hash3));
-
-    /// <summary>
-    /// Combines four hashes.
-    /// </summary>
-    /// <param name="hash1">Hash 1.</param>
-    /// <param name="hash2">Hash 2.</param>
-    /// <param name="hash3">Hash 3.</param>
-    /// <param name="hash4">Hash 4.</param>
-    /// <returns>Combined hash.</returns>
-    public static int Combine(int hash1, int hash2, int hash3, int hash4) => Combine(hash1, Combine(hash2, hash3, hash4));
 
     private static int Hash32Internal(ulong data, ulong seed, byte byteCount)
     {
