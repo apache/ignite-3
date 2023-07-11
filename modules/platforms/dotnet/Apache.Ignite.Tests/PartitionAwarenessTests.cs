@@ -263,10 +263,10 @@ public class PartitionAwarenessTests
         await view.UpsertAsync(null, new CompositeKey("1", Guid.Empty)); // Warm up.
 
         await Test("1", Guid.Empty, _server1);
-        await Test("1", Guid.Parse("b0000000-0000-0000-0000-000000000002"), _server2);
+        await Test("1", Guid.Parse("b0000000-0000-0000-0000-000000000000"), _server2);
 
-        await Test("a", Guid.Empty, _server2);
-        await Test("a", Guid.Parse("b0000000-0000-0000-0000-000000000000"), _server1);
+        await Test("c", Guid.Empty, _server2);
+        await Test("c", Guid.Parse("b0000000-0000-0000-0000-000000000000"), _server1);
 
         async Task Test(string idStr, Guid idGuid, FakeServer node) =>
             await AssertOpOnNode(() => view.UpsertAsync(null, new CompositeKey(idStr, idGuid)), ClientOp.TupleUpsert, node);
