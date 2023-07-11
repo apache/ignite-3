@@ -453,11 +453,11 @@ TEST_F(application_data_buffer_test, put_timestamp_to_string)
 
     application_data_buffer app_buf(odbc_native_type::AI_CHAR, &str_buf, sizeof(str_buf), &res_len);
 
-    ignite_timestamp ts{1541079959, 346'598'326};
+    ignite_timestamp ts{1541079959 - _timezone, 346'598'326};
 
     app_buf.put_timestamp(ts);
 
-    EXPECT_EQ(std::string(str_buf, res_len - 1), std::string("2018-11-01 17:45:59"));
+    EXPECT_EQ(std::string(str_buf, res_len - 1), std::string("2018-11-01 13:45:59"));
 }
 
 TEST_F(application_data_buffer_test, put_timestamp_to_date)
@@ -467,7 +467,7 @@ TEST_F(application_data_buffer_test, put_timestamp_to_date)
 
     application_data_buffer app_buf(odbc_native_type::AI_TDATE, &buf, sizeof(buf), &res_len);
 
-    ignite_timestamp ts{1541079959, 346'598'326};
+    ignite_timestamp ts{1541079959 - _timezone, 346'598'326};
 
     app_buf.put_timestamp(ts);
 
@@ -483,7 +483,7 @@ TEST_F(application_data_buffer_test, put_timestamp_to_time)
 
     application_data_buffer app_buf(odbc_native_type::AI_TTIME, &buf, sizeof(buf), &res_len);
 
-    ignite_timestamp ts{1541079959, 346'598'326};
+    ignite_timestamp ts{1541079959 - _timezone, 346'598'326};
 
     app_buf.put_timestamp(ts);
 
@@ -499,14 +499,14 @@ TEST_F(application_data_buffer_test, put_timestamp_to_timestamp)
 
     application_data_buffer app_buf(odbc_native_type::AI_TTIMESTAMP, &buf, sizeof(buf), &res_len);
 
-    ignite_timestamp ts{1541079959, 573'948'623};
+    ignite_timestamp ts{1541079959 - _timezone, 573'948'623};
 
     app_buf.put_timestamp(ts);
 
     EXPECT_EQ(2018, buf.year);
     EXPECT_EQ(11, buf.month);
     EXPECT_EQ(1, buf.day);
-    EXPECT_EQ(17, buf.hour);
+    EXPECT_EQ(13, buf.hour);
     EXPECT_EQ(45, buf.minute);
     EXPECT_EQ(59, buf.second);
     EXPECT_EQ(573'948'623, buf.fraction);
