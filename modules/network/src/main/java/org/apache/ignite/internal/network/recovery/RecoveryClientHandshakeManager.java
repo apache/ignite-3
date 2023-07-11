@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
@@ -175,9 +176,9 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
                 } else {
                     String err = "Failed to acquire recovery descriptor during handshake, it is held by: " + descriptor.holder();
 
-                    LOG.warn(err);
+                    LOG.info(err);
 
-                    handshakeCompleteFuture.completeExceptionally(new HandshakeException(err));
+                    handshakeCompleteFuture.completeExceptionally(new ChannelAlreadyExistsException(remoteConsistentId));
 
                     return;
                 }

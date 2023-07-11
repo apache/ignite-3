@@ -221,6 +221,7 @@ public class ConnectionManager implements ChannelCreationListener {
      * @return Sender.
      */
     public OrderingFuture<NettySender> channel(@Nullable String consistentId, ChannelType type, InetSocketAddress address) {
+        // Problem is we can't look up a channel by consistent id because consistent id is not known yet.
         if (consistentId != null) {
             // If consistent id is known, try looking up a channel by consistent id. There can be an outbound connection
             // or an inbound connection associated with that consistent id.

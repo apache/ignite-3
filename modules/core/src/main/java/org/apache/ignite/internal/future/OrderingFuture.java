@@ -29,6 +29,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
@@ -299,8 +300,8 @@ public class OrderingFuture<T> {
     private static <T> void acceptQuietly(BiConsumer<? super T, ? super Throwable> action, T result, Throwable ex) {
         try {
             action.accept(result, ex);
-        } catch (Exception e) {
-            // ignore
+        } catch (Exception ignored) {
+            // No-op.
         }
     }
 
@@ -328,6 +329,41 @@ public class OrderingFuture<T> {
 
             if (dependent == null) {
                 dependent = new ThenComposeToCompletable<>(new CompletableFuture<>(), mapper);
+            }
+            State<T> newState = prevState.enqueueDependent(dependent);
+
+            if (replaceState(prevState, newState)) {
+                return dependent.resultFuture;
+            }
+        }
+    }
+
+    /**
+     * Adds a mapping function that gets executed as soon as this future gets completed for any reason. The function will accept both result
+     * and exception and return a future with the result of the function's execution.
+     *
+     * @param mapper The function to use to compute the value of the returned CompletionStage.
+     * @return The new CompletionStage.
+     * @see CompletableFuture#handle(BiFunction)
+     */
+    public <U> OrderingFuture<U> handle(BiFunction<? super T, Throwable, ? extends U> mapper) {
+        Handle<T, U> dependent = null;
+
+        while (true) {
+            State<T> prevState = state;
+
+            if (prevState.completionQueueProcessed()) {
+                try {
+                    U mappingResult = mapper.apply(prevState.result, prevState.exception);
+
+                    return completedFuture(mappingResult);
+                } catch (Throwable t) {
+                    return failedFuture(t);
+                }
+            }
+
+            if (dependent == null) {
+                dependent = new Handle<>(new OrderingFuture<>(), mapper);
             }
             State<T> newState = prevState.enqueueDependent(dependent);
 
@@ -463,6 +499,25 @@ public class OrderingFuture<T> {
         }
     }
 
+    private static class Handle<T, U> implements DependentAction<T> {
+        private final OrderingFuture<U> resultFuture;
+        private final BiFunction<? super T, Throwable, ? extends U> action;
+
+        private Handle(OrderingFuture<U> resultFuture, BiFunction<? super T, Throwable, ? extends U> action) {
+            this.resultFuture = resultFuture;
+            this.action = action;
+        }
+
+        @Override
+        public void onCompletion(@Nullable T result, @Nullable Throwable ex, NotificationContext context) {
+            try {
+                resultFuture.complete(action.apply(result, ex));
+            } catch (Throwable t) {
+                resultFuture.completeExceptionally(t);
+            }
+        }
+    }
+
     private static class ThenComposeToCompletable<T, U> implements DependentAction<T>, BiConsumer<U, Throwable> {
         private final CompletableFuture<U> resultFuture;
         private final Function<? super T, ? extends CompletableFuture<U>> mapper;
@@ -563,8 +618,8 @@ public class OrderingFuture<T> {
 
                 try {
                     node.dependent.onCompletion(result, exception, context);
-                } catch (Exception e) {
-                    // ignore
+                } catch (Exception ignored) {
+                    // No-op.
                 }
             }
         }

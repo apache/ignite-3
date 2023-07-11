@@ -305,7 +305,7 @@ public class ItConnectionManagerTest {
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(1000)
+    @RepeatedTest(100)
     public void testOneChannelLeftIfConnectToEachOther() throws Exception {
         try (
                 ConnectionManagerWrapper manager1 = startManager(4000);

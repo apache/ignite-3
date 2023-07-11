@@ -204,7 +204,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
                 } else {
                     String err = "Failed to acquire recovery descriptor during handshake, it is held by: " + descriptor.holder();
 
-                    LOG.warn(err);
+                    LOG.info(err);
 
                     handshakeCompleteFuture.completeExceptionally(new HandshakeException(err));
 
