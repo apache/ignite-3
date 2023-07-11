@@ -380,14 +380,16 @@ public class ItConnectionManagerTest {
             NettySender channel1 = channelFut1.getNow(null);
             NettySender channel2 = channelFut2.getNow(null);
 
-            SocketAddress locAddr1 = channel1.channel().localAddress();
-            SocketAddress remoteAddr1 = channel1.channel().remoteAddress();
+            InetSocketAddress locAddr1 = (InetSocketAddress) channel1.channel().localAddress();
+            InetSocketAddress remoteAddr1 = (InetSocketAddress) channel1.channel().remoteAddress();
 
-            SocketAddress locAddr2 = channel2.channel().localAddress();
-            SocketAddress remoteAddr2 = channel2.channel().remoteAddress();
+            InetSocketAddress locAddr2 = (InetSocketAddress) channel2.channel().localAddress();
+            InetSocketAddress remoteAddr2 = (InetSocketAddress) channel2.channel().remoteAddress();
 
-            assertEquals(locAddr1, remoteAddr2);
-            assertEquals(locAddr2, remoteAddr1);
+            // Only compare ports because hosts may look different, eg localhost and 0.0.0.0. They are technically not same,
+            // although equal.
+            assertEquals(locAddr1.getPort(), remoteAddr2.getPort());
+            assertEquals(locAddr2.getPort(), remoteAddr1.getPort());
         }
     }
 
