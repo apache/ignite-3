@@ -25,6 +25,23 @@
 
 using namespace ignite;
 
+/**
+ * Make timestamp instance.
+ */
+ignite_timestamp make_timestamp(int year, int month, int day, int hour, int min, int sec, int nano) {
+    tm tm_time{};
+    tm_time.tm_year = year - 1900;
+    tm_time.tm_mon = month - 1;
+    tm_time.tm_mday = day;
+    tm_time.tm_hour = hour;
+    tm_time.tm_min = min;
+    tm_time.tm_sec = sec;
+    tm_time.tm_isdst = -1;
+
+    auto ctime = mktime(&tm_time);
+    return {ctime, nano};
+}
+
 class application_data_buffer_test : public ::testing::Test {};
 
 TEST_F(application_data_buffer_test, put_int_to_string)
@@ -453,7 +470,7 @@ TEST_F(application_data_buffer_test, put_timestamp_to_string)
 
     application_data_buffer app_buf(odbc_native_type::AI_CHAR, &str_buf, sizeof(str_buf), &res_len);
 
-    ignite_timestamp ts{1541079959 - _timezone, 346'598'326};
+    auto ts = make_timestamp(2018, 11, 1, 13, 45, 59, 346'598'326);
 
     app_buf.put_timestamp(ts);
 
@@ -467,7 +484,7 @@ TEST_F(application_data_buffer_test, put_timestamp_to_date)
 
     application_data_buffer app_buf(odbc_native_type::AI_TDATE, &buf, sizeof(buf), &res_len);
 
-    ignite_timestamp ts{1541079959 - _timezone, 346'598'326};
+    ignite_timestamp ts{1541079959 + _timezone, 346'598'326};
 
     app_buf.put_timestamp(ts);
 
@@ -483,11 +500,11 @@ TEST_F(application_data_buffer_test, put_timestamp_to_time)
 
     application_data_buffer app_buf(odbc_native_type::AI_TTIME, &buf, sizeof(buf), &res_len);
 
-    ignite_timestamp ts{1541079959 - _timezone, 346'598'326};
+    auto ts = make_timestamp(2018, 11, 1, 13, 45, 59, 346'598'326);
 
     app_buf.put_timestamp(ts);
 
-    EXPECT_EQ(17, buf.hour);
+    EXPECT_EQ(13, buf.hour);
     EXPECT_EQ(45, buf.minute);
     EXPECT_EQ(59, buf.second);
 }
@@ -499,7 +516,7 @@ TEST_F(application_data_buffer_test, put_timestamp_to_timestamp)
 
     application_data_buffer app_buf(odbc_native_type::AI_TTIMESTAMP, &buf, sizeof(buf), &res_len);
 
-    ignite_timestamp ts{1541079959 - _timezone, 573'948'623};
+    auto ts = make_timestamp(2018, 11, 1, 13, 45, 59, 346'598'326);
 
     app_buf.put_timestamp(ts);
 
@@ -509,7 +526,7 @@ TEST_F(application_data_buffer_test, put_timestamp_to_timestamp)
     EXPECT_EQ(13, buf.hour);
     EXPECT_EQ(45, buf.minute);
     EXPECT_EQ(59, buf.second);
-    EXPECT_EQ(573'948'623, buf.fraction);
+    EXPECT_EQ(346'598'326, buf.fraction);
 }
 
 TEST_F(application_data_buffer_test, get_uuid_from_string)
