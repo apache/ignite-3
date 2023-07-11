@@ -49,7 +49,7 @@ public class HashCalculator {
         }
 
         if (v.getClass() == Boolean.class) {
-            appendByte(ByteUtils.booleanToByte((boolean) v));
+            appendBoolean((boolean) v);
         } else if (v.getClass() == Byte.class) {
             appendByte((byte) v);
         } else if (v.getClass() == Short.class) {
@@ -92,6 +92,15 @@ public class HashCalculator {
      */
     public void appendNull() {
         appendByte((byte) 0);
+    }
+
+    /**
+     * Append boolean to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
+    public void appendBoolean(boolean v) {
+        hash = HashUtils.hash32(ByteUtils.booleanToByte(v), hash);
     }
 
     /**

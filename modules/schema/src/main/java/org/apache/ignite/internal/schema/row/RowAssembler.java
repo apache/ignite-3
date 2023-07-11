@@ -270,7 +270,7 @@ public class RowAssembler {
     public RowAssembler appendBoolean(boolean val) throws SchemaMismatchException {
         checkType(NativeTypes.BOOLEAN);
 
-        builder.appendByte(ByteUtils.booleanToByte(val));
+        builder.appendBoolean(val);
 
         shiftColumn();
 
