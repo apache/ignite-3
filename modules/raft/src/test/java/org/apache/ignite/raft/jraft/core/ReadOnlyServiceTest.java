@@ -90,7 +90,8 @@ public class ReadOnlyServiceTest {
         opts.setReadOnlyServiceDisruptor(disruptor = new StripedDisruptor<>("TestReadOnlyServiceDisruptor",
             1024,
             () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
-            1));
+            1,
+            false));
         NodeOptions nodeOptions = new NodeOptions();
         ExecutorService executor = JRaftUtils.createExecutor("test-executor", Utils.cpus());
         executors.add(executor);
