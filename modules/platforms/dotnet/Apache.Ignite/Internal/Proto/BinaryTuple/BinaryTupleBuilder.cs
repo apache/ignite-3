@@ -1070,7 +1070,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             {
                 if (GetHashOrder() is { } hashOrder)
                 {
-                    // TODO: Precompute hash for empty byte array.
                     PutHash(hashOrder, HashUtils.Hash32(Span<byte>.Empty));
                 }
 
