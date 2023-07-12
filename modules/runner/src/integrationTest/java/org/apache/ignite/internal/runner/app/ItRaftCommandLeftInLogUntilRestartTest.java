@@ -224,7 +224,8 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
                 NamedThreadFactory.threadPrefix(node.name() + "-test", "JRaft-FSMCaller-Disruptor"),
                 64,
                 () -> new ApplyTask(),
-                1
+                1,
+                false
         ) {
             @Override
             public RingBuffer<ApplyTask> subscribe(NodeId group, EventHandler<ApplyTask> handler,

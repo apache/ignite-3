@@ -118,15 +118,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         CompletableFuture<Void> onConfigurationUpdated(
                 @Nullable SuperRoot oldRoot, SuperRoot newRoot, long storageRevision, long notificationNumber
         );
-
-        /**
-         * Invoked every time when a storage revision has been updated, but no data has been modified.
-         *
-         * @param storageRevision Configuration revision of the storage.
-         * @param notificationNumber Configuration listener notification number.
-         * @return Future that must signify when processing is completed. Exceptional completion is not expected.
-         */
-        CompletableFuture<Void> onRevisionUpdated(long storageRevision, long notificationNumber);
     }
 
     /**
@@ -618,61 +609,42 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     }
 
     private ConfigurationStorageListener configurationStorageListener() {
-        return new ConfigurationStorageListener() {
-            @Override
-            public CompletableFuture<Void> onEntriesChanged(Data changedEntries) {
-                StorageRoots oldStorageRoots = storageRoots;
+        return changedEntries -> {
+            StorageRoots oldStorageRoots = storageRoots;
 
-                SuperRoot oldSuperRoot = oldStorageRoots.roots;
-                SuperRoot newSuperRoot = oldSuperRoot.copy();
+            SuperRoot oldSuperRoot = oldStorageRoots.roots;
+            SuperRoot newSuperRoot = oldSuperRoot.copy();
 
-                Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedEntries.values());
+            Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedEntries.values());
 
-                compressDeletedEntries(dataValuesPrefixMap);
+            compressDeletedEntries(dataValuesPrefixMap);
 
-                fillFromPrefixMap(newSuperRoot, dataValuesPrefixMap);
+            fillFromPrefixMap(newSuperRoot, dataValuesPrefixMap);
 
-                long newChangeId = changedEntries.changeId();
+            long newChangeId = changedEntries.changeId();
 
-                var newStorageRoots = new StorageRoots(newSuperRoot, newChangeId);
+            var newStorageRoots = new StorageRoots(newSuperRoot, newChangeId);
 
-                rwLock.writeLock().lock();
+            rwLock.writeLock().lock();
 
-                try {
-                    storageRoots = newStorageRoots;
-                } finally {
-                    rwLock.writeLock().unlock();
-                }
+            try {
+                storageRoots = newStorageRoots;
+            } finally {
+                rwLock.writeLock().unlock();
+            }
 
-                // Save revisions for recovery.
-                // We execute synchronously to avoid a race between notifications about updating the Meta Storage and updating the revision
-                // of the Meta Storage.
-                storage.writeConfigurationRevision(oldStorageRoots.version, newStorageRoots.version);
+            long notificationNumber = notificationListenerCnt.incrementAndGet();
 
-                long notificationNumber = notificationListenerCnt.incrementAndGet();
+            CompletableFuture<Void> notificationFuture = configurationUpdateListener
+                    .onConfigurationUpdated(oldSuperRoot, newSuperRoot, newChangeId, notificationNumber);
 
-                CompletableFuture<Void> notificationFuture;
-
-                if (dataValuesPrefixMap.isEmpty()) {
-                    notificationFuture = configurationUpdateListener.onRevisionUpdated(newChangeId, notificationNumber);
+            return notificationFuture.whenComplete((v, t) -> {
+                if (t == null) {
+                    oldStorageRoots.changeFuture.complete(null);
                 } else {
-                    notificationFuture = configurationUpdateListener
-                            .onConfigurationUpdated(oldSuperRoot, newSuperRoot, newChangeId, notificationNumber);
+                    oldStorageRoots.changeFuture.completeExceptionally(t);
                 }
-
-                return notificationFuture.whenComplete((v, t) -> {
-                    if (t == null) {
-                        oldStorageRoots.changeFuture.complete(null);
-                    } else {
-                        oldStorageRoots.changeFuture.completeExceptionally(t);
-                    }
-                });
-            }
-
-            @Override
-            public CompletableFuture<Void> onRevisionUpdated(long newRevision) {
-                return configurationUpdateListener.onRevisionUpdated(newRevision, notificationListenerCnt.incrementAndGet());
-            }
+            });
         };
     }
 

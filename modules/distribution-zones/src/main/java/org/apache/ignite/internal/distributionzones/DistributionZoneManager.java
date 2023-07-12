@@ -828,7 +828,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             ZoneState zoneState = new ZoneState(executor, topologyAugmentationMap);
 
-            VaultEntry dataNodes = vaultMgr.get(zoneDataNodesKey(zoneId)).join();
+            Entry dataNodes = metaStorageManager.getLocally(zoneDataNodesKey(zoneId), revision);
 
             if (dataNodes != null) {
                 String filter = zone.filter();

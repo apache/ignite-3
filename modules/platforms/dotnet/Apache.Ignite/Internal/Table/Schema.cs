@@ -26,11 +26,13 @@ namespace Apache.Ignite.Internal.Table
     /// <param name="Version">Version.</param>
     /// <param name="TableId">Table id.</param>
     /// <param name="KeyColumnCount">Key column count.</param>
+    /// <param name="ColocationColumnCount">Colocation column count.</param>
     /// <param name="Columns">Columns in schema order.</param>
     internal sealed record Schema(
         int Version,
         int TableId,
         int KeyColumnCount,
+        int ColocationColumnCount,
         IReadOnlyList<Column> Columns) : IHashedColumnIndexProvider
     {
         /// <summary>
@@ -39,6 +41,11 @@ namespace Apache.Ignite.Internal.Table
         public int ValueColumnCount => Columns.Count - KeyColumnCount;
 
         /// <inheritdoc/>
-        public bool IsHashedColumnIndex(int index) => index < KeyColumnCount && Columns[index].IsColocation;
+        public int HashedColumnCount => ColocationColumnCount;
+
+        /// <inheritdoc/>
+        public int HashedColumnOrder(int index) => index < KeyColumnCount
+            ? Columns[index].ColocationIndex
+            : -1;
     }
 }

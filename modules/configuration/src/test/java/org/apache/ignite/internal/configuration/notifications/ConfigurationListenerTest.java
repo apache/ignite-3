@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.configuration.notifications.Configurati
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnDelete;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnRename;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnUpdate;
-import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configStorageRevisionListener;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.doNothingConsumer;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.randomUuid;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier.notifyListeners;
@@ -37,7 +36,6 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -1500,104 +1498,6 @@ public class ConfigurationListenerTest {
     }
 
     @Test
-    void testNotifyStorageRevisionListener() throws Exception {
-        List<String> events = new ArrayList<>();
-
-        long currentStorageRevision = storage.lastRevision().get(1, SECONDS);
-
-        config.listen(configListener(ctx -> events.add("root")));
-
-        registry.listenUpdateStorageRevision((newStorageRevision) -> {
-            assertNotEquals(currentStorageRevision, newStorageRevision);
-            assertTrue(newStorageRevision > currentStorageRevision);
-
-            events.add("0");
-
-            return completedFuture(null);
-        });
-
-        registry.listenUpdateStorageRevision((newStorageRevision) -> {
-            assertNotEquals(currentStorageRevision, newStorageRevision);
-            assertTrue(newStorageRevision > currentStorageRevision);
-
-            events.add("1");
-
-            return completedFuture(null);
-        });
-
-        config.child().str().update(randomUuid()).get(1, SECONDS);
-
-        // Order of subscriptions must match the order of notifications.
-        // Storage revision listener must be the last one.
-        assertEquals(List.of("root", "0", "1"), events);
-    }
-
-    @Test
-    void testRemoveStorageRevisionListener() throws Exception {
-        List<String> events = new ArrayList<>();
-
-        ConfigurationStorageRevisionListener listener0 = configStorageRevisionListener((newRevision) -> events.add("0"));
-        ConfigurationStorageRevisionListener listener1 = configStorageRevisionListener((newRevision) -> events.add("1"));
-
-        registry.listenUpdateStorageRevision(listener0);
-        registry.listenUpdateStorageRevision(listener1);
-
-        config.child().str().update(randomUuid()).get(1, SECONDS);
-
-        // Order of subscriptions must match the order of notifications.
-        assertEquals(List.of("0", "1"), events);
-
-        registry.stopListenUpdateStorageRevision(listener0);
-
-        events.clear();
-
-        config.child().str().update(randomUuid()).get(1, SECONDS);
-
-        assertEquals(List.of("1"), events);
-    }
-
-    @Test
-    void testNotifyStorageRevisionListenerWithError() {
-        ConfigurationStorageRevisionListener listener0 = (newStorageRevision) -> {
-            throw new RuntimeException("from listener 0");
-        };
-
-        registry.listenUpdateStorageRevision(listener0);
-
-        ExecutionException ex0 = assertThrows(
-                ExecutionException.class,
-                () -> config.child().str().update(randomUuid()).get(1, SECONDS)
-        );
-
-        assertTrue(hasCause(ex0, RuntimeException.class, "from listener 0"));
-
-        registry.stopListenUpdateStorageRevision(listener0);
-
-        ConfigurationStorageRevisionListener listener1 =
-                (newStorageRevision) -> failedFuture(new RuntimeException("from listener 1"));
-
-        registry.listenUpdateStorageRevision(listener1);
-
-        ExecutionException ex1 = assertThrows(
-                ExecutionException.class,
-                () -> config.child().str().update(randomUuid()).get(1, SECONDS)
-        );
-
-        assertTrue(hasCause(ex1, RuntimeException.class, "from listener 1"));
-    }
-
-    @Test
-    void testNotifyStorageRevisionListenerForCurrentConfig() throws Exception {
-        AtomicBoolean invokeListener = new AtomicBoolean();
-
-        registry.listenUpdateStorageRevision(configStorageRevisionListener((newRevision) -> invokeListener.set(true)));
-
-        registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
-
-        assertTrue(invokeListener.get());
-    }
-
-    @Test
     void testIncreaseNotificationCount() throws Exception {
         long notificationCount = registry.notificationCount();
 
@@ -1638,8 +1538,6 @@ public class ConfigurationListenerTest {
             events.add("root");
 
             if (addListeners.get()) {
-                registry.listenUpdateStorageRevision(configStorageRevisionListener(ctx -> events.add("storageRevision")));
-
                 config.child().listen(configListener(ctx1 -> events.add("child")));
 
                 config.child().str().listen(configListener(ctx1 -> events.add("child.str")));
@@ -1682,8 +1580,7 @@ public class ConfigurationListenerTest {
                         "child", "child.str",
                         "children",
                         "children.onCreate", "children.any", "children.any.str",
-                        "children.onUpdate", "children.any", "children.0", "children.any.str", "children.0.str",
-                        "storageRevision"
+                        "children.onUpdate", "children.any", "children.0", "children.any.str", "children.0.str"
                 ),
                 events
         );
