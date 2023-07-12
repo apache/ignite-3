@@ -23,7 +23,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -87,9 +86,6 @@ public class WatchProcessorTest {
 
         verify(listener1, timeout(1_000)).onUpdate(new WatchEvent(entryEvent1));
         verify(listener2, timeout(1_000)).onUpdate(new WatchEvent(entryEvent2));
-
-        verify(listener1, never()).onRevisionUpdated(anyLong());
-        verify(listener2, never()).onRevisionUpdated(anyLong());
 
         var watchEventCaptor = ArgumentCaptor.forClass(WatchEvent.class);
 
@@ -212,7 +208,6 @@ public class WatchProcessorTest {
         var listener = mock(WatchListener.class);
 
         when(listener.onUpdate(any())).thenReturn(completedFuture(null));
-        when(listener.onRevisionUpdated(anyLong())).thenReturn(completedFuture(null));
 
         return listener;
     }

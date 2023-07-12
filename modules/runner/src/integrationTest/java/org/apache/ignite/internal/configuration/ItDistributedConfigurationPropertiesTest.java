@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -43,7 +44,6 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
-import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -188,23 +188,11 @@ public class ItDistributedConfigurationPropertiesTest {
                 /** {@inheritDoc} */
                 @Override
                 public synchronized void registerConfigurationListener(ConfigurationStorageListener listener) {
-                    super.registerConfigurationListener(new ConfigurationStorageListener() {
-                        @Override
-                        public CompletableFuture<Void> onEntriesChanged(Data changedEntries) {
-                            if (receivesUpdates) {
-                                return listener.onEntriesChanged(changedEntries);
-                            } else {
-                                return CompletableFuture.completedFuture(null);
-                            }
-                        }
-
-                        @Override
-                        public CompletableFuture<Void> onRevisionUpdated(long newRevision) {
-                            if (receivesUpdates) {
-                                return listener.onRevisionUpdated(newRevision);
-                            } else {
-                                return CompletableFuture.completedFuture(null);
-                            }
+                    super.registerConfigurationListener(changedEntries -> {
+                        if (receivesUpdates) {
+                            return listener.onEntriesChanged(changedEntries);
+                        } else {
+                            return CompletableFuture.completedFuture(null);
                         }
                     });
                 }
@@ -222,13 +210,13 @@ public class ItDistributedConfigurationPropertiesTest {
         /**
          * Starts the created components.
          */
-        void start() {
+        CompletableFuture<Void> start() {
             vaultManager.start();
 
             Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
                     .forEach(IgniteComponent::start);
 
-            CompletableFuture.runAsync(distributedCfgManager::start);
+            return CompletableFuture.runAsync(distributedCfgManager::start);
         }
 
         /**
@@ -305,9 +293,12 @@ public class ItDistributedConfigurationPropertiesTest {
                 raftConfiguration
         );
 
-        Stream.of(firstNode, secondNode).parallel().forEach(Node::start);
+        CompletableFuture<?>[] startFutures = Stream.of(firstNode, secondNode).parallel().map(Node::start)
+                .toArray(CompletableFuture[]::new);
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(), "cluster");
+
+        assertThat(allOf(startFutures), willCompleteSuccessfully());
 
         Stream.of(firstNode, secondNode).parallel().forEach(Node::waitWatches);
     }
@@ -341,7 +332,7 @@ public class ItDistributedConfigurationPropertiesTest {
 
         // check initial values
         assertThat(firstValue.value(), is("foo"));
-        assertThat(((ConfigurationValue<String>) secondValue.directProxy()).value(), is("foo"));
+        assertThat(secondValue.directProxy().value(), is("foo"));
         assertThat(secondValue.value(), is("foo"));
 
         // update the property to a new value and check that the change is propagated to the second node
@@ -350,7 +341,7 @@ public class ItDistributedConfigurationPropertiesTest {
         assertThat(changeFuture, willBe(nullValue(Void.class)));
 
         assertThat(firstValue.value(), is("bar"));
-        assertThat(((ConfigurationValue<String>) secondValue.directProxy()).value(), is("bar"));
+        assertThat(secondValue.directProxy().value(), is("bar"));
         assertTrue(waitForCondition(() -> "bar".equals(secondValue.value()), 1000));
 
         // disable storage updates on the second node. This way the new values will never be propagated into the
@@ -364,7 +355,7 @@ public class ItDistributedConfigurationPropertiesTest {
         assertThat(changeFuture, willBe(nullValue(Void.class)));
 
         assertThat(firstValue.value(), is("baz"));
-        assertThat(((ConfigurationValue<String>) secondValue.directProxy()).value(), is("baz"));
+        assertThat(secondValue.directProxy().value(), is("baz"));
         assertFalse(waitForCondition(() -> "baz".equals(secondValue.value()), 100));
     }
 }
