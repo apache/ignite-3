@@ -26,6 +26,7 @@
 #include <tuple>
 #include <type_traits>
 #include <vector>
+#include <optional>
 
 using namespace std::string_literals;
 using namespace ignite;

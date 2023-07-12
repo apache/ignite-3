@@ -24,6 +24,7 @@ find_package(ODBC REQUIRED)
 set(SOURCES
     api_robustness_test.cpp
     connection_test.cpp
+    error_test.cpp
     main.cpp
     meta_queries_test.cpp
 )
