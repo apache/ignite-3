@@ -55,7 +55,7 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
             TableView newTable = newTables.get(tableName);
 
             if (newTable.columns() == null || newTable.columns().size() == 0) {
-                ctx.addIssue(new ValidationIssue(newTable.name(), "Table must include at least one column."));
+                ctx.addIssue(new ValidationIssue(newTable.name(), "Table should include at least one column"));
 
                 // no further validation required
                 return;
@@ -65,7 +65,7 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
 
             if (!columnsDups.isEmpty()) {
                 ctx.addIssue(new ValidationIssue(newTable.name(),
-                        "Can't create table with duplicate columns " + String.join(",", columnsDups)));
+                        "Some columns are specified more than once [duplicates=" + new HashSet<>(columnsDups) + "]"));
             }
 
             Set<String> columns = new HashSet<>(newTable.columns().namedListKeys());
@@ -113,7 +113,7 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
 
             if (!colocationDups.isEmpty()) {
                 ctx.addIssue(new ValidationIssue(newTable.name(),
-                        "Colocation columns contains duplicates: [duplicates=" + colocationDups + "]"));
+                        "Colocation columns contains duplicates [duplicates=" + colocationDups + "]"));
             }
         }
     }
