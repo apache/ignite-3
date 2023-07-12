@@ -436,14 +436,16 @@ public class IgniteImpl implements Ignite {
                 distributedConfigurationValidator
         );
 
+        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
+
+        TablesConfiguration tablesConfig = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
+
+        DistributionZonesConfiguration zonesConfig = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
+
         distributedConfigurationUpdater = new DistributedConfigurationUpdater(
                 cmgMgr,
                 new HoconPresentation(clusterCfgMgr.configurationRegistry())
         );
-
-        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
-
-        TablesConfiguration tablesConfig = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
         metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageConfiguration.KEY));
 
@@ -480,8 +482,6 @@ public class IgniteImpl implements Ignite {
         );
 
         Path storagePath = getPartitionsStorePath(workDir);
-
-        DistributionZonesConfiguration zonesConfig = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 

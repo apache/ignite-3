@@ -638,6 +638,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @see MetaStorageService#remove(ByteArray)
      */
+    @Override
     public CompletableFuture<Void> remove(ByteArray key) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
@@ -672,6 +673,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @see MetaStorageService#removeAll(Set)
      */
+    @Override
     public CompletableFuture<Void> removeAll(Set<ByteArray> keys) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
