@@ -333,9 +333,7 @@ sql_result data_query::make_request_execute()
 
     auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
 
-    auto resource_id = reader->read_object_nullable<std::int64_t>();
-    if (resource_id)
-        m_cursor = std::make_unique<cursor>(*resource_id);
+    m_query_id = reader->read_object_nullable<std::int64_t>();
 
     m_has_rowset = reader->read_bool();
     m_has_more_pages = reader->read_bool();
@@ -343,6 +341,7 @@ sql_result data_query::make_request_execute()
     m_rows_affected = reader->read_int64();
 
     if (m_has_rowset) {
+        m_cursor = std::make_unique<cursor>();
         auto columns = read_meta(*reader);
         set_resultset_meta(columns);
         m_cached_page = std::make_unique<result_page>(std::move(response), std::move(reader));
@@ -355,15 +354,15 @@ sql_result data_query::make_request_execute()
 
 sql_result data_query::make_request_close()
 {
-    if (!m_cursor)
+    if (!m_query_id)
         return sql_result::AI_SUCCESS;
 
-    LOG_MSG("Closing m_cursor: " << m_cursor->get_query_id());
+    LOG_MSG("Closing m_cursor: " << *m_query_id);
 
     auto success = m_diag.catch_errors([&]{
         UNUSED_VALUE m_connection.sync_request(detail::client_operation::SQL_CURSOR_CLOSE,
             [&](protocol::writer &writer) {
-            writer.write(m_cursor->get_query_id());
+            writer.write(*m_query_id);
         });
     });
 

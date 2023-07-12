@@ -180,6 +180,7 @@ public:
             FAIL() << "Table '" + TABLE_NAME_ALL_COLUMNS_SQL + "' is not available";
         }
 
+        conn.exec_query("DROP TABLE IF EXISTS META_QUERIES_TEST");
         SQLRETURN ret = conn.exec_query("CREATE TABLE META_QUERIES_TEST(ID INT PRIMARY KEY, STR VARCHAR(60))");
         if (!SQL_SUCCEEDED(ret)) {
             FAIL() << conn.get_statement_error_message();
@@ -341,20 +342,14 @@ TEST_F(meta_queries_test, test_date_type_column_attribute_field)
     SQLCHAR req[] = "select {fn CONVERT(date, DATE)} from TBL_ALL_COLUMNS_SQL";
     SQLRETURN ret = SQLExecDirect(m_statement, req, SQL_NTS);
     if (!SQL_SUCCEEDED(ret))
-    {
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-        return;
-    }
 
     SQLLEN int_val = 0;
 
     ret = SQLColAttribute(m_statement, 1, SQL_DESC_TYPE, nullptr, 0, nullptr, &int_val);
 
     if (!SQL_SUCCEEDED(ret))
-    {
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-        return;
-    }
 
     EXPECT_EQ(int_val, SQL_TYPE_DATE);
 }
@@ -609,7 +604,7 @@ TEST_F(meta_queries_test, test_get_data_with_select_query)
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
     // TODO: IGNITE-19213 Implement data fetching
-//    check_single_row_result_set_with_get_data(m_statement);
+    check_single_row_result_set_with_get_data(m_statement);
 }
 
 TEST_F(meta_queries_test, test_insert_too_long_value_ok)

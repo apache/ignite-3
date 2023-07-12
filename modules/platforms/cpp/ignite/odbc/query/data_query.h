@@ -222,6 +222,9 @@ private:
     /** Result set metadata. */
     column_meta_vector m_result_meta;
 
+    /** Query ID, nullopt when closed on server. */
+    std::optional<std::int64_t> m_query_id;
+
     /** Indicate whether result set is available. */
     bool m_has_rowset{false};
 

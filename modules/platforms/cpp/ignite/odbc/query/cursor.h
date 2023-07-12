@@ -33,12 +33,8 @@ public:
     cursor& operator=(cursor&&) = delete;
     cursor& operator=(const cursor&) = delete;
 
-    /**
-     * Constructor.
-     * @param query_id ID of the executed query.
-     */
-    explicit cursor(std::int64_t query_id)
-        : m_query_id(query_id) {}
+    // Default
+    cursor() = default;
 
     /**
      * Move cursor to the next row.
@@ -97,15 +93,6 @@ public:
     }
 
     /**
-     * Get query ID.
-     *
-     * @return Query ID.
-     */
-    [[nodiscard]] std::int64_t get_query_id() const {
-        return m_query_id;
-    }
-
-    /**
      * Get current row.
      *
      * @return  Row.
@@ -124,9 +111,6 @@ public:
     }
 
 private:
-    /** Cursor id. */
-    std::int64_t m_query_id;
-
     /** Current page. */
     std::unique_ptr<result_page> m_current_page;
 
