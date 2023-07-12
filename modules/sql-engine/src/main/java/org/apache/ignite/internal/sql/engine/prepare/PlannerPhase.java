@@ -167,6 +167,7 @@ public enum PlannerPhase {
                                                     .anyInputs())).toRule(),
 
             CoreRules.AGGREGATE_EXPAND_DISTINCT_AGGREGATES_TO_JOIN,
+            CoreRules.AGGREGATE_EXPAND_DISTINCT_AGGREGATES,
 
             SortRemoveRule.Config.DEFAULT
                     .withOperandSupplier(b ->

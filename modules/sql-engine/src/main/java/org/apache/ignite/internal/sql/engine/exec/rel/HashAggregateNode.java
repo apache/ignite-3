@@ -36,6 +36,8 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulator;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators.Group;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -62,6 +64,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     private int waiting;
 
     private boolean inLoop;
+    List<ImmutableBitSet> grpSets;
 
     /**
      * Constructor.
@@ -85,14 +88,31 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         groupings = new ArrayList<>(grpSets.size());
 
+        this.grpSets = grpSets;
+
         for (byte i = 0; i < grpSets.size(); i++) {
             ImmutableBitSet grpFields = grpSets.get(i);
-            groupings.add(new Grouping(i, grpFields));
 
+            groupings.add(new Grouping(i, grpFields));
             b.addAll(grpFields);
         }
 
         grpSet = b.build();
+
+/*        if (grpSet.isEmpty()) {
+            for (byte i = 0; i < grpSets.size(); i++) {
+                ImmutableBitSet grpFields = grpSets.get(i);
+                groupings.add(new Grouping(i, grpFields));
+
+                //b.addAll(grpFields);
+            }
+        } else {
+            groupings.add(new Grouping((byte) 0, grpSet));
+
+            //b.addAll(grpSet);
+        }*/
+
+        System.err.println("HashAggregateNode " + grpSet);
     }
 
     /** {@inheritDoc} */
@@ -235,6 +255,8 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             this.grpId = grpId;
             this.grpFields = grpFields;
 
+            System.err.println("Grouping: " + grpFields);
+
             handler = context().rowHandler();
 
             init();
@@ -374,7 +396,16 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 return Collections.emptyList();
             }
 
-            return accFactory.get();
+            List<AccumulatorWrapper<RowT>> acc0 = accFactory.get();
+
+            for (AccumulatorWrapper wrp : acc0) {
+                if (wrp != null && wrp.accumulator() instanceof Accumulators.Group) {
+                    Accumulators.Group grp = (Accumulators.Group) wrp.accumulator();
+                    grp.set(grpFields);
+                }
+            }
+
+            return acc0;//accFactory.get();
         }
 
         private boolean isEmpty() {

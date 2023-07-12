@@ -31,6 +31,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.Temporal;
+import java.util.List;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.lang.IgniteException;
@@ -49,6 +50,26 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
 
         assertQuery("SELECT TIMESTAMPDIFF(NANOSECOND, TIMESTAMP '2022-02-01 10:30:28.000', "
                 + "TIMESTAMP '2022-02-01 10:30:28.128')").returns(128000000L).check();
+    }
+
+    @Override
+    protected int nodes() {
+        return 1;
+    }
+
+    @Test
+    public void test0() {
+        sql("CREATE TABLE integers(pk integer primary key, i INTEGER)");
+
+        List<List<Object>> res = sql("INSERT INTO integers VALUES (1, 10), (2, 20), (3, 30), (4, null)");
+
+        System.err.println("!!!!: " + res);
+
+        //List<List<Object>> res = sql("SELECT i>ALL(SELECT (i+i1.i-1)/2 FROM integers WHERE i IS NOT NULL) FROM integers i1 ORDER BY i;"); -- not use grouping
+        //res = sql("SELECT i=ALL(SELECT i FROM integers WHERE i<>i1.i) FROM integers i1 ORDER BY i;");
+        res = sql("SELECT i=ALL(SELECT i FROM integers WHERE i=i1.i) FROM integers i1 ORDER BY i;");
+
+        System.err.println("!!!!: " + res);
     }
 
     @Test
