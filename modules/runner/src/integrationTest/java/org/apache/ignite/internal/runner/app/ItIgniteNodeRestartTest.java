@@ -1037,9 +1037,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         log.info("Starting the node.");
 
-        PartialNode partialNode = startPartialNode(nodes.size() - 1, null);
+        IgniteImpl node = startNode(nodes.size() - 1, null);
 
-        TableManager tableManager = findComponent(partialNode.startedComponents(), TableManager.class);
+        log.info("After starting the node.");
+
+        TableManager tableManager = (TableManager) node.tables();
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
         assertTablePresent(tableManager, TABLE_NAME_2.toUpperCase());

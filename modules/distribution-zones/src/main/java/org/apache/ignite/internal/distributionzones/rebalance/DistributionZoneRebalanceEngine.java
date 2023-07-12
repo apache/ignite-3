@@ -251,33 +251,32 @@ public class DistributionZoneRebalanceEngine {
 
             DistributionZoneView zoneCfg = replicasCtx.newValue(DistributionZoneView.class);
 
-            return distributionZoneManager.dataNodes(replicasCtx.storageRevision(), zoneCfg.zoneId())
-                    .thenCompose(dataNodes -> {
-                        if (dataNodes.isEmpty()) {
-                            return completedFuture(null);
-                        }
+            Set<String> dataNodes = distributionZoneManager.dataNodes(replicasCtx.storageRevision(), zoneCfg.zoneId()).join();
 
-                        List<TableView> tableViews = findTablesByZoneId(zoneCfg.zoneId());
+            if (dataNodes.isEmpty()) {
+                return completedFuture(null);
+            }
 
-                        List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableViews.size());
+            List<TableView> tableViews = findTablesByZoneId(zoneCfg.zoneId());
 
-                        for (TableView tableCfg : tableViews) {
-                            LOG.info("Received update for replicas number [table={}/{}, oldNumber={}, newNumber={}]",
-                                    tableCfg.id(), tableCfg.name(), replicasCtx.oldValue(), replicasCtx.newValue());
+            List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableViews.size());
 
-                            CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
-                                    tableCfg,
-                                    zoneCfg,
-                                    dataNodes,
-                                    replicasCtx.storageRevision(),
-                                    metaStorageManager
-                            );
+            for (TableView tableCfg : tableViews) {
+                LOG.info("Received update for replicas number [table={}/{}, oldNumber={}, newNumber={}]",
+                        tableCfg.id(), tableCfg.name(), replicasCtx.oldValue(), replicasCtx.newValue());
 
-                            tableFutures.add(allOf(partitionFutures));
-                        }
+                CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
+                        tableCfg,
+                        zoneCfg,
+                        dataNodes,
+                        replicasCtx.storageRevision(),
+                        metaStorageManager
+                );
 
-                        return allOf(tableFutures.toArray(CompletableFuture[]::new));
-                    });
+                tableFutures.add(allOf(partitionFutures));
+            }
+
+            return allOf(tableFutures.toArray(CompletableFuture[]::new));
         } finally {
             busyLock.leaveBusy();
         }

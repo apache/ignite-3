@@ -26,6 +26,7 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
@@ -600,47 +601,40 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             CatalogTableDescriptor tableDescriptor = toTableDescriptor(ctx.newValue());
             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId());
 
-            CompletableFuture<List<Set<Assignment>>> assignmentsFut;
+            List<Set<Assignment>> assignments;
 
             int tableId = tableDescriptor.id();
 
             // Check if the table already has assignments in the vault.
             // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
             if (partitionAssignments(vaultManager, tableId, 0) != null) {
-                assignmentsFut = completedFuture(tableAssignments(vaultManager, tableId, zoneDescriptor.partitions()));
+                assignments = tableAssignments(vaultManager, tableId, zoneDescriptor.partitions());
             } else {
-                assignmentsFut = distributionZoneManager.dataNodes(ctx.storageRevision(), tableDescriptor.zoneId())
-                        .thenCompose(dataNodes -> {
+                Set<String> dataNodes = distributionZoneManager.dataNodes(ctx.storageRevision(), tableDescriptor.zoneId()).join();
 
-                            System.out.println("DZM dataNodes " + dataNodes);
-                            System.out.println("BM dataNodes " + baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()));
-                                    return completedFuture(AffinityUtils.calculateAssignments(
-                                            dataNodes,
-                                            zoneDescriptor.partitions(),
-                                            zoneDescriptor.replicas()
-                                    ));
-                                }
-                        );
+                assignments = AffinityUtils.calculateAssignments(
+                        dataNodes,
+                        zoneDescriptor.partitions(),
+                        zoneDescriptor.replicas()
+                );
             }
 
-            CompletableFuture<?> createTableFut = assignmentsFut.thenCompose(assignments -> {
-                assert !assignments.isEmpty() : "Couldn't create the table with empty assignments.";
+            assert !assignments.isEmpty() : "Couldn't create the table with empty assignments.";
 
-                writeTableAssignmentsToMetastore(tableId, assignments);
-
-                return createTableLocally(
-                        ctx.storageRevision(),
-                        tableDescriptor,
-                        zoneDescriptor,
-                        assignments
-                );
-            }).whenComplete((v, e) -> {
+            CompletableFuture<?> createTableFut = createTableLocally(
+                    ctx.storageRevision(),
+                    tableDescriptor,
+                    zoneDescriptor,
+                    assignments
+            ).whenComplete((v, e) -> {
                 if (e == null) {
                     for (var listener : assignmentsChangeListeners) {
                         listener.accept(this);
                     }
                 }
             });
+
+            writeTableAssignmentsToMetastore(tableId, assignments);
 
             return createTableFut;
         } finally {
@@ -2374,15 +2368,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                     assert tableDescriptor != null : replicaGrpId;
 
-                                    return distributionZoneManager.dataNodes(evt.revision(), tableDescriptor.zoneId())
-                                            .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
-                                                    metaStorageMgr,
-                                                    dataNodes,
-                                                    getZoneDescriptor(tableDescriptor.zoneId()).replicas(),
-                                                    replicaGrpId,
-                                                    evt
-                                                    )
-                                            );
+                                    return RebalanceUtil.handleReduceChanged(
+                                            metaStorageMgr,
+                                            distributionZoneManager.dataNodes(evt.revision(), tableDescriptor.zoneId()).join(),
+                                            getZoneDescriptor(tableDescriptor.zoneId()).replicas(),
+                                            replicaGrpId,
+                                            evt
+                                    );
                                 } finally {
                                     busyLock.leaveBusy();
                                 }
