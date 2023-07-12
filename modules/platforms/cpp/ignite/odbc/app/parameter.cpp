@@ -16,7 +16,6 @@
  */
 
 #include "ignite/odbc/app/parameter.h"
-#include "ignite/odbc/utility.h"
 #include "ignite/odbc/system/odbc_constants.h"
 #include "ignite/protocol/utils.h"
 
@@ -117,8 +116,8 @@ void parameter::claim(binary_tuple_builder& builder, int offset, SQLULEN idx) co
         case SQL_TYPE_TIMESTAMP:
         case SQL_TIMESTAMP:
         {
-            protocol::claim_type_and_scale(builder, ignite_type::TIMESTAMP);
-            builder.claim_timestamp(buf.get_timestamp());
+            protocol::claim_type_and_scale(builder, ignite_type::DATETIME);
+            builder.claim_date_time(buf.get_date_time());
             break;
         }
 
@@ -262,8 +261,8 @@ void parameter::append(binary_tuple_builder& builder, int offset, SQLULEN idx) c
         case SQL_TYPE_TIMESTAMP:
         case SQL_TIMESTAMP:
         {
-            protocol::append_type_and_scale(builder, ignite_type::TIMESTAMP);
-            builder.append_timestamp(buf.get_timestamp());
+            protocol::append_type_and_scale(builder, ignite_type::DATETIME);
+            builder.append_date_time(buf.get_date_time());
             break;
         }
 

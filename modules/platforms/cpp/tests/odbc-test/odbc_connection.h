@@ -136,6 +136,73 @@ public:
         return false;
     }
 
+    /**
+     * Insert test strings.
+     *
+     * @param records_num Number of strings to insert.
+     * @param merge 
+     */
+    void insert_test_strings(SQLSMALLINT records_num, bool merge) // NOLINT(readability-make-member-function-const)
+    {
+        SQLCHAR insert_req[] = "INSERT INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(?, ?)";
+        SQLCHAR merge_req[] = "MERGE INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(?, ?)";
+        
+        SQLRETURN ret = SQLPrepare(m_statement, merge ? merge_req : insert_req, SQL_NTS);
+
+        if (!SQL_SUCCEEDED(ret))
+            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+        std::int64_t key = 0;
+        char str_field[1024] = {0};
+        SQLLEN str_field_len = 0;
+
+        // Binding parameters.
+        ret = SQLBindParameter(m_statement, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_BIGINT, 0, 0, &key, 0, nullptr);
+
+        if (!SQL_SUCCEEDED(ret))
+            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+        ret = SQLBindParameter(m_statement, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, sizeof(str_field),
+            sizeof(str_field), &str_field, sizeof(str_field), &str_field_len);
+
+        if (!SQL_SUCCEEDED(ret))
+            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+        // Inserting values.
+        for (SQLSMALLINT i = 0; i < records_num; ++i)
+        {
+            key = i + 1;
+            std::string val = "String#" + std::to_string(i);
+
+            strncpy(str_field, val.c_str(), sizeof(str_field) - 1);
+            str_field_len = SQL_NTS;
+
+            ret = SQLExecute(m_statement);
+
+            if (!SQL_SUCCEEDED(ret))
+                FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+            SQLLEN affected = 0;
+            ret = SQLRowCount(m_statement, &affected);
+
+            if (!SQL_SUCCEEDED(ret))
+                FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+            EXPECT_EQ(affected, 1);
+
+            ret = SQLMoreResults(m_statement);
+
+            if (ret != SQL_NO_DATA)
+                FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        }
+
+        // Resetting parameters.
+        ret = SQLFreeStmt(m_statement, SQL_RESET_PARAMS);
+
+        if (!SQL_SUCCEEDED(ret))
+            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+    }
+
     /** Environment handle. */
     SQLHENV m_env{SQL_NULL_HANDLE};
 

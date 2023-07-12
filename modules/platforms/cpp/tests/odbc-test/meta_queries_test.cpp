@@ -698,6 +698,83 @@ TEST_F(meta_queries_test, test_ddl_tables_meta_table_type_list)
         ASSERT_EQ(ret, SQL_NO_DATA);
     }
 }
+
+template<size_t n, size_t k>
+void check_meta(char columns[n][k], SQLLEN columns_len[n])
+{
+    std::string catalog(columns[0], columns_len[0]);
+    std::string schema(columns[1], columns_len[1]);
+    std::string table(columns[2], columns_len[2]);
+    std::string tableType(columns[3], columns_len[3]);
+
+    EXPECT_EQ(catalog, std::string(""));
+    EXPECT_EQ(tableType, std::string("TABLE"));
+    EXPECT_EQ(columns_len[4], SQL_NULL_DATA);
+
+    if (schema == "\"cache\"")
+    {
+        EXPECT_EQ(table, std::string("TESTTYPE"));
+    }
+    else if (schema == "\"cache2\"")
+    {
+        EXPECT_EQ(table, std::string("COMPLEXTYPE"));
+    }
+    else
+    {
+        FAIL() << ("Unknown schema: " + schema);
+    }
+}
+
+TEST_F(queries_test, tables_meta)
+{
+    odbc_connect(get_basic_connection_string());
+
+    SQLRETURN ret;
+
+    enum { COLUMNS_NUM = 5 };
+
+    // Five columns: TABLE_CAT, TABLE_SCHEM, TABLE_NAME, TABLE_TYPE, REMARKS
+    char columns[COLUMNS_NUM][ODBC_BUFFER_SIZE];
+    SQLLEN columns_len[COLUMNS_NUM];
+
+    // Binding columns.
+    for (size_t i = 0; i < COLUMNS_NUM; ++i)
+    {
+        columns_len[i] = ODBC_BUFFER_SIZE;
+
+        ret = SQLBindCol(m_statement, static_cast<SQLSMALLINT>(i + 1), SQL_C_CHAR,
+            columns[i], columns_len[i], &columns_len[i]);
+
+        if (!SQL_SUCCEEDED(ret))
+            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+    }
+
+    SQLCHAR catalog_pattern[] = "";
+    SQLCHAR schema_pattern[] = "";
+    SQLCHAR table_pattern[] = "";
+    SQLCHAR table_type_pattern[] = "";
+
+    ret = SQLTables(m_statement, catalog_pattern, SQL_NTS, schema_pattern,
+        SQL_NTS, table_pattern, SQL_NTS, table_type_pattern, SQL_NTS);
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLFetch(m_statement);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    check_meta<COLUMNS_NUM, ODBC_BUFFER_SIZE>(columns, columns_len);
+
+    ret = SQLFetch(m_statement);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    check_meta<COLUMNS_NUM, ODBC_BUFFER_SIZE>(columns, columns_len);
+
+    ret = SQLFetch(m_statement);
+    EXPECT_TRUE(ret == SQL_NO_DATA);
+}
 #endif //MUTED
 
 // TODO: IGNITE-19214 Implement table column metadata fetching

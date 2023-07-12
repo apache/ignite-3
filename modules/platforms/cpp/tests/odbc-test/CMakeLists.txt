@@ -27,6 +27,7 @@ set(SOURCES
     error_test.cpp
     main.cpp
     meta_queries_test.cpp
+    timeout_test.cpp
 )
 
 add_executable(${TARGET} ${SOURCES})
