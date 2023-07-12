@@ -688,6 +688,16 @@ public class RexUtils {
         }
     }
 
+    /**
+     * Rewrites a simplified boolean condition so that it can be used to set index scan bounds.
+     *
+     * <p>For example, Calcite simplifies the condition '{@code AND boolField <> TRUE}' to '{@code NOT($boolField)}',
+     * but to perform an index lookup we need to rewrite it back to {@code $boolField = FALSE}.
+     *
+     * @param rexNode Original row expression.
+     * @param builder Row expression builder.
+     * @return Rewritten row expression.
+     */
     private static RexNode expandBooleanFieldComparison(RexNode rexNode, RexBuilder builder) {
         if (rexNode instanceof RexSlot) {
             return builder.makeCall(SqlStdOperatorTable.EQUALS, rexNode, builder.makeLiteral(true));
