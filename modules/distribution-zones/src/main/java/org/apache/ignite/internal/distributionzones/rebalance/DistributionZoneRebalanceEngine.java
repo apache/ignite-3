@@ -22,10 +22,10 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
@@ -48,11 +48,9 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Zone rebalance manager.
@@ -226,11 +224,6 @@ public class DistributionZoneRebalanceEngine {
                 LOG.warn("Unable to process data nodes event", e);
             }
         };
-    }
-
-    @Nullable
-    private static Set<Node> parseDataNodes(byte[] dataNodesBytes) {
-        return dataNodesBytes == null ? null : dataNodes(ByteUtils.fromBytes(dataNodesBytes));
     }
 
     /**

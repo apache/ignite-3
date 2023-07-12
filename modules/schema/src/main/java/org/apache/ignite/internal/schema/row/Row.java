@@ -113,15 +113,14 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
         return row.tupleSlice();
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public byte[] bytes() {
-        return row.bytes();
-    }
-
     @Override
     public ByteBuffer byteBuffer() {
         return row.byteBuffer();
+    }
+
+    @Override
+    public int tupleSliceLength() {
+        return row.tupleSliceLength();
     }
 
     /** {@inheritDoc} */
@@ -145,5 +144,24 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
     @Override
     public BinaryTuple binaryTuple() {
         return new BinaryTuple(binaryTupleSchema.elementCount(), row.tupleSlice());
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Row row1 = (Row) o;
+
+        return row.equals(row1.row);
+    }
+
+    @Override
+    public int hashCode() {
+        return row.hashCode();
     }
 }

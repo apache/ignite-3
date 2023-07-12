@@ -144,7 +144,7 @@ public class AssignmentsTracker {
                 var replicationGrpId = TablePartitionId.fromString(
                         new String(evt.newEntry().key(), StandardCharsets.UTF_8).replace(STABLE_ASSIGNMENTS_PREFIX, ""));
 
-                if (evt.newEntry().empty()) {
+                if (evt.newEntry().tombstone()) {
                     groupAssignments.remove(replicationGrpId);
                 } else {
                     Set<Assignment> prevAssignment = groupAssignments.put(replicationGrpId, ByteUtils.fromBytes(evt.newEntry().value()));

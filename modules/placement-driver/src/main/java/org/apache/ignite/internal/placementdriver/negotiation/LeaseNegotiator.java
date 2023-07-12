@@ -61,12 +61,13 @@ public class LeaseNegotiator {
      * Tries negotiating a lease with its leaseholder.
      * The negotiation will achieve after the method is invoked. Use {@link #negotiated(ReplicationGroupId)} to check a result.
      *
-     * @param groupId Lease replication group id.
      * @param lease Lease to negotiate.
      * @param force If the flag is true, the process tries to insist of apply the lease.
      */
-    public void negotiate(ReplicationGroupId groupId, Lease lease, boolean force) {
+    public void negotiate(Lease lease, boolean force) {
         var fut = new CompletableFuture<LeaseGrantedMessageResponse>();
+
+        ReplicationGroupId groupId = lease.replicationGroupId();
 
         leaseToNegotiate.put(groupId, new LeaseAgreement(lease, fut));
 

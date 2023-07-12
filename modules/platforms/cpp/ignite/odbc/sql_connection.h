@@ -23,11 +23,14 @@
 #include "ignite/odbc/protocol_version.h"
 #include "ignite/odbc/odbc_error.h"
 
+#include "ignite/network/data_buffer.h"
 #include "ignite/network/socket_client.h"
 #include "ignite/network/tcp_range.h"
 #include "ignite/protocol/buffer_adapter.h"
 #include "ignite/protocol/writer.h"
+#include "ignite/protocol/client_operation.h"
 
+#include <atomic>
 #include <cstdint>
 #include <vector>
 
@@ -154,6 +157,45 @@ public:
     bool receive(std::vector<std::byte>& msg, std::int32_t timeout);
 
     /**
+     * Synchronously send request message.
+     * Uses provided timeout.
+     *
+     * @param req Request message.
+     * @param timeout Timeout. 0 means disabled.
+     * @throw OdbcError on error.
+     */
+    void send_message(bytes_view req, std::int32_t timeout);
+
+    /**
+     * Synchronously send request message.
+     *
+     * @param req Request message.
+     * @throw OdbcError on error.
+     */
+    void send_message(bytes_view req) {
+        send_message(req, m_timeout);
+    }
+
+    /**
+     * Receive message.
+     *
+     * @param id Expected message ID.
+     * @param timeout Timeout.
+     * @return Message.
+     */
+    network::data_buffer_owning receive_message(std::int64_t id, std::int32_t timeout);
+
+    /**
+     * Receive message.
+     *
+     * @param id Expected message ID.
+     * @return Message.
+     */
+    network::data_buffer_owning receive_message(std::int64_t id) {
+        return receive_message(id, m_timeout);
+    }
+
+    /**
      * Get configuration.
      *
      * @return Connection configuration.
@@ -196,7 +238,59 @@ public:
      */
     void set_attribute(int attr, void* value, SQLINTEGER value_len);
 
+    /**
+     * Make new request.
+     *
+     * @param id Request ID.
+     * @param op Operation.
+     * @param func Function.
+     */
+    [[nodiscard]] static std::vector<std::byte> make_request(std::int64_t id, detail::client_operation op,
+        const std::function<void(protocol::writer &)> &func);
+
+    /**
+     * Get connection schema.
+     *
+     * @return Schema.
+     */
+    const std::string& get_schema() const {
+        return m_config.get_schema().get_value();
+    }
+
+    /**
+     * Get timeout.
+     *
+     * @return Timeout.
+     */
+    std::int32_t get_timeout() const {
+        return m_timeout;
+    }
+
+    /**
+     * Make a synchronous request and get a response.
+     *
+     * @param op Operation.
+     * @param wr Payload writing function.
+     * @return Response.
+     */
+    network::data_buffer_owning sync_request(detail::client_operation op,
+        const std::function<void(protocol::writer &)> &wr) {
+        auto req_id = generate_next_req_id();
+        auto request = make_request(req_id, op, wr);
+
+        send_message(request);
+        return receive_message(req_id);
+    }
+
 private:
+    /**
+     * Generate and get next request ID.
+     *
+     * @return Request ID.
+     */
+    std::int64_t generate_next_req_id() {
+        return m_req_id_gen.fetch_add(1);
+    }
 
     /**
      * Init connection socket, using configuration.
@@ -386,6 +480,9 @@ private:
 
     /** Protocol version. */
     protocol_version m_protocol_version;
+
+    /** Request ID generator. */
+    std::atomic_int64_t m_req_id_gen{0};
 };
 
 } // namespace ignite

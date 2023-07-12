@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -1030,13 +1029,14 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             List<IgniteTuple3<RowId, BinaryRow, HybridTimestamp>> rows
     ) {
         for (IgniteTuple3<RowId, BinaryRow, HybridTimestamp> row : rows) {
-            List<byte[]> allVersions = mvPartitionStorage.runConsistently(locker -> {
+            List<BinaryRow> allVersions = mvPartitionStorage.runConsistently(locker -> {
                 locker.lock(row.get1());
 
-                return toListOfByteArrays(mvPartitionStorage.scanVersions(row.get1()));
+                return toListOfBinaryRows(mvPartitionStorage.scanVersions(row.get1()));
             });
 
-            assertThat(allVersions, containsInAnyOrder(row.get2().bytes()));
+            assertThat(allVersions, hasSize(1));
+            assertRowMatches(allVersions.get(0), row.get2());
 
             IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), row.get2(), row.get1());
             IndexRow sortedIndexRow = indexRow(sortedIndexStorage.indexDescriptor(), row.get2(), row.get1());
@@ -1056,9 +1056,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertEquals(expLastAppliedTerm, storage.lastAppliedTerm());
     }
 
-    private static List<byte[]> toListOfByteArrays(Cursor<ReadResult> cursor) {
+    private static List<BinaryRow> toListOfBinaryRows(Cursor<ReadResult> cursor) {
         try (cursor) {
-            return cursor.stream().map(ReadResult::binaryRow).map(BinaryRow::bytes).collect(toList());
+            return cursor.stream().map(ReadResult::binaryRow).collect(toList());
         }
     }
 

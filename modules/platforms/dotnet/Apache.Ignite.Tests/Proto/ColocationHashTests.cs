@@ -29,6 +29,7 @@ using Ignite.Compute;
 using Ignite.Sql;
 using Ignite.Table;
 using Internal.Buffers;
+using Internal.Proto;
 using Internal.Proto.BinaryTuple;
 using Internal.Proto.MsgPack;
 using Internal.Table;
@@ -41,7 +42,11 @@ using NUnit.Framework;
 /// </summary>
 public class ColocationHashTests : IgniteTestsBase
 {
-    private const string ColocationHashJob = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ColocationHashJob";
+    private const string PlatformTestNodeRunner = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
+
+    private const string ColocationHashJob = PlatformTestNodeRunner + "$ColocationHashJob";
+
+    private const string TableRowColocationHashJob = PlatformTestNodeRunner + "$TableRowColocationHashJob";
 
     private static readonly object[] TestCases =
     {
@@ -161,16 +166,56 @@ public class ColocationHashTests : IgniteTestsBase
         }
     }
 
+    [Test]
+    public async Task TestCustomColocationColumnOrder([Values(true, false)] bool reverseColocationOrder)
+    {
+        var tableName = $"{nameof(TestCustomColocationColumnOrder)}_{reverseColocationOrder}";
+        var sql = $"create table if not exists {tableName} " +
+                  $"(id integer, id0 bigint, id1 varchar, v INTEGER, primary key(id, id0, id1)) " +
+                  $"colocate by {(reverseColocationOrder ? "(id1, id0)" : "(id0, id1)")}";
+
+        await Client.Sql.ExecuteAsync(null, sql);
+
+        // Perform get to populate schema.
+        var table = await Client.Tables.GetTableAsync(tableName);
+        var view = table!.RecordBinaryView;
+        await view.GetAsync(null, new IgniteTuple{["id"] = 1, ["id0"] = 2L, ["id1"] = "3", ["v"] = 4});
+
+        var ser = view.GetFieldValue<RecordSerializer<IIgniteTuple>>("_ser");
+        var schemas = table.GetFieldValue<IDictionary<int, Task<Schema>>>("_schemas");
+        var schema = schemas[1].GetAwaiter().GetResult();
+        var clusterNodes = await Client.GetClusterNodesAsync();
+
+        for (int i = 0; i < 100; i++)
+        {
+            var key = new IgniteTuple { ["id"] = 1 + i, ["id0"] = 2L + i, ["id1"] = "3" + i, ["v"] = 4 + i };
+
+            using var writer = ProtoCommon.GetMessageWriter();
+            var clientColocationHash = ser.Write(writer, null, schema, key);
+
+            var serverColocationHash = await Client.Compute.ExecuteAsync<int>(
+                clusterNodes,
+                Array.Empty<DeploymentUnit>(),
+                TableRowColocationHashJob,
+                tableName,
+                i);
+
+            Assert.AreEqual(serverColocationHash, clientColocationHash, key.ToString());
+        }
+    }
+
     private static (byte[] Bytes, int Hash) WriteAsBinaryTuple(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
     {
-        using var builder = new BinaryTupleBuilder(arr.Count * 3, hashedColumnsPredicate: new TestIndexProvider(x => x % 3 == 2));
+        using var builder = new BinaryTupleBuilder(
+            numElements: arr.Count * 3,
+            hashedColumnsPredicate: new TestIndexProvider(x => x % 3 == 2 ? x / 3 : -1, arr.Count));
 
         foreach (var obj in arr)
         {
             builder.AppendObjectWithType(obj, timePrecision, timestampPrecision);
         }
 
-        return (builder.Build().ToArray(), builder.Hash);
+        return (builder.Build().ToArray(), Hash: builder.GetHash());
     }
 
     private static int WriteAsIgniteTuple(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
@@ -183,7 +228,7 @@ public class ColocationHashTests : IgniteTestsBase
             igniteTuple["m_Item" + i++] = obj;
         }
 
-        var builder = new BinaryTupleBuilder(arr.Count, hashedColumnsPredicate: new TestIndexProvider(_ => true));
+        var builder = new BinaryTupleBuilder(arr.Count, hashedColumnsPredicate: new TestIndexProvider(idx => idx, arr.Count));
 
         try
         {
@@ -191,7 +236,7 @@ public class ColocationHashTests : IgniteTestsBase
             var noValueSet = new byte[arr.Count].AsSpan();
 
             TupleSerializerHandler.Instance.Write(ref builder, igniteTuple, schema, arr.Count, noValueSet);
-            return builder.Hash;
+            return builder.GetHash();
         }
         finally
         {
@@ -216,7 +261,7 @@ public class ColocationHashTests : IgniteTestsBase
     {
         var columns = arr.Select((obj, ci) => GetColumn(obj, ci, timePrecision, timestampPrecision)).ToArray();
 
-        return new Schema(Version: 0, 0, arr.Count, columns);
+        return new Schema(Version: 0, 0, arr.Count, arr.Count, columns);
     }
 
     private static Column GetColumn(object value, int schemaIndex, int timePrecision, int timestampPrecision)
@@ -252,7 +297,7 @@ public class ColocationHashTests : IgniteTestsBase
 
         var scale = value is decimal d ? BitConverter.GetBytes(decimal.GetBits(d)[3])[2] : 0;
 
-        return new Column("m_Item" + (schemaIndex + 1), colType, false, true, true, schemaIndex, Scale: scale, precision);
+        return new Column("m_Item" + (schemaIndex + 1), colType, false, true, schemaIndex, schemaIndex, Scale: scale, precision);
     }
 
     private async Task AssertClientAndServerHashesAreEqual(int timePrecision = 9, int timestampPrecision = 6, params object[] keys)
@@ -291,8 +336,8 @@ public class ColocationHashTests : IgniteTestsBase
             timestampPrecision);
     }
 
-    private record TestIndexProvider(Func<int, bool> Delegate) : IHashedColumnIndexProvider
+    private record TestIndexProvider(Func<int, int> ColumnOrderDelegate, int HashedColumnCount) : IHashedColumnIndexProvider
     {
-        public bool IsHashedColumnIndex(int index) => Delegate(index);
+        public int HashedColumnOrder(int index) => ColumnOrderDelegate(index);
     }
 }

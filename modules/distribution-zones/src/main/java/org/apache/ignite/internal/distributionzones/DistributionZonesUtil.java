@@ -86,6 +86,9 @@ public class DistributionZonesUtil {
     /** Key value for zones' global state revision in vault. */
     private static final String DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT = "vault.distributionZones.globalState.revision";
 
+    /** Key value for zones' filter update revision in vault. */
+    private static final String DISTRIBUTION_ZONES_FILTER_UPDATE_REVISION_VAULT = "vault.distributionZones.filterUpdate.revision";
+
     /** Key prefix for zones' logical topology nodes. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "nodes";
 
@@ -115,6 +118,10 @@ public class DistributionZonesUtil {
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT}. */
     private static final ByteArray DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT_KEY =
             new ByteArray(DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT);
+
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_FILTER_UPDATE_REVISION_VAULT}. */
+    private static final ByteArray DISTRIBUTION_ZONES_FILTER_UPDATE_REVISION_VAULT_KEY =
+            new ByteArray(DISTRIBUTION_ZONES_FILTER_UPDATE_REVISION_VAULT);
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY =
@@ -247,6 +254,13 @@ public class DistributionZonesUtil {
      */
     public static ByteArray zonesGlobalStateRevision() {
         return DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT_KEY;
+    }
+
+    /**
+     * The key represents the last revision of the zone's filter update.
+     */
+    public static ByteArray zonesFilterUpdateRevision() {
+        return DISTRIBUTION_ZONES_FILTER_UPDATE_REVISION_VAULT_KEY;
     }
 
     /**
@@ -402,6 +416,11 @@ public class DistributionZonesUtil {
         dataNodes.forEach(n -> dataNodesMap.merge(n, 1, Integer::sum));
 
         return dataNodesMap;
+    }
+
+    @Nullable
+    public static Set<Node> parseDataNodes(byte[] dataNodesBytes) {
+        return dataNodesBytes == null ? null : dataNodes(fromBytes(dataNodesBytes));
     }
 
     /**

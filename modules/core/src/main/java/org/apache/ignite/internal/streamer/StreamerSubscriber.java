@@ -57,6 +57,8 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
 
     private final IgniteLogger log;
 
+    private final StreamerMetricSink metrics;
+
     private @Nullable Flow.Subscription subscription;
 
     private @Nullable Timer flushTimer;
@@ -71,7 +73,8 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
             StreamerBatchSender<T, P> batchSender,
             StreamerPartitionAwarenessProvider<T, P> partitionAwarenessProvider,
             StreamerOptions options,
-            IgniteLogger log) {
+            IgniteLogger log,
+            @Nullable StreamerMetricSink metrics) {
         assert batchSender != null;
         assert partitionAwarenessProvider != null;
         assert options != null;
@@ -81,6 +84,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
         this.partitionAwarenessProvider = partitionAwarenessProvider;
         this.options = options;
         this.log = log;
+        this.metrics = getMetrics(metrics);
     }
 
     /** {@inheritDoc} */
@@ -118,6 +122,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
                 p -> new StreamerBuffer<>(options.batchSize(), items -> sendBatch(p, items)));
 
         buf.add(item);
+        this.metrics.streamerItemsQueuedAdd(1);
 
         requestMore();
     }
@@ -150,6 +155,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
         CompletableFuture<Void> fut = new CompletableFuture<>();
         pendingFuts.add(fut);
         inFlightItemCount.addAndGet(batchSize);
+        metrics.streamerBatchesActiveAdd(1);
 
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
         try {
@@ -160,6 +166,11 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
                     log.error("Failed to send batch to partition " + partition + ": " + err.getMessage(), err);
                     close(err);
                 } else {
+                    this.metrics.streamerBatchesSentAdd(1);
+                    this.metrics.streamerBatchesActiveAdd(-1);
+                    this.metrics.streamerItemsSentAdd(batchSize);
+                    this.metrics.streamerItemsQueuedAdd(-batchSize);
+
                     fut.complete(null);
                     pendingFuts.remove(fut);
 
@@ -242,6 +253,32 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
         timer.schedule(new PeriodicFlushTask(), interval, interval);
 
         return timer;
+    }
+
+    private static StreamerMetricSink getMetrics(@Nullable StreamerMetricSink metrics) {
+        return metrics != null ? metrics : new StreamerMetricSink() {
+            @Override
+            public void streamerBatchesSentAdd(long batches) {
+                // No-op.
+            }
+
+            @Override
+            public void streamerItemsSentAdd(long items) {
+                // No-op.
+
+            }
+
+            @Override
+            public void streamerBatchesActiveAdd(long batches) {
+                // No-op.
+
+            }
+
+            @Override
+            public void streamerItemsQueuedAdd(long items) {
+                // No-op.
+            }
+        };
     }
 
     /**

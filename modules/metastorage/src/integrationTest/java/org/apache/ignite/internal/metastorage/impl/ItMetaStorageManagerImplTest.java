@@ -20,7 +20,6 @@ package org.apache.ignite.internal.metastorage.impl;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
@@ -31,8 +30,6 @@ import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
@@ -65,7 +62,6 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
@@ -192,73 +188,6 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                         .thenApply(entries -> entries.stream().map(Entry::key).collect(toList()));
 
         assertThat(actualKeysFuture, will(contains(key1.bytes(), key2.bytes(), key3.bytes())));
-    }
-
-    /**
-     * Tests that "watched" Meta Storage keys get persisted in the Vault.
-     */
-    @Test
-    void testWatchEventsPersistence() throws InterruptedException {
-        byte[] value = "value".getBytes(UTF_8);
-
-        var key1 = new ByteArray("foo");
-        var key2 = new ByteArray("bar");
-
-        CompletableFuture<Boolean> invokeFuture = metaStorageManager.invoke(
-                Conditions.notExists(new ByteArray("foo")),
-                List.of(
-                        Operations.put(key1, value),
-                        Operations.put(key2, value)
-                ),
-                List.of(Operations.noop())
-        );
-
-        assertThat(invokeFuture, willBe(true));
-
-        // No data should be persisted until any watches are registered.
-        assertThat(vaultManager.get(key1), willBe(nullValue()));
-        assertThat(vaultManager.get(key2), willBe(nullValue()));
-
-        metaStorageManager.registerExactWatch(key1, new NoOpListener());
-
-        invokeFuture = metaStorageManager.invoke(
-                Conditions.exists(new ByteArray("foo")),
-                List.of(
-                        Operations.put(key1, value),
-                        Operations.put(key2, value)
-                ),
-                List.of(Operations.noop())
-        );
-
-        assertThat(invokeFuture, willBe(true));
-
-        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() == 2, 10_000));
-
-        // Expect that only the watched key is persisted.
-        assertThat(vaultManager.get(key1).thenApply(VaultEntry::value), willBe(value));
-        assertThat(vaultManager.get(key2), willBe(nullValue()));
-
-        metaStorageManager.registerExactWatch(key2, new NoOpListener());
-
-        assertThat(metaStorageManager.appliedRevision(), is(2L));
-
-        byte[] newValue = "newValue".getBytes(UTF_8);
-
-        invokeFuture = metaStorageManager.invoke(
-                Conditions.exists(new ByteArray("foo")),
-                List.of(
-                        Operations.put(key1, newValue),
-                        Operations.put(key2, newValue)
-                ),
-                List.of(Operations.noop())
-        );
-
-        assertThat(invokeFuture, willBe(true));
-
-        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() == 3, 10_000));
-
-        assertThat(vaultManager.get(key1).thenApply(VaultEntry::value), willBe(newValue));
-        assertThat(vaultManager.get(key2).thenApply(VaultEntry::value), willBe(newValue));
     }
 
     private static class NoOpListener implements WatchListener {
