@@ -22,9 +22,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Collections;
     using System.Diagnostics;
     using System.Numerics;
+    using System.Runtime.InteropServices;
     using Buffers;
     using Ignite.Sql;
-    using MsgPack;
     using NodaTime;
     using Table;
 
@@ -33,12 +33,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     /// </summary>
     internal ref struct BinaryTupleBuilder
     {
-        /** Hashed column index: not hashed. */
-        private const int NoHash = -1;
-
-        /** Hashed column index: hashed in order. */
-        private const int OrderedHash = -2;
-
         /** Number of elements in the tuple. */
         private readonly int _numElements;
 
@@ -57,14 +51,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /** Buffer for tuple content. */
         private readonly PooledArrayBuffer _buffer;
 
-        /** Buffer for tuple content. */
-        private readonly PooledArrayBuffer? _hashBuffer;
-
         /** Current element. */
         private int _elementIndex;
-
-        /** Current hash. */
-        private int _hash;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BinaryTupleBuilder"/> struct.
@@ -82,14 +70,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             _numElements = numElements;
             _hashedColumnsPredicate = hashedColumnsPredicate;
-            _hash = 0;
             _buffer = new();
             _elementIndex = 0;
 
-            // Reserve buffer for hash when the hash order is not default.
-            _hashBuffer = _hashedColumnsPredicate is { HashedColumnsOrdered: false } ? new() : null;
-
-            _entryBase = BinaryTupleCommon.HeaderSize;
+            // Reserve buffer for individual hash codes.
+            _entryBase = _hashedColumnsPredicate != null
+                ? BinaryTupleCommon.HeaderSize + _hashedColumnsPredicate.HashedColumnCount * 4
+                : BinaryTupleCommon.HeaderSize;
 
             _entrySize = totalValueSize < 0
                 ? 4
@@ -117,22 +104,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 return 0;
             }
 
-            if (_hashedColumnsPredicate.HashedColumnsOrdered)
-            {
-                return _hash;
-            }
-
-            // Custom hash order. Combine hashes stored in the buffer.
             var hash = 0;
-            var hashes = _hashBuffer!.GetWrittenMemory();
-            var hashReader = new MsgPackReader(hashes.Span);
+            var hashes = GetHashSpan();
 
             for (var i = 0; i < _hashedColumnsPredicate.HashedColumnCount; i++)
             {
-                // TODO: How to combine hashes correctly?
-                // We can extract bytes to be hashed and store them. int hashes can't be combined it seems.
-                var hashBytes = hashReader.ReadBinary();
-                hash = HashUtils.Hash32(hashBytes, hash);
+                var colHash = hashes[i];
+                hash = HashUtils.Combine(hash, colHash);
             }
 
             return hash;
@@ -143,13 +121,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         public void AppendNull()
         {
-            if (GetHashOrder() is var hashOrder && hashOrder == OrderedHash)
+            if (GetHashOrder() is { } hashOrder)
             {
-                _hash = HashUtils.Combine(_hash, HashUtils.Hash32((sbyte)0));
-            }
-            else if (hashOrder != NoHash)
-            {
-                HashUtils.WriteHashBytes((sbyte)0, _hashBuffer!.MessageWriter);
+                PutHash(hashOrder, HashUtils.Hash32((sbyte)0));
             }
 
             OnWrite();
@@ -1353,24 +1327,14 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             return span;
         }
 
-        private int GetHashOrder()
+        private int? GetHashOrder() => _hashedColumnsPredicate?.HashedColumnOrder(_elementIndex) switch
         {
-            if (_hashedColumnsPredicate is null)
-            {
-                return NoHash;
-            }
+            null or < 0 => null,
+            { } order => order
+        };
 
-            var order = _hashedColumnsPredicate.HashedColumnOrder(_elementIndex);
-            if (order == NoHash)
-            {
-                return NoHash;
-            }
+        private void PutHash(int index, int hash) => GetHashSpan()[index] = hash;
 
-            return _hashedColumnsPredicate.HashedColumnsOrdered
-                ? OrderedHash
-                : order;
-        }
-
-        private void PutHash(int index, int hash) => throw new InvalidOperationException("TODO Refactor " + _hash);
+        private Span<int> GetHashSpan() => MemoryMarshal.Cast<byte, int>(_buffer.GetWrittenMemory().Span);
     }
 }
