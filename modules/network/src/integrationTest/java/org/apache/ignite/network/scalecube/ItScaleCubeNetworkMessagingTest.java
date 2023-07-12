@@ -17,6 +17,7 @@
 
 package org.apache.ignite.network.scalecube;
 
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
@@ -46,7 +47,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.messages.TestMessage;
@@ -370,7 +370,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         List<ClusterService> notOutcasts = testCluster.members.stream()
                 .filter(service -> !outcastName.equals(service.nodeName()))
-                .collect(Collectors.toList());
+                .collect(toList());
 
         notOutcasts.forEach(clusterService -> {
             clusterService.topologyService().addEventHandler(disappearListener);
@@ -391,7 +391,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         ConnectionManager cm = messagingService.connectionManager();
 
-        // Forcefully close channels, so that on reanimation nodes will create new channels.
+        // Forcefully close channels, so that nodes will create new channels on reanimation of the outcast.
         cm.channels().forEach((stringConnectorKey, nettySender) -> {
             nettySender.close().awaitUninterruptibly();
         });

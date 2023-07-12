@@ -44,6 +44,9 @@ public class RecoveryDescriptor {
     /** Count of received messages. */
     private long receivedCount;
 
+    /** Current owner channel of this descriptor. */
+    private final AtomicReference<Channel> channelHolder = new AtomicReference<>();
+
     /**
      * Constructor.
      *
@@ -129,15 +132,13 @@ public class RecoveryDescriptor {
         return S.toString(RecoveryDescriptor.class, this);
     }
 
-    private final AtomicReference<Channel> ctxHolder = new AtomicReference<>();
-
     /**
      * Release this descriptor.
      *
      * @param ctx Channel handler context.
      */
     public void release(ChannelHandlerContext ctx) {
-        ctxHolder.compareAndSet(ctx.channel(), null);
+        channelHolder.compareAndSet(ctx.channel(), null);
     }
 
     /**
@@ -146,21 +147,21 @@ public class RecoveryDescriptor {
      * @param ctx Channel handler context.
      */
     public boolean acquire(ChannelHandlerContext ctx) {
-        return ctxHolder.compareAndSet(null, ctx.channel());
+        return channelHolder.compareAndSet(null, ctx.channel());
     }
 
     /**
      * Returns the channel, that holds this descriptor.
      */
     @Nullable Channel holderChannel() {
-        return ctxHolder.get();
+        return channelHolder.get();
     }
 
     /**
      * Returns {@code toString()} representation of a {@link Channel}, that holds this descriptor.
      */
     String holderDescription() {
-        Channel channel = ctxHolder.get();
+        Channel channel = channelHolder.get();
 
         if (channel == null) {
             // This can happen if channel was already closed and it released the descriptor.

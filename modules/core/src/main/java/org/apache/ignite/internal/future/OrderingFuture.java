@@ -342,8 +342,8 @@ public class OrderingFuture<T> {
      * Adds a mapping function that gets executed as soon as this future gets completed for any reason. The function will accept both result
      * and exception and return a future with the result of the function's execution.
      *
-     * @param mapper The function to use to compute the value of the returned CompletionStage.
-     * @return The new CompletionStage.
+     * @param mapper The function to use to compute the value of the returned OrderingFuture.
+     * @return The new OrderingFuture.
      * @see CompletableFuture#handle(BiFunction)
      */
     public <U> OrderingFuture<U> handle(BiFunction<? super T, Throwable, ? extends U> mapper) {

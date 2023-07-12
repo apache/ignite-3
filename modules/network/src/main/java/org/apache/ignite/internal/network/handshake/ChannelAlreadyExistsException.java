@@ -23,12 +23,16 @@ package org.apache.ignite.internal.network.handshake;
 public class ChannelAlreadyExistsException extends RuntimeException {
     private static final long serialVersionUID = 0L;
 
+    /** Consistent id of a remote node. */
     private final String consistentId;
 
     public ChannelAlreadyExistsException(String consistentId) {
         this.consistentId = consistentId;
     }
 
+    /**
+     * Returns consistent id of the remote node with which a channel already exists.
+     */
     public String consistentId() {
         return consistentId;
     }

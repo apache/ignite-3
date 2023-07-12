@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.network.netty;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.completedSuccessfully;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.futureCompleted;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.isA;
@@ -317,12 +317,12 @@ public class ItConnectionManagerTest {
             NettySender sender2 = null;
 
             try {
-                sender1 = fut1.join();
+                sender1 = fut1.get(1, TimeUnit.SECONDS);
             } catch (Exception ignored) {
                 // No-op.
             }
             try {
-                sender2 = fut2.join();
+                sender2 = fut2.get(1, TimeUnit.SECONDS);
             } catch (Exception ignored) {
                 // No-op.
             }
@@ -331,24 +331,20 @@ public class ItConnectionManagerTest {
 
             assertTrue(sender1 != null || sender2 != null);
 
-            if (sender1 != null) {
-                if (sender1.isOpen()) {
-                    highlander = sender1;
+            if (sender1 != null && sender1.isOpen()) {
+                highlander = sender1;
 
-                    boolean sender2NullOrClosed = sender2 == null || !sender2.isOpen();
+                boolean sender2NullOrClosed = sender2 == null || !sender2.isOpen();
 
-                    assertTrue(sender2NullOrClosed);
-                }
+                assertTrue(sender2NullOrClosed);
             }
 
-            if (sender2 != null) {
-                if (sender2.isOpen()) {
-                    highlander = sender2;
+            if (sender2 != null && sender2.isOpen()) {
+                highlander = sender2;
 
-                    boolean sender1NullOrClosed = sender1 == null || !sender1.isOpen();
+                boolean sender1NullOrClosed = sender1 == null || !sender1.isOpen();
 
-                    assertTrue(sender1NullOrClosed);
-                }
+                assertTrue(sender1NullOrClosed);
             }
 
             assertNotNull(highlander);
@@ -373,8 +369,8 @@ public class ItConnectionManagerTest {
                     manager1.connectionManager.localAddress()
             ).toCompletableFuture();
 
-            assertThat(channelFut1, completedSuccessfully());
-            assertThat(channelFut2, completedSuccessfully());
+            assertThat(channelFut1, futureCompleted());
+            assertThat(channelFut2, futureCompleted());
 
             NettySender channel1 = channelFut1.getNow(null);
             NettySender channel2 = channelFut2.getNow(null);
