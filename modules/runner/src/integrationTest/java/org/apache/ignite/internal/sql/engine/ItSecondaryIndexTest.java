@@ -30,6 +30,7 @@ import java.time.LocalDate;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -1025,28 +1026,88 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
                     .returns(3)
                     .check();
 
-            // Support index scans for IS TRUE, IS FALSE but not for IS NOT TRUE, IS NOT FALSE,
-            // since it requires multi-bounds scan and may not be effective.
-            assertQuery("SELECT i FROM t WHERE b IS NOT TRUE")
-                    .matches(containsTableScan("PUBLIC", "T"))
-                    .returns(2)
-                    .returns(3)
-                    .returns(4)
-                    .check();
-
-            assertQuery("SELECT i FROM t WHERE b IS NOT FALSE")
-                    .matches(containsTableScan("PUBLIC", "T"))
-                    .returns(0)
-                    .returns(1)
-                    .returns(4)
-                    .check();
-
             assertQuery("SELECT i FROM t WHERE b IS NULL")
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(4)
                     .check();
         } finally {
             sql("DROP TABLE IF EXISTS t");
+        }
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19964")
+    public void testScanBooleanFieldMostlyPopulatedWithTrueValues() {
+        try {
+            sql("CREATE TABLE t_true(i INTEGER PRIMARY KEY, b BOOLEAN)");
+            sql("INSERT INTO t_true VALUES (0, TRUE), (1, TRUE), (2, TRUE), (3, TRUE), (4, FALSE)");
+            sql("CREATE INDEX t_true_idx ON t_true(b)");
+
+            assertQuery("SELECT i FROM t_true WHERE b IS NOT TRUE")
+                    .matches(containsIndexScan("PUBLIC", "T_TRUE", "T_TRUE_IDX"))
+                    .returns(4)
+                    .check();
+
+            assertQuery("SELECT i FROM t_true WHERE b = FALSE or b is NULL")
+                    .matches(containsIndexScan("PUBLIC", "T_TRUE", "T_TRUE_IDX"))
+                    .returns(4)
+                    .check();
+
+            assertQuery("SELECT i FROM t_true WHERE b IS NOT FALSE")
+                    .matches(containsTableScan("PUBLIC", "T_TRUE"))
+                    .returns(0)
+                    .returns(1)
+                    .returns(2)
+                    .returns(3)
+                    .check();
+
+            assertQuery("SELECT i FROM t_true WHERE b = TRUE or b is NULL")
+                    .matches(containsTableScan("PUBLIC", "T_TRUE"))
+                    .returns(0)
+                    .returns(1)
+                    .returns(2)
+                    .returns(3)
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS t_true");
+        }
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19964")
+    public void testScanBooleanFieldMostlyPopulatedWithFalseValues() {
+        try {
+            sql("CREATE TABLE t_false(i INTEGER PRIMARY KEY, b BOOLEAN)");
+            sql("INSERT INTO t_false VALUES (0, FALSE), (1, FALSE), (2, FALSE), (3, FALSE), (4, TRUE)");
+            sql("CREATE INDEX t_false_idx ON t_false(b)");
+
+            assertQuery("SELECT i FROM t_false WHERE b IS NOT FALSE")
+                    .matches(containsIndexScan("PUBLIC", "T_FALSE", "T_FALSE_IDX"))
+                    .returns(4)
+                    .check();
+
+            assertQuery("SELECT i FROM t_false WHERE b = TRUE or b is NULL")
+                    .matches(containsIndexScan("PUBLIC", "T_FALSE", "T_FALSE_IDX"))
+                    .returns(4)
+                    .check();
+
+            assertQuery("SELECT i FROM t_false WHERE b IS NOT TRUE")
+                    .matches(containsTableScan("PUBLIC", "T_FALSE"))
+                    .returns(0)
+                    .returns(1)
+                    .returns(2)
+                    .returns(3)
+                    .check();
+
+            assertQuery("SELECT i FROM t_false WHERE b = FALSE or b is NULL")
+                    .matches(containsTableScan("PUBLIC", "T_FALSE"))
+                    .returns(0)
+                    .returns(1)
+                    .returns(2)
+                    .returns(3)
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS t_false");
         }
     }
 }
