@@ -49,6 +49,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.sql.Session;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -95,6 +96,8 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      *
      * @throws Exception If failed.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19955 also blocks this.
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
     @Test
     void testFilteredDataNodesPropagatedToStable() throws Exception {
         String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
@@ -172,6 +175,8 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      *
      * @throws Exception If failed.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19955 also blocks this.
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
     @Test
     void testAlteringFiltersPropagatedDataNodesToStableImmediately() throws Exception {
         String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
@@ -240,6 +245,8 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      *
      * @throws Exception If failed.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19955 also blocks this.
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
     @Test
     void testEmptyDataNodesDoNotPropagatedToStableAfterAlteringFilter() throws Exception {
         String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";

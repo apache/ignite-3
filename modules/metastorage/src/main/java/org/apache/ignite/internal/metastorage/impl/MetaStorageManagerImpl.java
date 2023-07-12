@@ -66,6 +66,7 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
@@ -206,7 +207,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
                 assert targetRevision != null;
 
-                listenForRecovery(recoveryFinishedFuture, targetRevision);
+                listenForRecovery(targetRevision);
             });
 
             return recoveryFinishedFuture;
@@ -215,10 +216,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
     }
 
-    private void listenForRecovery(CompletableFuture<Long> res, long targetRevision) {
+    private void listenForRecovery(long targetRevision) {
         storage.setRecoveryRevisionListener(storageRevision -> {
             if (!busyLock.enterBusy()) {
-                res.completeExceptionally(new NodeStoppingException());
+                recoveryFinishedFuture.completeExceptionally(new NodeStoppingException());
 
                 return;
             }
@@ -230,7 +231,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
                 storage.setRecoveryRevisionListener(null);
 
-                if (res.complete(targetRevision)) {
+                if (recoveryFinishedFuture.complete(targetRevision)) {
                     LOG.info("Finished MetaStorage recovery");
                 }
             } finally {
@@ -239,7 +240,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         });
 
         if (!busyLock.enterBusy()) {
-            res.completeExceptionally(new NodeStoppingException());
+            recoveryFinishedFuture.completeExceptionally(new NodeStoppingException());
 
             return;
         }
@@ -249,7 +250,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             if (storage.revision() >= targetRevision) {
                 storage.setRecoveryRevisionListener(null);
 
-                if (res.complete(targetRevision)) {
+                if (recoveryFinishedFuture.complete(targetRevision)) {
                     LOG.info("Finished MetaStorage recovery");
                 }
             }
@@ -502,16 +503,21 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public Entry getLocally(byte[] key, long revUpperBound) {
+    public Entry getLocally(ByteArray key, long revUpperBound) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
 
         try {
-            return storage.get(key, revUpperBound);
+            return storage.get(key.bytes(), revUpperBound);
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    @Override
+    public Cursor<Entry> getLocally(ByteArray startKey, ByteArray endKey, long revUpperBound) {
+        return storage.range(startKey.bytes(), endKey.bytes(), revUpperBound);
     }
 
     @Override
@@ -824,19 +830,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         clusterTime.updateSafeTime(time);
 
         try {
-            CompletableFuture<Void> saveToVaultFuture;
-
-            if (watchEvent.entryEvents().isEmpty()) {
-                saveToVaultFuture = vaultMgr.put(APPLIED_REV_KEY, longToBytes(watchEvent.revision()));
-            } else {
-                Map<ByteArray, byte[]> batch = IgniteUtils.newHashMap(watchEvent.entryEvents().size() + 1);
-
-                batch.put(APPLIED_REV_KEY, longToBytes(watchEvent.revision()));
-
-                watchEvent.entryEvents().forEach(e -> batch.put(new ByteArray(e.newEntry().key()), e.newEntry().value()));
-
-                saveToVaultFuture = vaultMgr.putAll(batch);
-            }
+            CompletableFuture<Void> saveToVaultFuture = vaultMgr.put(APPLIED_REV_KEY, longToBytes(watchEvent.revision()));
 
             return saveToVaultFuture.thenRun(() -> appliedRevision = watchEvent.revision());
         } finally {
@@ -906,7 +900,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     /** Explicitly notifies revision update listeners. */
-    public CompletableFuture<Void> notifyRevisionUpdateListenerOnStart(long newRevision) {
-        return storage.notifyRevisionUpdateListenerOnStart(newRevision);
+    public CompletableFuture<Void> notifyRevisionUpdateListenerOnStart() {
+        return recoveryFinishedFuture.thenCompose(storage::notifyRevisionUpdateListenerOnStart);
     }
 }
