@@ -43,8 +43,15 @@ public class ReplPromptProvider implements PromptProvider {
     public String getPrompt() {
         String postfix = "> ";
         SessionInfo sessionInfo = session.info();
-        return sessionInfo != null
-                ? ansi(fg(Color.GREEN).mark("[" + sessionInfo.nodeName() + "]")) + postfix
-                : ansi(fg(Color.RED).mark("[disconnected]")) + postfix;
+        if (sessionInfo != null) {
+            String username = sessionInfo.username();
+            return ansi(fg(Color.GREEN).mark(
+                    "["
+                            + (username != null ? username + ":" : "")
+                            + sessionInfo.nodeName()
+                            + "]"
+            )) + postfix;
+        }
+        return ansi(fg(Color.RED).mark("[disconnected]")) + postfix;
     }
 }

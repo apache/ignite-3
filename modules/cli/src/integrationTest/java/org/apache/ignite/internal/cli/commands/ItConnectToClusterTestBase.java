@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.questions;
+package org.apache.ignite.internal.cli.commands;
 
 import jakarta.inject.Inject;
 import java.io.FileDescriptor;
@@ -23,8 +23,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
-import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
+import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.config.TestStateConfigProvider;
 import org.apache.ignite.internal.cli.core.flow.question.JlineQuestionWriterReaderFactory;
 import org.apache.ignite.internal.cli.core.flow.question.QuestionAskerFactory;
@@ -36,7 +35,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import picocli.CommandLine.Help.Ansi;
 
-class ItConnectToClusterTestBase extends CliCommandTestInitializedIntegrationBase {
+/**
+ * Base class for testing 'connect' command.
+ */
+public class ItConnectToClusterTestBase extends CliCommandTestInitializedIntegrationBase {
     @Inject
     protected TestStateConfigProvider stateConfigProvider;
     @Inject
