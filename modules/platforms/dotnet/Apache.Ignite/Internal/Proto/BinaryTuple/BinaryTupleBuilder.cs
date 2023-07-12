@@ -1262,7 +1262,14 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             { } order => order
         };
 
-        private void PutHash(int index, int hash) => GetHashSpan()[index] = hash;
+        private void PutHash(int index, int hash)
+        {
+            Debug.Assert(_hashedColumnsPredicate != null, "_hashedColumnsPredicate != null");
+            Debug.Assert(index >= 0, "index >= 0");
+            Debug.Assert(index < _hashedColumnsPredicate.HashedColumnCount, "index < _hashedColumnsPredicate.HashedColumnCount");
+
+            GetHashSpan()[index] = hash;
+        }
 
         private Span<int> GetHashSpan() => MemoryMarshal.Cast<byte, int>(_buffer.GetWrittenMemory().Span);
     }
