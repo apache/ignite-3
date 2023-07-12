@@ -170,17 +170,7 @@ public class ItDistributedConfigurationStorageTest {
                     .forEach(IgniteComponent::start);
 
             // this is needed to avoid assertion errors
-            cfgStorage.registerConfigurationListener(new ConfigurationStorageListener() {
-                @Override
-                public CompletableFuture<Void> onEntriesChanged(Data changedEntries) {
-                    return completedFuture(null);
-                }
-
-                @Override
-                public CompletableFuture<Void> onRevisionUpdated(long newRevision) {
-                    return completedFuture(null);
-                }
-            });
+            cfgStorage.registerConfigurationListener(changedEntries -> completedFuture(null));
         }
 
         /**
