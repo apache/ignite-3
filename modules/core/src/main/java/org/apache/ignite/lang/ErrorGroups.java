@@ -138,17 +138,17 @@ public class ErrorGroups {
         /** Constraint violation error. */
         public static final int CONSTRAINT_VIOLATION_ERR = SQL_ERR_GROUP.registerErrorCode(9);
 
-        /** Internal SQL engine error. */
-        public static final int INTERNAL_EXECUTION_ERR = SQL_ERR_GROUP.registerErrorCode(10);
-
-        /** Runtime SQL engine error. */
-        public static final int RUNTIME_EXECUTION_ERR = SQL_ERR_GROUP.registerErrorCode(11);
+        /**
+         * Error indicating that execution of a SQL statement failed due to internal error or
+         * a SQL engine component was unable to execute an operation.
+         */
+        public static final int EXECUTION_ERR = SQL_ERR_GROUP.registerErrorCode(10);
 
         /** Error condition which is raised when data is not correct (such as number of out range error). */
-        public static final int INVALID_DATA_ERR = SQL_ERR_GROUP.registerErrorCode(12);
+        public static final int INVALID_DATA_ERR = SQL_ERR_GROUP.registerErrorCode(11);
 
         /** Session expired error. */
-        public static final int SESSION_EXPIRED_ERR = SQL_ERR_GROUP.registerErrorCode(13);
+        public static final int SESSION_EXPIRED_ERR = SQL_ERR_GROUP.registerErrorCode(12);
     }
 
     /** Meta storage error group. */

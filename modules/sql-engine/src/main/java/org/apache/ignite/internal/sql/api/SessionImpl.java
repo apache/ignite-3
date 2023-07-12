@@ -18,8 +18,7 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.INTERNAL_EXECUTION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_EXECUTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.IgniteExceptionUtils.extractCodeFrom;
 import static org.apache.ignite.lang.IgniteExceptionUtils.sneakyThrow;
@@ -336,7 +335,7 @@ public class SessionImpl implements Session {
         } catch (ExecutionException e) {
             sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
         } catch (Throwable e) {
-            throw new SqlException(RUNTIME_EXECUTION_ERR, e);
+            throw new SqlException(EXECUTION_ERR, e);
         }
     }
 
@@ -366,7 +365,7 @@ public class SessionImpl implements Session {
                 || page.items().size() != 1
                 || page.items().get(0).size() != 1
                 || page.hasMore()) {
-            throw new SqlException(INTERNAL_EXECUTION_ERR, "Invalid DML results: " + page);
+            throw new SqlException(INTERNAL_ERR, "Invalid DML results: " + page);
         }
     }
 }

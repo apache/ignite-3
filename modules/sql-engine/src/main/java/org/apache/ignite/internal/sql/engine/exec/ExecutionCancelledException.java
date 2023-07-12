@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_EXECUTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_ERR;
 
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
@@ -33,6 +33,6 @@ public class ExecutionCancelledException extends IgniteInternalCheckedException 
      * Constructs a new exception with null as its detail message.
      */
     public ExecutionCancelledException() {
-        super(RUNTIME_EXECUTION_ERR);
+        super(EXECUTION_ERR);
     }
 }

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_EXECUTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -68,7 +68,7 @@ public class QueryCancel {
                 act.cancel();
             } catch (Exception e) {
                 if (ex == null) {
-                    ex = new SqlException(RUNTIME_EXECUTION_ERR, e);
+                    ex = new SqlException(EXECUTION_ERR, e);
                 } else {
                     ex.addSuppressed(e);
                 }

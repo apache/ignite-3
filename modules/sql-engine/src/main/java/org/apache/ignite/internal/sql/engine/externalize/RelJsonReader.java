@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.externalize;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.INTERNAL_EXECUTION_ERR;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -103,7 +104,7 @@ public class RelJsonReader {
             readRels(rels);
             return lastRel;
         } catch (IOException e) {
-            throw new SqlException(INTERNAL_EXECUTION_ERR, "RelJson deserialization error", e);
+            throw new SqlException(INTERNAL_ERR, "RelJson deserialization error", e);
         }
     }
 

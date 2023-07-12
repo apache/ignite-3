@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.externalize;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.INTERNAL_EXECUTION_ERR;
 
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
@@ -129,7 +130,7 @@ public class RelJsonWriter implements RelWriter {
 
             return writer.toString();
         } catch (IOException e) {
-            throw new SqlException(INTERNAL_EXECUTION_ERR, "RelJson serialization error", e);
+            throw new SqlException(INTERNAL_ERR, "RelJson serialization error", e);
         }
     }
 

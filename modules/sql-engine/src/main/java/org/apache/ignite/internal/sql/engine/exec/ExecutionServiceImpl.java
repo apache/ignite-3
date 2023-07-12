@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fr
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
-import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_EXECUTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -312,11 +312,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         if (e instanceof IgniteInternalCheckedException) {
-            return new IgniteInternalException(RUNTIME_EXECUTION_ERR, "Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
+            return new IgniteInternalException(EXECUTION_ERR, "Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
                     + ", err=" + e.getMessage() + ']', e);
         }
 
-        return (e instanceof RuntimeException) ? (RuntimeException) e : new SqlException(RUNTIME_EXECUTION_ERR, e);
+        return (e instanceof RuntimeException) ? (RuntimeException) e : new SqlException(EXECUTION_ERR, e);
     }
 
     private AsyncCursor<List<Object>> executeExplain(ExplainPlan plan) {
