@@ -124,7 +124,7 @@ public class DataStreamerTests : IgniteTestsBase
         var streamTask = TupleView.StreamDataAsync(GetTuplesWithDelay(), cancellationToken: cts.Token);
 
         cts.Cancel();
-        Assert.ThrowsAsync<TaskCanceledException>(async () => await streamTask);
+        Assert.CatchAsync<OperationCanceledException>(async () => await streamTask);
 
         Assert.IsFalse(
             await TupleView.ContainsKeyAsync(null, GetTuple(0)),
