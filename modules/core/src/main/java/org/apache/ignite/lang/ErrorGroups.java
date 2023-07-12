@@ -144,7 +144,7 @@ public class ErrorGroups {
          */
         public static final int EXECUTION_ERR = SQL_ERR_GROUP.registerErrorCode(10);
 
-        /** Error condition which is raised when data is not correct (such as number of out range error). */
+        /** Error condition which is raised during execution when data is not correct (such as number of out range error). */
         public static final int INVALID_DATA_ERR = SQL_ERR_GROUP.registerErrorCode(11);
 
         /** Session expired error. */
