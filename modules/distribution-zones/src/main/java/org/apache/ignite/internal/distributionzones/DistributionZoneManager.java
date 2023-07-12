@@ -951,7 +951,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         long newerTopologyRevision = 0;
 
-        Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey().bytes(), causalityToken);
+        Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), causalityToken);
 
         long scaleUpTopologyRevision = 0;
         long scaleDownTopologyRevision = 0;
@@ -964,7 +964,7 @@ public class DistributionZoneManager implements IgniteComponent {
             newerTopologyRevision = topologyEntry.revision();
 
             while((scaleUpTopologyRevision == 0 || !isScaleUpImmediate) || (scaleDownTopologyRevision == 0 || !isScaleDownImmediate)) {
-                topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey().bytes(), newerTopologyRevision - 1);
+                topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), newerTopologyRevision - 1);
 
                 Set<NodeWithAttributes> olderLogicalTopology;
 
