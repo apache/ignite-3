@@ -300,24 +300,6 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
-    public void testCreateTableWithDuplicateColumns() {
-        CreateTableParams params = CreateTableParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .zone(ZONE_NAME)
-                .columns(List.of(
-                        ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
-                        ColumnParams.builder().name("val").type(ColumnType.INT32).build(),
-                        ColumnParams.builder().name("val").type(ColumnType.INT32).nullable(true).build()
-                ))
-                .primaryKeyColumns(List.of("key"))
-                .build();
-
-        assertThat(service.createTable(params), willThrowFast(IgniteInternalException.class,
-                "Can't create table with duplicate columns: key, val, val"));
-    }
-
-    @Test
     public void testDropTable() {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
         assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
@@ -494,7 +476,8 @@ public class CatalogServiceSelfTest {
                 .columns(Set.of("VAL"))
                 .build();
 
-        assertThat(service.dropColumn(params), willThrow(SqlException.class));
+        assertThat(service.dropColumn(params), willThrow(SqlException.class,
+                "Can't drop indexed column: [columnName=VAL, indexName=myIndex]"));
 
         // Try to drop PK column
         params = AlterTableDropColumnParams.builder()
@@ -503,7 +486,7 @@ public class CatalogServiceSelfTest {
                 .columns(Set.of("ID"))
                 .build();
 
-        assertThat(service.dropColumn(params), willThrow(SqlException.class));
+        assertThat(service.dropColumn(params), willThrow(SqlException.class, "Can't drop primary key column: [name=ID]"));
 
         // Validate actual catalog
         CatalogSchemaDescriptor schema = service.activeSchema(clock.nowLong());
@@ -649,11 +632,11 @@ public class CatalogServiceSelfTest {
         assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", null, false, null), willBe(nullValue()));
         assertNotNull(service.schema(++schemaVer));
 
-        // DROP NOT NULL for PK : Error.
+        // DROP NOT NULL for PK : PK column can't be `null`.
         assertThat(changeColumn(TABLE_NAME, "ID", null, false, null),
                 willThrowFast(SqlException.class, "Cannot change NOT NULL for the primary key column 'ID'."));
 
-        // NULlABLE -> NOT NULL : Error.
+        // NULlABLE -> NOT NULL : Forbidden because this change lead to incompatible schemas.
         assertThat(changeColumn(TABLE_NAME, "VAL", null, true, null),
                 willThrowFast(SqlException.class, "Cannot set NOT NULL for column 'VAL'."));
         assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", null, true, null),
@@ -670,11 +653,10 @@ public class CatalogServiceSelfTest {
      *  <li>Decreasing precision is forbidden.</li>
      * </ul>
      */
-    @ParameterizedTest
-    @EnumSource(value = ColumnType.class, names = {"DECIMAL"}, mode = Mode.INCLUDE)
-    public void testAlterColumnTypePrecision(ColumnType type) {
+    @Test
+    public void testAlterColumnTypePrecision() {
         ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
-        ColumnParams col = ColumnParams.builder().name("COL_" + type).type(type).build();
+        ColumnParams col = ColumnParams.builder().name("COL_DECIMAL").type(ColumnType.DECIMAL).precision(10).build();
 
         assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
 
@@ -682,33 +664,21 @@ public class CatalogServiceSelfTest {
         assertNotNull(service.schema(schemaVer));
         assertNull(service.schema(schemaVer + 1));
 
-        // ANY-> UNDEFINED PRECISION : No-op.
-        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type()), null, null),
-                willBe(nullValue()));
-        assertNull(service.schema(schemaVer + 1));
-
-        // UNDEFINED PRECISION -> 10 : Ok.
-        assertThat(
-                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 10, null, null), null, null),
-                willBe(nullValue())
-        );
-        assertNotNull(service.schema(++schemaVer));
-
-        // 10 -> 11 : Ok.
+        // 10 ->11 : Ok.
         assertThat(
                 changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 11, null, null), null, null),
                 willBe(nullValue())
         );
+        assertNotNull(service.schema(++schemaVer));
 
-        CatalogSchemaDescriptor schema = service.schema(++schemaVer);
-        assertNotNull(schema);
+        // No change.
+        assertThat(
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 11, null, null), null, null),
+                willBe(nullValue())
+        );
+        assertNull(service.schema(schemaVer + 1));
 
-        CatalogTableColumnDescriptor desc = schema.table(TABLE_NAME).column(col.name());
-
-        assertNotSame(desc.length(), desc.precision());
-        assertEquals(11, col.type() == ColumnType.DECIMAL ? desc.precision() : desc.length());
-
-        // 11 -> 10 : Error.
+        // 11 -> 10 : Forbidden because this change lead to incompatible schemas.
         assertThat(
                 changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 10, null, null), null, null),
                 willThrowFast(SqlException.class, "Cannot decrease precision to 10 for column '" + col.name() + "'.")
@@ -716,12 +686,15 @@ public class CatalogServiceSelfTest {
         assertNull(service.schema(schemaVer + 1));
     }
 
+    /**
+     * Changing precision is not supported for all types other than DECIMAL.
+     */
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = {"NULL", "DECIMAL"}, mode = Mode.EXCLUDE)
     public void testAlterColumnTypeAnyPrecisionChangeIsRejected(ColumnType type) {
         ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
         ColumnParams col = ColumnParams.builder().name("COL").type(type).build();
-        ColumnParams colWithPrecision = ColumnParams.builder().name("COL_PRECISION").type(type).precision(10).build();
+        ColumnParams colWithPrecision = ColumnParams.builder().name("COL_PRECISION").type(type).precision(3).build();
 
         assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col, colWithPrecision))), willBe(nullValue()));
 
@@ -729,16 +702,16 @@ public class CatalogServiceSelfTest {
         assertNotNull(service.schema(schemaVer));
         assertNull(service.schema(schemaVer + 1));
 
-        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(type, 10, null, null), null, null),
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(type, 3, null, null), null, null),
                 willThrowFast(SqlException.class, "Cannot change precision for column '" + col.name() + "'"));
 
-        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 10, null, null), null, null),
+        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 3, null, null), null, null),
                 willBe(nullValue()));
 
-        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 9, null, null), null, null),
+        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 2, null, null), null, null),
                 willThrowFast(SqlException.class, "Cannot change precision for column '" + colWithPrecision.name() + "'"));
 
-        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 11, null, null), null, null),
+        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 4, null, null), null, null),
                 willThrowFast(SqlException.class, "Cannot change precision for column '" + colWithPrecision.name() + "'"));
 
         assertNull(service.schema(schemaVer + 1));
@@ -756,25 +729,13 @@ public class CatalogServiceSelfTest {
     @EnumSource(value = ColumnType.class, names = {"STRING", "BYTE_ARRAY"}, mode = Mode.INCLUDE)
     public void testAlterColumnTypeLength(ColumnType type) {
         ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
-        ColumnParams col = ColumnParams.builder().name("COL_" + type).type(type).build();
+        ColumnParams col = ColumnParams.builder().name("COL_" + type).length(10).type(type).build();
 
         assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
 
         int schemaVer = 1;
         assertNotNull(service.schema(schemaVer));
         assertNull(service.schema(schemaVer + 1));
-
-        // ANY-> UNDEFINED LENGTH : No-op.
-        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type()), null, null),
-                willBe(nullValue()));
-        assertNull(service.schema(schemaVer + 1));
-
-        // UNDEFINED LENGTH -> 10 : Ok.
-        assertThat(
-                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 10, null), null, null),
-                willBe(nullValue())
-        );
-        assertNotNull(service.schema(++schemaVer));
 
         // 10 -> 11 : Ok.
         assertThat(
@@ -785,19 +746,36 @@ public class CatalogServiceSelfTest {
         CatalogSchemaDescriptor schema = service.schema(++schemaVer);
         assertNotNull(schema);
 
-        CatalogTableColumnDescriptor desc = schema.table(TABLE_NAME).column(col.name());
-
-        assertNotSame(desc.length(), desc.precision());
-        assertEquals(11, col.type() == ColumnType.DECIMAL ? desc.precision() : desc.length());
-
         // 11 -> 10 : Error.
         assertThat(
                 changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 10, null), null, null),
                 willThrowFast(SqlException.class, "Cannot decrease length to 10 for column '" + col.name() + "'.")
         );
         assertNull(service.schema(schemaVer + 1));
+
+        // 11 -> 11 : No-op.
+        assertThat(
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 11, null), null, null),
+                willBe(nullValue())
+        );
+        assertNull(service.schema(schemaVer + 1));
+
+        // No change.
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type()), null, null),
+                willBe(nullValue()));
+        assertNull(service.schema(schemaVer + 1));
+
+        // 11 -> 10 : failed.
+        assertThat(
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 10, null), null, null),
+                willThrowFast(SqlException.class)
+        );
+        assertNull(service.schema(schemaVer + 1));
     }
 
+    /**
+     * Changing length is forbidden for all types other than STRING and BYTE_ARRAY.
+     */
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = {"NULL", "STRING", "BYTE_ARRAY"}, mode = Mode.EXCLUDE)
     public void testAlterColumnTypeAnyLengthChangeIsRejected(ColumnType type) {
@@ -826,6 +804,9 @@ public class CatalogServiceSelfTest {
         assertNull(service.schema(schemaVer + 1));
     }
 
+    /**
+     * Changing scale is incompatible change, thus it's forbidden for all types.
+     */
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
     public void testAlterColumnTypeScaleIsRejected(ColumnType type) {
@@ -866,7 +847,7 @@ public class CatalogServiceSelfTest {
      *     <li>INT8 -> INT16 -> INT32 -> INT64</li>
      *     <li>FLOAT -> DOUBLE</li>
      * </ul>
-     * All other transitions are forbidden.
+     * All other transitions are forbidden because they lead to incompatible schemas.
      */
     @ParameterizedTest(name = "set data type {0}")
     @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
@@ -1737,7 +1718,8 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
-    void testCreateTableWithoutPkColumns() {
+    void testCreateTableErrors() {
+        // Table must have at least one column.
         assertThat(
                 service.createTable(
                         CreateTableParams.builder()
@@ -1748,8 +1730,108 @@ public class CatalogServiceSelfTest {
                                 .primaryKeyColumns(List.of())
                                 .build()
                 ),
-                willThrowFast(IgniteInternalException.class, "Missing primary key columns")
+                willThrowFast(IgniteInternalException.class, "Table must include at least one column.")
         );
+
+        // Table must have PK columns.
+        assertThat(
+                service.createTable(
+                        CreateTableParams.builder()
+                                .schemaName(SCHEMA_NAME)
+                                .zone(ZONE_NAME)
+                                .tableName(TABLE_NAME)
+                                .columns(List.of(
+                                        ColumnParams.builder().name("val").type(ColumnType.INT32).build()
+                                ))
+                                .primaryKeyColumns(List.of())
+                                .build()
+                ),
+                willThrowFast(IgniteInternalException.class, "Table without primary key is not supported.")
+        );
+
+        // PK column must be a valid column
+        assertThat(
+                service.createTable(
+                        CreateTableParams.builder()
+                                .schemaName(SCHEMA_NAME)
+                                .zone(ZONE_NAME)
+                                .tableName(TABLE_NAME)
+                                .columns(List.of(
+                                        ColumnParams.builder().name("val").type(ColumnType.INT32).build()
+                                ))
+                                .primaryKeyColumns(List.of("key"))
+                                .build()
+                ),
+                willThrowFast(IgniteInternalException.class, "Invalid primary key columns: val")
+        );
+
+        // Column names must be unique.
+        assertThat(
+                service.createTable(
+                        CreateTableParams.builder()
+                                .schemaName(SCHEMA_NAME)
+                                .tableName(TABLE_NAME)
+                                .zone(ZONE_NAME)
+                                .columns(List.of(
+                                        ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
+                                        ColumnParams.builder().name("val").type(ColumnType.INT32).build(),
+                                        ColumnParams.builder().name("val").type(ColumnType.INT32).nullable(true).build()
+                                ))
+                                .primaryKeyColumns(List.of("key"))
+                                .build()
+                ),
+                willThrowFast(IgniteInternalException.class, "Can't create table with duplicate columns: key, val, val"));
+
+        // PK column names must be unique.
+        assertThat(
+                service.createTable(
+                        CreateTableParams.builder()
+                                .schemaName(SCHEMA_NAME)
+                                .tableName(TABLE_NAME)
+                                .zone(ZONE_NAME)
+                                .columns(List.of(
+                                        ColumnParams.builder().name("key1").type(ColumnType.INT32).build(),
+                                        ColumnParams.builder().name("key2").type(ColumnType.INT32).build()
+                                ))
+                                .primaryKeyColumns(List.of("key1", "key2", "key1"))
+                                .build()
+                ),
+                willThrowFast(IgniteInternalException.class, "Primary key columns contains duplicates: key1, key2, key1"));
+
+        // Colocated columns names must be unique.
+        assertThat(
+                service.createTable(
+                        CreateTableParams.builder()
+                                .schemaName(SCHEMA_NAME)
+                                .tableName(TABLE_NAME)
+                                .zone(ZONE_NAME)
+                                .columns(List.of(
+                                        ColumnParams.builder().name("key1").type(ColumnType.INT32).build(),
+                                        ColumnParams.builder().name("key2").type(ColumnType.INT32).build(),
+                                        ColumnParams.builder().name("val").type(ColumnType.INT32).build()
+                                ))
+                                .primaryKeyColumns(List.of("key1", "key2"))
+                                .colocationColumns(List.of("key1", "key2", "key1"))
+                                .build()
+                ),
+                willThrowFast(IgniteInternalException.class, "Colocation columns contains duplicates: key1, key2, key1"));
+
+        // Colocated columns must be valid primary key columns.
+        assertThat(
+                service.createTable(
+                        CreateTableParams.builder()
+                                .schemaName(SCHEMA_NAME)
+                                .tableName(TABLE_NAME)
+                                .zone(ZONE_NAME)
+                                .columns(List.of(
+                                        ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
+                                        ColumnParams.builder().name("val").type(ColumnType.INT32).build()
+                                ))
+                                .primaryKeyColumns(List.of("key"))
+                                .colocationColumns(List.of("val"))
+                                .build()
+                ),
+                willThrowFast(IgniteInternalException.class, "Colocation columns must be subset of primary key: outstandingColumns=[val]"));
     }
 
     private CompletableFuture<Void> changeColumn(
