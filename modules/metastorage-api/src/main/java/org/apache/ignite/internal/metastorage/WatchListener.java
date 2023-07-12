@@ -32,17 +32,6 @@ public interface WatchListener {
     CompletableFuture<Void> onUpdate(WatchEvent event);
 
     /**
-     * Callback that will be invoked if a Meta Storage update has been received, but the modified entries do not match the given Watch.
-     *
-     * @param revision Meta Storage revision.
-     * @return Future that will be completed when the event is processed.
-     */
-    // TODO: IGNITE-19801 Get rid of this method.
-    default CompletableFuture<Void> onRevisionUpdated(long revision) {
-        return CompletableFuture.completedFuture(null);
-    }
-
-    /**
      * The method will be called in case of an error occurred. The listener and corresponding watch will be unregistered.
      *
      * @param e Exception.

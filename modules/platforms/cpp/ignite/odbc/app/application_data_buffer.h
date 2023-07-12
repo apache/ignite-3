@@ -22,6 +22,7 @@
 
 #include <ignite/common/uuid.h>
 #include <ignite/common/ignite_date.h>
+#include <ignite/common/ignite_date_time.h>
 #include <ignite/common/ignite_timestamp.h>
 #include <ignite/common/ignite_time.h>
 #include <ignite/common/big_decimal.h>
@@ -83,8 +84,7 @@ public:
      *
      * @param offset Offset.
      */
-    void set_byte_offset(int offset)
-    {
+    void set_byte_offset(int offset) {
         this->m_byte_offset = offset;
     }
 
@@ -93,8 +93,7 @@ public:
      *
      * @param offset Offset.
      */
-    void set_element_offset(SQLULEN offset)
-    {
+    void set_element_offset(SQLULEN offset) {
         this->m_element_offset = offset;
     }
 
@@ -440,6 +439,16 @@ private:
      * @return Conversion result.
      */
     conversion_result put_raw_data_to_buffer(void *data, size_t len, int32_t& written);
+
+    /**
+     * Put data from struct tm to a string buffer.
+     *
+     * @param tm_time Time.
+     * @param val_len Resulting string length.
+     * @param fmt Format for underlying strftime.
+     * @return Result.
+     */
+    conversion_result put_tm_to_string(tm &tm_time, SQLLEN val_len, const char* fmt);
 
     /**
      * Get int of type T.

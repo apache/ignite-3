@@ -301,7 +301,7 @@ public:
     [[nodiscard]] bool is_positive() const noexcept { return sign > 0 && !is_zero(); }
 
     /**
-     * Rverses sign of this value.
+     * Reverses sign of this value.
      */
     void negate() {
         if (!is_zero()) {

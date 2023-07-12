@@ -170,11 +170,6 @@ public class TestConfigurationStorage implements ConfigurationStorage {
         return CompletableFuture.completedFuture(version);
     }
 
-    @Override
-    public void writeConfigurationRevision(long prevRevision, long currentRevision) {
-        // No-op.
-    }
-
     /**
      * Increase the current revision of the storage.
      *

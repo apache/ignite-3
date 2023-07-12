@@ -223,11 +223,6 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
                 .thenApply(entry -> entry == null ? 0 : (Long) fromBytes(entry.value()));
     }
 
-    @Override
-    public void writeConfigurationRevision(long prevRevision, long currentRevision) {
-        // No-op.
-    }
-
     /**
      * Increments the last character of the given string.
      */

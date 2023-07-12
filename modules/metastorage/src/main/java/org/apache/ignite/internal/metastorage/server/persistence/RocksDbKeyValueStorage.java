@@ -992,6 +992,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback) {
+        assert startRevision != 0 : "First meaningful revision is 1";
+
         long currentRevision;
 
         rwLock.readLock().lock();
@@ -1496,9 +1498,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     private void replayUpdates(long lowerRevision, long upperRevision) {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19778 Should be Math.max, so we start from the revision that
-        // components restored their state to (lowerRevision).
-        long minWatchRevision = Math.min(lowerRevision, watchProcessor.minWatchRevision().orElse(-1));
+        long minWatchRevision = Math.max(lowerRevision, watchProcessor.minWatchRevision().orElse(-1));
 
         if (minWatchRevision == -1 || minWatchRevision > upperRevision) {
             // No events to replay, we can start processing more recent events from the event queue.

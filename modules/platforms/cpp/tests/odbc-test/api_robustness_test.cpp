@@ -358,7 +358,7 @@ TEST_F(api_robustness_test, sql_bind_parameter)
     //Unsupported parameter type: input/output
     SQLBindParameter(m_statement, 2, SQL_PARAM_INPUT_OUTPUT, SQL_C_SLONG, SQL_INTEGER,
         100, 100, &ind1, sizeof(ind1), &len1);
-    
+
     EXPECT_EQ(get_statement_error_state(), "HY105");
 
     //Unsupported data types
@@ -368,8 +368,7 @@ TEST_F(api_robustness_test, sql_bind_parameter)
             sql_type, 100, 100, &ind1, sizeof(ind1), &len1);
 
         ASSERT_EQ(ret, SQL_ERROR);
-        // TODO IGNITE-19205: Uncomment once column binding is implemented.
-        //EXPECT_EQ(get_statement_error_state(), "HY105");
+        EXPECT_EQ(get_statement_error_state(), "HYC00");
     }
 
     // Size is null.
