@@ -71,6 +71,18 @@ public:
         return m_data;
     }
 
+    /**
+     * Get row.
+     * @param idx Row index.
+     * @return Row data.
+     */
+    bytes_view get_row(std::uint32_t idx) {
+        assert(idx >= 0 && idx < m_size);
+
+        auto elem = m_reader->get_array_element(idx);
+        return protocol::unpack_binary(elem);
+    }
+
 private:
     /** Page size in rows. */
     std::uint32_t m_size{0};

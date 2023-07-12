@@ -252,6 +252,16 @@ public:
     }
 
     /**
+     * Get array element.
+     *
+     * @param idx Index.
+     * @return Element reference.
+     */
+    [[nodiscard]] const msgpack_object &get_array_element(std::uint32_t idx) const {
+        return m_current_val.data.via.array.ptr[idx];
+    }
+
+    /**
      * Read array.
      *
      * @tparam T Value type.

@@ -19,7 +19,7 @@
 
 #include "ignite/client/detail/argument_check_utils.h"
 #include "ignite/client/detail/utils.h"
-
+#include "ignite/protocol/utils.h"
 #include "ignite/tuple/binary_tuple_builder.h"
 
 namespace ignite::detail {
@@ -39,12 +39,12 @@ void write_primitives_as_binary_tuple(protocol::writer &writer, const std::vecto
 
     args_builder.start();
     for (const auto &arg : args) {
-        claim_primitive_with_type(args_builder, arg);
+        protocol::claim_primitive_with_type(args_builder, arg);
     }
 
     args_builder.layout();
     for (const auto &arg : args) {
-        append_primitive_with_type(args_builder, arg);
+        protocol::append_primitive_with_type(args_builder, arg);
     }
 
     auto args_data = args_builder.build();
@@ -63,7 +63,7 @@ std::optional<primitive> read_primitive_from_binary_tuple(protocol::reader &read
 
     auto typ = static_cast<ignite_type>(binary_tuple_parser::get_int32(parser.get_next()));
     auto scale = binary_tuple_parser::get_int32(parser.get_next());
-    return read_next_column(parser, typ, scale);
+    return protocol::read_next_column(parser, typ, scale);
 }
 
 /**

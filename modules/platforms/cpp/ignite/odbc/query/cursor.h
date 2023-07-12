@@ -41,21 +41,59 @@ public:
         : m_query_id(query_id) {}
 
     /**
+     * Move cursor to the next row.
+     *
+     * @return False if data update required or no more data.
+     */
+    bool next(const column_meta_vector &columns)
+    {
+        if (!has_data())
+            return false;
+
+        ++m_page_pos;
+        if (m_page_pos >= m_current_page->get_size())
+        {
+            m_current_page.reset();
+            return false;
+        }
+
+        ++m_result_set_pos;
+        auto row_data = m_current_page->get_row(m_page_pos);
+
+        auto columns_cnt = columns.size();
+        binary_tuple_parser parser(std::int32_t(columns_cnt), row_data);
+
+        m_row.clear();
+        for (size_t i = 0; i < columns_cnt; ++i) {
+            auto &column = columns[i];
+            m_row.push_back(protocol::read_next_column(parser, column.get_data_type(), column.get_scale()));
+        }
+
+        return true;
+    }
+
+    /**
      * Check if the cursor has data.
      *
      * @return True if the cursor has data.
      */
-    [[nodiscard]] bool has_data() const {
-        return false;
+    [[nodiscard]] bool has_data() const
+    {
+        return bool(m_current_page);
     }
 
     /**
-     * Check whether cursor closed remotely.
+     * Update current cursor page data.
      *
-     * @return true, if the cursor closed remotely.
+     * @param new_page New result page.
      */
-    [[nodiscard]] bool is_closed_remotely() const {
-        return false;
+    void update_data(std::unique_ptr<result_page> new_page)
+    {
+        m_current_page = std::move(new_page);
+
+        m_page_pos = -1;
+
+        m_row.clear();
     }
 
     /**
@@ -67,9 +105,39 @@ public:
         return m_query_id;
     }
 
+    /**
+     * Get current row.
+     *
+     * @return  Row.
+     */
+    [[nodiscard]] const std::vector<primitive> &get_row() const {
+        return m_row;
+    }
+
+    /**
+     * Get current position in result set.
+     *
+     * @return Current position in result set.
+     */
+    [[nodiscard]] std::int32_t get_result_set_pos() const {
+        return m_result_set_pos;
+    }
+
 private:
     /** Cursor id. */
     std::int64_t m_query_id;
+
+    /** Current page. */
+    std::unique_ptr<result_page> m_current_page;
+
+    /** Row position in current page. */
+    std::int32_t m_page_pos{-1};
+
+    /** Row position in result set. */
+    std::int32_t m_result_set_pos{0};
+
+    /** Current row. */
+    std::vector<primitive> m_row;
 };
 
 }

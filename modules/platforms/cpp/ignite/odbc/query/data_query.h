@@ -20,12 +20,11 @@
 #include "ignite/odbc/app/parameter_set.h"
 #include "ignite/odbc/query/query.h"
 #include "ignite/odbc/query/result_page.h"
+#include "ignite/odbc/query/cursor.h"
 #include "ignite/odbc/sql_connection.h"
 
 namespace ignite
 {
-
-class cursor;
 
 /**
  * Data query.
@@ -130,7 +129,27 @@ private:
      *
      * @return true, if all cursors closed remotely.
      */
-    [[nodiscard]] bool is_closed_remotely() const;
+    [[nodiscard]] bool is_closed_remotely() const {
+        return !m_has_more_pages;
+    }
+
+    /**
+     * Check if there are more data pages locally or on server.
+     *
+     * @return @c true, if there is more data pages.
+     */
+    [[nodiscard]] bool has_more_pages() const {
+        return m_cached_page || m_has_more_pages;
+    }
+
+    /**
+     * Check if there are more data pages locally or on server.
+     *
+     * @return @c true, if there is more data pages.
+     */
+    [[nodiscard]] bool has_more_rows() const {
+        return has_more_pages() || (m_cursor && m_cursor->has_data());
+    }
 
     /**
      * Make query execute request and use response to set internal
@@ -193,6 +212,9 @@ private:
 
     /** Parameter bindings. */
     const parameter_set &m_params;
+
+    /** Indicating if the query was executed. */
+    bool m_executed{false};
 
     /** Result set metadata is available */
     bool m_result_meta_available{false};

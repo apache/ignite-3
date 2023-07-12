@@ -97,7 +97,74 @@ column_meta_vector read_meta(protocol::reader &reader) {
     return columns;
 }
 
+// TODO: IGNITE-19968 Avoid storing row columns in primitives, read them directly from binary tuple.
+/**
+ * Put a primitive into a buffer.
+ *
+ * @param buffer ODBC buffer.
+ * @param value Value to put.
+ * @return Conversion result.
+ */
+conversion_result put_primitive_to_buffer(application_data_buffer &buffer, const primitive &value) {
+    switch (value.get_type()) {
+        case ignite_type::STRING:
+            return buffer.put_string(value.get<std::string>());
+
+        case ignite_type::INT8:
+            return buffer.put_int8(value.get<std::int8_t>());
+
+        case ignite_type::INT16:
+            return buffer.put_int16(value.get<std::int16_t>());
+
+        case ignite_type::INT32:
+            return buffer.put_int32(value.get<std::int32_t>());
+
+        case ignite_type::INT64:
+            return buffer.put_int64(value.get<std::int64_t>());
+
+        case ignite_type::DECIMAL:
+            return buffer.put_decimal(value.get<big_decimal>());
+
+        case ignite_type::FLOAT:
+            return buffer.put_float(value.get<float>());
+
+        case ignite_type::DOUBLE:
+            return buffer.put_double(value.get<double>());
+
+        case ignite_type::BOOLEAN:
+            return buffer.put_bool(value.get<bool>());
+
+        case ignite_type::UUID:
+            return buffer.put_uuid(value.get<uuid>());
+
+        case ignite_type::DATE:
+            return buffer.put_date(value.get<ignite_date>());
+
+        case ignite_type::TIMESTAMP:
+            return buffer.put_timestamp(value.get<ignite_timestamp>());
+
+        case ignite_type::TIME:
+            return buffer.put_time(value.get<ignite_time>());
+
+        case ignite_type::DATETIME:
+            return buffer.put_date_time(value.get<ignite_date_time>());
+
+        case ignite_type::BITMASK:
+            return buffer.put_bitmask(value.get<bit_array>());
+
+        case ignite_type::BYTE_ARRAY:
+            return buffer.put_binary_data(value.get<std::vector<std::byte>>());
+
+        case ignite_type::PERIOD:
+        case ignite_type::DURATION:
+        case ignite_type::NUMBER:
+        default:
+            // TODO: IGNITE-19969 implement support for period, duration and big_integer
+            return conversion_result::AI_UNSUPPORTED_CONVERSION;
+    }
 }
+
+} // anonymous namespace
 
 namespace ignite
 {
@@ -135,10 +202,50 @@ const column_meta_vector *data_query::get_meta()
 
 sql_result data_query::fetch_next_row(column_binding_map &column_bindings)
 {
-    UNUSED_VALUE column_bindings;
-    // TODO: IGNITE-19213 Implement data fetching
-    m_diag.add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Data fetching is not implemented");
-    return sql_result::AI_ERROR;
+    if (!m_executed)
+    {
+        m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+
+        return sql_result::AI_ERROR;
+    }
+
+    if (!m_has_rowset || !has_more_rows())
+        return sql_result::AI_NO_DATA;
+
+    if (!m_cursor->has_data())
+    {
+        if (!m_cached_page) {
+            auto result = make_request_fetch();
+
+            if (result != sql_result::AI_SUCCESS)
+                return result;
+        }
+
+        m_cursor->update_data(std::move(m_cached_page));
+    }
+
+    if (!m_cursor->has_data())
+        return sql_result::AI_NO_DATA;
+
+    m_cursor->next(m_result_meta);
+
+    auto row = m_cursor->get_row();
+    assert(!row.empty());
+
+    for (std::int32_t i = 0; i < row.size(); ++i)
+    {
+        auto it = column_bindings.find(i);
+        if (it == column_bindings.end())
+            continue;
+
+        auto conv_res = put_primitive_to_buffer(it->second, row[i]);
+        auto result = process_conversion_result(conv_res, m_cursor->get_result_set_pos(), i + 1);
+
+        if (result == sql_result::AI_ERROR)
+            return sql_result::AI_ERROR;
+    }
+
+    return sql_result::AI_SUCCESS;
 }
 
 sql_result data_query::get_column(std::uint16_t column_idx, application_data_buffer &buffer)
@@ -169,6 +276,7 @@ sql_result data_query::internal_close()
     {
         m_cursor.reset();
         m_rows_affected = -1;
+        m_executed = false;
     }
 
     return result;
@@ -189,11 +297,6 @@ sql_result data_query::next_result_set()
     // TODO: IGNITE-19855 Multiple queries execution is not supported.
     internal_close();
     return sql_result::AI_NO_DATA;
-}
-
-bool data_query::is_closed_remotely() const
-{
-    return !m_has_more_pages;
 }
 
 sql_result data_query::make_request_execute()
@@ -231,9 +334,8 @@ sql_result data_query::make_request_execute()
     auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
 
     auto resource_id = reader->read_object_nullable<std::int64_t>();
-    if (resource_id) {
+    if (resource_id)
         m_cursor = std::make_unique<cursor>(*resource_id);
-    }
 
     m_has_rowset = reader->read_bool();
     m_has_more_pages = reader->read_bool();
@@ -246,6 +348,8 @@ sql_result data_query::make_request_execute()
         m_cached_page = std::make_unique<result_page>(std::move(response), std::move(reader));
     }
 
+    m_executed = true;
+
     return sql_result::AI_SUCCESS;
 }
 
@@ -254,7 +358,7 @@ sql_result data_query::make_request_close()
     if (!m_cursor)
         return sql_result::AI_SUCCESS;
 
-    LOG_MSG("Closing cursor: " << m_cursor->get_query_id());
+    LOG_MSG("Closing m_cursor: " << m_cursor->get_query_id());
 
     auto success = m_diag.catch_errors([&]{
         UNUSED_VALUE m_connection.sync_request(detail::client_operation::SQL_CURSOR_CLOSE,

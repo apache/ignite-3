@@ -123,7 +123,7 @@ const std::string& ignite_type_to_sql_type_name(ignite_type typ)
     case ignite_type::DURATION:
     case ignite_type::NUMBER:
     default:
-        // TODO: Add proper support for all possible types.
+        // TODO: IGNITE-19969 implement support for period, duration and big_integer
         break;
     }
 
@@ -361,6 +361,7 @@ int16_t ignite_type_to_sql_type(ignite_type typ)
         case ignite_type::DURATION:
         case ignite_type::NUMBER:
         default:
+            // TODO: IGNITE-19969 implement support for period, duration and big_integer
             break;
     }
 

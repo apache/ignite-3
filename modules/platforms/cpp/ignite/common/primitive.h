@@ -17,18 +17,18 @@
 
 #pragma once
 
-#include <ignite/common/big_decimal.h>
-#include <ignite/common/big_integer.h>
-#include <ignite/common/bit_array.h>
-#include <ignite/common/ignite_date.h>
-#include <ignite/common/ignite_date_time.h>
-#include <ignite/common/ignite_duration.h>
-#include <ignite/common/ignite_error.h>
-#include <ignite/common/ignite_period.h>
-#include <ignite/common/ignite_time.h>
-#include <ignite/common/ignite_timestamp.h>
-#include <ignite/common/ignite_type.h>
-#include <ignite/common/uuid.h>
+#include "big_decimal.h"
+#include "big_integer.h"
+#include "bit_array.h"
+#include "ignite_date.h"
+#include "ignite_date_time.h"
+#include "ignite_duration.h"
+#include "ignite_error.h"
+#include "ignite_period.h"
+#include "ignite_time.h"
+#include "ignite_timestamp.h"
+#include "ignite_type.h"
+#include "uuid.h"
 
 #include <cstdint>
 #include <optional>

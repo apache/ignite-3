@@ -19,11 +19,11 @@
 
 #include "ignite/client/compute/deployment_unit.h"
 #include "ignite/client/network/cluster_node.h"
-#include "ignite/client/primitive.h"
 #include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/transaction/transaction.h"
 #include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
+#include "ignite/common/primitive.h"
 
 #include <map>
 #include <memory>

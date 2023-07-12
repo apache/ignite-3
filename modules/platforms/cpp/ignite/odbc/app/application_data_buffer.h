@@ -25,7 +25,11 @@
 #include <ignite/common/ignite_date_time.h>
 #include <ignite/common/ignite_timestamp.h>
 #include <ignite/common/ignite_time.h>
+#include <ignite/common/ignite_period.h>
+#include <ignite/common/ignite_duration.h>
 #include <ignite/common/big_decimal.h>
+#include <ignite/common/bytes_view.h>
+#include <ignite/common/bit_array.h>
 
 #include <cstdint>
 #include <map>
@@ -146,6 +150,14 @@ public:
     conversion_result put_double(double value);
 
     /**
+     * Put in buffer value of type bool.
+     *
+     * @param value Value.
+     * @return Conversion result.
+     */
+    conversion_result put_bool(bool value);
+
+    /**
      * Put in buffer value of type string.
      *
      * @param value Value.
@@ -178,7 +190,28 @@ public:
      * @param written Number of written characters.
      * @return Conversion result.
      */
-    conversion_result put_binary_data(void* data, size_t len, int32_t& written);
+    conversion_result put_binary_data(void* data, size_t len, std::int32_t& written);
+
+    /**
+     * Put binary data in buffer.
+     *
+     * @param data Data.
+     * @return Conversion result.
+     */
+    conversion_result put_binary_data(bytes_view data) {
+        std::int32_t dummy;
+        return put_binary_data((void*)data.data(), data.size(), dummy);
+    }
+
+    /**
+     * Put bitmask in buffer.
+     *
+     * @param data Data.
+     * @return Conversion result.
+     */
+    conversion_result put_bitmask(const bit_array &data) {
+        return put_binary_data(data.get_raw());
+    }
 
     /**
      * Put NULL.
@@ -217,6 +250,14 @@ public:
      * @return Conversion result.
      */
     conversion_result put_time(const ignite_time& value);
+
+    /**
+     * Put datetime to buffer.
+     *
+     * @param value Value to put.
+     * @return Conversion result.
+     */
+    conversion_result put_date_time(const ignite_date_time& value);
 
     /**
      * Get string.

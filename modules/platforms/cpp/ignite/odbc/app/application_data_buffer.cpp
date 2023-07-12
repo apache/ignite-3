@@ -103,6 +103,25 @@ tm time_to_tm_for_strftime(const ignite_time &value) {
 }
 
 /**
+ * Convert Ignite date time to C standard tm struct.
+ *
+ * @warning This is not a proper conversion and only works for using with strftime with certain format options.
+ * @param value Ignite time.
+ * @return A tm structure to use with strftime.
+ */
+tm time_date_to_tm_for_strftime(const ignite_date_time &value) {
+    tm tm_time{};
+    tm_time.tm_year = value.get_year() - 1900;
+    tm_time.tm_mon = value.get_month() - 1; // NOLINT(cert-str34-c)
+    tm_time.tm_mday = value.get_day_of_month(); // NOLINT(cert-str34-c)
+    tm_time.tm_hour = value.get_hour(); // NOLINT(cert-str34-c)
+    tm_time.tm_min = value.get_minute(); // NOLINT(cert-str34-c)
+    tm_time.tm_sec = value.get_second(); // NOLINT(cert-str34-c)
+
+    return tm_time;
+}
+
+/**
  * Convert time_t to struct tm.
  *
  * @param ctime Time.
@@ -110,11 +129,7 @@ tm time_to_tm_for_strftime(const ignite_time &value) {
  */
 tm time_t_to_tm(time_t ctime) {
     tm tm_time{};
-#ifdef WIN32
-    localtime_s(&tm_time, &ctime);
-#else
-    localtime_r(&ctime, &tm_time);
-#endif
+    IGNITE_SWITCH_WIN_OTHER(localtime_s(&tm_time, &ctime), localtime_r(&ctime, &tm_time));
     return tm_time;
 }
 
@@ -384,6 +399,11 @@ conversion_result application_data_buffer::put_float(float value)
 conversion_result application_data_buffer::put_double(double value)
 {
     return put_num(value);
+}
+
+conversion_result application_data_buffer::put_bool(bool value)
+{
+    return put_num(value ? 1 : 0);
 }
 
 conversion_result application_data_buffer::put_string(const std::string & value)
@@ -876,6 +896,89 @@ conversion_result application_data_buffer::put_time(const ignite_time& value)
         case odbc_native_type::AI_DOUBLE:
         case odbc_native_type::AI_NUMERIC:
         case odbc_native_type::AI_TDATE:
+        default:
+            break;
+    }
+
+    return conversion_result::AI_UNSUPPORTED_CONVERSION;
+}
+
+conversion_result application_data_buffer::put_date_time(const ignite_date_time& value)
+{
+    SQLLEN* res_len_ptr = get_result_len();
+    void* data_ptr = get_data();
+
+    switch (m_type)
+    {
+        case odbc_native_type::AI_WCHAR:
+        case odbc_native_type::AI_CHAR:
+        case odbc_native_type::AI_BINARY:
+        {
+            const auto val_len = SQLLEN(sizeof("HHHH-MM-DD HH:MM:SS"));
+            auto tm_time = time_date_to_tm_for_strftime(value);
+
+            return put_tm_to_string(tm_time, val_len, "%Y-%m-%d %H:%M:%S");
+        }
+
+        case odbc_native_type::AI_TDATE:
+        {
+            auto *buffer = reinterpret_cast<SQL_DATE_STRUCT*>(data_ptr);
+
+            buffer->year = SQLSMALLINT(value.get_year());
+            buffer->month = value.get_month();
+            buffer->day = value.get_day_of_month();
+
+            if (res_len_ptr)
+                *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_DATE_STRUCT));
+
+            return conversion_result::AI_FRACTIONAL_TRUNCATED;
+        }
+
+        case odbc_native_type::AI_TTIME:
+        {
+            auto* buffer = reinterpret_cast<SQL_TIME_STRUCT*>(data_ptr);
+
+            buffer->hour = value.get_hour();
+            buffer->minute = value.get_minute();
+            buffer->second = value.get_second();
+
+            if (res_len_ptr)
+                *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_TIME_STRUCT));
+
+            return conversion_result::AI_FRACTIONAL_TRUNCATED;
+        }
+
+        case odbc_native_type::AI_TTIMESTAMP:
+        {
+            auto* buffer = reinterpret_cast<SQL_TIMESTAMP_STRUCT*>(data_ptr);
+
+            buffer->year = SQLSMALLINT(value.get_year());
+            buffer->month = value.get_month();
+            buffer->day = value.get_day_of_month();
+            buffer->hour = value.get_hour();
+            buffer->minute = value.get_minute();
+            buffer->second = value.get_second();
+            buffer->fraction = value.get_nano();
+
+            if (res_len_ptr)
+                *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_TIMESTAMP_STRUCT));
+
+            return conversion_result::AI_SUCCESS;
+        }
+
+        case odbc_native_type::AI_DEFAULT:
+        case odbc_native_type::AI_SIGNED_TINYINT:
+        case odbc_native_type::AI_BIT:
+        case odbc_native_type::AI_UNSIGNED_TINYINT:
+        case odbc_native_type::AI_SIGNED_SHORT:
+        case odbc_native_type::AI_UNSIGNED_SHORT:
+        case odbc_native_type::AI_SIGNED_LONG:
+        case odbc_native_type::AI_UNSIGNED_LONG:
+        case odbc_native_type::AI_SIGNED_BIGINT:
+        case odbc_native_type::AI_UNSIGNED_BIGINT:
+        case odbc_native_type::AI_FLOAT:
+        case odbc_native_type::AI_DOUBLE:
+        case odbc_native_type::AI_NUMERIC:
         default:
             break;
     }
