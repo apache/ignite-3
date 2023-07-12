@@ -56,6 +56,7 @@ public class BinaryTupleTest {
         assertEquals(1, reader.elementCount());
 
         assertTrue(reader.hasNullValue(0));
+        assertNull(reader.booleanValueBoxed(0));
         assertNull(reader.byteValueBoxed(0));
         assertNull(reader.shortValueBoxed(0));
         assertNull(reader.intValueBoxed(0));
@@ -72,6 +73,23 @@ public class BinaryTupleTest {
         assertNull(reader.timeValue(0));
         assertNull(reader.dateTimeValue(0));
         assertNull(reader.timestampValue(0));
+    }
+
+    /**
+     * Test boolean value encoding.
+     */
+    @Test
+    public void booleanTest() {
+        boolean[] values = {false, true};
+        for (boolean value : values) {
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 1);
+            ByteBuffer bytes = builder.appendBoolean(value).build();
+            assertEquals(1, bytes.get(1));
+            assertEquals(3, bytes.limit());
+
+            BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
+            assertEquals(value, reader.booleanValue(0));
+        }
     }
 
     /**
