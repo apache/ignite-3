@@ -144,11 +144,11 @@ namespace Apache.Ignite.Internal.Sql
                 // ResultSet will dispose the pooled buffer.
                 return new ResultSet<T>(socket, buf, rowReaderFactory);
             }
-            catch (SqlException e) when (e.Code == ErrorGroups.Sql.Validation)
+            catch (SqlException e) when (e.Code == ErrorGroups.Sql.StmtValidation)
             {
                 throw new SqlException(
                     e.TraceId,
-                    ErrorGroups.Sql.Validation,
+                    ErrorGroups.Sql.StmtValidation,
                     "Invalid query, check inner exceptions for details: " + statement.Query,
                     e);
             }
