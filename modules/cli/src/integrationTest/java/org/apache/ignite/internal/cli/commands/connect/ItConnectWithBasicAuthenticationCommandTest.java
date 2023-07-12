@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.cli.commands.ItConnectToClusterTestBase;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.junit.jupiter.api.Test;
 
 class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTestBase {
@@ -47,7 +48,8 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         assertAll(
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputIs("Authentication error" + System.lineSeparator()
-                + "Could not connect to node with URL http://localhost:10300. Check authentication configuration" + System.lineSeparator())
+                        + "Could not connect to node with URL http://localhost:10300. Check authentication configuration"
+                        + System.lineSeparator())
         );
         // And prompt is still disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
@@ -72,5 +74,29 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
 
         // And prompt shows user name and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
+    }
+
+    @Test
+    void failToConnectWithWrongCredentials() {
+        // Given basic authentication is configured in config file
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
+        // And wrong password is provided
+        configManagerProvider.configManager.setProperty(CliConfigKeys.Constants.BASIC_AUTHENTICATION_PASSWORD, "wrong-password");
+
+        // Given prompt before connect
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // When connect without parameters
+        execute("connect");
+
+        // Then
+        assertAll(
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputIs("Authentication error" + System.lineSeparator()
+                        + "Could not connect to node with URL http://localhost:10300. Check authentication configuration"
+                        + System.lineSeparator())
+        );
+        // And prompt is still disconnected
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
     }
 }
