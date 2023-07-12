@@ -209,25 +209,27 @@ sql_result data_query::fetch_next_row(column_binding_map &column_bindings)
         return sql_result::AI_ERROR;
     }
 
-    if (!m_has_rowset || !has_more_rows())
+    if (!m_has_rowset || !m_cursor)
+        return sql_result::AI_NO_DATA;
+
+    m_cursor->next(m_result_meta);
+
+    if (!has_more_rows())
         return sql_result::AI_NO_DATA;
 
     if (!m_cursor->has_data())
     {
-        if (!m_cached_page) {
-            auto result = make_request_fetch();
+        std::unique_ptr<result_page> page;
+        auto result = make_request_fetch(page);
 
-            if (result != sql_result::AI_SUCCESS)
-                return result;
-        }
+        if (result != sql_result::AI_SUCCESS)
+            return result;
 
-        m_cursor->update_data(std::move(m_cached_page));
+        m_cursor->update_data(std::move(page));
     }
 
     if (!m_cursor->has_data())
         return sql_result::AI_NO_DATA;
-
-    m_cursor->next(m_result_meta);
 
     auto row = m_cursor->get_row();
     assert(!row.empty());
@@ -250,11 +252,29 @@ sql_result data_query::fetch_next_row(column_binding_map &column_bindings)
 
 sql_result data_query::get_column(std::uint16_t column_idx, application_data_buffer &buffer)
 {
-    UNUSED_VALUE column_idx;
-    UNUSED_VALUE buffer;
-    // TODO: IGNITE-19213 Implement data fetching
-    m_diag.add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Data fetching is not implemented");
-    return sql_result::AI_ERROR;
+    if (!m_executed)
+    {
+        m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+
+        return sql_result::AI_ERROR;
+    }
+
+    if (!m_has_rowset || !has_more_rows() || !m_cursor)
+        return sql_result::AI_NO_DATA;
+
+    auto row = m_cursor->get_row();
+    if (row.empty())
+    {
+        m_diag.add_status_record(sql_state::S24000_INVALID_CURSOR_STATE, "Cursor is in a wrong position. "
+            "It is either have reached the end of the result set or no data was yet fetched.");
+
+        return sql_result::AI_ERROR;
+    }
+
+    auto conv_res = put_primitive_to_buffer(buffer, row[column_idx - 1]);
+    sql_result result = process_conversion_result(conv_res, m_cursor->get_result_set_pos(), column_idx);
+
+    return result;
 }
 
 sql_result data_query::close()
@@ -341,10 +361,10 @@ sql_result data_query::make_request_execute()
     m_rows_affected = reader->read_int64();
 
     if (m_has_rowset) {
-        m_cursor = std::make_unique<cursor>();
         auto columns = read_meta(*reader);
         set_resultset_meta(columns);
-        m_cached_page = std::make_unique<result_page>(std::move(response), std::move(reader));
+        auto page = std::make_unique<result_page>(std::move(response), std::move(reader));
+        m_cursor = std::make_unique<cursor>(std::move(page));
     }
 
     m_executed = true;
@@ -369,8 +389,10 @@ sql_result data_query::make_request_close()
     return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
 }
 
-sql_result data_query::make_request_fetch()
+sql_result data_query::make_request_fetch(std::unique_ptr<result_page> &page)
 {
+    UNUSED_VALUE page;
+
     // TODO: IGNITE-19213 Implement data fetching
     m_diag.add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Data fetching is not implemented");
     return sql_result::AI_ERROR;

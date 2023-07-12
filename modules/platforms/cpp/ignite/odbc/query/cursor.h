@@ -33,8 +33,13 @@ public:
     cursor& operator=(cursor&&) = delete;
     cursor& operator=(const cursor&) = delete;
 
-    // Default
-    cursor() = default;
+    /**
+     * Constructor.
+     *
+     * @param page Data page.
+     */
+    explicit cursor(std::unique_ptr<result_page> page)
+        : m_current_page(std::move(page)) {}
 
     /**
      * Move cursor to the next row.

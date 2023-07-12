@@ -139,7 +139,7 @@ private:
      * @return @c true, if there is more data pages.
      */
     [[nodiscard]] bool has_more_pages() const {
-        return m_cached_page || m_has_more_pages;
+        return m_has_more_pages;
     }
 
     /**
@@ -169,9 +169,10 @@ private:
     /**
      * Make data fetch request and use response to set internal state.
      *
+     * @param page Resulting page.
      * @return Result.
      */
-    sql_result make_request_fetch();
+    sql_result make_request_fetch(std::unique_ptr<result_page> &page);
 
     /**
      * Make result set metadata request.
@@ -236,9 +237,6 @@ private:
 
     /** Number of rows affected. */
     std::int64_t m_rows_affected{-1};
-
-    /** Currently cached page of a result set. */
-    std::unique_ptr<result_page> m_cached_page;
 
     /** Cursor. */
     std::unique_ptr<cursor> m_cursor;
