@@ -80,7 +80,7 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
 
     @Test
     public void testLongPlanningTimeout() throws Exception {
-        final long PLANNER_TIMEOUT = 500;
+        final long plannerTimeout = 500;
 
         IgniteSchema schema = createSchema(
                 createTestTable("T1", "A", Integer.class, "B", Integer.class),
@@ -91,14 +91,14 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
 
         PlanningContext ctx = PlanningContext.builder()
                 .parentContext(baseQueryContext(Collections.singletonList(schema), null))
-                .plannerTimeout(PLANNER_TIMEOUT)
+                .plannerTimeout(plannerTimeout)
                 .query(sql)
                 .build();
 
         AtomicReference<IgniteRel> plan = new AtomicReference<>();
         AtomicReference<RelOptPlanner.CannotPlanException> plannerError = new AtomicReference<>();
 
-        assertTimeoutPreemptively(Duration.ofMillis(10 * PLANNER_TIMEOUT), () -> {
+        assertTimeoutPreemptively(Duration.ofMillis(10 * plannerTimeout), () -> {
             try (IgnitePlanner planner = ctx.planner()) {
                 plan.set(physicalPlan(planner, ctx.query()));
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static org.apache.ignite.internal.sql.engine.framework.TestBuilders.ConfigurationParameter.PLANNING_TIMEOUT;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
@@ -323,13 +324,6 @@ public class TestBuilders {
         private List<String> nodeNames;
 
         private Map<ConfigurationParameter, Object> configuration = new HashMap<>();
-        {
-            for (ConfigurationParameter value : ConfigurationParameter.values()) {
-                configuration.put(value, value.defaultValue);
-            }
-
-        }
-
 
         /** {@inheritDoc} */
         @Override
@@ -392,14 +386,14 @@ public class TestBuilders {
             var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, indexMap, SCHEMA_VERSION));
 
             Map<String, TestNode> nodes = nodeNames.stream()
-                    .map(name -> new TestNode(name, clusterService.forNode(name), schemaManager, param(ConfigurationParameter.PLANNING_TIMEOUT)))
+                    .map(name -> new TestNode(name, clusterService.forNode(name), schemaManager, param(PLANNING_TIMEOUT)))
                     .collect(Collectors.toMap(TestNode::name, Function.identity()));
 
             return new TestCluster(nodes);
         }
 
         private <T> T param(ConfigurationParameter parameter) {
-            return (T) configuration.get(parameter);
+            return (T) configuration.getOrDefault(parameter, parameter.defaultValue);
         }
 
         private void validateDataSourceBuilder(AbstractDataSourceBuilderImpl<?> tableBuilder) {

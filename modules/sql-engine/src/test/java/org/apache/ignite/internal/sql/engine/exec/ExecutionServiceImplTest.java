@@ -158,7 +158,7 @@ public class ExecutionServiceImplTest {
     public void init() {
         testCluster = new TestCluster();
         executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
-        prepareService = new PrepareServiceImpl("test", 0, null, 15000L);
+        prepareService = new PrepareServiceImpl("test", 0, null, PLANNING_TIMEOUT_IN_MS);
         parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
 
         prepareService.start();
