@@ -165,6 +165,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             );
 
             while (!descriptor.acquire(ctx)) {
+                // If local launch id > server's launch id, close existing channel
+                // in favor of the new one.
                 if (launchId.compareTo(remoteLaunchId) > 0) {
                     Channel holderChannel = descriptor.holderChannel();
 
