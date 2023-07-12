@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
@@ -45,7 +44,6 @@ import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
@@ -62,7 +60,6 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
                 .nodes("N1")
                 .addTable()
                 .name("TST1")
-                .distribution(IgniteDistributions.hash(List.of(0)))
                 .addColumn("ID", NativeTypes.INT32)
                 .addColumn("VAL", NativeTypes.stringOf(64))
                 .end()
@@ -74,7 +71,7 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
         TestNode gatewayNode = cluster.node("N1");
 
         SqlTestUtils.assertThrowsSqlException(PLANNING_TIMEOUTED_ERR,
-                () -> gatewayNode.prepare("SELECT * FROM TST1 t, TST1 t1, TST1 t2"));
+                () -> gatewayNode.prepare("SELECT * FROM TST1 t, TST1 t1, TST1 t2, TST1 t3, TST1 t4"));
 
     }
 
