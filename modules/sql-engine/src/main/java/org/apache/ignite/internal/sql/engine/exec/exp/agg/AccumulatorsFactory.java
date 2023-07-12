@@ -25,6 +25,7 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.EnumUtils;
@@ -321,9 +322,23 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         /** {@inheritDoc} */
         @Override
         public Accumulator accumulator() {
-            assert type == AggregateType.MAP;
+            assert type == AggregateType.MAP || type == AggregateType.REDUCE;
 
             return accumulator;
+        }
+
+        @Override
+        public void applyState(IntFunction<Object> state) {
+            try {
+                this.accumulator.applyState(state);
+            } catch (Exception e) {
+                throw new RuntimeException(accumulator + " failed", e);
+            }
+        }
+
+        @Override
+        public void write(StateOutput output) {
+            this.accumulator.write(output);
         }
     }
 }

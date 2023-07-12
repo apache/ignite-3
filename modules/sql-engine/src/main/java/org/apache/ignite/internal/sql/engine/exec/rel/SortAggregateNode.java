@@ -26,15 +26,20 @@ import java.util.Comparator;
 import java.util.Deque;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.IntFunction;
 import java.util.function.Supplier;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulator;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper.StateOutput;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
+import org.apache.ignite.internal.sql.engine.rel.agg.AggRowType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * SortAggregateNode.
@@ -51,6 +56,8 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     private final ImmutableBitSet grpSet;
 
     private final Comparator<RowT> comp;
+
+    private final AggRowType rowType;
 
     private final Deque<RowT> outBuf = new ArrayDeque<>(inBufSize);
 
@@ -80,7 +87,8 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             ImmutableBitSet grpSet,
             Supplier<List<AccumulatorWrapper<RowT>>> accFactory,
             RowFactory<RowT> rowFactory,
-            Comparator<RowT> comp
+            Comparator<RowT> comp,
+            AggRowType rowType
     ) {
         super(ctx);
         assert Objects.nonNull(comp);
@@ -90,6 +98,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         this.rowFactory = rowFactory;
         this.grpSet = grpSet;
         this.comp = comp;
+        this.rowType = rowType;
 
         init();
     }
@@ -129,6 +138,10 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         if (grp != null) {
             int cmp = comp.compare(row, prevRow);
+            RowHandler<RowT> rowHandler = context().rowHandler();
+
+//            System.err.println(type + " ROW CMP " + rowHandler.toString(row) + " " +
+//                    (prevRow != null ? rowHandler.toString(prevRow) : null) + " " + cmp);
 
             if (cmp == 0) {
                 grp.add(row);
@@ -252,19 +265,28 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private void add(RowT row) {
-            if (type == AggregateType.REDUCE) {
-                addOnReducer(row);
+            if (!AggRowType.ENABLED) {
+                if (type == AggregateType.REDUCE) {
+                    addOnReducer(row);
+                } else {
+                    addOnMapper(row);
+                }
             } else {
-                addOnMapper(row);
+                addRow(row);
             }
         }
 
         private RowT row() {
-            if (type == AggregateType.MAP) {
-                return rowOnMapper();
+            if (!AggRowType.ENABLED) {
+                if (type == AggregateType.MAP) {
+                    return rowOnMapper();
+                } else {
+                    return rowOnReducer();
+                }
             } else {
-                return rowOnReducer();
+                return getRow();
             }
+
         }
 
         private void addOnMapper(RowT row) {
@@ -275,11 +297,9 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         private void addOnReducer(RowT row) {
             RowHandler<RowT> handler = context().rowHandler();
+            List<Accumulator> accums = (List<Accumulator>) handler.get(handler.columnCount(row) - 1, row);
 
-            List<Accumulator> accums = hasAccumulators()
-                    ? (List<Accumulator>) handler.get(handler.columnCount(row) - 1, row) : Collections.emptyList();
-
-            for (int i = 0; i < accums.size(); i++) {
+            for (int i = 0; i < accumWrps.size(); i++) {
                 AccumulatorWrapper<RowT> wrapper = accumWrps.get(i);
 
                 Accumulator accum = accums.get(i);
@@ -289,7 +309,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private RowT rowOnMapper() {
-            Object[] fields = new Object[grpSet.cardinality() + (accFactory != null ? 1 : 0)];
+            Object[] fields = new Object[grpKeys.length + (hasAccumulators() ? 1 : 0)];
 
             int i = 0;
 
@@ -306,7 +326,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private RowT rowOnReducer() {
-            Object[] fields = new Object[grpSet.cardinality() + accumWrps.size()];
+            Object[] fields = new Object[grpKeys.length + accumWrps.size()];
 
             int i = 0;
 
@@ -318,7 +338,90 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 fields[i++] = accWrp.end();
             }
 
-            return rowFactory.create(fields);
+            RowHandler<RowT> rowHandler = context().rowHandler();
+            RowT row = rowFactory.create(fields);
+
+//            System.err.println("GET ROW ON REDUCE  " + Arrays.toString(grpKeys) + " " + rowHandler.toString(row));
+
+            return row;
+        }
+
+        private void addRow(RowT row) {
+            RowHandler<RowT> handler = context().rowHandler();
+
+            if (type == AggregateType.REDUCE) {
+                int offset = 0;
+
+                for (int i = 0; i < accumWrps.size(); i++) {
+                    AccumulatorWrapper<RowT> wrapper = accumWrps.get(i);
+                    int stateOffset = grpKeys.length + offset;
+
+                    IntFunction<Object> state = (idx) -> handler.get(idx + stateOffset, row);
+
+                    List<RelDataType> s = wrapper.accumulator().state(Commons.typeFactory());
+                    offset += s.size();
+
+                    wrapper.applyState(state);
+                }
+            } else {
+                for (AccumulatorWrapper<RowT> wrapper : accumWrps) {
+                    wrapper.add(row);
+                }
+            }
+        }
+
+        private RowT getRow() {
+            RowT row;
+
+            if (type == AggregateType.MAP) {
+                int rowSize = rowType.getAggRowType().getFieldList().size();
+                Object[] fields = new Object[rowSize];
+                int i = 0;
+
+                for (Object grpKey : grpKeys) {
+                    fields[i++] = grpKey;
+                }
+
+                class Output implements StateOutput {
+                    private int offset;
+
+                    Output(int offset) {
+                        this.offset = offset;
+                    }
+
+                    @Override
+                    public void write(int fieldId, @Nullable Object value) {
+                       fields[offset + fieldId] = value;
+                    }
+                }
+
+                Output output = new Output(i);
+
+                for (AccumulatorWrapper<RowT> accWrp : accumWrps) {
+                    accWrp.write(output);
+
+                    List<RelDataType> state = accWrp.accumulator().state(Commons.typeFactory());
+                    output.offset += state.size();
+                }
+
+                row = rowFactory.create(fields);
+            } else {
+                Object[] fields = new Object[grpKeys.length + accumWrps.size()];
+
+                int i = 0;
+
+                for (Object grpKey : grpKeys) {
+                    fields[i++] = grpKey;
+                }
+
+                for (AccumulatorWrapper<RowT> accWrp : accumWrps) {
+                    fields[i++] = accWrp.end();
+                }
+
+                row = rowFactory.create(fields);
+            }
+
+            return row;
         }
     }
 }

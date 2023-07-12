@@ -34,6 +34,7 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.rel.agg.AggRowType;
 
 /**
  * SortAggregateExecutionTest.
@@ -66,13 +67,16 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             cmp = (k1, k2) -> 0;
         }
 
+        AggRowType sortAggRowType = AggRowType.sortAggRow(grpSet, ctx.getTypeFactory(), inRowType, List.of(call));
+
         SortAggregateNode<Object[]> agg = new SortAggregateNode<>(
                 ctx,
                 SINGLE,
                 grpSet,
                 accFactory(ctx, call, SINGLE, inRowType),
                 rowFactory,
-                cmp
+                cmp,
+                sortAggRowType
         );
 
         agg.register(sort);
@@ -107,13 +111,16 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             cmp = (k1, k2) -> 0;
         }
 
+        AggRowType sortAggRowType = AggRowType.sortAggRow(grpSet, ctx.getTypeFactory(), inRowType, List.of(call));
+
         SortAggregateNode<Object[]> aggMap = new SortAggregateNode<>(
                 ctx,
                 MAP,
                 grpSet,
                 accFactory(ctx, call, MAP, inRowType),
                 rowFactory,
-                cmp
+                cmp,
+                sortAggRowType
         );
 
         aggMap.register(sort);
@@ -139,7 +146,8 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
                 ImmutableBitSet.of(reduceGrpFields),
                 accFactory(ctx, call, REDUCE, aggRowType),
                 rowFactory,
-                rdcCmp
+                rdcCmp,
+                sortAggRowType
         );
 
         aggRdc.register(aggMap);

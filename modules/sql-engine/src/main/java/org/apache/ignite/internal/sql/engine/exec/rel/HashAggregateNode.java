@@ -38,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulator;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
+import org.apache.ignite.internal.sql.engine.rel.agg.AggRowType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteInternalException;
 
@@ -70,7 +71,8 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
      */
     public HashAggregateNode(
             ExecutionContext<RowT> ctx, AggregateType type, List<ImmutableBitSet> grpSets,
-            Supplier<List<AccumulatorWrapper<RowT>>> accFactory, RowFactory<RowT> rowFactory) {
+            Supplier<List<AccumulatorWrapper<RowT>>> accFactory, RowFactory<RowT> rowFactory,
+            List<AggRowType> rowTypes) {
         super(ctx);
 
         this.type = type;
@@ -87,7 +89,9 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         for (byte i = 0; i < grpSets.size(); i++) {
             ImmutableBitSet grpFields = grpSets.get(i);
-            groupings.add(new Grouping(i, grpFields));
+            AggRowType aggRowType = rowTypes.get(i);
+
+            groupings.add(new Grouping(i, grpFields, aggRowType));
 
             b.addAll(grpFields);
         }
@@ -255,10 +259,14 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private void add(RowT row) {
-            if (type == AggregateType.REDUCE) {
-                addOnReducer(row);
+            if (!AggRowType.ENABLED) {
+                if (type == AggregateType.REDUCE) {
+                    addOnReducer(row);
+                } else {
+                    addOnMapper(row);
+                }
             } else {
-                addOnMapper(row);
+                addRow2(row);
             }
         }
 
@@ -270,12 +278,16 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
          * @return Actually sent rows number.
          */
         private List<RowT> getRows(int cnt) {
-            if (nullOrEmpty(groups)) {
-                return Collections.emptyList();
-            } else if (type == AggregateType.MAP) {
-                return getOnMapper(cnt);
+            if (!AggRowType.ENABLED) {
+                if (isEmpty()) {
+                    return Collections.emptyList();
+                } else if (type == AggregateType.MAP) {
+                    return getOnMapper(cnt);
+                } else {
+                    return getOnReducer(cnt);
+                }
             } else {
-                return getOnReducer(cnt);
+                return getRows2(cnt);
             }
         }
 
@@ -379,6 +391,97 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         private boolean isEmpty() {
             return groups.isEmpty();
+        }
+
+        private void addRow2(RowT row) {
+            RowHandler<RowT> handler = context().rowHandler();
+
+            if (type == AggregateType.REDUCE) {
+                throw new RuntimeException();
+            } else {
+                GroupKey.Builder b = GroupKey.builder(grpFields.cardinality());
+
+                for (Integer field : grpFields) {
+                    b.add(handler.get(field, row));
+                }
+
+                GroupKey grpKey = b.build();
+
+                List<AccumulatorWrapper<RowT>> wrappers = groups.computeIfAbsent(grpKey, k -> create());
+
+                for (AccumulatorWrapper<RowT> wrapper : wrappers) {
+                    wrapper.add(row);
+                }
+            }
+        }
+
+        private List<RowT> getRows2(int cnt) {
+            if (isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            if (type == AggregateType.MAP) {
+                Iterator<Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>>> it = groups.entrySet().iterator();
+
+                int amount = Math.min(cnt, groups.size());
+                List<RowT> res = new ArrayList<>(amount);
+
+                for (int i = 0; i < amount; i++) {
+                    Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>> entry = it.next();
+
+                    GroupKey grpKey = entry.getKey();
+                    List<AccumulatorWrapper<RowT>> wrappers = entry.getValue();
+
+                    Object[] fields = new Object[grpSet.cardinality() + wrappers.size() + 1];
+
+                    int j = 0;
+                    int k = 0;
+
+                    for (Integer field : grpSet) {
+                        fields[j++] = grpFields.get(field) ? grpKey.field(k++) : null;
+                    }
+
+                    for (AccumulatorWrapper<RowT> wrapper : wrappers) {
+                        fields[j++] = wrapper.end();
+                    }
+
+                    res.add(rowFactory.create(fields));
+                    it.remove();
+                }
+
+                return res;
+            } else {
+
+                Iterator<Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>>> it = groups.entrySet().iterator();
+
+                int amount = Math.min(cnt, groups.size());
+                List<RowT> res = new ArrayList<>(amount);
+
+                for (int i = 0; i < amount; i++) {
+                    Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>> entry = it.next();
+
+                    GroupKey grpKey = entry.getKey();
+                    List<AccumulatorWrapper<RowT>> wrappers = entry.getValue();
+
+                    Object[] fields = new Object[grpSet.cardinality() + wrappers.size()];
+
+                    int j = 0;
+                    int k = 0;
+
+                    for (Integer field : grpSet) {
+                        fields[j++] = grpFields.get(field) ? grpKey.field(k++) : null;
+                    }
+
+                    for (AccumulatorWrapper<RowT> wrapper : wrappers) {
+                        fields[j++] = wrapper.end();
+                    }
+
+                    res.add(rowFactory.create(fields));
+                    it.remove();
+                }
+
+                return res;
+            }
         }
     }
 }

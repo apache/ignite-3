@@ -19,7 +19,9 @@ package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.function.IntFunction;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper.StateOutput;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 
 /**
@@ -35,4 +37,10 @@ public interface Accumulator extends Serializable {
     List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory);
 
     RelDataType returnType(IgniteTypeFactory typeFactory);
+
+    void applyState(IntFunction<Object> state);
+
+    List<RelDataType> state(IgniteTypeFactory typeFactory);
+
+    void write(StateOutput output);
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
 import static org.apache.calcite.sql.type.SqlTypeName.ANY;
 import static org.apache.calcite.sql.type.SqlTypeName.BIGINT;
+import static org.apache.calcite.sql.type.SqlTypeName.BOOLEAN;
 import static org.apache.calcite.sql.type.SqlTypeName.DECIMAL;
 import static org.apache.calcite.sql.type.SqlTypeName.DOUBLE;
 import static org.apache.calcite.sql.type.SqlTypeName.INTEGER;
@@ -28,15 +29,18 @@ import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper.StateOutput;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -68,6 +72,11 @@ public class Accumulators {
         Supplier<Accumulator> fac = accumulatorFunctionFactory(call);
 
         return () -> new DistinctAccumulator(fac);
+    }
+
+    public List<RelDataType> getState(AggregateCall call) {
+        Accumulator acc = accumulatorFactory(call).get();
+        return acc.state(typeFactory);
     }
 
     private Supplier<Accumulator> accumulatorFunctionFactory(AggregateCall call) {
@@ -262,6 +271,23 @@ public class Accumulators {
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createSqlType(ANY);
         }
+
+        @Override
+        public void applyState(IntFunction<Object> state) {
+            if (holder == null) {
+                holder = state.apply(0);
+            }
+        }
+
+        @Override
+        public List<RelDataType> state(IgniteTypeFactory typeFactory) {
+            return List.of(typeFactory.createSqlType(ANY));
+        }
+
+        @Override
+        public void write(StateOutput output) {
+            output.write(0, holder);
+        }
     }
 
     /**
@@ -313,6 +339,25 @@ public class Accumulators {
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL), true);
+        }
+
+        @Override
+        public void applyState(IntFunction<Object> state) {
+            sum = sum.add((BigDecimal) state.apply(0));
+            cnt = sum.add((BigDecimal) state.apply(1));
+        }
+
+        @Override
+        public List<RelDataType> state(IgniteTypeFactory typeFactory) {
+            RelDataType sumType = typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL), true);
+            RelDataType countType = typeFactory.createSqlType(DECIMAL);
+            return List.of(sumType, countType);
+        }
+
+        @Override
+        public void write(StateOutput output) {
+            output.write(0, sum);
+            output.write(1, cnt);
         }
     }
 
@@ -366,6 +411,25 @@ public class Accumulators {
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DOUBLE), true);
         }
+
+        @Override
+        public void applyState(IntFunction<Object> state) {
+            sum += (double) state.apply(0);
+            cnt += (long) state.apply(1);
+        }
+
+        @Override
+        public List<RelDataType> state(IgniteTypeFactory typeFactory) {
+            RelDataType sumType = typeFactory.createTypeWithNullability(typeFactory.createSqlType(DOUBLE), true);
+            RelDataType countType = typeFactory.createSqlType(BIGINT);
+            return List.of(sumType, countType);
+        }
+
+        @Override
+        public void write(StateOutput output) {
+            output.write(0, sum);
+            output.write(1, cnt);
+        }
     }
 
     private static class LongCount implements Accumulator {
@@ -406,6 +470,22 @@ public class Accumulators {
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createSqlType(BIGINT);
+        }
+
+        @Override
+        public void applyState(IntFunction<Object> state) {
+            cnt += (long) state.apply(0);
+        }
+
+        @Override
+        public List<RelDataType> state(IgniteTypeFactory typeFactory) {
+            RelDataType countType = typeFactory.createSqlType(BIGINT);
+            return List.of(countType);
+        }
+
+        @Override
+        public void write(StateOutput output) {
+            output.write(0, cnt);
         }
     }
 
@@ -454,6 +534,44 @@ public class Accumulators {
         @Override public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return acc.returnType(typeFactory);
         }
+
+        @Override
+        public void applyState(IntFunction<Object> state) {
+            boolean b = (boolean) state.apply(0);
+            if (b) {
+                return;
+            }
+
+            empty = false;
+            // Make field indices 0-based for nested accumulator.
+            acc.applyState((i) -> state.apply(i + 1));
+        }
+
+        @Override
+        public List<RelDataType> state(IgniteTypeFactory typeFactory) {
+            List<RelDataType> sumState = acc.state(typeFactory);
+            List<RelDataType> state = new ArrayList<>(sumState.size() + 1);
+
+            state.add(typeFactory.createSqlType(BOOLEAN));
+            state.addAll(sumState);
+
+            return state;
+        }
+
+        @Override
+        public void write(StateOutput output) {
+            output.write(0, empty);
+            // Make field indices 0-based for nested accumulator.
+            acc.write((i, val) -> output.write(i + 1, val));
+        }
+
+        @Override
+        public String toString() {
+            return "Sum(" +
+                    "acc=" + acc +
+                    ", empty=" + empty +
+                    ')';
+        }
     }
 
     private static class DoubleSumEmptyIsZero implements Accumulator {
@@ -497,6 +615,21 @@ public class Accumulators {
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DOUBLE), true);
+        }
+
+        @Override
+        public void applyState(IntFunction<Object> state) {
+            sum += (double) state.apply(0);
+        }
+
+        @Override
+        public List<RelDataType> state(IgniteTypeFactory typeFactory) {
+            return List.of(typeFactory.createSqlType(DOUBLE));
+        }
+
+        @Override
+        public void write(StateOutput output) {
+            output.write(0, sum);
         }
     }
 
@@ -543,6 +676,21 @@ public class Accumulators {
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createTypeWithNullability(typeFactory.createSqlType(INTEGER), true);
         }
+
+        @Override
+        public void applyState(IntFunction<Object> state) {
+            sum += (int) state.apply(0);
+        }
+
+        @Override
+        public List<RelDataType> state(IgniteTypeFactory typeFactory) {
+            return List.of(typeFactory.createSqlType(INTEGER));
+        }
+
+        @Override
+        public void write(StateOutput output) {
+            output.write(0, sum);
+        }
     }
 
     private static class LongSumEmptyIsZero implements Accumulator {
@@ -587,6 +735,21 @@ public class Accumulators {
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createTypeWithNullability(typeFactory.createSqlType(BIGINT), true);
         }
+
+        @Override
+        public void applyState(IntFunction<Object> state) {
+            sum += (long) state.apply(0);
+        }
+
+        @Override
+        public List<RelDataType> state(IgniteTypeFactory typeFactory) {
+            return List.of(typeFactory.createSqlType(BIGINT));
+        }
+
+        @Override
+        public void write(StateOutput output) {
+            output.write(0, sum);
+        }
     }
 
     private static class DecimalSumEmptyIsZero implements Accumulator {
@@ -630,6 +793,29 @@ public class Accumulators {
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL), true);
+        }
+
+        @Override
+        public void applyState(IntFunction<Object> state) {
+            BigDecimal val = (BigDecimal) state.apply(0);
+            sum = sum == null ? val : sum.add(val);
+        }
+
+        @Override
+        public List<RelDataType> state(IgniteTypeFactory typeFactory) {
+            return List.of(typeFactory.createSqlType(DECIMAL));
+        }
+
+        @Override
+        public void write(StateOutput output) {
+            output.write(0, sum);
+        }
+
+        @Override
+        public String toString() {
+            return "DecimalSumEmptyIsZero{" +
+                    "sum=" + sum +
+                    '}';
         }
     }
 
@@ -690,6 +876,22 @@ public class Accumulators {
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return returnType;
+        }
+
+        @Override
+        @SuppressWarnings("rawtypes")
+        public void applyState(IntFunction<Object> state) {
+            doApply((Comparable) state.apply(0));
+        }
+
+        @Override
+        public List<RelDataType> state(IgniteTypeFactory typeFactory) {
+            return List.of(returnType);
+        }
+
+        @Override
+        public void write(StateOutput output) {
+            output.write(0, val);
         }
 
         @SuppressWarnings({"rawtypes", "unchecked"})
@@ -774,6 +976,37 @@ public class Accumulators {
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createTypeWithNullability(typeFactory.createSqlType(VARCHAR), true);
+        }
+
+        @Override
+        public void applyState(IntFunction<Object> state) {
+            boolean b = (boolean) state.apply(0);
+            CharSequence v = (CharSequence) state.apply(1);
+
+            if (b) {
+                return;
+            }
+
+            empty = b;
+            val = v;
+
+            val = empty ? v : min
+                    ? (CharSeqComparator.INSTANCE.compare(val, v) < 0 ? val : v) :
+                    (CharSeqComparator.INSTANCE.compare(val, v) < 0 ? v : val);
+        }
+
+        @Override
+        public List<RelDataType> state(IgniteTypeFactory typeFactory) {
+            RelDataType bool = typeFactory.createSqlType(BOOLEAN);
+            RelDataType type = typeFactory.createTypeWithNullability(typeFactory.createSqlType(VARCHAR), true);
+
+            return List.of(bool, type);
+        }
+
+        @Override
+        public void write(StateOutput output) {
+            output.write(0, empty);
+            output.write(1, val);
         }
 
         @SuppressWarnings("ComparatorNotSerializable")
@@ -868,6 +1101,26 @@ public class Accumulators {
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createTypeWithNullability(typeFactory.createSqlType(VARBINARY), true);
         }
+
+        @Override
+        public void applyState(IntFunction<Object> state) {
+            empty = (boolean) state.apply(0);
+            val = (ByteString) state.apply(1);
+        }
+
+        @Override
+        public List<RelDataType> state(IgniteTypeFactory typeFactory) {
+            RelDataType bool = typeFactory.createSqlType(BOOLEAN);
+            RelDataType type = typeFactory.createTypeWithNullability(typeFactory.createSqlType(VARCHAR), true);
+
+            return List.of(bool, type);
+        }
+
+        @Override
+        public void write(StateOutput output) {
+            output.write(0, empty);
+            output.write(1, val);
+        }
     }
 
     private static class DistinctAccumulator implements Accumulator {
@@ -919,6 +1172,27 @@ public class Accumulators {
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return acc.returnType(typeFactory);
+        }
+
+        @Override
+        public void applyState(IntFunction<Object> state) {
+            throw new UnsupportedOperationException("DISTINCT aggregates do not support non-collocated mode");
+        }
+
+        @Override
+        public List<RelDataType> state(IgniteTypeFactory typeFactory) {
+            List<RelDataType> accState = acc.state(typeFactory);
+            List<RelDataType> state = new ArrayList<>(accState.size() + 1);
+
+            state.add(typeFactory.createSqlType(ANY));
+            state.addAll(accState);
+
+            return state;
+        }
+
+        @Override
+        public void write(StateOutput output) {
+            throw new UnsupportedOperationException("DISTINCT aggregates do not support non-collocated mode");
         }
     }
 

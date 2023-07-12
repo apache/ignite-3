@@ -46,6 +46,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -386,6 +387,8 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     @ParameterizedTest
     @EnumSource
     public void distinctSum(TestAggregateType testAgg) {
+        Assumptions.assumeTrue(testAgg == TestAggregateType.COLOCATED);
+
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);

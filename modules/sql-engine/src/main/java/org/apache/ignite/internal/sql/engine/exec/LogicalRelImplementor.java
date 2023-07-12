@@ -101,6 +101,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
+import org.apache.ignite.internal.sql.engine.rel.agg.AggRowType;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
 import org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
@@ -606,6 +607,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
                 type, rel.getAggCallList(), inputType);
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
+        List<>
 
         HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accFactory, rowFactory);
 
@@ -648,7 +650,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 type, rel.getAggregateCalls(), null);
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accFactory, rowFactory);
+        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accFactory, rowFactory, Collections.emptyList());
 
         Node<RowT> input = visit(rel.getInput());
 
@@ -679,13 +681,16 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
             comp = (k1, k2) -> 0;
         }
 
+        AggRowType aggRowType = AggRowType.sortAggRow(rel.getGroupSet(), ctx.getTypeFactory(), inputType, rel.getAggCallList());
+
         SortAggregateNode<RowT> node = new SortAggregateNode<>(
                 ctx,
                 type,
                 rel.getGroupSet(),
                 accFactory,
                 rowFactory,
-                comp
+                comp,
+                aggRowType
         );
 
         Node<RowT> input = visit(rel.getInput());
@@ -713,6 +718,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         Comparator<RowT> comp = expressionFactory.comparator(rel.collation());
 
+        AggRowType aggRowType = AggRowType.sortAggRow(rel.getGroupSet(), ctx.getTypeFactory(), inputType, rel.getAggCallList());
+
         if (rel.getGroupSet().isEmpty() && comp == null) {
             comp = (k1, k2) -> 0;
         }
@@ -723,7 +730,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 rel.getGroupSet(),
                 accFactory,
                 rowFactory,
-                comp
+                comp,
+                aggRowType
         );
 
         Node<RowT> input = visit(rel.getInput());
@@ -760,7 +768,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 rel.getGroupSet(),
                 accFactory,
                 rowFactory,
-                comp
+                comp,
+                null
         );
 
         Node<RowT> input = visit(rel.getInput());
