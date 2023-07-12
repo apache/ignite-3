@@ -180,6 +180,8 @@ public class ExecutionServiceImplTest {
                 LOG.error("Unable to stop executor", e);
             }
         });
+
+        executers.clear();
     }
 
     /**
