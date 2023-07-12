@@ -44,6 +44,7 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -236,7 +237,8 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     ) {
         CompletableFuture<?> startFuture = CompletableFuture.allOf(
                 nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                clusterConfigRegistry.notifyCurrentConfigurationListeners()
+                clusterConfigRegistry.notifyCurrentConfigurationListeners(),
+                ((MetaStorageManagerImpl) metaStorageMgr).notifyRevisionUpdateListenerOnStart()
         ).thenCompose(unused ->
                 // Deploy all registered watches because all components are ready and have registered their listeners.
                 metaStorageMgr.deployWatches()
