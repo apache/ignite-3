@@ -97,13 +97,15 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     public void tableWithInvalidColumns() {
         assertThrows(
                 IgniteException.class,
-                () -> sql("CREATE TABLE T0()"),
-                "Table must include at least one column."
+                () -> sql("CREATE TABLE T0()")
         );
-        assertThrows(
-                IgniteException.class,
-                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, ID0 INT)"),
-                "Can't create table with duplicate columns"
+
+        assertThat(
+                assertThrows(
+                        IgniteException.class,
+                        () -> sql("CREATE TABLE T0(ID0 INT PRIMARY KEY, ID1 INT, ID0 INT)")
+                ).getMessage(),
+                containsString("Can't create table with duplicate columns: ID0, ID1, ID0")
         );
     }
 
