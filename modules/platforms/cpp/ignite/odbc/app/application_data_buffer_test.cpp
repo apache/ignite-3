@@ -529,6 +529,72 @@ TEST_F(application_data_buffer_test, put_timestamp_to_timestamp)
     EXPECT_EQ(346'598'326, buf.fraction);
 }
 
+TEST_F(application_data_buffer_test, put_date_time_to_string)
+{
+    char str_buf[64];
+    SQLLEN res_len = 0;
+
+    application_data_buffer app_buf(odbc_native_type::AI_CHAR, &str_buf, sizeof(str_buf), &res_len);
+
+    ignite_date_time date_time{{2018, 11, 1}, {13, 45, 59, 346'598'326}};
+
+    app_buf.put_date_time(date_time);
+
+    EXPECT_EQ(std::string(str_buf, res_len - 1), std::string("2018-11-01 13:45:59"));
+}
+
+TEST_F(application_data_buffer_test, put_date_time_to_date)
+{
+    SQL_DATE_STRUCT buf;
+    SQLLEN res_len = sizeof(buf);
+
+    application_data_buffer app_buf(odbc_native_type::AI_TDATE, &buf, sizeof(buf), &res_len);
+
+    ignite_date_time date_time{{2018, 11, 1}, {13, 45, 59, 346'598'326}};
+
+    app_buf.put_date_time(date_time);
+
+    EXPECT_EQ(2018, buf.year);
+    EXPECT_EQ(11, buf.month);
+    EXPECT_EQ(1, buf.day);
+}
+
+TEST_F(application_data_buffer_test, put_date_time_to_time)
+{
+    SQL_TIME_STRUCT buf;
+    SQLLEN res_len = sizeof(buf);
+
+    application_data_buffer app_buf(odbc_native_type::AI_TTIME, &buf, sizeof(buf), &res_len);
+
+    ignite_date_time date_time{{2018, 11, 1}, {13, 45, 59, 346'598'326}};
+
+    app_buf.put_date_time(date_time);
+
+    EXPECT_EQ(13, buf.hour);
+    EXPECT_EQ(45, buf.minute);
+    EXPECT_EQ(59, buf.second);
+}
+
+TEST_F(application_data_buffer_test, put_date_time_to_timestamp)
+{
+    SQL_TIMESTAMP_STRUCT buf;
+    SQLLEN res_len = sizeof(buf);
+
+    application_data_buffer app_buf(odbc_native_type::AI_TTIMESTAMP, &buf, sizeof(buf), &res_len);
+
+    ignite_date_time date_time{{2018, 11, 1}, {13, 45, 59, 346'598'326}};
+
+    app_buf.put_date_time(date_time);
+
+    EXPECT_EQ(2018, buf.year);
+    EXPECT_EQ(11, buf.month);
+    EXPECT_EQ(1, buf.day);
+    EXPECT_EQ(13, buf.hour);
+    EXPECT_EQ(45, buf.minute);
+    EXPECT_EQ(59, buf.second);
+    EXPECT_EQ(346'598'326, buf.fraction);
+}
+
 TEST_F(application_data_buffer_test, get_uuid_from_string)
 {
     char buffer[] = "1da1ef8f-39ff-4d62-8b72-e8e9f3371801";
@@ -861,6 +927,24 @@ TEST_F(application_data_buffer_test, get_timestamp_from_string)
     EXPECT_EQ(expected.get_nano(), ts.get_nano());
 }
 
+TEST_F(application_data_buffer_test, get_date_time_from_string)
+{
+    char buf[] = "2018-11-01 13:45:59.123456789";
+    SQLLEN res_len = sizeof(buf);
+
+    application_data_buffer app_buf(odbc_native_type::AI_CHAR, &buf[0], sizeof(buf), &res_len);
+
+    auto date_time = app_buf.get_date_time();
+
+    EXPECT_EQ(2018, date_time.get_year());
+    EXPECT_EQ(11, date_time.get_month());
+    EXPECT_EQ(1, date_time.get_day_of_month());
+    EXPECT_EQ(13, date_time.get_hour());
+    EXPECT_EQ(45, date_time.get_minute());
+    EXPECT_EQ(59, date_time.get_second());
+    EXPECT_EQ(123456789, date_time.get_nano());
+}
+
 TEST_F(application_data_buffer_test, get_date_from_date)
 {
     SQL_DATE_STRUCT buf;
@@ -896,6 +980,26 @@ TEST_F(application_data_buffer_test, get_timestamp_from_date)
 
     EXPECT_EQ(454449600, ts.get_epoch_second());
     EXPECT_EQ(0, ts.get_nano());
+}
+
+TEST_F(application_data_buffer_test, get_date_time_from_date)
+{
+    SQL_DATE_STRUCT buf;
+
+    buf.year = 1984;
+    buf.month = 5;
+    buf.day = 27;
+
+    SQLLEN res_len = sizeof(buf);
+
+    application_data_buffer app_buf(odbc_native_type::AI_TDATE, &buf, sizeof(buf), &res_len);
+
+    auto date_time = app_buf.get_date_time();
+
+    EXPECT_EQ(1984, date_time.get_year());
+    EXPECT_EQ(5, date_time.get_month());
+    EXPECT_EQ(27, date_time.get_day_of_month());
+    EXPECT_EQ(0, date_time.get_nano());
 }
 
 TEST_F(application_data_buffer_test, get_time_from_time)
@@ -938,6 +1042,33 @@ TEST_F(application_data_buffer_test, get_timestamp_from_timestamp)
 
     EXPECT_EQ(1092450891, ts.get_epoch_second());
     EXPECT_EQ(573948623, ts.get_nano());
+}
+
+TEST_F(application_data_buffer_test, get_date_time_from_timestamp)
+{
+    SQL_TIMESTAMP_STRUCT buf;
+
+    buf.year = 2004;
+    buf.month = 8;
+    buf.day = 14;
+    buf.hour = 6;
+    buf.minute = 34;
+    buf.second = 51;
+    buf.fraction = 573948623;
+
+    SQLLEN res_len = sizeof(buf);
+
+    application_data_buffer app_buf(odbc_native_type::AI_TTIMESTAMP, &buf, sizeof(buf), &res_len);
+
+    auto date_time = app_buf.get_date_time();
+
+    EXPECT_EQ(2004, date_time.get_year());
+    EXPECT_EQ(8, date_time.get_month());
+    EXPECT_EQ(14, date_time.get_day_of_month());
+    EXPECT_EQ(6, date_time.get_hour());
+    EXPECT_EQ(34, date_time.get_minute());
+    EXPECT_EQ(51, date_time.get_second());
+    EXPECT_EQ(573948623, date_time.get_nano());
 }
 
 TEST_F(application_data_buffer_test, get_date_from_timestamp)

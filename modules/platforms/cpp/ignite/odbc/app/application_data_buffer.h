@@ -323,6 +323,13 @@ public:
     [[nodiscard]] ignite_date get_date() const;
 
     /**
+     * Get value of type ignite_date_time.
+     *
+     * @return Value of type ignite_date_time.
+     */
+    [[nodiscard]] ignite_date_time get_date_time() const;
+
+    /**
      * Get value of type ignite_timestamp.
      *
      * @return Value of type ignite_timestamp.

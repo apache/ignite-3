@@ -1369,6 +1369,73 @@ ignite_date application_data_buffer::get_date() const
     return {};
 }
 
+ignite_date_time application_data_buffer::get_date_time() const
+{
+    switch (m_type)
+    {
+        case odbc_native_type::AI_TDATE:
+        {
+            const auto* buffer = reinterpret_cast<const SQL_DATE_STRUCT*>(get_data());
+
+            return {{buffer->year, buffer->month, buffer->day}, {}};
+        }
+
+        case odbc_native_type::AI_TTIME:
+        {
+            const auto* buffer = reinterpret_cast<const SQL_TIME_STRUCT*>(get_data());
+
+            auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            auto tm_time = time_t_to_tm(now);
+
+            // According to ODBC specification, date part of the value should be set to the current date.
+            return {{tm_time.tm_year + 1900, tm_time.tm_mon + 1, tm_time.tm_mday},
+                {std::int8_t(buffer->hour), std::int8_t(buffer->minute), std::int8_t(buffer->second), 0}};
+
+            break;
+        }
+
+        case odbc_native_type::AI_TTIMESTAMP:
+        {
+            const auto* buffer = reinterpret_cast<const SQL_TIMESTAMP_STRUCT*>(get_data());
+
+            return {{buffer->year, buffer->month, buffer->day},
+                {std::int8_t(buffer->hour), std::int8_t(buffer->minute),
+                    std::int8_t(buffer->second), std::int32_t(buffer->fraction)}};
+
+            break;
+        }
+
+        case odbc_native_type::AI_CHAR:
+        {
+            SQLLEN param_len = get_input_size();
+
+            if (!param_len)
+                break;
+
+            std::string str = sql_string_to_string(
+                reinterpret_cast<const unsigned char*>(get_data()), static_cast<std::int32_t>(param_len));
+
+            int year = 0;
+            int month = 1;
+            int day = 1;
+            int hour = 0;
+            int minute = 0;
+            int second = 0;
+            int nano = 0;
+
+            sscanf(str.c_str(), "%d-%d-%d %d:%d:%d.%d", // NOLINT(cert-err34-c)
+                &year, &month, &day, &hour, &minute, &second, &nano);
+
+            return {{year, month, day}, {std::int8_t(hour), std::int8_t(minute), std::int8_t(second), nano}};
+        }
+
+        default:
+            break;
+    }
+
+    return {};
+}
+
 ignite_timestamp application_data_buffer::get_timestamp() const
 {
     tm tm_time{};
