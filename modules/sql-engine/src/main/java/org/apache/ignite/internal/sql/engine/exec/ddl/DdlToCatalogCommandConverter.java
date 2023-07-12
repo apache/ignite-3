@@ -212,7 +212,6 @@ class DdlToCatalogCommandConverter {
     }
 
     private static ColumnParams convert(ColumnDefinition def) {
-        RelDataType type = def.type();
         return ColumnParams.builder()
                 .name(def.name())
                 .type(TypeUtils.columnType(def.type()))
