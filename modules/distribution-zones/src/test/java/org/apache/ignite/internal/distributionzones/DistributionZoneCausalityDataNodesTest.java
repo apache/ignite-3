@@ -629,6 +629,10 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Check that data nodes value of both zone is NODE_0.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, Set.of(NODE_0));
 
+        // Wait when the zone manager receive event with new topology. Need to do this awaiting in the dataNodes method.
+        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, oneNodeName, 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, oneNodeName, 3000);
+
         CompletableFuture<Set<String>> dataNodesFut0 = distributionZoneManager.dataNodes(topologyRevision1, DEFAULT_ZONE_ID);
         assertThat(dataNodesFut0, willBe(oneNodeName));
 
