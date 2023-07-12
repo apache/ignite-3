@@ -19,8 +19,8 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
-import static org.apache.ignite.lang.ErrorGroups.Sql.PARSE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.VALIDATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.io.PrintWriter;
@@ -184,7 +184,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
                     parameters.length, parseResult.dynamicParamsCount()
             );
 
-            throw new SqlException(VALIDATION_ERR, message);
+            throw new SqlException(STMT_VALIDATION_ERR, message);
         }
 
         return parseResult.statement();
@@ -264,7 +264,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         try {
             sqlNode = parser.parseQuery();
         } catch (SqlParseException e) {
-            throw new IgniteException(PARSE_ERR, "parse failed", e);
+            throw new IgniteException(STMT_PARSE_ERR, "parse failed", e);
         }
 
         CalciteCatalogReader catalogReader = this.catalogReader.withSchemaPath(schemaPath);

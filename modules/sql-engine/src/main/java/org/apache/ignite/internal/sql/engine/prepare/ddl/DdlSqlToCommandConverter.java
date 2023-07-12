@@ -28,7 +28,7 @@ import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.D
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.PARTITIONS;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.REPLICAS;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.VALIDATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -239,7 +239,7 @@ public class DdlSqlToCommandConverter {
             return convertDropZone((IgniteSqlDropZone) ddlNode, ctx);
         }
 
-        throw new SqlException(VALIDATION_ERR, "Unsupported operation ["
+        throw new SqlException(STMT_VALIDATION_ERR, "Unsupported operation ["
                 + "sqlNodeKind=" + ddlNode.getKind() + "; "
                 + "querySql=\"" + ctx.query() + "\"]");
     }
@@ -272,7 +272,7 @@ public class DdlSqlToCommandConverter {
                     updateCommandOption("Table", optionKey, (SqlLiteral) option.value(), tblOptionInfo, ctx.query(), createTblCmd);
                 } else {
                     throw new IgniteException(
-                            VALIDATION_ERR, String.format("Unexpected table option [option=%s, query=%s]", optionKey, ctx.query()));
+                            STMT_VALIDATION_ERR, String.format("Unexpected table option [option=%s, query=%s]", optionKey, ctx.query()));
                 }
             }
         }
@@ -294,9 +294,9 @@ public class DdlSqlToCommandConverter {
         }
 
         if (nullOrEmpty(pkConstraints)) {
-            throw new SqlException(VALIDATION_ERR, "Table without PRIMARY KEY is not supported");
+            throw new SqlException(STMT_VALIDATION_ERR, "Table without PRIMARY KEY is not supported");
         } else if (pkConstraints.size() > 1) {
-            throw new SqlException(VALIDATION_ERR, "Unexpected amount of primary key constraints ["
+            throw new SqlException(STMT_VALIDATION_ERR, "Unexpected amount of primary key constraints ["
                     + "expected at most one, but was " + pkConstraints.size() + "; "
                     + "querySql=\"" + ctx.query() + "\"]");
         }
@@ -334,7 +334,7 @@ public class DdlSqlToCommandConverter {
 
         for (SqlColumnDeclaration col : colDeclarations) {
             if (!col.name.isSimple()) {
-                throw new SqlException(VALIDATION_ERR, "Unexpected value of columnName ["
+                throw new SqlException(STMT_VALIDATION_ERR, "Unexpected value of columnName ["
                         + "expected a simple identifier, but was " + col.name + "; "
                         + "querySql=\"" + ctx.query() + "\"]");
             }
@@ -342,7 +342,7 @@ public class DdlSqlToCommandConverter {
             String name = col.name.getSimple();
 
             if (col.dataType.getNullable() != null && col.dataType.getNullable() && dedupSetPk.contains(name)) {
-                throw new SqlException(VALIDATION_ERR, "Primary key cannot contain nullable column [col=" + name + "]");
+                throw new SqlException(STMT_VALIDATION_ERR, "Primary key cannot contain nullable column [col=" + name + "]");
             }
 
             RelDataType relType = planner.convert(col.dataType, !dedupSetPk.contains(name));
@@ -351,7 +351,7 @@ public class DdlSqlToCommandConverter {
 
             DefaultValueDefinition dflt = convertDefault(col.expression, relType);
             if (dflt.type() == DefaultValueDefinition.Type.FUNCTION_CALL && !pkCols.contains(name)) {
-                throw new SqlException(VALIDATION_ERR,
+                throw new SqlException(STMT_VALIDATION_ERR,
                         "Functional defaults are not supported for non-primary key columns [col=" + name + "]");
             }
 
@@ -359,7 +359,7 @@ public class DdlSqlToCommandConverter {
         }
 
         if (!dedupSetPk.isEmpty()) {
-            throw new SqlException(VALIDATION_ERR, "Primary key constraint contains undefined columns: [cols=" + dedupSetPk + "]");
+            throw new SqlException(STMT_VALIDATION_ERR, "Primary key constraint contains undefined columns: [cols=" + dedupSetPk + "]");
         }
 
         createTblCmd.columns(cols);
@@ -669,7 +669,7 @@ public class DdlSqlToCommandConverter {
             SqlIdentifier schemaId = id.skipLast(1);
 
             if (!schemaId.isSimple()) {
-                throw new SqlException(VALIDATION_ERR, "Unexpected value of schemaName ["
+                throw new SqlException(STMT_VALIDATION_ERR, "Unexpected value of schemaName ["
                         + "expected a simple identifier, but was " + schemaId + "; "
                         + "querySql=\"" + ctx.query() + "\"]");
             }
@@ -691,7 +691,7 @@ public class DdlSqlToCommandConverter {
         SqlIdentifier objId = id.getComponent(id.skipLast(1).names.size());
 
         if (!objId.isSimple()) {
-            throw new SqlException(VALIDATION_ERR, "Unexpected value of " + objDesc + " ["
+            throw new SqlException(STMT_VALIDATION_ERR, "Unexpected value of " + objDesc + " ["
                     + "expected a simple identifier, but was " + objId + "; "
                     + "querySql=\"" + ctx.query() + "\"]");
         }
@@ -744,7 +744,7 @@ public class DdlSqlToCommandConverter {
         String dataStorage = engineName.getSimple().toUpperCase();
 
         if (!dataStorageNames.containsKey(dataStorage)) {
-            throw new SqlException(VALIDATION_ERR, String.format(
+            throw new SqlException(STMT_VALIDATION_ERR, String.format(
                     "Unexpected data storage engine [engine=%s, expected=%s, query=%s]",
                     dataStorage, dataStorageNames, ctx.query()
             ));
@@ -766,7 +766,7 @@ public class DdlSqlToCommandConverter {
         try {
             value0 = value.getValueAs(optInfo.type);
         } catch (Throwable e) {
-            throw new IgniteException(VALIDATION_ERR, String.format(
+            throw new IgniteException(STMT_VALIDATION_ERR, String.format(
                     "Invalid %s option type [option=%s, expectedType=%s, query=%s]",
                     sqlObjName.toLowerCase(),
                     optId,
@@ -779,7 +779,7 @@ public class DdlSqlToCommandConverter {
             try {
                 optInfo.validator.accept(value0);
             } catch (Throwable e) {
-                throw new IgniteException(VALIDATION_ERR, String.format(
+                throw new IgniteException(STMT_VALIDATION_ERR, String.format(
                         "%s option validation failed [option=%s, err=%s, query=%s]",
                         sqlObjName,
                         optId,
@@ -794,7 +794,7 @@ public class DdlSqlToCommandConverter {
 
     private void checkPositiveNumber(int num) {
         if (num < 0) {
-            throw new IgniteException(VALIDATION_ERR, "Must be positive:" + num);
+            throw new IgniteException(STMT_VALIDATION_ERR, "Must be positive:" + num);
         }
     }
 
@@ -873,7 +873,7 @@ public class DdlSqlToCommandConverter {
             }
         } catch (Throwable th) {
             // catch throwable here because literal throws an AssertionError when unable to cast value to a given class
-            throw new SqlException(VALIDATION_ERR, "Unable co convert literal", th);
+            throw new SqlException(STMT_VALIDATION_ERR, "Unable co convert literal", th);
         }
     }
 
@@ -923,17 +923,17 @@ public class DdlSqlToCommandConverter {
             }
         } catch (Throwable th) {
             // catch throwable here because literal throws an AssertionError when unable to cast value to a given class
-            throw new SqlException(VALIDATION_ERR, "Unable co convert literal", th);
+            throw new SqlException(STMT_VALIDATION_ERR, "Unable co convert literal", th);
         }
     }
 
     private static IgniteException unexpectedZoneOption(PlanningContext ctx, String optionName) {
-        return new IgniteException(VALIDATION_ERR,
+        return new IgniteException(STMT_VALIDATION_ERR,
                 String.format("Unexpected zone option [option=%s, query=%s]", optionName, ctx.query()));
     }
 
     private static IgniteException duplicateZoneOption(PlanningContext ctx, String optionName) {
-        return new IgniteException(VALIDATION_ERR,
+        return new IgniteException(STMT_VALIDATION_ERR,
                 String.format("Duplicate zone option has been specified [option=%s, query=%s]", optionName, ctx.query()));
     }
 }

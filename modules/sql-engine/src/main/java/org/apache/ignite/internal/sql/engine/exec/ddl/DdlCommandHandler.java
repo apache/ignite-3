@@ -22,7 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.VALIDATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -153,7 +153,7 @@ public class DdlCommandHandler {
         } else if (cmd instanceof DropZoneCommand) {
             return handleDropZone((DropZoneCommand) cmd);
         } else {
-            return failedFuture(new IgniteInternalCheckedException(VALIDATION_ERR, "Unsupported DDL operation ["
+            return failedFuture(new IgniteInternalCheckedException(STMT_VALIDATION_ERR, "Unsupported DDL operation ["
                     + "cmdName=" + (cmd == null ? null : cmd.getClass().getSimpleName()) + "; "
                     + "cmd=\"" + cmd + "\"]"));
         }
@@ -517,7 +517,7 @@ public class DdlCommandHandler {
                             }
 
                             if (primaryCols.contains(colName)) {
-                                throw new SqlException(VALIDATION_ERR, IgniteStringFormatter
+                                throw new SqlException(STMT_VALIDATION_ERR, IgniteStringFormatter
                                         .format("Can`t delete column, belongs to primary key: [name={}]", colName));
                             }
                         }
@@ -558,7 +558,7 @@ public class DdlCommandHandler {
             sb.app("Column ").app(e.getKey()).app(" is used by indexes ").app(e.getValue()).app(". ");
         }
 
-        throw new SqlException(VALIDATION_ERR, sb.toString());
+        throw new SqlException(STMT_VALIDATION_ERR, sb.toString());
     }
 
     private static void convert(NativeType colType, ColumnTypeChange colTypeChg) {

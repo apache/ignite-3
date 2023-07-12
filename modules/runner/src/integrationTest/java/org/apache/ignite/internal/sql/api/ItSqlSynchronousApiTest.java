@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.lang.ErrorGroups.Sql.VALIDATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -173,7 +173,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         SqlException ex = IgniteTestUtils.cause(assertThrows(Throwable.class,
                 () -> await(ses.executeAsync(null, "ALTER TABLE TEST DROP COLUMN (val0, val1)"))), SqlException.class);
         assertNotNull(ex);
-        assertEquals(VALIDATION_ERR, ex.code());
+        assertEquals(STMT_VALIDATION_ERR, ex.code());
 
         String msg = ex.getMessage();
         String explainMsg = "Unexpected error message: " + msg;

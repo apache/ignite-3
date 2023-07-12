@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
-import static org.apache.ignite.lang.ErrorGroups.Sql.VALIDATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
@@ -164,7 +164,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                     throw new AssertionError("Unexpected queryType=" + parsedResult.queryType());
             }
         } catch (CalciteContextException e) {
-            throw new IgniteInternalException(VALIDATION_ERR, "Failed to validate query. " + e.getMessage(), e);
+            throw new IgniteInternalException(STMT_VALIDATION_ERR, "Failed to validate query. " + e.getMessage(), e);
         }
     }
 

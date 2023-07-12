@@ -130,10 +130,10 @@ public class ErrorGroups {
         public static final int CURSOR_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode(6);
 
         /** Statement parsing error. */
-        public static final int PARSE_ERR = SQL_ERR_GROUP.registerErrorCode(7);
+        public static final int STMT_PARSE_ERR = SQL_ERR_GROUP.registerErrorCode(7);
 
         /** Statement validation error. */
-        public static final int VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode(8);
+        public static final int STMT_VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode(8);
 
         /** Constraint violation error. */
         public static final int CONSTRAINT_VIOLATION_ERR = SQL_ERR_GROUP.registerErrorCode(9);
