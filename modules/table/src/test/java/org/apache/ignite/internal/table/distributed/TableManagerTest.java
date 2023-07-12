@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.cause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -67,6 +68,8 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
@@ -74,6 +77,7 @@ import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -81,11 +85,13 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -862,18 +868,12 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
 
         //TODO IGNITE-19082 drop mocked catalog manager.
-        CatalogManager catalogManager = mock(CatalogManager.class);
-        CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
-        CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
-        when(tableDescriptor.id()).thenReturn(1);
-        when(indexDescriptor.id()).thenReturn(1);
-        when(catalogManager.createTable(any())).thenReturn(completedFuture(null));
-        when(catalogManager.createIndex(any(CreateHashIndexParams.class))).thenReturn(completedFuture(null));
-        when(catalogManager.createIndex(any(CreateSortedIndexParams.class))).thenReturn(completedFuture(null));
-        when(catalogManager.dropTable(any())).thenReturn(completedFuture(null));
-        when(catalogManager.dropIndex(any())).thenReturn(completedFuture(null));
-        when(catalogManager.table(anyString(), anyLong())).thenReturn(tableDescriptor);
-        when(catalogManager.index(anyString(), anyLong())).thenReturn(indexDescriptor);
+
+        CatalogManager catalogManager = new CatalogServiceImpl(
+                new UpdateLogImpl(StandaloneMetaStorageManager.create(vaultManager)),
+                new ClockWaiter("note", new HybridClockImpl()));
+
+        catalogManager.start();
 
         TableManager tableManager = new TableManager(
                 "test",

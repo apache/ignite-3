@@ -121,12 +121,6 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
 
     /** {@inheritDoc} */
     @Override
-    public IgniteLogicalIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, String idxName) {
-        return toRel(cluster, relOptTbl, idxName, null, null, null);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public IgniteLogicalTableScan toRel(
             RelOptCluster cluster,
             RelOptTable relOptTbl,

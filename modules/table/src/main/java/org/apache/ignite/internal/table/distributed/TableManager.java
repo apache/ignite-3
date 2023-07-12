@@ -87,8 +87,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
-import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
@@ -101,6 +99,10 @@ import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -529,24 +531,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), assignmentsSwitchRebalanceListener);
 
-        tablesCfg.tables().listenElements(new ConfigurationNamedListListener<>() {
-            @Override
-            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableView> ctx) {
-                return onTableCreate(ctx);
-            }
+        catalogManager.listen(CatalogEvent.TABLE_CREATE,
+                (parameters, exception) -> onTableCreate((CreateTableEventParameters) parameters).thenApply(ignore -> false));
 
-            @Override
-            public CompletableFuture<?> onRename(ConfigurationNotificationEvent<TableView> ctx) {
-                // TODO: IGNITE-15485 Support table rename operation.
-
-                return completedFuture(null);
-            }
-
-            @Override
-            public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<TableView> ctx) {
-                return onTableDelete(ctx);
-            }
-        });
+        catalogManager.listen(CatalogEvent.TABLE_CREATE,
+                (parameters, exception) -> onTableDelete((DropTableEventParameters) parameters).thenApply(ignore -> false));
 
         schemaManager.listen(SchemaEvent.CREATE, new EventListener<>() {
             @Override
@@ -603,10 +592,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param ctx Table configuration context.
      * @return A future.
      */
-    private CompletableFuture<?> onTableCreate(ConfigurationNotificationEvent<TableView> ctx) {
+    private CompletableFuture<?> onTableCreate(CreateTableEventParameters ctx) {
         if (!busyLock.enterBusy()) {
             fireEvent(TableEvent.CREATE,
-                    new TableEventParameters(ctx.storageRevision(), ctx.newValue().id()),
+                    new TableEventParameters(ctx.causalityToken(), ctx.tableDescriptor().id()),
                     new NodeStoppingException()
             );
 
@@ -614,8 +603,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
-            CatalogTableDescriptor tableDescriptor = toTableDescriptor(ctx.newValue());
-            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId());
+            CatalogTableDescriptor tableDescriptor = ctx.tableDescriptor();
+            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(tableDescriptor.zoneId(), ctx.catalogVersion());
+
+            assert zoneDescriptor != null;
 
             List<Set<Assignment>> assignments;
 
@@ -637,7 +628,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             assert !assignments.isEmpty() : "Couldn't create the table with empty assignments.";
 
             CompletableFuture<?> createTableFut = createTableLocally(
-                    ctx.storageRevision(),
+                    ctx.causalityToken(),
                     tableDescriptor,
                     zoneDescriptor,
                     assignments
@@ -688,11 +679,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param ctx Table configuration context.
      * @return A future.
      */
-    private CompletableFuture<?> onTableDelete(ConfigurationNotificationEvent<TableView> ctx) {
+    private CompletableFuture<?> onTableDelete(DropTableEventParameters ctx) {
         if (!busyLock.enterBusy()) {
             fireEvent(
                     TableEvent.DROP,
-                    new TableEventParameters(ctx.storageRevision(), ctx.oldValue().id()),
+                    new TableEventParameters(ctx.causalityToken(), ctx.tableId()),
                     new NodeStoppingException()
             );
 
@@ -700,10 +691,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
-            CatalogTableDescriptor tableDescriptor = toTableDescriptor(ctx.oldValue());
-            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId());
+            CatalogTableDescriptor tableDescriptor = catalogManager.table(ctx.tableId(), ctx.catalogVersion() - 1);
+            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(tableDescriptor.zoneId(), ctx.catalogVersion() - 1);
 
-            dropTableLocally(ctx.storageRevision(), tableDescriptor, zoneDescriptor);
+            dropTableLocally(ctx.causalityToken(), tableDescriptor, zoneDescriptor);
         } finally {
             busyLock.leaveBusy();
         }

@@ -107,18 +107,6 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
     }
 
     /**
-     * Converts table into relational expression.
-     *
-     * @param cluster   Custer.
-     * @param relOptTbl Table.
-     * @param idxName   Index name.
-     * @return Table relational expression.
-     */
-    default IgniteLogicalIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, String idxName) {
-        return toRel(cluster, relOptTbl, idxName, null, null, null);
-    }
-
-    /**
      * Converts table into table scan relational expression.
      */
     IgniteLogicalTableScan toRel(

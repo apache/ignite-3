@@ -256,6 +256,17 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     @Override
+    public CatalogZoneDescriptor zone(int zoneId, int version) {
+        Catalog catalog = catalog(version);
+
+        if (catalog == null) {
+            return null;
+        }
+
+        return catalog.zone(zoneId);
+    }
+
+    @Override
     public @Nullable CatalogSchemaDescriptor activeSchema(long timestamp) {
         return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME);
     }

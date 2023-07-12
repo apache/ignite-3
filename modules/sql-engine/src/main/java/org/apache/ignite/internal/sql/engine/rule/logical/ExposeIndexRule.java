@@ -34,6 +34,7 @@ import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchemaTable;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.immutables.value.Value;
 
@@ -51,7 +52,7 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
 
     private static boolean preMatch(IgniteLogicalTableScan scan) {
         // has indexes to expose
-        return !scan.getTable().unwrap(IgniteTable.class).indexes().isEmpty();
+        return !scan.getTable().unwrap(IgniteSchemaTable.class).getIndexes().isEmpty();
     }
 
     /** {@inheritDoc} */
@@ -61,13 +62,13 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
         RelOptCluster cluster = scan.getCluster();
 
         RelOptTable optTable = scan.getTable();
-        IgniteTable igniteTable = optTable.unwrap(IgniteTable.class);
+        IgniteSchemaTable igniteTable = optTable.unwrap(IgniteSchemaTable.class);
         List<RexNode> proj = scan.projects();
         RexNode condition = scan.condition();
         ImmutableBitSet requiredCols = scan.requiredColumns();
 
-        List<IgniteLogicalIndexScan> indexes = igniteTable.indexes().keySet().stream()
-                .map(idxName -> igniteTable.toRel(cluster, optTable, idxName, proj, condition, requiredCols))
+        List<IgniteLogicalIndexScan> indexes = igniteTable.getIndexes().values().stream()
+                .map(idx -> idx.toRel(cluster, optTable, proj, condition, requiredCols))
                 .filter(idx -> filter(igniteTable, idx.indexName(), idx.searchBounds()))
                 .collect(Collectors.toList());
 
