@@ -26,7 +26,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
-import java.util.function.BiConsumer;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -34,6 +33,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
@@ -83,8 +83,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     private final RaftConfiguration raftConfiguration;
 
     /**
-     * Whether to notify callback after subscription to pass the current leader and term into it, even if the leader
-     * did not change in that moment (see {@link #subscribeLeader(BiConsumer)}).
+     * Whether to notify callback after subscription to pass the current leader and term into it, even if the leader did not change in that
+     * moment (see {@link #subscribeLeader}).
      */
     private final boolean notifyOnSubscription;
 
@@ -96,8 +96,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @param executor RPC executor.
      * @param raftClient RPC RAFT client.
      * @param logicalTopologyService Logical topology.
-     * @param notifyOnSubscription Whether to notify callback after subscription to pass the current leader and term into it,
-     *        even if the leader did not change in that moment (see {@link #subscribeLeader(BiConsumer)}).
+     * @param notifyOnSubscription Whether to notify callback after subscription to pass the current leader and term into it, even
+     *         if the leader did not change in that moment (see {@link #subscribeLeader}).
      */
     private TopologyAwareRaftGroupService(
             ClusterService cluster,
@@ -163,11 +163,11 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @param getLeader True to get the group's leader upon service creation.
      * @param executor RPC executor.
      * @param logicalTopologyService Logical topology service.
-     * @param notifyOnSubscription Whether to notify callback after subscription to pass the current leader and term into it,
-     *        even if the leader did not change in that moment (see {@link #subscribeLeader(BiConsumer)}).
+     * @param notifyOnSubscription Whether to notify callback after subscription to pass the current leader and term into it, even
+     *         if the leader did not change in that moment (see {@link #subscribeLeader}).
      * @return Future to create a raft client.
      */
-    public static CompletableFuture<RaftGroupService> start(
+    public static CompletableFuture<TopologyAwareRaftGroupService> start(
             ReplicationGroupId groupId,
             ClusterService cluster,
             RaftMessagesFactory factory,
@@ -188,7 +188,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * Sends a subscribe message to a specific node of the cluster.
      *
      * @param node Node.
-     * @param msg  Subscribe message.
+     * @param msg Subscribe message.
      * @return A future that completes with true when the message sent and false value when the node left the cluster.
      */
     private CompletableFuture<Boolean> sendSubscribeMessage(ClusterNode node, SubscriptionLeaderChangeRequest msg) {
@@ -204,8 +204,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      *
      * @param node Node.
      * @param msg Subscribe message to send.
-     * @param msgSendFut Future that completes with true when the message sent and with false when the node left topology and cannot get a
-     *     cluster.
+     * @param msgSendFut Future that completes with true when the message sent and with false when the node left topology and cannot
+     *         get a cluster.
      */
     private void sendWithRetry(ClusterNode node, SubscriptionLeaderChangeRequest msg, CompletableFuture<Boolean> msgSendFut) {
         clusterService.messagingService().invoke(node, msg, raftConfiguration.responseTimeout().value()).whenCompleteAsync((unused, th) -> {
@@ -264,7 +264,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @param callback Callback closure.
      * @return Future that is completed when all subscription messages to peers are sent.
      */
-    public CompletableFuture<Void> subscribeLeader(BiConsumer<ClusterNode, Long> callback) {
+    public CompletableFuture<Void> subscribeLeader(LeaderElectionListener callback) {
         assert !serverEventHandler.isSubscribed() : "The node already subscribed";
 
         int peers = peers().size();
@@ -443,15 +443,15 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     /**
      * Leader election handler.
      */
-    private static class ServerEventHandler implements BiConsumer<ClusterNode, Long> {
+    private static class ServerEventHandler implements LeaderElectionListener {
         /** A term of last elected leader. */
         private long term = 0;
 
         /** Last elected leader. */
-        private Peer leaderPeer;
+        private volatile Peer leaderPeer;
 
         /** A leader elected callback. */
-        private BiConsumer<ClusterNode, Long> onLeaderElectedCallback;
+        private LeaderElectionListener onLeaderElectedCallback;
 
         /**
          * Notifies about a new leader elected, if it did not make before.
@@ -459,12 +459,13 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
          * @param node Node.
          * @param term Term.
          */
-        private synchronized void onLeaderElected(ClusterNode node, long term) {
+        @Override
+        public synchronized void onLeaderElected(ClusterNode node, long term) {
             if (onLeaderElectedCallback != null && term > this.term) {
                 this.term = term;
                 this.leaderPeer = new Peer(node.name());
 
-                onLeaderElectedCallback.accept(node, term);
+                onLeaderElectedCallback.onLeaderElected(node, term);
             }
         }
 
@@ -473,7 +474,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
          *
          * @param onLeaderElectedCallback A callback closure.
          */
-        public synchronized void setOnLeaderElectedCallback(BiConsumer<ClusterNode, Long> onLeaderElectedCallback) {
+        synchronized void setOnLeaderElectedCallback(LeaderElectionListener onLeaderElectedCallback) {
             this.onLeaderElectedCallback = onLeaderElectedCallback;
         }
 
@@ -482,13 +483,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
          *
          * @return True if notification required, false otherwise.
          */
-        public synchronized boolean isSubscribed() {
+        synchronized boolean isSubscribed() {
             return onLeaderElectedCallback != null;
-        }
-
-        @Override
-        public void accept(ClusterNode clusterNode, Long term) {
-            onLeaderElected(clusterNode, term);
         }
 
         Peer leader() {

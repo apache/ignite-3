@@ -644,28 +644,24 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                     rwLock.writeLock().unlock();
                 }
 
-                // Save revisions for recovery.
-                return storage.writeConfigurationRevision(oldStorageRoots.version, newStorageRoots.version)
-                        .thenCompose(unused -> {
-                            long notificationNumber = notificationListenerCnt.incrementAndGet();
+                long notificationNumber = notificationListenerCnt.incrementAndGet();
 
-                            CompletableFuture<Void> notificationFuture;
+                CompletableFuture<Void> notificationFuture;
 
-                            if (dataValuesPrefixMap.isEmpty()) {
-                                notificationFuture = configurationUpdateListener.onRevisionUpdated(newChangeId, notificationNumber);
-                            } else {
-                                notificationFuture = configurationUpdateListener
-                                        .onConfigurationUpdated(oldSuperRoot, newSuperRoot, newChangeId, notificationNumber);
-                            }
+                if (dataValuesPrefixMap.isEmpty()) {
+                    notificationFuture = configurationUpdateListener.onRevisionUpdated(newChangeId, notificationNumber);
+                } else {
+                    notificationFuture = configurationUpdateListener
+                            .onConfigurationUpdated(oldSuperRoot, newSuperRoot, newChangeId, notificationNumber);
+                }
 
-                            return notificationFuture.whenComplete((v, t) -> {
-                                if (t == null) {
-                                    oldStorageRoots.changeFuture.complete(null);
-                                } else {
-                                    oldStorageRoots.changeFuture.completeExceptionally(t);
-                                }
-                            });
-                        });
+                return notificationFuture.whenComplete((v, t) -> {
+                    if (t == null) {
+                        oldStorageRoots.changeFuture.complete(null);
+                    } else {
+                        oldStorageRoots.changeFuture.completeExceptionally(t);
+                    }
+                });
             }
 
             @Override

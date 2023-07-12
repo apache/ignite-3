@@ -71,7 +71,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     public void beforeFollowerStop(RaftGroupService service, RaftServer server) throws Exception {
         ClusterNode followerNode = getNode(server);
 
-        var clusterTime = new ClusterTimeImpl(new IgniteSpinBusyLock(), new HybridClockImpl());
+        var clusterTime = new ClusterTimeImpl(followerNode.name(), new IgniteSpinBusyLock(), new HybridClockImpl());
 
         metaStorage = new MetaStorageServiceImpl(followerNode.name(), service, new IgniteSpinBusyLock(), clusterTime);
 
@@ -149,7 +149,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
             return s;
         });
 
-        return new MetaStorageListener(storage, new ClusterTimeImpl(new IgniteSpinBusyLock(), new HybridClockImpl()));
+        return new MetaStorageListener(storage, new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), new HybridClockImpl()));
     }
 
     /** {@inheritDoc} */

@@ -156,6 +156,14 @@ public:
     parameter* get_parameter(std::uint16_t idx);
 
     /**
+     * Get parameter by index.
+     *
+     * @param idx Index.
+     * @return parameter or null, if parameter is not bound.
+     */
+    const parameter* get_parameter(std::uint16_t idx) const;
+
+    /**
      * Get selected parameter.
      *
      * @return parameter or null, if parameter is not bound.

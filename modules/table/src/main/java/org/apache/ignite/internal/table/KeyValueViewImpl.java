@@ -529,7 +529,9 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
         try {
             for (Row row : schemaReg.resolve(rows)) {
-                pairs.put(marsh.unmarshalKey(row), marsh.unmarshalValue(row));
+                if (row != null) {
+                    pairs.put(marsh.unmarshalKey(row), marsh.unmarshalValue(row));
+                }
             }
 
             return pairs;

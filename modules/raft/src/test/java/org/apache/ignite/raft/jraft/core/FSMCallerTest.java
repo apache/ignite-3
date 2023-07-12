@@ -100,7 +100,8 @@ public class FSMCallerTest {
         opts.setfSMCallerExecutorDisruptor(disruptor = new StripedDisruptor<>("TestFSMDisruptor",
             1024,
             () -> new FSMCallerImpl.ApplyTask(),
-            1));
+            1,
+            false));
         assertTrue(this.fsmCaller.init(opts));
     }
 

@@ -29,6 +29,7 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility for access to binary tuple elements as typed values.
@@ -75,7 +76,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      */
     public boolean hasNullValue(int index) {
         seek(index);
-        return begin == 0;
+        return begin == end;
     }
 
     /**
@@ -95,9 +96,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public Byte byteValueBoxed(int index) {
+    public @Nullable Byte byteValueBoxed(int index) {
         seek(index);
-        return begin == 0 ? null : byteValue(begin, end);
+        return begin == end ? null : byteValue(begin, end);
     }
 
     /**
@@ -117,9 +118,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public Short shortValueBoxed(int index) {
+    public @Nullable Short shortValueBoxed(int index) {
         seek(index);
-        return begin == 0 ? null : shortValue(begin, end);
+        return begin == end ? null : shortValue(begin, end);
     }
 
     /**
@@ -139,9 +140,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public Integer intValueBoxed(int index) {
+    public @Nullable Integer intValueBoxed(int index) {
         seek(index);
-        return begin == 0 ? null : intValue(begin,  end);
+        return begin == end ? null : intValue(begin,  end);
     }
 
     /**
@@ -161,9 +162,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public Long longValueBoxed(int index) {
+    public @Nullable Long longValueBoxed(int index) {
         seek(index);
-        return begin == 0 ? null : longValue(begin, end);
+        return begin == end ? null : longValue(begin, end);
     }
 
     /**
@@ -183,9 +184,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public Float floatValueBoxed(int index) {
+    public @Nullable Float floatValueBoxed(int index) {
         seek(index);
-        return begin == 0 ? null : floatValue(begin, end);
+        return begin == end ? null : floatValue(begin, end);
     }
 
     /**
@@ -205,9 +206,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public Double doubleValueBoxed(int index) {
+    public @Nullable Double doubleValueBoxed(int index) {
         seek(index);
-        return begin == 0 ? null : doubleValue(begin, end);
+        return begin == end ? null : doubleValue(begin, end);
     }
 
     /**
@@ -216,9 +217,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public BigInteger numberValue(int index) {
+    public @Nullable BigInteger numberValue(int index) {
         seek(index);
-        return begin == 0 ? null : numberValue(begin, end);
+        return begin == end ? null : numberValue(begin, end);
     }
 
     /**
@@ -228,9 +229,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param scale Decimal scale.
      * @return Element value.
      */
-    public BigDecimal decimalValue(int index, int scale) {
+    public @Nullable BigDecimal decimalValue(int index, int scale) {
         seek(index);
-        return begin == 0 ? null : new BigDecimal(numberValue(begin, end), scale);
+        return begin == end ? null : new BigDecimal(numberValue(begin, end), scale);
     }
 
     /**
@@ -239,9 +240,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public String stringValue(int index) {
+    public @Nullable String stringValue(int index) {
         seek(index);
-        return begin == 0 ? null : stringValue(begin, end);
+        return begin == end ? null : stringValue(begin, end);
     }
 
     /**
@@ -250,9 +251,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public byte[] bytesValue(int index) {
+    public byte @Nullable [] bytesValue(int index) {
         seek(index);
-        return begin == 0 ? null : bytesValue(begin, end);
+        return begin == end ? null : bytesValue(begin, end);
     }
 
     /**
@@ -261,9 +262,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public UUID uuidValue(int index) {
+    public @Nullable UUID uuidValue(int index) {
         seek(index);
-        return begin == 0 ? null : uuidValue(begin, end);
+        return begin == end ? null : uuidValue(begin, end);
     }
 
     /**
@@ -272,9 +273,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public BitSet bitmaskValue(int index) {
+    public @Nullable BitSet bitmaskValue(int index) {
         seek(index);
-        return begin == 0 ? null : bitmaskValue(begin, end);
+        return begin == end ? null : bitmaskValue(begin, end);
     }
 
     /**
@@ -283,9 +284,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public LocalDate dateValue(int index) {
+    public @Nullable LocalDate dateValue(int index) {
         seek(index);
-        return begin == 0 ? null : dateValue(begin, end);
+        return begin == end ? null : dateValue(begin, end);
     }
 
     /**
@@ -294,9 +295,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public LocalTime timeValue(int index) {
+    public @Nullable LocalTime timeValue(int index) {
         seek(index);
-        return begin == 0 ? null : timeValue(begin, end);
+        return begin == end ? null : timeValue(begin, end);
     }
 
     /**
@@ -305,9 +306,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public LocalDateTime dateTimeValue(int index) {
+    public @Nullable LocalDateTime dateTimeValue(int index) {
         seek(index);
-        return begin == 0 ? null : dateTimeValue(begin, end);
+        return begin == end ? null : dateTimeValue(begin, end);
     }
 
     /**
@@ -316,9 +317,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public Instant timestampValue(int index) {
+    public @Nullable Instant timestampValue(int index) {
         seek(index);
-        return begin == 0 ? null : timestampValue(begin, end);
+        return begin == end ? null : timestampValue(begin, end);
     }
 
     /**
@@ -327,9 +328,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public Duration durationValue(int index) {
+    public @Nullable Duration durationValue(int index) {
         seek(index);
-        return begin == 0 ? null : durationValue(begin, end);
+        return begin == end ? null : durationValue(begin, end);
     }
 
     /**
@@ -338,11 +339,10 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public Period periodValue(int index) {
+    public @Nullable Period periodValue(int index) {
         seek(index);
-        return begin == 0 ? null : periodValue(begin, end);
+        return begin == end ? null : periodValue(begin, end);
     }
-
 
     /**
      * Gets the beginning of the current element.

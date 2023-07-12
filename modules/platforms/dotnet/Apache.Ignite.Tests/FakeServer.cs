@@ -20,12 +20,12 @@ namespace Apache.Ignite.Tests
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
-    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
     using System.Threading;
     using System.Threading.Tasks;
+    using Ignite.Compute;
     using Ignite.Sql;
     using Internal.Buffers;
     using Internal.Network;
@@ -38,7 +38,7 @@ namespace Apache.Ignite.Tests
     /// <summary>
     /// Fake Ignite server for test purposes.
     /// </summary>
-    public sealed class FakeServer : IDisposable
+    public sealed class FakeServer : IgniteServerBase
     {
         public const string Err = "Err!";
 
@@ -48,27 +48,17 @@ namespace Apache.Ignite.Tests
 
         public const string CustomColocationKeyTableName = "tbl3";
 
+        public const string GetDetailsJob = "get-details";
+
         private const int ExistingTableId = 1001;
 
         private const int CompositeKeyTableId = 1002;
 
         private const int CustomColocationKeyTableId = 1003;
 
-        private readonly Socket _listener;
-
-        private readonly CancellationTokenSource _cts = new();
-
         private readonly Func<RequestContext, bool> _shouldDropConnection;
 
         private readonly ConcurrentQueue<ClientOp>? _ops;
-
-        private readonly object _disposeSyncRoot = new();
-
-        private bool _disposed;
-
-        private volatile Socket? _handler;
-
-        private volatile bool _dropNewConnections;
 
         public FakeServer(bool disableOpsTracking)
             : this(null, disableOpsTracking: disableOpsTracking)
@@ -88,21 +78,14 @@ namespace Apache.Ignite.Tests
             bool disableOpsTracking = false)
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
-            _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-            _listener.NoDelay = true;
 
-            _listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
-            _listener.Listen(backlog: 1);
-
-            Node = new ClusterNode("id-" + nodeName, nodeName, (IPEndPoint)_listener.LocalEndPoint!);
+            Node = new ClusterNode("id-" + nodeName, nodeName, (IPEndPoint)Listener.LocalEndPoint!);
             PartitionAssignment = new[] { Node.Id };
 
             if (!disableOpsTracking)
             {
                 _ops = new();
             }
-
-            Task.Run(ListenLoop);
         }
 
         public IClusterNode Node { get; }
@@ -121,10 +104,6 @@ namespace Apache.Ignite.Tests
 
         public TimeSpan HeartbeatDelay { get; set; }
 
-        public int Port => ((IPEndPoint)_listener.LocalEndPoint!).Port;
-
-        public string Endpoint => "127.0.0.1:" + Port;
-
         public string LastSql { get; set; } = string.Empty;
 
         public long? LastSqlTimeoutMs { get; set; }
@@ -137,13 +116,9 @@ namespace Apache.Ignite.Tests
 
         public long DroppedConnectionCount { get; set; }
 
-        public bool DropNewConnections
-        {
-            get => _dropNewConnections;
-            set => _dropNewConnections = value;
-        }
-
         public bool SendInvalidMagic { get; set; }
+
+        public int RequestCount { get; set; }
 
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
@@ -159,51 +134,197 @@ namespace Apache.Ignite.Tests
 
         public void ClearOps() => _ops?.Clear();
 
-        public void DropExistingConnection() => _handler?.Dispose();
-
-        public void Dispose()
+        protected override void Handle(Socket handler, CancellationToken cancellationToken)
         {
-            lock (_disposeSyncRoot)
+            // Read handshake.
+            using var magic = ReceiveBytes(handler, 4);
+            var msgSize = ReceiveMessageSize(handler);
+            using var handshake = ReceiveBytes(handler, msgSize);
+
+            // Write handshake response.
+            handler.Send(SendInvalidMagic ? ProtoCommon.MagicBytes.Reverse().ToArray() : ProtoCommon.MagicBytes);
+            Thread.Sleep(HandshakeDelay);
+
+            using var handshakeBufferWriter = new PooledArrayBuffer();
+            var handshakeWriter = handshakeBufferWriter.MessageWriter;
+
+            // Version.
+            handshakeWriter.Write(3);
+            handshakeWriter.Write(0);
+            handshakeWriter.Write(0);
+
+            handshakeWriter.WriteNil(); // Success
+            handshakeWriter.Write(0); // Idle timeout.
+            handshakeWriter.Write(Node.Id); // Node id.
+            handshakeWriter.Write(Node.Name); // Node name (consistent id).
+            handshakeWriter.Write(ClusterId);
+            handshakeWriter.WriteBinaryHeader(0); // Features.
+            handshakeWriter.WriteMapHeader(0); // Extensions.
+
+            var handshakeMem = handshakeBufferWriter.GetWrittenMemory();
+            handler.Send(new byte[] { 0, 0, 0, (byte)handshakeMem.Length }); // Size.
+
+            handler.Send(handshakeMem.Span);
+
+            while (!cancellationToken.IsCancellationRequested)
             {
-                if (_disposed)
+                msgSize = ReceiveMessageSize(handler);
+                using var msg = ReceiveBytes(handler, msgSize);
+
+                if (OperationDelay > TimeSpan.Zero)
                 {
-                    return;
+                    Thread.Sleep(OperationDelay);
                 }
 
-                _cts.Cancel();
-                _handler?.Dispose();
-                _listener.Disconnect(false);
-                _listener.Dispose();
-                _cts.Dispose();
+                var reader = msg.GetReader();
+                var opCode = (ClientOp)reader.ReadInt32();
+                var requestId = reader.ReadInt64();
 
-                _disposed = true;
-            }
-        }
-
-        private static int ReceiveMessageSize(Socket handler)
-        {
-            using var buf = ReceiveBytes(handler, 4);
-            return IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buf.AsMemory().Span));
-        }
-
-        private static PooledBuffer ReceiveBytes(Socket socket, int size)
-        {
-            int received = 0;
-            var buf = ByteArrayPool.Rent(size);
-
-            while (received < size)
-            {
-                var res = socket.Receive(buf, received, size - received, SocketFlags.None);
-
-                if (res == 0)
+                if (_shouldDropConnection(new RequestContext(++RequestCount, opCode, requestId)))
                 {
-                    throw new ConnectionLostException();
+                    DroppedConnectionCount++;
+                    break;
                 }
 
-                received += res;
+                _ops?.Enqueue(opCode);
+
+                switch (opCode)
+                {
+                    case ClientOp.TablesGet:
+                        // Empty map.
+                        Send(handler, requestId, new byte[] { 128 }.AsMemory());
+                        continue;
+
+                    case ClientOp.TableGet:
+                    {
+                        var tableName = reader.ReadString();
+
+                        var tableId = tableName switch
+                        {
+                            ExistingTableName => ExistingTableId,
+                            CompositeKeyTableName => CompositeKeyTableId,
+                            CustomColocationKeyTableName => CustomColocationKeyTableId,
+                            _ => default
+                        };
+
+                        if (tableId != default)
+                        {
+                            using var arrayBufferWriter = new PooledArrayBuffer();
+                            arrayBufferWriter.MessageWriter.Write(tableId);
+
+                            Send(handler, requestId, arrayBufferWriter);
+
+                            continue;
+                        }
+
+                        break;
+                    }
+
+                    case ClientOp.SchemasGet:
+                        GetSchemas(reader, handler, requestId);
+                        continue;
+
+                    case ClientOp.PartitionAssignmentGet:
+                    {
+                        using var arrayBufferWriter = new PooledArrayBuffer();
+                        var writer = new MsgPackWriter(arrayBufferWriter);
+                        writer.WriteArrayHeader(PartitionAssignment.Length);
+
+                        foreach (var nodeId in PartitionAssignment)
+                        {
+                            writer.Write(nodeId);
+                        }
+
+                        Send(handler, requestId, arrayBufferWriter);
+                        continue;
+                    }
+
+                    case ClientOp.TupleUpsert:
+                        Send(handler, requestId, ReadOnlyMemory<byte>.Empty);
+                        continue;
+
+                    case ClientOp.TupleInsert:
+                    case ClientOp.TupleReplace:
+                    case ClientOp.TupleReplaceExact:
+                    case ClientOp.TupleDelete:
+                    case ClientOp.TupleDeleteExact:
+                    case ClientOp.TupleContainsKey:
+                        Send(handler, requestId, new byte[] { 1, MessagePackCode.True }.AsMemory());
+                        continue;
+
+                    case ClientOp.TupleGet:
+                    case ClientOp.TupleGetAndDelete:
+                    case ClientOp.TupleGetAndReplace:
+                    case ClientOp.TupleGetAndUpsert:
+                        Send(handler, requestId, new byte[] { 1, MessagePackCode.Nil }.AsMemory());
+                        continue;
+
+                    case ClientOp.TupleGetAll:
+                    case ClientOp.TupleInsertAll:
+                    case ClientOp.TupleUpsertAll:
+                    case ClientOp.TupleDeleteAll:
+                    case ClientOp.TupleDeleteAllExact:
+                        reader.Skip(3);
+                        var count = reader.ReadInt32();
+
+                        if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
+                        {
+                            Thread.Sleep(MultiRowOperationDelayPerRow * count);
+                        }
+
+                        if (opCode == ClientOp.TupleUpsertAll)
+                        {
+                            UpsertAllRowCount += count;
+                        }
+
+                        Send(handler, requestId, new byte[] { 1, 0 }.AsMemory());
+                        continue;
+
+                    case ClientOp.TxBegin:
+                        Send(handler, requestId, new byte[] { 0 }.AsMemory());
+                        continue;
+
+                    case ClientOp.ComputeExecute:
+                    {
+                        using var pooledArrayBuffer = ComputeExecute(reader);
+                        Send(handler, requestId, pooledArrayBuffer);
+                        continue;
+                    }
+
+                    case ClientOp.SqlExec:
+                        SqlExec(handler, requestId, reader);
+                        continue;
+
+                    case ClientOp.SqlCursorNextPage:
+                        SqlCursorNextPage(handler, requestId);
+                        continue;
+
+                    case ClientOp.Heartbeat:
+                        Thread.Sleep(HeartbeatDelay);
+                        Send(handler, requestId, Array.Empty<byte>());
+                        continue;
+
+                    case ClientOp.ComputeExecuteColocated:
+                    {
+                        using var pooledArrayBuffer = ComputeExecute(reader, colocated: true);
+                        Send(handler, requestId, pooledArrayBuffer);
+                        continue;
+                    }
+                }
+
+                // Fake error message for any other op code.
+                using var errWriter = new PooledArrayBuffer();
+                var w = new MsgPackWriter(errWriter);
+                w.Write(Guid.Empty);
+                w.Write(262147);
+                w.Write("org.foo.bar.BazException");
+                w.Write(Err);
+                w.WriteNil(); // Stack trace.
+
+                Send(handler, requestId, errWriter, isError: true);
             }
 
-            return new PooledBuffer(buf, 0, size);
+            handler.Disconnect(true);
         }
 
         private void Send(Socket socket, long requestId, PooledArrayBuffer writer, bool isError = false)
@@ -243,7 +364,7 @@ namespace Apache.Ignite.Tests
             writer.WriteArrayHeader(500); // Page size.
             for (int i = 0; i < 500; i++)
             {
-                using var tuple = new BinaryTupleBuilder(1, false);
+                using var tuple = new BinaryTupleBuilder(1);
                 tuple.AppendInt(i + 512);
                 writer.Write(tuple.Build().Span);
             }
@@ -326,7 +447,7 @@ namespace Apache.Ignite.Tests
                 writer.WriteArrayHeader(props.Count); // Page size.
                 foreach (var (key, val) in props)
                 {
-                    using var tuple = new BinaryTupleBuilder(2, false);
+                    using var tuple = new BinaryTupleBuilder(2);
                     tuple.AppendString(key);
                     tuple.AppendString(val?.ToString() ?? string.Empty);
                     writer.Write(tuple.Build().Span);
@@ -351,7 +472,7 @@ namespace Apache.Ignite.Tests
                 writer.WriteArrayHeader(512); // Page size.
                 for (int i = 0; i < 512; i++)
                 {
-                    using var tuple = new BinaryTupleBuilder(1, false);
+                    using var tuple = new BinaryTupleBuilder(1);
                     tuple.AppendInt(i);
                     writer.Write(tuple.Build().Span);
                 }
@@ -377,7 +498,7 @@ namespace Apache.Ignite.Tests
                 writer.Write((int)ColumnType.Int32);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
-                writer.Write(true); // Colocation.
+                writer.Write(0); // Colocation index.
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
             }
@@ -390,7 +511,7 @@ namespace Apache.Ignite.Tests
                 writer.Write((int)ColumnType.String);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
-                writer.Write(true); // Colocation.
+                writer.Write(0); // Colocation index.
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
 
@@ -399,7 +520,7 @@ namespace Apache.Ignite.Tests
                 writer.Write((int)ColumnType.Uuid);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
-                writer.Write(true); // Colocation.
+                writer.Write(1); // Colocation index.
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
             }
@@ -412,7 +533,7 @@ namespace Apache.Ignite.Tests
                 writer.Write((int)ColumnType.String);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
-                writer.Write(true); // Colocation.
+                writer.Write(0); // Colocation index.
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
 
@@ -421,7 +542,7 @@ namespace Apache.Ignite.Tests
                 writer.Write((int)ColumnType.Uuid);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
-                writer.Write(false); // Colocation.
+                writer.Write(-1); // Colocation index.
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
             }
@@ -429,247 +550,46 @@ namespace Apache.Ignite.Tests
             Send(handler, requestId, arrayBufferWriter);
         }
 
-        private void ListenLoop()
+        private PooledArrayBuffer ComputeExecute(MsgPackReader reader, bool colocated = false)
         {
-            while (!_cts.IsCancellationRequested)
+            // Colocated: table id, schema version, key.
+            // Else: node name.
+            reader.Skip(colocated ? 4 : 1);
+
+            var unitsCount = reader.TryReadNil() ? 0 : reader.ReadArrayHeader();
+            var units = new List<DeploymentUnit>(unitsCount);
+            for (int i = 0; i < unitsCount; i++)
             {
-                try
-                {
-                    ListenLoopInternal();
-                }
-                catch (Exception e)
-                {
-                    if (e is SocketException or ConnectionLostException)
-                    {
-                        continue;
-                    }
-
-                    Console.WriteLine("Error in FakeServer: " + e);
-                }
+                units.Add(new DeploymentUnit(reader.ReadString(), reader.ReadString()));
             }
-        }
 
-        private void ListenLoopInternal()
-        {
-            int requestCount = 0;
+            var jobClassName = reader.ReadString();
 
-            while (!_cts.IsCancellationRequested)
+            object? resObj = jobClassName == GetDetailsJob
+                ? new
+                {
+                    NodeName = Node.Name,
+                    Units = string.Join(", ", units.Select(u => $"{u.Name}|{u.Version}")),
+                    jobClassName
+                }.ToString()
+                : Node.Name;
+
+            using var builder = new BinaryTupleBuilder(3);
+            builder.AppendObjectWithType(resObj);
+
+            var arrayBufferWriter = new PooledArrayBuffer();
+            var writer = new MsgPackWriter(arrayBufferWriter);
+
+            if (colocated)
             {
-                using Socket handler = _listener.Accept();
-
-                if (DropNewConnections)
-                {
-                    handler.Disconnect(true);
-                    _handler = null;
-
-                    continue;
-                }
-
-                _handler = handler;
-
-                handler.NoDelay = true;
-
-                // Read handshake.
-                using var magic = ReceiveBytes(handler, 4);
-                var msgSize = ReceiveMessageSize(handler);
-                using var handshake = ReceiveBytes(handler, msgSize);
-
-                // Write handshake response.
-                handler.Send(SendInvalidMagic ? ProtoCommon.MagicBytes.Reverse().ToArray() : ProtoCommon.MagicBytes);
-                Thread.Sleep(HandshakeDelay);
-
-                using var handshakeBufferWriter = new PooledArrayBuffer();
-                var handshakeWriter = handshakeBufferWriter.MessageWriter;
-
-                // Version.
-                handshakeWriter.Write(3);
-                handshakeWriter.Write(0);
-                handshakeWriter.Write(0);
-
-                handshakeWriter.WriteNil(); // Success
-                handshakeWriter.Write(0); // Idle timeout.
-                handshakeWriter.Write(Node.Id); // Node id.
-                handshakeWriter.Write(Node.Name); // Node name (consistent id).
-                handshakeWriter.Write(ClusterId);
-                handshakeWriter.WriteBinaryHeader(0); // Features.
-                handshakeWriter.WriteMapHeader(0); // Extensions.
-
-                var handshakeMem = handshakeBufferWriter.GetWrittenMemory();
-                handler.Send(new byte[] { 0, 0, 0, (byte)handshakeMem.Length }); // Size.
-
-                handler.Send(handshakeMem.Span);
-
-                while (!_cts.IsCancellationRequested)
-                {
-                    msgSize = ReceiveMessageSize(handler);
-                    using var msg = ReceiveBytes(handler, msgSize);
-
-                    if (OperationDelay > TimeSpan.Zero)
-                    {
-                        Thread.Sleep(OperationDelay);
-                    }
-
-                    var reader = new MsgPackReader(msg.AsMemory().Span);
-                    var opCode = (ClientOp)reader.ReadInt32();
-                    var requestId = reader.ReadInt64();
-
-                    if (_shouldDropConnection(new RequestContext(++requestCount, opCode, requestId)))
-                    {
-                        DroppedConnectionCount++;
-                        break;
-                    }
-
-                    _ops?.Enqueue(opCode);
-
-                    switch (opCode)
-                    {
-                        case ClientOp.TablesGet:
-                            // Empty map.
-                            Send(handler, requestId, new byte[] { 128 }.AsMemory());
-                            continue;
-
-                        case ClientOp.TableGet:
-                        {
-                            var tableName = reader.ReadString();
-
-                            var tableId = tableName switch
-                            {
-                                ExistingTableName => ExistingTableId,
-                                CompositeKeyTableName => CompositeKeyTableId,
-                                CustomColocationKeyTableName => CustomColocationKeyTableId,
-                                _ => default
-                            };
-
-                            if (tableId != default)
-                            {
-                                using var arrayBufferWriter = new PooledArrayBuffer();
-                                arrayBufferWriter.MessageWriter.Write(tableId);
-
-                                Send(handler, requestId, arrayBufferWriter);
-
-                                continue;
-                            }
-
-                            break;
-                        }
-
-                        case ClientOp.SchemasGet:
-                            GetSchemas(reader, handler, requestId);
-                            continue;
-
-                        case ClientOp.PartitionAssignmentGet:
-                        {
-                            using var arrayBufferWriter = new PooledArrayBuffer();
-                            var writer = new MsgPackWriter(arrayBufferWriter);
-                            writer.WriteArrayHeader(PartitionAssignment.Length);
-
-                            foreach (var nodeId in PartitionAssignment)
-                            {
-                                writer.Write(nodeId);
-                            }
-
-                            Send(handler, requestId, arrayBufferWriter);
-                            continue;
-                        }
-
-                        case ClientOp.TupleUpsert:
-                            Send(handler, requestId, ReadOnlyMemory<byte>.Empty);
-                            continue;
-
-                        case ClientOp.TupleInsert:
-                        case ClientOp.TupleReplace:
-                        case ClientOp.TupleReplaceExact:
-                        case ClientOp.TupleDelete:
-                        case ClientOp.TupleDeleteExact:
-                        case ClientOp.TupleContainsKey:
-                            Send(handler, requestId, new byte[] { 1, MessagePackCode.True }.AsMemory());
-                            continue;
-
-                        case ClientOp.TupleGet:
-                        case ClientOp.TupleGetAndDelete:
-                        case ClientOp.TupleGetAndReplace:
-                        case ClientOp.TupleGetAndUpsert:
-                            Send(handler, requestId, new byte[] { 1, MessagePackCode.Nil }.AsMemory());
-                            continue;
-
-                        case ClientOp.TupleGetAll:
-                        case ClientOp.TupleInsertAll:
-                        case ClientOp.TupleUpsertAll:
-                        case ClientOp.TupleDeleteAll:
-                        case ClientOp.TupleDeleteAllExact:
-                            reader.Skip(3);
-                            var count = reader.ReadInt32();
-
-                            if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
-                            {
-                                Thread.Sleep(MultiRowOperationDelayPerRow * count);
-                            }
-
-                            if (opCode == ClientOp.TupleUpsertAll)
-                            {
-                                UpsertAllRowCount += count;
-                            }
-
-                            Send(handler, requestId, new byte[] { 1, 0 }.AsMemory());
-                            continue;
-
-                        case ClientOp.TxBegin:
-                            Send(handler, requestId, new byte[] { 0 }.AsMemory());
-                            continue;
-
-                        case ClientOp.ComputeExecute:
-                        {
-                            using var arrayBufferWriter = new PooledArrayBuffer();
-                            var writer = new MsgPackWriter(arrayBufferWriter);
-
-                            using var builder = new BinaryTupleBuilder(3);
-                            builder.AppendObjectWithType(Node.Name);
-                            writer.Write(builder.Build().Span);
-
-                            Send(handler, requestId, arrayBufferWriter);
-                            continue;
-                        }
-
-                        case ClientOp.SqlExec:
-                            SqlExec(handler, requestId, reader);
-                            continue;
-
-                        case ClientOp.SqlCursorNextPage:
-                            SqlCursorNextPage(handler, requestId);
-                            continue;
-
-                        case ClientOp.Heartbeat:
-                            Thread.Sleep(HeartbeatDelay);
-                            Send(handler, requestId, Array.Empty<byte>());
-                            continue;
-
-                        case ClientOp.ComputeExecuteColocated:
-                            Send(handler, requestId, new byte[] { 1, MessagePackCode.Nil }.AsMemory());
-                            continue;
-                    }
-
-                    // Fake error message for any other op code.
-                    using var errWriter = new PooledArrayBuffer();
-                    var w = new MsgPackWriter(errWriter);
-                    w.Write(Guid.Empty);
-                    w.Write(262147);
-                    w.Write("org.foo.bar.BazException");
-                    w.Write(Err);
-                    w.WriteNil(); // Stack trace.
-
-                    Send(handler, requestId, errWriter, isError: true);
-                }
-
-                handler.Disconnect(true);
+                writer.Write(1); // Latest schema.
             }
+
+            writer.Write(builder.Build().Span);
+
+            return arrayBufferWriter;
         }
 
         internal record struct RequestContext(int RequestCount, ClientOp OpCode, long RequestId);
-
-        [SuppressMessage("Design", "CA1032:Implement standard exception constructors", Justification = "Tests.")]
-        [SuppressMessage("Design", "CA1064:Exceptions should be public", Justification = "Tests.")]
-        private class ConnectionLostException : Exception
-        {
-        }
     }
 }

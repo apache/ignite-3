@@ -37,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiPredicate;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
+import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -245,7 +247,9 @@ public class JraftServerImpl implements RaftServer {
                     NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-FSMCaller-Disruptor"),
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     ApplyTask::new,
-                    opts.getStripes()));
+                    opts.getStripes(),
+                    false
+            ));
         }
 
         if (opts.getNodeApplyDisruptor() == null) {
@@ -253,7 +257,9 @@ public class JraftServerImpl implements RaftServer {
                     NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-NodeImpl-Disruptor"),
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     LogEntryAndClosure::new,
-                    opts.getStripes()));
+                    opts.getStripes(),
+                    false
+            ));
         }
 
         if (opts.getReadOnlyServiceDisruptor() == null) {
@@ -261,7 +267,9 @@ public class JraftServerImpl implements RaftServer {
                     NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-ReadOnlyService-Disruptor"),
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     ReadIndexEvent::new,
-                    opts.getStripes()));
+                    opts.getStripes(),
+                    false
+            ));
         }
 
         if (opts.getLogManagerDisruptor() == null) {
@@ -269,7 +277,11 @@ public class JraftServerImpl implements RaftServer {
                     NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-LogManager-Disruptor"),
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     StableClosureEvent::new,
-                    opts.getStripes()));
+                    opts.getStripes(),
+                    true
+            ));
+
+            opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));
         }
 
         logStorageFactory.start();
@@ -600,7 +612,7 @@ public class JraftServerImpl implements RaftServer {
                         @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) iter.done();
                         ByteBuffer data = iter.getData();
 
-                        WriteCommand command = done == null ? marshaller.unmarshall(data.array()) : done.command();
+                        WriteCommand command = done == null ? marshaller.unmarshall(data) : done.command();
 
                         long commandIndex = iter.getIndex();
                         long commandTerm = iter.getTerm();

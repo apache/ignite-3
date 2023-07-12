@@ -30,7 +30,7 @@ namespace Apache.Ignite.Network
         string Id { get; }
 
         /// <summary>
-        /// Gets the unique name of the cluster member. Does not change after node restart.
+        /// Gets the unique name (consistent id) of the cluster member. Does not change after node restart.
         /// </summary>
         string Name { get; }
 

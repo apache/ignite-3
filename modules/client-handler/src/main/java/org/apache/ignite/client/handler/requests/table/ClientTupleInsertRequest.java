@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
@@ -46,13 +46,14 @@ public class ClientTupleInsertRequest {
             IgniteTables tables,
             ClientResourceRegistry resources
     ) {
-        var table = readTable(in, tables);
-        var tx = readTx(in, resources);
-        var tuple = readTuple(in, table, false);
+        return readTableAsync(in, tables).thenCompose(table -> {
+            var tx = readTx(in, resources);
+            var tuple = readTuple(in, table, false);
 
-        return table.recordView().insertAsync(tx, tuple).thenAccept(res -> {
-            out.packInt(table.schemaView().lastSchemaVersion());
-            out.packBoolean(res);
+            return table.recordView().insertAsync(tx, tuple).thenAccept(res -> {
+                out.packInt(table.schemaView().lastSchemaVersion());
+                out.packBoolean(res);
+            });
         });
     }
 }

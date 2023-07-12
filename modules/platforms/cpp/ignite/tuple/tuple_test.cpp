@@ -26,51 +26,49 @@
 #include <tuple>
 #include <type_traits>
 #include <vector>
+#include <optional>
 
 using namespace std::string_literals;
 using namespace ignite;
 
-/** Binary value for a potentially nullable column. */
-using value_view = std::optional<bytes_view>;
-
 /** A set of binary values for a whole or partial row. */
-using tuple_view = std::vector<value_view>;
+using tuple_view = std::vector<bytes_view>;
 
 template<typename T>
-T get_value(value_view data) {
+T get_value(bytes_view data) {
     T res;
     if constexpr (std::is_same<T, std::int8_t>::value) {
-        res = binary_tuple_parser::get_int8(data.value());
+        res = binary_tuple_parser::get_int8(data);
     } else if constexpr (std::is_same<T, std::int16_t>::value) {
-        res = binary_tuple_parser::get_int16(data.value());
+        res = binary_tuple_parser::get_int16(data);
     } else if constexpr (std::is_same<T, std::int32_t>::value) {
-        res = binary_tuple_parser::get_int32(data.value());
+        res = binary_tuple_parser::get_int32(data);
     } else if constexpr (std::is_same<T, std::int64_t>::value) {
-        res = binary_tuple_parser::get_int64(data.value());
+        res = binary_tuple_parser::get_int64(data);
     } else if constexpr (std::is_same<T, float>::value) {
-        res = binary_tuple_parser::get_float(data.value());
+        res = binary_tuple_parser::get_float(data);
     } else if constexpr (std::is_same<T, double>::value) {
-        res = binary_tuple_parser::get_double(data.value());
+        res = binary_tuple_parser::get_double(data);
     } else if constexpr (std::is_same<T, big_integer>::value) {
-        res = binary_tuple_parser::get_number(data.value());
+        res = binary_tuple_parser::get_number(data);
     } else if constexpr (std::is_same<T, ignite_date>::value) {
-        res = binary_tuple_parser::get_date(data.value());
+        res = binary_tuple_parser::get_date(data);
     } else if constexpr (std::is_same<T, ignite_time>::value) {
-        res = binary_tuple_parser::get_time(data.value());
+        res = binary_tuple_parser::get_time(data);
     } else if constexpr (std::is_same<T, ignite_date_time>::value) {
-        res = binary_tuple_parser::get_date_time(data.value());
+        res = binary_tuple_parser::get_date_time(data);
     } else if constexpr (std::is_same<T, ignite_timestamp>::value) {
-        res = binary_tuple_parser::get_timestamp(data.value());
+        res = binary_tuple_parser::get_timestamp(data);
     } else if constexpr (std::is_same<T, uuid>::value) {
-        res = binary_tuple_parser::get_uuid(data.value());
+        res = binary_tuple_parser::get_uuid(data);
     } else if constexpr (std::is_same<T, std::string>::value) {
-        res = {reinterpret_cast<const char *>(data->data()), data->size()};
+        res = std::string(binary_tuple_parser::get_varlen(data));
     }
     return res;
 }
 
-big_decimal get_decimal(value_view data, int32_t scale) {
-    return binary_tuple_parser::get_decimal(data.value(), scale);
+big_decimal get_decimal(bytes_view data, int32_t scale) {
+    return binary_tuple_parser::get_decimal(data, scale);
 }
 
 struct builder : binary_tuple_builder {
@@ -79,7 +77,7 @@ struct builder : binary_tuple_builder {
     template<typename T>
     void claim_value(const T &value) {
         if constexpr (std::is_same<T, std::nullopt_t>::value) {
-            claim(value);
+            claim_null();
         } else if constexpr (std::is_same<T, std::int8_t>::value) {
             claim_int8(value);
         } else if constexpr (std::is_same<T, std::int16_t>::value) {
@@ -93,14 +91,14 @@ struct builder : binary_tuple_builder {
         } else if constexpr (std::is_same<T, double>::value) {
             claim_double(value);
         } else if constexpr (std::is_same<T, std::string>::value) {
-            claim_string(value);
+            claim_varlen(value);
         }
     }
 
     template<typename T>
     void append_value(const T &value) {
         if constexpr (std::is_same<T, std::nullopt_t>::value) {
-            append(value);
+            append_null();
         } else if constexpr (std::is_same<T, std::int8_t>::value) {
             append_int8(value);
         } else if constexpr (std::is_same<T, std::int16_t>::value) {
@@ -114,7 +112,7 @@ struct builder : binary_tuple_builder {
         } else if constexpr (std::is_same<T, double>::value) {
             append_double(value);
         } else if constexpr (std::is_same<T, std::string>::value) {
-            append_string(value);
+            append_varlen(value);
         }
     }
 
@@ -167,7 +165,7 @@ struct single_value_check {
         EXPECT_EQ(value, get_value<T>(parser.get_next()));
     }
 
-    void operator()(std::nullopt_t /*null*/) { EXPECT_FALSE(parser.get_next()); }
+    void operator()(std::nullopt_t /*null*/) { EXPECT_TRUE(parser.get_next().empty()); }
 };
 
 template<typename... Ts, int size>
@@ -228,9 +226,9 @@ TEST(tuple, AllTypes) {
     tb.claim_time(v10);
     tb.claim_date_time(v11);
     tb.claim_timestamp(v12);
-    tb.claim_string(v13);
+    tb.claim_varlen(v13);
     tb.claim_uuid(v14);
-    tb.claim_bytes(v15);
+    tb.claim_varlen(v15);
 
     tb.layout();
 
@@ -246,9 +244,9 @@ TEST(tuple, AllTypes) {
     tb.append_time(v10);
     tb.append_date_time(v11);
     tb.append_timestamp(v12);
-    tb.append_string(v13);
+    tb.append_varlen(v13);
     tb.append_uuid(v14);
-    tb.append_bytes(v15);
+    tb.append_varlen(v15);
 
     const std::vector<std::byte> &binary_tuple = tb.build();
     binary_tuple_parser tp(NUM_ELEMENTS, binary_tuple);
@@ -274,17 +272,17 @@ TEST(tuple, TwoFixedValues) { // NOLINT(cert-err58-cpp)
     {
         auto values = std::make_tuple<int32_t, int32_t>(33, -71);
 
-        int8_t data[] = {0, 1, 2, 33, -71};
+        int8_t binary[] = {0, 1, 2, 33, -71};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     {
         auto values = std::make_tuple(int32_t{77}, std::nullopt);
 
-        int8_t data[] = {4, 2, 1, 1, 77};
+        int8_t binary[] = {0, 1, 1, 77};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 }
 
@@ -292,55 +290,93 @@ TEST(tuple, FixedAndVarlenValue) { // NOLINT(cert-err58-cpp)
     {
         auto values = std::make_tuple(int16_t{-33}, std::string{"val"});
 
-        int8_t data[] = {0, 1, 4, -33, 118, 97, 108};
+        int8_t binary[] = {0, 1, 4, -33, 118, 97, 108};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     {
         auto values = std::make_tuple(int16_t{33}, std::nullopt);
 
-        int8_t data[] = {4, 2, 1, 1, 33};
+        int8_t binary[] = {0, 1, 1, 33};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 }
 
 TEST(tuple, TwoVarlenValues) { // NOLINT(cert-err58-cpp)
     // With key and value.
     {
-        auto values = std::make_tuple(std::string{"key"}, std::string{"val"});
+        auto values = std::make_tuple("key"s, "val"s);
 
-        int8_t data[] = {0, 3, 6, 107, 101, 121, 118, 97, 108};
+        int8_t binary[] = {0, 3, 6, 107, 101, 121, 118, 97, 108};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     // Null key.
     {
-        auto values = std::make_tuple(std::nullopt, std::string{"val"});
+        auto values = std::make_tuple(std::nullopt, "val"s);
 
-        int8_t data[] = {4, 1, 0, 3, 118, 97, 108};
+        int8_t binary[] = {0, 0, 3, 118, 97, 108};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     // Null value.
     {
-        auto values = std::make_tuple(std::string{"key"}, std::nullopt);
+        auto values = std::make_tuple("key"s, std::nullopt);
 
-        int8_t data[] = {4, 2, 3, 3, 107, 101, 121};
+        int8_t binary[] = {0, 3, 3, 107, 101, 121};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     // Null both.
     {
         auto values = std::make_tuple(std::nullopt, std::nullopt);
 
-        int8_t data[] = {4, 3, 0, 0};
+        int8_t binary[] = {0, 0, 0};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
+    }
+}
+
+TEST(tuple, VarlenEmptyEscape) {
+    // Empty value.
+    {
+        auto values = std::make_tuple("key"s, ""s);
+
+        int8_t binary[] = {0, 3, 4, 107, 101, 121, -128};
+
+        check_reader_writer_equality(values, binary);
+    }
+
+    // Normal non-empty value.
+    {
+        auto values = std::make_tuple("key"s, "\xff"s);
+
+        int8_t binary[] = {0, 3, 4, 107, 101, 121, -1};
+
+        check_reader_writer_equality(values, binary);
+    }
+
+    // Clashing non-empty value.
+    {
+        auto values = std::make_tuple("key"s, "\x80"s);
+
+        int8_t binary[] = {0, 3, 5, 107, 101, 121, -128, -128};
+
+        check_reader_writer_equality(values, binary);
+    }
+
+    // Another clashing non-empty value.
+    {
+        auto values = std::make_tuple("key"s, "\x80\xff"s);
+
+        int8_t binary[] = {0, 3, 6, 107, 101, 121, -128, -128, -1};
+
+        check_reader_writer_equality(values, binary);
     }
 }
 
@@ -349,18 +385,18 @@ TEST(tuple, FourMixedValues) { // NOLINT(cert-err58-cpp)
     {
         auto values = std::make_tuple(int16_t{33}, std::string{"keystr"}, int32_t{73}, std::string{"valstr"});
 
-        int8_t data[] = {0, 1, 7, 8, 14, 33, 107, 101, 121, 115, 116, 114, 73, 118, 97, 108, 115, 116, 114};
+        int8_t binary[] = {0, 1, 7, 8, 14, 33, 107, 101, 121, 115, 116, 114, 73, 118, 97, 108, 115, 116, 114};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     // Null value.
     {
         auto values = std::make_tuple(int16_t{33}, std::string{"keystr2"}, std::nullopt, std::nullopt);
 
-        int8_t data[] = {4, 12, 1, 8, 8, 8, 33, 107, 101, 121, 115, 116, 114, 50};
+        int8_t binary[] = {0, 1, 8, 8, 8, 33, 107, 101, 121, 115, 116, 114, 50};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 }
 
@@ -369,27 +405,27 @@ TEST(tuple, FixedNullableColumns) { // NOLINT(cert-err58-cpp)
     {
         auto values = std::make_tuple(int8_t{11}, int16_t{22}, std::nullopt, int8_t{-44}, int16_t{-66}, std::nullopt);
 
-        int8_t data[] = {4, 36, 1, 2, 2, 3, 4, 4, 11, 22, -44, -66};
+        int8_t binary[] = {0, 1, 2, 2, 3, 4, 4, 11, 22, -44, -66};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     // First column null.
     {
         auto values = std::make_tuple(std::nullopt, int16_t{22}, int32_t{33}, std::nullopt, int16_t{-55}, int32_t{-66});
 
-        int8_t data[] = {4, 9, 0, 1, 2, 2, 3, 4, 22, 33, -55, -66};
+        int8_t binary[] = {0, 0, 1, 2, 2, 3, 4, 22, 33, -55, -66};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     // Middle column null.
     {
         auto values = std::make_tuple(int8_t{11}, std::nullopt, int32_t{33}, int8_t{-44}, std::nullopt, int32_t{-66});
 
-        int8_t data[] = {4, 18, 1, 1, 2, 3, 3, 4, 11, 33, -44, -66};
+        int8_t binary[] = {0, 1, 1, 2, 3, 3, 4, 11, 33, -44, -66};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     // All columns null.
@@ -397,9 +433,9 @@ TEST(tuple, FixedNullableColumns) { // NOLINT(cert-err58-cpp)
         auto values =
             std::make_tuple(std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
 
-        int8_t data[] = {4, 63, 0, 0, 0, 0, 0, 0};
+        int8_t binary[] = {0, 0, 0, 0, 0, 0, 0};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 }
 
@@ -408,30 +444,30 @@ TEST(tuple, VarlenNullableColumns) { // NOLINT(cert-err58-cpp)
     {
         auto values = std::make_tuple("abc"s, "ascii"s, std::nullopt, "yz"s, "我愛Java"s, std::nullopt);
 
-        int8_t data[] = {4, 36, 3, 8, 8, 10, 20, 20, 97, 98, 99, 97, 115, 99, 105, 105, 121, 122, -26, -120, -111, -26,
+        int8_t binary[] = {0, 3, 8, 8, 10, 20, 20, 97, 98, 99, 97, 115, 99, 105, 105, 121, 122, -26, -120, -111, -26,
             -124, -101, 74, 97, 118, 97};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     // First column null.
     {
         auto values = std::make_tuple(std::nullopt, "ascii"s, "我愛Java"s, std::nullopt, "我愛Java"s, "ascii"s);
 
-        int8_t data[] = {4, 9, 0, 5, 15, 15, 25, 30, 97, 115, 99, 105, 105, -26, -120, -111, -26, -124, -101, 74, 97,
+        int8_t binary[] = {0, 0, 5, 15, 15, 25, 30, 97, 115, 99, 105, 105, -26, -120, -111, -26, -124, -101, 74, 97,
             118, 97, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 97, 115, 99, 105, 105};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     // Middle column null.
     {
         auto values = std::make_tuple("abc"s, std::nullopt, "我愛Java"s, "yz"s, std::nullopt, "ascii"s);
 
-        int8_t data[] = {4, 18, 3, 3, 13, 15, 15, 20, 97, 98, 99, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
-            121, 122, 97, 115, 99, 105, 105};
+        int8_t binary[] = {0, 3, 3, 13, 15, 15, 20, 97, 98, 99, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 121,
+            122, 97, 115, 99, 105, 105};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     // All columns null.
@@ -439,9 +475,9 @@ TEST(tuple, VarlenNullableColumns) { // NOLINT(cert-err58-cpp)
         auto values =
             std::make_tuple(std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
 
-        int8_t data[] = {4, 63, 0, 0, 0, 0, 0, 0};
+        int8_t binary[] = {0, 0, 0, 0, 0, 0, 0};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 }
 
@@ -451,9 +487,9 @@ TEST(tuple, FixedAndVarlenNullableColumns) { // NOLINT(cert-err58-cpp)
         auto values = std::make_tuple(
             int8_t{11}, int16_t{22}, std::nullopt, std::nullopt, std::nullopt, std::nullopt, "yz"s, "ascii"s);
 
-        int8_t data[] = {4, 60, 1, 2, 2, 2, 2, 2, 4, 9, 11, 22, 121, 122, 97, 115, 99, 105, 105};
+        int8_t binary[] = {0, 1, 2, 2, 2, 2, 2, 4, 9, 11, 22, 121, 122, 97, 115, 99, 105, 105};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     // Check null/non-null single fixed.
@@ -461,10 +497,10 @@ TEST(tuple, FixedAndVarlenNullableColumns) { // NOLINT(cert-err58-cpp)
         auto values =
             std::make_tuple(std::nullopt, int16_t{22}, "ab"s, "我愛Java"s, int8_t{55}, std::nullopt, "yz"s, "ascii"s);
 
-        int8_t data[] = {4, 33, 0, 1, 3, 13, 14, 14, 16, 21, 22, 97, 98, -26, -120, -111, -26, -124, -101, 74, 97, 118,
+        int8_t binary[] = {0, 0, 1, 3, 13, 14, 14, 16, 21, 22, 97, 98, -26, -120, -111, -26, -124, -101, 74, 97, 118,
             97, 55, 121, 122, 97, 115, 99, 105, 105};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     // Check null/non-null single varlen.
@@ -472,10 +508,10 @@ TEST(tuple, FixedAndVarlenNullableColumns) { // NOLINT(cert-err58-cpp)
         auto values = std::make_tuple(
             int8_t{11}, int16_t{22}, std::nullopt, "我愛Java"s, int8_t{55}, int16_t{66}, "yz"s, std::nullopt);
 
-        int8_t data[] = {4, -124, 1, 2, 2, 12, 13, 14, 16, 16, 11, 22, -26, -120, -111, -26, -124, -101, 74, 97, 118,
-            97, 55, 66, 121, 122};
+        int8_t binary[] = {0, 1, 2, 2, 12, 13, 14, 16, 16, 11, 22, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
+            55, 66, 121, 122};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     // Check null/non-null mixed.
@@ -483,10 +519,10 @@ TEST(tuple, FixedAndVarlenNullableColumns) { // NOLINT(cert-err58-cpp)
         auto values = std::make_tuple(
             int8_t{11}, std::nullopt, std::nullopt, "我愛Java"s, std::nullopt, int16_t{22}, "yz"s, std::nullopt);
 
-        int8_t data[] = {
-            4, -106, 1, 1, 1, 11, 11, 12, 14, 14, 11, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 22, 121, 122};
+        int8_t binary[] = {
+            0, 1, 1, 1, 11, 11, 12, 14, 14, 11, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 22, 121, 122};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     // Check all null/non-null.
@@ -494,10 +530,10 @@ TEST(tuple, FixedAndVarlenNullableColumns) { // NOLINT(cert-err58-cpp)
         auto values = std::make_tuple(
             int8_t{11}, int16_t{22}, "ab"s, "我愛Java"s, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
 
-        int8_t data[] = {
-            4, -16, 1, 2, 4, 14, 14, 14, 14, 14, 11, 22, 97, 98, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97};
+        int8_t binary[] = {
+            0, 1, 2, 4, 14, 14, 14, 14, 14, 11, 22, 97, 98, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 }
 
@@ -506,100 +542,96 @@ TEST(tuple, ZeroLengthVarlen) { // NOLINT(cert-err58-cpp)
     {
         auto values = std::make_tuple(int32_t{0}, ""s);
 
-        int8_t data[] = {0, 0, 0};
+        int8_t binary[] = {0, 1, 2, 0, -128};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     // Two zero-length vectors of bytes.
     {
         auto values = std::make_tuple(int32_t{0}, ""s, ""s);
 
-        int8_t data[] = {0, 0, 0, 0};
+        int8_t binary[] = {0, 1, 2, 3, 0, -128, -128};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 
     // Two zero-length vectors of bytes and single integer value.
     {
         auto values = std::make_tuple(int32_t{0}, int32_t{123}, ""s, ""s);
 
-        int8_t data[] = {0, 0, 1, 1, 1, 123};
+        int8_t binary[] = {0, 1, 2, 3, 4, 0, 123, -128, -128};
 
-        check_reader_writer_equality(values, data);
+        check_reader_writer_equality(values, binary);
     }
 }
 
 TEST(tuple, SingleVarlen) { // NOLINT(cert-err58-cpp)
     auto values = std::make_tuple(int32_t{0}, "\1\2\3"s);
 
-    int8_t data[] = {0, 0, 3, 1, 2, 3};
+    int8_t binary[] = {0, 1, 4, 0, 1, 2, 3};
 
-    check_reader_writer_equality(values, data);
+    check_reader_writer_equality(values, binary);
 }
 
 TEST(tuple, TinyVarlenFormatOverflowLarge) { // NOLINT(cert-err58-cpp)
     static constexpr tuple_num_t NUM_ELEMENTS = 301;
 
-    // Flags - 1 zero byte
-    // Varlen table - 1 byte for key column + 300 bytes for value columns
-    // Key - 4 zero bytes for int32 zero.
-    std::vector<std::byte> reference(306);
-    std::fill(reference.begin() + 1, reference.end() - 4, std::byte{4});
+    // Flags - 1 zero byte;
+    // Varlen table - 1 byte for key column + 300 bytes for value columns;
+    // Key - 1 zero byte.
+    std::vector<std::byte> reference(303);
+    std::fill(reference.begin() + 1, reference.end() - 1, std::byte{1});
 
     binary_tuple_parser tp(NUM_ELEMENTS, {reinterpret_cast<std::byte *>(reference.data()), reference.size()});
 
     auto first = tp.get_next();
-    EXPECT_TRUE(first.has_value());
-    EXPECT_EQ(0, get_value<int32_t>(first.value()));
+    EXPECT_EQ(1, first.size());
+    EXPECT_EQ(0, get_value<int8_t>(first));
 
     for (int i = 1; i < NUM_ELEMENTS; i++) {
         auto next = tp.get_next();
-        EXPECT_TRUE(next.has_value());
-        EXPECT_EQ(0, next.value().size());
+        EXPECT_TRUE(next.empty());
     }
 }
 
 TEST(tuple, TinyVarlenFormatOverflowMedium) { // NOLINT(cert-err58-cpp)
     static constexpr tuple_num_t NUM_ELEMENTS = 301;
 
-    // Flags - 1 zero byte
-    // Varlen table - 301 bytes
-    // Key - 4 zero bytes for int32 zero.
-    // Varlen values - 3 bytes
-    std::vector<int8_t> reference(309);
-    // Vartable, offsets in medium format - Short per offset.
-    reference[1] = 4;
-    reference[2] = 5;
-    reference[3] = 6;
-    reference[4] = 7;
+    // Flags - 1 zero byte;
+    // Varlen table - 301 bytes;
+    // Key - 1 zero byte;
+    // Varlen values - 3 bytes.
+    std::vector<int8_t> reference(306);
+    reference[1] = 1;
+    reference[2] = 2;
+    reference[3] = 3;
+    reference[4] = 4;
 
     // Offsets for zero-length arrays.
     for (int i = 0; i < 300 - 3; i++) {
-        reference[5 + i] = 7;
+        reference[5 + i] = 4;
     }
 
     // Non-empty arrays:
-    reference[306] = 1;
-    reference[307] = 2;
-    reference[308] = 3;
+    reference[303] = 1;
+    reference[304] = 2;
+    reference[305] = 3;
 
     binary_tuple_parser tp(NUM_ELEMENTS, {reinterpret_cast<std::byte *>(reference.data()), reference.size()});
 
     auto first = tp.get_next();
-    EXPECT_TRUE(first.has_value());
-    EXPECT_EQ(0, get_value<int32_t>(first.value()));
+    EXPECT_EQ(1, first.size());
+    EXPECT_EQ(0, get_value<int8_t>(first));
 
     for (int i = 1; i <= 3; i++) {
         auto next = tp.get_next();
-        EXPECT_TRUE(next.has_value());
-        EXPECT_EQ(1, next->size());
-        EXPECT_EQ(i, get_value<int8_t>(next.value()));
+        EXPECT_EQ(1, next.size());
+        EXPECT_EQ(i, get_value<int8_t>(next));
     }
     for (tuple_num_t i = 4; i < NUM_ELEMENTS; i++) {
         auto next = tp.get_next();
-        EXPECT_TRUE(next.has_value());
-        EXPECT_EQ(0, next.value().size());
+        EXPECT_EQ(0, next.size());
     }
 }
 
@@ -608,7 +640,7 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
     static constexpr tuple_num_t NUM_ELEMENTS = 7;
 
     // clang-format off
-    std::vector<int8_t> referenceTiny {
+    std::vector<int8_t> binary_tiny {
         // Flags.
         0,
         // Offsets for values.
@@ -625,23 +657,21 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
         97, 98, 99};
     // clang-format on
 
-    tuple_view tiny = parser(NUM_ELEMENTS, referenceTiny).parse();
+    tuple_view tiny = parser(NUM_ELEMENTS, binary_tiny).parse();
 
-    EXPECT_TRUE(tiny[0].has_value());
-    EXPECT_EQ(0, get_value<int32_t>(tiny[0].value()));
+    EXPECT_EQ(4, tiny[0].size());
+    EXPECT_EQ(0, get_value<int32_t>(tiny[0]));
 
-    EXPECT_TRUE(tiny[1].has_value());
-    EXPECT_EQ(1, get_value<int32_t>(tiny[1].value()));
+    EXPECT_EQ(4, tiny[1].size());
+    EXPECT_EQ(1, get_value<int32_t>(tiny[1]));
 
-    EXPECT_TRUE(tiny[2].has_value());
-    EXPECT_EQ(2, get_value<int32_t>(tiny[2].value()));
+    EXPECT_EQ(4, tiny[2].size());
+    EXPECT_EQ(2, get_value<int32_t>(tiny[2]));
 
-    EXPECT_TRUE(tiny[3].has_value());
-    EXPECT_EQ(3, get_value<int32_t>(tiny[3].value()));
+    EXPECT_EQ(4, tiny[3].size());
+    EXPECT_EQ(3, get_value<int32_t>(tiny[3]));
 
-    EXPECT_TRUE(tiny[4].has_value());
-    bytes_view varlen = tiny[4].value();
-
+    bytes_view varlen = tiny[4];
     EXPECT_EQ(5, varlen.size());
     EXPECT_EQ(1, std::to_integer<int>(varlen[0]));
     EXPECT_EQ(2, std::to_integer<int>(varlen[1]));
@@ -649,34 +679,32 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
     EXPECT_EQ(4, std::to_integer<int>(varlen[3]));
     EXPECT_EQ(5, std::to_integer<int>(varlen[4]));
 
-    EXPECT_TRUE(tiny[5].has_value());
-    varlen = tiny[5].value();
-
+    varlen = tiny[5];
     EXPECT_EQ(3, varlen.size());
     EXPECT_EQ(1, std::to_integer<int>(varlen[0]));
     EXPECT_EQ(2, std::to_integer<int>(varlen[1]));
     EXPECT_EQ(3, std::to_integer<int>(varlen[2]));
 
-    EXPECT_TRUE(tiny[6].has_value());
-    varlen = tiny[6].value();
-    std::string str(reinterpret_cast<const char *>(varlen.data()), varlen.size());
+    varlen = tiny[6];
+    EXPECT_EQ(3, varlen.size());
+    std::string str(varlen);
     EXPECT_EQ("abc", str);
 
     // Make data that doesn't fit to tiny format tuple but fits to medium format tuple.
-    std::vector<int8_t> mediumArray(256 * 2);
-    for (size_t i = 0; i < mediumArray.size(); i++) {
-        mediumArray[i] = (int8_t) ((i * 127) % 256);
+    std::vector<int8_t> medium_value(256 * 2);
+    for (size_t i = 0; i < medium_value.size(); i++) {
+        medium_value[i] = (int8_t) ((i * 127) % 256);
     }
 
     // Construct reference tuple binary independently of tuple assembler.
     // clang-format off
-    std::vector<int8_t> referenceMedium {
+    std::vector<int8_t> binary_medium {
         // Flags.
         1,
         // Offsets for values.
         4, 0, 8, 0, 12, 0, 16, 0, 21, 0,
-        int8_t(21 + mediumArray.size()), int8_t((21 + mediumArray.size()) >> 8),
-        int8_t(24 + mediumArray.size()), int8_t((24 + mediumArray.size()) >> 8),
+        int8_t(21 + medium_value.size()), int8_t((21 + medium_value.size()) >> 8),
+        int8_t(24 + medium_value.size()), int8_t((24 + medium_value.size()) >> 8),
         // Key - integer zero.
         0, 0, 0, 0,
         // Integer values - 1, 2, 3.
@@ -689,25 +717,23 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
     // clang-format on
 
     // Copy varlen array that does not fit to tiny format.
-    referenceMedium.insert(referenceMedium.end() - 3, mediumArray.begin(), mediumArray.end());
+    binary_medium.insert(binary_medium.end() - 3, medium_value.begin(), medium_value.end());
 
-    tuple_view medium = parser(NUM_ELEMENTS, referenceMedium).parse();
+    tuple_view medium = parser(NUM_ELEMENTS, binary_medium).parse();
 
-    EXPECT_TRUE(medium[0].has_value());
-    EXPECT_EQ(0, get_value<int32_t>(medium[0].value()));
+    EXPECT_EQ(4, medium[0].size());
+    EXPECT_EQ(0, get_value<int32_t>(medium[0]));
 
-    EXPECT_TRUE(medium[1].has_value());
-    EXPECT_EQ(1, get_value<int32_t>(medium[1].value()));
+    EXPECT_EQ(4, medium[1].size());
+    EXPECT_EQ(1, get_value<int32_t>(medium[1]));
 
-    EXPECT_TRUE(medium[2].has_value());
-    EXPECT_EQ(2, get_value<int32_t>(medium[2].value()));
+    EXPECT_EQ(4, medium[2].size());
+    EXPECT_EQ(2, get_value<int32_t>(medium[2]));
 
-    EXPECT_TRUE(medium[3].has_value());
-    EXPECT_EQ(3, get_value<int32_t>(medium[3].value()));
+    EXPECT_EQ(4, medium[3].size());
+    EXPECT_EQ(3, get_value<int32_t>(medium[3]));
 
-    EXPECT_TRUE(medium[4].has_value());
-    varlen = medium[4].value();
-
+    varlen = medium[4];
     EXPECT_EQ(5, varlen.size());
     EXPECT_EQ(1, std::to_integer<int>(varlen[0]));
     EXPECT_EQ(2, std::to_integer<int>(varlen[1]));
@@ -715,35 +741,32 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
     EXPECT_EQ(4, std::to_integer<int>(varlen[3]));
     EXPECT_EQ(5, std::to_integer<int>(varlen[4]));
 
-    EXPECT_TRUE(medium[5].has_value());
-    varlen = medium[5].value();
-
-    EXPECT_TRUE(mediumArray
+    varlen = medium[5];
+    EXPECT_TRUE(medium_value
         == std::vector<int8_t>(reinterpret_cast<const int8_t *>(varlen.data()),
             reinterpret_cast<const int8_t *>(varlen.data() + varlen.size())));
 
-    EXPECT_TRUE(medium[6].has_value());
-    varlen = medium[6].value();
-    str = std::string(reinterpret_cast<const char *>(varlen.data()), varlen.size());
+    varlen = medium[6];
+    str = std::string(varlen);
     EXPECT_EQ("abc", str);
 
     // Make data that doesn't fit to medium format tuple but fits to large format tuple.
-    std::vector<int8_t> largeArray(64 * 2 * 1024);
-    for (size_t i = 0; i < largeArray.size(); i++) {
-        largeArray[i] = (int8_t) ((i * 127) % 256);
+    std::vector<int8_t> large_value(64 * 2 * 1024);
+    for (size_t i = 0; i < large_value.size(); i++) {
+        large_value[i] = (int8_t) ((i * 127) % 256);
     }
 
     // Construct reference tuple binary independently of tuple assembler.
     // clang-format off
-    std::vector<int8_t> referenceLarge {
+    std::vector<int8_t> binary_large {
         // Flags.
         2,
         // Offsets for values.
         4, 0, 0, 0, 8, 0, 0, 0, 12, 0, 0, 0, 16, 0, 0, 0, 21, 0, 0, 0,
-        int8_t(21 + largeArray.size()), int8_t((21 + largeArray.size()) >> 8),
-        int8_t((21 + largeArray.size()) >> 16), int8_t((21 + largeArray.size()) >> 24),
-        int8_t(24 + largeArray.size()), int8_t((24 + largeArray.size()) >> 8),
-        int8_t((24 + largeArray.size()) >> 16), int8_t((24 + largeArray.size()) >> 24),
+        int8_t(21 + large_value.size()), int8_t((21 + large_value.size()) >> 8),
+        int8_t((21 + large_value.size()) >> 16), int8_t((21 + large_value.size()) >> 24),
+        int8_t(24 + large_value.size()), int8_t((24 + large_value.size()) >> 8),
+        int8_t((24 + large_value.size()) >> 16), int8_t((24 + large_value.size()) >> 24),
         // Key - integer zero.
         0, 0, 0, 0,
         // Integer values - 1, 2, 3.
@@ -756,25 +779,23 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
     // clang-format on
 
     // Copy varlen array that does not fit to tiny and medium format.
-    referenceLarge.insert(referenceLarge.end() - 3, largeArray.begin(), largeArray.end());
+    binary_large.insert(binary_large.end() - 3, large_value.begin(), large_value.end());
 
-    tuple_view large = parser(NUM_ELEMENTS, referenceLarge).parse();
+    tuple_view large = parser(NUM_ELEMENTS, binary_large).parse();
 
-    EXPECT_TRUE(large[0].has_value());
-    EXPECT_EQ(0, get_value<int32_t>(large[0].value()));
+    EXPECT_EQ(4, large[0].size());
+    EXPECT_EQ(0, get_value<int32_t>(large[0]));
 
-    EXPECT_TRUE(large[1].has_value());
-    EXPECT_EQ(1, get_value<int32_t>(large[1].value()));
+    EXPECT_EQ(4, large[1].size());
+    EXPECT_EQ(1, get_value<int32_t>(large[1]));
 
-    EXPECT_TRUE(large[2].has_value());
-    EXPECT_EQ(2, get_value<int32_t>(large[2].value()));
+    EXPECT_EQ(4, large[2].size());
+    EXPECT_EQ(2, get_value<int32_t>(large[2]));
 
-    EXPECT_TRUE(large[3].has_value());
-    EXPECT_EQ(3, get_value<int32_t>(large[3].value()));
+    EXPECT_EQ(4, large[3].size());
+    EXPECT_EQ(3, get_value<int32_t>(large[3]));
 
-    EXPECT_TRUE(large[4].has_value());
-    varlen = large[4].value();
-
+    varlen = large[4];
     EXPECT_EQ(5, varlen.size());
     EXPECT_EQ(1, std::to_integer<int>(varlen[0]));
     EXPECT_EQ(2, std::to_integer<int>(varlen[1]));
@@ -782,16 +803,13 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
     EXPECT_EQ(4, std::to_integer<int>(varlen[3]));
     EXPECT_EQ(5, std::to_integer<int>(varlen[4]));
 
-    EXPECT_TRUE(large[5].has_value());
-    varlen = large[5].value();
-
-    EXPECT_TRUE(largeArray
+    varlen = large[5];
+    EXPECT_TRUE(large_value
         == std::vector<int8_t>(reinterpret_cast<const int8_t *>(varlen.data()),
             reinterpret_cast<const int8_t *>(varlen.data() + varlen.size())));
 
-    EXPECT_TRUE(large[6].has_value());
-    varlen = large[6].value();
-    str = std::string(reinterpret_cast<const char *>(varlen.data()), varlen.size());
+    varlen = large[6];
+    str = std::string(varlen);
     EXPECT_EQ("abc", str);
 }
 
@@ -800,18 +818,18 @@ TEST(tuple, StringAfterNull) {
 
     // 101, null, "Bob"
     std::vector<std::byte> tuple;
-    for (int i : {4, 2, 1, 1, 4, 101, 66, 111, 98}) {
+    for (int i : {0, 1, 1, 4, 101, 66, 111, 98}) {
         tuple.push_back(static_cast<std::byte>(i));
     }
 
     binary_tuple_parser tp(NUM_ELEMENTS, tuple);
 
     EXPECT_EQ(101, get_value<int32_t>(tp.get_next()));
-    EXPECT_FALSE(tp.get_next().has_value());
+    EXPECT_TRUE(tp.get_next().empty());
     EXPECT_EQ("Bob", get_value<std::string>(tp.get_next()));
 }
 
-TEST(tuple, EmptyValueTupleAssembler) { // NOLINT(cert-err58-cpp)
+TEST(tuple, SingleValueTupleAssembler) { // NOLINT(cert-err58-cpp)
     static constexpr tuple_num_t NUM_ELEMENTS = 1;
 
     builder ta(NUM_ELEMENTS);
@@ -821,8 +839,8 @@ TEST(tuple, EmptyValueTupleAssembler) { // NOLINT(cert-err58-cpp)
     binary_tuple_parser tp(NUM_ELEMENTS, tuple);
 
     auto slice = tp.get_next();
-    ASSERT_TRUE(slice.has_value());
-    EXPECT_EQ(123, get_value<int32_t>(slice.value()));
+    ASSERT_FALSE(slice.empty());
+    EXPECT_EQ(123, get_value<int32_t>(slice));
 }
 
 TEST(tuple, TupleWriteRead) { // NOLINT(cert-err58-cpp)
@@ -838,7 +856,7 @@ TEST(tuple, TupleWriteRead) { // NOLINT(cert-err58-cpp)
         tb.claim_int8(6);
         tb.claim_int16(7);
         if (nullable) {
-            tb.claim(std::nullopt);
+            tb.claim_null();
         } else {
             tb.claim_int64(8);
         }
@@ -851,7 +869,7 @@ TEST(tuple, TupleWriteRead) { // NOLINT(cert-err58-cpp)
         tb.append_int8(6);
         tb.append_int16(7);
         if (nullable) {
-            tb.append(std::nullopt);
+            tb.append_null();
         } else {
             tb.append_int64(8);
         }
@@ -861,27 +879,27 @@ TEST(tuple, TupleWriteRead) { // NOLINT(cert-err58-cpp)
 
         tuple_view t = parser(NUM_ELEMENTS, tuple).parse();
 
-        ASSERT_TRUE(t[0].has_value());
-        EXPECT_EQ(1234, get_value<int32_t>(t[0].value()));
+        ASSERT_FALSE(t[0].empty());
+        EXPECT_EQ(1234, get_value<int32_t>(t[0]));
 
-        ASSERT_TRUE(t[1].has_value());
-        EXPECT_EQ(5.0, get_value<double>(t[1].value()));
+        ASSERT_FALSE(t[1].empty());
+        EXPECT_EQ(5.0, get_value<double>(t[1]));
 
-        ASSERT_TRUE(t[2].has_value());
-        EXPECT_EQ(6, get_value<int8_t>(t[2].value()));
+        ASSERT_FALSE(t[2].empty());
+        EXPECT_EQ(6, get_value<int8_t>(t[2]));
 
-        ASSERT_TRUE(t[3].has_value());
-        EXPECT_EQ(7, get_value<int16_t>(t[3].value()));
+        ASSERT_FALSE(t[3].empty());
+        EXPECT_EQ(7, get_value<int16_t>(t[3]));
 
         if (nullable) {
-            EXPECT_FALSE(t[4].has_value());
+            EXPECT_TRUE(t[4].empty());
         } else {
-            ASSERT_TRUE(t[4].has_value());
-            EXPECT_EQ(8, get_value<int64_t>(t[4].value()));
+            ASSERT_FALSE(t[4].empty());
+            EXPECT_EQ(8, get_value<int64_t>(t[4]));
         }
 
-        ASSERT_TRUE(t[5].has_value());
-        EXPECT_EQ(9, get_value<int8_t>(t[5].value()));
+        ASSERT_FALSE(t[5].empty());
+        EXPECT_EQ(9, get_value<int8_t>(t[5]));
     }
 }
 
@@ -898,7 +916,7 @@ TEST(tuple, Int8TupleWriteRead) { // NOLINT(cert-err58-cpp)
         tb.claim_int8(2);
         tb.claim_int8(3);
         if (nullable) {
-            tb.claim(std::nullopt);
+            tb.claim_null();
         } else {
             tb.claim_int8(4);
         }
@@ -911,7 +929,7 @@ TEST(tuple, Int8TupleWriteRead) { // NOLINT(cert-err58-cpp)
         tb.append_int8(2);
         tb.append_int8(3);
         if (nullable) {
-            tb.append(std::nullopt);
+            tb.append_null();
         } else {
             tb.append_int8(4);
         }
@@ -921,27 +939,27 @@ TEST(tuple, Int8TupleWriteRead) { // NOLINT(cert-err58-cpp)
 
         tuple_view t = parser(NUM_ELEMENTS, tuple).parse();
 
-        ASSERT_TRUE(t[0].has_value());
-        EXPECT_EQ(0, get_value<int8_t>(t[0].value()));
+        ASSERT_FALSE(t[0].empty());
+        EXPECT_EQ(0, get_value<int8_t>(t[0]));
 
-        ASSERT_TRUE(t[1].has_value());
-        EXPECT_EQ(1, get_value<int8_t>(t[1].value()));
+        ASSERT_FALSE(t[1].empty());
+        EXPECT_EQ(1, get_value<int8_t>(t[1]));
 
-        ASSERT_TRUE(t[2].has_value());
-        EXPECT_EQ(2, get_value<int8_t>(t[2].value()));
+        ASSERT_FALSE(t[2].empty());
+        EXPECT_EQ(2, get_value<int8_t>(t[2]));
 
-        ASSERT_TRUE(t[3].has_value());
-        EXPECT_EQ(3, get_value<int8_t>(t[3].value()));
+        ASSERT_FALSE(t[3].empty());
+        EXPECT_EQ(3, get_value<int8_t>(t[3]));
 
         if (nullable) {
-            EXPECT_FALSE(t[4].has_value());
+            EXPECT_TRUE(t[4].empty());
         } else {
-            ASSERT_TRUE(t[4].has_value());
-            EXPECT_EQ(4, get_value<int8_t>(t[4].value()));
+            ASSERT_FALSE(t[4].empty());
+            EXPECT_EQ(4, get_value<int8_t>(t[4]));
         }
 
-        ASSERT_TRUE(t[5].has_value());
-        EXPECT_EQ(5, get_value<int8_t>(t[5].value()));
+        ASSERT_FALSE(t[5].empty());
+        EXPECT_EQ(5, get_value<int8_t>(t[5]));
     }
 }
 
@@ -959,7 +977,7 @@ TEST(tuple, VarlenLargeTest) { // NOLINT(cert-err58-cpp)
 
         EXPECT_EQ(std::get<0>(values), get_value<std::string>(tp.get_next()));
         EXPECT_EQ(std::get<1>(values), get_value<std::string>(tp.get_next()));
-        EXPECT_FALSE(tp.get_next().has_value());
+        EXPECT_TRUE(tp.get_next().empty());
     }
     {
         auto values = std::make_tuple(std::string(100'000, 'a'), "b"s, "c"s);
@@ -983,7 +1001,7 @@ TEST(tuple, VarlenLargeTest) { // NOLINT(cert-err58-cpp)
 
         binary_tuple_parser tp(NUM_ELEMENTS, tuple);
 
-        EXPECT_FALSE(tp.get_next().has_value());
+        EXPECT_TRUE(tp.get_next().empty());
         EXPECT_EQ(std::get<1>(values), get_value<std::string>(tp.get_next()));
         EXPECT_EQ(std::get<2>(values), get_value<std::string>(tp.get_next()));
     }
@@ -1001,7 +1019,7 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
         std::string value("0123456789");
 
         for (int i = 1; i < NUM_ELEMENTS; i++) {
-            tb.claim_string(value);
+            tb.claim_varlen(value);
         }
 
         tb.layout();
@@ -1009,7 +1027,7 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
         tb.append_int32(100500);
 
         for (int i = 1; i < NUM_ELEMENTS; i++) {
-            tb.append_string(value);
+            tb.append_varlen(value);
         }
 
         bytes_view tuple = tb.build();
@@ -1038,7 +1056,7 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
         }
 
         for (int i = 1; i < NUM_ELEMENTS; i++) {
-            tb.claim_string(value);
+            tb.claim_varlen(value);
         }
 
         tb.layout();
@@ -1046,7 +1064,7 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
         tb.append_int32(100500);
 
         for (int i = 1; i < NUM_ELEMENTS; i++) {
-            tb.append_string(value);
+            tb.append_varlen(value);
         }
 
         bytes_view tuple = tb.build();

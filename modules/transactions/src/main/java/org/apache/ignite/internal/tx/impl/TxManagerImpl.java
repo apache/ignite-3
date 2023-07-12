@@ -19,6 +19,9 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.tx.TxState.ABORTED;
+import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.util.Comparator;
@@ -116,6 +119,7 @@ public class TxManagerImpl implements TxManager {
     public InternalTransaction begin(boolean readOnly) {
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
+        changeState(txId, null, PENDING);
 
         if (!readOnly) {
             return new ReadWriteTransactionImpl(this, txId);
@@ -154,14 +158,17 @@ public class TxManagerImpl implements TxManager {
     }
 
     @Override
-    public boolean changeState(UUID txId, TxState before, TxState after) {
-        return states.compute(txId, (k, v) -> {
+    public void changeState(UUID txId, TxState before, TxState after) {
+        TxState computeResult = states.compute(txId, (k, v) -> {
             if (v == before) {
                 return after;
             } else {
                 return v;
             }
-        }) == after;
+        });
+
+        assert computeResult == after : "Unable to change transaction state, expected = [" + before + "],"
+                + " got = [" + computeResult + "], state to set = [" + after + ']';
     }
 
     @Override
@@ -189,7 +196,7 @@ public class TxManagerImpl implements TxManager {
 
         return replicaService.invoke(recipientNode, req)
                 // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
-                .thenRun(() -> changeState(txId, null, commit ? TxState.COMMITED : TxState.ABORTED));
+                .thenRun(() -> changeState(txId, PENDING, commit ? COMMITED : ABORTED));
     }
 
     @Override
@@ -222,7 +229,12 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public int finished() {
-        return (int) states.entrySet().stream().filter(e -> e.getValue() == TxState.COMMITED || e.getValue() == TxState.ABORTED).count();
+        return (int) states.entrySet().stream().filter(e -> e.getValue() == COMMITED || e.getValue() == ABORTED).count();
+    }
+
+    @Override
+    public int pending() {
+        return (int) states.entrySet().stream().filter(e -> e.getValue() == PENDING).count();
     }
 
     @Override

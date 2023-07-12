@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,7 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -41,20 +40,16 @@ import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
-import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
-import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.IgniteSystemProperties;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -239,34 +234,21 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             ConfigurationTreeGenerator distributedConfigurationGenerator,
             ConfigurationRegistry clusterConfigRegistry
     ) {
-        AtomicLong lastRevision = new AtomicLong();
-
-        Consumer<Long> revisionCallback0 = rev -> {
-            if (revisionCallback != null) {
-                revisionCallback.accept(rev);
-            }
-
-            lastRevision.set(rev);
-        };
-
-        CompletableFuture<Void> configurationCatchUpFuture = RecoveryCompletionFutureFactory.create(
-                clusterCfgMgr,
-                fut -> new TestConfigurationCatchUpListener(cfgStorage, fut, revisionCallback0)
-        );
-
         CompletableFuture<?> startFuture = CompletableFuture.allOf(
                 nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                 clusterConfigRegistry.notifyCurrentConfigurationListeners()
         ).thenCompose(unused ->
                 // Deploy all registered watches because all components are ready and have registered their listeners.
-                CompletableFuture.allOf(metaStorageMgr.deployWatches(), configurationCatchUpFuture)
+                metaStorageMgr.deployWatches()
         );
 
         assertThat("Partial node was not started", startFuture, willCompleteSuccessfully());
 
-        log.info("Completed recovery on partially started node, last revision applied: " + lastRevision.get()
-                + ", acceptableDifference: " + IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100)
-        );
+        Long recoveryRevision = metaStorageMgr.recoveryFinishedFuture().getNow(null);
+
+        assertNotNull(recoveryRevision);
+
+        log.info("Completed recovery on partially started node, MetaStorage revision recovered to: " + recoveryRevision);
 
         return new PartialNode(
                 components,
@@ -331,40 +313,6 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
         public LogicalTopology logicalTopology() {
             return logicalTopology;
-        }
-    }
-
-    /**
-     * Configuration catch-up listener for test.
-     */
-    public static class TestConfigurationCatchUpListener extends ConfigurationCatchUpListener {
-        /** Callback called on revision update. */
-        private final Consumer<Long> revisionCallback;
-
-        /**
-         * Constructor.
-         *
-         * @param cfgStorage Configuration storage.
-         * @param catchUpFuture Catch-up future.
-         */
-        TestConfigurationCatchUpListener(
-                ConfigurationStorage cfgStorage,
-                CompletableFuture<Void> catchUpFuture,
-                Consumer<Long> revisionCallback
-        ) {
-            super(cfgStorage, catchUpFuture, log);
-
-            this.revisionCallback = revisionCallback;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<?> onUpdate(long appliedRevision) {
-            if (revisionCallback != null) {
-                revisionCallback.accept(appliedRevision);
-            }
-
-            return super.onUpdate(appliedRevision);
         }
     }
 }

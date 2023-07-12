@@ -139,7 +139,7 @@ public class Replica {
         return whenReplicaReady;
     }
 
-    private void onLeaderElected(ClusterNode clusterNode, Long term) {
+    private void onLeaderElected(ClusterNode clusterNode, long term) {
         leaderRef.set(clusterNode);
 
         if (!leaderFuture.isDone()) {

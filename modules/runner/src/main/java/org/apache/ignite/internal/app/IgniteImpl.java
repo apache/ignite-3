@@ -87,20 +87,21 @@ import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
 import org.apache.ignite.internal.network.recovery.VaultStateIds;
+import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
-import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
-import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.rest.RestComponent;
@@ -216,7 +217,10 @@ public class IgniteImpl implements Ignite {
     private final Loza raftMgr;
 
     /** Meta storage manager. */
-    private final MetaStorageManager metaStorageMgr;
+    private final MetaStorageManagerImpl metaStorageMgr;
+
+    /** Placement driver manager. */
+    private final PlacementDriverManager placementDriverMgr;
 
     /** Distributed configuration validator. */
     private final ConfigurationValidator distributedConfigurationValidator;
@@ -405,6 +409,13 @@ public class IgniteImpl implements Ignite {
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
 
+        var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                clusterSvc,
+                logicalTopologyService,
+                Loza.FACTORY,
+                raftGroupEventsClientListener
+        );
+
         metaStorageMgr = new MetaStorageManagerImpl(
                 vaultMgr,
                 clusterSvc,
@@ -412,10 +423,11 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 raftMgr,
                 new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH)),
-                clock
+                clock,
+                topologyAwareRaftGroupServiceFactory
         );
 
-        this.cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
+        this.cfgStorage = new DistributedConfigurationStorage(metaStorageMgr);
 
         clusterCfgMgr = new ConfigurationManager(
                 modules.distributed().rootKeys(),
@@ -433,15 +445,23 @@ public class IgniteImpl implements Ignite {
 
         TablesConfiguration tablesConfig = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
-        TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
-                clusterSvc,
-                logicalTopologyService,
-                Loza.FACTORY,
-                raftGroupEventsClientListener
-        );
+        metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageConfiguration.KEY));
 
-        DistributionZonesConfiguration zonesConfiguration = clusterConfigRegistry
-                .getConfiguration(DistributionZonesConfiguration.KEY);
+        DistributionZonesConfiguration zonesConfiguration = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
+
+        placementDriverMgr = new PlacementDriverManager(
+                metaStorageMgr,
+                vaultMgr,
+                MetastorageGroupId.INSTANCE,
+                clusterSvc,
+                cmgMgr::metaStorageNodes,
+                logicalTopologyService,
+                raftMgr,
+                topologyAwareRaftGroupServiceFactory,
+                tablesConfig,
+                zonesConfiguration,
+                clock
+        );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
 
@@ -453,8 +473,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc
         );
 
-        Consumer<LongFunction<CompletableFuture<?>>> registry =
-                c -> clusterConfigRegistry.listenUpdateStorageRevision(c::apply);
+        Consumer<LongFunction<CompletableFuture<?>>> registry = c -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
         DataStorageModules dataStorageModules = new DataStorageModules(
                 ServiceLoader.load(DataStorageModule.class, serviceProviderClassLoader)
@@ -706,15 +725,25 @@ public class IgniteImpl implements Ignite {
             LOG.info("Components started, joining the cluster");
 
             return cmgMgr.joinFuture()
-                    // using the default executor to avoid blocking the CMG Manager threads
+                    .thenComposeAsync(unused -> {
+                        LOG.info("Join complete, starting MetaStorage");
+
+                        try {
+                            lifecycleManager.startComponent(metaStorageMgr);
+                        } catch (NodeStoppingException e) {
+                            throw new CompletionException(e);
+                        }
+
+                        return metaStorageMgr.recoveryFinishedFuture();
+                    }, startupExecutor)
                     .thenRunAsync(() -> {
-                        LOG.info("Join complete, starting the remaining components");
+                        LOG.info("MetaStorage started, starting the remaining components");
 
                         // Start all other components after the join request has completed and the node has been validated.
                         try {
                             lifecycleManager.startComponents(
-                                    metaStorageMgr,
                                     clusterCfgMgr,
+                                    placementDriverMgr,
                                     metricManager,
                                     distributionZoneManager,
                                     computeComponent,
@@ -739,17 +768,7 @@ public class IgniteImpl implements Ignite {
                     .thenComposeAsync(v -> {
                         LOG.info("Components started, performing recovery");
 
-                        // Recovery future must be created before configuration listeners are triggered.
-                        CompletableFuture<?> recoveryFuture = RecoveryCompletionFutureFactory.create(
-                                clusterCfgMgr,
-                                fut -> new ConfigurationCatchUpListener(cfgStorage, fut, LOG)
-                        );
-
-                        return notifyConfigurationListeners()
-                                .thenComposeAsync(t -> {
-                                    // Deploy all registered watches because all components are ready and have registered their listeners.
-                                    return metaStorageMgr.deployWatches().thenCompose(unused -> recoveryFuture);
-                                }, startupExecutor);
+                        return recoverComponentsStateOnStart(startupExecutor);
                     }, startupExecutor)
                     .thenRunAsync(() -> {
                         try {
@@ -956,6 +975,21 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
+     * Recovers components state on start by invoking configuration listeners ({@link #notifyConfigurationListeners()}
+     * and deploying watches after that.
+     */
+    private CompletableFuture<?> recoverComponentsStateOnStart(ExecutorService startupExecutor) {
+        CompletableFuture<Void> startupConfigurationUpdate = notifyConfigurationListeners();
+        CompletableFuture<Void> startupRevisionUpdate = metaStorageMgr.notifyRevisionUpdateListenerOnStart();
+
+        return CompletableFuture.allOf(startupConfigurationUpdate, startupRevisionUpdate)
+                .thenComposeAsync(t -> {
+                    // Deploy all registered watches because all components are ready and have registered their listeners.
+                    return metaStorageMgr.deployWatches();
+                }, startupExecutor);
+    }
+
+    /**
      * Notify all listeners of current configurations.
      */
     private CompletableFuture<Void> notifyConfigurationListeners() {
@@ -1050,5 +1084,15 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public HybridClock clock() {
         return clock;
+    }
+
+    /**
+     * Returns the node's transaction manager.
+     *
+     * @return Transaction manager.
+     */
+    @TestOnly
+    public TxManager txManager() {
+        return txManager;
     }
 }

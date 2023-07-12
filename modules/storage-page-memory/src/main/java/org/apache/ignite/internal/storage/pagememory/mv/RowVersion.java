@@ -20,12 +20,12 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
-import java.nio.ByteBuffer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.util.PartitionlessLinks;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.pagememory.mv.io.RowVersionDataIo;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
@@ -37,11 +37,13 @@ import org.jetbrains.annotations.Nullable;
 public final class RowVersion implements Storable {
     private static final int NEXT_LINK_STORE_SIZE_BYTES = PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
     private static final int VALUE_SIZE_STORE_SIZE_BYTES = Integer.BYTES;
+    private static final int SCHEMA_VERSION_SIZE_BYTES = Short.BYTES;
 
     public static final int TIMESTAMP_OFFSET = 0;
     public static final int NEXT_LINK_OFFSET = TIMESTAMP_OFFSET + HYBRID_TIMESTAMP_SIZE;
     public static final int VALUE_SIZE_OFFSET = NEXT_LINK_OFFSET + NEXT_LINK_STORE_SIZE_BYTES;
-    public static final int VALUE_OFFSET = VALUE_SIZE_OFFSET + VALUE_SIZE_STORE_SIZE_BYTES;
+    public static final int SCHEMA_VERSION_OFFSET = VALUE_SIZE_OFFSET + VALUE_SIZE_STORE_SIZE_BYTES;
+    public static final int VALUE_OFFSET = SCHEMA_VERSION_OFFSET + SCHEMA_VERSION_SIZE_BYTES;
 
     private final int partitionId;
 
@@ -54,32 +56,32 @@ public final class RowVersion implements Storable {
     private final int valueSize;
 
     @IgniteToStringExclude
-    private final @Nullable ByteBuffer value;
+    private final @Nullable BinaryRow value;
 
     /**
      * Constructor.
      */
-    public RowVersion(int partitionId, long nextLink, ByteBuffer value) {
+    public RowVersion(int partitionId, long nextLink, @Nullable BinaryRow value) {
         this(partitionId, 0, null, nextLink, value);
     }
 
     /**
      * Constructor.
      */
-    public RowVersion(int partitionId, HybridTimestamp commitTimestamp, long nextLink, ByteBuffer value) {
+    public RowVersion(int partitionId, HybridTimestamp commitTimestamp, long nextLink, @Nullable BinaryRow value) {
         this(partitionId, 0, commitTimestamp, nextLink, value);
     }
 
     /**
      * Constructor.
      */
-    public RowVersion(int partitionId, long link, @Nullable HybridTimestamp timestamp, long nextLink, @Nullable ByteBuffer value) {
+    public RowVersion(int partitionId, long link, @Nullable HybridTimestamp timestamp, long nextLink, @Nullable BinaryRow value) {
         this.partitionId = partitionId;
         link(link);
 
         this.timestamp = timestamp;
         this.nextLink = nextLink;
-        this.valueSize = value == null ? 0 : value.limit();
+        this.valueSize = value == null ? 0 : value.tupleSliceLength();
         this.value = value;
     }
 
@@ -111,7 +113,7 @@ public final class RowVersion implements Storable {
         return valueSize;
     }
 
-    public @Nullable ByteBuffer value() {
+    public @Nullable BinaryRow value() {
         return value;
     }
 
@@ -120,15 +122,7 @@ public final class RowVersion implements Storable {
     }
 
     boolean isTombstone() {
-        return isTombstone(valueSize());
-    }
-
-    static boolean isTombstone(int valueSize) {
         return valueSize == 0;
-    }
-
-    static boolean isTombstone(byte[] valueBytes) {
-        return isTombstone(valueBytes.length);
     }
 
     boolean isUncommitted() {
@@ -140,30 +134,28 @@ public final class RowVersion implements Storable {
     }
 
     @Override
-    public final void link(long link) {
+    public void link(long link) {
         this.link = link;
     }
 
     @Override
-    public final long link() {
+    public long link() {
         return link;
     }
 
     @Override
-    public final int partition() {
+    public int partition() {
         return partitionId;
     }
 
     @Override
     public int size() {
-        assert value != null;
-
-        return headerSize() + value.limit();
+        return headerSize() + valueSize;
     }
 
     @Override
     public int headerSize() {
-        return HYBRID_TIMESTAMP_SIZE + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES;
+        return HYBRID_TIMESTAMP_SIZE + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES + SCHEMA_VERSION_SIZE_BYTES;
     }
 
     @Override

@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
-import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
+import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -29,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -37,9 +39,11 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
+import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
@@ -55,25 +59,26 @@ public class PlacementDriverTest {
 
     private static final TablePartitionId GROUP_1 = new TablePartitionId(1000, 0);
 
-    private static final ByteArray MS_LEASE_KEY = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + GROUP_1);
-
     private static final String LEASEHOLDER_1 = "leaseholder1";
     private static final Lease LEASE_FROM_1_TO_5_000 = new Lease(
             LEASEHOLDER_1,
             new HybridTimestamp(1, 0),
-            new HybridTimestamp(5_000, 0)
+            new HybridTimestamp(5_000, 0),
+            GROUP_1
     );
 
     private static final Lease LEASE_FROM_1_TO_15_000 = new Lease(
             LEASEHOLDER_1,
             new HybridTimestamp(1, 0),
-            new HybridTimestamp(15_000, 0)
+            new HybridTimestamp(15_000, 0),
+            GROUP_1
     );
 
     private static final Lease LEASE_FROM_15000_TO_30_000 = new Lease(
             LEASEHOLDER_1,
             new HybridTimestamp(15_000, 0),
-            new HybridTimestamp(30_000, 0)
+            new HybridTimestamp(30_000, 0),
+            GROUP_1
     );
 
     private static final int AWAIT_PERIOD_FOR_LOCAL_NODE_TO_BE_NOTIFIED_ABOUT_LEASE_UPDATES = 1_000;
@@ -81,6 +86,8 @@ public class PlacementDriverTest {
     private VaultManager vault;
 
     private MetaStorageManager metastore;
+
+    private PendingComparableValuesTracker<Long, Void> revisionTracker;
 
     private LeaseTracker placementDriver;
 
@@ -90,10 +97,18 @@ public class PlacementDriverTest {
 
         metastore = StandaloneMetaStorageManager.create(vault);
 
+        revisionTracker = new PendingComparableValuesTracker<>(-1L);
+
         placementDriver = new LeaseTracker(
                 vault,
                 metastore
         );
+
+        metastore.registerRevisionUpdateListener(rev -> {
+            revisionTracker.update(rev, null);
+
+            return completedFuture(null);
+        });
 
         vault.start();
         metastore.start();
@@ -329,10 +344,14 @@ public class PlacementDriverTest {
     }
 
     private void publishLease(Lease lease) {
+        long rev = metastore.appliedRevision();
+
         metastore.invoke(
                 Conditions.notExists(FAKE_KEY),
-                put(MS_LEASE_KEY, lease.bytes()),
+                put(PLACEMENTDRIVER_LEASES_KEY, new LeaseBatch(List.of(lease)).bytes()),
                 noop()
         );
+
+        revisionTracker.waitFor(rev + 1).join();
     }
 }

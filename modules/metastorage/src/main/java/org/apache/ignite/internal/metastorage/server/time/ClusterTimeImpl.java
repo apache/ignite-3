@@ -17,26 +17,57 @@
 
 package org.apache.ignite.internal.metastorage.server.time;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
  * Cluster time implementation with additional methods to adjust time and update safe time.
  */
-public class ClusterTimeImpl implements ClusterTime {
-    private final IgniteSpinBusyLock busyLock;
+public class ClusterTimeImpl implements ClusterTime, ManuallyCloseable {
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterTimeImpl.class);
 
-    private volatile @Nullable LeaderTimer leaderTimer;
+    private final String nodeName;
+
+    private final IgniteSpinBusyLock busyLock;
 
     private final HybridClock clock;
 
-    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
+    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
+            new PendingComparableValuesTracker<>(HybridTimestamp.MIN_VALUE);
+
+    /**
+     * Scheduler for sending safe time periodically when Meta Storage is idle.
+     *
+     * <p>Scheduler is only created if this node has been elected as the Meta Storage leader.
+     *
+     * <p>Concurrent access is guarded by {@code this}.
+     */
+    private @Nullable SafeTimeScheduler safeTimeScheduler;
+
+    /** Action that issues a time sync command. */
+    @FunctionalInterface
+    public interface SyncTimeAction {
+        CompletableFuture<Void> syncTime(HybridTimestamp time);
+    }
 
     /**
      * Constructor.
@@ -44,30 +75,30 @@ public class ClusterTimeImpl implements ClusterTime {
      * @param busyLock Busy lock.
      * @param clock Node's hybrid clock.
      */
-    public ClusterTimeImpl(IgniteSpinBusyLock busyLock, HybridClock clock) {
+    public ClusterTimeImpl(String nodeName, IgniteSpinBusyLock busyLock, HybridClock clock) {
+        this.nodeName = nodeName;
         this.busyLock = busyLock;
         this.clock = clock;
-        this.safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
     }
 
     /**
      * Starts sync time scheduler.
      *
-     * @param service MetaStorage service that is used by scheduler to sync time.
+     * @param syncTimeAction Action that performs the time sync operation.
      */
-    public void startLeaderTimer(MetaStorageServiceImpl service) {
+    public void startSafeTimeScheduler(SyncTimeAction syncTimeAction, MetaStorageConfiguration configuration) {
         if (!busyLock.enterBusy()) {
             return;
         }
 
         try {
-            assert leaderTimer == null;
+            synchronized (this) {
+                assert safeTimeScheduler == null;
 
-            LeaderTimer newTimer = new LeaderTimer(service);
+                safeTimeScheduler = new SafeTimeScheduler(syncTimeAction, configuration);
 
-            leaderTimer = newTimer;
-
-            newTimer.start();
+                safeTimeScheduler.start();
+            }
         } finally {
             busyLock.leaveBusy();
         }
@@ -76,22 +107,19 @@ public class ClusterTimeImpl implements ClusterTime {
     /**
      * Stops sync time scheduler if it exists.
      */
-    public void stopLeaderTimer() {
-        if (!busyLock.enterBusy()) {
-            return;
+    public synchronized void stopSafeTimeScheduler() {
+        if (safeTimeScheduler != null) {
+            safeTimeScheduler.stop();
+
+            safeTimeScheduler = null;
         }
+    }
 
-        try {
-            LeaderTimer timer = leaderTimer;
+    @Override
+    public void close() throws Exception {
+        stopSafeTimeScheduler();
 
-            if (timer != null) {
-                timer.stop();
-
-                leaderTimer = null;
-            }
-        } finally {
-            busyLock.leaveBusy();
-        }
+        safeTime.close();
     }
 
     @Override
@@ -119,48 +147,85 @@ public class ClusterTimeImpl implements ClusterTime {
     }
 
     /**
-     * Updates hybrid logical clock using {@code ts}. Selects the maximum between current system time,
-     * hybrid clock's latest time and {@code ts} adding 1 logical tick to the result.
+     * Updates hybrid logical clock using {@code ts}. Selects the maximum between current system time, hybrid clock's latest time and
+     * {@code ts} adding 1 logical tick to the result.
      *
      * @param ts Timestamp.
      */
-    public void adjust(HybridTimestamp ts) {
+    public synchronized void adjust(HybridTimestamp ts) {
         this.clock.update(ts);
+
+        // Since this method is called when a write command is being processed and safe time is also updated by write commands,
+        // we need to re-schedule the idle time scheduler.
+        if (safeTimeScheduler != null) {
+            safeTimeScheduler.schedule();
+        }
     }
 
-    private class LeaderTimer {
+    private class SafeTimeScheduler {
+        private final SyncTimeAction syncTimeAction;
 
-        private final MetaStorageServiceImpl service;
+        private final MetaStorageConfiguration configuration;
 
-        private LeaderTimer(MetaStorageServiceImpl service) {
-            this.service = service;
+        private final ScheduledExecutorService executorService =
+                Executors.newSingleThreadScheduledExecutor(NamedThreadFactory.create(nodeName, "meta-storage-safe-time", LOG));
+
+        /**
+         * Current scheduled task.
+         *
+         * <p>Concurrent access is guarded by {@code this}.
+         */
+        @Nullable
+        private ScheduledFuture<?> currentTask;
+
+        SafeTimeScheduler(SyncTimeAction syncTimeAction, MetaStorageConfiguration configuration) {
+            this.syncTimeAction = syncTimeAction;
+            this.configuration = configuration;
         }
 
         void start() {
             schedule();
         }
 
-        private void schedule() {
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-19199 Only propagate safe time when ms is idle
-        }
-
-        void disseminateTime() {
-            if (!busyLock.enterBusy()) {
-                // Shutting down.
-                return;
+        synchronized void schedule() {
+            // Cancel the previous task if we were re-scheduled because Meta Storage was not actually idle.
+            if (currentTask != null) {
+                currentTask.cancel(false);
             }
 
-            try {
-                HybridTimestamp now = clock.now();
+            currentTask = executorService.schedule(() -> {
+                if (!busyLock.enterBusy()) {
+                    return;
+                }
 
-                service.syncTime(now);
-            } finally {
-                busyLock.leaveBusy();
-            }
+                try {
+                    syncTimeAction.syncTime(clock.now())
+                            .whenComplete((v, e) -> {
+                                if (e != null) {
+                                    Throwable cause = unwrapCause(e);
+
+                                    if (!(cause instanceof CancellationException) && !(cause instanceof NodeStoppingException)) {
+                                        LOG.error("Unable to perform idle time sync", e);
+                                    }
+                                }
+                            });
+
+                    // Re-schedule the task again.
+                    schedule();
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }, configuration.idleSyncTimeInterval().value(), TimeUnit.MILLISECONDS);
         }
 
         void stop() {
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-19199 Stop safe time propagation
+            synchronized (this) {
+                if (currentTask != null) {
+                    currentTask.cancel(false);
+                }
+            }
+
+            IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
         }
     }
 

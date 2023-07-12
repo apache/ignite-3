@@ -53,10 +53,12 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -67,6 +69,7 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,6 +85,9 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
+
+    @InjectConfiguration
+    private static MetaStorageConfiguration metaStorageConfiguration;
 
     private static class Node {
         private final List<IgniteComponent> components = new ArrayList<>();
@@ -104,11 +110,15 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             Path basePath = dataPath.resolve(name());
 
             HybridClock clock = new HybridClockImpl();
+
+            var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
+
             var raftManager = new Loza(
                     clusterService,
                     raftConfiguration,
                     basePath.resolve("raft"),
-                    clock
+                    clock,
+                    raftGroupEventsClientListener
             );
 
             components.add(raftManager);
@@ -131,14 +141,25 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             components.add(cmgManager);
 
+            var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
+
+            var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                    clusterService,
+                    logicalTopologyService,
+                    Loza.FACTORY,
+                    raftGroupEventsClientListener
+            );
+
             this.metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
                     clusterService,
                     cmgManager,
-                    new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
+                    logicalTopologyService,
                     raftManager,
                     new RocksDbKeyValueStorage(name(), basePath.resolve("storage")),
-                    clock
+                    clock,
+                    topologyAwareRaftGroupServiceFactory,
+                    metaStorageConfiguration
             );
 
             components.add(metaStorageManager);
@@ -197,6 +218,10 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         String name = nodes.get(0).name();
 
         nodes.get(0).cmgManager.initCluster(List.of(name), List.of(name), "test");
+
+        for (Node node : nodes) {
+            assertThat(node.metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
+        }
     }
 
     @Test
@@ -291,7 +316,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
     }
 
     /**
-     * Tests that metastorage missed metastorage events are replayed after deploying watches.
+     * Tests that missed metastorage events are replayed after deploying watches.
      */
     @Test
     void testReplayUpdates() throws Exception {

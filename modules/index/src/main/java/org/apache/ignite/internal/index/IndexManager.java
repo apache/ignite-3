@@ -19,6 +19,8 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toIndexDescriptor;
+import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DROP;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;

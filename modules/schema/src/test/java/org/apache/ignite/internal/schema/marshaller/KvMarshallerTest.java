@@ -499,9 +499,9 @@ public class KvMarshallerTest {
         BinaryRow row4 = marshaller4.marshal(1L, new TestPojoWrapper(serializedPojo));
 
         // Verify all rows are equivalent.
-        assertArrayEquals(row.bytes(), row2.bytes());
-        assertArrayEquals(row.bytes(), row3.bytes());
-        assertArrayEquals(row.bytes(), row4.bytes());
+        assertEquals(row, row2);
+        assertEquals(row, row3);
+        assertEquals(row, row4);
 
         // Check key.
         assertEquals(1L, marshaller1.unmarshalKey(new Row(schema, row)));

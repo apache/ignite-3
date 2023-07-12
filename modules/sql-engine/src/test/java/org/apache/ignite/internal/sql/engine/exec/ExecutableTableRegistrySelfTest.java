@@ -79,9 +79,8 @@ public class ExecutableTableRegistrySelfTest {
         CompletableFuture<ExecutableTable> f = tester.getTable(tableId);
         ExecutableTable executableTable = f.join();
 
-        assertNotNull(executableTable.scanableTable());
+        assertNotNull(executableTable.scannableTable());
         assertNotNull(executableTable.updatableTable());
-        assertNotNull(executableTable.rowConverter());
     }
 
     /** Entries are removed from cache when cache capacity is reached. */

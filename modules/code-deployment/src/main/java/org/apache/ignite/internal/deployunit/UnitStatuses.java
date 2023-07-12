@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.deployunit;
 
 import java.util.Collections;
-import java.util.Map;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.compute.version.Version;
 
 /**
@@ -36,7 +36,7 @@ public class UnitStatuses {
     /**
      * Map from the unit version to the unit status.
      */
-    private final Map<Version, DeploymentStatus> versionToStatus;
+    private final List<UnitVersionStatus> versionToStatus;
 
     /**
      * Constructor.
@@ -44,9 +44,10 @@ public class UnitStatuses {
      * @param id Unit identifier.
      * @param versionToStatus Map from the unit version to the unit status.
      */
-    private UnitStatuses(String id, Map<Version, DeploymentStatus> versionToStatus) {
+    private UnitStatuses(String id, List<UnitVersionStatus> versionToStatus) {
         this.id = id;
-        this.versionToStatus = Collections.unmodifiableMap(versionToStatus);
+        this.versionToStatus = versionToStatus;
+        this.versionToStatus.sort(Comparator.comparing(UnitVersionStatus::getVersion));
     }
 
     /**
@@ -58,23 +59,8 @@ public class UnitStatuses {
         return id;
     }
 
-    /**
-     * Returns unit version.
-     *
-     * @return unit version.
-     */
-    public Set<Version> versions() {
-        return Collections.unmodifiableSet(versionToStatus.keySet());
-    }
-
-    /**
-     * Returns unit status.
-     *
-     * @param version Unit version.
-     * @return Unit status.
-     */
-    public DeploymentStatus status(Version version) {
-        return versionToStatus.get(version);
+    public List<UnitVersionStatus> versionStatuses() {
+        return Collections.unmodifiableList(versionToStatus);
     }
 
     /**
@@ -122,7 +108,7 @@ public class UnitStatuses {
     public static class UnitStatusesBuilder {
         private final String id;
 
-        private final Map<Version, DeploymentStatus> versionToStatus = new ConcurrentHashMap<>();
+        private final List<UnitVersionStatus> versionToStatus = new CopyOnWriteArrayList<>();
 
         /**
          * Constructor.
@@ -141,7 +127,7 @@ public class UnitStatuses {
          * @return {@code this} builder for use in a chained invocation.
          */
         public UnitStatusesBuilder append(Version version, DeploymentStatus deploymentStatus) {
-            versionToStatus.put(version, deploymentStatus);
+            versionToStatus.add(new UnitVersionStatus(version, deploymentStatus));
             return this;
         }
 
