@@ -54,8 +54,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
                 new Column(nameof(Car.Id), ColumnType.Uuid, IsNullable: false, ColocationIndex: 0, IsKey: true, SchemaIndex: 0, Scale: 0, Precision: 0),
                 new Column(nameof(Car.BodyType), ColumnType.String, IsNullable: false, ColocationIndex: -1, IsKey: false, SchemaIndex: 1, Scale: 0, Precision: 0),
                 new Column(nameof(Car.Seats), ColumnType.Int32, IsNullable: false, ColocationIndex: -1, IsKey: false, SchemaIndex: 2, Scale: 0, Precision: 0)
-            },
-            ColocationColumnsOrdered: true);
+            });
 
         internal static readonly byte[] SerializedData = GetSerializedData();
 

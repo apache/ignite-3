@@ -207,7 +207,9 @@ public class ColocationHashTests : IgniteTestsBase
 
     private static (byte[] Bytes, int Hash) WriteAsBinaryTuple(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
     {
-        using var builder = new BinaryTupleBuilder(arr.Count * 3, hashedColumnsPredicate: new TestIndexProvider(x => x % 3 == 2, arr.Count));
+        using var builder = new BinaryTupleBuilder(
+            numElements: arr.Count * 3,
+            hashedColumnsPredicate: new TestIndexProvider(x => x % 3 == 2 ? x / 3 : -1, arr.Count));
 
         foreach (var obj in arr)
         {
@@ -227,7 +229,7 @@ public class ColocationHashTests : IgniteTestsBase
             igniteTuple["m_Item" + i++] = obj;
         }
 
-        var builder = new BinaryTupleBuilder(arr.Count, hashedColumnsPredicate: new TestIndexProvider(_ => true, arr.Count));
+        var builder = new BinaryTupleBuilder(arr.Count, hashedColumnsPredicate: new TestIndexProvider(idx => idx, arr.Count));
 
         try
         {
@@ -260,7 +262,7 @@ public class ColocationHashTests : IgniteTestsBase
     {
         var columns = arr.Select((obj, ci) => GetColumn(obj, ci, timePrecision, timestampPrecision)).ToArray();
 
-        return new Schema(Version: 0, 0, arr.Count, arr.Count, columns, true);
+        return new Schema(Version: 0, 0, arr.Count, arr.Count, columns);
     }
 
     private static Column GetColumn(object value, int schemaIndex, int timePrecision, int timestampPrecision)
@@ -335,10 +337,8 @@ public class ColocationHashTests : IgniteTestsBase
             timestampPrecision);
     }
 
-    private record TestIndexProvider(Func<int, bool> Delegate, int HashedColumnCount) : IHashedColumnIndexProvider
+    private record TestIndexProvider(Func<int, int> ColumnOrderDelegate, int HashedColumnCount) : IHashedColumnIndexProvider
     {
-        public bool HashedColumnsOrdered => true;
-
-        public int HashedColumnOrder(int index) => Delegate(index) ? index : -1;
+        public int HashedColumnOrder(int index) => ColumnOrderDelegate(index);
     }
 }

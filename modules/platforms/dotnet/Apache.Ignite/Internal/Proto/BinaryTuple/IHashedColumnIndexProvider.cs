@@ -23,11 +23,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple;
 internal interface IHashedColumnIndexProvider
 {
     /// <summary>
-    /// Gets a value indicating whether hashed column order matches schema order.
-    /// </summary>
-    bool HashedColumnsOrdered { get; }
-
-    /// <summary>
     /// Gets the number of hashed columns.
     /// </summary>
     int HashedColumnCount { get; }

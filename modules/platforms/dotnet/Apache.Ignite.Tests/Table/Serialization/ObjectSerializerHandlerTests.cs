@@ -41,8 +41,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
             {
                 new Column("Key", ColumnType.Int64, IsNullable: false, ColocationIndex: 0, IsKey: true, SchemaIndex: 0, Scale: 0, Precision: 0),
                 new Column("Val", ColumnType.String, IsNullable: false, ColocationIndex: -1, IsKey: false, SchemaIndex: 1, Scale: 0, Precision: 0)
-            },
-            ColocationColumnsOrdered: true);
+            });
 
         [Test]
         public void TestWrite()
