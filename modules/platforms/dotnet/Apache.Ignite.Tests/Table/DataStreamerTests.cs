@@ -24,7 +24,6 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Ignite.Table;
-using Ignite.Transactions;
 using Internal.Proto;
 using NUnit.Framework;
 
