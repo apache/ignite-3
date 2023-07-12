@@ -77,9 +77,6 @@ import org.apache.ignite.network.TopologyService;
  * <p>Provides convenient access to the methods for optimization and execution of the queries.
  */
 public class TestNode implements LifecycleAware {
-    /** Timeout in ms for SQL planning phase. */
-    public static final long PLANNING_TIMEOUT_IN_MS = 15_000;
-
     private final String nodeName;
     private final SchemaPlus schema;
     private final PrepareService prepareService;
@@ -94,14 +91,16 @@ public class TestNode implements LifecycleAware {
      * @param nodeName A name of the node to create.
      * @param clusterService A cluster service.
      * @param schemaManager A schema manager to use for query planning and execution.
+     * @param planningTimeout Timeout in ms for SQL planning phase.
      */
     TestNode(
             String nodeName,
             ClusterService clusterService,
-            SqlSchemaManager schemaManager
+            SqlSchemaManager schemaManager,
+            long planningTimeout
     ) {
         this.nodeName = nodeName;
-        this.prepareService = registerService(new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class)));
+        this.prepareService = registerService(new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class), planningTimeout));
         this.schema = schemaManager.schema("PUBLIC");
 
         TopologyService topologyService = clusterService.topologyService();
@@ -204,7 +203,7 @@ public class TestNode implements LifecycleAware {
 
         assertEquals(ctx.parameters().length, parsedResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
 
-        return await(prepareService.prepareAsync(parsedResult, ctx, PLANNING_TIMEOUT_IN_MS));
+        return await(prepareService.prepareAsync(parsedResult, ctx));
     }
 
     /**
@@ -215,7 +214,7 @@ public class TestNode implements LifecycleAware {
      * @return A plan to execute.
      */
     public QueryPlan prepare(ParsedResult parsedResult) {
-        return await(prepareService.prepareAsync(parsedResult, createContext(), PLANNING_TIMEOUT_IN_MS));
+        return await(prepareService.prepareAsync(parsedResult, createContext()));
     }
 
     private BaseQueryContext createContext() {

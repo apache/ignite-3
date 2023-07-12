@@ -69,6 +69,9 @@ import org.jetbrains.annotations.Nullable;
 public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener {
     private static final IgniteLogger LOG = Loggers.forClass(PrepareServiceImpl.class);
 
+    /** Default planner timeout, in ms. */
+    public static final long DEFAULT_PLANNER_TIMEOUT = 15000L;
+
     private static final long THREAD_TIMEOUT_MS = 60_000;
 
     private static final int THREAD_COUNT = 4;
@@ -80,6 +83,8 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     private final String nodeName;
 
     private volatile ThreadPoolExecutor planningPool;
+
+    private final long plannerTimeout;
 
     /**
      * Factory method.
@@ -98,7 +103,8 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         return new PrepareServiceImpl(
                 nodeName,
                 cacheSize,
-                new DdlSqlToCommandConverter(dataStorageFields, dataStorageManager::defaultDataStorage)
+                new DdlSqlToCommandConverter(dataStorageFields, dataStorageManager::defaultDataStorage),
+                DEFAULT_PLANNER_TIMEOUT
         );
     }
 
@@ -108,14 +114,17 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
      * @param nodeName Name of the current Ignite node. Will be used in thread factory as part of the thread name.
      * @param cacheSize Size of the cache of query plans. Should be non negative.
      * @param ddlConverter A converter of the DDL-related AST to the actual command.
+     * @param plannerTimeout Timeout in milliseconds to planning.
      */
     public PrepareServiceImpl(
             String nodeName,
             int cacheSize,
-            DdlSqlToCommandConverter ddlConverter
+            DdlSqlToCommandConverter ddlConverter,
+            long plannerTimeout
     ) {
         this.nodeName = nodeName;
         this.ddlConverter = ddlConverter;
+        this.plannerTimeout = plannerTimeout;
 
         cache = Caffeine.newBuilder()
                 .maximumSize(cacheSize)
@@ -146,7 +155,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, BaseQueryContext ctx, long plannerTimeout) {
+    public CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, BaseQueryContext ctx) {
         CompletableFuture<QueryPlan> result;
 
         PlanningContext planningContext = PlanningContext.builder()

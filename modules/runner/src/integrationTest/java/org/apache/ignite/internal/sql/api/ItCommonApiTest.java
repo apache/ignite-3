@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ErrorGroups.Sql;
-import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUTED_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -43,7 +42,6 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
-import org.apache.ignite.internal.sql.util.SqlTestUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -118,27 +116,6 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         // second session could start new query
         ses2.execute(null, "SELECT 2 + 2").close();
-    }
-
-    /** Check correctness of planning timeout. */
-    @Test
-    public void testPlanningTimeout() {
-        IgniteSql sql = igniteSql();
-
-        sql("CREATE TABLE TST1(id INTEGER PRIMARY KEY, val INTEGER)");
-
-        Long oldPlannerTimeout = (Long) IgniteTestUtils.getFieldValue(queryProcessor(), SqlQueryProcessor.class, "plannerTimeout");
-        try {
-            IgniteTestUtils.setFieldValue(queryProcessor(), "plannerTimeout", 1L);
-
-            Session ses = sql.sessionBuilder().build();
-            SqlTestUtils.assertThrowsSqlException(PLANNING_TIMEOUTED_ERR,
-                    () -> ses.execute(null, "SELECT * FROM TST1 t, TST1 t1, TST1 t2"));
-
-            ses.close();
-        } finally {
-            IgniteTestUtils.setFieldValue(queryProcessor(), "plannerTimeout", oldPlannerTimeout);
-        }
     }
 
     /** Check timestamp type operations correctness using sql and kv api. */

@@ -79,6 +79,19 @@ public class TestBuilders {
         return new ClusterServiceFactory(nodes);
     }
 
+    /** Represent parameters of cluster configuration with default values. */
+    public enum ConfigurationParameter {
+        PLANNING_TIMEOUT(15000L, Long.class);
+
+        Object defaultValue;
+        Class type;
+
+        ConfigurationParameter(Object defaultValue, Class type) {
+            this.defaultValue = defaultValue;
+            this.type = type;
+        }
+    }
+
     /**
      * A builder to create a test cluster object.
      *
@@ -112,6 +125,9 @@ public class TestBuilders {
          * @return {@code this} for chaining.
          */
         ClusterBuilder defaultDataProviderFactory(DataProviderFactory dataProviderFactory);
+
+        /** Default cluster configuration for parameter value will be changed to provided value. */
+        ClusterBuilder addConfiguration(ConfigurationParameter parameter, Object value);
 
         /**
          * Builds the cluster object.
@@ -306,6 +322,15 @@ public class TestBuilders {
         private DataProviderFactory dataProviderFactory;
         private List<String> nodeNames;
 
+        private Map<ConfigurationParameter, Object> configuration = new HashMap<>();
+        {
+            for (ConfigurationParameter value : ConfigurationParameter.values()) {
+                configuration.put(value, value.defaultValue);
+            }
+
+        }
+
+
         /** {@inheritDoc} */
         @Override
         public ClusterBuilder nodes(String firstNodeName, String... otherNodeNames) {
@@ -327,6 +352,15 @@ public class TestBuilders {
         @Override
         public ClusterBuilder defaultDataProviderFactory(DataProviderFactory dataProviderFactory) {
             this.dataProviderFactory = dataProviderFactory;
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ClusterBuilder addConfiguration(ConfigurationParameter parameter, Object value) {
+            assert value.getClass().isAssignableFrom(parameter.type);
+
+            configuration.put(parameter, value);
             return this;
         }
 
@@ -358,10 +392,14 @@ public class TestBuilders {
             var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, indexMap, SCHEMA_VERSION));
 
             Map<String, TestNode> nodes = nodeNames.stream()
-                    .map(name -> new TestNode(name, clusterService.forNode(name), schemaManager))
+                    .map(name -> new TestNode(name, clusterService.forNode(name), schemaManager, param(ConfigurationParameter.PLANNING_TIMEOUT)))
                     .collect(Collectors.toMap(TestNode::name, Function.identity()));
 
             return new TestCluster(nodes);
+        }
+
+        private <T> T param(ConfigurationParameter parameter) {
+            return (T) configuration.get(parameter);
         }
 
         private void validateDataSourceBuilder(AbstractDataSourceBuilderImpl<?> tableBuilder) {

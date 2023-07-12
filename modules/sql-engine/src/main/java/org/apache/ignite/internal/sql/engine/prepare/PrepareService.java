@@ -31,9 +31,8 @@ public interface PrepareService extends LifecycleAware {
      *
      * @param parsedResult Represent of parsed query as AST, which need to be planned.
      * @param ctx Query context.
-     * @param plannerTimeout Timeout in milliseconds to planning.
      *
      * @return Future that contains prepared query plan when completes.
      */
-    CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, BaseQueryContext ctx, long plannerTimeout);
+    CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, BaseQueryContext ctx);
 }

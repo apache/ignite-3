@@ -107,9 +107,6 @@ import org.jetbrains.annotations.Nullable;
 public class SqlQueryProcessor implements QueryProcessor {
     private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
 
-    /** Default planner timeout, in ms. */
-    private static final long DEFAULT_PLANNER_TIMEOUT = 15000L;
-
     /** Size of the cache for query plans. */
     private static final int PLAN_CACHE_SIZE = 1024;
 
@@ -184,8 +181,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Distributed catalog manager. */
     private final CatalogManager catalogManager;
-
-    private long plannerTimeout = DEFAULT_PLANNER_TIMEOUT;
 
     /** Constructor. */
     public SqlQueryProcessor(
@@ -454,7 +449,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .query(sql)
                             .build();
 
-                    return prepareSvc.prepareAsync(result, ctx, plannerTimeout)
+                    return prepareSvc.prepareAsync(result, ctx)
                             .thenApply(plan -> {
                                 var dataCursor = executionSrvc.executePlan(tx.get(), plan, ctx);
 

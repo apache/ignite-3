@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUTED_ERR;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
@@ -33,11 +35,18 @@ import org.apache.calcite.rel.RelVisitor;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.ConfigurationParameter;
+import org.apache.ignite.internal.sql.engine.framework.TestCluster;
+import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
@@ -45,10 +54,34 @@ import org.junit.jupiter.api.Test;
  * Test planner timeout.
  */
 public class PlannerTimeoutTest extends AbstractPlannerTest {
-    private static final long PLANNER_TIMEOUT = 500;
+
+    /** Check correctness of planning timeout. */
+    @Test
+    public void testPlanningTimeout() {
+        TestCluster cluster = TestBuilders.cluster()
+                .nodes("N1")
+                .addTable()
+                .name("TST1")
+                .distribution(IgniteDistributions.hash(List.of(0)))
+                .addColumn("ID", NativeTypes.INT32)
+                .addColumn("VAL", NativeTypes.stringOf(64))
+                .end()
+                .addConfiguration(ConfigurationParameter.PLANNING_TIMEOUT, 1L)
+                .build();
+
+        cluster.start();
+
+        TestNode gatewayNode = cluster.node("N1");
+
+        SqlTestUtils.assertThrowsSqlException(PLANNING_TIMEOUTED_ERR,
+                () -> gatewayNode.prepare("SELECT * FROM TST1 t, TST1 t1, TST1 t2"));
+
+    }
 
     @Test
     public void testLongPlanningTimeout() throws Exception {
+        final long PLANNER_TIMEOUT = 500;
+
         IgniteSchema schema = createSchema(
                 createTestTable("T1", "A", Integer.class, "B", Integer.class),
                 createTestTable("T2", "A", Integer.class, "B", Integer.class)

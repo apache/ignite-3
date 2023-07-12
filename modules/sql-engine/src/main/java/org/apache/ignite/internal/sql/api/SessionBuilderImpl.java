@@ -136,7 +136,8 @@ public class SessionBuilderImpl implements SessionBuilder {
         PropertiesHolder propsHolder = PropertiesHelper.newBuilder()
                 .set(SessionProperty.IDLE_TIMEOUT, sessionTimeout)
                 .set(QueryProperty.QUERY_TIMEOUT, queryTimeout)
-                .set(QueryProperty.DEFAULT_SCHEMA, schema).build();
+                .set(QueryProperty.DEFAULT_SCHEMA, schema)
+                .build();
 
         SessionId sessionId = qryProc.createSession(propsHolder);
 

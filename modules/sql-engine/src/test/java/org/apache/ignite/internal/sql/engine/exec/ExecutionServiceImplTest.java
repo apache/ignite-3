@@ -158,7 +158,7 @@ public class ExecutionServiceImplTest {
     public void init() {
         testCluster = new TestCluster();
         executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
-        prepareService = new PrepareServiceImpl("test", 0, null);
+        prepareService = new PrepareServiceImpl("test", 0, null, 15000L);
         parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
 
         prepareService.start();
@@ -644,7 +644,7 @@ public class ExecutionServiceImplTest {
 
         assertEquals(ctx.parameters().length, parsedResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
 
-        return await(prepareService.prepareAsync(parsedResult, ctx, PLANNING_TIMEOUT_IN_MS));
+        return await(prepareService.prepareAsync(parsedResult, ctx));
     }
 
     static class TestCluster {
