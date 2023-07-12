@@ -174,7 +174,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
                     holderChannel.close().awaitUninterruptibly();
                 } else {
-                    String err = "Failed to acquire recovery descriptor during handshake, it is held by: " + descriptor.holder();
+                    String err = "Failed to acquire recovery descriptor during handshake, it is held by: " + descriptor.holderDescription();
 
                     LOG.info(err);
 

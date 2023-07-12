@@ -26,6 +26,7 @@ import java.util.Queue;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.OutNetworkObject;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Recovery protocol descriptor.
@@ -148,11 +149,24 @@ public class RecoveryDescriptor {
         return ctxHolder.compareAndSet(null, ctx.channel());
     }
 
-    Channel holderChannel() {
+    /**
+     * Returns the channel, that holds this descriptor.
+     */
+    @Nullable Channel holderChannel() {
         return ctxHolder.get();
     }
 
-    public String holder() {
-        return ctxHolder.get().toString();
+    /**
+     * Returns {@code toString()} representation of a {@link Channel}, that holds this descriptor.
+     */
+    String holderDescription() {
+        Channel channel = ctxHolder.get();
+
+        if (channel == null) {
+            // This can happen if channel was already closed and it released the descriptor.
+            return "No channel";
+        }
+
+        return channel.toString();
     }
 }
