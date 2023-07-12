@@ -633,6 +633,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
             });
 
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 Probably should be reworked so that
+            // the future is returned along with createTableFut. Right now it will break some tests.
             writeTableAssignmentsToMetastore(tableId, assignments);
 
             return createTableFut;
@@ -641,7 +643,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    private void writeTableAssignmentsToMetastore(int tableId, List<Set<Assignment>> assignments) {
+    private CompletableFuture<Boolean> writeTableAssignmentsToMetastore(int tableId, List<Set<Assignment>> assignments) {
         assert !assignments.isEmpty();
 
         List<Operation> partitionAssignments = new ArrayList<>(assignments.size());
@@ -655,7 +657,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         Condition condition = Conditions.notExists(new ByteArray(partitionAssignments.get(0).key()));
 
-        metaStorageMgr
+        return metaStorageMgr
                 .invoke(condition, partitionAssignments, Collections.emptyList())
                 .exceptionally(e -> {
                     LOG.error("Couldn't write assignments to metastore", e);
@@ -1265,7 +1267,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     });
         }));
 
-        createTablePartitionsLocally(causalityToken, assignments, zoneDescriptor.id(), table);
+        CompletableFuture<?> createPartsFut = createTablePartitionsLocally(causalityToken, assignments, zoneDescriptor.id(), table);
 
         pendingTables.put(tableId, table);
         startedTables.put(tableId, table);
@@ -1279,7 +1281,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         // TODO should be reworked in IGNITE-16763
         // We use the event notification future as the result so that dependent components can complete the schema updates.
-        return fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableId));
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
+        return allOf(createPartsFut, fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableId)));
     }
 
     /**

@@ -80,16 +80,6 @@ public interface ConfigurationStorage extends ManuallyCloseable {
     CompletableFuture<Long> lastRevision();
 
     /**
-     * Writes previous and current configuration's MetaStorage revision for recovery.
-     * We need previous and current for the fail-safety: in case if node fails before changing master key on configuration update,
-     * MetaStorage's applied revision will be lower than {@code currentRevision} and we will be using previous revision.
-     *
-     * @param prevRevision Previous revision.
-     * @param currentRevision Current revision.
-     */
-    void writeConfigurationRevision(long prevRevision, long currentRevision);
-
-    /**
      * Closes the storage.
      */
     @Override

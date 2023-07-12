@@ -644,11 +644,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                     rwLock.writeLock().unlock();
                 }
 
-                // Save revisions for recovery.
-                // We execute synchronously to avoid a race between notifications about updating the Meta Storage and updating the revision
-                // of the Meta Storage.
-                storage.writeConfigurationRevision(oldStorageRoots.version, newStorageRoots.version);
-
                 long notificationNumber = notificationListenerCnt.incrementAndGet();
 
                 CompletableFuture<Void> notificationFuture;
