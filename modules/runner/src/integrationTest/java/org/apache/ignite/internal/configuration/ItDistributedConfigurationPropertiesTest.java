@@ -293,7 +293,8 @@ public class ItDistributedConfigurationPropertiesTest {
                 raftConfiguration
         );
 
-        CompletableFuture<?>[] startFutures = Stream.of(firstNode, secondNode).parallel().map(Node::start).toArray(CompletableFuture[]::new);
+        CompletableFuture<?>[] startFutures = Stream.of(firstNode, secondNode).parallel().map(Node::start)
+                .toArray(CompletableFuture[]::new);
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(), "cluster");
 
