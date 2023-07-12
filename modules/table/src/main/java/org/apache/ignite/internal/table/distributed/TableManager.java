@@ -141,6 +141,7 @@ import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -570,9 +571,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     // If node's recovery process is incomplete (no partition storage), then we consider this node's
                     // partition storage empty.
                     if (mvPartition != null) {
-                        // If applied index of a storage is greater than 0,
-                        // then there is data.
-                        contains = mvPartition.lastAppliedIndex() > 0;
+                        contains = mvPartition.closestRowId(RowId.lowestRowId(partitionId)) != null;
                     }
                 }
 
@@ -775,7 +774,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
 
-                CompletableFuture<Void> startGroupFut;
+                CompletableFuture<Boolean> startGroupFut;
 
                 // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
                 if (localMemberAssignment != null) {
@@ -811,9 +810,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         shouldStartGroupFut = completedFuture(true);
                     }
 
-                    startGroupFut = shouldStartGroupFut.thenAcceptAsync(startGroup -> inBusyLock(busyLock, () -> {
+                    startGroupFut = shouldStartGroupFut.thenApplyAsync(startGroup -> inBusyLock(busyLock, () -> {
                         if (!startGroup) {
-                            return;
+                            return false;
                         }
                         TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
@@ -850,12 +849,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     ),
                                     groupOptions
                             );
+
+                            return true;
                         } catch (NodeStoppingException ex) {
                             throw new CompletionException(ex);
                         }
                     }), ioExecutor);
                 } else {
-                    startGroupFut = completedFuture(null);
+                    startGroupFut = completedFuture(false);
                 }
 
                 startGroupFut
@@ -870,7 +871,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         .thenAcceptAsync(updatedRaftGroupService -> inBusyLock(busyLock, () -> {
                             ((InternalTableImpl) internalTbl).updateInternalTableRaftGroupService(partId, updatedRaftGroupService);
 
-                            if (localMemberAssignment == null) {
+                            boolean startedRaftNode = startGroupFut.join();
+                            if (localMemberAssignment == null || !startedRaftNode) {
                                 return;
                             }
 
@@ -895,10 +897,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }), ioExecutor)
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
-                                LOG.warn("Unable to update raft groups on the node", ex);
-                            }
+                                LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);
 
-                            futures[partId].complete(null);
+                                futures[partId].completeExceptionally(ex);
+                            } else {
+                                futures[partId].complete(null);
+                            }
                         });
             }
 
