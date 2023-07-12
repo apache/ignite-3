@@ -79,7 +79,9 @@ public class HybridClockImpl implements HybridClock {
     }
 
     private void notifyUpdateListeners(long newTs) {
-        updateListeners.forEach(listener -> listener.onUpdate(newTs));
+        for (ClockUpdateListener listener : updateListeners) {
+            listener.onUpdate(newTs);
+        }
     }
 
     @Override

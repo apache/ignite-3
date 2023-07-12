@@ -26,6 +26,9 @@ public interface ClockUpdateListener {
     /**
      * Called when the clock's current time advances.
      *
+     * <p>This method must NOT do any I/O operations or block. If such operations are needed, it should schedule them
+     * on a thread pool.
+     *
      * @param newTs New timestamp on the clock (represented as a long value, see {@link HybridTimestamp#longValue()}.
      */
     void onUpdate(long newTs);

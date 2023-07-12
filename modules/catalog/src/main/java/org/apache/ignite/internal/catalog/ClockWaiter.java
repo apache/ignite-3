@@ -18,13 +18,17 @@
 package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.function.Function.identity;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.ClockUpdateListener;
@@ -35,6 +39,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -59,7 +64,13 @@ public class ClockWaiter implements IgniteComponent {
 
     private final ClockUpdateListener updateListener = this::onUpdate;
 
+    private final Runnable triggerClockUpdate = this::triggerClockUpdate;
+
+    /** Executor on which short-lived tasks are scheduled that are needed to timely complete awaiting futures. */
     private volatile ScheduledExecutorService scheduler;
+
+    /** Executor that executes completion of futures returned to the user, so it might take arbitrarily heavy operations. */
+    private volatile ExecutorService futureExecutor;
 
     public ClockWaiter(String nodeName, HybridClock clock) {
         this.nodeName = nodeName;
@@ -70,7 +81,16 @@ public class ClockWaiter implements IgniteComponent {
     public void start() {
         clock.addUpdateListener(updateListener);
 
-        scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(nodeName + "-clock-waiter", LOG));
+        scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(nodeName + "-clock-waiter-scheduler", LOG));
+
+        futureExecutor = new ThreadPoolExecutor(
+                0,
+                4,
+                1,
+                TimeUnit.MINUTES,
+                new LinkedBlockingQueue<>(),
+                new NamedThreadFactory(nodeName + "-clock-waiter-future-executor", LOG)
+        );
     }
 
     @Override
@@ -91,6 +111,9 @@ public class ClockWaiter implements IgniteComponent {
         // user-facing futures we return from the tracker), but we don't need them for anything else,
         // so it's simpler to just use shutdownNow().
         scheduler.shutdownNow();
+
+        IgniteUtils.shutdownAndAwaitTermination(futureExecutor, 10, TimeUnit.SECONDS);
+
         scheduler.awaitTermination(10, TimeUnit.SECONDS);
     }
 
@@ -108,6 +131,9 @@ public class ClockWaiter implements IgniteComponent {
 
     /**
      * Wait for the clock to reach the given timestamp.
+     *
+     * <p>If completion of the returned future triggers some I/O operations or causes the code to block, it is highly
+     * recommended to execute those completion stages on a specific thread pool to avoid the waiter's pool starvation.
      *
      * @param targetTimestamp Timestamp to wait for.
      * @return A future that completes when the timestamp is reached by the clock's time.
@@ -134,38 +160,51 @@ public class ClockWaiter implements IgniteComponent {
             HybridTimestamp now = clock.now();
 
             if (targetTimestamp.compareTo(now) <= 0) {
-                assert future.isDone();
-
                 scheduledFuture = null;
             } else {
                 // Adding 1 to account for a possible non-null logical part of the targetTimestamp.
                 long millisToWait = targetTimestamp.getPhysical() - now.getPhysical() + 1;
 
-                scheduledFuture = scheduler.schedule(this::triggerClockUpdate, millisToWait, TimeUnit.MILLISECONDS);
+                scheduledFuture = scheduler.schedule(triggerClockUpdate, millisToWait, TimeUnit.MILLISECONDS);
             }
         } else {
             scheduledFuture = null;
         }
 
-        return future.handle((res, ex) -> {
-            if (scheduledFuture != null) {
-                scheduledFuture.cancel(true);
-            }
+        CompletableFuture<Void> futureBeforeReturning = future
+                .handle((res, ex) -> {
+                    if (scheduledFuture != null) {
+                        scheduledFuture.cancel(true);
+                    }
 
-            if (ex != null) {
-                // Let's replace a TrackerClosedException with a CancellationException as the latter makes more sense for the clients.
-                if (ex instanceof TrackerClosedException) {
-                    throw new CancellationException();
-                } else {
-                    throw new CompletionException(ex);
-                }
-            }
+                    translateTrackerClosedException(ex);
 
-            return res;
-        });
+                    return res;
+                });
+
+        if (futureBeforeReturning.isDone()) {
+            return futureBeforeReturning;
+        } else {
+            // The future might be completed in a random thread, so let's move its completion execution to a special thread pool
+            // because the user's code following the future completion might run arbitrarily heavy operations and we don't want
+            // to put them on an innocent thread invoking now()/update() on the clock.
+            return futureBeforeReturning
+                    .thenApplyAsync(identity(), futureExecutor);
+        }
     }
 
     private void triggerClockUpdate() {
         clock.now();
+    }
+
+    private static void translateTrackerClosedException(Throwable ex) {
+        if (ex != null) {
+            // Let's replace a TrackerClosedException with a CancellationException as the latter makes more sense for the clients.
+            if (ex instanceof TrackerClosedException) {
+                throw new CancellationException();
+            } else {
+                throw new CompletionException(ex);
+            }
+        }
     }
 }
