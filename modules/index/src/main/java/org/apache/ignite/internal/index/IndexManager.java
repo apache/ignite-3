@@ -154,11 +154,10 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                                 .toArray(String[]::new);
 
                         String pkName = table.name() + "_PK";
-
-                        int pkIndexId = catalogManager.index(pkName, Long.MAX_VALUE).id();
+                        int pkId = table.tableId() + 1;
 
                         // Update config bypassing the Catalog, because PK has just been created in Catalog with the table.
-                        return createIndexInternal(pkIndexId, "PUBLIC", pkName, table.name(), false,
+                        return createIndexInternal(pkId, "PUBLIC", pkName, table.name(), false,
                                 change -> change.changeUniq(true).convert(HashIndexChange.class)
                                         .changeColumnNames(pkColumns)
                         );
