@@ -93,7 +93,12 @@ internal static class DataStreamer
             {
                 // WithCancellation passes the token to the producer.
                 // However, not all producers support cancellation, so we need to check it here as well.
-                cancellationToken.ThrowIfCancellationRequested();
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    // Do not use ThrowIfCancellationRequested(), because it throws OperationCanceledException,
+                    // which is different from TaskCanceledException thrown by other code paths (WithCancellation).
+                    throw new TaskCanceledException("Streamer was canceled.", innerException: null, cancellationToken);
+                }
 
                 var (batch, partition) = Add(item);
                 if (batch.Count >= options.BatchSize)
