@@ -141,6 +141,7 @@ import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -570,9 +571,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     // If node's recovery process is incomplete (no partition storage), then we consider this node's
                     // partition storage empty.
                     if (mvPartition != null) {
-                        // If applied index of a storage is greater than 0,
-                        // then there is data.
-                        contains = mvPartition.lastAppliedIndex() > 0;
+                        contains = mvPartition.closestRowId(RowId.lowestRowId(partitionId)) != null;
                     }
                 }
 
