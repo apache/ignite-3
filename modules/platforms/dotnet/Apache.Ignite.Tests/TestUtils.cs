@@ -23,6 +23,7 @@ namespace Apache.Ignite.Tests
     using System.Reflection;
     using System.Runtime.InteropServices;
     using System.Threading;
+    using System.Threading.Tasks;
     using NUnit.Framework;
 
     public static class TestUtils
@@ -33,9 +34,15 @@ namespace Apache.Ignite.Tests
 
         public static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
-        public static void WaitForCondition(Func<bool> condition, int timeoutMs = 1000, Func<string>? messageFactory = null)
+        public static void WaitForCondition(Func<bool> condition, int timeoutMs = 1000, Func<string>? messageFactory = null) =>
+            WaitForConditionAsync(() => Task.FromResult(condition()), timeoutMs, messageFactory).GetAwaiter().GetResult();
+
+        public static async Task WaitForConditionAsync(
+            Func<Task<bool>> condition,
+            int timeoutMs = 1000,
+            Func<string>? messageFactory = null)
         {
-            if (condition())
+            if (await condition())
             {
                 return;
             }
@@ -44,12 +51,12 @@ namespace Apache.Ignite.Tests
 
             while (sw.ElapsedMilliseconds < timeoutMs)
             {
-                if (condition())
+                if (await condition())
                 {
                     return;
                 }
 
-                Thread.Sleep(50);
+                await Task.Delay(10);
             }
 
             var message = "Condition not reached after " + sw.Elapsed;
