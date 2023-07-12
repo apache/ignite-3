@@ -269,8 +269,6 @@ public class CatalogServiceSelfTest {
         assertTrue(pkIndex.unique());
 
         // Validate newly created pk index
-        CatalogHashIndexDescriptor pkIndex = (CatalogHashIndexDescriptor) schema.index(createPkIndexName(TABLE_NAME));
-
         assertEquals(3L, pkIndex.id());
         assertEquals(createPkIndexName(TABLE_NAME), pkIndex.name());
         assertEquals(2L, pkIndex.tableId());
