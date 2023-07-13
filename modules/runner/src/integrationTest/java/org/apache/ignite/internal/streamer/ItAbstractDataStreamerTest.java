@@ -151,7 +151,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                 e.printStackTrace();
                 return false;
             }
-        }, 1000));
+        }, 50, 5000));
     }
 
     @Test
