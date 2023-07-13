@@ -142,12 +142,12 @@ public:
      * @param records_num Number of strings to insert.
      * @param merge 
      */
-    void insert_test_strings(SQLSMALLINT records_num, bool merge) // NOLINT(readability-make-member-function-const)
+    void insert_test_strings(SQLSMALLINT records_num, bool upsert) // NOLINT(readability-make-member-function-const)
     {
         SQLCHAR insert_req[] = "INSERT INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(?, ?)";
-        SQLCHAR merge_req[] = "MERGE INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(?, ?)";
-        
-        SQLRETURN ret = SQLPrepare(m_statement, merge ? merge_req : insert_req, SQL_NTS);
+        SQLCHAR upsert_req[] = "UPSERT INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(?, ?)";
+
+        SQLRETURN ret = SQLPrepare(m_statement, upsert ? upsert_req : insert_req, SQL_NTS);
 
         if (!SQL_SUCCEEDED(ret))
             FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));

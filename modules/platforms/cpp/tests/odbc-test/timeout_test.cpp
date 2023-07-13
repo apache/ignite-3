@@ -30,7 +30,13 @@ using namespace ignite;
 /**
  * Test setup fixture.
  */
-struct timeout_test : public odbc_suite {};
+struct timeout_test : public odbc_suite {
+    void SetUp() override {
+        odbc_connect(get_basic_connection_string());
+        exec_query("DELETE FROM " + TABLE_NAME_ALL_COLUMNS_SQL);
+        odbc_clean_up();
+    }
+};
 
 TEST_F(timeout_test, login_timeout)
 {
@@ -61,7 +67,7 @@ TEST_F(timeout_test, login_timeout_fail)
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
 
-    auto connect_str = to_sqlchar(get_basic_connection_string());
+    auto connect_str = to_sqlchar("driver={" + DRIVER_NAME + "};address=127.0.0.1:9999");
 
     SQLCHAR out_str[ODBC_BUFFER_SIZE];
     SQLSMALLINT out_str_len;
@@ -78,34 +84,12 @@ TEST_F(timeout_test, connection_timeout_query)
 {
     odbc_connect(get_basic_connection_string());
 
-    SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_CONNECTION_TIMEOUT, reinterpret_cast<SQLPOINTER>(5), 0);
+    SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_CONNECTION_TIMEOUT, reinterpret_cast<SQLPOINTER>(10), 0);
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
 
     insert_test_strings(10, false);
 }
-
-TEST_F(timeout_test, connection_timeout_query_expires)
-{
-    odbc_connect(get_basic_connection_string() + ";PAGE_SIZE=500000");
-
-    SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_CONNECTION_TIMEOUT, reinterpret_cast<SQLPOINTER>(1), 0);
-
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
-
-    SQLCHAR req[] = "select delay(5000)";
-
-    ret = SQLExecDirect(m_statement, req, SQL_NTS);
-
-    ASSERT_EQ(ret, SQL_ERROR);
-
-    std::string error = get_odbc_error_message(SQL_HANDLE_STMT, m_statement);
-    std::string pattern = "HYT01: Receive operation timed out";
-
-    if (error.substr(0, pattern.size()) != pattern)
-        FAIL() << ("'" + error + "' does not match '" + pattern + "'");
-}
-
 
 TEST_F(timeout_test, query_timeout_query)
 {

@@ -73,7 +73,7 @@ void parameter_set::prepare()
 bool parameter_set::is_data_at_exec_needed() const
 {
     return std::any_of(m_params.begin(), m_params.end(), [] (const auto &param) {
-        return param.second.is_data_ready();
+        return !param.second.is_data_ready();
     });
 }
 
