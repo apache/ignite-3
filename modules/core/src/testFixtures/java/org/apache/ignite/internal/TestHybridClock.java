@@ -76,8 +76,6 @@ public class TestHybridClock implements HybridClock {
             long newLatestTime = max(oldLatestTime + 1, now);
 
             if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
-                notifyUpdateListeners(newLatestTime);
-
                 return newLatestTime;
             }
         }

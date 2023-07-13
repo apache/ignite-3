@@ -26,12 +26,16 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * A Hybrid Logical Clock implementation.
  */
 public class HybridClockImpl implements HybridClock {
+    private static final IgniteLogger LOG = Loggers.forClass(HybridClockImpl.class);
+
     /**
      * Var handle for {@link #latestTime}.
      */
@@ -71,8 +75,6 @@ public class HybridClockImpl implements HybridClock {
             long newLatestTime = max(oldLatestTime + 1, now);
 
             if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
-                notifyUpdateListeners(newLatestTime);
-
                 return newLatestTime;
             }
         }
@@ -80,7 +82,15 @@ public class HybridClockImpl implements HybridClock {
 
     private void notifyUpdateListeners(long newTs) {
         for (ClockUpdateListener listener : updateListeners) {
-            listener.onUpdate(newTs);
+            try {
+                listener.onUpdate(newTs);
+            } catch (Throwable e) {
+                LOG.error("ClockUpdateListener#onUpdate() failed for {} at {}", e, listener, newTs);
+
+                if (e instanceof Error && !(e instanceof AssertionError)) {
+                    throw e;
+                }
+            }
         }
     }
 
@@ -90,10 +100,12 @@ public class HybridClockImpl implements HybridClock {
     }
 
     /**
-     * Creates a timestamp for a received event.
+     * Updates the clock in accordance with an external event timestamp. If the supplied timestamp is ahead of the
+     * current clock timestamp, the clock gets adjusted to make sure it never returns any timestamp before (or equal to)
+     * the supplied external timestamp.
      *
      * @param requestTime Timestamp from request.
-     * @return The hybrid timestamp.
+     * @return The resulting timestamp (guaranteed to exceed both previous clock 'currentTs' and the supplied external ts).
      */
     @Override
     public HybridTimestamp update(HybridTimestamp requestTime) {

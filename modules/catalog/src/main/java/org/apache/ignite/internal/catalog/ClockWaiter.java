@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
 
@@ -64,7 +65,7 @@ public class ClockWaiter implements IgniteComponent {
 
     private final ClockUpdateListener updateListener = this::onUpdate;
 
-    private final Runnable triggerClockUpdate = this::triggerClockUpdate;
+    private final Runnable triggerClockUpdate = this::triggerTrackerUpdate;
 
     /** Executor on which short-lived tasks are scheduled that are needed to timely complete awaiting futures. */
     private volatile ScheduledExecutorService scheduler;
@@ -151,50 +152,35 @@ public class ClockWaiter implements IgniteComponent {
     }
 
     private CompletableFuture<Void> doWaitFor(HybridTimestamp targetTimestamp) {
-        CompletableFuture<Void> future = nowTracker.waitFor(targetTimestamp.longValue());
+        HybridTimestamp now = clock.now();
 
-        ScheduledFuture<?> scheduledFuture;
-
-        if (!future.isDone()) {
-            // This triggers a clock update.
-            HybridTimestamp now = clock.now();
-
-            if (targetTimestamp.compareTo(now) <= 0) {
-                scheduledFuture = null;
-            } else {
-                // Adding 1 to account for a possible non-null logical part of the targetTimestamp.
-                long millisToWait = targetTimestamp.getPhysical() - now.getPhysical() + 1;
-
-                scheduledFuture = scheduler.schedule(triggerClockUpdate, millisToWait, TimeUnit.MILLISECONDS);
-            }
-        } else {
-            scheduledFuture = null;
+        if (targetTimestamp.compareTo(now) <= 0) {
+            return completedFuture(null);
         }
 
-        CompletableFuture<Void> futureBeforeReturning = future
+        CompletableFuture<Void> future = nowTracker.waitFor(targetTimestamp.longValue());
+
+        // Adding 1 to account for a possible non-null logical part of the targetTimestamp.
+        long millisToWait = targetTimestamp.getPhysical() - now.getPhysical() + 1;
+
+        ScheduledFuture<?> scheduledFuture = scheduler.schedule(triggerClockUpdate, millisToWait, TimeUnit.MILLISECONDS);
+
+        return future
                 .handle((res, ex) -> {
-                    if (scheduledFuture != null) {
-                        scheduledFuture.cancel(true);
-                    }
+                    scheduledFuture.cancel(true);
 
                     translateTrackerClosedException(ex);
 
                     return res;
-                });
-
-        if (futureBeforeReturning.isDone()) {
-            return futureBeforeReturning;
-        } else {
-            // The future might be completed in a random thread, so let's move its completion execution to a special thread pool
-            // because the user's code following the future completion might run arbitrarily heavy operations and we don't want
-            // to put them on an innocent thread invoking now()/update() on the clock.
-            return futureBeforeReturning
-                    .thenApplyAsync(identity(), futureExecutor);
-        }
+                })
+                // The future might be completed in a random thread, so let's move its completion execution to a special thread pool
+                // because the user's code following the future completion might run arbitrarily heavy operations and we don't want
+                // to put them on an innocent thread invoking now()/update() on the clock.
+                .thenApplyAsync(identity(), futureExecutor);
     }
 
-    private void triggerClockUpdate() {
-        clock.now();
+    private void triggerTrackerUpdate() {
+        onUpdate(clock.nowLong());
     }
 
     private static void translateTrackerClosedException(Throwable ex) {
