@@ -44,18 +44,21 @@ public class CatalogUtils {
      * <p>SQL`16 part 2 section 6.1 syntax rule 36
      */
     public static final int DEFAULT_TIMESTAMP_PRECISION = 6;
+
     /**
      * Default TIME type precision: seconds.
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 36
      */
     public static final int DEFAULT_TIME_PRECISION = 0;
+
     /**
      * Default DECIMAL precision is implementation-defined.
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 25
      */
     public static final int DEFAULT_DECIMAL_PRECISION = 19;
+
     /**
      * Default DECIMAL scale is implementation-defined.
      *
