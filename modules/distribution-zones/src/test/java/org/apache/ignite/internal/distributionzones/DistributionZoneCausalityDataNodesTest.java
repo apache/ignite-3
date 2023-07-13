@@ -180,7 +180,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC)")
     @Test
     void topologyLeapUpdate() throws Exception {
         // Prerequisite.
@@ -255,7 +255,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC)")
     @Test
     void topologyLeapUpdateScaleUpNotImmediateAndScaleDownImmediate() throws Exception {
         // Prerequisite.
@@ -347,7 +347,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC)")
     @Test
     void topologyLeapUpdateScaleUpImmediateAndScaleDownNotImmediate() throws Exception {
         // Prerequisite.
@@ -538,7 +538,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC)")
     @Test
     void scheduleScaleUpTaskThenDropZone() throws Exception {
         // Prerequisite.
@@ -685,7 +685,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC)")
     @Test
     void scheduleScaleDownTaskThenDropZone() throws Exception {
         // Prerequisite.
