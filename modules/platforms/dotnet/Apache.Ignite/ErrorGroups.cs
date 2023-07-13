@@ -49,7 +49,7 @@ namespace Apache.Ignite
         /// </summary>
         /// <param name="fullCode">Full error code.</param>
         /// <returns>Error code.</returns>
-        public static short GetErrorCode(int fullCode) => Convert.ToInt16(fullCode & 0xFFFF);
+        public static short GetErrorCode(int fullCode) => checked((short)(fullCode & 0xFFFF));
 
         /// <summary>
         /// Returns group code extracted from the given full error code.
