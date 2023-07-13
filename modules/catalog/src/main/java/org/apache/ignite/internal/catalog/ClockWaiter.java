@@ -169,7 +169,9 @@ public class ClockWaiter implements IgniteComponent {
                 .handle((res, ex) -> {
                     scheduledFuture.cancel(true);
 
-                    translateTrackerClosedException(ex);
+                    if (ex != null) {
+                        translateTrackerClosedException(ex);
+                    }
 
                     return res;
                 })
@@ -179,18 +181,16 @@ public class ClockWaiter implements IgniteComponent {
                 .thenApplyAsync(identity(), futureExecutor);
     }
 
+    private static void translateTrackerClosedException(Throwable ex) {
+        if (ex instanceof TrackerClosedException) {
+            throw new CancellationException();
+        } else {
+            throw new CompletionException(ex);
+        }
+    }
+
     private void triggerTrackerUpdate() {
         onUpdate(clock.nowLong());
     }
 
-    private static void translateTrackerClosedException(Throwable ex) {
-        if (ex != null) {
-            // Let's replace a TrackerClosedException with a CancellationException as the latter makes more sense for the clients.
-            if (ex instanceof TrackerClosedException) {
-                throw new CancellationException();
-            } else {
-                throw new CompletionException(ex);
-            }
-        }
-    }
 }
