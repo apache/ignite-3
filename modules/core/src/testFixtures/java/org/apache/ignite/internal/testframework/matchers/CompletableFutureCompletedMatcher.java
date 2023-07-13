@@ -23,6 +23,9 @@ import org.hamcrest.TypeSafeMatcher;
 
 /** A matcher that tests if a CompletableFuture has completed successfully. */
 public class CompletableFutureCompletedMatcher<T> extends TypeSafeMatcher<CompletableFuture<T>> {
+    private CompletableFutureCompletedMatcher() {
+    }
+
     @Override
     protected boolean matchesSafely(CompletableFuture<T> future) {
         return future.isDone() && !future.isCompletedExceptionally() && !future.isCancelled();
@@ -52,7 +55,7 @@ public class CompletableFutureCompletedMatcher<T> extends TypeSafeMatcher<Comple
     /**
      * Creates a {@link CompletableFutureCompletedMatcher}.
      */
-    public static <T> CompletableFutureCompletedMatcher<T> futureCompleted() {
+    public static <T> CompletableFutureCompletedMatcher<T> completedFuture() {
         return new CompletableFutureCompletedMatcher<T>();
     }
 }

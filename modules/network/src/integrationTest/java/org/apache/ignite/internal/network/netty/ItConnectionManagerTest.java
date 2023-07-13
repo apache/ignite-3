@@ -18,9 +18,10 @@
 package org.apache.ignite.internal.network.netty;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.futureCompleted;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -369,8 +370,8 @@ public class ItConnectionManagerTest {
                     manager1.connectionManager.localAddress()
             ).toCompletableFuture();
 
-            assertThat(channelFut1, futureCompleted());
-            assertThat(channelFut2, futureCompleted());
+            assertThat(channelFut1, is(completedFuture()));
+            assertThat(channelFut2, is(completedFuture()));
 
             NettySender channel1 = channelFut1.getNow(null);
             NettySender channel2 = channelFut2.getNow(null);

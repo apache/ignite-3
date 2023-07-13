@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.recovery;
 
 import static java.util.Collections.emptyList;
+import static org.apache.ignite.internal.network.recovery.HandshakeTieBreaker.shouldCloseChannel;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -168,55 +169,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     @Override
     public void onMessage(NetworkMessage message) {
         if (message instanceof HandshakeStartResponseMessage) {
-            HandshakeStartResponseMessage msg = (HandshakeStartResponseMessage) message;
-
-            UUID remoteLaunchId = msg.launchId();
-            String remoteConsistentId = msg.consistentId();
-            long remoteReceivedCount = msg.receivedCount();
-            short remoteChannelId = msg.connectionId();
-
-            if (staleIdDetector.isIdStale(remoteLaunchId.toString())) {
-                handleStaleClientId(msg);
-
-                return;
-            }
-
-            this.remoteLaunchId = remoteLaunchId;
-            this.remoteConsistentId = remoteConsistentId;
-            this.receivedCount = remoteReceivedCount;
-            this.remoteChannelId = remoteChannelId;
-
-            RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
-                    this.remoteConsistentId,
-                    this.remoteLaunchId,
-                    this.remoteChannelId
-            );
-
-            while (!descriptor.acquire(ctx)) {
-                // If local launch id <= client's launch id, close existing channel
-                // in favor of the new one.
-                if (launchId.compareTo(remoteLaunchId) <= 0) {
-                    Channel holderChannel = descriptor.holderChannel();
-
-                    if (holderChannel == null) {
-                        continue;
-                    }
-
-                    holderChannel.close().awaitUninterruptibly();
-                } else {
-                    String err = "Failed to acquire recovery descriptor during handshake, it is held by: " + descriptor.holderDescription();
-
-                    LOG.info(err);
-
-                    handshakeCompleteFuture.completeExceptionally(new HandshakeException(err));
-
-                    return;
-                }
-            }
-
-            this.recoveryDescriptor = descriptor;
-
-            handshake(descriptor);
+            onHandshakeStartResponseMessage((HandshakeStartResponseMessage) message);
 
             return;
         }
@@ -241,6 +194,54 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         }
 
         ctx.fireChannelRead(message);
+    }
+
+    private void onHandshakeStartResponseMessage(HandshakeStartResponseMessage message) {
+        UUID remoteLaunchId = message.launchId();
+        String remoteConsistentId = message.consistentId();
+        long remoteReceivedCount = message.receivedCount();
+        short remoteChannelId = message.connectionId();
+
+        if (staleIdDetector.isIdStale(remoteLaunchId.toString())) {
+            handleStaleClientId(message);
+
+            return;
+        }
+
+        this.remoteLaunchId = remoteLaunchId;
+        this.remoteConsistentId = remoteConsistentId;
+        this.receivedCount = remoteReceivedCount;
+        this.remoteChannelId = remoteChannelId;
+
+        RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
+                this.remoteConsistentId,
+                this.remoteLaunchId,
+                this.remoteChannelId
+        );
+
+        while (!descriptor.acquire(ctx)) {
+            if (shouldCloseChannel(launchId, remoteLaunchId)) {
+                Channel holderChannel = descriptor.holderChannel();
+
+                if (holderChannel == null) {
+                    continue;
+                }
+
+                holderChannel.close().awaitUninterruptibly();
+            } else {
+                String err = "Failed to acquire recovery descriptor during handshake, it is held by: " + descriptor.holderDescription();
+
+                LOG.info(err);
+
+                handshakeCompleteFuture.completeExceptionally(new HandshakeException(err));
+
+                return;
+            }
+        }
+
+        this.recoveryDescriptor = descriptor;
+
+        handshake(descriptor);
     }
 
     private void handleStaleClientId(HandshakeStartResponseMessage msg) {
