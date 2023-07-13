@@ -161,6 +161,9 @@ public class ErrorGroups {
          * </ul>
          */
         public static final int RUNTIME_ERR = SQL_ERR_GROUP.registerErrorCode(11);
+
+        /** Planning timed out without finding any valid plan. */
+        public static final int PLANNING_TIMEOUT_ERR = SQL_ERR_GROUP.registerErrorCode(12);
     }
 
     /** Meta storage error group. */
