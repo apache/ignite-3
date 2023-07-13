@@ -236,12 +236,14 @@ sql_result data_query::fetch_next_row(column_binding_map &column_bindings)
 
     for (std::int32_t i = 0; i < row.size(); ++i)
     {
-        auto it = column_bindings.find(i);
+        // Column indexing starts from 1 in ODBC.
+        auto column_idx = i + 1;
+        auto it = column_bindings.find(column_idx);
         if (it == column_bindings.end())
             continue;
 
         auto conv_res = put_primitive_to_buffer(it->second, row[i]);
-        auto result = process_conversion_result(conv_res, m_cursor->get_result_set_pos(), i + 1);
+        auto result = process_conversion_result(conv_res, m_cursor->get_result_set_pos(), column_idx);
 
         if (result == sql_result::AI_ERROR)
             return sql_result::AI_ERROR;
