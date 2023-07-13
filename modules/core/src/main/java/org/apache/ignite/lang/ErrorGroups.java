@@ -39,7 +39,7 @@ public class ErrorGroups {
         /** SSL can not be configured error. */
         public static final int SSL_CONFIGURATION_ERR = COMMON_ERR_GROUP.registerErrorCode(4);
 
-        /** Operation failed because a node has the left cluster. */
+        /** Operation failed because a node has left the cluster. */
         public static final int NODE_LEFT_ERR = COMMON_ERR_GROUP.registerErrorCode(5);
 
         /**
