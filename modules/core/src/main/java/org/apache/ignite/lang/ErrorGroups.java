@@ -149,7 +149,7 @@ public class ErrorGroups {
         /** Constraint violation error such as primary key violation. */
         public static final int CONSTRAINT_VIOLATION_ERR = SQL_ERR_GROUP.registerErrorCode(9);
 
-        /** Statement canceled error. Statement is canceled due to timeout. */
+        /** Statement canceled error. Statement is canceled due to timeout, admin action, etc. */
         public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode(10);
 
         /**
