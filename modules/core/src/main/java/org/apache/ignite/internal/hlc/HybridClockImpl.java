@@ -34,7 +34,7 @@ import org.apache.ignite.internal.tostring.S;
  * A Hybrid Logical Clock implementation.
  */
 public class HybridClockImpl implements HybridClock {
-    private static final IgniteLogger LOG = Loggers.forClass(HybridClockImpl.class);
+    private final IgniteLogger log = Loggers.forClass(HybridClockImpl.class);
 
     /**
      * Var handle for {@link #latestTime}.
@@ -85,7 +85,7 @@ public class HybridClockImpl implements HybridClock {
             try {
                 listener.onUpdate(newTs);
             } catch (Throwable e) {
-                LOG.error("ClockUpdateListener#onUpdate() failed for {} at {}", e, listener, newTs);
+                log.error("ClockUpdateListener#onUpdate() failed for {} at {}", e, listener, newTs);
 
                 if (e instanceof Error && !(e instanceof AssertionError)) {
                     throw e;
