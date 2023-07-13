@@ -49,7 +49,9 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.session.SessionExpiredException;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -123,23 +125,29 @@ class JdbcQueryEventHandlerImplTest {
 
         JdbcConnectionContext context = resourceRegistry.get(connectionId).get(JdbcConnectionContext.class);
 
-        when(queryProcessor.createSession(any())).thenAnswer(inv -> new SessionId(UUID.randomUUID()));
+        SessionId sessionId = new SessionId(UUID.randomUUID());
 
-        List<Integer> errorCodes = List.of(Sql.SESSION_EXPIRED_ERR, Sql.SESSION_NOT_FOUND_ERR);
+        when(queryProcessor.createSession(any())).thenAnswer(inv -> sessionId);
 
-        for (int errorCode : errorCodes) {
+//        List<Integer> errorCodes = List.of(Sql.SESSION_EXPIRED_ERR, Sql.SESSION_NOT_FOUND_ERR);
+        SessionExpiredException expired = new SessionExpiredException(sessionId, new RuntimeException());
+        SessionNotFoundException notFound = new SessionNotFoundException(sessionId);
+
+        List<Throwable> errors = List.of(expired, notFound);
+
+        for (Throwable error : errors) {
             AtomicBoolean shouldThrow = new AtomicBoolean(true);
 
-            await(context.doInSession(sessionId -> {
+            await(context.doInSession(id -> {
                 if (shouldThrow.compareAndSet(true, false)) {
-                    return CompletableFuture.failedFuture(new IgniteInternalException(errorCode));
+                    return CompletableFuture.failedFuture(error);
                 }
 
                 return CompletableFuture.completedFuture(null);
             }));
         }
 
-        verify(queryProcessor, times(errorCodes.size() + 1 /* initial session */)).createSession(any());
+        verify(queryProcessor, times(errors.size() + 1 /* initial session */)).createSession(any());
         verifyNoMoreInteractions(queryProcessor);
     }
 
@@ -152,7 +160,7 @@ class JdbcQueryEventHandlerImplTest {
         when(queryProcessor.createSession(any())).thenAnswer(inv -> new SessionId(UUID.randomUUID()));
 
         CompletableFuture<?> result = context.doInSession(
-                sessionId -> CompletableFuture.failedFuture(new IgniteInternalException(Sql.SESSION_EXPIRED_ERR))
+                sessionId -> CompletableFuture.failedFuture(new SessionExpiredException(sessionId, new RuntimeException()))
         );
 
         assertThat(result.isDone(), is(true));

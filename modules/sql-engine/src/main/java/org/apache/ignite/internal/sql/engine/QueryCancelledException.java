@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import org.apache.ignite.lang.IgniteException;
 

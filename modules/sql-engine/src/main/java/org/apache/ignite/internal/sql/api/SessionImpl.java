@@ -42,6 +42,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.property.Property;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -187,7 +188,7 @@ public class SessionImpl implements Session {
             );
 
             result.whenComplete((rs, th) -> {
-                if (extractCodeFrom(th) == SESSION_NOT_FOUND_ERR) {
+                if (th instanceof SessionNotFoundException) {
                     closeInternal();
                 }
             });

@@ -15,24 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.sql.engine.session;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * ExecutionCancelledException.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Thrown when session has been expired but not yet been collected by cleaner thread.
  */
-public class ExecutionCancelledException extends IgniteInternalCheckedException {
-    /** Serial version UID. */
+public class SessionExpiredException extends IgniteInternalException {
+
     private static final long serialVersionUID = 0L;
 
-    /**
-     * Constructs a new exception with null as its detail message.
-     */
-    public ExecutionCancelledException() {
-        super(EXECUTION_CANCELLED_ERR);
+    /** Constructor. */
+    public SessionExpiredException(SessionId sessionId, Throwable cause) {
+        super(format("Session has been expired [{}]", sessionId), cause);
     }
 }

@@ -94,13 +94,18 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT id FROM person WHERE name LIKE ? ORDER BY id LIMIT ? OFFSET ?").withParams("I%", 1, 1).returns(2).check();
         assertQuery("SELECT id from person WHERE salary<? and id<?").withParams(15, 3).returns(0).check();
 
-        IgniteTestUtils.assertThrowsWithCause(() -> sql("SELECT LAST_DAY(?)", Date.valueOf("2022-01-01")),
+        var t = IgniteTestUtils.assertThrowsWithCause(() -> sql("SELECT LAST_DAY(?)", Date.valueOf("2022-01-01")),
                 SqlException.class, "Unsupported dynamic parameter defined");
+
+        t.printStackTrace(System.err);
 
         LocalDate date1 = LocalDate.parse("2022-01-01");
         LocalDate date2 = LocalDate.parse("2022-01-31");
 
         assertQuery("SELECT LAST_DAY(?)").withParams(date1).returns(date2).check();
+
+        RuntimeException x = assertThrows(RuntimeException.class, () -> sql("SELECT CAST(? AS INTEGER)", "lame"));
+        x.printStackTrace(System.err);
     }
 
     /**

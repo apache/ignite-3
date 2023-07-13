@@ -133,13 +133,16 @@ public class ErrorGroups {
         public static final int STMT_PARSE_ERR = SQL_ERR_GROUP.registerErrorCode(7);
 
         /**
-         * Statement validation error. This error is reported in following cases:
+         * Statement validation error. Although statement is grammatically correct, the semantic is in question.
+         * This error may appear in following cases:
          * <ul>
-         *     <li>Statement references a table, a view, a column, a function, or another database object that does not exist.</li>
-         *     <li>Statement describes an action that is prohibited by the system, like changing columns belonging to primary keys.</li>
-         *     <li>Statement call errors - function is called with not correct number of arguments.</li>
-         *     <li>Type checking errors.</li>
+         *     <li>the statement refer to relation that doesn't exists.</li>
+         *     <li>the statement describes action that is prohibited by the system, like changing columns belonging to primary keys.</li>
+         *     <li>the statement contains operation that is not defined for given operands' types, like addition of DATE and DECIMAL.</li>
+         *     <li>etc</li>
          * </ul>
+         *
+         * <p>See message for details.
          */
         public static final int STMT_VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode(8);
 
@@ -150,16 +153,14 @@ public class ErrorGroups {
         public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode(10);
 
         /**
-         * Error indicating that execution of a SQL statement failed due to internal error or
-         * a SQL engine component was unable to execute an operation.
+         * Runtime error. Errors caused by programming errors in SQL statement itself, such errors happen during statement execution:
+         * <ul>
+         *     <li>Numeric overflow errors.</li>
+         *     <li>Type conversion errors such as {@code SELECT CAST('abc' AS INTEGER)}.</li>
+         *     <li>Function execution errors.</li>
+         * </ul>
          */
-        public static final int RUNTIME_ERR = SQL_ERR_GROUP.registerErrorCode(12);
-
-        /** Error condition which is raised during execution when data is not correct (such as number of out range error). */
-        public static final int INVALID_DATA_ERR = SQL_ERR_GROUP.registerErrorCode(13);
-
-        /** Session expired error. */
-        public static final int SESSION_EXPIRED_ERR = SQL_ERR_GROUP.registerErrorCode(14);
+        public static final int RUNTIME_ERR = SQL_ERR_GROUP.registerErrorCode(11);
     }
 
     /** Meta storage error group. */
