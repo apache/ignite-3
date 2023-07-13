@@ -784,7 +784,7 @@ public class ItRebalanceDistributedTest {
                     clockWaiter
             );
 
-            schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
+            schemaManager = new SchemaManager(registry, metaStorageManager, catalogManager);
 
             distributionZoneManager = new DistributionZoneManager(
                     zonesCfg,

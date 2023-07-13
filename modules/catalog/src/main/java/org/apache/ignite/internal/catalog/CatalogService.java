@@ -63,6 +63,7 @@ public interface CatalogService {
 
     CatalogZoneDescriptor zone(String zoneName, long timestamp);
 
+    @Deprecated
     CatalogZoneDescriptor zone(int zoneId, long timestamp);
 
     CatalogZoneDescriptor zone(int zoneId, int version);

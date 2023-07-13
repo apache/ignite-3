@@ -35,8 +35,14 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
-import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
+import org.apache.ignite.internal.catalog.events.AlterColumnEventParameters;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -78,56 +84,97 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
-    /** Tables configuration. */
-    private final TablesConfiguration tablesCfg;
-
     /** Versioned store for tables by name. */
     private final IncrementalVersionedValue<Map<Integer, SchemaRegistryImpl>> registriesVv;
 
     /** Meta storage manager. */
     private final MetaStorageManager metastorageMgr;
 
+    /** Catalog manager. */
+    private final CatalogManager catalogManager;
+
     /** Constructor. */
     public SchemaManager(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
-            TablesConfiguration tablesCfg,
-            MetaStorageManager metastorageMgr
-    ) {
+            MetaStorageManager metastorageMgr,
+            CatalogManager catalogManager) {
         this.registriesVv = new IncrementalVersionedValue<>(registry, HashMap::new);
-        this.tablesCfg = tablesCfg;
+        this.catalogManager = catalogManager;
         this.metastorageMgr = metastorageMgr;
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
-        tablesCfg.tables().any().columns().listen(this::onSchemaChange);
+        catalogManager.listen(CatalogEvent.TABLE_CREATE,
+                (params, ex) -> onSchemaChange((CreateTableEventParameters) params).thenApply(ignore -> false));
+        catalogManager.listen(CatalogEvent.TABLE_ALTER,
+                (params, ex) -> onSchemaChange(params).thenApply(ignore -> false));
     }
 
     /**
      * Listener of schema configuration changes.
      *
-     * @param ctx Configuration context.
+     * @param evt Event parameters.
      * @return A future.
      */
-    private CompletableFuture<?> onSchemaChange(ConfigurationNotificationEvent<NamedListView<ColumnView>> ctx) {
+    private CompletableFuture<?> onSchemaChange(CreateTableEventParameters evt) {
+        CatalogTableDescriptor tableDescriptor = evt.tableDescriptor();
+
+        int newSchemaVersion = INITIAL_SCHEMA_VERSION;// evt.catalogVersion();
+        int tblId = tableDescriptor.id();
+
+        SchemaDescriptor newSchema = CatalogDescriptorUtils.convert(newSchemaVersion, tableDescriptor);
+
+        return onSchemaChange(tblId, newSchema, evt.causalityToken());
+    }
+
+    /**
+     * Listener of schema configuration changes.
+     *
+     * @param evt Event parameters.
+     * @return A future.
+     */
+    private CompletableFuture<?> onSchemaChange(CatalogEventParameters evt) {
+        try {
+            CatalogTableDescriptor tableDescriptor;
+
+            if (evt instanceof AddColumnEventParameters) {
+                AddColumnEventParameters params = (AddColumnEventParameters) evt;
+
+                tableDescriptor = catalogManager.table(params.tableId(), params.catalogVersion());
+            } else if (evt instanceof DropColumnEventParameters) {
+                DropColumnEventParameters params = (DropColumnEventParameters) evt;
+
+                tableDescriptor = catalogManager.table(params.tableId(), params.catalogVersion());
+            } else if (evt instanceof AlterColumnEventParameters) {
+                AlterColumnEventParameters params = (AlterColumnEventParameters) evt;
+
+                tableDescriptor = catalogManager.table(params.tableId(), params.catalogVersion());
+            } else {
+                return completedFuture(new UnsupportedOperationException("Unexpected event."));
+            }
+
+            int newSchemaVersion = registriesVv.latest().get(tableDescriptor.id()).lastSchemaVersion() + 1;;
+
+            SchemaDescriptor newSchema = CatalogDescriptorUtils.convert(newSchemaVersion, tableDescriptor);
+
+            return onSchemaChange(tableDescriptor.id(), newSchema, evt.causalityToken());
+        } catch (Throwable th) {
+            th.printStackTrace();
+            return failedFuture(th);
+        }
+    }
+
+    /**
+     * Update schema.
+     */
+    private CompletableFuture<?> onSchemaChange(int tblId, SchemaDescriptor newSchema, long causalityToken) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
 
         try {
-            ExtendedTableView tblCfg = ctx.newValue(ExtendedTableView.class);
-
-            int newSchemaVersion = tblCfg.schemaId();
-
-            int tblId = tblCfg.id();
-
-            if (searchSchemaByVersion(tblId, newSchemaVersion) != null) {
-                return completedFuture(null);
-            }
-
-            SchemaDescriptor newSchema = SchemaUtils.prepareSchemaDescriptor(newSchemaVersion, tblCfg);
-
             // This is intentionally a blocking call to enforce configuration listener execution order. Unfortunately it is not possible
             // to execute this method asynchronously, because the schema descriptor is needed to fire the CREATE event as a synchronous part
             // of the configuration listener.
@@ -141,24 +188,13 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 return failedFuture(e);
             }
 
-            long causalityToken = ctx.storageRevision();
-
-            // Fire event early, because dependent listeners have to register VersionedValues' update futures
-            var eventParams = new SchemaEventParameters(causalityToken, tblId, newSchema);
-
-            fireEvent(SchemaEvent.CREATE, eventParams)
-                    .whenComplete((v, e) -> {
+            return registriesVv.update(causalityToken,
+                    (registries, e) -> inBusyLock(busyLock, () -> {
                         if (e != null) {
-                            LOGGER.warn("Error when processing CREATE event", e);
+                            return failedFuture(new IgniteInternalException(IgniteStringFormatter.format(
+                                    "Cannot create a schema for the table [tblId={}, ver={}]", tblId, newSchema.version()), e)
+                            );
                         }
-                    });
-
-            return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
-                if (e != null) {
-                    return failedFuture(new IgniteInternalException(IgniteStringFormatter.format(
-                            "Cannot create a schema for the table [tblId={}, ver={}]", tblId, newSchemaVersion), e)
-                    );
-                }
 
                 return saveSchemaDescriptor(tblId, newSchema)
                         .thenApply(t -> registerSchema(tblId, newSchema, registries));

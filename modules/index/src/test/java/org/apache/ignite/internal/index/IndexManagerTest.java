@@ -120,7 +120,7 @@ public class IndexManagerTest {
         when(catalogManager.index(anyString(), anyLong())).thenReturn(indexDescriptor);
         when(indexDescriptor.id()).thenReturn(1);
 
-        indexManager = new IndexManager(tablesConfig, catalogManager, schManager, tableManagerMock);
+        indexManager = new IndexManager(catalogManager, schManager, tableManagerMock);
         indexManager.start();
 
         assertThat(

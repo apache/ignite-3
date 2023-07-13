@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
 
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -307,6 +308,55 @@ public class CatalogDescriptorUtils {
 
             default:
                 throw new IllegalArgumentException("Unknown type " + colType.spec().name());
+        }
+    }
+
+    /**
+     * Converts table descriptor to table schema descriptor.
+     */
+    public static SchemaDescriptor convert(int schemaVer, CatalogTableDescriptor tableDescriptor) {
+        List<Column> keyCols = new ArrayList<>(tableDescriptor.primaryKeyColumns().size());
+        List<Column> valCols = new ArrayList<>(tableDescriptor.columns().size() - tableDescriptor.primaryKeyColumns().size());
+
+        int idx = 0;
+
+        for (CatalogTableColumnDescriptor column : tableDescriptor.columns()) {
+            if (tableDescriptor.isPrimaryKeyColumn(column.name())) {
+                keyCols.add(convert(idx, column));
+            } else {
+                valCols.add(convert(idx, column));
+            }
+
+            idx++;
+        }
+
+        return new SchemaDescriptor(
+                schemaVer,
+                keyCols.toArray(Column[]::new),
+                tableDescriptor.colocationColumns().toArray(String[]::new),
+                valCols.toArray(Column[]::new)
+        );
+    }
+
+    private static Column convert(int columnOrder, CatalogTableColumnDescriptor columnDescriptor) {
+        NativeType type = getNativeType(columnDescriptor);
+
+        DefaultValue defaultValue = columnDescriptor.defaultValue();
+
+        DefaultValueProvider defaultValueProvider = toValueProvider(defaultValue);
+
+        return new Column(columnOrder, columnDescriptor.name(), type, columnDescriptor.nullable(), defaultValueProvider);
+    }
+
+    private static DefaultValueProvider toValueProvider(DefaultValue defaultValue) {
+        switch (defaultValue.type()) {
+            case CONSTANT:
+                return DefaultValueProvider.constantProvider(((ConstantValue) defaultValue).value());
+            case FUNCTION_CALL:
+                return DefaultValueProvider.forValueGenerator(
+                        DefaultValueGenerator.valueOf(((FunctionCall) defaultValue).functionName()));
+            default:
+                throw new IllegalStateException("Unknown default value type: " + defaultValue.type());
         }
     }
 }

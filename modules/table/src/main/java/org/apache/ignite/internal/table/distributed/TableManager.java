@@ -47,6 +47,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
@@ -100,7 +101,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
-import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
@@ -112,7 +112,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -149,8 +148,7 @@ import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
-import org.apache.ignite.internal.schema.event.SchemaEvent;
-import org.apache.ignite.internal.schema.event.SchemaEventParameters;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageView;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -534,17 +532,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         catalogManager.listen(CatalogEvent.TABLE_CREATE,
                 (parameters, exception) -> onTableCreate((CreateTableEventParameters) parameters).thenApply(ignore -> false));
 
-        catalogManager.listen(CatalogEvent.TABLE_CREATE,
+        catalogManager.listen(CatalogEvent.TABLE_DROP,
                 (parameters, exception) -> onTableDelete((DropTableEventParameters) parameters).thenApply(ignore -> false));
-
-        schemaManager.listen(SchemaEvent.CREATE, new EventListener<>() {
-            @Override
-            public CompletableFuture<Boolean> notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable exception) {
-                var eventParameters = new TableEventParameters(parameters.causalityToken(), parameters.tableId());
-
-                return fireEvent(TableEvent.ALTER, eventParameters).thenApply(v -> false);
-            }
-        });
 
         addMessageHandler(clusterService.messagingService());
     }
@@ -589,13 +578,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Listener of table create configuration change.
      *
-     * @param ctx Table configuration context.
+     * @param evt Event parameters.
      * @return A future.
      */
-    private CompletableFuture<?> onTableCreate(CreateTableEventParameters ctx) {
+    private CompletableFuture<?> onTableCreate(CreateTableEventParameters evt) {
         if (!busyLock.enterBusy()) {
             fireEvent(TableEvent.CREATE,
-                    new TableEventParameters(ctx.causalityToken(), ctx.tableDescriptor().id()),
+                    new TableEventParameters(evt.causalityToken(), evt.tableDescriptor().id()),
                     new NodeStoppingException()
             );
 
@@ -603,10 +592,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
-            CatalogTableDescriptor tableDescriptor = ctx.tableDescriptor();
-            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(tableDescriptor.zoneId(), ctx.catalogVersion());
-
-            assert zoneDescriptor != null;
+            CatalogTableDescriptor tableDescriptor = evt.tableDescriptor();
+            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(tableDescriptor.zoneId(), evt.catalogVersion());
 
             List<Set<Assignment>> assignments;
 
@@ -628,7 +615,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             assert !assignments.isEmpty() : "Couldn't create the table with empty assignments.";
 
             CompletableFuture<?> createTableFut = createTableLocally(
-                    ctx.causalityToken(),
+                    evt.causalityToken(),
                     tableDescriptor,
                     zoneDescriptor,
                     assignments
@@ -645,6 +632,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             writeTableAssignmentsToMetastore(tableId, assignments);
 
             return createTableFut;
+        } catch (Throwable th) {
+            LOG.warn("Failed to process create table event.", th);
+
+            return failedFuture(th);
         } finally {
             busyLock.leaveBusy();
         }
@@ -676,14 +667,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Listener of table drop configuration change.
      *
-     * @param ctx Table configuration context.
+     * @param evt Event parameters.
      * @return A future.
      */
-    private CompletableFuture<?> onTableDelete(DropTableEventParameters ctx) {
+    private CompletableFuture<?> onTableDelete(DropTableEventParameters evt) {
         if (!busyLock.enterBusy()) {
             fireEvent(
                     TableEvent.DROP,
-                    new TableEventParameters(ctx.causalityToken(), ctx.tableId()),
+                    new TableEventParameters(evt.causalityToken(), evt.tableId()),
                     new NodeStoppingException()
             );
 
@@ -691,10 +682,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
-            CatalogTableDescriptor tableDescriptor = catalogManager.table(ctx.tableId(), ctx.catalogVersion() - 1);
-            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(tableDescriptor.zoneId(), ctx.catalogVersion() - 1);
+            int previousCatalogVersion = evt.catalogVersion() - 1;
 
-            dropTableLocally(ctx.causalityToken(), tableDescriptor, zoneDescriptor);
+            CatalogTableDescriptor tableDescriptor = catalogManager.table(evt.tableId(), previousCatalogVersion);
+            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(tableDescriptor.zoneId(), previousCatalogVersion);
+
+            dropTableLocally(evt.causalityToken(), tableDescriptor, zoneDescriptor);
+        } catch (Throwable th) {
+            LOG.warn("Failed to process drop table event.", th);
+
+            return failedFuture(th);
         } finally {
             busyLock.leaveBusy();
         }
@@ -723,7 +720,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         // Empty assignments might be a valid case if tables are created from within cluster init HOCON
         // configuration, which is not supported now.
-        assert newAssignments != null : IgniteStringFormatter.format("Table [id={}] has empty assignments.", tableId);
+        assert newAssignments != null : format("Table [id={}] has empty assignments.", tableId);
 
         int partitions = newAssignments.size();
 
@@ -1284,18 +1281,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         pendingTables.put(tableId, table);
         startedTables.put(tableId, table);
 
-        tablesById(causalityToken).thenAccept(ignored -> inBusyLock(busyLock, () -> {
+        createPartsFut.thenAccept(ignored -> inBusyLock(busyLock, () -> {
             pendingTables.remove(tableId);
         }));
 
-        tablesById(causalityToken)
-                .thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
+        createPartsFut
+                .thenRunAsync(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
 
         // TODO should be reworked in IGNITE-16763
         // We use the event notification future as the result so that dependent components can complete the schema updates.
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
-        return allOf(createPartsFut, fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableId)));
+        CompletableFuture<?> eventFut = fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableId));
+
+        // TODO: investigate why createParts and eventFutures hangs.
+//         return allOf(createPartsFut, eventFut);
+        return completedFuture(false);
     }
 
     /**
@@ -1503,6 +1504,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 tableChange.changePrimaryKey(pkChange -> pkChange.changeColumns(parameters.primaryKeyColumns().toArray(String[]::new))
                         .changeColocationColumns(colocationKeys0.toArray(String[]::new)));
             };
+
 
             return catalogManager.createTable(parameters)
                     .thenApply(ignore -> catalogManager.table(tableName, Long.MAX_VALUE).id())
@@ -2849,8 +2851,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             }
 
                             if (primaryCols.contains(colName)) {
-                                throw new SqlException(STMT_VALIDATION_ERR, IgniteStringFormatter
-                                        .format("Can`t delete column, belongs to primary key: [name={}]", colName));
+                                throw new SqlException(STMT_VALIDATION_ERR, format("Can`t delete column, belongs to primary key: [name={}]", colName));
                             }
                         }
 

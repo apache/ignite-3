@@ -281,7 +281,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         dataStorageManager.start();
 
-        schemaManager = new SchemaManager(revisionUpdater, tblsCfg, msm);
+        schemaManager = new SchemaManager(revisionUpdater, msm, catalogManager);
 
         schemaManager.start();
 
@@ -313,7 +313,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         tblManager = mockManagers();
 
-        idxManager = new IndexManager(tblsCfg, catalogManager, schemaManager, tblManager);
+        idxManager = new IndexManager(catalogManager, schemaManager, tblManager);
 
         idxManager.start();
 

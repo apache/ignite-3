@@ -40,6 +40,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
@@ -68,6 +69,7 @@ import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.apache.ignite.internal.sql.engine.schema.CatalogSqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.session.Session;
@@ -238,14 +240,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                 msgSrvc
         ));
 
-        SqlSchemaManagerImpl sqlSchemaManager = new SqlSchemaManagerImpl(
-                tableManager,
-                schemaManager,
-                registry,
-                busyLock
-        );
-
-        sqlSchemaManager.registerListener(prepareSvc);
 
         this.prepareSvc = prepareSvc;
 
@@ -261,7 +255,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
 
-        sqlSchemaManager.registerListener(executableTableRegistry);
+        CatalogSqlSchemaManager sqlSchemaManager = new CatalogSqlSchemaManager(catalogManager, 1000);
+        this.sqlSchemaManager = sqlSchemaManager;
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
@@ -272,7 +267,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 ArrayRowHandler.INSTANCE,
                 mailboxRegistry,
                 exchangeService,
-                dependencyResolver
+                dependencyResolver,
+                tableManager
         ));
 
         clusterSrvc.topologyService().addEventHandler(executionSrvc);
@@ -280,14 +276,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.executionSrvc = executionSrvc;
 
-        registerTableListener(TableEvent.CREATE, new TableCreatedListener(sqlSchemaManager));
-        registerTableListener(TableEvent.ALTER, new TableUpdatedListener(sqlSchemaManager));
-        registerTableListener(TableEvent.DROP, new TableDroppedListener(sqlSchemaManager));
-
-        registerIndexListener(IndexEvent.CREATE, new IndexCreatedListener(sqlSchemaManager));
-        registerIndexListener(IndexEvent.DROP, new IndexDroppedListener(sqlSchemaManager));
-
-        this.sqlSchemaManager = sqlSchemaManager;
 
         services.forEach(LifecycleAware::start);
     }
@@ -416,7 +404,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         AtomicReference<InternalTransaction> tx = new AtomicReference<>();
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
-                .thenCompose(ignored -> {
+                // TODO: wait for latest catalog.
+                .thenCompose(ignore -> tableManager.tablesAsync())
+                .thenCompose(tables -> CompletableFuture.allOf(tables.stream()
+                        .map(t -> tableManager.tableAsync(t.name())).toArray(CompletableFuture[]::new))
+                ).thenCompose(ignored -> {
                     ParsedResult result = parserService.parse(sql);
 
                     validateParsedStatement(context, outerTx, result, params);
@@ -427,7 +419,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     tx.set(implicitTxRequired ? txManager.begin(!rwOp, null) : outerTx);
 
-                    SchemaPlus schema = sqlSchemaManager.schema(schemaName);
+                    int catalogVersion = catalogManager.activeCatalogVersion(tx.get().startTimestamp().longValue());
+
+                    SchemaPlus schema = sqlSchemaManager.schema(schemaName, catalogVersion);
 
                     if (schema == null) {
                         return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));

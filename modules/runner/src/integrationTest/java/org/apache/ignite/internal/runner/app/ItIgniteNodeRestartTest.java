@@ -346,7 +346,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clockWaiter
         );
 
-        SchemaManager schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
+        SchemaManager schemaManager = new SchemaManager(registry, metaStorageMgr, catalogManager);
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 zonesConfig,
@@ -386,7 +386,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 null
         );
 
-        var indexManager = new IndexManager(tablesConfig, catalogManager, schemaManager, tableManager);
+        var indexManager = new IndexManager(catalogManager, schemaManager, tableManager);
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,

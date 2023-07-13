@@ -68,10 +68,12 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
     }
 
     /** {@inheritDoc} */
+    @Deprecated
     @Override
     public SchemaPlus schema(@Nullable String schema) {
         // Should be removed -schema(name, version) must be used instead
-        throw new UnsupportedOperationException();
+        // throw new UnsupportedOperationException();
+        return activeSchema(schema, catalogManager.activeCatalogVersion(Long.MAX_VALUE));
     }
 
     /** {@inheritDoc} */
@@ -87,7 +89,12 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
     @Override
     public IgniteTable tableById(int id) {
         // Should be removed - this method is used to obtain native types from a table.
-        throw new UnsupportedOperationException();
+        //throw new UnsupportedOperationException();
+        CatalogTableDescriptor table = catalogManager.table(id, Long.MAX_VALUE);
+
+        assert table != null;
+
+        return (IgniteTable) activeSchema(DEFAULT_SCHEMA_NAME, Long.MAX_VALUE).getTable(table.name());
     }
 
     /** {@inheritDoc} */
