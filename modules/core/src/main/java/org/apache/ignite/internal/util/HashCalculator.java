@@ -102,7 +102,16 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendBoolean(boolean v) {
-        hash = HashUtils.hash32(ByteUtils.booleanToByte(v), hash);
+        hash = combine(hash, hashBoolean(v));
+    }
+
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
+    public static int hashBoolean(boolean v) {
+        return HashUtils.hash32(ByteUtils.booleanToByte(v));
     }
 
     /**
