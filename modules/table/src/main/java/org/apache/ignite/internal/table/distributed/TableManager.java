@@ -1479,32 +1479,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Creates a new table with the given {@code name} asynchronously. If a table with the same name already exists, a future will be
-     * completed with {@link TableAlreadyExistsException}.
-     *
-     * @param name Table name.
-     * @param zoneName Distribution zone name.
-     * @param tableInitChange Table changer.
-     * @return Future representing pending completion of the operation.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
-     *         <ul>
-     *             <li>the node is stopping.</li>
-     *         </ul>
-     * @see TableAlreadyExistsException
-     */
-    @Deprecated
-    public CompletableFuture<Table> createTableAsync(String name, String zoneName, Consumer<TableChange> tableInitChange) {
-        throw new UnsupportedOperationException("Method is no longer supported.");
-    }
-
-    /**
      * Creates a new table from parameters.
      *
      * @param parameters Create table parameters.
      * @return Future representing pending completion of the operation.
      * @see TableAlreadyExistsException
      */
-    @Deprecated(forRemoval = true)
     public CompletableFuture<Table> createTableAsync(CreateTableParams parameters) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
@@ -1713,7 +1693,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future representing pending completion of the operation.
      * @see TableNotFoundException
      */
-    @Deprecated
     public CompletableFuture<Void> alterTableAddColumnAsync(AlterTableAddColumnParams params) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
@@ -1733,7 +1712,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future representing pending completion of the operation.
      * @see TableNotFoundException
      */
-    @Deprecated
     public CompletableFuture<Void> alterTableDropColumnAsync(AlterTableDropColumnParams params) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
@@ -1828,28 +1806,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Drops a table with the name specified. If appropriate table does not be found, a future will be completed with
      * {@link TableNotFoundException}.
      *
-     * @param name Table name.
-     * @return Future representing pending completion of the operation.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
-     *         <ul>
-     *             <li>the node is stopping.</li>
-     *         </ul>
-     * @see TableNotFoundException
-     */
-    @Deprecated(forRemoval = true)
-    public CompletableFuture<Void> dropTableAsync(String name) {
-        throw new UnsupportedOperationException("Method is no longer supported.");
-    }
-
-    /**
-     * Drops a table with the name specified. If appropriate table does not be found, a future will be completed with
-     * {@link TableNotFoundException}.
-     *
      * @param params Drop table parameters.
      * @return Future representing pending completion of the operation.
      * @see TableNotFoundException
      */
-    @Deprecated
     public CompletableFuture<Void> dropTableAsync(DropTableParams params) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
@@ -1863,6 +1823,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /** See {@link #dropTableAsync(DropTableParams)} for details. */
+    @Deprecated(forRemoval = true)
     private CompletableFuture<Void> dropTableAsyncInternal(String name) {
         return tableAsyncInternal(name).thenCompose(tbl -> {
             // In case of drop it's an optimization that allows not to fire drop-change-closure if there's no such

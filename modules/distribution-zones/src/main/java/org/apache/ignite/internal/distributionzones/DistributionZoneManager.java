@@ -98,7 +98,6 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -409,12 +408,7 @@ public class DistributionZoneManager implements IgniteComponent {
                             .dataNodesAutoAdjustScaleDown(distributionZoneCfg.dataNodesAutoAdjustScaleDown())
                             .build())
                     .thenApply(ignore -> catalogManager.zone(distributionZoneCfg.name(), Long.MAX_VALUE))
-                    .thenCompose(zoneDescriptor -> createZone(zoneDescriptor.id(), distributionZoneCfg))
-                    .whenComplete((id, ex) -> {
-                        if (ex != null) {
-                            LOG.warn("Failed to create zone.", ex);
-                        }
-                    });
+                    .thenCompose(zoneDescriptor -> createZone(zoneDescriptor.id(), distributionZoneCfg));
         } finally {
             busyLock.leaveBusy();
         }

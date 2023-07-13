@@ -70,7 +70,7 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<IndexEventParameters> indexCreatedFuture = registerListener(indexManager, IndexEvent.CREATE);
 
-        await(indexManager.createHashIndexAsync(
+        await(indexManager.createIndexAsync(
                 CreateHashIndexParams.builder()
                         .schemaName("PUBLIC")
                         .indexName("INAME")
@@ -93,11 +93,7 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<IndexEventParameters> indexDroppedFuture = registerListener(indexManager, IndexEvent.DROP);
 
-        await(indexManager.dropIndexAsync(
-                DropIndexParams.builder()
-                        .schemaName("PUBLIC")
-                        .indexName("INAME")
-                        .build()));
+        await(indexManager.dropIndexAsync(DropIndexParams.builder().schemaName("PUBLIC").indexName("INAME").build()));
 
         {
             IndexEventParameters params = await(indexDroppedFuture);

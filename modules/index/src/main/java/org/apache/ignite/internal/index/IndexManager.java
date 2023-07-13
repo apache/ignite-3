@@ -33,10 +33,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
@@ -191,106 +191,52 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     }
 
     /**
-     * Creates index from provided configuration changer.
-     *
-     * @param schemaName A name of the schema to create index in.
-     * @param indexName A name of the index to create.
-     * @param tableName A name of the table to create index for.
-     * @param failIfExists Flag indicates whether exception be thrown if index exists or not.
-     * @param indexChange A consumer that suppose to change the configuration in order to provide description of an index.
-     * @return A future represented the result of creation.
+     * Creates index from provided parameters.
      */
-    @Deprecated(forRemoval = true)
-    public CompletableFuture<Boolean> createIndexAsync(
-            String schemaName,
-            String indexName,
-            String tableName,
-            boolean failIfExists,
-            Consumer<TableIndexChange> indexChange
-    ) {
-        throw new UnsupportedOperationException("Method is no longer supported.");
-    }
-
-    /**
-     * Creates sorted index from provided parameters.
-     */
-    @Deprecated(forRemoval = true)
-    public CompletableFuture<Boolean> createSortedIndexAsync(CreateSortedIndexParams params) {
+    public CompletableFuture<Boolean> createIndexAsync(AbstractIndexCommandParams params) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
 
         try {
-            Consumer<TableIndexChange> indexChanger = tableIndexChange -> {
-                tableIndexChange.convert(SortedIndexChange.class).changeColumns(colsInit -> {
-                    for (int i = 0; i < params.columns().size(); i++) {
-                        String columnName = params.columns().get(i);
-                        CatalogColumnCollation collation = params.collations().get(i);
-                        //TODO: https://issues.apache.org/jira/browse/IGNITE-17563 Pass null ordering for columns.
-                        colsInit.create(columnName, colInit -> colInit.changeAsc(collation.asc()));
-                    }
-                });
-            };
+            CompletableFuture<Void> indexCreateFuture = (params instanceof CreateSortedIndexParams)
+                    ? catalogManager.createIndex((CreateSortedIndexParams) params)
+                    : catalogManager.createIndex((CreateHashIndexParams) params);
 
-            return catalogManager.createIndex(params)
-                    .thenApply(ignore -> {
-                        CatalogIndexDescriptor index = catalogManager.index(params.indexName(), Long.MAX_VALUE);
-                        return index.id();
-                    })
-                    .thenCompose(indexId ->
-                            createIndexInternal(
-                                    indexId,
-                                    params.schemaName(),
-                                    params.indexName(),
-                                    params.tableName(),
-                                    true,
-                                    indexChanger
-                            )
-                    );
-        } catch (Exception ex) {
-            return failedFuture(ex);
+            return indexCreateFuture.thenApply(ignore -> catalogManager.index(params.indexName(), Long.MAX_VALUE))
+                    .thenCompose(index -> createIndexInternal(
+                            index.id(),
+                            params.schemaName(),
+                            params.indexName(),
+                            params.tableName(),
+                            true,
+                            createIndexChanger(params)
+                    ));
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    /**
-     * Creates hash index from provided parameters.
-     */
     @Deprecated(forRemoval = true)
-    public CompletableFuture<Boolean> createHashIndexAsync(CreateHashIndexParams params) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            Consumer<TableIndexChange> indexChanger = tableIndexChange -> {
-                tableIndexChange.convert(HashIndexChange.class)
-                        .changeColumnNames(params.columns().toArray(STRING_EMPTY_ARRAY));
-            };
-
-            return catalogManager.createIndex(params)
-                    .thenApply(ignore -> {
-                        CatalogIndexDescriptor index = catalogManager.index(params.indexName(), Long.MAX_VALUE);
-                        return index.id();
-                    })
-                    .thenCompose(indexId ->
-                            createIndexInternal(
-                                    indexId,
-                                    params.schemaName(),
-                                    params.indexName(),
-                                    params.tableName(),
-                                    true,
-                                    indexChanger
-                            )
-                    );
-        } catch (Exception ex) {
-            return failedFuture(ex);
-        } finally {
-            busyLock.leaveBusy();
+    private Consumer<TableIndexChange> createIndexChanger(AbstractIndexCommandParams indexParams) {
+        if (indexParams instanceof CreateSortedIndexParams) {
+            CreateSortedIndexParams params = (CreateSortedIndexParams) indexParams;
+            return tableIndexChange -> tableIndexChange.convert(SortedIndexChange.class).changeColumns(colsInit -> {
+                for (int i = 0; i < params.columns().size(); i++) {
+                    String columnName = params.columns().get(i);
+                    CatalogColumnCollation collation = params.collations().get(i);
+                    //TODO: https://issues.apache.org/jira/browse/IGNITE-17563 Pass null ordering for columns.
+                    colsInit.create(columnName, colInit -> colInit.changeAsc(collation.asc()));
+                }
+            });
+        } else {
+            CreateHashIndexParams params = (CreateHashIndexParams) indexParams;
+            return tableIndexChange -> tableIndexChange.convert(HashIndexChange.class)
+                    .changeColumnNames(params.columns().toArray(STRING_EMPTY_ARRAY));
         }
     }
 
+    @Deprecated(forRemoval = true)
     private CompletableFuture<Boolean> createIndexInternal(
             int indexId,
             String schemaName,
@@ -366,27 +312,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             });
 
             return future;
-        } catch (Exception ex) {
-            return failedFuture(ex);
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    /**
-     * Drops the index with a given name asynchronously.
-     *
-     * @param schemaName A name of the schema the index belong to.
-     * @param indexName A name of the index to drop.
-     * @param failIfNotExists Flag, which force failure, when {@code trues} if index doen't not exists.
-     * @return A future representing the result of the operation.
-     */
-    public CompletableFuture<Boolean> dropIndexAsync(
-            String schemaName,
-            String indexName,
-            boolean failIfNotExists
-    ) {
-        throw new UnsupportedOperationException("Method is no longer supported.");
     }
 
     /**
@@ -397,17 +325,14 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            CompletableFuture<Boolean> future = catalogManager.dropIndex(params)
+            return catalogManager.dropIndex(params)
                     .thenCompose(ignore -> dropIndexAsyncInternal(params.schemaName(), params.indexName(), true));
-
-            future.whenComplete((res, ex) -> ex.printStackTrace());
-
-            return future;
         } finally {
             busyLock.leaveBusy();
         }
     }
 
+    @Deprecated(forRemoval = true)
     private CompletableFuture<Boolean> dropIndexAsyncInternal(
             String schemaName,
             String indexName,
@@ -456,42 +381,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             });
 
             return future;
-        } catch (Exception ex) {
-            return failedFuture(ex);
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    /**
-     * Gets a list of index configuration views for the specified table.
-     *
-     * @param tableName Table name.
-     * @return List of index configuration views.
-     */
-    public List<TableIndexView> indexConfigurations(String tableName) {
-        List<TableIndexView> res = new ArrayList<>();
-        Integer targetTableId = null;
-
-        NamedListView<TableView> tablesView = tablesCfg.tables().value();
-
-        for (TableIndexView cfg : tablesCfg.indexes().value()) {
-            if (targetTableId == null) {
-                TableView tbl = findTableView(tablesView, cfg.tableId());
-
-                if (tbl == null || !tableName.equals(tbl.name())) {
-                    continue;
-                }
-
-                targetTableId = cfg.tableId();
-            } else if (!targetTableId.equals(cfg.tableId())) {
-                continue;
-            }
-
-            res.add(cfg);
-        }
-
-        return res;
     }
 
     private void validateName(String indexName) {

@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.index.IndexManager;
@@ -65,6 +66,9 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
     @Mock
     private DataStorageManager dataStorageManager;
 
+    @Mock
+    private CatalogManager catalogManager;
+
     /** DDL commands handler. */
     private DdlCommandHandler commandHandler;
 
@@ -79,7 +83,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
                     return CompletableFuture.completedFuture(null);
                 });
 
-        commandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
+        commandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager, catalogManager);
     }
 
 

@@ -39,6 +39,7 @@ public class SchemaToCatalogParamsConverter {
      * Types map.
      */
     private static final EnumSet<ColumnType.ColumnTypeSpec> fixSizedTypes = EnumSet.of(
+            ColumnType.BOOLEAN.typeSpec(),
             ColumnType.INT8.typeSpec(),
             ColumnType.INT16.typeSpec(),
             ColumnType.INT32.typeSpec(),
@@ -116,6 +117,8 @@ public class SchemaToCatalogParamsConverter {
 
     private static org.apache.ignite.sql.ColumnType convert(ColumnType colType) {
         switch (colType.typeSpec()) {
+            case BOOLEAN:
+                return org.apache.ignite.sql.ColumnType.BOOLEAN;
             case INT8:
                 return org.apache.ignite.sql.ColumnType.INT8;
             case INT16:

@@ -141,14 +141,15 @@ public class IndexManagerTest {
     void configurationChangedWhenCreateIsInvoked() {
         String indexName = "idx";
 
-        assertThat(indexManager.createSortedIndexAsync(
+        assertThat(indexManager.createIndexAsync(
                 CreateSortedIndexParams.builder()
                         .schemaName(CatalogManager.DEFAULT_SCHEMA_NAME)
                         .tableName("tName")
                         .indexName(indexName)
                         .columns(List.of("c1", "c2"))
                         .collations(List.of(CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST))
-                        .build()), willCompleteSuccessfully());
+                        .build()),
+                willCompleteSuccessfully());
 
         var expected = List.of(
                 Map.of(
@@ -176,7 +177,7 @@ public class IndexManagerTest {
     @Test
     public void createIndexWithEmptyName() {
         assertThat(
-                indexManager.createHashIndexAsync(
+                indexManager.createIndexAsync(
                         CreateHashIndexParams.builder()
                                 .schemaName(CatalogManager.DEFAULT_SCHEMA_NAME)
                                 .tableName("tName")
@@ -187,7 +188,7 @@ public class IndexManagerTest {
         );
 
         assertThat(
-                indexManager.createSortedIndexAsync(
+                indexManager.createIndexAsync(
                         CreateSortedIndexParams.builder()
                                 .schemaName(CatalogManager.DEFAULT_SCHEMA_NAME)
                                 .tableName("tName")
@@ -229,7 +230,7 @@ public class IndexManagerTest {
             return completedFuture(true);
         });
 
-        assertThat(indexManager.createSortedIndexAsync(
+        assertThat(indexManager.createIndexAsync(
                         CreateSortedIndexParams.builder()
                                 .schemaName(CatalogManager.DEFAULT_SCHEMA_NAME)
                                 .indexName(indexName)
