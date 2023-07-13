@@ -143,6 +143,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         publisher.submit(tuple(1, "foo"));
         assertTrue(waitForCondition(() -> {
+            @SuppressWarnings("resource")
             var tx = ignite().transactions().begin(new TransactionOptions().readOnly(true));
 
             try {
