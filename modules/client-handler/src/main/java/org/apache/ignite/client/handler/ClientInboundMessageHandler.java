@@ -394,6 +394,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
+        // TODO: Handle SchemaVersionMismatchException separately; send schema version to client.
+        // To include additional data with the error, introduce a map of error data.
         err = ExceptionUtils.unwrapCause(err);
 
         if (err instanceof TraceableException) {
