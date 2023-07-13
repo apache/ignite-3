@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -68,7 +69,7 @@ class ClockWaiterTest {
 
         clock.update(oneYearAhead);
 
-        assertThat(future.isDone(), is(true));
+        assertThat(future, willCompleteSuccessfully());
     }
 
     private HybridTimestamp getOneYearAhead() {
