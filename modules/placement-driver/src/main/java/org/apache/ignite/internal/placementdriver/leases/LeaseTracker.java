@@ -243,7 +243,6 @@ public class LeaseTracker implements PlacementDriver {
                 return completedFuture(lease);
             }
 
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-19532 Race between meta storage safe time publication and listeners.
             return msManager.clusterTime().waitFor(timestamp).thenApply(ignored -> inBusyLock(
                     busyLock, () -> {
                         Lease lease0 = leasesMap.getOrDefault(replicationGroupId, EMPTY_LEASE);

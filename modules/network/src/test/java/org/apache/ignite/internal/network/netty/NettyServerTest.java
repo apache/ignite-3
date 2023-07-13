@@ -179,10 +179,7 @@ public class NettyServerTest {
         server = new NettyServer(
                 serverCfg.value(),
                 () -> handshakeManager,
-                sender -> {
-                },
-                (message) -> {
-                },
+                (message) -> {},
                 new SerializationService(registry, mock(UserObjectSerializationContext.class)),
                 bootstrapFactory
         );
@@ -219,8 +216,8 @@ public class NettyServerTest {
         InOrder order = Mockito.inOrder(handshakeManager);
 
         order.verify(handshakeManager, timeout()).onInit(any());
-        order.verify(handshakeManager, timeout()).handshakeFuture();
         order.verify(handshakeManager, timeout()).onConnectionOpen();
+        order.verify(handshakeManager, timeout()).handshakeFuture();
         order.verify(handshakeManager, timeout()).onMessage(any());
     }
 
@@ -246,7 +243,6 @@ public class NettyServerTest {
         var server = new NettyServer(
                 serverCfg.value(),
                 () -> mock(HandshakeManager.class),
-                null,
                 null,
                 null,
                 bootstrapFactory
