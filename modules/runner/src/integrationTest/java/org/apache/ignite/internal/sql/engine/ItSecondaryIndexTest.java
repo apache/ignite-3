@@ -23,14 +23,18 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUnion;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.Matchers.not;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Basic index tests.
@@ -45,6 +49,8 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
     private static final String NAME_DEPID_CITY_IDX = "NAME_DEPID_CITY_IDX";
 
     private static final String NAME_DATE_IDX = "NAME_DATE_IDX";
+
+    private static final AtomicInteger TABLE_IDX = new AtomicInteger();
 
     /**
      * Before all.
@@ -992,5 +998,40 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
         sql("INSERT INTO t200 VALUES (1, 127)");
 
         assertQuery("SELECT * FROM t200 WHERE val = 1024").returnNothing().check();
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {
+            // type, literal
+            "TINYINT;50",
+            "TINYINT;50::BIGINT",
+            "TINYINT;50::DECIMAL(10)",
+            "TINYINT;50::REAL",
+
+            "REAL;50.00",
+            "REAL;50.00::REAL",
+            "REAL;50.00::DOUBLE",
+            "REAL;50",
+
+            "DOUBLE;50.00",
+            "DOUBLE;50.00::REAL",
+            "DOUBLE;50.00::DECIMAL(10,2)",
+            "DOUBLE;50",
+
+            "DECIMAL(10, 2);50.00", // DECIMAL(10,2)
+            "DECIMAL(10, 2);50.00::REAL",
+            "DECIMAL(10, 2);50.00::DOUBLE",
+            "DECIMAL(10, 2);50",
+    }, delimiter = ';')
+    public void testTypeCastsIndexBounds(String type, String val) {
+        int id = TABLE_IDX.getAndIncrement();
+
+        sql(format("create table tt_{}(id INTEGER PRIMARY KEY, field_1 {})", id, type, val));
+
+        sql(format("SELECT * FROM tt_{} WHERE field_1 = {}", id, val));
+
+        sql(format("CREATE INDEX tt_idx_{} ON tt_{} (field_1)", id, id));
+
+        sql(format("SELECT * FROM tt_{} WHERE field_1 = {}", id, val));
     }
 }
