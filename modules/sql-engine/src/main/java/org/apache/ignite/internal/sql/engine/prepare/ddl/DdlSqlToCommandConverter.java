@@ -928,12 +928,12 @@ public class DdlSqlToCommandConverter {
     }
 
     private static IgniteException unexpectedZoneOption(PlanningContext ctx, String optionName) {
-        return new IgniteException(STMT_VALIDATION_ERR,
+        return new SqlException(STMT_VALIDATION_ERR,
                 String.format("Unexpected zone option [option=%s, query=%s]", optionName, ctx.query()));
     }
 
     private static IgniteException duplicateZoneOption(PlanningContext ctx, String optionName) {
-        return new IgniteException(STMT_VALIDATION_ERR,
+        return new SqlException(STMT_VALIDATION_ERR,
                 String.format("Duplicate zone option has been specified [option=%s, query=%s]", optionName, ctx.query()));
     }
 }

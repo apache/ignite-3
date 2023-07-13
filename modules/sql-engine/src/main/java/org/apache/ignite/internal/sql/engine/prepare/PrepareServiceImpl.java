@@ -56,6 +56,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -164,7 +165,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                     throw new AssertionError("Unexpected queryType=" + parsedResult.queryType());
             }
         } catch (CalciteContextException e) {
-            throw new IgniteInternalException(STMT_VALIDATION_ERR, "Failed to validate query. " + e.getMessage(), e);
+            throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. " + e.getMessage(), e);
         }
     }
 
