@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,7 +33,6 @@ import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
@@ -617,7 +617,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     }
 
     private static void checkDuplicatePk(IgniteException ex) {
-        assertEquals(Sql.CONSTRAINT_VIOLATION_ERR, ex.code());
+        assertEquals(CONSTRAINT_VIOLATION_ERR, ex.code());
         assertThat(ex.getMessage(), containsString("PK unique constraint is violated"));
     }
 }

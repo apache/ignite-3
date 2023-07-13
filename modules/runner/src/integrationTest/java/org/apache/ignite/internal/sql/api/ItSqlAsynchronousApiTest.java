@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -761,7 +762,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
                 () -> await(ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args))
         );
 
-        assertEquals(Sql.CONSTRAINT_VIOLATION_ERR, ex.code());
+        assertEquals(CONSTRAINT_VIOLATION_ERR, ex.code());
         assertEquals(err, ex.updateCounters().length);
         IntStream.range(0, ex.updateCounters().length).forEach(i -> assertEquals(1, ex.updateCounters()[i]));
     }

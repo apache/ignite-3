@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -262,17 +263,17 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
                     recordView.upsert(rwTx, Tuple.create().set("id", 0).set("name", names[0]));
 
                     SqlException ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 0, names[0])));
-                    assertEquals(Sql.CONSTRAINT_VIOLATION_ERR, ex.code());
+                    assertEquals(CONSTRAINT_VIOLATION_ERR, ex.code());
 
                     kvView.put(rwTx, new KeyObject(1, names[1]), null);
 
                     ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 1, names[1])));
-                    assertEquals(Sql.CONSTRAINT_VIOLATION_ERR, ex.code());
+                    assertEquals(CONSTRAINT_VIOLATION_ERR, ex.code());
 
                     binView.put(rwTx, Tuple.create().set("id", 2).set("name", names[2]), Tuple.create());
 
                     ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 2, names[2])));
-                    assertEquals(Sql.CONSTRAINT_VIOLATION_ERR, ex.code());
+                    assertEquals(CONSTRAINT_VIOLATION_ERR, ex.code());
 
                     sql(rwTx, String.format(sqlInsert, 3, names[3]));
                 },
