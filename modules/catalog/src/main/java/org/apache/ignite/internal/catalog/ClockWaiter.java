@@ -72,6 +72,12 @@ public class ClockWaiter implements IgniteComponent {
     /** Executor that executes completion of futures returned to the user, so it might take arbitrarily heavy operations. */
     private final ExecutorService futureExecutor;
 
+    /**
+     * Creates a new {@link ClockWaiter}.
+     *
+     * @param nodeName Name of the current Ignite node.
+     * @param clock Clock to look at.
+     */
     public ClockWaiter(String nodeName, HybridClock clock) {
         this.nodeName = nodeName;
         this.clock = clock;
