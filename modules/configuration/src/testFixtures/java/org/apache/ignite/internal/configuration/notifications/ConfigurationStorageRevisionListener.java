@@ -24,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
  *
  * <p>Storage revision - monotonously increasing counter, linked to the specific storage for current configuration values.
  */
-// TODO: IGNITE-19801 Get rid of this interface.
 @FunctionalInterface
 public interface ConfigurationStorageRevisionListener {
     /**

@@ -19,9 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
-import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.rowBytes;
 
-import java.nio.ByteBuffer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
@@ -127,9 +125,7 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
     }
 
     private RowVersion insertCommittedRowVersion(@Nullable BinaryRow row, HybridTimestamp commitTimestamp, long nextPartitionlessLink) {
-        byte[] rowBytes = rowBytes(row);
-
-        RowVersion rowVersion = new RowVersion(storage.partitionId, commitTimestamp, nextPartitionlessLink, ByteBuffer.wrap(rowBytes));
+        RowVersion rowVersion = new RowVersion(storage.partitionId, commitTimestamp, nextPartitionlessLink, row);
 
         storage.insertRowVersion(rowVersion);
 

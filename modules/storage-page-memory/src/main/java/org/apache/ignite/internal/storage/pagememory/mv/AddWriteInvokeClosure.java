@@ -19,9 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
-import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.rowBytes;
 
-import java.nio.ByteBuffer;
 import java.util.UUID;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
@@ -96,7 +94,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         if (oldRow.isUncommitted()) {
             RowVersion currentVersion = storage.readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE);
 
-            previousUncommittedRowVersion = storage.rowVersionToBinaryRow(currentVersion);
+            previousUncommittedRowVersion = currentVersion.value();
 
             // As we replace an uncommitted version with new one, we need to remove old uncommitted version.
             toRemove = currentVersion;
@@ -125,9 +123,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
     }
 
     private RowVersion insertRowVersion(@Nullable BinaryRow row, long nextPartitionlessLink) {
-        byte[] rowBytes = rowBytes(row);
-
-        RowVersion rowVersion = new RowVersion(storage.partitionId, nextPartitionlessLink, ByteBuffer.wrap(rowBytes));
+        RowVersion rowVersion = new RowVersion(storage.partitionId, nextPartitionlessLink, row);
 
         storage.insertRowVersion(rowVersion);
 

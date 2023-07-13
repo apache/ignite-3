@@ -270,7 +270,7 @@ public class MetricsTests
 
         TestUtils.WaitForCondition(() => _listener.GetMetric("streamer-batches-sent") > 0);
         cts.Cancel();
-        Assert.ThrowsAsync<TaskCanceledException>(async () => await task);
+        Assert.CatchAsync<OperationCanceledException>(async () => await task);
 
         Assert.GreaterOrEqual(_listener.GetMetric("streamer-batches-sent"), 1, "streamer-batches-sent");
         Assert.AreEqual(0, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");

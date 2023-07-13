@@ -17,6 +17,7 @@
 
 package org.apache.ignite.lang;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.getOrCreateTraceId;
 import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
 import static org.apache.ignite.lang.ErrorGroup.errorGroupByErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
@@ -104,7 +105,7 @@ public class IgniteInternalException extends RuntimeException implements Traceab
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteInternalException(int code, @Nullable Throwable cause) {
-        this(UUID.randomUUID(), code, cause);
+        this(getOrCreateTraceId(cause), code, cause);
     }
 
     /**
@@ -130,7 +131,7 @@ public class IgniteInternalException extends RuntimeException implements Traceab
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteInternalException(int code, String message, @Nullable Throwable cause) {
-        this(UUID.randomUUID(), code, message, cause);
+        this(getOrCreateTraceId(cause), code, message, cause);
     }
 
     /**
@@ -269,8 +270,6 @@ public class IgniteInternalException extends RuntimeException implements Traceab
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        String s = getClass().getName();
-        String message = errorMessage(traceId, groupName, code, getLocalizedMessage());
-        return (message != null) ? (s + ": " + message) : s;
+        return getClass().getName() + ": " + errorMessage(traceId, groupName, code, getLocalizedMessage());
     }
 }

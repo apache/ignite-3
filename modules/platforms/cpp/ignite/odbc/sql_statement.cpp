@@ -23,6 +23,7 @@
 #include "ignite/odbc/sql_connection.h"
 #include "ignite/odbc/sql_statement.h"
 #include "ignite/odbc/utility.h"
+#include "ignite/odbc/query/data_query.h"
 
 namespace ignite {
 
@@ -578,8 +579,7 @@ sql_result sql_statement::internal_prepare_sql_query(const std::string& query)
     if (m_current_query)
         m_current_query->close();
 
-    // TODO: IGNITE-19212 implement basic query execution
-    m_current_query.reset();
+    m_current_query = std::make_unique<data_query>(*this, m_connection, query, m_parameters, m_timeout);
 
     return sql_result::AI_SUCCESS;
 }
@@ -951,18 +951,18 @@ sql_result sql_statement::internal_get_column_attribute(uint16_t column_idx, uin
         return sql_result::AI_ERROR;
     }
 
-    const column_meta& columnMeta = meta->at(column_idx - 1);
+    const column_meta& column_meta = meta->at(column_idx - 1);
 
     bool found = false;
 
     if (numeric_buf)
-        found = columnMeta.get_attribute(attr_id, *numeric_buf);
+        found = column_meta.get_attribute(attr_id, *numeric_buf);
 
     if (!found)
     {
         std::string out;
 
-        found = columnMeta.get_attribute(attr_id, out);
+        found = column_meta.get_attribute(attr_id, out);
 
         size_t outSize = out.size();
 
@@ -1175,7 +1175,7 @@ sql_result sql_statement::update_params_meta()
     assert(qry0);
     assert(qry0->get_type() == query_type::DATA);
 
-    // TODO: IGNITE-19212: Implement params metadata fetching
+    // TODO: IGNITE-19854: Implement params metadata fetching
 
     add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Parameters metadata is not supported");
     return sql_result::AI_ERROR;

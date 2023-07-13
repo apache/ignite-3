@@ -21,11 +21,13 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT32;
 import static org.apache.ignite.internal.schema.NativeTypes.INT8;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Random;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
@@ -87,7 +89,13 @@ public class ColocationHashCalculationTest {
         hashCalc.appendInt(2);
         hashCalc.appendString("key_" + 3);
 
+        int[] hashes = new int[3];
+        hashes[0] = HashCalculator.hashByte((byte) 1);
+        hashes[1] = HashCalculator.hashInt(2);
+        hashes[2] = HashCalculator.hashString("key_" + 3);
+
         assertEquals(hashCalc.hash(), colocationHash(r));
+        assertEquals(hashCalc.hash(), HashCalculator.combinedHash(hashes));
     }
 
     @Test
@@ -112,9 +120,65 @@ public class ColocationHashCalculationTest {
             Tuple t = TableRow.tuple(r);
             t.set(rndCol.name(), SchemaTestUtils.generateRandomValue(rnd, rndCol.type()));
 
-            r = new Row(schema, new ByteBufferRow(marshaller.marshal(t).bytes()));
+            r = marshaller.marshal(t);
 
             assertEquals(colocationHash(r), r.colocationHash());
+        }
+    }
+
+    @Test
+    void collisions() {
+        var set = new HashSet<Integer>();
+        int collisions = 0;
+
+        for (var key1 = 0; key1 < 100; key1++) {
+            for (var key2 = 0; key2 < 100; key2++) {
+                for (var key3 = 0; key3 < 100; key3++) {
+                    HashCalculator hashCalc = new HashCalculator();
+                    hashCalc.appendInt(key1);
+                    hashCalc.appendInt(key2);
+                    hashCalc.appendInt(key3);
+
+                    int hash = hashCalc.hash();
+                    if (set.contains(hash)) {
+                        collisions++;
+                    } else {
+                        set.add(hash);
+                    }
+                }
+            }
+        }
+
+        assertEquals(125, collisions);
+    }
+
+    @Test
+    void distribution() {
+        int partitions = 100;
+        var map = new HashMap<Integer, Integer>();
+
+        for (var key1 = 0; key1 < 100; key1++) {
+            for (var key2 = 0; key2 < 100; key2++) {
+                for (var key3 = 0; key3 < 100; key3++) {
+                    HashCalculator hashCalc = new HashCalculator();
+                    hashCalc.appendInt(key1);
+                    hashCalc.appendInt(key2);
+                    hashCalc.appendInt(key3);
+
+                    int hash = hashCalc.hash();
+                    int partition = Math.abs(hash % partitions);
+
+                    map.put(partition, map.getOrDefault(partition, 0) + 1);
+                }
+            }
+        }
+
+        var maxSkew = 326;
+
+        for (var entry : map.entrySet()) {
+            // CSV to plot: System.out.println(entry.getKey() + ", " + entry.getValue());
+            assertTrue(entry.getValue() < 10_000 + maxSkew, "Partition " + entry.getKey() + " keys: " + entry.getValue());
+            assertTrue(entry.getValue() > 10_000 - maxSkew, "Partition " + entry.getKey() + " keys: " + entry.getValue());
         }
     }
 
@@ -129,10 +193,10 @@ public class ColocationHashCalculationTest {
             t.set(c.name(), SchemaTestUtils.generateRandomValue(rnd, c.type()));
         }
 
-        return new Row(schema, new ByteBufferRow(marshaller.marshal(t).bytes()));
+        return marshaller.marshal(t);
     }
 
-    private int colocationHash(Row r) {
+    private static int colocationHash(Row r) {
         HashCalculator hashCalc = new HashCalculator();
         for (Column c : r.schema().colocationColumns()) {
             var scale = c.type() instanceof DecimalNativeType ? ((DecimalNativeType) c.type()).scale() : 0;

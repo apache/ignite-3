@@ -45,6 +45,7 @@ import org.rocksdb.DBOptions;
 import org.rocksdb.Env;
 import org.rocksdb.Priority;
 import org.rocksdb.RocksDB;
+import org.rocksdb.WriteBatch;
 import org.rocksdb.util.SizeUnit;
 
 /** Implementation of the {@link LogStorageFactory} that creates {@link RocksDbSharedLogStorage}s. */
@@ -70,6 +71,15 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     private ColumnFamilyHandle dataHandle;
 
     /**
+     * Thread-local batch instance, used by {@link RocksDbSharedLogStorage#appendEntriesToBatch(List)} and
+     * {@link RocksDbSharedLogStorage#commitWriteBatch()}.
+     * <br>
+     * Shared between instances to provide more efficient way of executing batch updates.
+     */
+    @SuppressWarnings("ThreadLocalNotStaticFinal")
+    private final ThreadLocal<WriteBatch> threadLocalWriteBatch = new ThreadLocal<>();
+
+    /**
      * Constructor.
      *
      * @param path Path to the storage.
@@ -77,8 +87,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     public DefaultLogStorageFactory(Path path) {
         this.path = path;
 
-        executorService = Executors.newFixedThreadPool(
-                Runtime.getRuntime().availableProcessors() * 2,
+        executorService = Executors.newSingleThreadExecutor(
                 new NamedThreadFactory("raft-shared-log-storage-pool", LOG)
         );
     }
@@ -136,7 +145,35 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** {@inheritDoc} */
     @Override
     public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
-        return new RocksDbSharedLogStorage(db, confHandle, dataHandle, groupId, raftOptions, executorService);
+        return new RocksDbSharedLogStorage(this, db, confHandle, dataHandle, groupId, raftOptions, executorService);
+    }
+
+    /**
+     * Returns a thread-local {@link WriteBatch} instance, attached to current factory, append data from multiple storages at the same time.
+     */
+    WriteBatch getOrCreateThreadLocalWriteBatch() {
+        WriteBatch writeBatch = threadLocalWriteBatch.get();
+
+        if (writeBatch == null) {
+            writeBatch = new WriteBatch();
+
+            threadLocalWriteBatch.set(writeBatch);
+        }
+
+        return writeBatch;
+    }
+
+    /**
+     * Clears {@link WriteBatch} returned by {@link #getOrCreateThreadLocalWriteBatch()}.
+     */
+    void clearThreadLocalWriteBatch() {
+        WriteBatch writeBatch = threadLocalWriteBatch.get();
+
+        if (writeBatch != null) {
+            writeBatch.close();
+
+            threadLocalWriteBatch.set(null);
+        }
     }
 
     /**

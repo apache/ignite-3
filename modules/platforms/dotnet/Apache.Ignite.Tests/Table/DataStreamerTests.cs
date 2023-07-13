@@ -102,7 +102,10 @@ public class DataStreamerTests : IgniteTestsBase
 
         if (enabled)
         {
-            TestUtils.WaitForCondition(() => TupleView.ContainsKeyAsync(null, GetTuple(0)).GetAwaiter().GetResult());
+            // TODO IGNITE-19824: Remove read-only TX workaround.
+            // Currently, there might be an exception due to false-positive tx conflict detection, which is fixed by a  read-only tx.
+            await using var roTx = await Client.Transactions.BeginAsync(new(ReadOnly: true));
+            await TestUtils.WaitForConditionAsync(() => TupleView.ContainsKeyAsync(roTx, GetTuple(0)));
         }
         else
         {
@@ -121,7 +124,7 @@ public class DataStreamerTests : IgniteTestsBase
         var streamTask = TupleView.StreamDataAsync(GetTuplesWithDelay(), cancellationToken: cts.Token);
 
         cts.Cancel();
-        Assert.ThrowsAsync<TaskCanceledException>(async () => await streamTask);
+        Assert.CatchAsync<OperationCanceledException>(async () => await streamTask);
 
         Assert.IsFalse(
             await TupleView.ContainsKeyAsync(null, GetTuple(0)),

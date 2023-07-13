@@ -49,9 +49,9 @@ public:
      * @param bigEndian If true then magnitude is in big-endian. Otherwise
      *     the byte order of the magnitude considered to be little-endian.
      */
-    big_decimal(const int8_t *mag, int32_t len, int32_t scale, int8_t sign, bool bigEndian = true)
+    big_decimal(const int8_t *mag, int32_t len, int32_t scale, int8_t sign, bool big_endian = true)
         : m_scale(scale & 0x7FFFFFFF)
-        , m_magnitude(mag, len, sign, bigEndian) {}
+        , m_magnitude(mag, len, sign, big_endian) {}
 
     /**
      * Integer constructor.
@@ -247,6 +247,13 @@ public:
         m_magnitude.assign_uint64(val);
 
         m_scale = 0;
+    }
+
+    /**
+     * Reverses sign of this value.
+     */
+    void negate() {
+        m_magnitude.negate();
     }
 
     /**

@@ -41,7 +41,6 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -91,8 +90,6 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitionStorage {
-    private static final byte[] TOMBSTONE_PAYLOAD = new byte[0];
-
     static final Predicate<HybridTimestamp> ALWAYS_LOAD_VALUE = timestamp -> true;
 
     static final Predicate<HybridTimestamp> DONT_LOAD_VALUE = timestamp -> false;
@@ -365,9 +362,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             return writeIntentToResult(versionChain, rowVersion, newestCommitTs);
         } else {
-            BinaryRow row = rowVersionToBinaryRow(rowVersion);
-
-            return ReadResult.createFromCommitted(versionChain.rowId(), row, rowVersion.timestamp());
+            return ReadResult.createFromCommitted(versionChain.rowId(), rowVersion.value(), rowVersion.timestamp());
         }
     }
 
@@ -399,14 +394,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
 
         return findRowVersion.getResult();
-    }
-
-    @Nullable BinaryRow rowVersionToBinaryRow(RowVersion rowVersion) {
-        if (rowVersion.isTombstone()) {
-            return null;
-        }
-
-        return new ByteBufferRow(rowVersion.value());
     }
 
     /**
@@ -480,7 +467,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 if (curCommit.isTombstone()) {
                     row = null;
                 } else {
-                    row = new ByteBufferRow(curCommit.value());
+                    row = curCommit.value();
                 }
 
                 return ReadResult.createFromCommitted(chain.rowId(), row, curCommit.timestamp());
@@ -503,11 +490,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         int commitTableId = chain.commitTableId();
         int commitPartitionId = chain.commitPartitionId();
 
-        BinaryRow row = rowVersionToBinaryRow(rowVersion);
-
         return ReadResult.createFromWriteIntent(
                 chain.rowId(),
-                row,
+                rowVersion.value(),
                 transactionId,
                 commitTableId,
                 commitPartitionId,
@@ -521,11 +506,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Cannot store a row version: [row={}, {}]", e, rowVersion, createStorageInfo());
         }
-    }
-
-    static byte[] rowBytes(@Nullable BinaryRow row) {
-        // TODO IGNITE-16913 Add proper way to write row bytes into array without allocations.
-        return row == null ? TOMBSTONE_PAYLOAD : row.bytes();
     }
 
     @Override
@@ -946,7 +926,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         RowVersion removedRowVersion = removeWriteOnGc(rowId, rowTimestamp, gcRowVersion.getLink());
 
-        return rowVersionToBinaryRow(removedRowVersion);
+        return removedRowVersion.value();
     }
 
     private RowVersion removeWriteOnGc(RowId rowId, HybridTimestamp rowTimestamp, long rowLink) {

@@ -115,8 +115,7 @@ public class ItCliServiceTest {
             cluster.startLearner(peer);
         }
 
-        cluster.waitLeader();
-        cluster.ensureLeader(cluster.getLeader());
+        cluster.ensureLeader(cluster.waitAndGetLeader());
 
         cliService = new CliServiceImpl();
         conf = new Configuration(
@@ -178,8 +177,7 @@ public class ItCliServiceTest {
         }
         assertNotNull(targetPeer);
         assertTrue(cliService.transferLeader(groupId, conf, targetPeer).isOk());
-        cluster.waitLeader();
-        assertEquals(targetPeer, cluster.getLeader().getNodeId().getPeerId());
+        assertEquals(targetPeer, cluster.waitAndGetLeader().getNodeId().getPeerId());
     }
 
     @SuppressWarnings("SameParameterValue")
@@ -340,15 +338,13 @@ public class ItCliServiceTest {
         for (TestPeer peer : newPeers) {
             assertTrue(cluster.start(peer));
         }
-        cluster.waitLeader();
-        Node oldLeaderNode = cluster.getLeader();
+        Node oldLeaderNode = cluster.waitAndGetLeader();
         assertNotNull(oldLeaderNode);
         PeerId oldLeader = oldLeaderNode.getNodeId().getPeerId();
         assertNotNull(oldLeader);
         Status status = cliService.changePeers(groupId, conf, new Configuration(newPeers.stream().map(TestPeer::getPeerId).collect(toList())));
         assertTrue(status.isOk(), status.getErrorMsg());
-        cluster.waitLeader();
-        PeerId newLeader = cluster.getLeader().getNodeId().getPeerId();
+        PeerId newLeader = cluster.waitAndGetLeader().getNodeId().getPeerId();
         assertNotEquals(oldLeader, newLeader);
         assertTrue(newPeers.stream().anyMatch(p -> p.getPeerId().equals(newLeader)));
     }
@@ -385,9 +381,7 @@ public class ItCliServiceTest {
         List<PeerId> peers = conf.getPeers();
         cluster.stop(peers.get(0));
 
-        cluster.waitLeader();
-
-        leader = cluster.getLeader().getNodeId().getPeerId();
+        leader = cluster.waitAndGetLeader().getNodeId().getPeerId();
         assertNotNull(leader);
         assertArrayEquals(conf.getPeerSet().toArray(),
             new HashSet<>(cliService.getPeers(groupId, conf)).toArray());
@@ -414,11 +408,9 @@ public class ItCliServiceTest {
         cluster.stop(peers.get(0));
         peers.remove(0);
 
-        cluster.waitLeader();
-
         sleep(1000);
 
-        leader = cluster.getLeader().getNodeId().getPeerId();
+        leader = cluster.waitAndGetLeader().getNodeId().getPeerId();
         assertNotNull(leader);
         assertArrayEquals(new HashSet<>(peers).toArray(),
             new HashSet<>(cliService.getAlivePeers(groupId, conf)).toArray());
