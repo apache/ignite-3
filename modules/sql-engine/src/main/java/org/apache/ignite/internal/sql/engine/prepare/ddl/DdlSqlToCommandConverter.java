@@ -271,7 +271,7 @@ public class DdlSqlToCommandConverter {
                 if (tblOptionInfo != null) {
                     updateCommandOption("Table", optionKey, (SqlLiteral) option.value(), tblOptionInfo, ctx.query(), createTblCmd);
                 } else {
-                    throw new IgniteException(
+                    throw new SqlException(
                             STMT_VALIDATION_ERR, String.format("Unexpected table option [option=%s, query=%s]", optionKey, ctx.query()));
                 }
             }

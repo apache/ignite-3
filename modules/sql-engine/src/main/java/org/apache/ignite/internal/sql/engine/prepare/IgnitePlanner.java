@@ -264,7 +264,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         try {
             sqlNode = parser.parseQuery();
         } catch (SqlParseException e) {
-            throw new IgniteException(STMT_PARSE_ERR, "parse failed", e);
+            throw new SqlException(STMT_PARSE_ERR, "parse failed", e);
         }
 
         CalciteCatalogReader catalogReader = this.catalogReader.withSchemaPath(schemaPath);
