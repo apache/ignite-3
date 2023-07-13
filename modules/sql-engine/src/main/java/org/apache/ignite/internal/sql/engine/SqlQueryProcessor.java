@@ -393,8 +393,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         Session session = sessionManager.session(sessionId);
 
         if (session == null) {
-//            return CompletableFuture.failedFuture(
-//                    new SqlException(SESSION_NOT_FOUND_ERR, format("Session not found [{}]", sessionId)));
             return CompletableFuture.failedFuture(new SessionNotFoundException(sessionId));
         }
 

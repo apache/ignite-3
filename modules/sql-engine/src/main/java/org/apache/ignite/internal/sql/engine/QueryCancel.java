@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.util.Cancellable;
-import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
 

@@ -54,9 +54,7 @@ import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeEach;
@@ -129,7 +127,6 @@ class JdbcQueryEventHandlerImplTest {
 
         when(queryProcessor.createSession(any())).thenAnswer(inv -> sessionId);
 
-//        List<Integer> errorCodes = List.of(Sql.SESSION_EXPIRED_ERR, Sql.SESSION_NOT_FOUND_ERR);
         SessionExpiredException expired = new SessionExpiredException(sessionId, new RuntimeException());
         SessionNotFoundException notFound = new SessionNotFoundException(sessionId);
 
