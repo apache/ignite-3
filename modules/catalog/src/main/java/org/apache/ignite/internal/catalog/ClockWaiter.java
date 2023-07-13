@@ -19,7 +19,6 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.function.Function.identity;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -165,8 +164,11 @@ public class ClockWaiter implements IgniteComponent {
 
         ScheduledFuture<?> scheduledFuture = scheduler.schedule(triggerClockUpdate, millisToWait, TimeUnit.MILLISECONDS);
 
+        // The future might be completed in a random thread, so let's move its completion execution to a special thread pool
+        // because the user's code following the future completion might run arbitrarily heavy operations and we don't want
+        // to put them on an innocent thread invoking now()/update() on the clock.
         return future
-                .handle((res, ex) -> {
+                .handleAsync((res, ex) -> {
                     scheduledFuture.cancel(true);
 
                     if (ex != null) {
@@ -174,11 +176,7 @@ public class ClockWaiter implements IgniteComponent {
                     }
 
                     return res;
-                })
-                // The future might be completed in a random thread, so let's move its completion execution to a special thread pool
-                // because the user's code following the future completion might run arbitrarily heavy operations and we don't want
-                // to put them on an innocent thread invoking now()/update() on the clock.
-                .thenApplyAsync(identity(), futureExecutor);
+                }, futureExecutor);
     }
 
     private static void translateTrackerClosedException(Throwable ex) {
