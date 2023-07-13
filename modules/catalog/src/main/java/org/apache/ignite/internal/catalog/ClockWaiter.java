@@ -70,18 +70,11 @@ public class ClockWaiter implements IgniteComponent {
     private volatile ScheduledExecutorService scheduler;
 
     /** Executor that executes completion of futures returned to the user, so it might take arbitrarily heavy operations. */
-    private volatile ExecutorService futureExecutor;
+    private final ExecutorService futureExecutor;
 
     public ClockWaiter(String nodeName, HybridClock clock) {
         this.nodeName = nodeName;
         this.clock = clock;
-    }
-
-    @Override
-    public void start() {
-        clock.addUpdateListener(updateListener);
-
-        scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(nodeName + "-clock-waiter-scheduler", LOG));
 
         futureExecutor = new ThreadPoolExecutor(
                 0,
@@ -91,6 +84,13 @@ public class ClockWaiter implements IgniteComponent {
                 new LinkedBlockingQueue<>(),
                 new NamedThreadFactory(nodeName + "-clock-waiter-future-executor", LOG)
         );
+    }
+
+    @Override
+    public void start() {
+        clock.addUpdateListener(updateListener);
+
+        scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(nodeName + "-clock-waiter-scheduler", LOG));
     }
 
     @Override
