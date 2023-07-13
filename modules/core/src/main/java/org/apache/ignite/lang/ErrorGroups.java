@@ -129,26 +129,37 @@ public class ErrorGroups {
         /** Cursor is already closed error. */
         public static final int CURSOR_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode(6);
 
-        /** Statement parsing error. */
+        /** Statement parsing error. This error is returned when an SQL statement string is not valid according to syntax rules. */
         public static final int STMT_PARSE_ERR = SQL_ERR_GROUP.registerErrorCode(7);
 
-        /** Statement validation error. */
+        /**
+         * Statement validation error. This error is reported in following cases:
+         * <ul>
+         *     <li>Statement references a table, a view, a column, a function, or another database object that does not exist.</li>
+         *     <li>Statement describes an action that is prohibited by the system, like changing columns belonging to primary keys.</li>
+         *     <li>Statement call errors - function is called with not correct number of arguments.</li>
+         *     <li>Type checking errors.</li>
+         * </ul>
+         */
         public static final int STMT_VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode(8);
 
-        /** Constraint violation error. */
+        /** Constraint violation error such as primary key violation. */
         public static final int CONSTRAINT_VIOLATION_ERR = SQL_ERR_GROUP.registerErrorCode(9);
+
+        /** Statement canceled error. Statement is canceled due to timeout. */
+        public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode(10);
 
         /**
          * Error indicating that execution of a SQL statement failed due to internal error or
          * a SQL engine component was unable to execute an operation.
          */
-        public static final int EXECUTION_ERR = SQL_ERR_GROUP.registerErrorCode(10);
+        public static final int RUNTIME_ERR = SQL_ERR_GROUP.registerErrorCode(12);
 
         /** Error condition which is raised during execution when data is not correct (such as number of out range error). */
-        public static final int INVALID_DATA_ERR = SQL_ERR_GROUP.registerErrorCode(11);
+        public static final int INVALID_DATA_ERR = SQL_ERR_GROUP.registerErrorCode(13);
 
         /** Session expired error. */
-        public static final int SESSION_EXPIRED_ERR = SQL_ERR_GROUP.registerErrorCode(12);
+        public static final int SESSION_EXPIRED_ERR = SQL_ERR_GROUP.registerErrorCode(14);
     }
 
     /** Meta storage error group. */

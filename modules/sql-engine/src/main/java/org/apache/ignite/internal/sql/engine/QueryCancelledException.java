@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import org.apache.ignite.lang.IgniteException;
 
@@ -33,6 +34,6 @@ public class QueryCancelledException extends IgniteException {
      * Default constructor.
      */
     public QueryCancelledException() {
-        super(EXECUTION_ERR, ERR_MSG);
+        super(EXECUTION_CANCELLED_ERR, ERR_MSG);
     }
 }

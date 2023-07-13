@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.util.Cancellable;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
 
@@ -68,7 +70,7 @@ public class QueryCancel {
                 act.cancel();
             } catch (Exception e) {
                 if (ex == null) {
-                    ex = new SqlException(EXECUTION_ERR, e);
+                    ex = new SqlException(INTERNAL_ERR, e);
                 } else {
                     ex.addSuppressed(e);
                 }
