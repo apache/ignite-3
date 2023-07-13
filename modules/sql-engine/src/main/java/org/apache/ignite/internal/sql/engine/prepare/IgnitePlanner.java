@@ -84,7 +84,6 @@ import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.FastTimestamps;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
