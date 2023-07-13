@@ -766,7 +766,7 @@ public class DdlSqlToCommandConverter {
         try {
             value0 = value.getValueAs(optInfo.type);
         } catch (Throwable e) {
-            throw new IgniteException(STMT_VALIDATION_ERR, String.format(
+            throw new SqlException(STMT_VALIDATION_ERR, String.format(
                     "Invalid %s option type [option=%s, expectedType=%s, query=%s]",
                     sqlObjName.toLowerCase(),
                     optId,
@@ -779,7 +779,7 @@ public class DdlSqlToCommandConverter {
             try {
                 optInfo.validator.accept(value0);
             } catch (Throwable e) {
-                throw new IgniteException(STMT_VALIDATION_ERR, String.format(
+                throw new SqlException(STMT_VALIDATION_ERR, String.format(
                         "%s option validation failed [option=%s, err=%s, query=%s]",
                         sqlObjName,
                         optId,
