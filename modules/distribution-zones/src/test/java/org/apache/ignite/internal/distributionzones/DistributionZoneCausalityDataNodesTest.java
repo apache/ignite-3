@@ -66,6 +66,7 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -179,7 +180,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-//    @Test
+    @Disabled
+    @Test
     void topologyLeapUpdate() throws Exception {
         // Prerequisite.
 
@@ -253,7 +255,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-//    @Test
+    @Disabled
+    @Test
     void topologyLeapUpdateScaleUpNotImmediateAndScaleDownImmediate() throws Exception {
         // Prerequisite.
 
@@ -344,7 +347,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-//    @Test
+    @Disabled
+    @Test
     void topologyLeapUpdateScaleUpImmediateAndScaleDownNotImmediate() throws Exception {
         // Prerequisite.
 
@@ -534,7 +538,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-//    @Test
+    @Disabled
+    @Test
     void scheduleScaleUpTaskThenDropZone() throws Exception {
         // Prerequisite.
 
@@ -630,8 +635,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, Set.of(NODE_0));
 
         // Wait when the zone manager receive event with new topology. Need to do this awaiting in the dataNodes method.
-        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, oneNodeName, 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, oneNodeName, 3000);
+        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, oneNode, 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, oneNode, 3000);
 
         CompletableFuture<Set<String>> dataNodesFut0 = distributionZoneManager.dataNodes(topologyRevision1, DEFAULT_ZONE_ID);
         assertThat(dataNodesFut0, willBe(oneNodeName));
@@ -680,7 +685,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-//    @Test
+    @Disabled
+    @Test
     void scheduleScaleDownTaskThenDropZone() throws Exception {
         // Prerequisite.
 
@@ -956,18 +962,18 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         CompletableFuture<Set<String>> dataNodesFut8 = getDataNodesFromListener(ZONE_ID_3);
         assertThat(dataNodesFut8, willBe(Set.of(NODE_0.name())));
 
-        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, oneNodeName, 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, oneNodeName, 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_2, oneNodeName, 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_3, oneNodeName, 3000);
+        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, oneNode, 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, oneNode, 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_2, oneNode, 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_3, oneNode, 3000);
 
         scaleUpLatch.countDown();
         scaleDownLatch.countDown();
 
-        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, Set.of(NODE_0.name(), NODE_3.name()), 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name(), NODE_3.name()), 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_2, Set.of(NODE_0.name()), 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_3, Set.of(NODE_0.name()), 3000);
+        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, Set.of(NODE_0, NODE_3), 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, Set.of(NODE_0, NODE_1, NODE_2, NODE_3), 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_2, Set.of(NODE_0), 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_3, Set.of(NODE_0), 3000);
 
         CompletableFuture<Set<String>> dataNodesFut9 = getDataNodesFromListener(DEFAULT_ZONE_ID);
         assertThat(dataNodesFut9, willBe(Set.of(NODE_0.name(), NODE_3.name())));
@@ -1022,10 +1028,10 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 //        Thread.sleep(300);
 //        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision0, 3000));
         // Wait when dataNodes will be contain NODE_0.
-        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, oneNodeName, 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, oneNodeName, 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_2, oneNodeName, 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_3, oneNodeName, 3000);
+        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, oneNode, 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, oneNode, 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_2, oneNode, 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_3, oneNode, 3000);
 
         CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision0, DEFAULT_ZONE_ID);
         assertThat(dataNodesFut1, willBe(oneNodeName));
