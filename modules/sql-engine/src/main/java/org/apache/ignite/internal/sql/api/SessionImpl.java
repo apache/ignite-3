@@ -333,7 +333,7 @@ public class SessionImpl implements Session {
             closeAsync().toCompletableFuture().get();
         } catch (ExecutionException e) {
             sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
-        } catch (Throwable e) {
+        } catch (InterruptedException e) {
             throw new SqlException(INTERNAL_ERR, e);
         }
     }
