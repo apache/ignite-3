@@ -54,7 +54,7 @@ class ErrorGroupTest {
     }
 
     @Test
-    void createsErrorMassage() {
+    void createsErrorMessage() {
         // Given
         UUID traceId = UUID.fromString("24103638-d079-4a19-a8f6-ca9c23662908");
         int code = Common.INTERNAL_ERR;
