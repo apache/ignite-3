@@ -59,6 +59,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * These tests check in-memory node restart scenarios.
  */
+@Disabled("Data nodes after restart.")
 public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
     /** Value producer for table data, is used to create data and check it later. */

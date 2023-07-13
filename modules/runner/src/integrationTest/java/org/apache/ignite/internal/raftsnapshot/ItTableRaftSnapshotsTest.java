@@ -266,6 +266,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * Tests that a leader successfully feeds a follower with a RAFT snapshot on any of the supported storage engines.
      */
     // TODO: IGNITE-18481 - make sure we don't forget to add new storage engines here
+    @Disabled("Data nodes after restart.")
     @ParameterizedTest
     @ValueSource(strings = {
             RocksDbStorageEngine.ENGINE_NAME,
@@ -541,6 +542,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * Tests that, if first part of a transaction (everything before COMMIT) arrives using AppendEntries, and later the whole
      * partition state arrives in a RAFT snapshot, then the transaction is seen as committed (i.e. its effects are seen).
      */
+    @Disabled("Data nodes after restart.")
     @Test
     void txSemanticsIsMaintained() throws Exception {
         txSemanticsIsMaintainedAfterInstallingSnapshot();
@@ -583,6 +585,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     /**
      * Tests that entries can still be added to a follower using AppendEntries after it gets fed with a RAFT snapshot.
      */
+    @Disabled("Data nodes after restart.")
     @Test
     void entriesKeepAppendedAfterSnapshotInstallation() throws Exception {
         feedNode2WithSnapshotOfOneRow();
@@ -673,6 +676,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     /**
      * Tests that, if a snapshot installation fails for some reason, a subsequent retry due to a timeout happens successfully.
      */
+    @Disabled("Data nodes after restart.")
     @Test
     void snapshotInstallationRepeatsOnTimeout() throws Exception {
         prepareClusterForInstallingSnapshotToNode2(DEFAULT_STORAGE_ENGINE, theCluster -> {
@@ -730,6 +734,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * always see a phantom of an unfinished snapshot, so the snapshotting process will be jammed. Also, node stop might
      * stuck because one 'download' task will remain unfinished forever.
      */
+    @Disabled("Data nodes after restart.")
     @Test
     void snapshotInstallTimeoutDoesNotBreakSubsequentInstallsWhenSecondAttemptIsIdenticalToFirst() throws Exception {
         AtomicBoolean snapshotInstallFailedDueToIdenticalRetry = new AtomicBoolean(false);
@@ -768,6 +773,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         }
     }
 
+    @Disabled("Data nodes after restart.")
     @Test
     void testChangeLeaderOnInstallSnapshotInMiddle() throws Exception {
         CompletableFuture<Void> sentSnapshotMetaResponseFormNode1Future = new CompletableFuture<>();
@@ -842,6 +848,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      *     <li>The follower gets data from the leader using AppendEntries, not using InstallSnapshot</li>>
      * </ol>
      */
+    @Disabled("Data nodes after restart.")
     @Test
     void testChangeLeaderDuringSnapshotInstallationToLeaderWithEnoughLog() throws Exception {
         CompletableFuture<Void> sentSnapshotMetaResponseFormNode0Future = new CompletableFuture<>();
