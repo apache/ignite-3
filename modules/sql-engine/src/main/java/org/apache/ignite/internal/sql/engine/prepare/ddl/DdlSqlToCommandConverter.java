@@ -794,7 +794,7 @@ public class DdlSqlToCommandConverter {
 
     private void checkPositiveNumber(int num) {
         if (num < 0) {
-            throw new IgniteException(STMT_VALIDATION_ERR, "Must be positive:" + num);
+            throw new SqlException(STMT_VALIDATION_ERR, "Must be positive:" + num);
         }
     }
 
