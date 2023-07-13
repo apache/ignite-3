@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite
 {
+    using System;
     using System.Diagnostics.CodeAnalysis;
 
     /// <summary>
@@ -48,14 +49,14 @@ namespace Apache.Ignite
         /// </summary>
         /// <param name="fullCode">Full error code.</param>
         /// <returns>Error code.</returns>
-        public static int GetErrorCode(int fullCode) => fullCode & 0xFFFF;
+        public static short GetErrorCode(int fullCode) => Convert.ToInt16(fullCode & 0xFFFF);
 
         /// <summary>
         /// Returns group code extracted from the given full error code.
         /// </summary>
         /// <param name="fullCode">Full error code.</param>
         /// <returns>Group code.</returns>
-        public static int GetGroupCode(int fullCode) => fullCode >> 16;
+        public static short GetGroupCode(int fullCode) => Convert.ToInt16(fullCode >> 16);
 
         /// <summary>
         /// Gets the full error code from group and error codes.
@@ -63,6 +64,6 @@ namespace Apache.Ignite
         /// <param name="groupCode">Group code.</param>
         /// <param name="errorCode">Error code.</param>
         /// <returns>Combined code.</returns>
-        public static int GetFullCode(int groupCode, int errorCode) => (groupCode << 16) | (errorCode & 0xFFFF);
+        public static int GetFullCode(short groupCode, short errorCode) => (Convert.ToInt32(groupCode) << 16) | (errorCode & 0xFFFF);
     }
 }
