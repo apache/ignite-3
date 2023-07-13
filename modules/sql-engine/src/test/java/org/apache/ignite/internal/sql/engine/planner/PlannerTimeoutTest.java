@@ -69,7 +69,8 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
 
             ParsedResult parsedResult = parserService.parse("SELECT * FROM T1 t, T1 t1, T1 t2, T1 t3");
 
-                        SqlTestUtils.assertThrowsSqlException(PLANNING_TIMEOUTED_ERR,
+            SqlTestUtils.assertThrowsSqlException(
+                    PLANNING_TIMEOUTED_ERR,
                     () -> await(prepareService.prepareAsync(parsedResult, ctx)));
         } finally {
             prepareService.stop();
