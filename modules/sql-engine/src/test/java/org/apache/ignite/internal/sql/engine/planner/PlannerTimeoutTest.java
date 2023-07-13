@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUTED_ERR;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -34,16 +35,18 @@ import org.apache.calcite.rel.RelVisitor;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.framework.TestBuilders.ConfigurationParameter;
-import org.apache.ignite.internal.sql.engine.framework.TestCluster;
-import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
+import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
+import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
+import org.apache.ignite.internal.sql.engine.sql.ParserService;
+import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
+import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
@@ -53,26 +56,24 @@ import org.junit.jupiter.api.Test;
  */
 public class PlannerTimeoutTest extends AbstractPlannerTest {
 
-    /** Check correctness of planning timeout. */
     @Test
-    public void testPlanningTimeout() {
-        TestCluster cluster = TestBuilders.cluster()
-                .nodes("N1")
-                .addTable()
-                .name("TST1")
-                .addColumn("ID", NativeTypes.INT32)
-                .addColumn("VAL", NativeTypes.stringOf(64))
-                .end()
-                .addConfiguration(ConfigurationParameter.PLANNING_TIMEOUT, 1L)
-                .build();
+    public void testPlannerTimeout() throws Exception {
+        long plannerTimeout = 1L;
+        IgniteSchema schema = createSchema(createTestTable("T1", "A", Integer.class, "B", Integer.class));
+        BaseQueryContext ctx = baseQueryContext(Collections.singletonList(schema), null);
 
-        cluster.start();
+        PrepareService prepareService = new PrepareServiceImpl("test", 0, null, plannerTimeout);
+        prepareService.start();
+        try {
+            ParserService parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
 
-        TestNode gatewayNode = cluster.node("N1");
+            ParsedResult parsedResult = parserService.parse("SELECT * FROM T1 t, T1 t1, T1 t2, T1 t3");
 
-        SqlTestUtils.assertThrowsSqlException(PLANNING_TIMEOUTED_ERR,
-                () -> gatewayNode.prepare("SELECT * FROM TST1 t, TST1 t1, TST1 t2, TST1 t3, TST1 t4"));
-
+                        SqlTestUtils.assertThrowsSqlException(PLANNING_TIMEOUTED_ERR,
+                    () -> await(prepareService.prepareAsync(parsedResult, ctx)));
+        } finally {
+            prepareService.stop();
+        }
     }
 
     @Test

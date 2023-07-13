@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -91,16 +92,14 @@ public class TestNode implements LifecycleAware {
      * @param nodeName A name of the node to create.
      * @param clusterService A cluster service.
      * @param schemaManager A schema manager to use for query planning and execution.
-     * @param planningTimeout Timeout in ms for SQL planning phase.
      */
     TestNode(
             String nodeName,
             ClusterService clusterService,
-            SqlSchemaManager schemaManager,
-            long planningTimeout
+            SqlSchemaManager schemaManager
     ) {
         this.nodeName = nodeName;
-        this.prepareService = registerService(new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class), planningTimeout));
+        this.prepareService = registerService(new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class), PLANNING_TIMEOUT));
         this.schema = schemaManager.schema("PUBLIC");
 
         TopologyService topologyService = clusterService.topologyService();

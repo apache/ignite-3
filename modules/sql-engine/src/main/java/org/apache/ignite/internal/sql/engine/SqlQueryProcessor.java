@@ -446,7 +446,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .logger(LOG)
                             .cancel(queryCancel)
                             .parameters(params)
-                            .query(sql)
                             .build();
 
                     return prepareSvc.prepareAsync(result, ctx)

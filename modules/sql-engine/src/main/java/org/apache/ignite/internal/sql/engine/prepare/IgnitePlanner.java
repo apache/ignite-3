@@ -564,7 +564,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
                 long startTs = ctx.startTs();
 
                 if (FastTimestamps.coarseCurrentTimeMillis() - startTs > timeout) {
-                    LOG.info("Planning of a query aborted due to planner timeout threshold is reached [timeout={}, query={}]",
+                    LOG.debug("Planning of a query aborted due to planner timeout threshold is reached [timeout={}, query={}]",
                             timeout,
                             ctx.query());
 

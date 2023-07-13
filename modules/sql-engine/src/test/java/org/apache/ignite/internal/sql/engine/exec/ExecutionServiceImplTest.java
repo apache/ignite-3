@@ -127,7 +127,7 @@ public class ExecutionServiceImplTest {
     private static final long TIMEOUT_IN_MS = 2_000;
 
     /** Timeout in ms for SQL planning phase. */
-    public static final long PLANNING_TIMEOUT_IN_MS = 5_000;
+    public static final long PLANNING_TIMEOUT = 5_000;
 
     private static final int SCHEMA_VERSION = -1;
 
@@ -158,7 +158,7 @@ public class ExecutionServiceImplTest {
     public void init() {
         testCluster = new TestCluster();
         executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
-        prepareService = new PrepareServiceImpl("test", 0, null, PLANNING_TIMEOUT_IN_MS);
+        prepareService = new PrepareServiceImpl("test", 0, null, PLANNING_TIMEOUT);
         parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
 
         prepareService.start();

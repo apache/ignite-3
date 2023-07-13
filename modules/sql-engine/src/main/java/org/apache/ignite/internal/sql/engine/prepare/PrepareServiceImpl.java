@@ -160,7 +160,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
         PlanningContext planningContext = PlanningContext.builder()
                 .parentContext(ctx)
-                .query(ctx.query())
+                .query(parsedResult.originalQuery())
                 .plannerTimeout(plannerTimeout)
                 .build();
 
@@ -169,7 +169,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         return result.exceptionally(ex -> {
                     Throwable th = ExceptionUtils.unwrapCause(ex);
                     if (planningContext.timeouted() && th instanceof RelOptPlanner.CannotPlanException) {
-                        LOG.info("Query plan is absent due to planing timeout is reached [query={}]", ctx.query());
+                        LOG.debug("Query plan is absent due to planing timeout is reached [query={}]", parsedResult.originalQuery());
                         throw new SqlException(ErrorGroups.Sql.PLANNING_TIMEOUTED_ERR);
                     }
 
