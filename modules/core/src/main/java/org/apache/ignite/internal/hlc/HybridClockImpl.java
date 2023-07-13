@@ -87,7 +87,7 @@ public class HybridClockImpl implements HybridClock {
             } catch (Throwable e) {
                 log.error("ClockUpdateListener#onUpdate() failed for {} at {}", e, listener, newTs);
 
-                if (e instanceof Error && !(e instanceof AssertionError)) {
+                if (e instanceof Error) {
                     throw e;
                 }
             }
