@@ -30,7 +30,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
