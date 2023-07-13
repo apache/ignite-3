@@ -269,10 +269,7 @@ bool column_meta::get_attribute(uint16_t field_id, SQLLEN& value) const
         case SQL_DESC_PRECISION:
         case SQL_COLUMN_PRECISION:
         {
-            if (m_precision == -1)
-                value = ignite_type_column_size(m_data_type);
-            else
-                value = m_precision;
+            value = m_precision < 0 ? 0 : m_precision;
 
             break;
         }
@@ -280,15 +277,7 @@ bool column_meta::get_attribute(uint16_t field_id, SQLLEN& value) const
         case SQL_DESC_SCALE:
         case SQL_COLUMN_SCALE:
         {
-            if (m_scale == -1)
-            {
-                value = ignite_type_decimal_digits(m_data_type);
-
-                if (value < 0)
-                    value = 0;
-            }
-            else
-                value = m_scale;
+            value = m_scale < 0 ? 0 : m_scale;
 
             break;
         }

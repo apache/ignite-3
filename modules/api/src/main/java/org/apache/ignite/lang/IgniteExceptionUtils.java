@@ -512,7 +512,7 @@ public class IgniteExceptionUtils {
      *         }
      *     }
      *
-     *     CustomException err = new new CustomException(new IllegalArgumentException("wrong argument));
+     *     CustomException err = new CustomException(new IllegalArgumentException("wrong argument));
      *
      *     // The following line prints: wrong argument - valid.
      *     err.getMessage();
@@ -528,7 +528,11 @@ public class IgniteExceptionUtils {
      *     CustomException copy = createCopyWithCause(c);
      *
      *     // The following line prints: CustomException IGN_SPECIFIC_ERR_CODE TraceId XYZ wrong argument
+     *     // but it should be just as follows: XYZ wrong argument
      *     copy.getMessage();
+     *
+     *     // The following line prints: IGN_SPECIFIC_ERR_CODE TraceId XYZ CustomException IGN_SPECIFIC_ERR_CODE TraceId XYZ wrong argument
+     *     copy.toString();
      * </code></pre>
      *
      */

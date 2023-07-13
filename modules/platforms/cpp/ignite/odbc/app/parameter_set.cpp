@@ -16,6 +16,7 @@
  */
 
 #include "ignite/odbc/app/parameter_set.h"
+#include "ignite/tuple/binary_tuple_builder.h"
 
 #include <algorithm>
 
@@ -149,6 +150,15 @@ parameter* parameter_set::get_parameter(std::uint16_t idx)
     return nullptr;
 }
 
+const parameter* parameter_set::get_parameter(std::uint16_t idx) const
+{
+    auto it = m_params.find(idx);
+    if (it != m_params.end())
+        return &it->second;
+
+    return nullptr;
+}
+
 parameter* parameter_set::get_selected_parameter()
 {
     return get_parameter(m_current_param_idx);
@@ -173,7 +183,13 @@ parameter* parameter_set::select_next_parameter()
 
 void parameter_set::write(protocol::writer &writer) const
 {
-    writer.write(calculate_row_len());
+    auto args_num = calculate_row_len();
+    if (args_num == 0) {
+        writer.write_nil();
+        return;
+    }
+
+    writer.write(args_num);
 
     write_row(writer, 0);
 }
@@ -201,9 +217,14 @@ void parameter_set::write(protocol::writer &writer, SQLULEN begin, SQLULEN end, 
 
 void parameter_set::write_row(protocol::writer &writer, SQLULEN idx) const
 {
+    auto args_num = calculate_row_len();
+    binary_tuple_builder row_builder{args_num * 3};
+
+    row_builder.start();
+
     std::uint16_t prev = 0;
 
-    int appOffset = m_param_bind_offset ? *m_param_bind_offset : 0;
+    int app_offset = m_param_bind_offset ? *m_param_bind_offset : 0;
     for (const auto &pair : m_params)
     {
         std::uint16_t param_idx = pair.first;
@@ -211,14 +232,35 @@ void parameter_set::write_row(protocol::writer &writer, SQLULEN idx) const
 
         while ((param_idx - prev) > 1)
         {
-            writer.write_nil();
+            row_builder.claim_null();
             ++prev;
         }
 
-        param.write(writer, appOffset, idx);
+        param.claim(row_builder, app_offset, idx);
 
         prev = param_idx;
     }
+
+    row_builder.layout();
+
+    for (const auto &pair : m_params)
+    {
+        std::uint16_t param_idx = pair.first;
+        const parameter& param = pair.second;
+
+        while ((param_idx - prev) > 1)
+        {
+            row_builder.append_null();
+            ++prev;
+        }
+
+        param.append(row_builder, app_offset, idx);
+
+        prev = param_idx;
+    }
+
+    auto args_data = row_builder.build();
+    writer.write_binary(args_data);
 }
 
 std::int32_t parameter_set::calculate_row_len() const

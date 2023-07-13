@@ -239,7 +239,7 @@ TEST_F(compute_test, all_arg_types) {
 }
 
 TEST_F(compute_test, execute_colocated) {
-    std::map<std::int32_t, std::string> nodes_for_values = {{1, "_4"}, {5, "_2"}, {9, "_3"}, {10, ""}, {11, "_2"}};
+    std::map<std::int32_t, std::string> nodes_for_values = {{1, "_2"}, {5, "_4"}, {9, ""}, {10, "_2"}, {11, "_4"}};
 
     for (const auto &var : nodes_for_values) {
         SCOPED_TRACE("key=" + std::to_string(var.first) + ", node=" + var.second);
@@ -248,7 +248,7 @@ TEST_F(compute_test, execute_colocated) {
         auto resNodeName = m_client.get_compute().execute_colocated(TABLE_1, key, {}, NODE_NAME_JOB, {});
         auto expectedNodeName = PLATFORM_TEST_NODE_RUNNER + var.second;
 
-        EXPECT_EQ(expectedNodeName, resNodeName);
+        EXPECT_EQ(expectedNodeName, resNodeName.value().get<std::string>());
     }
 }
 

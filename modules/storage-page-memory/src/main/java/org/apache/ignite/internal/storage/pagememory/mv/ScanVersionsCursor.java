@@ -21,8 +21,6 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
 
 import java.util.NoSuchElementException;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -102,16 +100,12 @@ class ScanVersionsCursor implements Cursor<ReadResult> {
             if (rowVersion.isTombstone()) {
                 return ReadResult.empty(rowId);
             } else {
-                BinaryRow row = new ByteBufferRow(rowVersion.value());
-
-                return ReadResult.createFromCommitted(rowId, row, rowVersion.timestamp());
+                return ReadResult.createFromCommitted(rowId, rowVersion.value(), rowVersion.timestamp());
             }
         } else {
-            BinaryRow row = rowVersion.isTombstone() ? null : new ByteBufferRow(rowVersion.value());
-
             return ReadResult.createFromWriteIntent(
                     rowId,
-                    row,
+                    rowVersion.value(),
                     versionChain.transactionId(),
                     versionChain.commitTableId(),
                     versionChain.commitPartitionId(),

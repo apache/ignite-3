@@ -323,6 +323,7 @@ namespace Apache.Ignite.Internal.Table
             var schemaVersion = r.ReadInt32();
             var columnCount = r.ReadArrayHeader();
             var keyColumnCount = 0;
+            var colocationColumnCount = 0;
 
             var columns = new Column[columnCount];
 
@@ -351,13 +352,19 @@ namespace Apache.Ignite.Internal.Table
                 {
                     keyColumnCount++;
                 }
+
+                if (colocationIndex >= 0)
+                {
+                    colocationColumnCount++;
+                }
             }
 
             var schema = new Schema(
-                schemaVersion,
-                Id,
-                keyColumnCount,
-                columns);
+                Version: schemaVersion,
+                TableId: Id,
+                KeyColumnCount: keyColumnCount,
+                ColocationColumnCount: colocationColumnCount,
+                Columns: columns);
 
             _schemas[schemaVersion] = Task.FromResult(schema);
 

@@ -15,23 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.notifications;
+package org.apache.ignite.internal.placementdriver.leases;
 
-import java.util.concurrent.CompletableFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.bytesToList;
+import static org.apache.ignite.internal.util.IgniteUtils.collectionToBytes;
+
+import java.nio.ByteBuffer;
+import java.util.Collection;
 
 /**
- * Configuration storage revision change listener.
- *
- * <p>Storage revision - monotonously increasing counter, linked to the specific storage for current configuration values.
+ * Representation of leases batch.
  */
-// TODO: IGNITE-19801 Get rid of this interface.
-@FunctionalInterface
-public interface ConfigurationStorageRevisionListener {
-    /**
-     * Called on update the storage version.
-     *
-     * @param newStorageRevision Updated configuration storage revision.
-     * @return Future that signifies the end of the listener execution.
-     */
-    CompletableFuture<?> onUpdate(long newStorageRevision);
+public class LeaseBatch {
+    private final Collection<Lease> leases;
+
+    public LeaseBatch(Collection<Lease> leases) {
+        this.leases = leases;
+    }
+
+    public Collection<Lease> leases() {
+        return leases;
+    }
+
+    public byte[] bytes() {
+        return collectionToBytes(leases, Lease::bytes);
+    }
+
+    public static LeaseBatch fromBytes(ByteBuffer bytes) {
+        return new LeaseBatch(bytesToList(bytes, Lease::fromBytes));
+    }
 }
