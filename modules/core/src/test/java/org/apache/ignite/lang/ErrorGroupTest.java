@@ -94,10 +94,10 @@ class ErrorGroupTest {
             var errGroupField = Arrays.stream(cls.getFields()).filter(f -> f.getName().endsWith("_ERR_GROUP")).findFirst().get();
             var errGroup = (ErrorGroup) errGroupField.get(null);
 
-            var existing = errGroups.putIfAbsent(errGroup.code(), errGroup);
+            var existing = errGroups.putIfAbsent(errGroup.groupCode(), errGroup);
 
             if (existing != null) {
-                fail("Duplicate error group id: " + errGroup.code() + " (" + existing.name() + ", " + errGroup.name() + ")");
+                fail("Duplicate error group id: " + errGroup.groupCode() + " (" + existing.name() + ", " + errGroup.name() + ")");
             }
         }
     }

@@ -19,7 +19,7 @@ package org.apache.ignite.lang;
 
 import static org.apache.ignite.internal.util.ExceptionUtils.getOrCreateTraceId;
 import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
-import static org.apache.ignite.lang.ErrorGroup.errorGroupByErrorCode;
+import static org.apache.ignite.lang.ErrorGroup.errorGroupByCode;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
@@ -67,7 +67,7 @@ public class IgniteCheckedException extends Exception implements TraceableExcept
      */
     public IgniteCheckedException(UUID traceId, int code) {
         this.traceId = traceId;
-        this.groupName = errorGroupByErrorCode(code).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -92,7 +92,7 @@ public class IgniteCheckedException extends Exception implements TraceableExcept
         super(message);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByErrorCode(code).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -117,7 +117,7 @@ public class IgniteCheckedException extends Exception implements TraceableExcept
         super((cause != null) ? cause.getLocalizedMessage() : null, cause);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByErrorCode(code).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -144,7 +144,7 @@ public class IgniteCheckedException extends Exception implements TraceableExcept
         super(message, cause);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByErrorCode(code).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 

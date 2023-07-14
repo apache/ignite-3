@@ -78,7 +78,7 @@ public class ErrorGroup {
      *
      * @return Group code.
      */
-    public short code() {
+    public short groupCode() {
         return groupCode;
     }
 
@@ -96,17 +96,17 @@ public class ErrorGroup {
 
         codes.add(errorCode);
 
-        return (code() << 16) | (errorCode & 0xFFFF);
+        return (groupCode() << 16) | (errorCode & 0xFFFF);
     }
 
     /**
-     * Checks that the given {@code code} is registered for this error group.
+     * Checks that the given {@code errorCode} is registered for this error group.
      *
-     * @param code Error code to be tested.
-     * @return {@code true} If the given {@code code} is registered for this error group.
+     * @param errorCode Error code to be tested.
+     * @return {@code true} If the given {@code errorCode} is registered for this error group.
      */
-    public boolean isRegistered(ErrorGroup group, short code) {
-        return group.codes.contains(code);
+    public boolean isRegistered(ErrorGroup group, short errorCode) {
+        return group.codes.contains(errorCode);
     }
 
     /**
@@ -182,7 +182,7 @@ public class ErrorGroup {
      * @param code Full error code
      * @return Error Group.
      */
-    public static ErrorGroup errorGroupByErrorCode(int code) {
+    public static ErrorGroup errorGroupByCode(int code) {
         return registeredGroups.get(extractGroupCode(code));
     }
 
@@ -263,6 +263,6 @@ public class ErrorGroup {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return "ErrorGroup [name=" + name() + ", code=" + code() + ']';
+        return "ErrorGroup [name=" + name() + ", groupCode=" + groupCode() + ']';
     }
 }
