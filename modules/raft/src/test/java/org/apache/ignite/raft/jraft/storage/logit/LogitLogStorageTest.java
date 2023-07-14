@@ -17,6 +17,7 @@
 
 package org.apache.ignite.raft.jraft.storage.logit;
 
+import static org.apache.ignite.raft.jraft.entity.PeerId.emptyPeer;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
@@ -79,6 +80,7 @@ public class LogitLogStorageTest extends BaseLogStorageTest {
         for (int i = 13; i <= 16; i++) {
             final LogEntry entry = entries.get(i);
             entry.setType(EnumOutter.EntryType.ENTRY_TYPE_CONFIGURATION);
+            entry.setPeers(List.of(emptyPeer()));
         }
         this.logStorage.appendEntries(entries);
         assertEquals(19, this.logStorage.getLastLogIndex());
