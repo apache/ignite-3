@@ -628,6 +628,72 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     }
 
     /**
+     * Tests data nodes dropping when a scale down task is scheduled.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void scheduleScaleDownTaskThenDropZone() throws Exception {
+        // Prerequisite.
+
+        // Create the zone with immediate scale up timer and not immediate scale down timer.
+        distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                                .dataNodesAutoAdjustScaleDown(10000)
+                                .build()
+                )
+                .get(3, SECONDS);
+
+        // Create logical topology with NODE_0 and NODE_1.
+        topology.putNode(NODE_0);
+
+        Set<LogicalNode> twoNodes = Set.of(NODE_0, NODE_1);
+        Set<String> twoNodesNames = Set.of(NODE_0.name(), NODE_1.name());
+
+        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes);
+
+        assertValueInStorage(
+                metaStorageManager,
+                zoneDataNodesKey(ZONE_ID_1),
+                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                Set.of(NODE_0.name(), NODE_1.name()),
+                3000
+        );
+
+        // Check that data nodes value of the the zone is NODE_0 and NODE_1.
+        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
+        assertThat(dataNodesFut1, willBe(twoNodesNames));
+
+        // Test steps.
+
+        // Change logical topology. NODE_1 is removed.
+        Set<LogicalNode> oneNode = Set.of(NODE_0);
+        Set<String> oneNodeName = Set.of(NODE_0.name());
+
+        long topologyRevision2 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), oneNode);
+
+        long dropRevision1 = dropZoneAndGetRevision(ZONE_NAME_1);
+
+        assertValueInStorage(
+                metaStorageManager,
+                zoneDataNodesKey(ZONE_ID_1),
+                null,
+                null,
+                3000
+        );
+
+        // Check that data nodes value of the zone with the topology update revision is NODE_0 and NODE_1
+        // because scale down timer has not fired.
+        CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1);
+        assertThat(dataNodesFut3, willBe(twoNodesNames));
+
+        // Check that zones is removed and attempt to get data nodes throws an exception.
+        CompletableFuture<Set<String>> dataNodesFut5 = distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1);
+        assertThrowsWithCause(() -> dataNodesFut5.get(3, SECONDS), DistributionZoneNotFoundException.class);
+    }
+
+    /**
      * Tests data nodes updating when a filter is changed even when actual data nodes value is not changed.
      *
      * @throws Exception If failed.
@@ -705,72 +771,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         CompletableFuture<Set<String>> dataNodesFut4 = distributionZoneManager.dataNodes(filterRevision1, ZONE_ID_1);
         assertThat(dataNodesFut4, willBe(oneNodeName));
 
-    }
-
-    /**
-     * Tests data nodes dropping when a scale down task is scheduled.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    void scheduleScaleDownTaskThenDropZone() throws Exception {
-        // Prerequisite.
-
-        // Create the zone with immediate scale up timer and not immediate scale down timer.
-        distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
-                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(10000)
-                                .build()
-                )
-                .get(3, SECONDS);
-
-        // Create logical topology with NODE_0 and NODE_1.
-        topology.putNode(NODE_0);
-
-        Set<LogicalNode> twoNodes = Set.of(NODE_0, NODE_1);
-        Set<String> twoNodesNames = Set.of(NODE_0.name(), NODE_1.name());
-
-        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes);
-
-        assertValueInStorage(
-                metaStorageManager,
-                zoneDataNodesKey(ZONE_ID_1),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                Set.of(NODE_0.name(), NODE_1.name()),
-                3000
-        );
-
-        // Check that data nodes value of the the zone is NODE_0 and NODE_1.
-        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
-        assertThat(dataNodesFut1, willBe(twoNodesNames));
-
-        // Test steps.
-
-        // Change logical topology. NODE_1 is removed.
-        Set<LogicalNode> oneNode = Set.of(NODE_0);
-        Set<String> oneNodeName = Set.of(NODE_0.name());
-
-        long topologyRevision2 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), oneNode);
-
-        long dropRevision1 = dropZoneAndGetRevision(ZONE_NAME_1);
-
-        assertValueInStorage(
-                metaStorageManager,
-                zoneDataNodesKey(ZONE_ID_1),
-                null,
-                null,
-                3000
-        );
-
-        // Check that data nodes value of the zone with the topology update revision is NODE_0 and NODE_1
-        // because scale down timer has not fired.
-        CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1);
-        assertThat(dataNodesFut3, willBe(twoNodesNames));
-
-        // Check that zones is removed and attempt to get data nodes throws an exception.
-        CompletableFuture<Set<String>> dataNodesFut5 = distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1);
-        assertThrowsWithCause(() -> dataNodesFut5.get(3, SECONDS), DistributionZoneNotFoundException.class);
     }
 
     @Test
