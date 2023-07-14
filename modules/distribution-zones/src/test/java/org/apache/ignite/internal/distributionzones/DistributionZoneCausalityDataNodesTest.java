@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesDataNodesPrefix;
@@ -442,6 +443,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         System.out.println("test_log topologyRevision1=" + topologyRevision1);
 
+        assertValueInStorage(
+                metaStorageManager,
+                zoneDataNodesKey(ZONE_ID_1),
+                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                Set.of(NODE_0.name()),
+                3000
+        );
+
         // Check that data nodes value of the the zone is NODE_0.
         CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
         assertThat(dataNodesFut1, willBe(oneNodeName));
@@ -506,6 +515,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         System.out.println("test_log topologyRevision1=" + topologyRevision1);
 
+        assertValueInStorage(
+                metaStorageManager,
+                zoneDataNodesKey(ZONE_ID_1),
+                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                Set.of(NODE_0.name(), NODE_1.name()),
+                3000
+        );
+
         // Check that data nodes value of the the zone is NODE_0 and NODE_1.
         CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
         assertThat(dataNodesFut1, willBe(twoNodesNames));
@@ -530,7 +547,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Check that data nodes value of the zone with the scale down update revision is NODE_0.
         CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(scaleDownRevision, ZONE_ID_1);
-        assertThat(dataNodesFut3, willBe(oneNodeName));
+        assertThat(dataNodesFut3, willBe(oneNodeName)); // New flaky.
     }
 
     /**
@@ -538,7 +555,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC)")
     @Test
     void scheduleScaleUpTaskThenDropZone() throws Exception {
         // Prerequisite.
@@ -557,6 +573,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Create logical topology with NODE_0.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, Set.of(NODE_0));
+
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, oneNode, 3000);
 
         // Check that data nodes value of the zone is NODE_0.
         CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
@@ -584,6 +602,15 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long dropRevision1 = dropZoneAndGetRevision(ZONE_NAME_1);
 
         System.out.println("test_log dropRevision1=" + dropRevision1);
+
+//        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, null, 3000);
+        assertValueInStorage(
+                metaStorageManager,
+                zoneDataNodesKey(ZONE_ID_1),
+                null,
+                null,
+                3000
+        );
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 because scale up timer has not fired.
         CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1);
@@ -685,7 +712,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC)")
     @Test
     void scheduleScaleDownTaskThenDropZone() throws Exception {
         // Prerequisite.
@@ -707,6 +733,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes);
 
+        assertValueInStorage(
+                metaStorageManager,
+                zoneDataNodesKey(ZONE_ID_1),
+                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                Set.of(NODE_0.name(), NODE_1.name()),
+                3000
+        );
+
         // Check that data nodes value of the the zone is NODE_0 and NODE_1.
         CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
         assertThat(dataNodesFut1, willBe(twoNodesNames));
@@ -720,6 +754,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long topologyRevision2 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), oneNode);
 
         long dropRevision1 = dropZoneAndGetRevision(ZONE_NAME_1);
+
+        assertValueInStorage(
+                metaStorageManager,
+                zoneDataNodesKey(ZONE_ID_1),
+                null,
+                null,
+                3000
+        );
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 and NODE_1
         // because scale down timer has not fired.

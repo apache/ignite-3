@@ -683,8 +683,10 @@ public class DistributionZoneManager implements IgniteComponent {
             return failedFuture(new IllegalArgumentException("Invalid zoneId"));
         }
 
+        ConcurrentSkipListMap<Long, ZoneConfiguration> versionedCfg = zonesVersionedCfg.get(zoneId);
+
         // Get the latest configuration and configuration revision for a given token
-        Map.Entry<Long, ZoneConfiguration> zoneLastCfgEntry = zonesVersionedCfg.get(zoneId).floorEntry(causalityToken);
+        Map.Entry<Long, ZoneConfiguration> zoneLastCfgEntry = versionedCfg.floorEntry(causalityToken);
 
         if (zoneLastCfgEntry == null) {
             return failedFuture(new DistributionZoneNotFoundException(zoneId));
@@ -693,6 +695,9 @@ public class DistributionZoneManager implements IgniteComponent {
         long lastCfgRevision = zoneLastCfgEntry.getKey();
 
         ZoneConfiguration zoneLastCfg = zoneLastCfgEntry.getValue();
+
+        //Get a filter for the calculated revision.
+        String filter = zoneLastCfg.getFilter();
 
         // Check if the zone is removed. If a zone is deleted, then there will be no more configuration changes for that zone.
         boolean isZoneRemoved = zoneLastCfg.getIsRemoved();
@@ -716,17 +721,26 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         if (!isZoneRemoved) {
-            ZoneState zoneState = zonesState.get(zoneId);
-
-            TreeMap<Long, Augmentation> subAugmentationMap = new TreeMap<>(zoneState.topologyAugmentationMap()
-                    .subMap(0L, false, causalityToken, true));
-
             // Wait if needed when the data nodes value will be updated in the meta storage according to calculated lastScaleUpRevision, lastScaleDownRevision and causalityToken.
             long scaleUpDataNodesRevision = waitTriggerKey(lastScaleUpRevision, zoneId, zoneScaleUpChangeTriggerKey(zoneId));
 
             long scaleDownDataNodesRevision = waitTriggerKey(lastScaleDownRevision, zoneId, zoneScaleDownChangeTriggerKey(zoneId));
 
             long dataNodesRevision = max(causalityToken, max(scaleUpDataNodesRevision, scaleDownDataNodesRevision));
+
+            // At the dataNodesRevision the zone was created but the data nodes value had not updated yet.
+            // So the data nodes value will be equals to the logical topology on the dataNodesRevision.
+            if (lastCfgRevision == versionedCfg.firstKey() && lastCfgRevision == dataNodesRevision) {
+                Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), zoneLastCfgEntry.getKey());
+
+                Set<NodeWithAttributes> logicalTopology = fromBytes(topologyEntry.value());
+
+                Set<Node> logicalTopologyNodes = logicalTopology.stream().map(n -> n.node()).collect(toSet());
+
+                Set<String> dataNodesNames = filterDataNodes(logicalTopologyNodes, filter, nodesAttributes);
+
+                return completedFuture(dataNodesNames);
+            }
 
             Entry dataNodesEntry = metaStorageManager.get(zoneDataNodesKey(zoneId), dataNodesRevision).join();
             Entry scaleUpChangeTriggerKey = metaStorageManager.get(zoneScaleUpChangeTriggerKey(zoneId), dataNodesRevision).join();
@@ -742,24 +756,31 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Set<Node> finalDataNodes = new HashSet<>(baseDataNodes);
 
-            subAugmentationMap.forEach((rev, augmentation) -> {
-                if (isScaleUpImmediate && augmentation.addition && scaleUpTriggerRevision < rev && scaleUpTriggerRevision <= finalLastScaleUpRevision) {
-                    for (Node node : augmentation.nodes) {
-                        LOG.info("+++++++ dataNodes finalDataNodes.add " + node);
-                        finalDataNodes.add(node);
+            ZoneState zoneState = zonesState.get(zoneId);
+
+            // If the zoneState is null then it means that the zone was removed. In this case all nodes from topologyAugmentationMap must be
+            // already written to the meta storage.
+            if (zoneState != null) {
+                TreeMap<Long, Augmentation> subAugmentationMap = new TreeMap<>(zoneState.topologyAugmentationMap()
+                        .subMap(0L, false, causalityToken, true));
+
+                LOG.info("+++++++ dataNodes subAugmentationMap " + subAugmentationMap);
+
+                subAugmentationMap.forEach((rev, augmentation) -> {
+                    if (isScaleUpImmediate && augmentation.addition && rev <= dataNodesRevision) {
+                        for (Node node : augmentation.nodes) {
+                            LOG.info("+++++++ dataNodes finalDataNodes.add " + node);
+                            finalDataNodes.add(node);
+                        }
                     }
-                } else {
-                    if (isScaleDownImmediate && !augmentation.addition && scaleDownTriggerRevision < rev && scaleDownTriggerRevision <= finalLastScaleDownRevision) {
+                    if (isScaleDownImmediate && !augmentation.addition && rev <= dataNodesRevision) {
                         for (Node node : augmentation.nodes) {
                             LOG.info("+++++++ dataNodes finalDataNodes.remove " + node);
                             finalDataNodes.remove(node);
                         }
                     }
-                }
-            });
-
-            //Get a filter for the calculated revision.
-            String filter = zoneLastCfg.getFilter();
+                });
+            }
 
             Set<String> dataNodesNames = filterDataNodes(finalDataNodes, filter, nodesAttributes);
 
