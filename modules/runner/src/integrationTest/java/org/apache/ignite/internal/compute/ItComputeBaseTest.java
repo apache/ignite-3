@@ -65,7 +65,17 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     protected abstract String jobExceptionClassName();
 
     @Test
-    void executesJobLocally() throws Exception {
+    void executesJobLocally() {
+        IgniteImpl entryNode = node(0);
+
+        String result = entryNode.compute()
+                .<String>execute(Set.of(entryNode.node()), units(), concatJobClassName(), "a", 42);
+
+        assertThat(result, is("a42"));
+    }
+
+    @Test
+    void executesJobLocallyAsync() throws Exception {
         IgniteImpl entryNode = node(0);
 
         String result = entryNode.compute()
@@ -171,7 +181,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
         assertThat(results, is(aMapWithSize(3)));
         for (int i = 0; i < 3; i++) {
             ClusterNode node = node(i).node();
-            assertEquals("a42", results.get(node));
+            assertThat(results.get(node), is("a42"));
         }
     }
 
