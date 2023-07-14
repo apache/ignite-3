@@ -35,7 +35,8 @@ public class TransactionInternalCheckedException extends IgniteInternalCheckedEx
      */
     public TransactionInternalCheckedException(int code) {
         super(UUID.randomUUID(), code);
-        assert extractGroupCode(code) == TX_ERR_GROUP.code() : "Error code does not relate to transaction error group [code=" + code + ']';
+        assert extractGroupCode(code) == TX_ERR_GROUP.groupCode() :
+                "Error code does not relate to transaction error group [code=" + code + ']';
     }
 
     /**
@@ -46,7 +47,8 @@ public class TransactionInternalCheckedException extends IgniteInternalCheckedEx
      */
     public TransactionInternalCheckedException(UUID traceId, int code) {
         super(traceId, code);
-        assert extractGroupCode(code) == TX_ERR_GROUP.code() : "Error code does not relate to transaction error group [code=" + code + ']';
+        assert extractGroupCode(code) == TX_ERR_GROUP.groupCode() :
+                "Error code does not relate to transaction error group [code=" + code + ']';
     }
 
     /**
@@ -57,7 +59,8 @@ public class TransactionInternalCheckedException extends IgniteInternalCheckedEx
      */
     public TransactionInternalCheckedException(int code, String message) {
         super(code, message);
-        assert extractGroupCode(code) == TX_ERR_GROUP.code() : "Error code does not relate to transaction error group [code=" + code + ']';
+        assert extractGroupCode(code) == TX_ERR_GROUP.groupCode() :
+                "Error code does not relate to transaction error group [code=" + code + ']';
     }
 
     /**
@@ -69,8 +72,9 @@ public class TransactionInternalCheckedException extends IgniteInternalCheckedEx
      */
     public TransactionInternalCheckedException(UUID traceId, int code, String message) {
         super(traceId, code, message);
-        assert extractGroupCode(code) == TX_ERR_GROUP.code() :
-                "Error code does not relate to transaction error group [code=" + code + ", errGroup=" + errorGroupByCode(code).name() + ']';
+        assert extractGroupCode(code) == TX_ERR_GROUP.groupCode() :
+                "Error code does not relate to transaction error group "
+                        + "[code=" + code + ", errGroup=" + errorGroupByCode(code).name() + ']';
     }
 
     /**
@@ -81,8 +85,9 @@ public class TransactionInternalCheckedException extends IgniteInternalCheckedEx
      */
     public TransactionInternalCheckedException(int code, Throwable cause) {
         super(code, cause);
-        assert extractGroupCode(code) == TX_ERR_GROUP.code() :
-                "Error code does not relate to transaction error group [code=" + code + ", errGroup=" + errorGroupByCode(code).name() + ']';
+        assert extractGroupCode(code) == TX_ERR_GROUP.groupCode() :
+                "Error code does not relate to transaction error group "
+                        + "[code=" + code + ", errGroup=" + errorGroupByCode(code).name() + ']';
     }
 
     /**
@@ -94,8 +99,9 @@ public class TransactionInternalCheckedException extends IgniteInternalCheckedEx
      */
     public TransactionInternalCheckedException(UUID traceId, int code, Throwable cause) {
         super(traceId, code, cause);
-        assert extractGroupCode(code) == TX_ERR_GROUP.code() :
-                "Error code does not relate to transaction error group [code=" + code + ", errGroup=" + errorGroupByCode(code).name() + ']';
+        assert extractGroupCode(code) == TX_ERR_GROUP.groupCode() :
+                "Error code does not relate to transaction error group "
+                        + "[code=" + code + ", errGroup=" + errorGroupByCode(code).name() + ']';
     }
 
     /**
@@ -107,7 +113,8 @@ public class TransactionInternalCheckedException extends IgniteInternalCheckedEx
      */
     public TransactionInternalCheckedException(int code, String message, Throwable cause) {
         super(code, message, cause);
-        assert extractGroupCode(code) == TX_ERR_GROUP.code() :
-                "Error code does not relate to transaction error group [code=" + code + ", errGroup=" + errorGroupByCode(code).name() + ']';
+        assert extractGroupCode(code) == TX_ERR_GROUP.groupCode() :
+                "Error code does not relate to transaction error group "
+                        + "[code=" + code + ", errGroup=" + errorGroupByCode(code).name() + ']';
     }
 }
