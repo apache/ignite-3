@@ -987,12 +987,10 @@ public class Accumulators {
                 return;
             }
 
-            empty = b;
-            val = v;
-
             val = empty ? v : min
                     ? (CharSeqComparator.INSTANCE.compare(val, v) < 0 ? val : v) :
                     (CharSeqComparator.INSTANCE.compare(val, v) < 0 ? v : val);
+            empty = false;
         }
 
         @Override
