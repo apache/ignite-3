@@ -52,7 +52,7 @@ public:
             return false;
 
         ++m_page_pos;
-        if (m_page_pos >= m_current_page->get_size())
+        if (std::uint32_t(m_page_pos) >= m_current_page->get_size())
         {
             m_current_page.reset();
             return false;

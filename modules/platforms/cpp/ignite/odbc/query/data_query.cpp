@@ -238,10 +238,10 @@ sql_result data_query::fetch_next_row(column_binding_map &column_bindings)
     auto row = m_cursor->get_row();
     assert(!row.empty());
 
-    for (std::int32_t i = 0; i < row.size(); ++i)
+    for (std::size_t i = 0; i < row.size(); ++i)
     {
         // Column indexing starts from 1 in ODBC.
-        auto column_idx = i + 1;
+        auto column_idx = std::int32_t(i + 1);
         auto it = column_bindings.find(column_idx);
         if (it == column_bindings.end())
             continue;

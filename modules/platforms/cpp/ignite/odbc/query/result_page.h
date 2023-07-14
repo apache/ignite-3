@@ -77,7 +77,7 @@ public:
      * @return Row data.
      */
     bytes_view get_row(std::uint32_t idx) {
-        assert(idx >= 0 && idx < m_size);
+        assert(idx < m_size);
 
         auto elem = m_reader->get_array_element(idx);
         return protocol::unpack_binary(elem);

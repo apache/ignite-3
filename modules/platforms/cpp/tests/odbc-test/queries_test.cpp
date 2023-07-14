@@ -22,6 +22,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <cstring>
 
 using namespace ignite;
 
