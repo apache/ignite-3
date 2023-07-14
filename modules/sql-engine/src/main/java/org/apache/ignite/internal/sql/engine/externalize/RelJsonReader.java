@@ -51,7 +51,7 @@ import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * RelJsonReader.
@@ -103,7 +103,7 @@ public class RelJsonReader {
             readRels(rels);
             return lastRel;
         } catch (IOException e) {
-            throw new SqlException(INTERNAL_ERR, "RelJson deserialization error", e);
+            throw new IgniteInternalException(INTERNAL_ERR, "RelJson deserialization error", e);
         }
     }
 

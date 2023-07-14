@@ -19,14 +19,12 @@ package org.apache.ignite.internal.sql.engine.session;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import org.apache.ignite.lang.IgniteInternalException;
-
 /**
  * Thrown when session has been expired but not yet been collected by cleaner thread.
  */
-public class SessionExpiredException extends IgniteInternalException {
+public class SessionExpiredException extends RuntimeException {
 
-    private static final long serialVersionUID = 0L;
+    private static final long serialVersionUID = 1031489732515223461L;
 
     /** Constructor. */
     public SessionExpiredException(SessionId sessionId, Throwable cause) {

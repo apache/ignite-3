@@ -30,7 +30,7 @@ import org.apache.ignite.internal.sql.engine.metadata.FragmentMappingException;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -79,7 +79,7 @@ public class QueryTemplate {
             }
         }
 
-        throw new SqlException(INTERNAL_ERR, "Failed to map query.", ex);
+        throw new IgniteInternalException(INTERNAL_ERR, "Failed to map query.", ex);
     }
 
     @NotNull

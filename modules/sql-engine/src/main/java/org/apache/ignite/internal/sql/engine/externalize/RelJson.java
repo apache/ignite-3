@@ -117,7 +117,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Utilities for converting {@link RelNode} into JSON format.
@@ -157,7 +157,7 @@ class RelJson {
         try {
             constructor = (Constructor<RelNode>) clazz.getConstructor(RelInput.class);
         } catch (NoSuchMethodException e) {
-            throw new SqlException(INTERNAL_ERR, "class does not have required constructor, "
+            throw new IgniteInternalException(INTERNAL_ERR, "class does not have required constructor, "
                     + clazz + "(RelInput)");
         }
 
@@ -211,7 +211,7 @@ class RelJson {
             return IgniteUtils.forName(typeName, igniteClassLoader());
         } catch (ClassNotFoundException e) {
             if (!skipNotFound) {
-                throw new SqlException(INTERNAL_ERR, "RelJson unable to load type: " + typeName);
+                throw new IgniteInternalException(INTERNAL_ERR, "RelJson unable to load type: " + typeName);
             }
         }
 

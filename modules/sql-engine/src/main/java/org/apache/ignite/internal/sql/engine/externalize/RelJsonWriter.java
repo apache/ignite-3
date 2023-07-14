@@ -32,7 +32,7 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Callback for a relational expression to dump itself as JSON.
@@ -129,7 +129,7 @@ public class RelJsonWriter implements RelWriter {
 
             return writer.toString();
         } catch (IOException e) {
-            throw new SqlException(INTERNAL_ERR, "RelJson serialization error", e);
+            throw new IgniteInternalException(INTERNAL_ERR, "RelJson serialization error", e);
         }
     }
 

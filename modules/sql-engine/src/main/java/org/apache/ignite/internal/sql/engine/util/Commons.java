@@ -98,8 +98,8 @@ import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteSystemProperties;
-import org.apache.ignite.sql.SqlException;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
@@ -392,7 +392,7 @@ public final class Commons {
 
             return (T) cbe.createInstance(new StringReader(body));
         } catch (Exception e) {
-            throw new SqlException(INTERNAL_ERR, "Unable to compile expression", e);
+            throw new IgniteInternalException(INTERNAL_ERR, "Unable to compile expression", e);
         }
     }
 

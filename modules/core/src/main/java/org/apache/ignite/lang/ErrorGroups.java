@@ -164,6 +164,9 @@ public class ErrorGroups {
 
         /** Planning timed out without finding any valid plan. */
         public static final int PLANNING_TIMEOUT_ERR = SQL_ERR_GROUP.registerErrorCode(12);
+
+        /** Session closed error. Operation is rejected because SQL session was closed. */
+        public static final int SESSION_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode(13);
     }
 
     /** Meta storage error group. */

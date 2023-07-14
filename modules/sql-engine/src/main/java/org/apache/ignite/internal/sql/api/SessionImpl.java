@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
 import static org.apache.ignite.lang.IgniteExceptionUtils.sneakyThrow;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -47,6 +47,7 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteExceptionUtils;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlBatchException;
@@ -168,7 +169,7 @@ public class SessionImpl implements Session {
             String query,
             @Nullable Object... arguments) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new SqlException(SESSION_NOT_FOUND_ERR, "Session is closed."));
+            return CompletableFuture.failedFuture(new SqlException(SESSION_CLOSED_ERR, "Session is closed."));
         }
 
         try {
@@ -234,7 +235,7 @@ public class SessionImpl implements Session {
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new SqlException(SESSION_NOT_FOUND_ERR, "Session is closed."));
+            return CompletableFuture.failedFuture(new SqlException(SESSION_CLOSED_ERR, "Session is closed."));
         }
 
         try {
@@ -334,7 +335,8 @@ public class SessionImpl implements Session {
         } catch (ExecutionException e) {
             sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
         } catch (InterruptedException e) {
-            throw new SqlException(INTERNAL_ERR, e);
+            Thread.currentThread().interrupt();
+            throw new SqlException(SESSION_CLOSED_ERR, e);
         }
     }
 
@@ -364,7 +366,7 @@ public class SessionImpl implements Session {
                 || page.items().size() != 1
                 || page.items().get(0).size() != 1
                 || page.hasMore()) {
-            throw new SqlException(INTERNAL_ERR, "Invalid DML results: " + page);
+            throw new IgniteInternalException(INTERNAL_ERR, "Invalid DML results: " + page);
         }
     }
 }

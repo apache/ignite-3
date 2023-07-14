@@ -269,6 +269,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                 cond.await();
             }
         } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new SqlException(EXECUTION_CANCELLED_ERR, e);
         } finally {
             lock.unlock();
