@@ -85,22 +85,22 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void executesJobOnRemoteNodes() throws Exception {
+    void executesJobOnRemoteNodes() {
         Ignite entryNode = node(0);
 
         String result = entryNode.compute()
-                .<String>executeAsync(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42)
-                .get(1, TimeUnit.SECONDS);
+                .execute(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
 
         assertThat(result, is("a42"));
     }
 
     @Test
-    void executesJobOnRemoteNodesAsync() {
+    void executesJobOnRemoteNodesAsync() throws Exception {
         Ignite entryNode = node(0);
 
         String result = entryNode.compute()
-                .execute(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
+                .<String>executeAsync(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42)
+                .get(1, TimeUnit.SECONDS);
 
         assertThat(result, is("a42"));
     }
@@ -132,11 +132,21 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     void executesFailingJobLocally() {
         IgniteImpl entryNode = node(0);
 
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> {
-            entryNode.compute()
-                    .executeAsync(Set.of(entryNode.node()), units(), failingJobClassName())
-                    .get(1, TimeUnit.SECONDS);
-        });
+        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
+                .execute(Set.of(entryNode.node()), units(), failingJobClassName()));
+
+        assertThat(ex.getCause().getClass().getName(), is(jobExceptionClassName()));
+        assertThat(ex.getCause().getMessage(), is("Oops"));
+        assertThat(ex.getCause().getCause(), is(notNullValue()));
+    }
+
+    @Test
+    void executesFailingJobLocallyAsync() {
+        IgniteImpl entryNode = node(0);
+
+        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
+                .executeAsync(Set.of(entryNode.node()), units(), failingJobClassName())
+                .get(1, TimeUnit.SECONDS));
 
         assertThat(ex.getCause().getClass().getName(), is(jobExceptionClassName()));
         assertThat(ex.getCause().getMessage(), is("Oops"));
