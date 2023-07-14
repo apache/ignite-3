@@ -223,7 +223,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
                 break;
             }
             LOG.info("Renaming {} to {}.", tempPath, newPath);
-            if (!new File(tempPath).renameTo(new File(newPath))) {
+            if (!Utils.atomicMoveFile(new File(tempPath), new File(newPath), true)) {
                 LOG.error("Renamed temp snapshot failed, from path {} to path {}.", tempPath, newPath);
                 ret = RaftError.EIO.getNumber();
                 ioe = new IOException("Fail to rename temp snapshot from: " + tempPath + " to: " + newPath);
