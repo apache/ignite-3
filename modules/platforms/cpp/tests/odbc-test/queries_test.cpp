@@ -523,7 +523,7 @@ TEST_F(queries_test, null_fields)
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    ret = SQLBindCol(m_statement, 8, SQL_C_BIT, &uuid_arg, 0, &column_lens[7]);
+    ret = SQLBindCol(m_statement, 8, SQL_C_GUID, &uuid_arg, 0, &column_lens[7]);
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
@@ -556,8 +556,8 @@ TEST_F(queries_test, null_fields)
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
     // Checking that columns are not null.
-    for (auto column_len : column_lens)
-        EXPECT_NE(column_len, SQL_NULL_DATA);
+    for (int i = 0; i < columns_cnt; ++i)
+        EXPECT_NE(column_lens[i], SQL_NULL_DATA) << ", column idx = " << i;
 
     // Fetching null row.
     ret = SQLFetch(m_statement);
@@ -565,8 +565,8 @@ TEST_F(queries_test, null_fields)
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
     // Checking that columns are null.
-    for (auto column_len : column_lens)
-        EXPECT_EQ(column_len, SQL_NULL_DATA);
+    for (int i = 0; i < columns_cnt; ++i)
+        EXPECT_EQ(column_lens[i], SQL_NULL_DATA) << ", column idx = " << i;
 
     // Fetching the last non-null row.
     ret = SQLFetch(m_statement);
@@ -574,8 +574,8 @@ TEST_F(queries_test, null_fields)
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
     // Checking that columns are not null.
-    for (auto column_len : column_lens)
-        EXPECT_NE(column_len, SQL_NULL_DATA);
+    for (int i = 0; i < columns_cnt; ++i)
+        EXPECT_NE(column_lens[i], SQL_NULL_DATA) << ", column idx = " << i;
 
     ret = SQLFetch(m_statement);
     EXPECT_EQ(ret, SQL_NO_DATA);
