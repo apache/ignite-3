@@ -63,7 +63,14 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
 
     /**
      * This registry chains two versioned values. The value, that uses this registry in the constructor, will be completed strictly after
-     * the value, passed into this method.
+     * the value, passed into this method, meaning that {@code resultVv.get(token).isDone();} will always imply imply
+     * {@code vv.get(token).isDone();} for the same token value.
+     *
+     * <p>While affecting the state of resulting futures, this dependency doesn't affect the order of {@link #update(long, BiFunction)}
+     * closures execution. These closures will still be called independently once the required parameter value is available.
+     *
+     * <p>In the case of "fresh" VV with no updates, first closure is always being executed synchronously inside of the
+     * {@link #update(long, BiFunction)} call.
      */
     public static Consumer<LongFunction<CompletableFuture<?>>> dependingOn(IncrementalVersionedValue<?> vv) {
         return callback -> vv.whenComplete((causalityToken, value, ex) -> callback.apply(causalityToken));
