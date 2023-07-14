@@ -96,6 +96,16 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    void executesJobOnRemoteNodesAsync() {
+        Ignite entryNode = node(0);
+
+        String result = entryNode.compute()
+                .execute(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
+
+        assertThat(result, is("a42"));
+    }
+
+    @Test
     void localExecutionActuallyUsesLocalNode() throws Exception {
         IgniteImpl entryNode = node(0);
 
