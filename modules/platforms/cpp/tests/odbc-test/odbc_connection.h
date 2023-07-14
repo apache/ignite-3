@@ -137,17 +137,26 @@ public:
     }
 
     /**
+     * Generate test string for the index.
+     *
+     * @param idx Index.
+     * @return Test string.
+     */
+    [[nodiscard]] static std::string get_test_string(int idx) {
+        return "String#" + std::to_string(idx);
+    }
+
+    /**
      * Insert test strings.
      *
      * @param records_num Number of strings to insert.
-     * @param merge 
      */
-    void insert_test_strings(SQLSMALLINT records_num, bool upsert) // NOLINT(readability-make-member-function-const)
+    void insert_test_strings(SQLSMALLINT records_num, bool merge) const
     {
         SQLCHAR insert_req[] = "INSERT INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(?, ?)";
-        SQLCHAR upsert_req[] = "UPSERT INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(?, ?)";
+        SQLCHAR merge_req[] = "MERGE INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(?, ?)";
 
-        SQLRETURN ret = SQLPrepare(m_statement, upsert ? upsert_req : insert_req, SQL_NTS);
+        SQLRETURN ret = SQLPrepare(m_statement, merge ? merge_req : insert_req, SQL_NTS);
 
         if (!SQL_SUCCEEDED(ret))
             FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
@@ -172,7 +181,7 @@ public:
         for (SQLSMALLINT i = 0; i < records_num; ++i)
         {
             key = i + 1;
-            std::string val = "String#" + std::to_string(i);
+            std::string val = get_test_string(i);
 
             strncpy(str_field, val.c_str(), sizeof(str_field) - 1);
             str_field_len = SQL_NTS;
@@ -180,7 +189,7 @@ public:
             ret = SQLExecute(m_statement);
 
             if (!SQL_SUCCEEDED(ret))
-                FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+                FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement)) << ", step " << i;
 
             SQLLEN affected = 0;
             ret = SQLRowCount(m_statement, &affected);

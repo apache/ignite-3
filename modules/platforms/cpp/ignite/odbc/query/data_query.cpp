@@ -106,6 +106,9 @@ column_meta_vector read_meta(protocol::reader &reader) {
  * @return Conversion result.
  */
 conversion_result put_primitive_to_buffer(application_data_buffer &buffer, const primitive &value) {
+    if (value.is_null())
+        return buffer.put_null();
+
     switch (value.get_type()) {
         case ignite_type::STRING:
             return buffer.put_string(value.get<std::string>());
