@@ -398,38 +398,34 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
         err = ExceptionUtils.unwrapCause(err);
 
+        // Trace ID and error code.
         if (err instanceof TraceableException) {
             TraceableException iex = (TraceableException) err;
             packer.packUuid(iex.traceId());
             packer.packInt(iex.code());
-
-            if (err instanceof SchemaVersionMismatchException) {
-                packer.packMapHeader(1);
-                packer.packString(ErrorExtension.EXPECTED_SCHEMA_VERSION);
-                packer.packInt(((SchemaVersionMismatchException) err).expectedVersion());
-            } else {
-                packer.packNil(); // Error extensions.
-            }
         } else {
             packer.packUuid(UUID.randomUUID());
             packer.packInt(INTERNAL_ERR);
-            packer.packNil(); // Error extensions.
         }
 
+        // Class name and message.
         packer.packString(err.getClass().getName());
+        packer.packString(err.getMessage());
 
-        String msg = err.getMessage();
-
-        if (msg == null) {
-            packer.packNil();
-        } else {
-            packer.packString(msg);
-        }
-
+        // Stack trace.
         if (configuration.sendServerExceptionStackTraceToClient()) {
             packer.packString(ExceptionUtils.getFullStackTrace(err));
         } else {
             packer.packNil();
+        }
+
+        // Extensions.
+        if (err instanceof SchemaVersionMismatchException) {
+            packer.packMapHeader(1);
+            packer.packString(ErrorExtension.EXPECTED_SCHEMA_VERSION);
+            packer.packInt(((SchemaVersionMismatchException) err).expectedVersion());
+        } else {
+            packer.packNil(); // No extensions.
         }
     }
 
