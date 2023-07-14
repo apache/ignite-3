@@ -20,12 +20,12 @@ package org.apache.ignite.raft.jraft.storage.logit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
-import org.apache.ignite.raft.jraft.core.TestJRaftServiceFactory;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.impl.BaseLogStorageTest;
+import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
 import org.apache.ignite.raft.jraft.storage.logit.storage.LogitLogStorage;
 import org.apache.ignite.raft.jraft.storage.logit.storage.db.IndexDB;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.index.IndexType;
@@ -41,10 +41,20 @@ public class LogitLogStorageTest extends BaseLogStorageTest {
     @BeforeEach
     @Override
     public void setup() throws Exception {
-        logStorageFactory = new LogitLogStorageFactory(TestJRaftServiceFactory.testStoreOptions());
+        logStorageFactory = new LogitLogStorageFactory(testStoreOptions());
         logStorageFactory.start();
 
         super.setup();
+    }
+
+    private static StoreOptions testStoreOptions() {
+        StoreOptions storeOptions = new StoreOptions();
+
+        storeOptions.setSegmentFileSize(512 * 1024);
+        storeOptions.setConfFileSize(512 * 1024);
+        storeOptions.setEnableWarmUpFile(false);
+
+        return storeOptions;
     }
 
     @AfterEach

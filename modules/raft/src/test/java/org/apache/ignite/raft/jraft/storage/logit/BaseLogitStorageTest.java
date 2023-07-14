@@ -18,6 +18,7 @@
 package org.apache.ignite.raft.jraft.storage.logit;
 
 import static org.apache.ignite.raft.jraft.test.TestUtils.mockEntry;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -61,8 +62,9 @@ public class BaseLogitStorageTest extends BaseStorageTest {
     }
 
     protected byte[] genData(final int index, final int term, int size) {
-        final LogEntry entry = mockEntry(index, term, size - 14);
+        final LogEntry entry = mockEntry(index, term, size - 16);
         final byte[] data = LogEntryV1CodecFactory.getInstance().encoder().encode(entry);
+        assertEquals(size, data.length);
         return data;
     }
 
