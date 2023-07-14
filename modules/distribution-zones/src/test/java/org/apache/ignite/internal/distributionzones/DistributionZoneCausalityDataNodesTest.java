@@ -42,6 +42,7 @@ import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
 import java.util.Set;
@@ -215,15 +216,15 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Check that data nodes value of both zone is NODE_0 and NODE_1.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes1);
 
-        CompletableFuture<Set<String>> dataNodesFut0 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
-        assertThat(dataNodesFut0, willBe(twoNodesNames1));
+        Set<String> dataNodes0 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
+        assertEquals(twoNodesNames1, dataNodes0);
 
         long dataNodesRevisionZone = dataNodesUpdateRevision.get(3, SECONDS);
 
         System.out.println("test_log dataNodesRevisionZone=" + dataNodesRevisionZone);
 
-        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(dataNodesRevisionZone, ZONE_ID_2);
-        assertThat(dataNodesFut1, willBe(twoNodesNames1));
+        Set<String> dataNodes1 = getDataNodesFromListener(dataNodesRevisionZone, ZONE_ID_2);
+        assertEquals(twoNodesNames1, dataNodes1);
 
         // Test steps.
 
@@ -238,17 +239,17 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         System.out.println("test_log topologyRevision2=" + topologyRevision2);
 
         // Check that data nodes value of the zone with immediate timers with the topology update revision is NODE_0 and NODE_2.
-        CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1);
-        assertThat(dataNodesFut3, willBe(twoNodesNames2));
+        Set<String> dataNodes3 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
+        assertEquals(twoNodesNames2, dataNodes3);
 
         // Check that data nodes value of the zone with not immediate timers with the topology update revision is NODE_0 and NODE_1.
-        CompletableFuture<Set<String>> dataNodesFut4 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_2);
-        assertThat(dataNodesFut4, willBe(twoNodesNames1));
+        Set<String> dataNodes4 = getDataNodesFromListener(topologyRevision2, ZONE_ID_2);
+        assertEquals(twoNodesNames1, dataNodes4);
 
         // Check that data nodes value of the zone with not immediate timers with the data nodes update revision is NODE_0 and NODE_2.
         dataNodesRevisionZone = dataNodesUpdateRevision.get(5, SECONDS);
-        CompletableFuture<Set<String>> dataNodesFut5 = distributionZoneManager.dataNodes(dataNodesRevisionZone, ZONE_ID_2);
-        assertThat(dataNodesFut5, willBe(twoNodesNames2));
+        Set<String> dataNodes5 = getDataNodesFromListener(dataNodesRevisionZone, ZONE_ID_2);
+        assertEquals(twoNodesNames2, dataNodes5);
     }
 
     /**
@@ -288,11 +289,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Check that data nodes value of both zone is NODE_0 and NODE_1.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes1);
 
-        CompletableFuture<Set<String>> dataNodesFut0 = distributionZoneManager.dataNodes(topologyRevision1, DEFAULT_ZONE_ID);
-        assertThat(dataNodesFut0, willBe(twoNodesNames1));
+        Set<String> dataNodes0 = getDataNodesFromListener(topologyRevision1, DEFAULT_ZONE_ID);
+        assertEquals(twoNodesNames1, dataNodes0);
 
-        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
-        assertThat(dataNodesFut1, willBe(twoNodesNames1));
+        Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
+        assertEquals(twoNodesNames1, dataNodes1);
 
         // Alter zones with not immediate scale up timer.
         distributionZoneManager.alterZone(ZONE_NAME_1,
@@ -327,20 +328,20 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         System.out.println("test_log topologyRevision2=" + topologyRevision2);
 
-        CompletableFuture<Set<String>> dataNodesFut2 = distributionZoneManager.dataNodes(topologyRevision2, DEFAULT_ZONE_ID);
-        assertThat(dataNodesFut2, willBe(oneNodeNames));
+        Set<String> dataNodes2 = getDataNodesFromListener(topologyRevision2, DEFAULT_ZONE_ID);
+        assertEquals(oneNodeNames, dataNodes2);
 
-        CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1);
-        assertThat(dataNodesFut3, willBe(oneNodeNames));
+        Set<String> dataNodes3 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
+        assertEquals(oneNodeNames, dataNodes3);
 
         // Check that data nodes value of zones is NODE_0 and NODE_2.
         long dataNodesRevisionZone0 = dataNodesUpdateRevision0.get(3, SECONDS);
-        CompletableFuture<Set<String>> dataNodesFut4 = distributionZoneManager.dataNodes(dataNodesRevisionZone0, DEFAULT_ZONE_ID);
-        assertThat(dataNodesFut4, willBe(twoNodesNames2));
+        Set<String> dataNodes4 = getDataNodesFromListener(dataNodesRevisionZone0, DEFAULT_ZONE_ID);
+        assertEquals(twoNodesNames2, dataNodes4);
 
         long dataNodesRevisionZone1 = dataNodesUpdateRevision1.get(3, SECONDS);
-        CompletableFuture<Set<String>> dataNodesFut5 = distributionZoneManager.dataNodes(dataNodesRevisionZone1, ZONE_ID_1);
-        assertThat(dataNodesFut5, willBe(twoNodesNames2));
+        Set<String> dataNodes5 = getDataNodesFromListener(dataNodesRevisionZone1, ZONE_ID_1);
+        assertEquals(twoNodesNames2, dataNodes5);
     }
 
     /**
@@ -380,11 +381,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Check that data nodes value of both zone is NODE_0 and NODE_1.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes1);
 
-        CompletableFuture<Set<String>> dataNodesFut0 = distributionZoneManager.dataNodes(topologyRevision1, DEFAULT_ZONE_ID);
-        assertThat(dataNodesFut0, willBe(twoNodesNames1));
+        Set<String> dataNodes0 = getDataNodesFromListener(topologyRevision1, DEFAULT_ZONE_ID);
+        assertEquals(twoNodesNames1, dataNodes0);
 
-        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
-        assertThat(dataNodesFut1, willBe(twoNodesNames1));
+        Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
+        assertEquals(twoNodesNames1, dataNodes1);
 
         // Test steps.
 
@@ -401,20 +402,20 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         Set<LogicalNode> threeNodes = Set.of(NODE_0, NODE_1, NODE_2);
         Set<String> threeNodesNames = Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name());
 
-        CompletableFuture<Set<String>> dataNodesFut2 = distributionZoneManager.dataNodes(topologyRevision2, DEFAULT_ZONE_ID);
-        assertThat(dataNodesFut2, willBe(threeNodesNames));
+        Set<String> dataNodes2 = getDataNodesFromListener(topologyRevision2, DEFAULT_ZONE_ID);
+        assertEquals(threeNodesNames, dataNodes2);
 
-        CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1);
-        assertThat(dataNodesFut3, willBe(threeNodesNames));
+        Set<String> dataNodes3 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
+        assertEquals(threeNodesNames, dataNodes3);
 
         // Check that data nodes value of zones is NODE_0 and NODE_2.
         long dataNodesRevisionZone0 = dataNodesUpdateRevision0.get(3, SECONDS);
-        CompletableFuture<Set<String>> dataNodesFut4 = distributionZoneManager.dataNodes(dataNodesRevisionZone0, DEFAULT_ZONE_ID);
-        assertThat(dataNodesFut4, willBe(twoNodesNames2));
+        Set<String> dataNodes4 = getDataNodesFromListener(dataNodesRevisionZone0, DEFAULT_ZONE_ID);
+        assertEquals(twoNodesNames2, dataNodes4);
 
         long dataNodesRevisionZone1 = dataNodesUpdateRevision1.get(3, SECONDS);
-        CompletableFuture<Set<String>> dataNodesFut5 = distributionZoneManager.dataNodes(dataNodesRevisionZone1, ZONE_ID_1);
-        assertThat(dataNodesFut5, willBe(twoNodesNames2));
+        Set<String> dataNodes5 = getDataNodesFromListener(dataNodesRevisionZone1, ZONE_ID_1);
+        assertEquals(twoNodesNames2, dataNodes5);
     }
 
     /**
@@ -452,8 +453,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         );
 
         // Check that data nodes value of the the zone is NODE_0.
-        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
-        assertThat(dataNodesFut1, willBe(oneNodeName));
+        Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
+        assertEquals(oneNodeName, dataNodes1);
 
         // Changes a scale up timer to not immediate.
         distributionZoneManager.alterZone(
@@ -475,16 +476,16 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         System.out.println("test_log topologyRevision2=" + topologyRevision2);
         // Check that data nodes value of the zone with the topology update revision is NODE_0 because scale up timer has not fired yet.
-        CompletableFuture<Set<String>> dataNodesFut2 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1);
-        assertThat(dataNodesFut2, willBe(oneNodeName));
+        Set<String> dataNodes2 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
+        assertEquals(oneNodeName, dataNodes2);
 
         // Change scale up value to immediate.
         long scaleUpRevision = alterZoneScaleUpAndGetRevision(ZONE_NAME_1, IMMEDIATE_TIMER_VALUE);
 
         System.out.println("test_log scaleUpRevision=" + scaleUpRevision);
         // Check that data nodes value of the zone with the scale up update revision is NODE_0 and NODE_1.
-        CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(scaleUpRevision, ZONE_ID_1);
-        assertThat(dataNodesFut3, willBe(twoNodesNames));
+        Set<String> dataNodes3 = getDataNodesFromListener(scaleUpRevision, ZONE_ID_1);
+        assertEquals(twoNodesNames, dataNodes3);
     }
 
     /**
@@ -524,8 +525,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         );
 
         // Check that data nodes value of the the zone is NODE_0 and NODE_1.
-        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
-        assertThat(dataNodesFut1, willBe(twoNodesNames));
+        Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
+        assertEquals(twoNodesNames, dataNodes1);
 
         // Test steps.
 
@@ -539,15 +540,15 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 and NODE_1
         // because scale down timer has not fired yet.
-        CompletableFuture<Set<String>> dataNodesFut2 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1);
-        assertThat(dataNodesFut2, willBe(twoNodesNames));
+        Set<String> dataNodes2 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
+        assertEquals(twoNodesNames, dataNodes2);
 
         // Change scale down value to immediate.
         long scaleDownRevision = alterZoneScaleDownAndGetRevision(ZONE_NAME_1, IMMEDIATE_TIMER_VALUE);
 
         // Check that data nodes value of the zone with the scale down update revision is NODE_0.
-        CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(scaleDownRevision, ZONE_ID_1);
-        assertThat(dataNodesFut3, willBe(oneNodeName)); // New flaky.
+        Set<String> dataNodes3 = getDataNodesFromListener(scaleDownRevision, ZONE_ID_1);
+        assertEquals(oneNodeName, dataNodes3); // New flaky.
     }
 
     /**
@@ -577,8 +578,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, oneNode, 3000);
 
         // Check that data nodes value of the zone is NODE_0.
-        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
-        assertThat(dataNodesFut1, willBe(oneNodeName));
+        Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
+        assertEquals(oneNodeName, dataNodes1);
 
         // Alter the zones with not immediate scale up timer.
         distributionZoneManager.alterZone(ZONE_NAME_1,
@@ -613,18 +614,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         );
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 because scale up timer has not fired.
-        CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1);
-        assertThat(dataNodesFut3, willBe(oneNodeName));
+        Set<String> dataNodes3 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
+        assertEquals(oneNodeName, dataNodes3);
 
         // Check that zones is removed and attempt to get data nodes throws an exception.
-        CompletableFuture<Set<String>> dataNodesFut5 = null;
-        try {
-            dataNodesFut5 = distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        CompletableFuture<Set<String>> finalDataNodesFut = dataNodesFut5;
-        assertThrowsWithCause(() -> finalDataNodesFut.get(3, SECONDS), DistributionZoneNotFoundException.class);
+        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1), DistributionZoneNotFoundException.class);
     }
 
     /**
@@ -662,8 +656,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         );
 
         // Check that data nodes value of the the zone is NODE_0 and NODE_1.
-        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
-        assertThat(dataNodesFut1, willBe(twoNodesNames));
+        Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
+        assertEquals(twoNodesNames, dataNodes1);
 
         // Test steps.
 
@@ -685,12 +679,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 and NODE_1
         // because scale down timer has not fired.
-        CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1);
-        assertThat(dataNodesFut3, willBe(twoNodesNames));
+        Set<String> dataNodes3 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
+        assertEquals(twoNodesNames, dataNodes3);
 
         // Check that zones is removed and attempt to get data nodes throws an exception.
-        CompletableFuture<Set<String>> dataNodesFut5 = distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1);
-        assertThrowsWithCause(() -> dataNodesFut5.get(3, SECONDS), DistributionZoneNotFoundException.class);
+        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1), DistributionZoneNotFoundException.class);
     }
 
     /**
@@ -731,11 +724,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, oneNode, 3000);
         assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, oneNode, 3000);
 
-        CompletableFuture<Set<String>> dataNodesFut0 = distributionZoneManager.dataNodes(topologyRevision1, DEFAULT_ZONE_ID);
-        assertThat(dataNodesFut0, willBe(oneNodeName));
+        Set<String> dataNodes0 = getDataNodesFromListener(topologyRevision1, DEFAULT_ZONE_ID);
+        assertEquals(oneNodeName, dataNodes0);
 
-        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
-        assertThat(dataNodesFut1, willBe(oneNodeName));
+        Set<String> dataNodesFut1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
+        assertEquals(oneNodeName, dataNodesFut1);
 
         // Alter the zones with infinite timers.
         distributionZoneManager.alterZone(ZONE_NAME_1,
@@ -765,11 +758,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Check that data nodes value of the the zone is NODE_0.
         // The future didn't hang due to the fact that the actual data nodes value did not change.
-        CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(filterRevision0, DEFAULT_ZONE_ID);
-        assertThat(dataNodesFut3, willBe(oneNodeName));
+        Set<String> dataNodes3 = getDataNodesFromListener(filterRevision0, DEFAULT_ZONE_ID);
+        assertEquals(oneNodeName, dataNodes3);
 
-        CompletableFuture<Set<String>> dataNodesFut4 = distributionZoneManager.dataNodes(filterRevision1, ZONE_ID_1);
-        assertThat(dataNodesFut4, willBe(oneNodeName));
+        Set<String> dataNodes4 = getDataNodesFromListener(filterRevision1, ZONE_ID_1);
+        assertEquals(oneNodeName, dataNodes4);
 
     }
 
@@ -793,8 +786,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         System.out.println("test_log createZoneRevision=" + createZoneRevision);
 
         // Check that data nodes value of the zone with the create zone revision is NODE_0.
-        CompletableFuture<Set<String>> dataNodesFut2 = distributionZoneManager.dataNodes(createZoneRevision, ZONE_ID_1);
-        assertThat(dataNodesFut2, willBe(oneNodeName));
+        Set<String> dataNodes2 = getDataNodesFromListener(createZoneRevision, ZONE_ID_1);
+        assertEquals(oneNodeName, dataNodes2);
     }
 
     /**
@@ -821,19 +814,17 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long createZoneRevision = createZoneAndGetRevision(ZONE_NAME_1, ZONE_ID_1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
 
         // Check that data nodes value of the zone with the revision lower than the create zone revision is absent.
-        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(createZoneRevision - 1, ZONE_ID_1);
-        assertThrowsWithCause(() -> dataNodesFut1.get(3, SECONDS), DistributionZoneNotFoundException.class);
+        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(createZoneRevision - 1, ZONE_ID_1), DistributionZoneNotFoundException.class);
 
         // Check that data nodes value of the zone with the create zone revision is NODE_0 and NODE_1.
-        CompletableFuture<Set<String>> dataNodesFut2 = distributionZoneManager.dataNodes(createZoneRevision, ZONE_ID_1);
-        assertThat(dataNodesFut2, willBe(twoNodesNames));
+        Set<String> dataNodes2 = getDataNodesFromListener(createZoneRevision, ZONE_ID_1);
+        assertEquals(twoNodesNames, dataNodes2);
 
         // Drop the zone.
         long dropZoneRevision = dropZoneAndGetRevision(ZONE_NAME_1);
 
         // Check that data nodes value of the zone with the drop zone revision is absent.
-        CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(dropZoneRevision, ZONE_ID_1);
-        assertThrowsWithCause(() -> dataNodesFut3.get(3, SECONDS), DistributionZoneNotFoundException.class);
+        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(dropZoneRevision, ZONE_ID_1), DistributionZoneNotFoundException.class);
     }
 
     /**
@@ -843,14 +834,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      */
     @Test
     void validationTest() {
-        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(0, DEFAULT_ZONE_ID);
-        assertThrowsWithCause(() -> dataNodesFut1.get(3, SECONDS), IllegalArgumentException.class);
+        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(0, DEFAULT_ZONE_ID), IllegalArgumentException.class);
 
-        CompletableFuture<Set<String>> dataNodesFut2 = distributionZoneManager.dataNodes(-1, DEFAULT_ZONE_ID);
-        assertThrowsWithCause(() -> dataNodesFut2.get(3, SECONDS), IllegalArgumentException.class);
+        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(-1, DEFAULT_ZONE_ID), IllegalArgumentException.class);
 
-        CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(1, -1);
-        assertThrowsWithCause(() -> dataNodesFut3.get(3, SECONDS), IllegalArgumentException.class);
+        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(1, -1), IllegalArgumentException.class);
     }
 
     /**
@@ -898,15 +886,15 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         System.out.println("test_log topologyRevision0=" + topologyRevision0);
         System.out.println("test_log topologyRevision1=" + topologyRevision1);
 
-        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision0, DEFAULT_ZONE_ID);
-        assertThat(dataNodesFut1, willBe(oneNodeName));
-        CompletableFuture<Set<String>> dataNodesFut2 = distributionZoneManager.dataNodes(topologyRevision0, ZONE_ID_1);
-        assertThat(dataNodesFut2, willBe(oneNodeName));
+        Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision0, DEFAULT_ZONE_ID);
+        assertEquals(oneNodeName, dataNodes1);
+        Set<String> dataNodes2 = getDataNodesFromListener(topologyRevision0, ZONE_ID_1);
+        assertEquals(oneNodeName, dataNodes2);
 
-        CompletableFuture<Set<String>> dataNodesFut5 = distributionZoneManager.dataNodes(topologyRevision1, DEFAULT_ZONE_ID);
-        assertThat(dataNodesFut5, willBe(twoNodesNames));
-        CompletableFuture<Set<String>> dataNodesFut6 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
-        assertThat(dataNodesFut6, willBe(twoNodesNames));
+        Set<String> dataNodes5 = getDataNodesFromListener(topologyRevision1, DEFAULT_ZONE_ID);
+        assertEquals(twoNodesNames, dataNodes5);
+        Set<String> dataNodes6 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
+        assertEquals(twoNodesNames, dataNodes6);
 
         Set<LogicalNode> twoNodes1 = Set.of(NODE_0, NODE_2);
         Set<String> twoNodesNames1 = Set.of(NODE_0.name(), NODE_2.name());
@@ -917,15 +905,15 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Change logical topology. NODE_1 is left.
         long topologyRevision3 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), twoNodes1);
 
-        CompletableFuture<Set<String>> dataNodesFut7 = distributionZoneManager.dataNodes(topologyRevision2, DEFAULT_ZONE_ID);
-        assertThat(dataNodesFut7, willBe(threeNodeNames));
-        CompletableFuture<Set<String>> dataNodesFut8 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1);
-        assertThat(dataNodesFut8, willBe(threeNodeNames));
+        Set<String> dataNodes7 = getDataNodesFromListener(topologyRevision2, DEFAULT_ZONE_ID);
+        assertEquals(threeNodeNames, dataNodes7);
+        Set<String> dataNodes8 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
+        assertEquals(threeNodeNames, dataNodes8);
 
-        CompletableFuture<Set<String>> dataNodesFut9 = distributionZoneManager.dataNodes(topologyRevision3, DEFAULT_ZONE_ID);
-        assertThat(dataNodesFut9, willBe(twoNodesNames1));
-        CompletableFuture<Set<String>> dataNodesFut10 = distributionZoneManager.dataNodes(topologyRevision3, ZONE_ID_1);
-        assertThat(dataNodesFut10, willBe(twoNodesNames1));
+        Set<String> dataNodes9 = getDataNodesFromListener(topologyRevision3, DEFAULT_ZONE_ID);
+        assertEquals(twoNodesNames1, dataNodes9);
+        Set<String> dataNodes10 = getDataNodesFromListener(topologyRevision3, ZONE_ID_1);
+        assertEquals(twoNodesNames1, dataNodes10);
     }
 
     @Test
@@ -992,17 +980,17 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long topologyRevision5 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_2), Set.of(NODE_0, NODE_3));
         waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision5, 3000);
 
-        CompletableFuture<Set<String>> dataNodesFut5 = getDataNodesFromListener(DEFAULT_ZONE_ID);
-        assertThat(dataNodesFut5, willBe(Set.of(NODE_0.name(), NODE_3.name())));
+        Set<String> dataNodes5 = getDataNodesFromListener(topologyRevision5, DEFAULT_ZONE_ID);
+        assertEquals(Set.of(NODE_0.name(), NODE_3.name()), dataNodes5);
 
-        CompletableFuture<Set<String>> dataNodesFut6 = getDataNodesFromListener(ZONE_ID_1);
-        assertThat(dataNodesFut6, willBe(Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name(), NODE_3.name())));
+        Set<String> dataNodes6 = getDataNodesFromListener(topologyRevision5, ZONE_ID_1);
+        assertEquals(Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name(), NODE_3.name()), dataNodes6);
 
-        CompletableFuture<Set<String>> dataNodesFut7 = getDataNodesFromListener(ZONE_ID_2);
-        assertThat(dataNodesFut7, willBe(Set.of(NODE_0.name())));
+        Set<String> dataNodes7 = getDataNodesFromListener(topologyRevision5, ZONE_ID_2);
+        assertEquals(Set.of(NODE_0.name()), dataNodes7);
 
-        CompletableFuture<Set<String>> dataNodesFut8 = getDataNodesFromListener(ZONE_ID_3);
-        assertThat(dataNodesFut8, willBe(Set.of(NODE_0.name())));
+        Set<String> dataNodes8 = getDataNodesFromListener(topologyRevision5, ZONE_ID_3);
+        assertEquals(Set.of(NODE_0.name()), dataNodes8);
 
         assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, oneNode, 3000);
         assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, oneNode, 3000);
@@ -1017,17 +1005,17 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertDataNodesFromManager(distributionZoneManager, ZONE_ID_2, Set.of(NODE_0), 3000);
         assertDataNodesFromManager(distributionZoneManager, ZONE_ID_3, Set.of(NODE_0), 3000);
 
-        CompletableFuture<Set<String>> dataNodesFut9 = getDataNodesFromListener(DEFAULT_ZONE_ID);
-        assertThat(dataNodesFut9, willBe(Set.of(NODE_0.name(), NODE_3.name())));
+        Set<String> dataNodes9 = getDataNodesFromListener(topologyRevision5, DEFAULT_ZONE_ID);
+        assertEquals(Set.of(NODE_0.name(), NODE_3.name()), dataNodes9);
 
-        CompletableFuture<Set<String>> dataNodesFut10 = getDataNodesFromListener(ZONE_ID_1);
-        assertThat(dataNodesFut10, willBe(Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name(), NODE_3.name())));
+        Set<String> dataNodes10 = getDataNodesFromListener(topologyRevision5, ZONE_ID_1);
+        assertEquals(Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name(), NODE_3.name()), dataNodes10);
 
-        CompletableFuture<Set<String>> dataNodesFut11 = getDataNodesFromListener(ZONE_ID_2);
-        assertThat(dataNodesFut11, willBe(Set.of(NODE_0.name())));
+        Set<String> dataNodes11 = getDataNodesFromListener(topologyRevision5, ZONE_ID_2);
+        assertEquals(Set.of(NODE_0.name()), dataNodes11);
 
-        CompletableFuture<Set<String>> dataNodesFut12 = getDataNodesFromListener(ZONE_ID_3);
-        assertThat(dataNodesFut12, willBe(Set.of(NODE_0.name())));
+        Set<String> dataNodes12 = getDataNodesFromListener(topologyRevision5, ZONE_ID_3);
+        assertEquals(Set.of(NODE_0.name()), dataNodes12);
     }
 
     private long prepareZonesWithOneDataNodes() throws Exception {
@@ -1075,14 +1063,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertDataNodesFromManager(distributionZoneManager, ZONE_ID_2, oneNode, 3000);
         assertDataNodesFromManager(distributionZoneManager, ZONE_ID_3, oneNode, 3000);
 
-        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision0, DEFAULT_ZONE_ID);
-        assertThat(dataNodesFut1, willBe(oneNodeName));
-        CompletableFuture<Set<String>> dataNodesFut2 = distributionZoneManager.dataNodes(topologyRevision0, ZONE_ID_1);
-        assertThat(dataNodesFut2, willBe(oneNodeName));
-        CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(topologyRevision0, ZONE_ID_2);
-        assertThat(dataNodesFut3, willBe(oneNodeName));
-        CompletableFuture<Set<String>> dataNodesFut4 = distributionZoneManager.dataNodes(topologyRevision0, ZONE_ID_3);
-        assertThat(dataNodesFut4, willBe(oneNodeName));
+        Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision0, DEFAULT_ZONE_ID);
+        assertEquals(oneNodeName, dataNodes1);
+        Set<String> dataNodes2 = getDataNodesFromListener(topologyRevision0, ZONE_ID_1);
+        assertEquals(oneNodeName, dataNodes2);
+        Set<String> dataNodes3 = getDataNodesFromListener(topologyRevision0, ZONE_ID_2);
+        assertEquals(oneNodeName, dataNodes3);
+        Set<String> dataNodes4 = getDataNodesFromListener(topologyRevision0, ZONE_ID_3);
+        assertEquals(oneNodeName, dataNodes4);
 
         return topologyRevision0;
     }
@@ -1113,10 +1101,10 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 .get(3, SECONDS);
     }
 
-    private CompletableFuture<Set<String>> getDataNodesFromListener(int zoneId) {
+    private Set<String> getDataNodesFromListener(long causalityToken, int zoneId) {
         CompletableFuture<Set<String>> dataNodesFut = new CompletableFuture<>();
 
-        WatchListener dataNodesSupplier = createMetastorageDataNodeSupplierListener(zoneId, dataNodesFut);
+        WatchListener dataNodesSupplier = createMetastorageDataNodeSupplierListener(causalityToken, zoneId, dataNodesFut);
 
         var dataNodesSupplierTrigger = new ByteArray("dataNodesSupplierTrigger");
 
@@ -1128,7 +1116,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         metaStorageManager.unregisterWatch(dataNodesSupplier);
 
-        return dataNodesFut;
+        return dataNodesFut.join();
     }
 
     /**
@@ -1518,21 +1506,15 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @return Watch listener.
      */
-    private WatchListener createMetastorageDataNodeSupplierListener(int zoneId, CompletableFuture<Set<String>> dataNodesFut) {
+    private WatchListener createMetastorageDataNodeSupplierListener(Long causalityToken, int zoneId, CompletableFuture<Set<String>> dataNodesFut) {
         return new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent evt) {
+                long revision = causalityToken == null ? evt.revision() : causalityToken;
 
-                return distributionZoneManager.dataNodes(evt.revision(), zoneId)
-                        .handle((dataNodes, ex) -> {
-                            if (ex == null) {
-                                dataNodesFut.complete(dataNodes);
-                            } else {
-                                dataNodesFut.completeExceptionally(ex);
-                            }
+                dataNodesFut.complete(distributionZoneManager.dataNodes(revision, zoneId));
 
-                            return null;
-                        });
+                return completedFuture(null);
             }
 
             @Override

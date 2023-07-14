@@ -244,7 +244,7 @@ public class DistributionZoneRebalanceEngine {
 
             DistributionZoneView zoneCfg = replicasCtx.newValue(DistributionZoneView.class);
 
-            Set<String> dataNodes = distributionZoneManager.dataNodes(replicasCtx.storageRevision(), zoneCfg.zoneId()).join();
+            Set<String> dataNodes = distributionZoneManager.dataNodes(replicasCtx.storageRevision(), zoneCfg.zoneId());
 
             if (dataNodes.isEmpty()) {
                 return completedFuture(null);

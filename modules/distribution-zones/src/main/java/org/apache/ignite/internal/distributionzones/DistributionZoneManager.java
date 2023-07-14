@@ -671,16 +671,16 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param zoneId Zone id.
      * @return The future which will be completed with data nodes for the zoneId or with exception.
      */
-    public CompletableFuture<Set<String>> dataNodes(long causalityToken, int zoneId) {
+    public Set<String> dataNodes(long causalityToken, int zoneId) {
         LOG.info("+++++++ dataNodes " + zoneId);
 
 
         if (causalityToken < 1) {
-            return failedFuture(new IllegalArgumentException("causalityToken must be greater then zero [causalityToken=" + causalityToken + '"'));
+            throw new IllegalArgumentException("causalityToken must be greater then zero [causalityToken=" + causalityToken + '"');
         }
 
         if (zoneId < DEFAULT_ZONE_ID) {
-            return failedFuture(new IllegalArgumentException("zoneId cannot be a negative number [zoneId=" + zoneId + '"'));
+            throw new IllegalArgumentException("zoneId cannot be a negative number [zoneId=" + zoneId + '"');
         }
 
         ConcurrentSkipListMap<Long, ZoneConfiguration> versionedCfg = zonesVersionedCfg.get(zoneId);
@@ -689,7 +689,7 @@ public class DistributionZoneManager implements IgniteComponent {
         Map.Entry<Long, ZoneConfiguration> zoneLastCfgEntry = versionedCfg.floorEntry(causalityToken);
 
         if (zoneLastCfgEntry == null) {
-            return failedFuture(new DistributionZoneNotFoundException(zoneId));
+            throw new DistributionZoneNotFoundException(zoneId);
         }
 
         long lastCfgRevision = zoneLastCfgEntry.getKey();
@@ -705,7 +705,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         // Get the last scaleUp and scaleDown revisions.
         if (isZoneRemoved) {
-            return failedFuture(new DistributionZoneNotFoundException(zoneId));
+            throw new DistributionZoneNotFoundException(zoneId);
         }
 
         IgniteBiTuple<Long, Long> revisions = getRevisionsOfLastScaleUpAndScaleDownEvents(causalityToken,
@@ -725,7 +725,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Set<String> dataNodesNames = filterDataNodes(logicalTopologyNodes, filter, nodesAttributes);
 
-            return completedFuture(dataNodesNames);
+            return dataNodesNames;
         }
 
         // Wait if needed when the data nodes value will be updated in the meta storage according to calculated lastScaleUpRevision, lastScaleDownRevision and causalityToken.
@@ -735,22 +735,14 @@ public class DistributionZoneManager implements IgniteComponent {
 
         long dataNodesRevision = max(causalityToken, max(scaleUpDataNodesRevision, scaleDownDataNodesRevision));
 
-        Entry dataNodesEntry = metaStorageManager.get(zoneDataNodesKey(zoneId), dataNodesRevision).join();
-        Entry scaleUpChangeTriggerKey = metaStorageManager.get(zoneScaleUpChangeTriggerKey(zoneId), dataNodesRevision).join();
-        Entry scaleDownChangeTriggerKey = metaStorageManager.get(zoneScaleDownChangeTriggerKey(zoneId), dataNodesRevision).join();
+        Entry dataNodesEntry = metaStorageManager.getLocally(zoneDataNodesKey(zoneId), dataNodesRevision);
+        Entry scaleUpChangeTriggerKey = metaStorageManager.getLocally(zoneScaleUpChangeTriggerKey(zoneId), dataNodesRevision);
+        Entry scaleDownChangeTriggerKey = metaStorageManager.getLocally(zoneScaleDownChangeTriggerKey(zoneId), dataNodesRevision);
 
-        Set<Node> baseDataNodes = null;
-        try {
-            baseDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesEntry.value()));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        Set<Node> baseDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesEntry.value()));
+
         long scaleUpTriggerRevision = bytesToLong(scaleUpChangeTriggerKey.value());
         long scaleDownTriggerRevision = bytesToLong(scaleDownChangeTriggerKey.value());
-
-        long finalLastScaleUpRevision = lastScaleUpRevision;
-
-        long finalLastScaleDownRevision = lastScaleDownRevision;
 
         Set<Node> finalDataNodes = new HashSet<>(baseDataNodes);
 
@@ -780,80 +772,8 @@ public class DistributionZoneManager implements IgniteComponent {
             });
         }
 
-        Set<String> dataNodesNames = filterDataNodes(finalDataNodes, filter, nodesAttributes);
-
-        return completedFuture(dataNodesNames);
+        return filterDataNodes(finalDataNodes, filter, nodesAttributes);
     }
-
-    /**
-     * Asynchronously gets data nodes of the zone using causality token.
-     *
-     * <p>The returned future can be completed with {@link DistributionZoneNotFoundException} if the zone with the provided {@code zoneId}
-     * does not exist.
-     *
-     * @param causalityToken Causality token.
-     * @param zoneId Zone id.
-     * @return The future which will be completed with data nodes for the zoneId or with exception.
-     */
-//    public CompletableFuture<Set<String>> dataNodes2(long causalityToken, int zoneId) {
-//        if (causalityToken < 1) {
-//            return failedFuture(new IllegalArgumentException("Invalid causalityToken"));
-//        }
-//
-//        if (zoneId < DEFAULT_ZONE_ID) {
-//            return failedFuture(new IllegalArgumentException("Invalid zoneId"));
-//        }
-//
-//        ZoneState zoneState = zonesState.get(zoneId);
-//
-//        Map<Long, Augmentation> subMap = new HashMap<>(zoneState.topologyAugmentationMap()
-//                .subMap(0L, false, causalityToken, true));
-//
-//        Entry dataNodesEntry = metaStorageManager.get(zoneDataNodesKey(zoneId), causalityToken).join();
-//        Entry scaleUpChangeTriggerKey = metaStorageManager.get(zoneScaleUpChangeTriggerKey(zoneId), causalityToken).join();
-//        Entry scaleDownChangeTriggerKey = metaStorageManager.get(zoneScaleDownChangeTriggerKey(zoneId), causalityToken).join();
-//
-//        Set<Node> baseDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesEntry.value()));
-//        long scaleUpTriggerRevision = bytesToLong(scaleUpChangeTriggerKey.value());
-//        long scaleDownTriggerRevision = bytesToLong(scaleDownChangeTriggerKey.value());
-//
-//        LOG.info("+++++++ dataNodes baseDataNodes " + baseDataNodes);
-//
-//        Set<Node> finalDataNodes = new HashSet<>(baseDataNodes);
-//
-//        ZoneConfiguration zoneCfg = zonesVersionedCfg.get(zoneId).floorEntry(causalityToken).getValue();
-//
-//        boolean isScaleUpImmediate = zoneCfg.getDataNodesAutoAdjustScaleUp() == IMMEDIATE_TIMER_VALUE;;
-//        boolean isScaleDownImmediate = zoneCfg.getDataNodesAutoAdjustScaleDown() == IMMEDIATE_TIMER_VALUE;
-//
-//        for (long i = Math.min(scaleUpTriggerRevision, scaleDownTriggerRevision); i <= causalityToken; i++) {
-//            Augmentation augmentation = subMap.get(i);
-//
-//            if (augmentation != null) {
-//                if (isScaleUpImmediate && augmentation.addition && i > scaleUpTriggerRevision) {
-//                    for (Node node : augmentation.nodes) {
-//                        LOG.info("+++++++ dataNodes finalDataNodes.add " + node);
-//                        finalDataNodes.add(node);
-//                    }
-//                }
-//
-//                if (isScaleDownImmediate && !augmentation.addition && i > scaleDownTriggerRevision) {
-//                    for (Node node : augmentation.nodes) {
-//                        LOG.info("+++++++ dataNodes finalDataNodes.remove " + node);
-//                        finalDataNodes.remove(node);
-//                    }
-//                }
-//            }
-//        }
-//
-//        String filter = zoneCfg.getFilter();
-//
-//        Set<String> dataNodesNames = filterDataNodes(finalDataNodes, filter, nodesAttributes);
-//
-//        LOG.info("+++++++ dataNodes result " + dataNodesNames);
-//
-//        return completedFuture(dataNodesNames);
-//    }
 
     /**
      * These revisions correspond to the last configuration and topology events after which need to wait for the data nodes recalculation.

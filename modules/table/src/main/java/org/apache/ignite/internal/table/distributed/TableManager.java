@@ -610,7 +610,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (partitionAssignments(vaultManager, tableId, 0) != null) {
                 assignments = tableAssignments(vaultManager, tableId, zoneDescriptor.partitions());
             } else {
-                Set<String> dataNodes = distributionZoneManager.dataNodes(ctx.storageRevision(), tableDescriptor.zoneId()).join();
+                Set<String> dataNodes = distributionZoneManager.dataNodes(ctx.storageRevision(), tableDescriptor.zoneId());
 
                 assignments = AffinityUtils.calculateAssignments(
                         dataNodes,
@@ -2434,7 +2434,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                     return RebalanceUtil.handleReduceChanged(
                                             metaStorageMgr,
-                                            distributionZoneManager.dataNodes(evt.revision(), tableDescriptor.zoneId()).join(),
+                                            distributionZoneManager.dataNodes(evt.revision(), tableDescriptor.zoneId()),
                                             getZoneDescriptor(tableDescriptor.zoneId()).replicas(),
                                             replicaGrpId,
                                             evt
