@@ -19,10 +19,12 @@ package org.apache.ignite.internal.causality;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -355,14 +357,13 @@ public class IncrementalVersionedValueTest {
 
         int token = 1;
 
-        vv0.update(token, (i, e) -> completedFuture(i + 1));
+        vv0.update(token, (i, e) -> supplyAsync(() -> i + 1));
 
-        vv1.update(token, (i, e) -> completedFuture(i + 1));
+        vv1.update(token, (i, e) -> supplyAsync(() -> i + 1));
 
         register.moveRevision(token);
 
-        // Will always complete in time.
-        vv1.get(token).join();
+        assertThat(vv1.get(token), willCompleteSuccessfully());
 
         assertTrue(vv0.get(token).isDone());
     }
