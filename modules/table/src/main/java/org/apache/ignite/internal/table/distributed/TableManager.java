@@ -909,27 +909,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return allOf(futures);
         };
 
-        return localPartsByTableIdVv.update(causalityToken, (previous, throwable) -> inBusyLock(busyLock, () -> {
-            return getOrCreatePartitionStorages(table, parts).thenApply(u -> {
-                var newValue = new HashMap<>(previous);
+        // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
+        CompletableFuture<?> localPartsUpdateFuture = localPartsByTableIdVv.update(causalityToken,
+                (previous, throwable) -> inBusyLock(busyLock, () -> {
+                    return getOrCreatePartitionStorages(table, parts).thenApply(u -> {
+                        var newValue = new HashMap<>(previous);
 
-                newValue.put(tableId, parts);
+                        newValue.put(tableId, parts);
 
-                return newValue;
-            });
-        })).thenCompose(unused -> {
-            CompletableFuture<Void> updateAssignmentsFuture = tablesByIdVv.get(causalityToken).thenComposeAsync(
-                    tablesById -> inBusyLock(busyLock, updateAssignmentsClosure),
-                    ioExecutor
+                        return newValue;
+                    });
+                }));
+
+        return assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
+            if (e != null) {
+                return failedFuture(e);
+            }
+
+            return localPartsUpdateFuture.thenCompose(unused ->
+                    tablesByIdVv.get(causalityToken)
+                            .thenComposeAsync(tablesById -> inBusyLock(busyLock, updateAssignmentsClosure), ioExecutor)
             );
-
-            return assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
-                if (e != null) {
-                    return failedFuture(e);
-                }
-
-                return updateAssignmentsFuture;
-            });
         });
     }
 
