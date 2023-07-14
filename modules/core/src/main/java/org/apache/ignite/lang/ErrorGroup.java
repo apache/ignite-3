@@ -100,16 +100,6 @@ public class ErrorGroup {
     }
 
     /**
-     * Checks that the given {@code errorCode} is registered for this error group.
-     *
-     * @param errorCode Error code to be tested.
-     * @return {@code true} If the given {@code errorCode} is registered for this error group.
-     */
-    public boolean isRegistered(ErrorGroup group, short errorCode) {
-        return group.codes.contains(errorCode);
-    }
-
-    /**
      * Creates a new error group with the given {@code groupName} and {@code groupCode}.
      *
      * @param groupName Group name to be created.
