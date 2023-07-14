@@ -42,7 +42,7 @@ public interface IgniteCompute {
      * @param <R>      Job result type
      * @return CompletableFuture Job result.
      */
-    <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args);
+    <R> CompletableFuture<R> executeAsync(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args);
 
     /**
      * Executes a job of the given class on the node where the given key is located. The node is a leader
@@ -56,7 +56,7 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return CompletableFuture Job result.
      */
-    <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, List<DeploymentUnit> units, String jobClassName, Object... args);
+    <R> CompletableFuture<R> executeColocatedAsync(String tableName, Tuple key, List<DeploymentUnit> units, String jobClassName, Object... args);
 
     /**
      * Executes a job of the given class on the node where the given key is located. The node is a leader
@@ -71,7 +71,7 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return CompletableFuture Job result.
      */
-    <K, R> CompletableFuture<R> executeColocated(
+    <K, R> CompletableFuture<R> executeColocatedAsync(
             String tableName,
             K key,
             Mapper<K> keyMapper,
@@ -90,7 +90,7 @@ public interface IgniteCompute {
      * @param <R>      Job result type.
      * @return CompletableFuture Job result.
      */
-    <R> Map<ClusterNode, CompletableFuture<R>> broadcast(
+    <R> Map<ClusterNode, CompletableFuture<R>> broadcastAsync(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
