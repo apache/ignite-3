@@ -330,10 +330,10 @@ TEST_F(queries_test, one_row_string_len)
     EXPECT_EQ(column_lens[6], 1);
     EXPECT_EQ(column_lens[7], 1);
     EXPECT_EQ(column_lens[8], 36);
-    EXPECT_EQ(column_lens[9], 19);
-    EXPECT_EQ(column_lens[10], 8);
-    EXPECT_EQ(column_lens[11], 19);
-    EXPECT_EQ(column_lens[12], 1);
+    EXPECT_EQ(column_lens[9], 11);
+    EXPECT_EQ(column_lens[10], 9);
+    EXPECT_EQ(column_lens[11], 20);
+    EXPECT_EQ(column_lens[12], 2);
 
     ret = SQLFetch(m_statement);
     EXPECT_TRUE(ret == SQL_NO_DATA);

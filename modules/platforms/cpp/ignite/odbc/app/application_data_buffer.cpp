@@ -676,8 +676,6 @@ conversion_result application_data_buffer::put_date(const ignite_date& value)
 {
     SQLLEN *res_len_ptr = get_result_len();
     void *data_ptr = get_data();
-    if (!data_ptr)
-        return conversion_result::AI_FAILURE;
 
     switch (m_type)
     {
@@ -693,12 +691,14 @@ conversion_result application_data_buffer::put_date(const ignite_date& value)
 
         case odbc_native_type::AI_TDATE:
         {
-            auto *buffer = reinterpret_cast<SQL_DATE_STRUCT*>(data_ptr);
-            memset(buffer, 0, sizeof(*buffer));
+            if (data_ptr) {
+                auto *buffer = reinterpret_cast<SQL_DATE_STRUCT*>(data_ptr);
+                memset(buffer, 0, sizeof(*buffer));
 
-            buffer->year = SQLSMALLINT(value.get_year());
-            buffer->month = SQLUSMALLINT(value.get_month()); // NOLINT(cert-str34-c)
-            buffer->day = SQLUSMALLINT(value.get_day_of_month()); // NOLINT(cert-str34-c)
+                buffer->year = SQLSMALLINT(value.get_year());
+                buffer->month = SQLUSMALLINT(value.get_month()); // NOLINT(cert-str34-c)
+                buffer->day = SQLUSMALLINT(value.get_day_of_month()); // NOLINT(cert-str34-c)
+            }
 
             if (res_len_ptr)
                 *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_DATE_STRUCT));
@@ -708,12 +708,14 @@ conversion_result application_data_buffer::put_date(const ignite_date& value)
 
         case odbc_native_type::AI_TTIMESTAMP:
         {
-            auto *buffer = reinterpret_cast<SQL_TIMESTAMP_STRUCT*>(data_ptr);
-            memset(buffer, 0, sizeof(*buffer));
+            if (data_ptr) {
+                auto *buffer = reinterpret_cast<SQL_TIMESTAMP_STRUCT*>(data_ptr);
+                memset(buffer, 0, sizeof(*buffer));
 
-            buffer->year = SQLSMALLINT(value.get_year());
-            buffer->month = SQLUSMALLINT(value.get_month()); // NOLINT(cert-str34-c)
-            buffer->day = SQLUSMALLINT(value.get_day_of_month()); // NOLINT(cert-str34-c)
+                buffer->year = SQLSMALLINT(value.get_year());
+                buffer->month = SQLUSMALLINT(value.get_month()); // NOLINT(cert-str34-c)
+                buffer->day = SQLUSMALLINT(value.get_day_of_month()); // NOLINT(cert-str34-c)
+            }
 
             if (res_len_ptr)
                 *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_TIMESTAMP_STRUCT));
@@ -746,8 +748,6 @@ conversion_result application_data_buffer::put_timestamp(const ignite_timestamp&
 {
     auto *res_len_ptr = get_result_len();
     void *data_ptr = get_data();
-    if (!data_ptr)
-        return conversion_result::AI_FAILURE;
 
     auto tm_time = timestamp_to_tm(value);
     switch (m_type)
@@ -762,11 +762,14 @@ conversion_result application_data_buffer::put_timestamp(const ignite_timestamp&
 
         case odbc_native_type::AI_TDATE:
         {
-            auto *buffer = reinterpret_cast<SQL_DATE_STRUCT*>(data_ptr);
+            if (data_ptr) {
+                auto *buffer = reinterpret_cast<SQL_DATE_STRUCT*>(data_ptr);
+                memset(buffer, 0, sizeof(*buffer));
 
-            buffer->year = SQLSMALLINT(tm_time.tm_year + 1900);
-            buffer->month = tm_time.tm_mon + 1;
-            buffer->day = tm_time.tm_mday;
+                buffer->year = SQLSMALLINT(tm_time.tm_year + 1900);
+                buffer->month = tm_time.tm_mon + 1;
+                buffer->day = tm_time.tm_mday;
+            }
 
             if (res_len_ptr)
                 *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_DATE_STRUCT));
@@ -776,11 +779,14 @@ conversion_result application_data_buffer::put_timestamp(const ignite_timestamp&
 
         case odbc_native_type::AI_TTIME:
         {
-            auto* buffer = reinterpret_cast<SQL_TIME_STRUCT*>(data_ptr);
+            if (data_ptr) {
+                auto *buffer = reinterpret_cast<SQL_TIME_STRUCT *>(data_ptr);
+                memset(buffer, 0, sizeof(*buffer));
 
-            buffer->hour = tm_time.tm_hour;
-            buffer->minute = tm_time.tm_min;
-            buffer->second = tm_time.tm_sec;
+                buffer->hour = tm_time.tm_hour;
+                buffer->minute = tm_time.tm_min;
+                buffer->second = tm_time.tm_sec;
+            }
 
             if (res_len_ptr)
                 *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_TIME_STRUCT));
@@ -790,15 +796,18 @@ conversion_result application_data_buffer::put_timestamp(const ignite_timestamp&
 
         case odbc_native_type::AI_TTIMESTAMP:
         {
-            auto* buffer = reinterpret_cast<SQL_TIMESTAMP_STRUCT*>(data_ptr);
+            if (data_ptr) {
+                auto *buffer = reinterpret_cast<SQL_TIMESTAMP_STRUCT *>(data_ptr);
+                memset(buffer, 0, sizeof(*buffer));
 
-            buffer->year = SQLSMALLINT(tm_time.tm_year + 1900);
-            buffer->month = tm_time.tm_mon + 1;
-            buffer->day = tm_time.tm_mday;
-            buffer->hour = tm_time.tm_hour;
-            buffer->minute = tm_time.tm_min;
-            buffer->second = tm_time.tm_sec;
-            buffer->fraction = value.get_nano();
+                buffer->year = SQLSMALLINT(tm_time.tm_year + 1900);
+                buffer->month = tm_time.tm_mon + 1;
+                buffer->day = tm_time.tm_mday;
+                buffer->hour = tm_time.tm_hour;
+                buffer->minute = tm_time.tm_min;
+                buffer->second = tm_time.tm_sec;
+                buffer->fraction = value.get_nano();
+            }
 
             if (res_len_ptr)
                 *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_TIMESTAMP_STRUCT));
@@ -845,12 +854,14 @@ conversion_result application_data_buffer::put_time(const ignite_time& value)
 
         case odbc_native_type::AI_TTIME:
         {
-            auto* buffer = reinterpret_cast<SQL_TIME_STRUCT*>(data_ptr);
-            memset(buffer, 0, sizeof(*buffer));
+            if (data_ptr) {
+                auto *buffer = reinterpret_cast<SQL_TIME_STRUCT *>(data_ptr);
+                memset(buffer, 0, sizeof(*buffer));
 
-            buffer->hour = value.get_hour(); // NOLINT(cert-str34-c)
-            buffer->minute = value.get_minute(); // NOLINT(cert-str34-c)
-            buffer->second = value.get_second(); // NOLINT(cert-str34-c)
+                buffer->hour = SQLSMALLINT(value.get_hour());
+                buffer->minute = SQLSMALLINT(value.get_minute());
+                buffer->second = SQLSMALLINT(value.get_second());
+            }
 
             if (res_len_ptr)
                 *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_TIME_STRUCT));
@@ -860,21 +871,23 @@ conversion_result application_data_buffer::put_time(const ignite_time& value)
 
         case odbc_native_type::AI_TTIMESTAMP:
         {
-            auto* buffer = reinterpret_cast<SQL_TIMESTAMP_STRUCT*>(data_ptr);
-            memset(buffer, 0, sizeof(*buffer));
+            if (data_ptr) {
+                auto *buffer = reinterpret_cast<SQL_TIMESTAMP_STRUCT *>(data_ptr);
+                memset(buffer, 0, sizeof(*buffer));
 
-            auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-            auto tm_time = time_t_to_tm(now);
+                auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+                auto tm_time = time_t_to_tm(now);
 
-            // According to ODBC specification, those should be set to current date.
-            buffer->year = SQLSMALLINT(tm_time.tm_year + 1900);
-            buffer->month = tm_time.tm_mon + 1;
-            buffer->day = tm_time.tm_mday;
+                // According to ODBC specification, those should be set to current date.
+                buffer->year = SQLSMALLINT(tm_time.tm_year + 1900);
+                buffer->month = tm_time.tm_mon + 1;
+                buffer->day = tm_time.tm_mday;
 
-            buffer->hour = value.get_hour(); // NOLINT(cert-str34-c)
-            buffer->minute = value.get_minute(); // NOLINT(cert-str34-c)
-            buffer->second = value.get_second(); // NOLINT(cert-str34-c)
-            buffer->fraction = value.get_nano();
+                buffer->hour = SQLSMALLINT(value.get_hour());
+                buffer->minute = SQLSMALLINT(value.get_minute());
+                buffer->second = SQLSMALLINT(value.get_second());
+                buffer->fraction = value.get_nano();
+            }
 
             if (res_len_ptr)
                 *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_TIMESTAMP_STRUCT));
@@ -922,11 +935,14 @@ conversion_result application_data_buffer::put_date_time(const ignite_date_time&
 
         case odbc_native_type::AI_TDATE:
         {
-            auto *buffer = reinterpret_cast<SQL_DATE_STRUCT*>(data_ptr);
+            if (data_ptr) {
+                auto *buffer = reinterpret_cast<SQL_DATE_STRUCT *>(data_ptr);
+                memset(buffer, 0, sizeof(*buffer));
 
-            buffer->year = SQLSMALLINT(value.get_year());
-            buffer->month = value.get_month();
-            buffer->day = value.get_day_of_month();
+                buffer->year = SQLSMALLINT(value.get_year());
+                buffer->month = SQLSMALLINT(value.get_month());
+                buffer->day = SQLSMALLINT(value.get_day_of_month());
+            }
 
             if (res_len_ptr)
                 *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_DATE_STRUCT));
@@ -936,11 +952,14 @@ conversion_result application_data_buffer::put_date_time(const ignite_date_time&
 
         case odbc_native_type::AI_TTIME:
         {
-            auto* buffer = reinterpret_cast<SQL_TIME_STRUCT*>(data_ptr);
+            if (data_ptr) {
+                auto *buffer = reinterpret_cast<SQL_TIME_STRUCT *>(data_ptr);
+                memset(buffer, 0, sizeof(*buffer));
 
-            buffer->hour = value.get_hour();
-            buffer->minute = value.get_minute();
-            buffer->second = value.get_second();
+                buffer->hour = SQLSMALLINT(value.get_hour());
+                buffer->minute = SQLSMALLINT(value.get_minute());
+                buffer->second = SQLSMALLINT(value.get_second());
+            }
 
             if (res_len_ptr)
                 *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_TIME_STRUCT));
@@ -950,15 +969,18 @@ conversion_result application_data_buffer::put_date_time(const ignite_date_time&
 
         case odbc_native_type::AI_TTIMESTAMP:
         {
-            auto* buffer = reinterpret_cast<SQL_TIMESTAMP_STRUCT*>(data_ptr);
+            if (data_ptr) {
+                auto *buffer = reinterpret_cast<SQL_TIMESTAMP_STRUCT *>(data_ptr);
+                memset(buffer, 0, sizeof(*buffer));
 
-            buffer->year = SQLSMALLINT(value.get_year());
-            buffer->month = value.get_month();
-            buffer->day = value.get_day_of_month();
-            buffer->hour = value.get_hour();
-            buffer->minute = value.get_minute();
-            buffer->second = value.get_second();
-            buffer->fraction = value.get_nano();
+                buffer->year = SQLSMALLINT(value.get_year());
+                buffer->month = SQLSMALLINT(value.get_month());
+                buffer->day = SQLSMALLINT(value.get_day_of_month());
+                buffer->hour = SQLSMALLINT(value.get_hour());
+                buffer->minute = SQLSMALLINT(value.get_minute());
+                buffer->second = SQLSMALLINT(value.get_second());
+                buffer->fraction = value.get_nano();
+            }
 
             if (res_len_ptr)
                 *res_len_ptr = static_cast<SQLLEN>(sizeof(SQL_TIMESTAMP_STRUCT));
@@ -991,6 +1013,12 @@ conversion_result application_data_buffer::put_tm_to_string(tm &tm_time, SQLLEN 
     SQLLEN* res_len_ptr = get_result_len();
     if (res_len_ptr)
         *res_len_ptr = std::min(val_len, get_size());
+
+    if (!data_ptr) {
+        if (res_len_ptr)
+            *res_len_ptr = val_len;
+        return conversion_result::AI_SUCCESS;
+    }
 
     switch (m_type)
     {
