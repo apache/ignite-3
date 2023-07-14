@@ -187,33 +187,4 @@ public interface IgniteCompute {
             String jobClassName,
             Object... args
     );
-
-    /**
-     * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
-     *
-     * @param nodes Nodes to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args     Arguments of the job.
-     * @param <R>      Job result type.
-     * @return Map from node to job result.
-     */
-    default <R> Map<ClusterNode, R> broadcast(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    ) {
-        try {
-            Map<ClusterNode, CompletableFuture<R>> asyncRes = broadcastAsync(nodes, units, jobClassName, args);
-            Map<ClusterNode, R> res = new HashMap<>(asyncRes.size());
-
-            for (Map.Entry<ClusterNode, CompletableFuture<R>> e : asyncRes.entrySet())
-                res.put(e.getKey(), e.getValue().join());
-
-            return res;
-        } catch (CompletionException e) {
-            throw IgniteExceptionUtils.wrap(e);
-        }
-    }
 }

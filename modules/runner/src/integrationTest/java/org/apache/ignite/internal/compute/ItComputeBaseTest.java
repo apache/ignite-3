@@ -179,20 +179,6 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void broadcastsJobWithArguments() {
-        IgniteImpl entryNode = node(0);
-
-        Map<ClusterNode, String> results = entryNode.compute()
-                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
-
-        assertThat(results, is(aMapWithSize(3)));
-        for (int i = 0; i < 3; i++) {
-            ClusterNode node = node(i).node();
-            assertThat(results.get(node), is("a42"));
-        }
-    }
-
-    @Test
     void broadcastsJobWithArgumentsAsync() {
         IgniteImpl entryNode = node(0);
 
