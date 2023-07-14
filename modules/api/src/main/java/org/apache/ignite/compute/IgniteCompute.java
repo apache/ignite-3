@@ -21,6 +21,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
+import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -50,6 +53,29 @@ public interface IgniteCompute {
     );
 
     /**
+     * Executes a {@link ComputeJob} of the given class on a single node from a set of candidate nodes.
+     *
+     * @param nodes    Candidate nodes; the job will be executed on one of them.
+     * @param units    Deployment units. Can be empty.
+     * @param jobClassName Name of the job class to execute.
+     * @param args     Arguments of the job.
+     * @param <R>      Job result type
+     * @return Job result.
+     */
+    default <R> R execute(
+            Set<ClusterNode> nodes,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        try {
+            return this.<R>executeAsync(nodes, units, jobClassName, args).join();
+        } catch (CompletionException e) {
+            throw IgniteExceptionUtils.wrap(e);
+        }
+    }
+
+    /**
      * Executes a job of the given class on the node where the given key is located. The node is a leader
      * of the corresponding RAFT group.
      *
@@ -75,6 +101,32 @@ public interface IgniteCompute {
      *
      * @param tableName Name of the table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
+     * @param units Deployment units. Can be empty.
+     * @param jobClassName Name of the job class to execute.
+     * @param args Arguments of the job.
+     * @param <R> Job result type.
+     * @return Job result.
+     */
+    default <R> R executeColocated(
+            String tableName,
+            Tuple key,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        try {
+            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, args).join();
+        } catch (CompletionException e) {
+            throw IgniteExceptionUtils.wrap(e);
+        }
+    }
+
+    /**
+     * Executes a job of the given class on the node where the given key is located. The node is a leader
+     * of the corresponding RAFT group.
+     *
+     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
+     * @param key Key that identifies the node to execute the job on.
      * @param keyMapper Mapper used to map the key to a binary representation.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
@@ -92,6 +144,34 @@ public interface IgniteCompute {
     );
 
     /**
+     * Executes a job of the given class on the node where the given key is located. The node is a leader
+     * of the corresponding RAFT group.
+     *
+     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
+     * @param key Key that identifies the node to execute the job on.
+     * @param keyMapper Mapper used to map the key to a binary representation.
+     * @param units Deployment units. Can be empty.
+     * @param jobClassName Name of the job class to execute.
+     * @param args Arguments of the job.
+     * @param <R> Job result type.
+     * @return Job result.
+     */
+    default <K, R> R executeColocated(
+            String tableName,
+            K key,
+            Mapper<K> keyMapper,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        try {
+            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, args).join();
+        } catch (CompletionException e) {
+            throw IgniteExceptionUtils.wrap(e);
+        }
+    }
+
+    /**
      * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
      *
      * @param nodes Nodes to execute the job on.
@@ -99,7 +179,7 @@ public interface IgniteCompute {
      * @param jobClassName Name of the job class to execute.
      * @param args     Arguments of the job.
      * @param <R>      Job result type.
-     * @return CompletableFuture Job result.
+     * @return Map from node to job result future.
      */
     <R> Map<ClusterNode, CompletableFuture<R>> broadcastAsync(
             Set<ClusterNode> nodes,
@@ -107,4 +187,28 @@ public interface IgniteCompute {
             String jobClassName,
             Object... args
     );
+
+    /**
+     * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
+     *
+     * @param nodes Nodes to execute the job on.
+     * @param units Deployment units. Can be empty.
+     * @param jobClassName Name of the job class to execute.
+     * @param args     Arguments of the job.
+     * @param <R>      Job result type.
+     * @return Map from node to job result.
+     */
+    default <R> Map<ClusterNode, R> broadcast(
+            Set<ClusterNode> nodes,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        try {
+            return this.<R>broadcastAsync(nodes, units, jobClassName, args).entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().join()));
+        } catch (CompletionException e) {
+            throw IgniteExceptionUtils.wrap(e);
+        }
+    }
 }
