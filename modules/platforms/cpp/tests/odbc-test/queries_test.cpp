@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 
-#include "ignite/common/config.h"
 #include "odbc_suite.h"
-#include "test_utils.h"
 
 #include <gtest/gtest.h>
 
@@ -38,111 +36,101 @@ struct queries_test : public odbc_suite
         odbc_clean_up();
     }
 
-//    template<typename T>
-//    void check_two_rows_int(SQLSMALLINT type)
-//    {
-//        odbc_connect(get_basic_connection_string());
-//
-//        SQLRETURN ret;
-//
-//        exec_query(
-//            "insert into TBL_ALL_COLUMNS_SQL( "
-//            "    key, str, int8, int16, int32, int64, "
-//            "    float, double, uuid, date, time, datetime, decimal) "
-//            "values(1, '2', 3, 4, 5, 6, 7.0, 8.0, '88888888-9999-8888-9999-888888888888')");
-//
-//        TestType in1(1, 2, 3, 4, "5", 6.0f, 7.0, true, Guid(8, 9), MakeDateGmt(1987, 6, 5),
-//            MakeTimeGmt(12, 48, 12), MakeTimestampGmt(1998, 12, 27, 1, 2, 3, 456));
-//
-//        TestType in2(8, 7, 6, 5, "4", 3.0f, 2.0, false, Guid(1, 0), MakeDateGmt(1976, 1, 12),
-//            MakeTimeGmt(0, 8, 59), MakeTimestampGmt(1978, 8, 21, 23, 13, 45, 456));
-//
-//        cache1.Put(1, in1);
-//        cache1.Put(2, in2);
-//
-//        const SQLSMALLINT columns_cnt = 12;
-//
-//        T columns[columns_cnt];
-//
-//        std::memset(&columns, 0, sizeof(columns));
-//
-//        // Binding columns.
-//        for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
-//        {
-//            ret = SQLBindCol(m_statement, i + 1, type, &columns[i], sizeof(columns[i]), 0);
-//
-//            if (!SQL_SUCCEEDED(ret))
-//                FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//        }
-//
-//        char request[] = "SELECT i8Field, i16Field, i32Field, i64Field, str, floatField, "
-//            "doubleField, boolField, guidField, dateField, timeField, timestampField FROM TBL_ALL_COLUMNS_SQL";
-//
-//        ret = SQLExecDirect(m_statement, reinterpret_cast<SQLCHAR*>(request), SQL_NTS);
-//        if (!SQL_SUCCEEDED(ret))
-//            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//        if (!SQL_SUCCEEDED(ret))
-//            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//        ret = SQLFetch(m_statement);
-//
-//        if (!SQL_SUCCEEDED(ret))
-//            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//        EXPECT_EQ(columns[0], 1);
-//        EXPECT_EQ(columns[1], 2);
-//        EXPECT_EQ(columns[2], 3);
-//        EXPECT_EQ(columns[3], 4);
-//        EXPECT_EQ(columns[4], 5);
-//        EXPECT_EQ(columns[5], 6);
-//        EXPECT_EQ(columns[6], 7);
-//        EXPECT_EQ(columns[7], 1);
-//        EXPECT_EQ(columns[8], 0);
-//        EXPECT_EQ(columns[9], 0);
-//        EXPECT_EQ(columns[10], 0);
-//        EXPECT_EQ(columns[11], 0);
-//
-//        SQLLEN column_lens[columns_cnt];
-//
-//        // Binding columns.
-//        for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
-//        {
-//            ret = SQLBindCol(m_statement, i + 1, type, &columns[i], sizeof(columns[i]), &column_lens[i]);
-//
-//            if (!SQL_SUCCEEDED(ret))
-//                FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//        }
-//
-//        ret = SQLFetch(m_statement);
-//        if (!SQL_SUCCEEDED(ret))
-//            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//        EXPECT_EQ(columns[0], 8);
-//        EXPECT_EQ(columns[1], 7);
-//        EXPECT_EQ(columns[2], 6);
-//        EXPECT_EQ(columns[3], 5);
-//        EXPECT_EQ(columns[4], 4);
-//        EXPECT_EQ(columns[5], 3);
-//        EXPECT_EQ(columns[6], 2);
-//        EXPECT_EQ(columns[7], 0);
-//        EXPECT_EQ(columns[8], 0);
-//        EXPECT_EQ(columns[9], 0);
-//        EXPECT_EQ(columns[10], 0);
-//        EXPECT_EQ(columns[11], 0);
-//
-//        EXPECT_EQ(column_lens[0], static_cast<SQLLEN>(sizeof(T)));
-//        EXPECT_EQ(column_lens[1], static_cast<SQLLEN>(sizeof(T)));
-//        EXPECT_EQ(column_lens[2], static_cast<SQLLEN>(sizeof(T)));
-//        EXPECT_EQ(column_lens[3], static_cast<SQLLEN>(sizeof(T)));
-//        EXPECT_EQ(column_lens[4], static_cast<SQLLEN>(sizeof(T)));
-//        EXPECT_EQ(column_lens[5], static_cast<SQLLEN>(sizeof(T)));
-//        EXPECT_EQ(column_lens[6], static_cast<SQLLEN>(sizeof(T)));
-//        EXPECT_EQ(column_lens[7], static_cast<SQLLEN>(sizeof(T)));
-//
-//        ret = SQLFetch(m_statement);
-//        EXPECT_EQ(ret, SQL_NO_DATA);
-//    }
+    template<typename T>
+    void check_two_rows_int(SQLSMALLINT type)
+    {
+        odbc_connect(get_basic_connection_string());
+
+        SQLRETURN ret;
+
+        insert_all_types_row(1);
+        insert_all_types_row(2);
+
+        const SQLSMALLINT columns_cnt = 13;
+
+        T columns[columns_cnt];
+
+        std::memset(&columns, 0, sizeof(columns));
+
+        // Binding columns.
+        for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
+        {
+            ret = SQLBindCol(m_statement, i + 1, type, &columns[i], sizeof(columns[i]), nullptr);
+
+            if (!SQL_SUCCEEDED(ret))
+                FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        }
+
+        SQLCHAR request[] = "select key,str,int8,int16,int32,int64,float,double,uuid,"
+                            "date,\"TIME\",\"DATETIME\",decimal FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
+
+        ret = SQLExecDirect(m_statement, request, SQL_NTS);
+        if (!SQL_SUCCEEDED(ret))
+            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+        if (!SQL_SUCCEEDED(ret))
+            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+        ret = SQLFetch(m_statement);
+
+        if (!SQL_SUCCEEDED(ret))
+            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+        EXPECT_EQ(columns[0], 1);
+        EXPECT_EQ(columns[1], 2);
+        EXPECT_EQ(columns[2], 3);
+        EXPECT_EQ(columns[3], 4);
+        EXPECT_EQ(columns[4], 5);
+        EXPECT_EQ(columns[5], 6);
+        EXPECT_EQ(columns[6], 7);
+        EXPECT_EQ(columns[7], 8);
+        EXPECT_EQ(columns[8], 0);
+        EXPECT_EQ(columns[9], 0);
+        EXPECT_EQ(columns[10], 0);
+        EXPECT_EQ(columns[11], 0);
+        EXPECT_EQ(columns[12], -1);
+
+        SQLLEN column_lens[columns_cnt];
+
+        // Binding columns.
+        for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
+        {
+            ret = SQLBindCol(m_statement, i + 1, type, &columns[i], sizeof(columns[i]), &column_lens[i]);
+
+            if (!SQL_SUCCEEDED(ret))
+                FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        }
+
+        ret = SQLFetch(m_statement);
+        if (!SQL_SUCCEEDED(ret))
+            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+        EXPECT_EQ(columns[0], 2);
+        EXPECT_EQ(columns[1], 4);
+        EXPECT_EQ(columns[2], 6);
+        EXPECT_EQ(columns[3], 8);
+        EXPECT_EQ(columns[4], 10);
+        EXPECT_EQ(columns[5], 12);
+        EXPECT_EQ(columns[6], 14);
+        EXPECT_EQ(columns[7], 16);
+        EXPECT_EQ(columns[8], 0);
+        EXPECT_EQ(columns[9], 0);
+        EXPECT_EQ(columns[10], 0);
+        EXPECT_EQ(columns[11], 0);
+        EXPECT_EQ(columns[12], 2);
+
+        EXPECT_EQ(column_lens[0], static_cast<SQLLEN>(sizeof(T)));
+        EXPECT_EQ(column_lens[1], static_cast<SQLLEN>(sizeof(T)));
+        EXPECT_EQ(column_lens[2], static_cast<SQLLEN>(sizeof(T)));
+        EXPECT_EQ(column_lens[3], static_cast<SQLLEN>(sizeof(T)));
+        EXPECT_EQ(column_lens[4], static_cast<SQLLEN>(sizeof(T)));
+        EXPECT_EQ(column_lens[5], static_cast<SQLLEN>(sizeof(T)));
+        EXPECT_EQ(column_lens[6], static_cast<SQLLEN>(sizeof(T)));
+        EXPECT_EQ(column_lens[7], static_cast<SQLLEN>(sizeof(T)));
+
+        ret = SQLFetch(m_statement);
+        EXPECT_EQ(ret, SQL_NO_DATA);
+    }
 
     void check_params_num(const std::string& req, SQLSMALLINT expectedParamsNum)
     {
@@ -164,510 +152,434 @@ struct queries_test : public odbc_suite
     }
 };
 
-//TEST_F(queries_test, two_rows_int8)
-//{
-//    check_two_rows_int<signed char>(SQL_C_STINYINT);
-//}
-//
-//TEST_F(queries_test, two_rows_uint8)
-//{
-//    check_two_rows_int<unsigned char>(SQL_C_UTINYINT);
-//}
-//
-//TEST_F(queries_test, two_rows_int16)
-//{
-//    check_two_rows_int<signed short>(SQL_C_SSHORT);
-//}
-//
-//TEST_F(queries_test, two_rows_uint16)
-//{
-//    check_two_rows_int<unsigned short>(SQL_C_USHORT);
-//}
-//
-//TEST_F(queries_test, two_rows_int32)
-//{
-//    check_two_rows_int<SQLINTEGER>(SQL_C_SLONG);
-//}
-//
-//TEST_F(queries_test, two_rows_uint32)
-//{
-//    check_two_rows_int<SQLUINTEGER>(SQL_C_ULONG);
-//}
-//
-//TEST_F(queries_test, two_rows_int64)
-//{
-//    check_two_rows_int<std::int64_t>(SQL_C_SBIGINT);
-//}
-//
-//TEST_F(queries_test, two_rows_uint64)
-//{
-//    check_two_rows_int<std::uint64_t>(SQL_C_UBIGINT);
-//}
-//
-//TEST_F(queries_test, two_rows_string)
-//{
-//    odbc_connect(get_basic_connection_string());
-//
-//    SQLRETURN ret;
-//
-//    TestType in1(1, 2, 3, 4, "5", 6.0f, 7.0, true, Guid(8, 9), MakeDateGmt(1987, 6, 5),
-//        MakeTimeGmt(12, 48, 12), MakeTimestampGmt(1998, 12, 27, 1, 2, 3, 456));
-//
-//    TestType in2(8, 7, 6, 5, "4", 3.0f, 2.0, false, Guid(1, 0), MakeDateGmt(1976, 1, 12),
-//        MakeTimeGmt(0, 8, 59), MakeTimestampGmt(1978, 8, 21, 23, 13, 45, 999999999));
-//
-//    cache1.Put(1, in1);
-//    cache1.Put(2, in2);
-//
-//    const SQLSMALLINT columns_cnt = 12;
-//
-//    SQLCHAR columns[columns_cnt][ODBC_BUFFER_SIZE];
-//
-//    // Binding columns.
-//    for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
-//    {
-//        ret = SQLBindCol(m_statement, i + 1, SQL_C_CHAR, &columns[i], ODBC_BUFFER_SIZE, nullptr);
-//
-//        if (!SQL_SUCCEEDED(ret))
-//            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//    }
-//
-//    SQLCHAR request[] = "SELECT i8Field, i16Field, i32Field, i64Field, str, floatField, "
-//        "doubleField, boolField, guidField, dateField, timeField, timestampField FROM TBL_ALL_COLUMNS_SQL";
-//
-//    ret = SQLExecDirect(m_statement, request, SQL_NTS);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLFetch(m_statement);
-//
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[0])), "1");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[1])), "2");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[2])), "3");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[3])), "4");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[4])), "5");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[5])), "6");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[6])), "7");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[7])), "1");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[8])), "00000000-0000-0008-0000-000000000009");
-//    // Such format is used because Date returned as Timestamp.
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[9])), "1987-06-05 00:00:00");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[10])), "12:48:12");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[11])), "1998-12-27 01:02:03");
-//
-//    SQLLEN column_lens[columns_cnt];
-//
-//    // Binding columns.
-//    for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
-//    {
-//        ret = SQLBindCol(m_statement, i + 1, SQL_C_CHAR, &columns[i], ODBC_BUFFER_SIZE, &column_lens[i]);
-//
-//        if (!SQL_SUCCEEDED(ret))
-//            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//    }
-//
-//    ret = SQLFetch(m_statement);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[0])), "8");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[1])), "7");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[2])), "6");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[3])), "5");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[4])), "4");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[5])), "3");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[6])), "2");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[7])), "0");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[8])), "00000000-0000-0001-0000-000000000000");
-//    // Such format is used because Date returned as Timestamp.
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[9])), "1976-01-12 00:00:00");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[10])), "00:08:59");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[11])), "1978-08-21 23:13:45");
-//
-//    EXPECT_EQ(column_lens[0], 1);
-//    EXPECT_EQ(column_lens[1], 1);
-//    EXPECT_EQ(column_lens[2], 1);
-//    EXPECT_EQ(column_lens[3], 1);
-//    EXPECT_EQ(column_lens[4], 1);
-//    EXPECT_EQ(column_lens[5], 1);
-//    EXPECT_EQ(column_lens[6], 1);
-//    EXPECT_EQ(column_lens[7], 1);
-//    EXPECT_EQ(column_lens[8], 36);
-//    EXPECT_EQ(column_lens[9], 19);
-//    EXPECT_EQ(column_lens[10], 8);
-//    EXPECT_EQ(column_lens[11], 19);
-//
-//    ret = SQLFetch(m_statement);
-//    EXPECT_TRUE(ret == SQL_NO_DATA);
-//}
-//
-//TEST_F(queries_test, one_row_string)
-//{
-//    odbc_connect(get_basic_connection_string());
-//
-//    SQLRETURN ret;
-//
-//    TestType in(1, 2, 3, 4, "5", 6.0f, 7.0, true, Guid(8, 9), MakeDateGmt(1987, 6, 5),
-//        MakeTimeGmt(12, 48, 12), MakeTimestampGmt(1998, 12, 27, 1, 2, 3, 456));
-//
-//    cache1.Put(1, in);
-//
-//    const SQLSMALLINT columns_cnt = 12;
-//
-//    SQLCHAR columns[columns_cnt][ODBC_BUFFER_SIZE];
-//
-//    SQLLEN column_lens[columns_cnt];
-//
-//    // Binding columns.
-//    for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
-//    {
-//        ret = SQLBindCol(m_statement, i + 1, SQL_C_CHAR, &columns[i], ODBC_BUFFER_SIZE, &column_lens[i]);
-//
-//        if (!SQL_SUCCEEDED(ret))
-//            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//    }
-//
-//    SQLCHAR request[] = "SELECT i8Field, i16Field, i32Field, i64Field, str, floatField, "
-//        "doubleField, boolField, guidField, dateField, CAST('12:48:12' AS TIME), timestampField FROM TBL_ALL_COLUMNS_SQL";
-//
-//    ret = SQLExecDirect(m_statement, request, SQL_NTS);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLFetch(m_statement);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[0])), "1");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[1])), "2");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[2])), "3");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[3])), "4");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[4])), "5");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[5])), "6");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[6])), "7");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[7])), "1");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[8])), "00000000-0000-0008-0000-000000000009");
-//    // Such format is used because Date returned as Timestamp.
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[9])), "1987-06-05 00:00:00");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[10])), "12:48:12");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[11])), "1998-12-27 01:02:03");
-//
-//    EXPECT_EQ(column_lens[0], 1);
-//    EXPECT_EQ(column_lens[1], 1);
-//    EXPECT_EQ(column_lens[2], 1);
-//    EXPECT_EQ(column_lens[3], 1);
-//    EXPECT_EQ(column_lens[4], 1);
-//    EXPECT_EQ(column_lens[5], 1);
-//    EXPECT_EQ(column_lens[6], 1);
-//    EXPECT_EQ(column_lens[7], 1);
-//    EXPECT_EQ(column_lens[8], 36);
-//    EXPECT_EQ(column_lens[9], 19);
-//    EXPECT_EQ(column_lens[10], 8);
-//    EXPECT_EQ(column_lens[11], 19);
-//
-//    ret = SQLFetch(m_statement);
-//    EXPECT_TRUE(ret == SQL_NO_DATA);
-//}
-//
-//TEST_F(queries_test, one_row_string_len)
-//{
-//    odbc_connect(get_basic_connection_string());
-//
-//    SQLRETURN ret;
-//
-//    TestType in(1, 2, 3, 4, "5", 6.0f, 7.0, true, Guid(8, 9), MakeDateGmt(1987, 6, 5),
-//        MakeTimeGmt(12, 48, 12), MakeTimestampGmt(1998, 12, 27, 1, 2, 3, 456));
-//
-//    cache1.Put(1, in);
-//
-//    const SQLSMALLINT columns_cnt = 12;
-//
-//    SQLLEN column_lens[columns_cnt];
-//
-//    // Binding columns.
-//    for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
-//    {
-//        ret = SQLBindCol(m_statement, i + 1, SQL_C_CHAR, nullptr, 0, &column_lens[i]);
-//
-//        if (!SQL_SUCCEEDED(ret))
-//            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//    }
-//
-//    SQLCHAR request[] = "SELECT i8Field, i16Field, i32Field, i64Field, str, floatField, "
-//        "doubleField, boolField, guidField, dateField, timeField, timestampField FROM TBL_ALL_COLUMNS_SQL";
-//
-//    ret = SQLExecDirect(m_statement, request, SQL_NTS);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLFetch(m_statement);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    EXPECT_EQ(column_lens[0], 1);
-//    EXPECT_EQ(column_lens[1], 1);
-//    EXPECT_EQ(column_lens[2], 1);
-//    EXPECT_EQ(column_lens[3], 1);
-//    EXPECT_EQ(column_lens[4], 1);
-//    EXPECT_EQ(column_lens[5], 1);
-//    EXPECT_EQ(column_lens[6], 1);
-//    EXPECT_EQ(column_lens[7], 1);
-//    EXPECT_EQ(column_lens[8], 36);
-//    EXPECT_EQ(column_lens[9], 19);
-//    EXPECT_EQ(column_lens[10], 8);
-//    EXPECT_EQ(column_lens[11], 19);
-//
-//    ret = SQLFetch(m_statement);
-//    EXPECT_TRUE(ret == SQL_NO_DATA);
-//}
-//
-//TEST_F(queries_test, data_at_execution)
-//{
-//    odbc_connect(get_basic_connection_string());
-//
-//    SQLRETURN ret;
-//
-//    TestType in1(1, 2, 3, 4, "5", 6.0f, 7.0, true, Guid(8, 9), MakeDateGmt(1987, 6, 5),
-//        MakeTimeGmt(12, 48, 12), MakeTimestampGmt(1998, 12, 27, 1, 2, 3, 456));
-//
-//    TestType in2(8, 7, 6, 5, "4", 3.0f, 2.0, false, Guid(1, 0), MakeDateGmt(1976, 1, 12),
-//        MakeTimeGmt(0, 8, 59), MakeTimestampGmt(1978, 8, 21, 23, 13, 45, 999999999));
-//
-//    cache1.Put(1, in1);
-//    cache1.Put(2, in2);
-//
-//    const SQLSMALLINT columns_cnt = 12;
-//
-//    SQLLEN column_lens[columns_cnt];
-//    SQLCHAR columns[columns_cnt][ODBC_BUFFER_SIZE];
-//
-//    // Binding columns.
-//    for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
-//    {
-//        ret = SQLBindCol(m_statement, i + 1, SQL_C_CHAR, &columns[i], ODBC_BUFFER_SIZE, &column_lens[i]);
-//
-//        if (!SQL_SUCCEEDED(ret))
-//            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//    }
-//
-//    SQLCHAR request[] = "SELECT i8Field, i16Field, i32Field, i64Field, str, floatField, "
-//        "doubleField, boolField, guidField, dateField, timeField, timestampField FROM TBL_ALL_COLUMNS_SQL "
-//        "WHERE i32Field = ? AND str = ?";
-//
-//    ret = SQLPrepare(m_statement, request, SQL_NTS);
-//
-//    SQLLEN ind1 = 1;
-//    SQLLEN ind2 = 2;
-//
-//    SQLLEN len1 = SQL_DATA_AT_EXEC;
-//    SQLLEN len2 = SQL_LEN_DATA_AT_EXEC(static_cast<SQLLEN>(in1.str.size()));
-//
-//    ret = SQLBindParameter(m_statement, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 100, 100, &ind1, sizeof(ind1), &len1);
-//
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLBindParameter(m_statement, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 100, 100, &ind2, sizeof(ind2), &len2);
-//
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLExecute(m_statement);
-//
-//    ASSERT_EQ(ret, SQL_NEED_DATA);
-//
-//    void* oind;
-//
-//    ret = SQLParamData(m_statement, &oind);
-//
-//    ASSERT_EQ(ret, SQL_NEED_DATA);
-//
-//    if (oind == &ind1)
-//        ret = SQLPutData(m_statement, &in1.i32Field, 0);
-//    else if (oind == &ind2)
-//        ret = SQLPutData(m_statement, (SQLPOINTER)in1.str.c_str(), (SQLLEN)in1.str.size());
-//    else
-//        FAIL() << ("Unknown indicator value");
-//
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLParamData(m_statement, &oind);
-//
-//    ASSERT_EQ(ret, SQL_NEED_DATA);
-//
-//    if (oind == &ind1)
-//        ret = SQLPutData(m_statement, &in1.i32Field, 0);
-//    else if (oind == &ind2)
-//        ret = SQLPutData(m_statement, (SQLPOINTER)in1.str.c_str(), (SQLLEN)in1.str.size());
-//    else
-//        FAIL() << ("Unknown indicator value");
-//
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLParamData(m_statement, &oind);
-//
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLFetch(m_statement);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[0])), "1");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[1])), "2");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[2])), "3");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[3])), "4");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[4])), "5");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[5])), "6");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[6])), "7");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[7])), "1");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[8])), "00000000-0000-0008-0000-000000000009");
-//    // Such format is used because Date returned as Timestamp.
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[9])), "1987-06-05 00:00:00");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[10])), "12:48:12");
-//    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[11])), "1998-12-27 01:02:03");
-//
-//    EXPECT_EQ(column_lens[0], 1);
-//    EXPECT_EQ(column_lens[1], 1);
-//    EXPECT_EQ(column_lens[2], 1);
-//    EXPECT_EQ(column_lens[3], 1);
-//    EXPECT_EQ(column_lens[4], 1);
-//    EXPECT_EQ(column_lens[5], 1);
-//    EXPECT_EQ(column_lens[6], 1);
-//    EXPECT_EQ(column_lens[7], 1);
-//    EXPECT_EQ(column_lens[8], 36);
-//    EXPECT_EQ(column_lens[9], 19);
-//    EXPECT_EQ(column_lens[10], 8);
-//    EXPECT_EQ(column_lens[11], 19);
-//
-//    ret = SQLFetch(m_statement);
-//    EXPECT_TRUE(ret == SQL_NO_DATA);
-//}
-//
-//TEST_F(queries_test, null_fields)
-//{
-//    odbc_connect(get_basic_connection_string());
-//
-//    SQLRETURN ret;
-//
-//    TestType in(1, 2, 3, 4, "5", 6.0f, 7.0, true, Guid(8, 9), MakeDateGmt(1987, 6, 5),
-//        MakeTimeGmt(12, 48, 12), MakeTimestampGmt(1998, 12, 27, 1, 2, 3, 456));
-//
-//    TestType in_null;
-//
-//    in_null.allNulls = true;
-//
-//    cache1.Put(1, in);
-//    cache1.Put(2, in_null);
-//    cache1.Put(3, in);
-//
-//    const SQLSMALLINT columns_cnt = 11;
-//
-//    SQLLEN column_lens[columns_cnt];
-//
-//    std::int8_t i8Column;
-//    std::int16_t i16Column;
-//    std::int32_t i32Column;
-//    std::int64_t i64Column;
-//    char strColumn[ODBC_BUFFER_SIZE];
-//    float floatColumn;
-//    double doubleColumn;
-//    bool boolColumn;
-//    SQL_DATE_STRUCT dateColumn;
-//    SQL_TIME_STRUCT timeColumn;
-//    SQL_TIMESTAMP_STRUCT timestampColumn;
-//
-//    // Binding columns.
-//    ret = SQLBindCol(m_statement, 1, SQL_C_STINYINT, &i8Column, 0, &column_lens[0]);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLBindCol(m_statement, 2, SQL_C_SSHORT, &i16Column, 0, &column_lens[1]);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLBindCol(m_statement, 3, SQL_C_SLONG, &i32Column, 0, &column_lens[2]);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLBindCol(m_statement, 4, SQL_C_SBIGINT, &i64Column, 0, &column_lens[3]);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLBindCol(m_statement, 5, SQL_C_CHAR, &strColumn, ODBC_BUFFER_SIZE, &column_lens[4]);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLBindCol(m_statement, 6, SQL_C_FLOAT, &floatColumn, 0, &column_lens[5]);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLBindCol(m_statement, 7, SQL_C_DOUBLE, &doubleColumn, 0, &column_lens[6]);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLBindCol(m_statement, 8, SQL_C_BIT, &boolColumn, 0, &column_lens[7]);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLBindCol(m_statement, 9, SQL_C_TYPE_DATE, &dateColumn, 0, &column_lens[8]);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLBindCol(m_statement, 10, SQL_C_TYPE_TIME, &timeColumn, 0, &column_lens[9]);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    ret = SQLBindCol(m_statement, 11, SQL_C_TYPE_TIMESTAMP, &timestampColumn, 0, &column_lens[10]);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    SQLCHAR request[] = "SELECT i8Field, i16Field, i32Field, i64Field, str, floatField, "
-//        "doubleField, boolField, dateField, timeField, timestampField FROM TBL_ALL_COLUMNS_SQL "
-//        "ORDER BY key";
-//
-//    ret = SQLExecDirect(m_statement, request, SQL_NTS);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    // Fetching the first non-null row.
-//    ret = SQLFetch(m_statement);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    // Checking that columns are not null.
-//    for (auto column_len : column_lens)
-//        EXPECT_NE(column_len, SQL_NULL_DATA);
-//
-//    // Fetching null row.
-//    ret = SQLFetch(m_statement);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    // Checking that columns are null.
-//    for (auto column_len : column_lens)
-//        EXPECT_EQ(column_len, SQL_NULL_DATA);
-//
-//    // Fetching the last non-null row.
-//    ret = SQLFetch(m_statement);
-//    if (!SQL_SUCCEEDED(ret))
-//        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-//
-//    // Checking that columns are not null.
-//    for (auto column_len : column_lens)
-//        EXPECT_NE(column_len, SQL_NULL_DATA);
-//
-//    ret = SQLFetch(m_statement);
-//    EXPECT_TRUE(ret == SQL_NO_DATA);
-//}
+TEST_F(queries_test, two_rows_int8)
+{
+    check_two_rows_int<signed char>(SQL_C_STINYINT);
+}
+
+TEST_F(queries_test, two_rows_uint8)
+{
+    check_two_rows_int<unsigned char>(SQL_C_UTINYINT);
+}
+
+TEST_F(queries_test, two_rows_int16)
+{
+    check_two_rows_int<signed short>(SQL_C_SSHORT);
+}
+
+TEST_F(queries_test, two_rows_uint16)
+{
+    check_two_rows_int<unsigned short>(SQL_C_USHORT);
+}
+
+TEST_F(queries_test, two_rows_int32)
+{
+    check_two_rows_int<SQLINTEGER>(SQL_C_SLONG);
+}
+
+TEST_F(queries_test, two_rows_uint32)
+{
+    check_two_rows_int<SQLUINTEGER>(SQL_C_ULONG);
+}
+
+TEST_F(queries_test, two_rows_int64)
+{
+    check_two_rows_int<std::int64_t>(SQL_C_SBIGINT);
+}
+
+TEST_F(queries_test, two_rows_uint64)
+{
+    check_two_rows_int<std::uint64_t>(SQL_C_UBIGINT);
+}
+
+TEST_F(queries_test, two_rows_string)
+{
+    odbc_connect(get_basic_connection_string());
+
+    insert_all_types_row(1);
+    insert_all_types_row(2);
+
+    const SQLSMALLINT columns_cnt = 13;
+
+    SQLCHAR columns[columns_cnt][ODBC_BUFFER_SIZE];
+
+    SQLRETURN ret;
+    // Binding columns.
+    for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
+    {
+        ret = SQLBindCol(m_statement, i + 1, SQL_C_CHAR, &columns[i], ODBC_BUFFER_SIZE, nullptr);
+
+        if (!SQL_SUCCEEDED(ret))
+            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+    }
+
+    SQLCHAR request[] = "select key,str,int8,int16,int32,int64,float,double,uuid,"
+                        "date,\"TIME\",\"DATETIME\",decimal FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
+
+    ret = SQLExecDirect(m_statement, request, SQL_NTS);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLFetch(m_statement);
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[0])), "1");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[1])), "2");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[2])), "3");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[3])), "4");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[4])), "5");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[5])), "6");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[6])), "7");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[7])), "8");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[8])), "00000009-000a-000b-0000-000000000000");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[9])), "2001-01-01 01:01:01");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[10])), "01:01:01");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[11])), "2002-02-02 01:01:01");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[12])), "-1");
+
+    SQLLEN column_lens[columns_cnt];
+
+    // Binding columns.
+    for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
+    {
+        ret = SQLBindCol(m_statement, i + 1, SQL_C_CHAR, &columns[i], ODBC_BUFFER_SIZE, &column_lens[i]);
+
+        if (!SQL_SUCCEEDED(ret))
+            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+    }
+
+    ret = SQLFetch(m_statement);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[0])), "2");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[1])), "4");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[2])), "6");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[3])), "8");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[4])), "10");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[5])), "12");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[6])), "14");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[7])), "16");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[8])), "00000014-0016-0018-0000-000000000000");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[9])), "2002-02-02 02:02:02");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[10])), "02:02:02");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[11])), "2003-03-03 02:02:02");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[12])), "2");
+
+    EXPECT_EQ(column_lens[0], 1);
+    EXPECT_EQ(column_lens[1], 1);
+    EXPECT_EQ(column_lens[2], 1);
+    EXPECT_EQ(column_lens[3], 1);
+    EXPECT_EQ(column_lens[4], 1);
+    EXPECT_EQ(column_lens[5], 1);
+    EXPECT_EQ(column_lens[6], 1);
+    EXPECT_EQ(column_lens[7], 1);
+    EXPECT_EQ(column_lens[8], 36);
+    EXPECT_EQ(column_lens[9], 19);
+    EXPECT_EQ(column_lens[10], 8);
+    EXPECT_EQ(column_lens[11], 19);
+    EXPECT_EQ(column_lens[12], 1);
+
+    ret = SQLFetch(m_statement);
+    EXPECT_TRUE(ret == SQL_NO_DATA);
+}
+
+TEST_F(queries_test, one_row_string_len)
+{
+    odbc_connect(get_basic_connection_string());
+
+    SQLRETURN ret;
+
+    insert_all_types_row(1);
+
+    const SQLSMALLINT columns_cnt = 13;
+
+    SQLLEN column_lens[columns_cnt];
+
+    // Binding columns.
+    for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
+    {
+        ret = SQLBindCol(m_statement, i + 1, SQL_C_CHAR, nullptr, 0, &column_lens[i]);
+
+        if (!SQL_SUCCEEDED(ret))
+            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+    }
+
+    SQLCHAR request[] = "select key,str,int8,int16,int32,int64,float,double,uuid,"
+                        "date,\"TIME\",\"DATETIME\",decimal FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
+
+    ret = SQLExecDirect(m_statement, request, SQL_NTS);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLFetch(m_statement);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    EXPECT_EQ(column_lens[0], 1);
+    EXPECT_EQ(column_lens[1], 1);
+    EXPECT_EQ(column_lens[2], 1);
+    EXPECT_EQ(column_lens[3], 1);
+    EXPECT_EQ(column_lens[4], 1);
+    EXPECT_EQ(column_lens[5], 1);
+    EXPECT_EQ(column_lens[6], 1);
+    EXPECT_EQ(column_lens[7], 1);
+    EXPECT_EQ(column_lens[8], 36);
+    EXPECT_EQ(column_lens[9], 19);
+    EXPECT_EQ(column_lens[10], 8);
+    EXPECT_EQ(column_lens[11], 19);
+    EXPECT_EQ(column_lens[12], 1);
+
+    ret = SQLFetch(m_statement);
+    EXPECT_TRUE(ret == SQL_NO_DATA);
+}
+
+TEST_F(queries_test, data_at_execution)
+{
+    odbc_connect(get_basic_connection_string());
+
+    insert_all_types_row(1);
+    insert_all_types_row(2);
+
+    const SQLSMALLINT columns_cnt = 13;
+
+    SQLLEN column_lens[columns_cnt];
+    SQLCHAR columns[columns_cnt][ODBC_BUFFER_SIZE];
+
+    SQLRETURN ret;
+    // Binding columns.
+    for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
+    {
+        ret = SQLBindCol(m_statement, i + 1, SQL_C_CHAR, &columns[i], ODBC_BUFFER_SIZE, &column_lens[i]);
+
+        if (!SQL_SUCCEEDED(ret))
+            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+    }
+
+    SQLCHAR request[] = "select key,str,int8,int16,int32,int64,float,double,uuid,"
+                        "date,\"TIME\",\"DATETIME\",decimal FROM TBL_ALL_COLUMNS_SQL "
+                        "where int32 = ? AND str = ? ORDER BY key";
+
+    ret = SQLPrepare(m_statement, request, SQL_NTS);
+
+    SQLLEN ind1 = 1;
+    SQLLEN ind2 = 2;
+
+    SQLINTEGER int32_arg = 5;
+    SQLCHAR str_arg[] = "2";
+
+    SQLLEN len1 = SQL_DATA_AT_EXEC;
+    SQLLEN len2 = SQL_LEN_DATA_AT_EXEC(static_cast<SQLLEN>(sizeof(str_arg)));
+
+    ret = SQLBindParameter(
+        m_statement, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 100, 100, &ind1, sizeof(ind1), &len1);
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLBindParameter(
+        m_statement, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 100, 100, &ind2, sizeof(ind2), &len2);
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLExecute(m_statement);
+
+    ASSERT_EQ(ret, SQL_NEED_DATA);
+
+    void* oind;
+
+    ret = SQLParamData(m_statement, &oind);
+
+    ASSERT_EQ(ret, SQL_NEED_DATA);
+
+    if (oind == &ind1)
+        ret = SQLPutData(m_statement, &int32_arg, 0);
+    else if (oind == &ind2)
+        ret = SQLPutData(m_statement, (SQLPOINTER)str_arg, (SQLLEN)sizeof(str_arg));
+    else
+        FAIL() << ("Unknown indicator value");
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLParamData(m_statement, &oind);
+
+    ASSERT_EQ(ret, SQL_NEED_DATA);
+
+    if (oind == &ind1)
+        ret = SQLPutData(m_statement, &int32_arg, 0);
+    else if (oind == &ind2)
+        ret = SQLPutData(m_statement, (SQLPOINTER)str_arg, (SQLLEN)sizeof(str_arg));
+    else
+        FAIL() << ("Unknown indicator value");
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLParamData(m_statement, &oind);
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLFetch(m_statement);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[0])), "2");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[1])), "4");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[2])), "6");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[3])), "8");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[4])), "10");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[5])), "12");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[6])), "14");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[7])), "16");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[8])), "00000014-0016-0018-0000-000000000000");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[9])), "2002-02-02 02:02:02");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[10])), "02:02:02");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[11])), "2003-03-03 02:02:02");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[12])), "2");
+
+    EXPECT_EQ(column_lens[0], 1);
+    EXPECT_EQ(column_lens[1], 1);
+    EXPECT_EQ(column_lens[2], 1);
+    EXPECT_EQ(column_lens[3], 1);
+    EXPECT_EQ(column_lens[4], 1);
+    EXPECT_EQ(column_lens[5], 1);
+    EXPECT_EQ(column_lens[6], 1);
+    EXPECT_EQ(column_lens[7], 1);
+    EXPECT_EQ(column_lens[8], 36);
+    EXPECT_EQ(column_lens[9], 19);
+    EXPECT_EQ(column_lens[10], 8);
+    EXPECT_EQ(column_lens[11], 19);
+    EXPECT_EQ(column_lens[12], 1);
+
+    ret = SQLFetch(m_statement);
+    EXPECT_TRUE(ret == SQL_NO_DATA);
+}
+
+TEST_F(queries_test, null_fields)
+{
+    odbc_connect(get_basic_connection_string());
+
+    SQLRETURN ret;
+
+    insert_all_types_row(1);
+
+    exec_query("insert into TBL_ALL_COLUMNS_SQL("
+               "   key,str,int8,int16,int32,int64,float,double,uuid,date,\"TIME\",\"DATETIME\",decimal) "
+               "values(2, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
+
+    insert_all_types_row(3);
+
+    const SQLSMALLINT columns_cnt = 12;
+
+    SQLLEN column_lens[columns_cnt];
+
+    char str_arg[ODBC_BUFFER_SIZE];
+    std::int8_t i8_arg;
+    std::int16_t i16_arg;
+    std::int32_t i32_arg;
+    std::int64_t i64_arg;
+    float float_arg;
+    double double_arg;
+    SQLGUID uuid_arg;
+    SQL_DATE_STRUCT date_arg;
+    SQL_TIME_STRUCT time_arg;
+    SQL_TIMESTAMP_STRUCT timestamp_arg;
+    SQL_NUMERIC_STRUCT decimal_arg;
+
+    // Binding columns.
+    ret = SQLBindCol(m_statement, 1, SQL_C_CHAR, &str_arg, ODBC_BUFFER_SIZE, &column_lens[0]);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLBindCol(m_statement, 2, SQL_C_STINYINT, &i8_arg, 0, &column_lens[1]);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLBindCol(m_statement, 3, SQL_C_SSHORT, &i16_arg, 0, &column_lens[2]);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLBindCol(m_statement, 4, SQL_C_SLONG, &i32_arg, 0, &column_lens[3]);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLBindCol(m_statement, 5, SQL_C_SBIGINT, &i64_arg, 0, &column_lens[4]);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLBindCol(m_statement, 6, SQL_C_FLOAT, &float_arg, 0, &column_lens[5]);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLBindCol(m_statement, 7, SQL_C_DOUBLE, &double_arg, 0, &column_lens[6]);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLBindCol(m_statement, 8, SQL_C_BIT, &uuid_arg, 0, &column_lens[7]);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLBindCol(m_statement, 9, SQL_C_TYPE_DATE, &date_arg, 0, &column_lens[8]);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLBindCol(m_statement, 10, SQL_C_TYPE_TIME, &time_arg, 0, &column_lens[9]);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLBindCol(m_statement, 11, SQL_C_TYPE_TIMESTAMP, &timestamp_arg, 0, &column_lens[10]);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    ret = SQLBindCol(m_statement, 12, SQL_C_NUMERIC, &decimal_arg, 0, &column_lens[11]);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    SQLCHAR request[] = "select str,int8,int16,int32,int64,float,double,uuid,"
+                        "date,\"TIME\",\"DATETIME\",decimal FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
+
+    ret = SQLExecDirect(m_statement, request, SQL_NTS);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    // Fetching the first non-null row.
+    ret = SQLFetch(m_statement);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    // Checking that columns are not null.
+    for (auto column_len : column_lens)
+        EXPECT_NE(column_len, SQL_NULL_DATA);
+
+    // Fetching null row.
+    ret = SQLFetch(m_statement);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    // Checking that columns are null.
+    for (auto column_len : column_lens)
+        EXPECT_EQ(column_len, SQL_NULL_DATA);
+
+    // Fetching the last non-null row.
+    ret = SQLFetch(m_statement);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    // Checking that columns are not null.
+    for (auto column_len : column_lens)
+        EXPECT_NE(column_len, SQL_NULL_DATA);
+
+    ret = SQLFetch(m_statement);
+    EXPECT_EQ(ret, SQL_NO_DATA);
+}
 
 TEST_F(queries_test, insert_select)
 {
@@ -1121,6 +1033,8 @@ TEST_F(queries_test, affected_rows_on_select)
     }
 }
 
+// TODO: IGNITE-19855 Multiple queries execution is not supported.
+#ifdef MUTED
 TEST_F(queries_test, multiple_selects)
 {
     odbc_connect(get_basic_connection_string());
@@ -1290,6 +1204,7 @@ TEST_F(queries_test, multiple_mixed_statements_no_fetch)
             EXPECT_EQ(ret, SQL_NO_DATA);
     }
 }
+#endif //MUTED
 
 TEST_F(queries_test, close_after_empty_update)
 {
