@@ -203,7 +203,7 @@ void parameter::append(binary_tuple_builder& builder, int offset, SQLULEN idx) c
 
         case SQL_TINYINT:
         {
-            protocol::append_type_and_scale(builder, ignite_type::BOOLEAN);
+            protocol::append_type_and_scale(builder, ignite_type::INT8);
             builder.append_int8(buf.get_int8());
             break;
         }
@@ -245,7 +245,7 @@ void parameter::append(binary_tuple_builder& builder, int offset, SQLULEN idx) c
 
         case SQL_BIT:
         {
-            protocol::append_type_and_scale(builder, ignite_type::INT8);
+            protocol::append_type_and_scale(builder, ignite_type::BOOLEAN);
             builder.append_bool(buf.get_int8() != 0);
             break;
         }
