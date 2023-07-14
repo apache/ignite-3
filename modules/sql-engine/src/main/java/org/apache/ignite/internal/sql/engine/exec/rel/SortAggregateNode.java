@@ -138,10 +138,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         if (grp != null) {
             int cmp = comp.compare(row, prevRow);
-            RowHandler<RowT> rowHandler = context().rowHandler();
-
-//            System.err.println(type + " ROW CMP " + rowHandler.toString(row) + " " +
-//                    (prevRow != null ? rowHandler.toString(prevRow) : null) + " " + cmp);
 
             if (cmp == 0) {
                 grp.add(row);
@@ -338,10 +334,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 fields[i++] = accWrp.end();
             }
 
-            RowHandler<RowT> rowHandler = context().rowHandler();
             RowT row = rowFactory.create(fields);
-
-//            System.err.println("GET ROW ON REDUCE  " + Arrays.toString(grpKeys) + " " + rowHandler.toString(row));
 
             return row;
         }
@@ -357,10 +350,10 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                     int stateOffset = grpKeys.length + offset;
                     IntFunction<Object> state = (idx) -> handler.get(idx + stateOffset, row);
 
+                    wrapper.applyState(state);
+
                     List<RelDataType> s = wrapper.accumulator().state(Commons.typeFactory());
                     offset += s.size();
-
-                    wrapper.applyState(state);
                 }
             } else {
                 for (AccumulatorWrapper<RowT> wrapper : accumWrps) {
@@ -390,7 +383,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
                     @Override
                     public void write(int fieldId, @Nullable Object value) {
-                       fields[offset + fieldId] = value;
+                        fields[offset + fieldId] = value;
                     }
                 }
 

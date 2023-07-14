@@ -487,6 +487,11 @@ public class Accumulators {
         public void write(StateOutput output) {
             output.write(0, cnt);
         }
+
+        @Override
+        public String toString() {
+            return "LongCount{cnt=" + cnt + '}';
+        }
     }
 
     private static class Sum implements Accumulator {
@@ -567,10 +572,10 @@ public class Accumulators {
 
         @Override
         public String toString() {
-            return "Sum(" +
-                    "acc=" + acc +
-                    ", empty=" + empty +
-                    ')';
+            return "Sum("
+                   + "acc=" + acc
+                   +  ", empty=" + empty
+                   +  ')';
         }
     }
 
@@ -813,9 +818,7 @@ public class Accumulators {
 
         @Override
         public String toString() {
-            return "DecimalSumEmptyIsZero{" +
-                    "sum=" + sum +
-                    '}';
+            return "DecimalSumEmptyIsZero{sum=" + sum + '}';
         }
     }
 

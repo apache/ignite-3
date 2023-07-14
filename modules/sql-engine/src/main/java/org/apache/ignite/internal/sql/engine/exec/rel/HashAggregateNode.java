@@ -429,10 +429,10 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                     int stateOffset = offset;
                     IntFunction<Object> state = (idx) -> handler.get(idx + stateOffset, row);
 
+                    acc.applyState(state);
+
                     List<RelDataType> s = acc.accumulator().state(Commons.typeFactory());
                     offset += s.size();
-
-                    acc.applyState(state);
                 }
 
             } else {
@@ -479,10 +479,10 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                         Object fieldValue = grpKey.field(fieldIdxOffset);
                         fields[target + 1] = fieldValue;
 
-                        fieldIdxOffset ++;
+                        fieldIdxOffset++;
                     }
 
-                    int offset = fieldIdxOffset + 1;
+                    int offset =  1 + mapping.getTargetCount();
 
                     class Output implements StateOutput {
                         private int offset;
@@ -506,17 +506,13 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                         output.offset += state.size();
                     }
 
-                    System.err.println("ROW " + grpFields + " " + grpKey + " ");
-
                     RowT row = rowFactory.create(fields);
+
+                    System.err.println("MAP_ROW " + handler.toString(row));
 
                     res.add(row);
 
                     it.remove();
-                }
-                
-                for (var row : res) {
-                    System.err.println("ROWS: " + handler.toString(row));
                 }
 
                 return res;

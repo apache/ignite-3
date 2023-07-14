@@ -37,6 +37,9 @@ public interface AccumulatorWrapper<RowT> {
 
     void write(StateOutput output);
 
+    /**
+     * Fix me.
+     */
     interface StateOutput {
 
         void write(int fieldId, @Nullable Object value);
