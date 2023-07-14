@@ -109,8 +109,8 @@ inline void prepare_environment(SQLHENV &env, SQLHDBC &conn) {
 
     EXPECT_TRUE(env != SQL_NULL_HANDLE);
 
-    // We want ODBC 3 support
-    SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, reinterpret_cast<void*>(SQL_OV_ODBC3), 0);
+    // We want ODBC 3.8 support
+    SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, reinterpret_cast<void*>(SQL_OV_ODBC3_80), 0);
 
     // Allocate a connection handle
     SQLAllocHandle(SQL_HANDLE_DBC, env, &conn);

@@ -51,18 +51,7 @@ public:
 
 TEST_F(error_test, connect_fail)
 {
-    // Allocate an environment handle
-    SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &m_env);
-
-    ASSERT_TRUE(m_env != SQL_NULL_HANDLE);
-
-    // We want ODBC 3 support
-    SQLSetEnvAttr(m_env, SQL_ATTR_ODBC_VERSION, reinterpret_cast<void*>(SQL_OV_ODBC3), 0);
-
-    // Allocate a connection handle
-    SQLAllocHandle(SQL_HANDLE_DBC, m_env, &m_conn);
-
-    ASSERT_TRUE(m_conn != SQL_NULL_HANDLE);
+    prepare_environment();
 
     // Connect string
     auto connect_str = to_sqlchar("driver={" + DRIVER_NAME + "};ADDRESS=127.0.0.1:1111");

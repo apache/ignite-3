@@ -588,7 +588,7 @@ connection_info::connection_info(const configuration& config) : config(config)
 
     // ODBC version.
 #ifdef SQL_DRIVER_ODBC_VER
-    m_str_params[SQL_DRIVER_ODBC_VER] = "03.00";
+    m_str_params[SQL_DRIVER_ODBC_VER] = "03.80";
 #endif // SQL_DRIVER_ODBC_VER
 
 #ifdef SQL_DRIVER_VER

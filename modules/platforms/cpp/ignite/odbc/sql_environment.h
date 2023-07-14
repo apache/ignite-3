@@ -135,7 +135,7 @@ private:
     connection_set m_connections;
 
     /** ODBC version. */
-    int32_t m_odbc_version{SQL_OV_ODBC3};
+    int32_t m_odbc_version{SQL_OV_ODBC3_80};
 
     /** ODBC null-termination of string behaviour. */
     int32_t m_odbc_nts{SQL_TRUE};
