@@ -229,6 +229,7 @@ sql_result data_query::fetch_next_row(column_binding_map &column_bindings)
             return result;
 
         m_cursor->update_data(std::move(page));
+        m_cursor->next(m_result_meta);
     }
 
     if (!m_cursor->has_data())
@@ -396,11 +397,24 @@ sql_result data_query::make_request_close()
 
 sql_result data_query::make_request_fetch(std::unique_ptr<result_page> &page)
 {
-    UNUSED_VALUE page;
+    if (!m_query_id) {
+        m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Cursor already closed");
+        return sql_result::AI_ERROR;
+    }
 
-    // TODO: IGNITE-19213 Implement data fetching
-    m_diag.add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Data fetching is not implemented");
-    return sql_result::AI_ERROR;
+    network::data_buffer_owning response;
+    auto success = m_diag.catch_errors([&] {
+        response = m_connection.sync_request(detail::client_operation::SQL_CURSOR_NEXT_PAGE,
+            [&](protocol::writer &writer) { writer.write(*m_query_id); });
+    });
+
+    if (!success)
+        return sql_result::AI_ERROR;
+
+    auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
+
+    page = std::make_unique<result_page>(std::move(response), std::move(reader));
+    return sql_result::AI_SUCCESS;
 }
 
 sql_result data_query::make_request_resultset_meta()
