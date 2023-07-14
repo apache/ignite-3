@@ -37,6 +37,8 @@ import java.util.Random;
 import java.util.UUID;
 import org.apache.ignite.internal.logger.Loggers;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for BinaryTuple (IEP-92) support.
@@ -78,18 +80,16 @@ public class BinaryTupleTest {
     /**
      * Test boolean value encoding.
      */
-    @Test
-    public void booleanTest() {
-        boolean[] values = {false, true};
-        for (boolean value : values) {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 1);
-            ByteBuffer bytes = builder.appendBoolean(value).build();
-            assertEquals(1, bytes.get(1));
-            assertEquals(3, bytes.limit());
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void booleanTest(boolean value) {
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(1, 1);
+        ByteBuffer bytes = builder.appendBoolean(value).build();
+        assertEquals(1, bytes.get(1));
+        assertEquals(3, bytes.limit());
 
-            BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
-            assertEquals(value, reader.booleanValue(0));
-        }
+        BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
+        assertEquals(value, reader.booleanValue(0));
     }
 
     /**
