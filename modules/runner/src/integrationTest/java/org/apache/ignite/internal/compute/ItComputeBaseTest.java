@@ -53,7 +53,6 @@ import org.junit.jupiter.api.Test;
  * Base integration tests for Compute functionality.
  */
 public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
-
     protected abstract List<DeploymentUnit> units();
 
     protected abstract String concatJobClassName();
@@ -86,29 +85,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void executesJobLocallyByClassName() throws Exception {
-        IgniteImpl entryNode = node(0);
-
-        String result = entryNode.compute()
-                .<String>executeAsync(Set.of(entryNode.node()), units(), concatJobClassName(), "a", 42)
-                .get(1, TimeUnit.SECONDS);
-
-        assertThat(result, is("a42"));
-    }
-
-    @Test
     void executesJobOnRemoteNodes() throws Exception {
-        Ignite entryNode = node(0);
-
-        String result = entryNode.compute()
-                .<String>executeAsync(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42)
-                .get(1, TimeUnit.SECONDS);
-
-        assertThat(result, is("a42"));
-    }
-
-    @Test
-    void executesJobByClassNameOnRemoteNodes() throws Exception {
         Ignite entryNode = node(0);
 
         String result = entryNode.compute()
@@ -200,20 +177,6 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void broadcastsJobByClassName() {
-        IgniteImpl entryNode = node(0);
-
-        Map<ClusterNode, CompletableFuture<String>> results = entryNode.compute()
-                .broadcastAsync(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
-
-        assertThat(results, is(aMapWithSize(3)));
-        for (int i = 0; i < 3; i++) {
-            ClusterNode node = node(i).node();
-            assertThat(results.get(node), willBe("a42"));
-        }
-    }
-
-    @Test
     void broadcastExecutesJobOnRespectiveNodes() {
         IgniteImpl entryNode = node(0);
 
@@ -285,33 +248,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void executesColocatedByClassNameWithTupleKey() throws Exception {
-        createTestTableWithOneRow();
-
-        IgniteImpl entryNode = node(0);
-
-        String actualNodeName = entryNode.compute()
-                .<String>executeColocatedAsync("test", Tuple.create(Map.of("k", 1)), units(), getNodeNameJobClassName())
-                .get(1, TimeUnit.SECONDS);
-
-        assertThat(actualNodeName, in(allNodeNames()));
-    }
-
-    @Test
     void executesColocatedWithMappedKey() throws Exception {
-        createTestTableWithOneRow();
-
-        IgniteImpl entryNode = node(0);
-
-        String actualNodeName = entryNode.compute()
-                .<Integer, String>executeColocatedAsync("test", 1, Mapper.of(Integer.class), units(), getNodeNameJobClassName())
-                .get(1, TimeUnit.SECONDS);
-
-        assertThat(actualNodeName, in(allNodeNames()));
-    }
-
-    @Test
-    void executesColocatedByClassNameWithMappedKey() throws Exception {
         createTestTableWithOneRow();
 
         IgniteImpl entryNode = node(0);
