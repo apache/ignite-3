@@ -76,5 +76,4 @@ public class ServiceManager implements Lifecycle<LogStoreFactory> {
     public AllocateFileService getAllocateService() {
         return this.allocateService;
     }
-
 }

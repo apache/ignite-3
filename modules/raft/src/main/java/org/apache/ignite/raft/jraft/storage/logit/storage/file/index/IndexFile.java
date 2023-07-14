@@ -277,5 +277,4 @@ public class IndexFile extends AbstractFile {
     public int getIndexSize() {
         return IndexEntry.INDEX_SIZE;
     }
-
 }
