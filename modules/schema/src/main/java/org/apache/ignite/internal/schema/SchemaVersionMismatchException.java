@@ -32,6 +32,12 @@ public final class SchemaVersionMismatchException extends SchemaException {
     /** Actual schema version. */
     private final int actualVersion;
 
+    /**
+     * Constructor.
+     *
+     * @param expectedVersion Expected schema version.
+     * @param actualVer Actual schema version.
+     */
     public SchemaVersionMismatchException(int expectedVersion, int actualVer) {
         super(SCHEMA_VERSION_MISMATCH_ERR, "Schema version mismatch [expectedVer=" + expectedVersion + ", actualVer=" + actualVer + ']');
 
