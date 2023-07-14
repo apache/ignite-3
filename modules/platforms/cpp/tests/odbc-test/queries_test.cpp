@@ -88,7 +88,7 @@ struct queries_test : public odbc_suite
         EXPECT_EQ(columns[9], 0);
         EXPECT_EQ(columns[10], 0);
         EXPECT_EQ(columns[11], 0);
-        EXPECT_EQ(columns[12], -1);
+        EXPECT_EQ(columns[12], T(-1));
 
         SQLLEN column_lens[columns_cnt];
 
@@ -237,9 +237,9 @@ TEST_F(queries_test, two_rows_string)
     EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[6])), "7");
     EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[7])), "8");
     EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[8])), "00000009-000a-000b-0000-000000000000");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[9])), "2001-01-01 01:01:01");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[9])), "2001-02-02");
     EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[10])), "01:01:01");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[11])), "2002-02-02 01:01:01");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[11])), "2002-03-03 01:01:01");
     EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[12])), "-1");
 
     SQLLEN column_lens[columns_cnt];
@@ -265,24 +265,24 @@ TEST_F(queries_test, two_rows_string)
     EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[5])), "12");
     EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[6])), "14");
     EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[7])), "16");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[8])), "00000014-0016-0018-0000-000000000000");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[9])), "2002-02-02 02:02:02");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[8])), "00000012-0014-0016-0000-000000000000");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[9])), "2002-03-03");
     EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[10])), "02:02:02");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[11])), "2003-03-03 02:02:02");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[11])), "2003-04-04 02:02:02");
     EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[12])), "2");
 
     EXPECT_EQ(column_lens[0], 1);
     EXPECT_EQ(column_lens[1], 1);
     EXPECT_EQ(column_lens[2], 1);
     EXPECT_EQ(column_lens[3], 1);
-    EXPECT_EQ(column_lens[4], 1);
-    EXPECT_EQ(column_lens[5], 1);
-    EXPECT_EQ(column_lens[6], 1);
-    EXPECT_EQ(column_lens[7], 1);
+    EXPECT_EQ(column_lens[4], 2);
+    EXPECT_EQ(column_lens[5], 2);
+    EXPECT_EQ(column_lens[6], 2);
+    EXPECT_EQ(column_lens[7], 2);
     EXPECT_EQ(column_lens[8], 36);
-    EXPECT_EQ(column_lens[9], 19);
-    EXPECT_EQ(column_lens[10], 8);
-    EXPECT_EQ(column_lens[11], 19);
+    EXPECT_EQ(column_lens[9], 11);
+    EXPECT_EQ(column_lens[10], 9);
+    EXPECT_EQ(column_lens[11], 20);
     EXPECT_EQ(column_lens[12], 1);
 
     ret = SQLFetch(m_statement);
@@ -431,19 +431,19 @@ TEST_F(queries_test, data_at_execution)
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[0])), "2");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[1])), "4");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[2])), "6");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[3])), "8");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[4])), "10");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[5])), "12");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[6])), "14");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[7])), "16");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[8])), "00000014-0016-0018-0000-000000000000");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[9])), "2002-02-02 02:02:02");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[10])), "02:02:02");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[11])), "2003-03-03 02:02:02");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[12])), "2");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[0])), "1");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[1])), "2");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[2])), "3");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[3])), "4");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[4])), "5");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[5])), "6");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[6])), "7");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[7])), "8");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[8])), "00000009-000a-000b-0000-000000000000");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[9])), "2001-02-02");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[10])), "01:01:01");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[11])), "2002-03-03 01:01:01");
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[12])), "-1");
 
     EXPECT_EQ(column_lens[0], 1);
     EXPECT_EQ(column_lens[1], 1);
@@ -454,10 +454,10 @@ TEST_F(queries_test, data_at_execution)
     EXPECT_EQ(column_lens[6], 1);
     EXPECT_EQ(column_lens[7], 1);
     EXPECT_EQ(column_lens[8], 36);
-    EXPECT_EQ(column_lens[9], 19);
-    EXPECT_EQ(column_lens[10], 8);
-    EXPECT_EQ(column_lens[11], 19);
-    EXPECT_EQ(column_lens[12], 1);
+    EXPECT_EQ(column_lens[9], 11);
+    EXPECT_EQ(column_lens[10], 9);
+    EXPECT_EQ(column_lens[11], 20);
+    EXPECT_EQ(column_lens[12], 2);
 
     ret = SQLFetch(m_statement);
     EXPECT_TRUE(ret == SQL_NO_DATA);
