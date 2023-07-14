@@ -117,7 +117,12 @@ public enum NativeTypeSpec {
     /**
      * Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision.
      */
-    TIMESTAMP("timestamp", true);
+    TIMESTAMP("timestamp", true),
+
+    /**
+     * Native type representing a boolean value.
+     */
+    BOOLEAN("boolean", true);
 
     /** Cached array with all enum values. */
     private static final NativeTypeSpec[] VALUES = values();
@@ -163,7 +168,9 @@ public enum NativeTypeSpec {
         assert cls != null;
 
         // Primitives.
-        if (cls == byte.class) {
+        if (cls == boolean.class) {
+            return BOOLEAN;
+        } else if (cls == byte.class) {
             return INT8;
         } else if (cls == short.class) {
             return INT16;
@@ -175,7 +182,9 @@ public enum NativeTypeSpec {
             return FLOAT;
         } else if (cls == double.class) {
             return DOUBLE;
-        } else if (cls == Byte.class) { // Boxed primitives.
+        } else if (cls == Boolean.class) { // Boxed primitives.
+            return BOOLEAN;
+        } else if (cls == Byte.class) {
             return INT8;
         } else if (cls == Short.class) {
             return INT16;
@@ -223,6 +232,8 @@ public enum NativeTypeSpec {
         assert spec != null;
 
         switch (spec) {
+            case BOOLEAN:
+                return nullable ? Boolean.class : boolean.class;
             case INT8:
                 return nullable ? Byte.class : byte.class;
             case INT16:
@@ -283,6 +294,9 @@ public enum NativeTypeSpec {
     @Nullable
     public ColumnType asColumnTypeOrNull() {
         switch (this) {
+            case BOOLEAN:
+                return ColumnType.BOOLEAN;
+
             case INT8:
                 return ColumnType.INT8;
 

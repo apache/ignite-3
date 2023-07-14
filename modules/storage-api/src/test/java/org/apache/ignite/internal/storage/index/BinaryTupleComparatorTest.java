@@ -65,6 +65,7 @@ public class BinaryTupleComparatorTest {
 
     private static List<NativeType> allTypes() {
         return List.of(
+                NativeTypes.BOOLEAN,
                 NativeTypes.INT8,
                 NativeTypes.INT16,
                 NativeTypes.INT32,
@@ -88,6 +89,18 @@ public class BinaryTupleComparatorTest {
         ByteBuffer tuple2;
 
         switch (type.spec()) {
+            case BOOLEAN: {
+                tuple1 = new BinaryTupleBuilder(1)
+                        .appendBoolean(false)
+                        .build();
+
+                tuple2 = new BinaryTupleBuilder(1)
+                        .appendBoolean(true)
+                        .build();
+
+                break;
+            }
+
             case INT8: {
                 tuple1 = new BinaryTupleBuilder(1)
                         .appendByte((byte) -1)

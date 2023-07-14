@@ -53,6 +53,7 @@ import org.jetbrains.annotations.Nullable;
 abstract class ColumnBinding {
     private static final MethodHandle NULL_WRITER;
 
+    private static final MethodHandle P_BOOLEAN_READER;
     private static final MethodHandle P_BYTE_READER;
     private static final MethodHandle P_SHORT_READER;
     private static final MethodHandle P_INT_READER;
@@ -60,6 +61,7 @@ abstract class ColumnBinding {
     private static final MethodHandle P_FLOAT_READER;
     private static final MethodHandle P_DOUBLE_READER;
 
+    private static final MethodHandle BOOLEAN_READER;
     private static final MethodHandle BYTE_READER;
     private static final MethodHandle SHORT_READER;
     private static final MethodHandle INT_READER;
@@ -79,6 +81,7 @@ abstract class ColumnBinding {
     private static final MethodHandle TIME_READER;
     private static final MethodHandle TIMESTAMP_READER;
 
+    private static final MethodHandle BOOLEAN_WRITER;
     private static final MethodHandle BYTE_WRITER;
     private static final MethodHandle SHORT_WRITER;
     private static final MethodHandle INT_WRITER;
@@ -107,6 +110,7 @@ abstract class ColumnBinding {
 
             NULL_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendNull"));
 
+            P_BOOLEAN_READER = lookup.unreflect(Row.class.getMethod("booleanValue", int.class));
             P_BYTE_READER = lookup.unreflect(Row.class.getMethod("byteValue", int.class));
             P_SHORT_READER = lookup.unreflect(Row.class.getMethod("shortValue", int.class));
             P_INT_READER = lookup.unreflect(Row.class.getMethod("intValue", int.class));
@@ -114,6 +118,7 @@ abstract class ColumnBinding {
             P_FLOAT_READER = lookup.unreflect(Row.class.getMethod("floatValue", int.class));
             P_DOUBLE_READER = lookup.unreflect(Row.class.getMethod("doubleValue", int.class));
 
+            BOOLEAN_READER = lookup.unreflect(Row.class.getMethod("booleanValueBoxed", int.class));
             BYTE_READER = lookup.unreflect(Row.class.getMethod("byteValueBoxed", int.class));
             SHORT_READER = lookup.unreflect(Row.class.getMethod("shortValueBoxed", int.class));
             INT_READER = lookup.unreflect(Row.class.getMethod("intValueBoxed", int.class));
@@ -134,6 +139,7 @@ abstract class ColumnBinding {
             TIMESTAMP_READER = lookup.unreflect(Row.class.getMethod("timestampValue", int.class));
             DATETIME_READER = lookup.unreflect(Row.class.getMethod("dateTimeValue", int.class));
 
+            BOOLEAN_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendBoolean", boolean.class));
             BYTE_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendByte", byte.class));
             SHORT_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendShort", short.class));
             INT_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendInt", int.class));
@@ -259,6 +265,8 @@ abstract class ColumnBinding {
         final int colIdx = col.schemaIndex();
 
         switch (MarshallerUtil.mode(type)) {
+            case P_BOOLEAN:
+                return create(colIdx, getterHandle, setterHandle, P_BOOLEAN_READER, BOOLEAN_WRITER, converter);
             case P_BYTE:
                 return create(colIdx, getterHandle, setterHandle, P_BYTE_READER, BYTE_WRITER, converter);
             case P_SHORT:
@@ -271,6 +279,8 @@ abstract class ColumnBinding {
                 return create(colIdx, getterHandle, setterHandle, P_FLOAT_READER, FLOAT_WRITER, converter);
             case P_DOUBLE:
                 return create(colIdx, getterHandle, setterHandle, P_DOUBLE_READER, DOUBLE_WRITER, converter);
+            case BOOLEAN:
+                return create(colIdx, getterHandle, setterHandle, BOOLEAN_READER, BOOLEAN_WRITER, converter);
             case BYTE:
                 return create(colIdx, getterHandle, setterHandle, BYTE_READER, BYTE_WRITER, converter);
             case SHORT:

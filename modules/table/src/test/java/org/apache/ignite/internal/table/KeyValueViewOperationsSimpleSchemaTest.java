@@ -477,6 +477,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         Long key = 42L;
 
         List<NativeType> allTypes = List.of(
+                NativeTypes.BOOLEAN,
                 NativeTypes.INT8,
                 NativeTypes.INT16,
                 NativeTypes.INT32,

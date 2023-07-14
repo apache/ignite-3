@@ -50,7 +50,9 @@ public class HashCalculator {
             return;
         }
 
-        if (v.getClass() == Byte.class) {
+        if (v.getClass() == Boolean.class) {
+            appendBoolean((boolean) v);
+        } else if (v.getClass() == Byte.class) {
             appendByte((byte) v);
         } else if (v.getClass() == Short.class) {
             appendShort((short) v);
@@ -92,6 +94,24 @@ public class HashCalculator {
      */
     public void appendNull() {
         appendByte((byte) 0);
+    }
+
+    /**
+     * Append boolean to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
+    public void appendBoolean(boolean v) {
+        hash = combine(hash, hashBoolean(v));
+    }
+
+    /**
+     * Get value hash.
+     *
+     * @param v Value to hash.
+     */
+    public static int hashBoolean(boolean v) {
+        return HashUtils.hash32(ByteUtils.booleanToByte(v));
     }
 
     /**
