@@ -24,8 +24,10 @@ public final class SchemaVersionMismatchException extends SchemaException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
+    /** Expected schema version. */
     private final int expectedVersion;
 
+    /** Actual schema version. */
     private final int actualVersion;
 
     public SchemaVersionMismatchException(int expectedVersion, int actualVer) {
@@ -35,11 +37,21 @@ public final class SchemaVersionMismatchException extends SchemaException {
         this.actualVersion = actualVer;
     }
 
-    public int expectedVer() {
+    /**
+     * Gets expected schema version.
+     *
+     * @return Expected schema version.
+     */
+    public int expectedVersion() {
         return expectedVersion;
     }
 
-    public int actualVer() {
+    /**
+     * Gets actual schema version.
+     *
+     * @return Actual schema version.
+     */
+    public int actualVersion() {
         return actualVersion;
     }
 }

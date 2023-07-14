@@ -95,6 +95,7 @@ import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.security.authentication.AnonymousRequest;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
@@ -394,17 +395,23 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
-        // TODO: Handle SchemaVersionMismatchException separately; send schema version to client.
-        // To include additional data with the error, introduce a map of error data.
         err = ExceptionUtils.unwrapCause(err);
 
         if (err instanceof TraceableException) {
             TraceableException iex = (TraceableException) err;
             packer.packUuid(iex.traceId());
             packer.packInt(iex.code());
+
+            if (err instanceof SchemaVersionMismatchException) {
+                // TODO: Special error code.
+                // TODO: To include additional data with the error, introduce a map of error data.
+            } else {
+                packer.packNil(); // No additional data.
+            }
         } else {
             packer.packUuid(UUID.randomUUID());
             packer.packInt(INTERNAL_ERR);
+            packer.packNil(); // No additional data.
         }
 
         packer.packString(err.getClass().getName());
