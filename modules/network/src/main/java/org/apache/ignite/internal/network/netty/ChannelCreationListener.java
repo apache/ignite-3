@@ -15,39 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.repl;
+package org.apache.ignite.internal.network.netty;
 
-/** Representation of session details. */
-public class SessionInfo {
-    private final String nodeUrl;
-
-    private final String nodeName;
-
-    private final String jdbcUrl;
-
-    private final String username;
-
-    /** Constructor. */
-    public SessionInfo(String nodeUrl, String nodeName, String jdbcUrl, String username) {
-        this.nodeUrl = nodeUrl;
-        this.nodeName = nodeName;
-        this.jdbcUrl = jdbcUrl;
-        this.username = username;
-    }
-
-    public String nodeUrl() {
-        return nodeUrl;
-    }
-
-    public String nodeName() {
-        return nodeName;
-    }
-
-    public String jdbcUrl() {
-        return jdbcUrl;
-    }
-
-    public String username() {
-        return username;
-    }
+/** Channel creation listener. */
+public interface ChannelCreationListener {
+    /**
+     * Notifies of the handshake's finish.
+     *
+     * @param channel Opened channel.
+     */
+    void handshakeFinished(NettySender channel);
 }

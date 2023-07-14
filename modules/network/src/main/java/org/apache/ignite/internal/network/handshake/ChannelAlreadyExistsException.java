@@ -15,39 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.repl;
+package org.apache.ignite.internal.network.handshake;
 
-/** Representation of session details. */
-public class SessionInfo {
-    private final String nodeUrl;
+/**
+ * Exception that notifies of existence of a channel with a specific consistent id during handshake.
+ */
+public class ChannelAlreadyExistsException extends RuntimeException {
+    private static final long serialVersionUID = 0L;
 
-    private final String nodeName;
+    /** Consistent id of a remote node. */
+    private final String consistentId;
 
-    private final String jdbcUrl;
-
-    private final String username;
-
-    /** Constructor. */
-    public SessionInfo(String nodeUrl, String nodeName, String jdbcUrl, String username) {
-        this.nodeUrl = nodeUrl;
-        this.nodeName = nodeName;
-        this.jdbcUrl = jdbcUrl;
-        this.username = username;
+    public ChannelAlreadyExistsException(String consistentId) {
+        this.consistentId = consistentId;
     }
 
-    public String nodeUrl() {
-        return nodeUrl;
-    }
-
-    public String nodeName() {
-        return nodeName;
-    }
-
-    public String jdbcUrl() {
-        return jdbcUrl;
-    }
-
-    public String username() {
-        return username;
+    /**
+     * Returns consistent id of the remote node with which a channel already exists.
+     */
+    public String consistentId() {
+        return consistentId;
     }
 }

@@ -149,6 +149,8 @@ public class ExecutionServiceImplTest {
     private ParserService parserService;
     private RuntimeException mappingException;
 
+    private final List<QueryTaskExecutor> executers = new ArrayList<>();
+
     private ClusterNode firstNode;
 
     @BeforeEach
@@ -170,6 +172,16 @@ public class ExecutionServiceImplTest {
         }
 
         mailboxes.clear();
+
+        executers.forEach(executer -> {
+            try {
+                executer.stop();
+            } catch (Exception e) {
+                LOG.error("Unable to stop executor", e);
+            }
+        });
+
+        executers.clear();
     }
 
     /**
@@ -201,9 +213,7 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
 
-        for (AbstractNode<?> node : execNodes) {
-            assertTrue(node.context().isCancelled());
-        }
+        awaitContextCancellation(execNodes);
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
@@ -243,9 +253,7 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
 
-        for (AbstractNode<?> node : execNodes) {
-            assertTrue(node.context().isCancelled());
-        }
+        awaitContextCancellation(execNodes);
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
@@ -299,9 +307,7 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
 
-        for (AbstractNode<?> node : execNodes) {
-            assertTrue(node.context().isCancelled());
-        }
+        awaitContextCancellation(execNodes);
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
@@ -371,9 +377,7 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
 
-        for (AbstractNode<?> node : execNodes) {
-            assertTrue(node.context().isCancelled());
-        }
+        awaitContextCancellation(execNodes);
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
@@ -561,6 +565,7 @@ public class ExecutionServiceImplTest {
         }
 
         var taskExecutor = new QueryTaskExecutorImpl(nodeName);
+        executers.add(taskExecutor);
 
         var node = testCluster.addNode(nodeName, taskExecutor);
 
@@ -642,6 +647,33 @@ public class ExecutionServiceImplTest {
         assertEquals(ctx.parameters().length, parsedResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
 
         return await(prepareService.prepareAsync(parsedResult, ctx));
+    }
+
+    private static void awaitContextCancellation(List<AbstractNode<?>> nodes) throws InterruptedException {
+        boolean success = waitForCondition(
+                () -> {
+                    for (AbstractNode<?> node : nodes) {
+                        if (!node.context().isCancelled()) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                },
+                TIMEOUT_IN_MS
+        );
+
+        if (!success) {
+            for (AbstractNode<?> node : nodes) {
+                assertTrue(
+                        node.context().isCancelled(),
+                        format(
+                                "Context is not cancelled on node {}, fragmentId={}",
+                                node.getClass().getSimpleName(), node.context().fragmentId()
+                        )
+                );
+            }
+        }
     }
 
     static class TestCluster {
