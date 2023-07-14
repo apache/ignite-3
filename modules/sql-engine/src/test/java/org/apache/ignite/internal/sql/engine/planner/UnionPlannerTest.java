@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import java.util.function.Predicate;
 import org.apache.calcite.rel.core.Union;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceAggregateBase;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -42,15 +44,16 @@ public class UnionPlannerTest extends AbstractPlannerTest {
                 + "UNION "
                 + "SELECT * FROM table3 ";
 
-        assertPlan(sql, publicSchema, isInstanceOf(IgniteReduceAggregateBase.class)
-                .and(hasChildThat(isInstanceOf(Union.class)
-                )));
-        assertPlan(sql, publicSchema, isInstanceOf(IgniteReduceAggregateBase.class)
-                .and(hasChildThat(isInstanceOf(Union.class)
-                        .and(input(0, isTableScan("TABLE1")))
-                        .and(input(1, isTableScan("TABLE2")))
-                        .and(input(2, isTableScan("TABLE3")))
-                )));
+        assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
+                .and(hasDistribution(IgniteDistributions.single()))
+                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasChildThat(isInstanceOf(Union.class)
+                                .and(input(0, isTableScan("TABLE1")))
+                                .and(input(1, isTableScan("TABLE2")))
+                                .and(input(2, isTableScan("TABLE3")))
+                        ))
+                ))
+        );
     }
 
     @Test

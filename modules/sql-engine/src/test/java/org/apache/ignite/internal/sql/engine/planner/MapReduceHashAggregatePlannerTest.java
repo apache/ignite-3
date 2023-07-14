@@ -95,7 +95,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkSimpleAggWithGroupBySingle(TestCase.CASE_6);
 
         checkSimpleAggWithGroupByHash(TestCase.CASE_5A);
-        checkSimpleAggWithGroupByHash(TestCase.CASE_6A);
+        checkAggWithGroupByHashFromExchange(TestCase.CASE_6A);
     }
 
     /**
@@ -142,8 +142,8 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkAggWithGroupByIndexColumnsSingle(TestCase.CASE_11);
 
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_9A);
-        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_10A);
-        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_11A);
+        checkAggWithGroupByIndexColumnsHashFromExchange(TestCase.CASE_10A);
+        checkAggWithGroupByIndexColumnsHashFromExchange(TestCase.CASE_11A);
     }
 
     /**
@@ -152,7 +152,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
     @Test
     public void distinctWithoutAggregate() throws Exception {
         checkGroupWithNoAggregateSingle(TestCase.CASE_12);
-        checkGroupWithNoAggregateHash(TestCase.CASE_12A);
+        checkGroupWithNoAggregateHashFromExchange(TestCase.CASE_12A);
     }
 
     /**
@@ -161,7 +161,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
     @Test
     public void distinctWithoutAggregateUseIndex() throws Exception {
         checkGroupWithNoAggregateSingle(TestCase.CASE_13);
-        checkGroupWithNoAggregateHash(TestCase.CASE_13A);
+        checkGroupWithNoAggregateHashFromExchange(TestCase.CASE_13A);
     }
 
     /**
@@ -318,11 +318,9 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
                                 .and(not(hasAggregate()))
                                 .and(hasGroups())
-                                .and(input(isInstanceOf(IgniteExchange.class)
-                                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                                .and(not(hasAggregate()))
-                                                .and(hasGroups())
-                                        ))
+                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                        .and(not(hasAggregate()))
+                                        .and(hasGroups())
                                 ))
                         ))
                 ))
@@ -380,6 +378,21 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(input(isInstanceOf(IgniteMapHashAggregate.class)
                                         .and(hasAggregate())
                                         .and(hasGroups())
+                                        .and(input(isTableScan("TEST")))
+                                ))
+                        ))
+                ),
+                disableRules
+        );
+    }
+
+    private void checkAggWithGroupByHashFromExchange(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                .and(hasAggregate())
+                                .and(hasGroups())
+                                .and(input(isInstanceOf(IgniteExchange.class)
                                         .and(input(isTableScan("TEST")))
                                 ))
                         ))
@@ -463,10 +476,10 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
                                         .and(not(hasAggregate()))
                                         .and(hasGroups())
-                                        .and(input(isInstanceOf(IgniteExchange.class)
-                                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                                        .and(not(hasAggregate()))
-                                                        .and(hasGroups())
+                                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                                .and(not(hasAggregate()))
+                                                .and(hasGroups())
+                                                .and(input(isInstanceOf(IgniteExchange.class)
                                                         .and(input(isTableScan("TEST")))
                                                 ))
                                         ))
@@ -503,6 +516,20 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         );
     }
 
+    private void checkAggWithGroupByIndexColumnsHashFromExchange(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                .and(hasAggregate())
+                                .and(input(isInstanceOf(IgniteExchange.class)
+                                        .and(input(isTableScan("TEST")))
+                                ))
+                        ))
+                ),
+                disableRules
+        );
+    }
+
     private void checkGroupWithNoAggregateSingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
@@ -527,6 +554,23 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(input(isInstanceOf(IgniteMapHashAggregate.class)
                                         .and(not(hasAggregate()))
                                         .and(hasGroups())
+                                        .and(input(isTableScan("TEST")))
+                                ))
+                        ))
+                ),
+                disableRules
+        );
+    }
+
+    private void checkGroupWithNoAggregateHashFromExchange(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+                        .and(not(hasAggregate()))
+                        .and(hasGroups())
+                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                .and(not(hasAggregate()))
+                                .and(hasGroups())
+                                .and(input(isInstanceOf(IgniteExchange.class)
                                         .and(input(isTableScan("TEST")))
                                 ))
                         ))

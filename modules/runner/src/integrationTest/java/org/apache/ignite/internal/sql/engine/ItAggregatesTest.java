@@ -521,29 +521,6 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
         }
     }
 
-    @Test
-    public void ddd () {
-        sql("CREATE TABLE test3 (id INTEGER PRIMARY KEY, a INTEGER, s VARCHAR)");
-        sql("INSERT INTO test3 VALUES (1, 11, 'hello'), (2, 12, 'world'), (3, 11, NULL)");
-        sql("SELECT COUNT(a), COUNT(DISTINCT s) FROM test3");
-
-        /*
-        Execute: SELECT NULLIF(NULLIF((SELECT MIN(a) FROM test), a), b) FROM test2
-
-        java.lang.AssertionError: Not expected result at: (test_null_if.test:24). [row=0, col=0, expected=aaa, actual=ccc]
-         */
-    }
-
-    @Test
-    public void ddd2 () {
-        sql("CREATE TABLE test_strings (id INTEGER PRIMARY KEY, s VARCHAR)");
-
-        sql("INSERT INTO test_strings VALUES (1, 'aaaaaaaahello'), (2, 'bbbbbbbbbbbbbbbbbbbbhello'),"
-                + " (3, 'ccccccccccccccchello'), (4, 'aaaaaaaaaaaaaaaaaaaaaaaahello')");
-
-        sql("SELECT MIN(s), MAX(s) FROM test_strings");
-    }
-
     private static Stream<Arguments> disabledRulesForGroupingSets() {
         return Arrays.stream(makePermutations(DISABLED_RULES_FOR_GROUPING_SETS)).map(Object.class::cast).map(Arguments::of);
     }

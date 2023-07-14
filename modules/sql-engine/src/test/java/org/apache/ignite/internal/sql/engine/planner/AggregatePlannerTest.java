@@ -92,8 +92,8 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         checkSimpleAggWithGroupBySingle(TestCase.CASE_5);
         checkSimpleAggWithGroupBySingle(TestCase.CASE_6);
 
-        checkSimpleAggWithGroupByHash(TestCase.CASE_5A);
-        checkSimpleAggWithGroupByHash(TestCase.CASE_6A);
+        checkSimpleAggWithGroupByHashColocatedFromExchange(TestCase.CASE_5A);
+        checkSimpleAggWithGroupByHashColocatedFromExchange(TestCase.CASE_6A);
     }
 
     /**
@@ -140,41 +140,8 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         checkAggWithGroupByIndexColumnsSingle(TestCase.CASE_11);
 
         checkAggWithGroupByIndexColumnsSort(TestCase.CASE_9A);
-//        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_10A);
-        checkAggWithGroupByIndexColumnsSort(TestCase.CASE_11A);
-
-
-        /*
-        QUERY!!!!
-IgniteProject(EXPR$0=[$1]), id = 85
-  IgniteColocatedSortAggregate(group=[{0}], EXPR$0=[AVG($1)], collation=[[0]]), id = 84
-    IgniteIndexScan(table=[[PUBLIC, TEST]], index=[grp0_grp1], type=[SORTED], projects=[[$t1, $t0]], requiredColumns=[{1, 3}], collation=[[3, 4]]), id = 46
-         */
-
-        /*
-        IgniteProject(EXPR$0=[$2]), id = 118
-  IgniteColocatedSortAggregate(group=[{0, 1}], EXPR$0=[AVG($2)], collation=[[0, 1]]), id = 117
-    IgniteExchange(distribution=[single]), id = 116
-      IgniteIndexScan(table=[[PUBLIC, TEST]], index=[grp0_grp1], type=[SORTED], projects=[[$t1, $t2, $t0]], requiredColumns=[{1, 3, 4}], collation=[[3, 4]]), id = 46
-         */
-
-        /*
-        QUERY!!!!
-IgniteProject(EXPR$0=[$2]), id = 641
-  IgniteReduceSortAggregate(group=[{0, 1}], EXPR$0=[AVG($2)], collation=[[1, 0]]), id = 640
-    IgniteExchange(distribution=[single]), id = 639
-      IgniteMapSortAggregate(group=[{0, 1}], EXPR$0=[AVG($2)], collation=[[1, 0]]), id = 638
-        IgniteIndexScan(table=[[PUBLIC, TEST]], index=[grp0_grp1], type=[SORTED], projects=[[$t2, $t1, $t0]], requiredColumns=[{1, 3, 4}], collation=[[3, 4]]), id = 506
-
-
-
-IgniteProject(EXPR$0=[$2]), id = 640
-  IgniteColocatedSortAggregate(group=[{0, 1}], EXPR$0=[AVG($2)], collation=[[1, 0]]), id = 639
-    IgniteExchange(distribution=[single]), id = 638
-      IgniteIndexScan(table=[[PUBLIC, TEST]], index=[grp0_grp1], type=[SORTED], projects=[[$t2, $t1, $t0]], requiredColumns=[{1, 3, 4}], collation=[[3, 4]]), id = 506
-
-
-         */
+        checkAggWithGroupByIndexColumnsColocatedSortFromExchange(TestCase.CASE_10A);
+        checkAggWithGroupByIndexColumnsColocatedSortFromExchange(TestCase.CASE_11A);
     }
 
     /**
@@ -185,15 +152,11 @@ IgniteProject(EXPR$0=[$2]), id = 640
         checkGroupWithNoAggregateSingle(TestCase.CASE_12);
 
         assertPlan(TestCase.CASE_12A,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
                         .and(not(hasAggregate()))
                         .and(hasGroups())
                         .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                        .and(not(hasAggregate()))
-                                        .and(hasGroups())
-                                        .and(input(isTableScan("TEST")))
-                                ))
+                                .and(input(isTableScan("TEST")))
                         ))
                 )
         );
@@ -493,6 +456,30 @@ IgniteProject(EXPR$0=[$2]), id = 640
                         .and(hasGroups())
                         .and(input(isInstanceOf(IgniteExchange.class)
                                 .and(input(isTableScan("TEST")))
+                        ))
+                )
+        );
+    }
+
+    private void checkSimpleAggWithGroupByHashColocatedFromExchange(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasAggregate())
+                        .and(hasGroups())
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isTableScan("TEST")))
+                        ))
+                )
+        );
+    }
+
+    private void checkAggWithGroupByIndexColumnsColocatedSortFromExchange(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
+                        .and(hasAggregate())
+                        .and(hasGroups())
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isIndexScan("TEST", "grp0_grp1")))
                         ))
                 )
         );
