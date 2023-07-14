@@ -157,11 +157,21 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     void executesFailingJobOnRemoteNodes() {
         Ignite entryNode = node(0);
 
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> {
-            entryNode.compute()
-                    .executeAsync(Set.of(node(1).node(), node(2).node()), units(), failingJobClassName())
-                    .get(1, TimeUnit.SECONDS);
-        });
+        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
+                .execute(Set.of(node(1).node(), node(2).node()), units(), failingJobClassName()));
+
+        assertThat(ex.getCause().getClass().getName(), is(jobExceptionClassName()));
+        assertThat(ex.getCause().getMessage(), is("Oops"));
+        assertThat(ex.getCause().getCause(), is(notNullValue()));
+    }
+
+    @Test
+    void executesFailingJobOnRemoteNodesAsync() {
+        Ignite entryNode = node(0);
+
+        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
+                .executeAsync(Set.of(node(1).node(), node(2).node()), units(), failingJobClassName())
+                .get(1, TimeUnit.SECONDS));
 
         assertThat(ex.getCause().getClass().getName(), is(jobExceptionClassName()));
         assertThat(ex.getCause().getMessage(), is("Oops"));
