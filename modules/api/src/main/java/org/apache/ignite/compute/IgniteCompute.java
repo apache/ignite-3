@@ -17,12 +17,12 @@
 
 package org.apache.ignite.compute;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.stream.Collectors;
 import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -205,8 +205,13 @@ public interface IgniteCompute {
             Object... args
     ) {
         try {
-            return this.<R>broadcastAsync(nodes, units, jobClassName, args).entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().join()));
+            Map<ClusterNode, CompletableFuture<R>> asyncRes = broadcastAsync(nodes, units, jobClassName, args);
+            Map<ClusterNode, R> res = new HashMap<>(asyncRes.size());
+
+            for (Map.Entry<ClusterNode, CompletableFuture<R>> e : asyncRes.entrySet())
+                res.put(e.getKey(), e.getValue().join());
+
+            return res;
         } catch (CompletionException e) {
             throw IgniteExceptionUtils.wrap(e);
         }
