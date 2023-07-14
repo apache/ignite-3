@@ -344,6 +344,9 @@ public class IncrementalVersionedValueTest {
         assertThat(future3, willBe(2));
     }
 
+    /**
+     * Tests that {@link IncrementalVersionedValue#dependingOn(IncrementalVersionedValue)} provides causality between 2 different values.
+     */
     @RepeatedTest(100)
     public void testDependingOn() {
         var vv0 = new IncrementalVersionedValue<>(register, () -> 1);
@@ -364,6 +367,10 @@ public class IncrementalVersionedValueTest {
         assertTrue(vv0.get(token).isDone());
     }
 
+    /**
+     * Tests that {@link IncrementalVersionedValue#update(long, BiFunction)} closure is called immediately when underlying value is
+     * accessible, i.e. when there were no other updates.
+     */
     @Test
     public void testImmediateUpdate() {
         var vv = new IncrementalVersionedValue<>(register, () -> 1);
