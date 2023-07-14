@@ -32,7 +32,6 @@ import static org.mockito.Mockito.when;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -228,20 +227,21 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     MvPartitionStorage partitionStorage = mvPartitionStorages.get(storageIndex);
 
                     Map<ByteBuffer, RowId> primaryIndex = rowsToRowIds(partitionStorage);
-                    RowId rowId = primaryIndex.get(req0.binaryRow().byteBuffer());
+                    RowId rowId = primaryIndex.get(req0.binaryRowBytes());
+
                     BinaryRow row = partitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
 
                     return completedFuture(row);
                 }
 
                 // Non-null binary row if UPSERT, otherwise it's implied that request type is DELETE.
-                BinaryRow binaryRow = req0.requestType() == RequestType.RW_UPSERT ? req0.binaryRow() : null;
+                ByteBuffer binaryRow = req0.requestType() == RequestType.RW_UPSERT ? req0.binaryRowBytes() : null;
 
                 UpdateCommand cmd = msgFactory.updateCommand()
                         .txId(req0.transactionId())
                         .tablePartitionId(tablePartitionId(new TablePartitionId(1, 0)))
                         .rowUuid(new RowId(0).uuid())
-                        .rowBuffer(binaryRow == null ? null : binaryRow.byteBuffer())
+                        .rowBuffer(binaryRow)
                         .safeTimeLong(hybridClock.nowLong())
                         .build();
 
@@ -319,7 +319,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 return false;
             }
 
-            return Arrays.equals(value.bytes(), read.binaryRow().tupleSlice().array());
+            return value.tupleSlice().equals(read.binaryRow().tupleSlice());
         };
     }
 

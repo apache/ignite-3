@@ -17,14 +17,18 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.ClockUpdateListener;
@@ -35,6 +39,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -59,18 +64,39 @@ public class ClockWaiter implements IgniteComponent {
 
     private final ClockUpdateListener updateListener = this::onUpdate;
 
+    private final Runnable triggerClockUpdate = this::triggerTrackerUpdate;
+
+    /** Executor on which short-lived tasks are scheduled that are needed to timely complete awaiting futures. */
     private volatile ScheduledExecutorService scheduler;
 
+    /** Executor that executes completion of futures returned to the user, so it might take arbitrarily heavy operations. */
+    private final ExecutorService futureExecutor;
+
+    /**
+     * Creates a new {@link ClockWaiter}.
+     *
+     * @param nodeName Name of the current Ignite node.
+     * @param clock Clock to look at.
+     */
     public ClockWaiter(String nodeName, HybridClock clock) {
         this.nodeName = nodeName;
         this.clock = clock;
+
+        futureExecutor = new ThreadPoolExecutor(
+                0,
+                4,
+                1,
+                TimeUnit.MINUTES,
+                new LinkedBlockingQueue<>(),
+                new NamedThreadFactory(nodeName + "-clock-waiter-future-executor", LOG)
+        );
     }
 
     @Override
     public void start() {
         clock.addUpdateListener(updateListener);
 
-        scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(nodeName + "-clock-waiter", LOG));
+        scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(nodeName + "-clock-waiter-scheduler", LOG));
     }
 
     @Override
@@ -91,6 +117,9 @@ public class ClockWaiter implements IgniteComponent {
         // user-facing futures we return from the tracker), but we don't need them for anything else,
         // so it's simpler to just use shutdownNow().
         scheduler.shutdownNow();
+
+        IgniteUtils.shutdownAndAwaitTermination(futureExecutor, 10, TimeUnit.SECONDS);
+
         scheduler.awaitTermination(10, TimeUnit.SECONDS);
     }
 
@@ -109,6 +138,9 @@ public class ClockWaiter implements IgniteComponent {
     /**
      * Wait for the clock to reach the given timestamp.
      *
+     * <p>If completion of the returned future triggers some I/O operations or causes the code to block, it is highly
+     * recommended to execute those completion stages on a specific thread pool to avoid the waiter's pool starvation.
+     *
      * @param targetTimestamp Timestamp to wait for.
      * @return A future that completes when the timestamp is reached by the clock's time.
      */
@@ -125,47 +157,44 @@ public class ClockWaiter implements IgniteComponent {
     }
 
     private CompletableFuture<Void> doWaitFor(HybridTimestamp targetTimestamp) {
-        CompletableFuture<Void> future = nowTracker.waitFor(targetTimestamp.longValue());
+        HybridTimestamp now = clock.now();
 
-        ScheduledFuture<?> scheduledFuture;
-
-        if (!future.isDone()) {
-            // This triggers a clock update.
-            HybridTimestamp now = clock.now();
-
-            if (targetTimestamp.compareTo(now) <= 0) {
-                assert future.isDone();
-
-                scheduledFuture = null;
-            } else {
-                // Adding 1 to account for a possible non-null logical part of the targetTimestamp.
-                long millisToWait = targetTimestamp.getPhysical() - now.getPhysical() + 1;
-
-                scheduledFuture = scheduler.schedule(this::triggerClockUpdate, millisToWait, TimeUnit.MILLISECONDS);
-            }
-        } else {
-            scheduledFuture = null;
+        if (targetTimestamp.compareTo(now) <= 0) {
+            return completedFuture(null);
         }
 
-        return future.handle((res, ex) -> {
-            if (scheduledFuture != null) {
-                scheduledFuture.cancel(true);
-            }
+        CompletableFuture<Void> future = nowTracker.waitFor(targetTimestamp.longValue());
 
-            if (ex != null) {
-                // Let's replace a TrackerClosedException with a CancellationException as the latter makes more sense for the clients.
-                if (ex instanceof TrackerClosedException) {
-                    throw new CancellationException();
-                } else {
-                    throw new CompletionException(ex);
-                }
-            }
+        // Adding 1 to account for a possible non-null logical part of the targetTimestamp.
+        long millisToWait = targetTimestamp.getPhysical() - now.getPhysical() + 1;
 
-            return res;
-        });
+        ScheduledFuture<?> scheduledFuture = scheduler.schedule(triggerClockUpdate, millisToWait, TimeUnit.MILLISECONDS);
+
+        // The future might be completed in a random thread, so let's move its completion execution to a special thread pool
+        // because the user's code following the future completion might run arbitrarily heavy operations and we don't want
+        // to put them on an innocent thread invoking now()/update() on the clock.
+        return future
+                .handleAsync((res, ex) -> {
+                    scheduledFuture.cancel(true);
+
+                    if (ex != null) {
+                        translateTrackerClosedException(ex);
+                    }
+
+                    return res;
+                }, futureExecutor);
     }
 
-    private void triggerClockUpdate() {
-        clock.now();
+    private static void translateTrackerClosedException(Throwable ex) {
+        if (ex instanceof TrackerClosedException) {
+            throw new CancellationException();
+        } else {
+            throw new CompletionException(ex);
+        }
     }
+
+    private void triggerTrackerUpdate() {
+        onUpdate(clock.nowLong());
+    }
+
 }

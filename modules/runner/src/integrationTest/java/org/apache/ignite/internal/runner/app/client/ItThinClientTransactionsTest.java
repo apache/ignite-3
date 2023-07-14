@@ -123,7 +123,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertFalse(recordView.delete(tx, key));
 
         recordView.upsertAll(tx, List.of(rec(1, "6"), rec(2, "7")));
-        assertEquals(2, recordView.getAll(tx, List.of(key, rec(2, null), rec(3, null))).size());
+        assertEquals(3, recordView.getAll(tx, List.of(key, rec(2, null), rec(3, null))).size());
 
         tx.rollback();
         assertEquals(rec(1, "1"), recordView.get(null, key));
@@ -149,7 +149,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertFalse(recordView.delete(tx, key));
 
         recordView.upsertAll(tx, List.of(kv(1, "6"), kv(2, "7")));
-        assertEquals(2, recordView.getAll(tx, List.of(key, key(2), key(3))).size());
+        assertEquals(3, recordView.getAll(tx, List.of(key, key(2), key(3))).size());
 
         tx.rollback();
         assertEquals(kv(1, "1"), recordView.get(null, key));
@@ -188,10 +188,15 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testAccessLockedKeyTimesOut() {
+    void testAccessLockedKeyTimesOut() throws Exception {
         KeyValueView<Integer, String> kvView = kvView();
 
         Transaction tx1 = client().transactions().begin();
+
+        // Here we guarantee that tx2 will strictly after tx2 even if the transactions start in different server nodes.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19900 Client should participate in RW TX clock adjustment
+        Thread.sleep(50);
+
         Transaction tx2 = client().transactions().begin();
 
         kvView.put(tx2, -100, "1");

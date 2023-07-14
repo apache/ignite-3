@@ -22,7 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -60,7 +60,7 @@ public class ClientTableCommon {
      * @param schemaVer Schema version.
      * @param schema    Schema.
      */
-    public static void writeSchema(ClientMessagePacker packer, int schemaVer, SchemaDescriptor schema) {
+    static void writeSchema(ClientMessagePacker packer, int schemaVer, SchemaDescriptor schema) {
         packer.packInt(schemaVer);
 
         if (schema == null) {
@@ -72,8 +72,6 @@ public class ClientTableCommon {
         var colCnt = schema.columnNames().size();
         packer.packArrayHeader(colCnt);
 
-        var colocationCols = Set.of(schema.colocationColumns());
-
         for (var colIdx = 0; colIdx < colCnt; colIdx++) {
             var col = schema.column(colIdx);
 
@@ -82,7 +80,7 @@ public class ClientTableCommon {
             packer.packInt(getColumnType(col.type().spec()).ordinal());
             packer.packBoolean(schema.isKeyColumn(colIdx));
             packer.packBoolean(col.nullable());
-            packer.packBoolean(colocationCols.contains(col));
+            packer.packInt(schema.colocationIndex(col));
             packer.packInt(getDecimalScale(col.type()));
             packer.packInt(getPrecision(col.type()));
         }
@@ -133,13 +131,14 @@ public class ClientTableCommon {
         }
 
         assert tuple instanceof BinaryTupleContainer : "Tuple must be a BinaryTupleContainer: " + tuple.getClass();
-
         BinaryTupleReader binaryTuple = ((BinaryTupleContainer) tuple).binaryTuple();
-
         assert binaryTuple != null : "Binary tuple must not be null: " + tuple.getClass();
 
-        int elementCount = part == TuplePart.KEY ? schema.keyColumns().length() : -1;
-        packer.packBinaryTuple(binaryTuple, elementCount);
+        int elementCount = part == TuplePart.KEY ? schema.keyColumns().length() : schema.length();
+        assert elementCount == binaryTuple.elementCount() :
+                "Tuple element count mismatch: " + elementCount + " != " + binaryTuple.elementCount();
+
+        packer.packBinaryTuple(binaryTuple);
     }
 
     /**
@@ -330,17 +329,18 @@ public class ClientTableCommon {
      *                             <li>the node is stopping.</li>
      *                         </ul>
      */
-    public static TableImpl readTable(ClientMessageUnpacker unpacker, IgniteTables tables) {
+    public static CompletableFuture<TableImpl> readTableAsync(ClientMessageUnpacker unpacker, IgniteTables tables) {
         int tableId = unpacker.unpackInt();
 
         try {
-            TableImpl table = ((IgniteTablesInternal) tables).table(tableId);
+            return ((IgniteTablesInternal) tables).tableAsync(tableId)
+                    .thenApply(t -> {
+                        if (t == null) {
+                            throw new IgniteException(TABLE_ID_NOT_FOUND_ERR, "Table does not exist: " + tableId);
+                        }
 
-            if (table == null) {
-                throw new IgniteException(TABLE_ID_NOT_FOUND_ERR, "Table does not exist: " + tableId);
-            }
-
-            return table;
+                        return t;
+                    });
         } catch (NodeStoppingException e) {
             throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }

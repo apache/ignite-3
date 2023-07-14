@@ -31,6 +31,9 @@ public interface SyncTimeCommand extends WriteCommand {
     /** New safe time. */
     long safeTimeLong();
 
+    /** Term of the initiator. */
+    long initiatorTerm();
+
     /** New safe time. */
     default HybridTimestamp safeTime() {
         return hybridTimestamp(safeTimeLong());

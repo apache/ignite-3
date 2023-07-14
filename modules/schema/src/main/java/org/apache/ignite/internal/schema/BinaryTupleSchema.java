@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import java.math.BigDecimal;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Description of a binary tuple.
@@ -97,12 +98,11 @@ public class BinaryTupleSchema {
          * Constructs a tuple schema for a contiguous range of columns.
          *
          * @param elements Tuple elements.
-         * @param hasNullables True if there are any nullable tuple elements, false otherwise.
          * @param columnBase Row column matching the first tuple element.
          * @param fullSize True if the tuple contains enough elements to form a full row.
          */
-        private DenseRowSchema(Element[] elements, boolean hasNullables, int columnBase, boolean fullSize) {
-            super(elements, hasNullables);
+        private DenseRowSchema(Element[] elements, int columnBase, boolean fullSize) {
+            super(elements);
             this.columnBase = columnBase;
             this.fullSize = fullSize;
         }
@@ -129,10 +129,9 @@ public class BinaryTupleSchema {
          *
          * @param elements Tuple elements.
          * @param columns Row column indexes.
-         * @param hasNullables True if there are any nullable tuple elements, false otherwise.
          */
-        private SparseRowSchema(Element[] elements, int[] columns, boolean hasNullables) {
-            super(elements, hasNullables);
+        private SparseRowSchema(Element[] elements, int[] columns) {
+            super(elements);
             this.columns = columns;
         }
 
@@ -146,18 +145,13 @@ public class BinaryTupleSchema {
     /** Descriptors of all tuple elements. */
     private final Element[] elements;
 
-    /** Indicates if the schema contains one or more nullable elements. */
-    private final boolean hasNullables;
-
     /**
      * Constructs a tuple schema object.
      *
      * @param elements Tuple elements.
-     * @param hasNullables True if there are any nullable tuple elements, false otherwise.
      */
-    private BinaryTupleSchema(Element[] elements, boolean hasNullables) {
+    private BinaryTupleSchema(Element[] elements) {
         this.elements = elements;
-        this.hasNullables = hasNullables;
     }
 
     /**
@@ -167,7 +161,7 @@ public class BinaryTupleSchema {
      * @return Tuple schema.
      */
     public static BinaryTupleSchema create(Element[] elements) {
-        return new BinaryTupleSchema(elements.clone(), checkNullables(elements));
+        return new BinaryTupleSchema(elements.clone());
     }
 
     /**
@@ -212,19 +206,16 @@ public class BinaryTupleSchema {
         int numCols = colEnd - colBegin;
 
         Element[] elements = new Element[numCols];
-        boolean hasNullables = false;
 
         for (int i = 0; i < numCols; i++) {
             Column column = descriptor.column(colBegin + i);
-            boolean nullable = column.nullable();
-            elements[i] = new Element(column.type(), nullable);
-            hasNullables |= nullable;
+            elements[i] = new Element(column.type(), column.nullable());
         }
 
         boolean fullSize = (colBegin == 0
                 && (colEnd == descriptor.length() || colEnd == descriptor.keyColumns().length()));
 
-        return new DenseRowSchema(elements, hasNullables, colBegin, fullSize);
+        return new DenseRowSchema(elements, colBegin, fullSize);
     }
 
     /**
@@ -236,16 +227,13 @@ public class BinaryTupleSchema {
      */
     public static BinaryTupleSchema createSchema(SchemaDescriptor descriptor, int[] columns) {
         Element[] elements = new Element[columns.length];
-        boolean hasNullables = false;
 
         for (int i = 0; i < columns.length; i++) {
             Column column = descriptor.column(columns[i]);
-            boolean nullable = column.nullable();
-            elements[i] = new Element(column.type(), nullable);
-            hasNullables |= nullable;
+            elements[i] = new Element(column.type(), column.nullable());
         }
 
-        return new SparseRowSchema(elements, columns.clone(), hasNullables);
+        return new SparseRowSchema(elements, columns.clone());
     }
 
     /**
@@ -253,13 +241,6 @@ public class BinaryTupleSchema {
      */
     public int elementCount() {
         return elements.length;
-    }
-
-    /**
-     * Returns true if there is one or more nullable elements, false otherwise.
-     */
-    public boolean hasNullableElements() {
-        return hasNullables;
     }
 
     /**
@@ -294,7 +275,7 @@ public class BinaryTupleSchema {
      * @param index Field index.
      * @return {@code BigDecimal} value of the field.
      */
-    public BigDecimal decimalValue(BinaryTupleReader tuple, int index) {
+    public @Nullable BigDecimal decimalValue(BinaryTupleReader tuple, int index) {
         return tuple.decimalValue(index, element(index).decimalScale);
     }
 
@@ -310,6 +291,7 @@ public class BinaryTupleSchema {
         Element element = element(index);
 
         switch (element.typeSpec) {
+            case BOOLEAN: return tuple.booleanValueBoxed(index);
             case INT8: return tuple.byteValueBoxed(index);
             case INT16: return tuple.shortValueBoxed(index);
             case INT32: return tuple.intValueBoxed(index);
@@ -328,15 +310,5 @@ public class BinaryTupleSchema {
             case TIMESTAMP: return tuple.timestampValue(index);
             default: throw new InvalidTypeException("Unknown element type: " + element.typeSpec);
         }
-    }
-
-    /** Tests if there are any nullable elements in the array. */
-    private static boolean checkNullables(Element[] elements) {
-        for (Element element : elements) {
-            if (element.nullable) {
-                return true;
-            }
-        }
-        return false;
     }
 }

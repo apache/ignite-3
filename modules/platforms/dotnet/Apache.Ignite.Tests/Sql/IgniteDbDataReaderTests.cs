@@ -24,6 +24,7 @@ using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Ignite.Sql;
+using Internal.Proto.BinaryTuple;
 using Internal.Sql;
 using NodaTime;
 using NUnit.Framework;
@@ -75,9 +76,12 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
             Int32: int.MinValue,
             Int64: long.MinValue,
             Float: float.MinValue,
-            Double: double.MinValue);
+            Double: double.MinValue,
+            Blob: new[] { BinaryTupleCommon.VarlenEmptyByte });
 
-        await PocoAllColumnsSqlNullableView.UpsertAllAsync(null, new[] { pocoAllColumns1, pocoAllColumns2 });
+        var pocoAllColumns3 = new PocoAllColumnsSqlNullable(Key: 3);
+
+        await PocoAllColumnsSqlNullableView.UpsertAllAsync(null, new[] { pocoAllColumns1, pocoAllColumns2, pocoAllColumns3 });
 
         for (int i = 3; i < 10; i++)
         {
@@ -477,6 +481,19 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestGetBytesWithVarlenEmptyByte()
+    {
+        await using var reader = await ExecuteReader();
+        await reader.ReadAsync();
+
+        var bytesLen = reader.GetBytes(name: "BLOB", dataOffset: 0, buffer: null!, bufferOffset: 0, length: 0);
+        var bytes = new byte[bytesLen];
+        reader.GetBytes(name: "BLOB", dataOffset: 0L, buffer: bytes, bufferOffset: 0, length: (int)bytesLen);
+
+        Assert.AreEqual(new[] { BinaryTupleCommon.VarlenEmptyByte }, bytes);
+    }
+
+    [Test]
     public async Task TestGetChars()
     {
         await using var reader = await ExecuteReader();
@@ -552,6 +569,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     public async Task TestIsDbNull()
     {
         await using var reader = await ExecuteReader();
+        await reader.ReadAsync();
         await reader.ReadAsync();
 
         /* ReSharper disable MethodHasAsyncOverload */

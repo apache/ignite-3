@@ -29,7 +29,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -625,7 +624,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             TestValue testValue = new TestValue(indexedVal, "val" + i);
 
             BinaryTuple indexedValue = new BinaryTuple(1,
-                    new BinaryTupleBuilder(1, false).appendInt(indexedVal).build());
+                    new BinaryTupleBuilder(1).appendInt(indexedVal).build());
             BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
 
             testMvPartitionStorage.addWrite(rowId, storeRow, txId, tblId, partId);
@@ -732,7 +731,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             TestValue testValue = new TestValue(indexedVal, "val" + i);
 
             BinaryTuple indexedValue = new BinaryTuple(1,
-                    new BinaryTupleBuilder(1, false).appendInt(indexedVal).build());
+                    new BinaryTupleBuilder(1).appendInt(indexedVal).build());
             BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
 
             testMvPartitionStorage.addWrite(rowId, storeRow, txId, tblId, partId);
@@ -834,7 +833,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             TestValue testValue = new TestValue(indexedVal, "val" + i);
 
             BinaryTuple indexedValue = new BinaryTuple(1,
-                    new BinaryTupleBuilder(1, false).appendInt(indexedVal).build());
+                    new BinaryTupleBuilder(1).appendInt(indexedVal).build());
             BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
 
             testMvPartitionStorage.addWrite(rowId, storeRow, txId, tblId, partId);
@@ -1073,7 +1072,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
                 BinaryRow row = testMvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
 
-                if (row != null && Arrays.equals(binaryRow.bytes(), row.bytes())) {
+                if (rowEquals(binaryRow, row)) {
                     found = true;
                 }
             }
@@ -1084,7 +1083,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             BinaryRow row = testMvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
 
-            assertTrue(row == null || !Arrays.equals(row.bytes(), binaryRow.bytes()));
+            assertTrue(row == null || !rowEquals(row, binaryRow));
         }
     }
 
@@ -1230,7 +1229,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             if (expected == null) {
                 assertNull(res);
             } else {
-                assertArrayEquals(expected.bytes(), res.bytes());
+                assertTrue(rowEquals(expected, res));
             }
         }
 
@@ -1419,7 +1418,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         var rowId = new RowId(partId);
 
         BinaryTuple indexedValue = new BinaryTuple(1,
-                new BinaryTupleBuilder(1, false).appendInt(FUTURE_SCHEMA_ROW_INDEXED_VALUE).build()
+                new BinaryTupleBuilder(1).appendInt(FUTURE_SCHEMA_ROW_INDEXED_VALUE).build()
         );
 
         pkStorage().put(futureSchemaVersionRow, rowId);
@@ -1595,7 +1594,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private BinaryTupleMessage toIndexKey(int val) {
-        ByteBuffer tuple = new BinaryTupleBuilder(1, true).appendInt(val).build();
+        ByteBuffer tuple = new BinaryTupleBuilder(1).appendInt(val).build();
 
         return TABLE_MESSAGES_FACTORY.binaryTupleMessage()
                 .tuple(tuple)
@@ -1655,6 +1654,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }
     }
 
+    private static boolean rowEquals(BinaryRow row1, BinaryRow row2) {
+        return row1.schemaVersion() == row2.schemaVersion()
+                && row1.hasValue() == row2.hasValue()
+                && row1.tupleSlice().equals(row2.tupleSlice());
+    }
 
     /**
      * Test pojo key.

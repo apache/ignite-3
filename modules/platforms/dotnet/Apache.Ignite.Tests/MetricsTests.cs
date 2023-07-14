@@ -22,7 +22,11 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
+using Ignite.Table;
 using NUnit.Framework;
 
 /// <summary>
@@ -30,7 +34,7 @@ using NUnit.Framework;
 /// </summary>
 public class MetricsTests
 {
-    private Listener _listener = null!;
+    private volatile Listener _listener = null!;
 
     [SetUp]
     public void SetUp() => _listener = new Listener();
@@ -53,6 +57,9 @@ public class MetricsTests
         _listener.Dispose();
     }
 
+    [OneTimeTearDown]
+    public void OneTimeTearDown() => _listener.Dispose();
+
     [Test]
     public async Task TestConnectionsMetrics()
     {
@@ -61,11 +68,12 @@ public class MetricsTests
         Assert.AreEqual(0, _listener.GetMetric("connections-established"));
         Assert.AreEqual(0, _listener.GetMetric("connections-active"));
 
-        var client = await server.ConnectClientAsync();
-        Assert.AreEqual(1, _listener.GetMetric("connections-established"));
-        Assert.AreEqual(1, _listener.GetMetric("connections-active"));
+        using (await server.ConnectClientAsync())
+        {
+            Assert.AreEqual(1, _listener.GetMetric("connections-established"));
+            Assert.AreEqual(1, _listener.GetMetric("connections-active"));
+        }
 
-        client.Dispose();
         Assert.AreEqual(0, _listener.GetMetric("connections-active"));
 
         (await server.ConnectClientAsync()).Dispose();
@@ -132,7 +140,7 @@ public class MetricsTests
     {
         using var server = new FakeServer { SendInvalidMagic = true };
 
-        Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync());
+        Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfig()));
         Assert.AreEqual(1, _listener.GetMetric("handshakes-failed"));
         Assert.AreEqual(0, _listener.GetMetric("handshakes-failed-timeout"));
     }
@@ -197,6 +205,89 @@ public class MetricsTests
 
         await client.Tables.GetTablesAsync();
         Assert.AreEqual(3, _listener.GetMetric("requests-retried"));
+    }
+
+    [Test]
+    public async Task TestDataStreamerMetrics()
+    {
+        using var server = new FakeServer();
+        using var client = await server.ConnectClientAsync();
+
+        Assert.AreEqual(0, _listener.GetMetric("streamer-batches-sent"), "streamer-batches-sent");
+        Assert.AreEqual(0, _listener.GetMetric("streamer-items-sent"), "streamer-items-sent");
+        Assert.AreEqual(0, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
+        Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
+
+        var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+        var view = table!.RecordBinaryView;
+
+        await view.StreamDataAsync(GetTuples().ToAsyncEnumerable(), DataStreamerOptions.Default with { BatchSize = 2 });
+
+        Assert.AreEqual(1, _listener.GetMetric("streamer-batches-sent"), "streamer-batches-sent");
+        Assert.AreEqual(2, _listener.GetMetric("streamer-items-sent"), "streamer-items-sent");
+        Assert.AreEqual(0, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
+        Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
+
+        IEnumerable<IIgniteTuple> GetTuples()
+        {
+            Assert.AreEqual(0, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
+            Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
+
+            yield return new IgniteTuple { ["ID"] = 1 };
+
+            Assert.AreEqual(1, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
+            Assert.AreEqual(1, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
+
+            yield return new IgniteTuple { ["ID"] = 2 };
+
+            Assert.AreEqual(2, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
+            Assert.AreEqual(2, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
+
+            TestUtils.WaitForCondition(() => _listener.GetMetric("streamer-batches-sent") == 1);
+
+            Assert.AreEqual(1, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
+            Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
+            Assert.AreEqual(2, _listener.GetMetric("streamer-items-sent"), "streamer-items-sent");
+        }
+    }
+
+    [Test]
+    public async Task TestDataStreamerMetricsWithCancellation()
+    {
+        using var server = new FakeServer();
+        using var client = await server.ConnectClientAsync();
+
+        Assert.AreEqual(0, _listener.GetMetric("streamer-batches-sent"), "streamer-batches-sent");
+        Assert.AreEqual(0, _listener.GetMetric("streamer-items-sent"), "streamer-items-sent");
+        Assert.AreEqual(0, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
+        Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
+
+        var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+        var view = table!.RecordBinaryView;
+        var cts = new CancellationTokenSource();
+
+        var task = view.StreamDataAsync(GetTuples(), DataStreamerOptions.Default with { BatchSize = 10 }, cts.Token);
+
+        TestUtils.WaitForCondition(() => _listener.GetMetric("streamer-batches-sent") > 0);
+        cts.Cancel();
+        Assert.CatchAsync<OperationCanceledException>(async () => await task);
+
+        Assert.GreaterOrEqual(_listener.GetMetric("streamer-batches-sent"), 1, "streamer-batches-sent");
+        Assert.AreEqual(0, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
+        Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
+
+        static async IAsyncEnumerable<IIgniteTuple> GetTuples([EnumeratorCancellation] CancellationToken ct = default)
+        {
+            for (int i = 0; i < 50; i++)
+            {
+                yield return new IgniteTuple { ["ID"] = i };
+
+                if (i == 40)
+                {
+                    await Task.Delay(1000, ct);
+                }
+            }
+        }
     }
 
     private static IgniteClientConfiguration GetConfig() =>

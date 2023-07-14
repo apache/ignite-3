@@ -29,6 +29,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
+import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.command.GetPrefixCommand;
 import org.apache.ignite.internal.metastorage.command.GetRangeCommand;
 import org.apache.ignite.internal.metastorage.command.PaginationCommand;
@@ -109,6 +110,10 @@ public class MetaStorageListener implements RaftGroupListener {
                     byte[] keyTo = storage.nextKey(prefixCmd.prefix());
 
                     clo.result(handlePaginationCommand(keyFrom, keyTo, prefixCmd));
+                } else if (command instanceof GetCurrentRevisionCommand) {
+                    long revision = storage.revision();
+
+                    clo.result(revision);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }

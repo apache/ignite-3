@@ -25,9 +25,6 @@ import java.util.Set;
  */
 @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
 public class AlterTableDropCommand extends AbstractTableDdlCommand {
-    /** Quietly ignore this command if column is not exists. */
-    private boolean ifColumnExists;
-
     /** Columns. */
     private Set<String> cols;
 
@@ -42,23 +39,5 @@ public class AlterTableDropCommand extends AbstractTableDdlCommand {
      */
     public void columns(Set<String> cols) {
         this.cols = cols;
-    }
-
-    /**
-     * Exists flag.
-     *
-     * @return Quietly ignore this command if column is not exists.
-     */
-    public boolean ifColumnExists() {
-        return ifColumnExists;
-    }
-
-    /**
-     * Set exists flag.
-     *
-     * @param ifColumnExists Quietly ignore this command if column is not exists.
-     */
-    public void ifColumnExists(boolean ifColumnExists) {
-        this.ifColumnExists = ifColumnExists;
     }
 }

@@ -74,7 +74,7 @@ public class PartitionlessLinks {
      * @param link Link or page ID.
      * @return Number of bytes written (equal to {@link #PARTITIONLESS_LINK_SIZE_BYTES}).
      */
-    public static long writePartitionless(long addr, long link) {
+    public static int writePartitionless(long addr, long link) {
         putShort(addr, 0, (short) tag(link));
 
         putInt(addr + Short.BYTES, 0, pageIndex(link));

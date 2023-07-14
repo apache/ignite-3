@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -137,7 +138,7 @@ public class ClientTupleSerializer {
         var columns = schema.columns();
         var count = keyOnly ? schema.keyColumnCount() : columns.length;
 
-        var builder = new BinaryTupleBuilder(count, true);
+        var builder = new BinaryTupleBuilder(count);
         var noValueSet = new BitSet(count);
 
         for (var i = 0; i < count; i++) {
@@ -175,7 +176,7 @@ public class ClientTupleSerializer {
 
         var columns = schema.columns();
         var noValueSet = new BitSet(columns.length);
-        var builder = new BinaryTupleBuilder(columns.length, true);
+        var builder = new BinaryTupleBuilder(columns.length);
 
         for (ClientColumn col : columns) {
             Object v = col.key()
@@ -299,7 +300,7 @@ public class ClientTupleSerializer {
         return res;
     }
 
-    static Collection<Tuple> readTuplesNullable(ClientSchema schema, ClientMessageUnpacker in) {
+    static List<Tuple> readTuplesNullable(ClientSchema schema, ClientMessageUnpacker in) {
         var cnt = in.unpackInt();
         var res = new ArrayList<Tuple>(cnt);
 
@@ -322,12 +323,16 @@ public class ClientTupleSerializer {
 
         if (v == NO_VALUE) {
             noValueSet.set(col.schemaIndex());
-            builder.appendDefault();
+            builder.appendNull();
             return;
         }
 
         try {
             switch (col.type()) {
+                case BOOLEAN:
+                    builder.appendBoolean((boolean) v);
+                    return;
+
                 case INT8:
                     builder.appendByte((byte) v);
                     return;
@@ -410,7 +415,7 @@ public class ClientTupleSerializer {
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(@Nullable Transaction tx, @NotNull Tuple rec) {
         if (tx != null) {
             //noinspection resource
-            return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel().protocolContext().clusterNode().id());
+            return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel().protocolContext().clusterNode().name());
         }
 
         return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, rec));
@@ -427,7 +432,7 @@ public class ClientTupleSerializer {
             @Nullable Transaction tx, Mapper<?> mapper, @NotNull Object rec) {
         if (tx != null) {
             //noinspection resource
-            return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel().protocolContext().clusterNode().id());
+            return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel().protocolContext().clusterNode().name());
         }
 
         return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, mapper, rec));

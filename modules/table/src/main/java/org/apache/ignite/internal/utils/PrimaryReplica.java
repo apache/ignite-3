@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.utils;
 
+import java.util.Objects;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -56,5 +58,30 @@ public class PrimaryReplica {
      */
     public long term() {
         return term;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        PrimaryReplica that = (PrimaryReplica) o;
+        return term == that.term && Objects.equals(node, that.node);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int hashCode() {
+        return Objects.hash(node, term);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

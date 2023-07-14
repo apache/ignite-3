@@ -175,7 +175,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
                 new Element(NativeTypes.stringOf(300), false)
         });
 
-        ByteBuffer buffer = new BinaryTupleBuilder(schema.elementCount(), schema.hasNullableElements())
+        ByteBuffer buffer = new BinaryTupleBuilder(schema.elementCount())
                 .appendInt(1)
                 .appendString("a".repeat(300))
                 .build();

@@ -130,6 +130,7 @@ public class Loza implements RaftManager {
      * @param dataPath Data path.
      * @param clock A hybrid logical clock.
      */
+    @TestOnly
     public Loza(
             ClusterService clusterNetSvc,
             RaftConfiguration raftConfiguration,
@@ -169,21 +170,6 @@ public class Loza implements RaftManager {
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
         raftServer.stop();
-    }
-
-    @Override
-    public CompletableFuture<RaftGroupService> startRaftGroupNode(
-            RaftNodeId nodeId,
-            PeersAndLearners configuration,
-            RaftGroupListener lsnr,
-            RaftGroupEventsListener eventsLsnr
-    ) throws NodeStoppingException {
-        CompletableFuture<RaftGroupService> fut = startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, RaftGroupOptions.defaults());
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19047 Meta storage and cmg raft log re-application in async manner
-        raftServer.raftNodeReadyFuture(nodeId.groupId()).join();
-
-        return fut;
     }
 
     @Override
@@ -252,23 +238,48 @@ public class Loza implements RaftManager {
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
-            RaftGroupEventsListener eventsLsnr,
-            RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig
+            RaftGroupEventsListener eventsLsnr
     ) throws NodeStoppingException {
-        assert ownFsmCallerExecutorDisruptorConfig != null;
+        CompletableFuture<RaftGroupService> fut = startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, RaftGroupOptions.defaults());
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19047 Meta storage and cmg raft log re-application in async manner
+        raftServer.raftNodeReadyFuture(nodeId.groupId()).join();
+
+        return fut;
+    }
+
+    @Override
+    public CompletableFuture<RaftGroupService> startRaftGroupNodeAndWaitNodeReadyFuture(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            RaftNodeDisruptorConfiguration disruptorConfiguration
+    ) throws NodeStoppingException {
+        return startRaftGroupNodeAndWaitNodeReadyFuture(nodeId, configuration, lsnr, eventsLsnr, disruptorConfiguration, null);
+    }
+
+    @Override
+    public <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNodeAndWaitNodeReadyFuture(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            RaftNodeDisruptorConfiguration disruptorConfiguration,
+            @Nullable RaftServiceFactory<T> factory
+    ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            CompletableFuture<RaftGroupService> startRaftServiceFuture = startRaftGroupNodeInternal(
+            CompletableFuture<T> startRaftServiceFuture = startRaftGroupNodeInternal(
                     nodeId,
                     configuration,
                     lsnr,
                     eventsLsnr,
-                    RaftGroupOptions.defaults().ownFsmCallerExecutorDisruptorConfig(ownFsmCallerExecutorDisruptorConfig),
-                    null
+                    RaftGroupOptions.defaults().ownFsmCallerExecutorDisruptorConfig(disruptorConfiguration),
+                    factory
             );
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-19047 Meta storage and cmg raft log re-application in async manner

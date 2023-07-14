@@ -49,6 +49,7 @@ public final class ValueSerializationHelper {
         Objects.requireNonNull(type, "type");
 
         switch (type.spec()) {
+            case BOOLEAN:
             case INT8:
             case INT16:
             case INT32:
@@ -86,6 +87,8 @@ public final class ValueSerializationHelper {
         Objects.requireNonNull(type, "type");
 
         switch (type.spec()) {
+            case BOOLEAN:
+                return Boolean.parseBoolean(defaultValue);
             case INT8:
                 return Byte.parseByte(defaultValue);
             case INT16:

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -47,6 +48,9 @@ public class SchemaDescriptor {
 
     /** Colocation columns. */
     private final Column[] colocationCols;
+
+    /** Colocation columns. */
+    private final @Nullable Map<Column, Integer> colocationColIndexes;
 
     /** Mapping 'Column name' -&gt; Column. */
     private final Map<String, Column> colMap;
@@ -76,7 +80,7 @@ public class SchemaDescriptor {
      * @param colocationCols Colocation column names.
      * @param valCols Value columns.
      */
-    public SchemaDescriptor(int ver, Column[] keyCols, @Nullable String[] colocationCols, Column[] valCols) {
+    public SchemaDescriptor(int ver, Column[] keyCols, String @Nullable[] colocationCols, Column[] valCols) {
         assert keyCols.length > 0 : "No key columns are configured.";
 
         this.ver = ver;
@@ -102,8 +106,19 @@ public class SchemaDescriptor {
 
         // Preserving key chunk column order is not actually required.
         // It is sufficient to has same column order for all nodes.
-        this.colocationCols = (ArrayUtils.nullOrEmpty(colocationCols)) ? this.keyCols.columns() :
-                Arrays.stream(colocationCols).map(colMap::get).toArray(Column[]::new);
+        if (ArrayUtils.nullOrEmpty(colocationCols)) {
+            this.colocationCols = this.keyCols.columns();
+            this.colocationColIndexes = null;
+        } else {
+            this.colocationCols = new Column[colocationCols.length];
+            this.colocationColIndexes = new HashMap<>(colocationCols.length);
+
+            for (int i = 0; i < colocationCols.length; i++) {
+                Column col = colMap.get(colocationCols[i]);
+                this.colocationCols[i] = col;
+                this.colocationColIndexes.put(col, i);
+            }
+        }
     }
 
     /**
@@ -183,6 +198,18 @@ public class SchemaDescriptor {
      */
     public Column[] colocationColumns() {
         return colocationCols;
+    }
+
+    /**
+     * Get colocation index of the specified column.
+     *
+     * @param col Column.
+     * @return Index in the colocationColumns array, or -1 when not applicable.
+     */
+    public int colocationIndex(Column col) {
+        return colocationColIndexes == null
+                ? -1
+                : colocationColIndexes.getOrDefault(col, -1);
     }
 
     /**

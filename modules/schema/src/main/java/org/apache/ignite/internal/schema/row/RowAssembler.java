@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.schema.row;
 
-import static org.apache.ignite.internal.schema.BinaryRow.HAS_VALUE_FLD_LEN;
-import static org.apache.ignite.internal.schema.BinaryRow.SCHEMA_VERSION_FLD_LEN;
-import static org.apache.ignite.internal.schema.ByteBufferRow.ORDER;
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.ROW_HAS_VALUE_FLAG;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -34,8 +32,8 @@ import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.AssemblyException;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -115,6 +113,11 @@ public class RowAssembler {
         }
 
         switch (type.spec()) {
+            case BOOLEAN: {
+                rowAsm.appendBoolean((boolean) val);
+
+                break;
+            }
             case INT8: {
                 rowAsm.appendByte((byte) val);
 
@@ -206,28 +209,17 @@ public class RowAssembler {
      * @param schema Schema descriptor.
      */
     public RowAssembler(SchemaDescriptor schema) {
-        this(schema, hasNulls(schema.keyColumns()) || hasNulls(schema.valueColumns()));
+        this(schema, -1);
     }
 
     /**
      * Creates a builder.
      *
      * @param schema Schema descriptor.
-     * @param hasNulls {@code true} if NULL values are possible.
-     */
-    public RowAssembler(SchemaDescriptor schema, boolean hasNulls) {
-        this(schema, hasNulls, -1);
-    }
-
-    /**
-     * Creates a builder.
-     *
-     * @param schema Schema descriptor.
-     * @param hasNulls {@code true} if NULL values are possible.
      * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
      */
-    public RowAssembler(SchemaDescriptor schema, boolean hasNulls, int totalValueSize) {
-        this(schema.keyColumns(), schema.valueColumns(), schema.version(), hasNulls, totalValueSize);
+    public RowAssembler(SchemaDescriptor schema, int totalValueSize) {
+        this(schema.keyColumns(), schema.valueColumns(), schema.version(), totalValueSize);
     }
 
     /**
@@ -236,15 +228,14 @@ public class RowAssembler {
      * @param keyColumns Key columns.
      * @param valueColumns Value columns, {@code null} if only key should be assembled.
      * @param schemaVersion Schema version.
-     * @param hasNulls {@code true} if NULL values are possible.
      * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
      */
-    public RowAssembler(Columns keyColumns, @Nullable Columns valueColumns, int schemaVersion, boolean hasNulls, int totalValueSize) {
+    public RowAssembler(Columns keyColumns, @Nullable Columns valueColumns, int schemaVersion, int totalValueSize) {
         this.keyColumns = keyColumns;
         this.valueColumns = valueColumns;
         this.schemaVersion = schemaVersion;
         int numElements = keyColumns.length() + (valueColumns != null ? valueColumns.length() : 0);
-        builder = new BinaryTupleBuilder(numElements, hasNulls, totalValueSize);
+        builder = new BinaryTupleBuilder(numElements, totalValueSize);
         curCols = keyColumns;
         curCol = 0;
     }
@@ -269,16 +260,24 @@ public class RowAssembler {
     }
 
     /**
-     * Appends a default (empty) value for the current element.
+     * Appends boolean value for the current column to the chunk.
      *
+     * @param val Column value.
      * @return {@code this} for chaining.
+     * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
-    public RowAssembler appendDefault() {
-        builder.appendDefault();
+    public RowAssembler appendBoolean(boolean val) throws SchemaMismatchException {
+        checkType(NativeTypes.BOOLEAN);
+
+        builder.appendBoolean(val);
 
         shiftColumn();
 
         return this;
+    }
+
+    public RowAssembler appendBoolean(Boolean value) throws SchemaMismatchException {
+        return value == null ? appendNull() : appendBoolean(value.booleanValue());
     }
 
     /**
@@ -678,13 +677,13 @@ public class RowAssembler {
      * @return Created {@link BinaryRow}.
      */
     public static BinaryRow build(ByteBuffer binTupleBuffer, int schemaVersion, boolean hasValue) {
-        ByteBuffer buffer = ByteBuffer.allocate(SCHEMA_VERSION_FLD_LEN + HAS_VALUE_FLD_LEN + binTupleBuffer.limit()).order(ORDER);
-        buffer.putShort((short) schemaVersion);
-        buffer.put(hasValue ? (byte) 1 : 0);
-        buffer.put(binTupleBuffer);
-        buffer.position(0);
+        if (hasValue) {
+            byte flags = binTupleBuffer.get(0);
 
-        return new ByteBufferRow(buffer);
+            binTupleBuffer.put(0, (byte) (flags | ROW_HAS_VALUE_FLAG));
+        }
+
+        return new BinaryRowImpl(schemaVersion, binTupleBuffer);
     }
 
     /**
@@ -754,17 +753,6 @@ public class RowAssembler {
      * @return Created assembler.
      */
     public static RowAssembler keyAssembler(SchemaDescriptor schema) {
-        return keyAssembler(schema, hasNulls(schema.keyColumns()));
-    }
-
-    /**
-     * Creates an assembler which allows only key to be added.
-     *
-     * @param schema Schema descriptor.
-     * @param hasNulls Whether the key could have nulls.
-     * @return Created assembler.
-     */
-    public static RowAssembler keyAssembler(SchemaDescriptor schema, boolean hasNulls) {
-        return new RowAssembler(schema.keyColumns(), null, schema.version(), hasNulls, -1);
+        return new RowAssembler(schema.keyColumns(), null, schema.version(), -1);
     }
 }

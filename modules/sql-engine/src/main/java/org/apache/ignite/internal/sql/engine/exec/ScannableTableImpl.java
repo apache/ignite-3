@@ -18,13 +18,20 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.BitSet;
+import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
-import org.apache.ignite.internal.sql.engine.exec.rel.StorageScanNode;
+import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.util.subscription.TransformingPublisher;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,10 +44,13 @@ public class ScannableTableImpl implements ScannableTable {
 
     private final TableRowConverter rowConverter;
 
+    private final TableDescriptor tableDescriptor;
+
     /** Constructor. */
-    public ScannableTableImpl(InternalTable internalTable, TableRowConverter rowConverter) {
+    public ScannableTableImpl(InternalTable internalTable, TableRowConverter rowConverter, TableDescriptor tableDescriptor) {
         this.internalTable = internalTable;
         this.rowConverter = rowConverter;
+        this.tableDescriptor = tableDescriptor;
     }
 
     /** {@inheritDoc} */
@@ -63,6 +73,127 @@ public class ScannableTableImpl implements ScannableTable {
             pub = internalTable.scan(partWithTerm.partId(), txAttributes.id(), recipient, null, null, null, 0, null);
         }
 
-        return StorageScanNode.convertPublisher(pub, (item) -> rowConverter.toRow(ctx, item, rowFactory, requiredColumns));
+        return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory, requiredColumns));
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public <RowT> Publisher<RowT> indexRangeScan(
+            ExecutionContext<RowT> ctx,
+            PartitionWithTerm partWithTerm,
+            RowFactory<RowT> rowFactory,
+            int indexId,
+            List<String> columns,
+            @Nullable RangeCondition<RowT> cond,
+            @Nullable BitSet requiredColumns
+    ) {
+
+        BinaryTupleSchema indexRowSchema = RowConverter.createIndexRowSchema(columns, tableDescriptor);
+        TxAttributes txAttributes = ctx.txAttributes();
+
+        Publisher<BinaryRow> pub;
+        BinaryTuplePrefix lower;
+        BinaryTuplePrefix upper;
+
+        int flags = 0;
+
+        if (cond == null) {
+            flags = SortedIndex.INCLUDE_LEFT | SortedIndex.INCLUDE_RIGHT;
+            lower = null;
+            upper = null;
+        } else {
+            lower = toBinaryTuplePrefix(ctx, indexRowSchema, cond.lower(), rowFactory);
+            upper = toBinaryTuplePrefix(ctx, indexRowSchema, cond.upper(), rowFactory);
+
+            flags |= (cond.lowerInclude()) ? SortedIndex.INCLUDE_LEFT : 0;
+            flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
+        }
+
+        if (txAttributes.readOnly()) {
+            pub = internalTable.scan(
+                    partWithTerm.partId(),
+                    txAttributes.time(),
+                    ctx.localNode(),
+                    indexId,
+                    lower,
+                    upper,
+                    flags,
+                    requiredColumns
+            );
+        } else {
+            pub = internalTable.scan(
+                    partWithTerm.partId(),
+                    txAttributes.id(),
+                    new PrimaryReplica(ctx.localNode(), partWithTerm.term()),
+                    indexId,
+                    lower,
+                    upper,
+                    flags,
+                    requiredColumns
+            );
+        }
+
+        return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory, requiredColumns));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <RowT> Publisher<RowT> indexLookup(
+            ExecutionContext<RowT> ctx,
+            PartitionWithTerm partWithTerm,
+            RowFactory<RowT> rowFactory,
+            int indexId,
+            List<String> columns, RowT key,
+            @Nullable BitSet requiredColumns
+    ) {
+
+        BinaryTupleSchema indexRowSchema = RowConverter.createIndexRowSchema(columns, tableDescriptor);
+        TxAttributes txAttributes = ctx.txAttributes();
+        Publisher<BinaryRow> pub;
+
+        BinaryTuple keyTuple = toBinaryTuple(ctx, indexRowSchema, key, rowFactory);
+
+        if (txAttributes.readOnly()) {
+            pub = internalTable.lookup(
+                    partWithTerm.partId(),
+                    txAttributes.time(),
+                    ctx.localNode(),
+                    indexId,
+                    keyTuple,
+                    requiredColumns
+            );
+        } else {
+            pub = internalTable.lookup(
+                    partWithTerm.partId(),
+                    txAttributes.id(),
+                    new PrimaryReplica(ctx.localNode(), partWithTerm.term()),
+                    indexId,
+                    keyTuple,
+                    requiredColumns
+            );
+        }
+
+        return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory, requiredColumns));
+    }
+
+    private <RowT> @Nullable BinaryTuplePrefix toBinaryTuplePrefix(ExecutionContext<RowT> ctx,
+            BinaryTupleSchema indexRowSchema,
+            @Nullable RowT condition, RowFactory<RowT> factory) {
+
+        if (condition == null) {
+            return null;
+        }
+
+        return RowConverter.toBinaryTuplePrefix(ctx, indexRowSchema, factory, condition);
+    }
+
+    private <RowT> @Nullable BinaryTuple toBinaryTuple(ExecutionContext<RowT> ctx, BinaryTupleSchema indexRowSchema,
+            @Nullable RowT condition, RowFactory<RowT> factory) {
+        if (condition == null) {
+            return null;
+        }
+
+        return RowConverter.toBinaryTuple(ctx, indexRowSchema, factory, condition);
+    }
+
 }

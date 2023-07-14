@@ -17,24 +17,10 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-
 import java.nio.file.Path;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -49,65 +35,5 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
     @Override
     public KeyValueStorage createStorage() {
         return new RocksDbKeyValueStorage("test", workDir.resolve("storage"));
-    }
-
-    @Test
-    void testWatchReplayOnSnapshotLoad() throws Exception {
-        storage.put("foo".getBytes(UTF_8), "bar".getBytes(UTF_8), HybridTimestamp.MIN_VALUE);
-        storage.put("baz".getBytes(UTF_8), "quux".getBytes(UTF_8), HybridTimestamp.MIN_VALUE);
-
-        long revisionBeforeSnapshot = storage.revision();
-
-        Path snapshotPath = workDir.resolve("snapshot");
-
-        assertThat(storage.snapshot(snapshotPath), willCompleteSuccessfully());
-
-        storage.close();
-
-        storage = createStorage();
-
-        storage.start();
-
-        var latch = new CountDownLatch(2);
-
-        storage.watchExact("foo".getBytes(UTF_8), 1, new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(UTF_8)));
-
-                latch.countDown();
-
-                return CompletableFuture.completedFuture(null);
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                fail();
-            }
-        });
-
-        storage.watchExact("baz".getBytes(UTF_8), 1, new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                assertThat(event.entryEvent().newEntry().value(), is("quux".getBytes(UTF_8)));
-
-                latch.countDown();
-
-                return CompletableFuture.completedFuture(null);
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                fail();
-            }
-        });
-
-        storage.startWatches((event, ts) -> CompletableFuture.completedFuture(null));
-
-        storage.restoreSnapshot(snapshotPath);
-
-        assertThat(storage.revision(), is(revisionBeforeSnapshot));
-
-        assertTrue(latch.await(10, TimeUnit.SECONDS));
     }
 }

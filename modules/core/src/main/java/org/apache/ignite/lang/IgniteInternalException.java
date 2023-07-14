@@ -17,6 +17,7 @@
 
 package org.apache.ignite.lang;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.getOrCreateTraceId;
 import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
 import static org.apache.ignite.lang.ErrorGroup.errorGroupByCode;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
@@ -30,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * General internal exception. This exception is used to indicate any error condition within the node.
  */
-public class IgniteInternalException extends RuntimeException {
+public class IgniteInternalException extends RuntimeException implements TraceableException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
@@ -104,7 +105,7 @@ public class IgniteInternalException extends RuntimeException {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteInternalException(int code, @Nullable Throwable cause) {
-        this(UUID.randomUUID(), code, cause);
+        this(getOrCreateTraceId(cause), code, cause);
     }
 
     /**
@@ -130,7 +131,7 @@ public class IgniteInternalException extends RuntimeException {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteInternalException(int code, String message, @Nullable Throwable cause) {
-        this(UUID.randomUUID(), code, message, cause);
+        this(getOrCreateTraceId(cause), code, message, cause);
     }
 
     /**
@@ -218,6 +219,7 @@ public class IgniteInternalException extends RuntimeException {
      *
      * @return Full error code.
      */
+    @Override
     public int code() {
         return code;
     }
@@ -238,6 +240,7 @@ public class IgniteInternalException extends RuntimeException {
      * @see #code()
      * @return Error group.
      */
+    @Override
     public int groupCode() {
         return extractGroupCode(code);
     }
@@ -249,6 +252,7 @@ public class IgniteInternalException extends RuntimeException {
      * @see #groupCode()
      * @return Error code.
      */
+    @Override
     public int errorCode() {
         return extractErrorCode(code);
     }
@@ -258,6 +262,7 @@ public class IgniteInternalException extends RuntimeException {
      *
      * @return Unique identifier of this exception.
      */
+    @Override
     public UUID traceId() {
         return traceId;
     }
@@ -265,8 +270,6 @@ public class IgniteInternalException extends RuntimeException {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        String s = getClass().getName();
-        String message = errorMessage(traceId, groupName, code, getLocalizedMessage());
-        return (message != null) ? (s + ": " + message) : s;
+        return getClass().getName() + ": " + errorMessage(traceId, groupName, code, getLocalizedMessage());
     }
 }

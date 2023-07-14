@@ -31,10 +31,12 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
@@ -192,6 +194,11 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     @Override
+    public CatalogTableDescriptor table(int tableId, int catalogVersion) {
+        return catalog(catalogVersion).table(tableId);
+    }
+
+    @Override
     public CatalogIndexDescriptor index(String indexName, long timestamp) {
         return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).index(indexName);
     }
@@ -275,11 +282,16 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogZoneDescriptor zone = getZone(catalog, Objects.requireNonNullElse(params.zone(), DEFAULT_ZONE_NAME));
 
-            CatalogTableDescriptor table = CatalogUtils.fromParams(catalog.objectIdGenState(), zone.id(), params);
+            int id = catalog.objectIdGenState();
+
+            CatalogTableDescriptor table = CatalogUtils.fromParams(id++, zone.id(), params);
+
+            CatalogHashIndexDescriptor pkIndex = createHashIndexDescriptor(table, id++, createPkIndexParams(params));
 
             return List.of(
                     new NewTableEntry(table),
-                    new ObjectIdGenUpdateEntry(1)
+                    new NewIndexEntry(pkIndex),
+                    new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
             );
         });
     }
@@ -295,7 +307,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             Arrays.stream(schema.indexes())
                     .filter(index -> index.tableId() == table.id())
-                    .forEach(index -> updateEntries.add(new DropIndexEntry(index.id())));
+                    .forEach(index -> updateEntries.add(new DropIndexEntry(index.id(), index.tableId())));
 
             updateEntries.add(new DropTableEntry(table.id()));
 
@@ -386,9 +398,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            validateCreateHashIndexParams(params, table);
-
-            CatalogHashIndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
+            CatalogHashIndexDescriptor index = createHashIndexDescriptor(table, catalog.objectIdGenState(), params);
 
             return List.of(
                     new NewIndexEntry(index),
@@ -431,7 +441,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             }
 
             return List.of(
-                    new DropIndexEntry(index.id())
+                    new DropIndexEntry(index.id(), index.tableId())
             );
         });
     }
@@ -615,7 +625,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     class OnUpdateHandlerImpl implements OnUpdateHandler {
         @Override
-        public void handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp) {
+        public void handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
             int version = update.version();
             Catalog catalog = catalogByVer.get(version - 1);
 
@@ -637,7 +647,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     eventFutures.add(fireEvent(
                             fireEvent.eventType(),
-                            fireEvent.createEventParameters(version)
+                            fireEvent.createEventParameters(causalityToken, version)
                     ));
                 }
             }
@@ -729,6 +739,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     private static void validateCreateTableParams(CreateTableParams params) {
+        // Table must have columns.
+        if (params.columns().isEmpty()) {
+            throw new IgniteInternalException(ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR, "Table must include at least one column.");
+        }
+
+        // Column names must be unique.
         params.columns().stream()
                 .map(ColumnParams::name)
                 .filter(Predicate.not(new HashSet<>()::add))
@@ -741,11 +757,63 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                     );
                 });
 
+        // Table must have PK columns.
         if (params.primaryKeyColumns().isEmpty()) {
             throw new IgniteInternalException(
                     ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                    "Missing primary key columns"
+                    "Table without primary key is not supported."
             );
+        }
+
+        // PK columns must be valid columns.
+        Set<String> columns = params.columns().stream().map(ColumnParams::name).collect(Collectors.toSet());
+        params.primaryKeyColumns().stream()
+                .filter(Predicate.not(columns::contains))
+                .findAny()
+                .ifPresent(columnName -> {
+                    throw new IgniteInternalException(
+                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                            "Invalid primary key columns: {}",
+                            params.columns().stream().map(ColumnParams::name).collect(joining(", "))
+                    );
+                });
+
+        // PK column names must be unique.
+        params.primaryKeyColumns().stream()
+                .filter(Predicate.not(new HashSet<>()::add))
+                .findAny()
+                .ifPresent(columnName -> {
+                    throw new IgniteInternalException(
+                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                            "Primary key columns contains duplicates: {}",
+                            String.join(", ", params.primaryKeyColumns())
+                    );
+                });
+
+        List<String> colocationCols = params.colocationColumns();
+        if (colocationCols != null) {
+            // Colocation columns must be unique
+            colocationCols.stream()
+                    .filter(Predicate.not(new HashSet<>()::add))
+                    .findAny()
+                    .ifPresent(columnName -> {
+                        throw new IgniteInternalException(
+                                ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                                "Colocation columns contains duplicates: {}",
+                                String.join(", ", colocationCols)
+                        );
+                    });
+
+            // Colocation column must be valid PK column
+            Set<String> pkColumns = new HashSet<>(params.primaryKeyColumns());
+            List<String> outstandingColumns = colocationCols.stream()
+                    .filter(Predicate.not(pkColumns::contains))
+                    .collect(Collectors.toList());
+            if (!outstandingColumns.isEmpty()) {
+                throw new IgniteInternalException(
+                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                        "Colocation columns must be subset of primary key: outstandingColumns=" + outstandingColumns);
+            }
         }
     }
 
@@ -756,13 +824,13 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     ) {
         for (String columnName : params.columns()) {
             if (table.column(columnName) == null) {
-                throw new ColumnNotFoundException(columnName);
+                throw new ColumnNotFoundException(schema.name(), params.tableName(), columnName);
             }
 
             if (table.isPrimaryKeyColumn(columnName)) {
                 throw new SqlException(
                         Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR,
-                        "Can't drop primary key column: [column={}]",
+                        "Can't drop primary key column: [name={}]",
                         columnName
                 );
             }
@@ -876,5 +944,25 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         } else if (target.precision() < origin.precision()) {
             throwUnsupportedDdl("Cannot decrease precision to {} for column '{}'.", target.precision(), origin.name());
         }
+    }
+
+    private static CreateHashIndexParams createPkIndexParams(CreateTableParams params) {
+        return CreateHashIndexParams.builder()
+                .schemaName(params.schemaName())
+                .tableName(params.tableName())
+                .indexName(params.tableName() + "_PK")
+                .columns(params.primaryKeyColumns())
+                .unique()
+                .build();
+    }
+
+    private static CatalogHashIndexDescriptor createHashIndexDescriptor(
+            CatalogTableDescriptor table,
+            int indexId,
+            CreateHashIndexParams params
+    ) {
+        validateCreateHashIndexParams(params, table);
+
+        return CatalogUtils.fromParams(indexId, table.id(), params);
     }
 }

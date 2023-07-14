@@ -26,6 +26,7 @@
 
 #include <ignite/common/bytes.h>
 #include <ignite/network/network.h>
+#include <ignite/protocol/client_operation.h>
 
 #include <algorithm>
 #include <cstring>
@@ -225,20 +226,14 @@ bool sql_connection::send(const std::byte* data, std::size_t len, std::int32_t t
     if (!m_socket)
         throw odbc_error(sql_state::S08003_NOT_CONNECTED, "Connection is not established");
 
-    auto new_len = len + PROTOCOL_HEADER_SIZE;
-    std::vector<std::byte> msg(new_len);
-
-    bytes::store<endian::BIG, std::int32_t>(msg.data(), std::int32_t(len));
-    memcpy(msg.data() + PROTOCOL_HEADER_SIZE, data, len);
-
-    operation_result res = send_all(msg.data(), msg.size(), timeout);
+    operation_result res = send_all(data, len, timeout);
     if (res == operation_result::TIMEOUT)
         return false;
 
     if (res == operation_result::FAIL)
         throw odbc_error(sql_state::S08S01_LINK_FAILURE, "Can not send message due to connection failure");
 
-    TRACE_MSG("message sent: (" <<  msg.size() << " bytes)" << hex_dump(msg.data(), msg.size()));
+    TRACE_MSG("message sent: (" <<  len << " bytes)" << hex_dump(data, len));
 
     return true;
 }
@@ -326,6 +321,48 @@ sql_connection::operation_result sql_connection::receive_all(void* dst, std::siz
     }
 
     return operation_result::SUCCESS;
+}
+
+void sql_connection::send_message(bytes_view req, std::int32_t timeout) {
+    ensure_connected();
+
+    bool success = send(req.data(), req.size(), timeout);
+    if (!success)
+        throw odbc_error(sql_state::SHYT00_TIMEOUT_EXPIRED, "Could not send a request due to timeout");
+}
+
+network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std::int32_t timeout) {
+    ensure_connected();
+    std::vector<std::byte> res;
+
+    while (true) {
+        bool success = receive(res, timeout);
+        if (!success)
+            throw odbc_error(sql_state::SHYT00_TIMEOUT_EXPIRED, "Could not receive a response within timeout");
+
+        protocol::reader reader(res);
+        auto response_type = reader.read_int32();
+        if (detail::message_type(response_type) != detail::message_type::RESPONSE) {
+            LOG_MSG("Unsupported message type: " + std::to_string(response_type));
+            continue;
+        }
+
+        auto req_id = reader.read_int64();
+        if (req_id != id) {
+            throw odbc_error(sql_state::S08S01_LINK_FAILURE,
+                "Response with unknown ID is received: " + std::to_string(req_id));
+        }
+
+        auto flags = reader.read_int32();
+        UNUSED_VALUE flags; // Flags are unused for now.
+
+        auto err = protocol::read_error(reader);
+        if (err) {
+            throw odbc_error(sql_state::SHY000_GENERAL_ERROR, err.value().what_str());
+        }
+
+        return network::data_buffer_owning{std::move(res), reader.position()};
+    }
 }
 
 const configuration&sql_connection::get_configuration() const
@@ -504,6 +541,22 @@ sql_result sql_connection::internal_set_attribute(int attr, void* value, SQLINTE
     return sql_result::AI_SUCCESS;
 }
 
+std::vector<std::byte> sql_connection::make_request(std::int64_t id, detail::client_operation op,
+    const std::function<void(protocol::writer &)> &func) {
+    std::vector<std::byte> req;
+    protocol::buffer_adapter buffer(req);
+    buffer.reserve_length_header();
+
+    protocol::writer writer(buffer);
+    writer.write(std::int32_t(op));
+    writer.write(id);
+    func(writer);
+
+    buffer.write_length_header();
+
+    return req;
+}
+
 sql_result sql_connection::make_request_handshake()
 {
     static constexpr int8_t ODBC_CLIENT = 3;
@@ -607,7 +660,7 @@ sql_result sql_connection::make_request_handshake()
 
 void sql_connection::ensure_connected()
 {
-    if (!m_socket)
+    if (m_socket)
         return;
 
     bool success = try_restore_connection();

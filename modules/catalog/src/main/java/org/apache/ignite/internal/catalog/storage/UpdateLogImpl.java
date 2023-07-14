@@ -157,7 +157,7 @@ public class UpdateLogImpl implements UpdateLog {
         // TODO: IGNITE-19790 Read range from metastore
         while (true) {
             ByteArray key = CatalogKey.update(ver++);
-            Entry entry = metastore.getLocally(key.bytes(), appliedRevision);
+            Entry entry = metastore.getLocally(key, appliedRevision);
 
             if (entry.empty() || entry.tombstone()) {
                 break;
@@ -165,7 +165,9 @@ public class UpdateLogImpl implements UpdateLog {
 
             VersionedUpdate update = fromBytes(Objects.requireNonNull(entry.value()));
 
-            handler.handle(update, metastore.timestampByRevision(entry.revision()));
+            long revision = entry.revision();
+
+            handler.handle(update, metastore.timestampByRevision(revision), revision);
         }
     }
 
@@ -206,7 +208,7 @@ public class UpdateLogImpl implements UpdateLog {
 
                 VersionedUpdate update = fromBytes(payload);
 
-                onUpdateHandler.handle(update, event.timestamp());
+                onUpdateHandler.handle(update, event.timestamp(), event.revision());
             }
 
             return CompletableFuture.completedFuture(null);

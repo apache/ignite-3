@@ -81,7 +81,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     protected ByteBuffer buf;
 
-    protected byte[] heapArr;
+    protected byte @Nullable [] heapArr;
 
     protected long baseOff;
 

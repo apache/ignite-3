@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -146,7 +145,9 @@ public abstract class BaseMvStoragesTest {
 
     protected final void assertRowMatches(@Nullable BinaryRow rowUnderQuestion, BinaryRow expectedRow) {
         assertThat(rowUnderQuestion, is(notNullValue()));
-        assertThat(rowUnderQuestion.bytes(), is(equalTo(expectedRow.bytes())));
+        assertThat(rowUnderQuestion.schemaVersion(), is(expectedRow.schemaVersion()));
+        assertThat(rowUnderQuestion.hasValue(), is(expectedRow.hasValue()));
+        assertThat(rowUnderQuestion.tupleSlice(), is(expectedRow.tupleSlice()));
     }
 
     /**

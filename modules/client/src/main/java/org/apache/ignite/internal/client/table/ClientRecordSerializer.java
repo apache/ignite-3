@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -103,7 +104,7 @@ public class ClientRecordSerializer<R> {
      */
     static <R> void writeRecRaw(@Nullable R rec, ClientMessagePacker out, Marshaller marshaller, int columnCount) {
         try {
-            var builder = new BinaryTupleBuilder(columnCount, true);
+            var builder = new BinaryTupleBuilder(columnCount);
             var noValueSet = new BitSet();
 
             var writer = new ClientMarshallerWriter(builder, noValueSet);
@@ -166,7 +167,7 @@ public class ClientRecordSerializer<R> {
         }
     }
 
-    Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in, boolean nullable, TuplePart part) {
+    List<R> readRecs(ClientSchema schema, ClientMessageUnpacker in, boolean nullable, TuplePart part) {
         var cnt = in.unpackInt();
 
         if (cnt == 0) {

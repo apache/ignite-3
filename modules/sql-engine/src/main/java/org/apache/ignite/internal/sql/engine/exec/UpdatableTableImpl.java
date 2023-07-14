@@ -276,7 +276,6 @@ public final class UpdatableTableImpl implements UpdatableTable {
     private <RowT> BinaryRowEx convertRow(RowT row, ExecutionContext<RowT> ectx, boolean keyOnly) {
         RowHandler<RowT> hnd = ectx.rowHandler();
 
-        boolean hasNulls = false;
         for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
             if (keyOnly && !colDesc.key()) {
                 continue;
@@ -288,14 +287,11 @@ public final class UpdatableTableImpl implements UpdatableTable {
             assert value != DEFAULT_VALUE_PLACEHOLDER;
 
             if (value == null) {
-                hasNulls = true;
                 break;
             }
         }
 
-        RowAssembler rowAssembler = keyOnly
-                ? RowAssembler.keyAssembler(schemaDescriptor, hasNulls)
-                : new RowAssembler(schemaDescriptor, hasNulls);
+        RowAssembler rowAssembler = keyOnly ? RowAssembler.keyAssembler(schemaDescriptor) : new RowAssembler(schemaDescriptor);
 
         for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
             if (keyOnly && !colDesc.key()) {

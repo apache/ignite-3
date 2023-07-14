@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -43,7 +44,6 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
-import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -52,9 +52,11 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -64,6 +66,7 @@ import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -91,10 +94,10 @@ public class ItDistributedConfigurationPropertiesTest {
     private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     @InjectConfiguration
-    private static SecurityConfiguration securityConfiguration;
+    private static NodeAttributesConfiguration nodeAttributes;
 
     @InjectConfiguration
-    private static NodeAttributesConfiguration nodeAttributes;
+    private static MetaStorageConfiguration metaStorageConfiguration;
 
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
@@ -139,7 +142,10 @@ public class ItDistributedConfigurationPropertiesTest {
             );
 
             HybridClock clock = new HybridClockImpl();
-            raftManager = new Loza(clusterService, raftConfiguration, workDir, clock);
+
+            var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
+
+            raftManager = new Loza(clusterService, raftConfiguration, workDir, clock, raftGroupEventsClientListener);
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
@@ -154,40 +160,39 @@ public class ItDistributedConfigurationPropertiesTest {
                     nodeAttributes,
                     new TestConfigurationValidator());
 
+            var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
+
+            var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                    clusterService,
+                    logicalTopologyService,
+                    Loza.FACTORY,
+                    raftGroupEventsClientListener
+            );
+
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
                     clusterService,
                     cmgManager,
-                    new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
+                    logicalTopologyService,
                     raftManager,
                     new SimpleInMemoryKeyValueStorage(name()),
-                    clock
+                    clock,
+                    topologyAwareRaftGroupServiceFactory,
+                    metaStorageConfiguration
             );
 
             deployWatchesFut = metaStorageManager.deployWatches();
 
             // create a custom storage implementation that is able to "lose" some storage updates
-            var distributedCfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager) {
+            var distributedCfgStorage = new DistributedConfigurationStorage(metaStorageManager) {
                 /** {@inheritDoc} */
                 @Override
                 public synchronized void registerConfigurationListener(ConfigurationStorageListener listener) {
-                    super.registerConfigurationListener(new ConfigurationStorageListener() {
-                        @Override
-                        public CompletableFuture<Void> onEntriesChanged(Data changedEntries) {
-                            if (receivesUpdates) {
-                                return listener.onEntriesChanged(changedEntries);
-                            } else {
-                                return CompletableFuture.completedFuture(null);
-                            }
-                        }
-
-                        @Override
-                        public CompletableFuture<Void> onRevisionUpdated(long newRevision) {
-                            if (receivesUpdates) {
-                                return listener.onRevisionUpdated(newRevision);
-                            } else {
-                                return CompletableFuture.completedFuture(null);
-                            }
+                    super.registerConfigurationListener(changedEntries -> {
+                        if (receivesUpdates) {
+                            return listener.onEntriesChanged(changedEntries);
+                        } else {
+                            return CompletableFuture.completedFuture(null);
                         }
                     });
                 }
@@ -205,13 +210,13 @@ public class ItDistributedConfigurationPropertiesTest {
         /**
          * Starts the created components.
          */
-        void start() {
+        CompletableFuture<Void> start() {
             vaultManager.start();
 
             Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
                     .forEach(IgniteComponent::start);
 
-            distributedCfgManager.start();
+            return CompletableFuture.runAsync(distributedCfgManager::start);
         }
 
         /**
@@ -288,9 +293,12 @@ public class ItDistributedConfigurationPropertiesTest {
                 raftConfiguration
         );
 
-        Stream.of(firstNode, secondNode).parallel().forEach(Node::start);
+        CompletableFuture<?>[] startFutures = Stream.of(firstNode, secondNode).parallel().map(Node::start)
+                .toArray(CompletableFuture[]::new);
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(), "cluster");
+
+        assertThat(allOf(startFutures), willCompleteSuccessfully());
 
         Stream.of(firstNode, secondNode).parallel().forEach(Node::waitWatches);
     }
@@ -324,7 +332,7 @@ public class ItDistributedConfigurationPropertiesTest {
 
         // check initial values
         assertThat(firstValue.value(), is("foo"));
-        assertThat(((ConfigurationValue<String>) secondValue.directProxy()).value(), is("foo"));
+        assertThat(secondValue.directProxy().value(), is("foo"));
         assertThat(secondValue.value(), is("foo"));
 
         // update the property to a new value and check that the change is propagated to the second node
@@ -333,7 +341,7 @@ public class ItDistributedConfigurationPropertiesTest {
         assertThat(changeFuture, willBe(nullValue(Void.class)));
 
         assertThat(firstValue.value(), is("bar"));
-        assertThat(((ConfigurationValue<String>) secondValue.directProxy()).value(), is("bar"));
+        assertThat(secondValue.directProxy().value(), is("bar"));
         assertTrue(waitForCondition(() -> "bar".equals(secondValue.value()), 1000));
 
         // disable storage updates on the second node. This way the new values will never be propagated into the
@@ -347,7 +355,7 @@ public class ItDistributedConfigurationPropertiesTest {
         assertThat(changeFuture, willBe(nullValue(Void.class)));
 
         assertThat(firstValue.value(), is("baz"));
-        assertThat(((ConfigurationValue<String>) secondValue.directProxy()).value(), is("baz"));
+        assertThat(secondValue.directProxy().value(), is("baz"));
         assertFalse(waitForCondition(() -> "baz".equals(secondValue.value()), 100));
     }
 }

@@ -47,17 +47,7 @@ public abstract class ConfigurationStorageTest {
     void setUp() {
         storage = getStorage();
 
-        storage.registerConfigurationListener(new ConfigurationStorageListener() {
-            @Override
-            public CompletableFuture<Void> onEntriesChanged(Data changedEntries) {
-                return completedFuture(null);
-            }
-
-            @Override
-            public CompletableFuture<Void> onRevisionUpdated(long newRevision) {
-                return completedFuture(null);
-            }
-        });
+        storage.registerConfigurationListener(changedEntries -> completedFuture(null));
     }
 
     /**

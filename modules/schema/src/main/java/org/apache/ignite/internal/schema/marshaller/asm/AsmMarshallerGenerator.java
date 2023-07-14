@@ -20,7 +20,6 @@ package org.apache.ignite.internal.schema.marshaller.asm;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.defaultValue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.isNull;
@@ -270,7 +269,6 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
         final Scope scope = methodDef.getScope();
         final BytecodeBlock body = methodDef.getBody();
 
-        Variable hasNulls = scope.declareVariable("hasNulls", body, defaultValue(boolean.class));
         Variable estimatedValueSize = scope.declareVariable("estimatedValueSize", body, defaultValue(int.class));
 
         BytecodeExpression schemaField = methodDef.getThis().getField("schema", SchemaDescriptor.class);
@@ -287,8 +285,7 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
             BytecodeExpression valueSize = type.spec().fixedLength()
                     ? constantInt(type.sizeInBytes())
                     : getValueSize(value, getColumnType(keyCols, i));
-            body.append(new IfStatement().condition(isNull(value)).ifTrue(hasNulls.set(constantTrue()))
-                    .ifFalse(plusEquals(estimatedValueSize, valueSize)));
+            body.append(new IfStatement().condition(isNull(value)).ifFalse(plusEquals(estimatedValueSize, valueSize)));
         }
 
         columns = schema.valueColumns();
@@ -299,11 +296,10 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
             BytecodeExpression valueSize = type.spec().fixedLength()
                     ? constantInt(type.sizeInBytes())
                     : getValueSize(value, getColumnType(valCols, i));
-            body.append(new IfStatement().condition(isNull(value)).ifTrue(hasNulls.set(constantTrue()))
-                    .ifFalse(plusEquals(estimatedValueSize, valueSize)));
+            body.append(new IfStatement().condition(isNull(value)).ifFalse(plusEquals(estimatedValueSize, valueSize)));
         }
 
-        body.append(newInstance(RowAssembler.class, schemaField, hasNulls, estimatedValueSize));
+        body.append(newInstance(RowAssembler.class, schemaField, estimatedValueSize));
 
         body.retObject();
     }
