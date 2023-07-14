@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema;
 
+import static org.apache.ignite.lang.ErrorGroups.Table.SCHEMA_VERSION_MISMATCH_ERR;
+
 /**
  * Indicates incompatible schema version.
  */
@@ -31,7 +33,7 @@ public final class SchemaVersionMismatchException extends SchemaException {
     private final int actualVersion;
 
     public SchemaVersionMismatchException(int expectedVersion, int actualVer) {
-        super("Schema version mismatch [expectedVer=" + expectedVersion + ", actualVer=" + actualVer + ']');
+        super(SCHEMA_VERSION_MISMATCH_ERR, "Schema version mismatch [expectedVer=" + expectedVersion + ", actualVer=" + actualVer + ']');
 
         this.expectedVersion = expectedVersion;
         this.actualVersion = actualVer;
