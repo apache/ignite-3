@@ -86,6 +86,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.ErrorExtension;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
@@ -403,15 +404,16 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             packer.packInt(iex.code());
 
             if (err instanceof SchemaVersionMismatchException) {
-                // TODO: Special error code.
-                // TODO: To include additional data with the error, introduce a map of error data.
+                packer.packMapHeader(1);
+                packer.packString(ErrorExtension.EXPECTED_SCHEMA_VERSION);
+                packer.packInt(((SchemaVersionMismatchException) err).expectedVersion());
             } else {
-                packer.packNil(); // No additional data.
+                packer.packNil(); // Error extensions.
             }
         } else {
             packer.packUuid(UUID.randomUUID());
             packer.packInt(INTERNAL_ERR);
-            packer.packNil(); // No additional data.
+            packer.packNil(); // Error extensions.
         }
 
         packer.packString(err.getClass().getName());
