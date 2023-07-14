@@ -86,7 +86,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.client.proto.ErrorExtension;
+import org.apache.ignite.internal.client.proto.ErrorExtensions;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
@@ -422,7 +422,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         // Extensions.
         if (err instanceof SchemaVersionMismatchException) {
             packer.packMapHeader(1);
-            packer.packString(ErrorExtension.EXPECTED_SCHEMA_VERSION);
+            packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
             packer.packInt(((SchemaVersionMismatchException) err).expectedVersion());
         } else {
             packer.packNil(); // No extensions.
