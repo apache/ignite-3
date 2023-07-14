@@ -15,30 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.handshake;
+package org.apache.ignite.internal.network.netty;
 
-/**
- * Handshake exception.
- */
-public class HandshakeException extends RuntimeException {
-    private static final long serialVersionUID = 0L;
-
+/** Channel creation listener. */
+public interface ChannelCreationListener {
     /**
-     * Constructor.
+     * Notifies of the handshake's finish.
      *
-     * @param message Handshake error message.
+     * @param channel Opened channel.
      */
-    public HandshakeException(String message) {
-        super(message);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param message Handshake error message.
-     * @param cause   Handshake error cause.
-     */
-    public HandshakeException(String message, Throwable cause) {
-        super(message, cause);
-    }
+    void handshakeFinished(NettySender channel);
 }

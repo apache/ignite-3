@@ -18,27 +18,22 @@
 package org.apache.ignite.internal.network.handshake;
 
 /**
- * Handshake exception.
+ * Exception that notifies of existence of a channel with a specific consistent id during handshake.
  */
-public class HandshakeException extends RuntimeException {
+public class ChannelAlreadyExistsException extends RuntimeException {
     private static final long serialVersionUID = 0L;
 
-    /**
-     * Constructor.
-     *
-     * @param message Handshake error message.
-     */
-    public HandshakeException(String message) {
-        super(message);
+    /** Consistent id of a remote node. */
+    private final String consistentId;
+
+    public ChannelAlreadyExistsException(String consistentId) {
+        this.consistentId = consistentId;
     }
 
     /**
-     * Constructor.
-     *
-     * @param message Handshake error message.
-     * @param cause   Handshake error cause.
+     * Returns consistent id of the remote node with which a channel already exists.
      */
-    public HandshakeException(String message, Throwable cause) {
-        super(message, cause);
+    public String consistentId() {
+        return consistentId;
     }
 }

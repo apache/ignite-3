@@ -29,8 +29,7 @@ public interface RecoveryDescriptorProvider {
      * @param consistentId Remote node consistent id.
      * @param launchId Remote node launch id.
      * @param connectionIndex Connection id.
-     * @param inbound {@code true} if the connection is inbound, {@code false} otherwise.
      * @return Recovery descriptor.
      */
-    RecoveryDescriptor getRecoveryDescriptor(String consistentId, UUID launchId, short connectionIndex, boolean inbound);
+    RecoveryDescriptor getRecoveryDescriptor(String consistentId, UUID launchId, short connectionIndex);
 }

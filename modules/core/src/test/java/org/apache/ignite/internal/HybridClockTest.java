@@ -120,25 +120,25 @@ class HybridClockTest {
     }
 
     @Test
-    void updateListenerGetsNotifiedOnUpdateCausedByNowCall() {
+    void updateListenerIsNotNotifiedOnNowCall() {
         HybridClock clock = new HybridClockImpl();
 
         clock.addUpdateListener(updateListener);
 
         HybridTimestamp ts = clock.now();
 
-        verify(updateListener).onUpdate(ts.longValue());
+        verify(updateListener, never()).onUpdate(ts.longValue());
     }
 
     @Test
-    void updateListenerGetsNotifiedOnUpdateCausedByNowLongCall() {
+    void updateListenerIsNotNotifiedOnNowLongCall() {
         HybridClock clock = new HybridClockImpl();
 
         clock.addUpdateListener(updateListener);
 
         long ts = clock.nowLong();
 
-        verify(updateListener).onUpdate(ts);
+        verify(updateListener, never()).onUpdate(ts);
     }
 
     @Test
