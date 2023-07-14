@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
@@ -39,8 +40,12 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Group of tests to verify aggregation functions.
  */
 public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
-    private static final String[] disabledRules = {"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
+    private static final String[] DISABLED_RULES = {"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
             "ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"};
+
+    // GROUP BY GROUPING SETS is implemented only for colocated and Hash-based map/reduce aggregates.
+    private static final String[] DISABLED_RULES_FOR_GROUPING_SETS =
+            {"ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"};
 
     private static final int ROWS = 103;
 
@@ -485,16 +490,74 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
         }
     }
 
+    @ParameterizedTest
+    @MethodSource("disabledRulesForGroupingSets")
+    public void testGroupingSets(String[] rules) {
+        try {
+            sql("CREATE TABLE test1 (id INTEGER PRIMARY KEY, str_col VARCHAR, int_col INTEGER);");
+            sql("INSERT INTO test1 VALUES (1, 's1', 10)");
+            sql("INSERT INTO test1 VALUES (2, 's1', 20)");
+            sql("INSERT INTO test1 VALUES (3, 's2', 10)");
+            sql("INSERT INTO test1 VALUES (4, 's3', 40)");
+
+            assertQuery("SELECT str_col, SUM(int_col), COUNT(str_col) FROM test1 GROUP BY GROUPING SETS "
+                    + "( (str_col, int_col), (str_col), (int_col), () )")
+                    .disableRules(rules)
+                    .returns(null, 80L, 4L)
+                    .returns("s1", 10L, 1L)
+                    .returns("s3", 40L, 1L)
+                    .returns("s1", 20L, 1L)
+                    .returns("s2", 10L, 1L)
+                    .returns("s2", 10L, 1L)
+                    .returns("s3", 40L, 1L)
+                    .returns("s1", 30L, 2L)
+                    .returns(null, 40L, 1L)
+                    .returns(null, 20L, 2L)
+                    .returns(null, 20L, 1L)
+                    .check();
+
+        } finally {
+            sql("DROP TABLE test1");
+        }
+    }
+
+    @Test
+    public void ddd () {
+        sql("CREATE TABLE test3 (id INTEGER PRIMARY KEY, a INTEGER, s VARCHAR)");
+        sql("INSERT INTO test3 VALUES (1, 11, 'hello'), (2, 12, 'world'), (3, 11, NULL)");
+        sql("SELECT COUNT(a), COUNT(DISTINCT s) FROM test3");
+
+        /*
+        Execute: SELECT NULLIF(NULLIF((SELECT MIN(a) FROM test), a), b) FROM test2
+
+        java.lang.AssertionError: Not expected result at: (test_null_if.test:24). [row=0, col=0, expected=aaa, actual=ccc]
+         */
+    }
+
+    @Test
+    public void ddd2 () {
+        sql("CREATE TABLE test_strings (id INTEGER PRIMARY KEY, s VARCHAR)");
+
+        sql("INSERT INTO test_strings VALUES (1, 'aaaaaaaahello'), (2, 'bbbbbbbbbbbbbbbbbbbbhello'),"
+                + " (3, 'ccccccccccccccchello'), (4, 'aaaaaaaaaaaaaaaaaaaaaaaahello')");
+
+        sql("SELECT MIN(s), MAX(s) FROM test_strings");
+    }
+
+    private static Stream<Arguments> disabledRulesForGroupingSets() {
+        return Arrays.stream(makePermutations(DISABLED_RULES_FOR_GROUPING_SETS)).map(Object.class::cast).map(Arguments::of);
+    }
+
     static String[][] makePermutations(String[] rules) {
         String[][] out = new String[rules.length][rules.length - 1];
 
-        for (int i = 0; i < disabledRules.length; ++i) {
+        for (int i = 0; i < rules.length; ++i) {
             int pos = 0;
-            for (int ruleIdx = 0; ruleIdx < disabledRules.length; ++ruleIdx) {
+            for (int ruleIdx = 0; ruleIdx < rules.length; ++ruleIdx) {
                 if (ruleIdx == i) {
                     continue;
                 }
-                out[i][pos++] = disabledRules[ruleIdx];
+                out[i][pos++] = rules[ruleIdx];
             }
         }
 
@@ -502,7 +565,7 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
     }
 
     private static Stream<Arguments> provideRules() {
-        return Arrays.stream(makePermutations(disabledRules)).map(k -> Arguments.of((Object) k));
+        return Arrays.stream(makePermutations(DISABLED_RULES)).map(Object.class::cast).map(Arguments::of);
     }
 
     private String appendDisabledRules(String sql, String[] rules) {

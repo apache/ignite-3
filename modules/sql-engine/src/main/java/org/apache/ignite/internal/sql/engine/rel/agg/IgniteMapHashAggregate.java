@@ -35,7 +35,6 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * IgniteMapHashAggregate.
@@ -89,7 +88,22 @@ public class IgniteMapHashAggregate extends IgniteMapAggregateBase implements Ig
     /** {@inheritDoc} */
     @Override
     protected RelDataType deriveRowType() {
-        return rowType(Commons.typeFactory(getCluster()), !aggCalls.isEmpty());
+        IgniteTypeFactory typeFactory = (IgniteTypeFactory) getCluster().getTypeFactory();
+
+        if (!AggRowType.ENABLED) {
+            RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
+
+            builder.add("GROUP_ID", typeFactory.createJavaType(byte.class));
+            builder.add("GROUP_KEY", typeFactory.createJavaType(GroupKey.class));
+
+            if (!aggCalls.isEmpty()) {
+                builder.add("AGG_DATA", typeFactory.createArrayType(typeFactory.createJavaType(Accumulator.class), -1));
+            }
+
+            return builder.build();
+        } else {
+            return AggRowType.hashAggrRow(groupSets, typeFactory, input.getRowType(), aggCalls).getAggRowType();
+        }
     }
 
     /**

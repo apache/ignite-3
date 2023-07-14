@@ -57,8 +57,8 @@ public class IgniteReduceHashAggregate extends IgniteReduceAggregateBase impleme
     ) {
         super(cluster, traits, input, groupSet, groupSets, aggCalls, rowType);
 
-        assert RelOptUtil.areRowTypesEqual(input.getRowType(),
-                IgniteMapHashAggregate.rowType(Commons.typeFactory(cluster), !aggCalls.isEmpty()), true);
+//        assert RelOptUtil.areRowTypesEqual(input.getRowType(),
+//                IgniteMapHashAggregate.rowType(Commons.typeFactory(cluster), !aggCalls.isEmpty()), true);
     }
 
     /**

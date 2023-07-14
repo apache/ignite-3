@@ -355,7 +355,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 for (int i = 0; i < accumWrps.size(); i++) {
                     AccumulatorWrapper<RowT> wrapper = accumWrps.get(i);
                     int stateOffset = grpKeys.length + offset;
-
                     IntFunction<Object> state = (idx) -> handler.get(idx + stateOffset, row);
 
                     List<RelDataType> s = wrapper.accumulator().state(Commons.typeFactory());
