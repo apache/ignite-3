@@ -88,7 +88,7 @@ TEST_F(timeout_test, connection_timeout_query)
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
 
-    insert_test_strings(10, false);
+    insert_test_strings(10);
 }
 
 TEST_F(timeout_test, query_timeout_query)
@@ -99,7 +99,7 @@ TEST_F(timeout_test, query_timeout_query)
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    insert_test_strings(10, false);
+    insert_test_strings(10);
 }
 
 TEST_F(timeout_test, query_and_connection_timeout_query)
@@ -114,7 +114,7 @@ TEST_F(timeout_test, query_and_connection_timeout_query)
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
 
-    insert_test_strings(10, false);
+    insert_test_strings(10);
 }
 
 // TODO: IGNITE-19215 Implement DML data batching
@@ -138,7 +138,7 @@ TEST_F(timeout_test, connection_timeout_both)
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
 
-    insert_test_strings(10, false);
+    insert_test_strings(10);
     insert_test_batch(11, 20, 9);
 }
 
@@ -161,7 +161,7 @@ TEST_F(timeout_test, query_timeout_both)
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    insert_test_strings(10, false);
+    insert_test_strings(10);
     insert_test_batch(11, 20, 9);
 }
 
@@ -192,7 +192,7 @@ TEST_F(timeout_test, query_and_connection_timeout_both)
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
 
-    insert_test_strings(10, false);
+    insert_test_strings(10);
     insert_test_batch(11, 20, 9);
 }
 #endif // MUTED

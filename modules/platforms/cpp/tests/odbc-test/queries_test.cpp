@@ -676,7 +676,7 @@ TEST_F(queries_test, insert_select)
     const int records_num = 100;
 
     // Inserting values.
-    insert_test_strings(records_num, false);
+    insert_test_strings(records_num);
 
     int64_t key = 0;
     char str[1024];
@@ -736,7 +736,7 @@ TEST_F(queries_test, insert_update_select)
     const int records_num = 10;
 
     // Inserting values.
-    insert_test_strings(records_num, false);
+    insert_test_strings(records_num);
 
     std::int64_t key = 0;
     char str[1024];
@@ -810,7 +810,7 @@ TEST_F(queries_test, insert_delete_select)
     const int records_num = 100;
 
     // Inserting values.
-    insert_test_strings(records_num, false);
+    insert_test_strings(records_num);
 
     std::int64_t key = 0;
     char str[1024];
@@ -869,69 +869,6 @@ TEST_F(queries_test, insert_delete_select)
     }
 
     EXPECT_EQ(records_num / 2, selected_records_num);
-}
-
-TEST_F(queries_test, insert_merge_select)
-{
-    odbc_connect(get_basic_connection_string());
-
-    const int records_num = 40;
-
-    // Inserting values.
-    insert_test_strings(records_num / 2, false);
-
-    // Merging values.
-    insert_test_strings(records_num, true);
-
-    std::int64_t key = 0;
-    char str[1024];
-    SQLLEN str_len = 0;
-
-    // Binding columns.
-    SQLRETURN ret = SQLBindCol(m_statement, 1, SQL_C_SLONG, &key, 0, nullptr);
-
-    if (!SQL_SUCCEEDED(ret))
-        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-
-    // Binding columns.
-    ret = SQLBindCol(m_statement, 2, SQL_C_CHAR, &str, sizeof(str), &str_len);
-
-    if (!SQL_SUCCEEDED(ret))
-        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-
-    // Just selecting everything to make sure everything is OK
-    SQLCHAR select_req[] = "SELECT key, str FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
-
-    ret = SQLExecDirect(m_statement, select_req, sizeof(select_req));
-
-    if (!SQL_SUCCEEDED(ret))
-        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-
-    int selected_records_num = 0;
-
-    ret = SQL_SUCCESS;
-
-    while (ret == SQL_SUCCESS)
-    {
-        ret = SQLFetch(m_statement);
-
-        if (ret == SQL_NO_DATA)
-            break;
-
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-
-        std::string expected_str = get_test_string(selected_records_num);
-        int64_t expected_key = selected_records_num + 1;
-
-        EXPECT_EQ(key, expected_key);
-
-        EXPECT_EQ(std::string(str, str_len), expected_str);
-
-        ++selected_records_num;
-    }
-
-    EXPECT_EQ(records_num, selected_records_num);
 }
 
 // TODO: IGNITE-19854: Implement params metadata fetching
@@ -1111,7 +1048,7 @@ TEST_F(queries_test, affected_rows)
     const int records_num = 100;
 
     // Inserting values.
-    insert_test_strings(records_num, false);
+    insert_test_strings(records_num);
 
     SQLCHAR update_req[] = "UPDATE TBL_ALL_COLUMNS_SQL SET str = 'Updated value' WHERE key > 20 AND key < 40";
 
@@ -1157,7 +1094,7 @@ TEST_F(queries_test, affected_rows_on_select)
     const int records_num = 30;
 
     // Inserting values.
-    insert_test_strings(records_num, false);
+    insert_test_strings(records_num);
 
     // Just selecting everything to make sure everything is OK
     SQLCHAR select_req[] = "SELECT key, str FROM TBL_ALL_COLUMNS_SQL ORDER BY key";

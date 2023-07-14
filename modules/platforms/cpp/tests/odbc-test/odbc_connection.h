@@ -151,12 +151,11 @@ public:
      *
      * @param records_num Number of strings to insert.
      */
-    void insert_test_strings(SQLSMALLINT records_num, bool merge) const
+    void insert_test_strings(SQLSMALLINT records_num) const
     {
         SQLCHAR insert_req[] = "INSERT INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(?, ?)";
-        SQLCHAR merge_req[] = "MERGE INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(?, ?)";
 
-        SQLRETURN ret = SQLPrepare(m_statement, merge ? merge_req : insert_req, SQL_NTS);
+        SQLRETURN ret = SQLPrepare(m_statement, insert_req, SQL_NTS);
 
         if (!SQL_SUCCEEDED(ret))
             FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));

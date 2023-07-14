@@ -182,13 +182,13 @@ TEST_F(many_cursors_test, many_cursors_two_selects_2)
     }
 }
 
-TEST_F(many_cursors_test, many_cursors_select_merge_1)
+TEST_F(many_cursors_test, many_cursors_select_insert_1)
 {
     odbc_connect(get_basic_connection_string());
 
     for (std::int32_t i = 0; i < 1000; ++i)
     {
-        SQLCHAR req[] = "SELECT 1; UPSERT into TBL_ALL_COLUMNS_SQL(key) values(2);";
+        SQLCHAR req[] = "SELECT 1; INSERT into TBL_ALL_COLUMNS_SQL(key) values(2);";
 
         SQLRETURN ret = SQLExecDirect(m_statement, req, SQL_NTS);
 
@@ -202,13 +202,13 @@ TEST_F(many_cursors_test, many_cursors_select_merge_1)
     }
 }
 
-TEST_F(many_cursors_test, many_cursors_select_merge_2)
+TEST_F(many_cursors_test, many_cursors_select_insert_2)
 {
     odbc_connect(get_basic_connection_string());
 
     for (std::int32_t i = 0; i < 1000; ++i)
     {
-        SQLCHAR req[] = "SELECT 1; UPSERT into TBL_ALL_COLUMNS_SQL(key) values(2);";
+        SQLCHAR req[] = "SELECT 1; INSERT into TBL_ALL_COLUMNS_SQL(key) values(2);";
 
         SQLRETURN ret = SQLExecDirect(m_statement, req, SQL_NTS);
 

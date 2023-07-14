@@ -352,10 +352,10 @@ enum class response_status
     /** Attempt to UPDATE or DELETE a key whose value has been updated concurrently by someone else. */
     CONCURRENT_UPDATE = 4002,
 
-    /** Attempt to INSERT or MERGE {@code null} key. */
+    /** Attempt to INSERT {@code null} key. */
     NULL_KEY = 4003,
 
-    /** Attempt to INSERT or MERGE {@code null} value. */
+    /** Attempt to INSERT {@code null} value. */
     NULL_VALUE = 4004,
 
     /** EntryProcessor has thrown an exception during IgniteCache::invokeAll. */
