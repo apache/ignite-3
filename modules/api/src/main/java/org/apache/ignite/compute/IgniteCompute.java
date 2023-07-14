@@ -46,7 +46,8 @@ public interface IgniteCompute {
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args);
+            Object... args
+    );
 
     /**
      * Executes a job of the given class on the node where the given key is located. The node is a leader
@@ -65,7 +66,8 @@ public interface IgniteCompute {
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args);
+            Object... args
+    );
 
     /**
      * Executes a job of the given class on the node where the given key is located. The node is a leader
