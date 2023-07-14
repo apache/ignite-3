@@ -344,6 +344,44 @@ public class IncrementalVersionedValueTest {
         assertThat(future3, willBe(2));
     }
 
+    @RepeatedTest(100)
+    public void testDependingOn() {
+        var vv0 = new IncrementalVersionedValue<>(register, () -> 1);
+
+        var vv1 = new IncrementalVersionedValue<>(dependingOn(vv0), () -> 1);
+
+        int token = 1;
+
+        vv0.update(token, (i, e) -> completedFuture(i + 1));
+
+        vv1.update(token, (i, e) -> completedFuture(i + 1));
+
+        register.moveRevision(token);
+
+        // Will always complete in time.
+        vv1.get(token).join();
+
+        assertTrue(vv0.get(token).isDone());
+    }
+
+    @Test
+    public void testImmediateUpdate() {
+        var vv = new IncrementalVersionedValue<>(register, () -> 1);
+
+        //noinspection unchecked
+        BiFunction<Integer, Throwable, CompletableFuture<Integer>> closure = mock(BiFunction.class);
+
+        when(closure.apply(any(), any())).thenReturn(completedFuture(null));
+
+        int token = 0;
+
+        vv.update(token, closure);
+
+        verify(closure).apply(eq(1), eq(null));
+
+        assertFalse(vv.get(token).isDone());
+    }
+
     /**
      * Test {@link IncrementalVersionedValue#whenComplete}.
      */
