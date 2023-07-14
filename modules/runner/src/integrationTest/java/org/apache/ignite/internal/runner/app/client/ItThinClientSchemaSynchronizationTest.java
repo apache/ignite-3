@@ -17,7 +17,12 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -45,6 +50,9 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         // Modify table, get data - client will use old schema.
         ses.execute(null, "ALTER TABLE testOutdatedSchemaFromClientThrowsExceptionOnServer ADD COLUMN NAME VARCHAR");
-        recordView.get(null, rec);
+
+        // TODO IGNITE-19837 Retry outdated schema error
+        IgniteException ex = assertThrows(IgniteException.class, () -> recordView.insert(null, rec));
+        assertThat(ex.getMessage(), containsString("Schema version mismatch [expectedVer=2, actualVer=1]"));
     }
 }
