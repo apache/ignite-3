@@ -657,7 +657,7 @@ TEST_F(transaction_test, transaction_version_mismatch_error)
     {
         // TODO: Fixme
 
-//        BOOST_CHECK(err.message.find("Cannot serialize transaction due to write conflict") != err.message.npos);
+//        BOOST_CHECK(err.message.find("Cannot serialize transaction due to write conflict") != std::string::npos);
 //        EXPECT_EQ(err.sqlstate, "40001");
 
         reset_statement(m_statement);
@@ -672,7 +672,7 @@ TEST_F(transaction_test, transaction_version_mismatch_error)
     catch (std::exception& err)
     {
         // TODO: Fixme
-//        BOOST_CHECK(err.message.find("Transaction is already completed") != err.message.npos);
+//        BOOST_CHECK(err.message.find("Transaction is already completed") != std::string::npos);
 //        EXPECT_EQ(err.sqlstate, "25000");
 
         reset_statement(m_statement);

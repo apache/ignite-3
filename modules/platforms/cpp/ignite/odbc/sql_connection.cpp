@@ -358,7 +358,13 @@ sql_result sql_connection::internal_transaction_commit()
         });
     });
 
-    return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
+    if (!success)
+        return sql_result::AI_ERROR;
+
+    m_transaction_id = std::nullopt;
+    m_transaction_empty = true;
+
+    return sql_result::AI_SUCCESS;
 }
 
 void sql_connection::transaction_rollback() {
@@ -377,7 +383,13 @@ sql_result sql_connection::internal_transaction_rollback()
         });
     });
 
-    return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
+    if (!success)
+        return sql_result::AI_ERROR;
+
+    m_transaction_id = std::nullopt;
+    m_transaction_empty = true;
+
+    return sql_result::AI_SUCCESS;
 }
 
 void sql_connection::transaction_start() {
