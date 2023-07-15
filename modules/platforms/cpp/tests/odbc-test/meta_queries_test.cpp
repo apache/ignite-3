@@ -603,7 +603,6 @@ TEST_F(meta_queries_test, test_get_data_with_select_query)
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    // TODO: IGNITE-19213 Implement data fetching
     check_single_row_result_set_with_get_data(m_statement);
 }
 
