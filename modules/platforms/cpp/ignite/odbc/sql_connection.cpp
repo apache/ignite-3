@@ -361,6 +361,49 @@ sql_result sql_connection::internal_transaction_rollback() {
     return sql_result::AI_ERROR;
 }
 
+sql_result sql_connection::transaction_start() {
+    // TODO: IGNITE-19399: Implement transaction support
+
+    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Transactions are not supported.");
+    return sql_result::AI_ERROR;
+}
+
+sql_result sql_connection::enable_autocommit() {
+    assert(!m_auto_commit);
+
+    if (m_transaction_id)
+    {
+        sql_result res = sql_result::AI_SUCCESS;
+        if (m_transaction_empty)
+            res = internal_transaction_rollback();
+        else
+            res = internal_transaction_commit();
+
+        if (res != sql_result::AI_SUCCESS && res != sql_result::AI_SUCCESS_WITH_INFO)
+            return res;
+    }
+
+    m_transaction_id = std::nullopt;
+    m_transaction_empty = true;
+    m_auto_commit = true;
+
+    return sql_result::AI_SUCCESS;
+}
+
+sql_result sql_connection::disable_autocommit() {
+    assert(m_auto_commit);
+    assert(!m_transaction_id);
+
+    auto res = transaction_start();
+    if (res != sql_result::AI_SUCCESS && res != sql_result::AI_SUCCESS_WITH_INFO)
+        return res;
+
+    m_transaction_empty = true;
+    m_auto_commit = false;
+
+    return sql_result::AI_SUCCESS;
+}
+
 void sql_connection::get_attribute(int attr, void *buf, SQLINTEGER buf_len, SQLINTEGER *value_len) {
     IGNITE_ODBC_API_CALL(internal_get_attribute(attr, buf, buf_len, value_len));
 }
@@ -467,7 +510,12 @@ sql_result sql_connection::internal_set_attribute(int attr, void *value, SQLINTE
                 return sql_result::AI_ERROR;
             }
 
-            m_auto_commit = mode == SQL_AUTOCOMMIT_ON;
+            auto autocommit_now = mode == SQL_AUTOCOMMIT_ON;
+
+            if (autocommit_now && !m_auto_commit)
+                return enable_autocommit();
+            else
+                return disable_autocommit();
 
             break;
         }

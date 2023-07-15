@@ -261,6 +261,15 @@ public:
         return receive_message(req_id);
     }
 
+    /**
+     * Get transaction ID.
+     *
+     * @return Transaction ID.
+     */
+    [[nodiscard]] std::optional<std::int64_t> get_transaction_id() const {
+        return m_transaction_id;
+    }
+
 private:
     /**
      * Generate and get next request ID.
@@ -344,6 +353,27 @@ private:
      * @return Operation result.
      */
     sql_result internal_transaction_rollback();
+
+    /**
+     * Start transaction.
+     *
+     * @return Operation result.
+     */
+    sql_result transaction_start();
+
+    /**
+     * Enable autocommit.
+     *
+     * @return Operation result.
+     */
+    sql_result enable_autocommit();
+
+    /**
+     * Disable autocommit.
+     *
+     * @return Operation result.
+     */
+    sql_result disable_autocommit();
 
     /**
      * Get connection attribute.
@@ -445,6 +475,12 @@ private:
 
     /** Autocommit flag. */
     bool m_auto_commit{true};
+
+    /** Current transaction ID. */
+    std::optional<std::int64_t> m_transaction_id;
+
+    /** Current transaction empty. */
+    bool m_transaction_empty{true};
 
     /** Configuration. */
     configuration m_config;

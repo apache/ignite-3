@@ -311,12 +311,15 @@ sql_result data_query::next_result_set() {
 
 sql_result data_query::make_request_execute() {
     auto &schema = m_connection.get_schema();
+    auto tx = m_connection.get_transaction_id();
 
     network::data_buffer_owning response;
     auto success = m_diag.catch_errors([&] {
         response = m_connection.sync_request(detail::client_operation::SQL_EXEC, [&](protocol::writer &writer) {
-            // TODO: IGNITE-19399 Implement transactions support.
-            writer.write_nil();
+            if (tx)
+                writer.write(*tx);
+            else
+                writer.write_nil();
 
             writer.write(schema);
             writer.write(m_connection.get_configuration().get_page_size().get_value());
