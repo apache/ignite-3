@@ -81,6 +81,22 @@ public:
     }
 
     /**
+     * Make a certain number of retry of operation while it fails
+     *
+     * @param func Function.
+     * @param attempts Attempts number.
+     * @return @c true on success.
+     */
+    bool retry_on_fail(std::function<SQLRETURN()> func, int attempts = 5) {
+        for (int i = 0; i < attempts; ++i) {
+            auto res = func();
+            if (SQL_SUCCEEDED(res))
+                return true;
+        }
+        return false;
+    }
+
+    /**
      * Get statement error state.
      *
      * @return Statement error state.

@@ -18,6 +18,7 @@
 
 #include "odbc_suite.h"
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include <string>
@@ -30,7 +31,7 @@ using namespace ignite;
 struct transaction_test : public odbc_suite {
     void SetUp() override {
         odbc_connect(get_basic_connection_string());
-        exec_query("DELETE FROM " + TABLE_NAME_ALL_COLUMNS_SQL);
+        retry_on_fail([&]{ return exec_query("DELETE FROM " + TABLE_NAME_ALL_COLUMNS_SQL); });
         odbc_clean_up();
     }
 
@@ -58,38 +59,38 @@ struct transaction_test : public odbc_suite {
 
         SQLRETURN ret = SQLPrepare(statement, insert_req, SQL_NTS);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         char str_field[1024] = { 0 };
         SQLLEN str_field_len = 0;
 
         ret = SQLBindParameter(statement, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_BIGINT, 0, 0, &key, 0, nullptr);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         ret = SQLBindParameter(statement, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, sizeof(str_field),
             sizeof(str_field), &str_field, sizeof(str_field), &str_field_len);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         strncpy(str_field, value.c_str(), sizeof(str_field) - 1);
         str_field_len = SQL_NTS;
 
         ret = SQLExecute(statement);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         SQLLEN affected = 0;
         ret = SQLRowCount(statement, &affected);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         EXPECT_EQ(affected, 1);
 
         ret = SQLMoreResults(statement);
 
         if (ret != SQL_NO_DATA)
-            ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+            ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         reset_statement(statement);
     }
@@ -118,7 +119,7 @@ struct transaction_test : public odbc_suite {
 
         SQLRETURN ret = SQLPrepare(statement, update_req, SQL_NTS);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         char str_field[1024] = { 0 };
         SQLLEN str_field_len = 0;
@@ -126,30 +127,30 @@ struct transaction_test : public odbc_suite {
         ret = SQLBindParameter(statement, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, sizeof(str_field),
             sizeof(str_field), &str_field, sizeof(str_field), &str_field_len);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         ret = SQLBindParameter(statement, 2, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_BIGINT, 0, 0, &key, 0, nullptr);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         strncpy(str_field, value.c_str(), sizeof(str_field) - 1);
         str_field_len = SQL_NTS;
 
         ret = SQLExecute(statement);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         SQLLEN affected = 0;
         ret = SQLRowCount(statement, &affected);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         EXPECT_EQ(affected, 1);
 
         ret = SQLMoreResults(statement);
 
         if (ret != SQL_NO_DATA)
-            ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+            ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         reset_statement(statement);
     }
@@ -176,27 +177,27 @@ struct transaction_test : public odbc_suite {
 
         SQLRETURN ret = SQLPrepare(statement, delete_req, SQL_NTS);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         ret = SQLBindParameter(statement, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_BIGINT, 0, 0, &key, 0, nullptr);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         ret = SQLExecute(statement);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         SQLLEN affected = 0;
         ret = SQLRowCount(statement, &affected);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         EXPECT_EQ(affected, 1);
 
         ret = SQLMoreResults(statement);
 
         if (ret != SQL_NO_DATA)
-            ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+            ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         reset_statement(statement);
     }
@@ -218,7 +219,7 @@ struct transaction_test : public odbc_suite {
      * @param key Key.
      * @param expect Expected value.
      */
-    static void check_test_value(SQLHSTMT statement, std::int64_t key, const std::string& expect)
+    static void check_test_value(SQLHSTMT statement, std::int64_t key, std::optional<std::string_view> expect)
     {
         // Just selecting everything to make sure everything is OK
         SQLCHAR selectReq[] = "SELECT str FROM TBL_ALL_COLUMNS_SQL WHERE key = ?";
@@ -228,32 +229,46 @@ struct transaction_test : public odbc_suite {
 
         SQLRETURN ret = SQLBindCol(statement, 1, SQL_C_CHAR, &str_field, sizeof(str_field), &str_field_len);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         ret = SQLBindParameter(statement, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_BIGINT, 0, 0, &key, 0, nullptr);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         ret = SQLExecDirect(statement, selectReq, sizeof(selectReq));
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         ret = SQLFetch(statement);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        if (expect)
+        {
+            ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+            EXPECT_EQ(std::string(str_field, str_field_len), expect);
 
-        EXPECT_EQ(std::string(str_field, str_field_len), expect);
+            ret = SQLFetch(statement);
+        }
 
-        ret = SQLFetch(statement);
-
-        EXPECT_EQ(ret, SQL_NO_DATA);
+        if (ret != SQL_NO_DATA)
+            ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         ret = SQLMoreResults(statement);
 
         if (ret != SQL_NO_DATA)
-            ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+            ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         reset_statement(statement);
+    }
+
+    /**
+     * Selects and checks that value is absent.
+     *
+     * @param statement Statement.
+     * @param key Key.
+     */
+    void check_no_test_value(SQLHSTMT statement, std::int64_t key)
+    {
+        check_test_value(m_statement, key, {});
     }
 
     /**
@@ -264,50 +279,6 @@ struct transaction_test : public odbc_suite {
     void check_no_test_value(std::int64_t key)
     {
         check_no_test_value(m_statement, key);
-    }
-
-    /**
-     * Selects and checks that value is absent.
-     * TODO: replace it with check_test_value
-     *
-     * @param statement Statement.
-     * @param key Key.
-     */
-    static void check_no_test_value(SQLHSTMT statement, std::int64_t key)
-    {
-        // Just selecting everything to make sure everything is OK
-        SQLCHAR selectReq[] = "SELECT str FROM TBL_ALL_COLUMNS_SQL WHERE key = ?";
-
-        char str_field[1024] = { 0 };
-        SQLLEN str_field_len = 0;
-
-        SQLRETURN ret = SQLBindCol(statement, 1, SQL_C_CHAR, &str_field, sizeof(str_field), &str_field_len);
-
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
-
-        ret = SQLBindParameter(statement, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_BIGINT, 0, 0, &key, 0, nullptr);
-
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
-
-        ret = SQLExecDirect(statement, selectReq, sizeof(selectReq));
-
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
-
-        ret = SQLFetch(statement);
-
-        EXPECT_EQ(ret, SQL_NO_DATA);
-
-        if (ret != SQL_NO_DATA)
-            ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
-
-        ret = SQLMoreResults(statement);
-
-        EXPECT_EQ(ret, SQL_NO_DATA);
-
-        if (ret != SQL_NO_DATA)
-            ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
-
-        reset_statement(statement);
     }
 
     /**
@@ -327,11 +298,11 @@ struct transaction_test : public odbc_suite {
     {
         SQLRETURN ret = SQLFreeStmt(statement, SQL_RESET_PARAMS);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
         ret = SQLFreeStmt(statement, SQL_UNBIND);
 
-        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
+        ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
     }
 };
 
@@ -619,7 +590,7 @@ TEST_F(transaction_test, transaction_environment_rollback_delete_2)
     check_test_value(42, "Some");
 }
 
-TEST_F(transaction_test, transaction_version_mismatch_error)
+TEST_F(transaction_test, transaction_error)
 {
     odbc_connect(get_basic_connection_string());
 
@@ -630,6 +601,7 @@ TEST_F(transaction_test, transaction_version_mismatch_error)
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
 
     check_test_value(1, "test_1");
+    check_no_test_value(2);
 
     odbc_connection conn2;
     conn2.odbc_connect(get_basic_connection_string());
@@ -638,47 +610,32 @@ TEST_F(transaction_test, transaction_version_mismatch_error)
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, conn2.m_conn);
 
-    insert_test_value(conn2.m_statement, 2, "test_2");
+    EXPECT_THROW(
+    {
+        try {
+            insert_test_value(conn2.m_statement, 2, "test_2");
+        } catch (const odbc_exception &err) {
+            EXPECT_THAT(err.message, testing::HasSubstr("Failed to acquire a lock due to a conflict"));
+            // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
+            EXPECT_EQ(err.sql_state, "HY000");
+            throw;
+        }
+    },
+    odbc_exception);
 
-    ret = SQLEndTran(SQL_HANDLE_DBC, conn2.m_conn, SQL_COMMIT);
-
+    ret = SQLEndTran(SQL_HANDLE_DBC, m_conn, SQL_COMMIT);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, conn2.m_conn);
 
-    check_test_value(conn2.m_statement, 1, "test_1");
-    check_test_value(conn2.m_statement, 2, "test_2");
+    reset_statement();
 
-    try
-    {
-        insert_test_value(2, "test_2");
+    insert_test_value(conn2.m_statement, 2, "test_2");
 
-        FAIL() << "Exception is expected";
-    }
-    catch (std::exception& err)
-    {
-        // TODO: Fixme
+    reset_statement(conn2.m_statement);
 
-//        BOOST_CHECK(err.message.find("Cannot serialize transaction due to write conflict") != std::string::npos);
-//        EXPECT_EQ(err.sqlstate, "40001");
-
-        reset_statement(m_statement);
-    }
-
-    try
-    {
-        check_test_value(1, "test_1");
-
-        FAIL() << "Exception is expected";
-    }
-    catch (std::exception& err)
-    {
-        // TODO: Fixme
-//        BOOST_CHECK(err.message.find("Transaction is already completed") != std::string::npos);
-//        EXPECT_EQ(err.sqlstate, "25000");
-
-        reset_statement(m_statement);
-    }
-
-    ret = SQLEndTran(SQL_HANDLE_DBC, m_conn, SQL_ROLLBACK);
+    ret = SQLEndTran(SQL_HANDLE_DBC, conn2.m_conn, SQL_ROLLBACK);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
+
+    check_no_test_value(2);
+    check_no_test_value(conn2.m_statement, 2);
 }
 

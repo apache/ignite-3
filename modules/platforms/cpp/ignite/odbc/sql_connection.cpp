@@ -348,7 +348,12 @@ void sql_connection::transaction_commit() {
 
 sql_result sql_connection::internal_transaction_commit()
 {
-    assert(m_transaction_id);
+    if (!m_transaction_id)
+    {
+        add_status_record(sql_state::S25000_INVALID_TRANSACTION_STATE, "No transaction to commit");
+        return sql_result::AI_ERROR;
+    }
+
     LOG_MSG("Committing transaction: " << *m_transaction_id);
 
     network::data_buffer_owning response;
@@ -373,7 +378,12 @@ void sql_connection::transaction_rollback() {
 
 sql_result sql_connection::internal_transaction_rollback()
 {
-    assert(m_transaction_id);
+    if (!m_transaction_id)
+    {
+        add_status_record(sql_state::S25000_INVALID_TRANSACTION_STATE, "No transaction to rollback");
+        return sql_result::AI_ERROR;
+    }
+
     LOG_MSG("Rolling back transaction: " << *m_transaction_id);
 
     network::data_buffer_owning response;
@@ -411,13 +421,13 @@ sql_result sql_connection::enable_autocommit() {
 
     if (m_transaction_id)
     {
-        sql_result res = sql_result::AI_SUCCESS;
+        sql_result res;
         if (m_transaction_empty)
             res = internal_transaction_rollback();
         else
             res = internal_transaction_commit();
 
-        if (res != sql_result::AI_SUCCESS && res != sql_result::AI_SUCCESS_WITH_INFO)
+        if (res != sql_result::AI_SUCCESS)
             return res;
     }
 
@@ -554,8 +564,6 @@ sql_result sql_connection::internal_set_attribute(int attr, void *value, SQLINTE
                 return enable_autocommit();
             else
                 return disable_autocommit();
-
-            break;
         }
 
         default: {
