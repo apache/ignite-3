@@ -172,6 +172,9 @@ void sql_connection::close() {
     if (m_socket) {
         m_socket->close();
         m_socket.reset();
+
+        m_transaction_id = std::nullopt;
+        m_transaction_empty = true;
     }
 }
 
@@ -377,26 +380,18 @@ sql_result sql_connection::internal_transaction_rollback()
     return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
 }
 
-sql_result sql_connection::transaction_start() {
+void sql_connection::transaction_start() {
     LOG_MSG("Starting transaction");
 
-    network::data_buffer_owning response;
-    auto success = catch_errors([&]{
-        auto response = sync_request(detail::client_operation::TX_BEGIN, [&](protocol::writer &writer) {
-            writer.write_bool(false); // readOnly.
+    network::data_buffer_owning response = sync_request(
+        detail::client_operation::TX_BEGIN, [&](protocol::writer &writer) {
+            writer.write_bool(false); // read_only.
         });
 
-        protocol::reader reader(response.get_bytes_view());
-        m_transaction_id = reader.read_int64();
-    });
+    protocol::reader reader(response.get_bytes_view());
+    m_transaction_id = reader.read_int64();
 
-    if (success) {
-        assert(m_transaction_id);
-        LOG_MSG("Transaction ID: " << *m_transaction_id);
-        return sql_result::AI_SUCCESS;
-    }
-
-    return sql_result::AI_ERROR;
+    LOG_MSG("Transaction ID: " << *m_transaction_id);
 }
 
 sql_result sql_connection::enable_autocommit() {
@@ -425,9 +420,9 @@ sql_result sql_connection::disable_autocommit() {
     assert(m_auto_commit);
     assert(!m_transaction_id);
 
-    auto res = transaction_start();
-    if (res != sql_result::AI_SUCCESS && res != sql_result::AI_SUCCESS_WITH_INFO)
-        return res;
+    auto success = catch_errors([&]{ transaction_start(); });
+    if (!success)
+        return sql_result::AI_ERROR;
 
     m_transaction_empty = true;
     m_auto_commit = false;

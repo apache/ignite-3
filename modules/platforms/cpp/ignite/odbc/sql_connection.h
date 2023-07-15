@@ -203,6 +203,13 @@ public:
     void transaction_rollback();
 
     /**
+     * Start transaction.
+     *
+     * @return Operation result.
+     */
+    void transaction_start();
+
+    /**
      * Get connection attribute.
      *
      * @param attr Attribute type.
@@ -353,13 +360,6 @@ private:
      * @return Operation result.
      */
     sql_result internal_transaction_rollback();
-
-    /**
-     * Start transaction.
-     *
-     * @return Operation result.
-     */
-    sql_result transaction_start();
 
     /**
      * Enable autocommit.
