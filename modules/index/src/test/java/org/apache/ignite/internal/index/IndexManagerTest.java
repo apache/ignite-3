@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -113,18 +114,18 @@ public class IndexManagerTest {
     public void setUp() {
         TableManager tableManagerMock = mock(TableManager.class);
 
-        when(tableManagerMock.tableAsync(anyLong(), anyInt())).thenAnswer(inv -> {
+        when(tableManagerMock.tableAsync(anyLong(), anyString())).thenAnswer(inv -> {
             InternalTable tbl = mock(InternalTable.class);
 
-            doReturn(inv.getArgument(1)).when(tbl).tableId();
+            doReturn(catalogManager.table(inv.getArgument(1), clock.nowLong()).id()).when(tbl).tableId();
 
             return completedFuture(new TableImpl(tbl, new HeapLockManager()));
         });
 
-        when(tableManagerMock.getTable(anyInt())).thenAnswer(inv -> {
+        when(tableManagerMock.getTable(anyString())).thenAnswer(inv -> {
             InternalTable tbl = mock(InternalTable.class);
 
-            doReturn(inv.getArgument(0)).when(tbl).tableId();
+            doReturn(catalogManager.table(inv.getArgument(0), clock.nowLong()).id()).when(tbl).tableId();
 
             return new TableImpl(tbl, new HeapLockManager());
         });

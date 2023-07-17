@@ -130,7 +130,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         catalogManager.listen(INDEX_CREATE, (parameters, exception) -> {
-            assert exception == null;
+            assert exception == null : parameters;
 
             return onIndexCreate((CreateIndexEventParameters) parameters);
         });
@@ -325,16 +325,17 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
-            CompletableFuture<?> fireEventFuture = fireEvent(IndexEvent.DROP, new IndexEventParameters(causalityToken, tableId, indexId));
-
-            CompletableFuture<?> dropIndexFuture = tableManager.tableAsync(causalityToken, tableId)
-                    .thenAccept(table -> {
+            return tableManager.tableAsync(causalityToken, parameters.tableName())
+                    .thenCompose(table -> {
                         if (table != null) { // in case of DROP TABLE the table will be removed first
                             table.unregisterIndex(indexId);
                         }
-                    });
 
-            return allOf(fireEventFuture, dropIndexFuture)
+                        return fireEvent(
+                                IndexEvent.DROP,
+                                new IndexEventParameters(causalityToken, table == null ? -1 : table.tableId(), indexId)
+                        );
+                    })
                     .thenApply(unused -> false);
         } catch (Throwable t) {
             return failedFuture(t);
@@ -388,17 +389,20 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         var storageIndexDescriptor = StorageIndexDescriptor.create(tableDescriptor, indexDescriptor);
 
+        TableImpl table = tableManager.getTable(tableDescriptor.name());
+
+        assert table != null : tableDescriptor.name();
+
+        // TODO: IGNITE-19500 костыль, наверное где-то описать надо будет
+        int configTableId = table.internalTable().tableId();
+
         CompletableFuture<?> fireEventFuture =
-                fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, tableId, indexId, eventIndexDescriptor));
+                fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, configTableId, indexId, eventIndexDescriptor));
 
-        TableImpl table = tableManager.getTable(tableId);
-
-        assert table != null : tableId;
-
-        CompletableFuture<SchemaRegistry> schemaRegistryFuture = schemaManager.schemaRegistry(causalityToken, tableId);
+        CompletableFuture<SchemaRegistry> schemaRegistryFuture = schemaManager.schemaRegistry(causalityToken, configTableId);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19712 Listen to assignment changes and start new index storages.
-        CompletableFuture<PartitionSet> tablePartitionFuture = tableManager.localPartitionSetAsync(causalityToken, tableId);
+        CompletableFuture<PartitionSet> tablePartitionFuture = tableManager.localPartitionSetAsync(causalityToken, configTableId);
 
         CompletableFuture<?> createIndexFuture = tablePartitionFuture.thenAcceptBoth(schemaRegistryFuture, (partitions, schemaRegistry) -> {
             TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(

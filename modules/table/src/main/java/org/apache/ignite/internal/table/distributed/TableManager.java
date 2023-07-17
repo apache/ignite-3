@@ -1949,6 +1949,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
+    /**
+     * Asynchronously gets the table using causality token.
+     *
+     * @param causalityToken Causality token.
+     * @param name Table name.
+     * @return Future.
+     */
+    public CompletableFuture<TableImpl> tableAsync(long causalityToken, String name) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        try {
+            return tablesById(causalityToken).thenApply(tablesById -> findTableImplByName(tablesById.values(), name));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<TableImpl> tableAsync(int id) {
@@ -2711,6 +2729,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return startedTables.get(tableId);
     }
 
+    /**
+     * Returns a table instance if it exists, {@code null} otherwise.
+     *
+     * @param name Table name.
+     */
+    // TODO: IGNITE-19500 избавиться или описать костылище
+    public @Nullable TableImpl getTable(String name) {
+        return findTableImplByName(startedTables.values(), name);
+    }
+
     private @Nullable CatalogTableDescriptor getTableDescriptor(int id) {
         TableView tableView = findTableView(tablesCfg.value(), id);
 
@@ -2757,5 +2785,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         return new CatalogDataStorageDescriptor(config.name(), dataRegion);
+    }
+
+    // TODO: IGNITE-19500 добавить описание удаления костыля
+    private static @Nullable TableImpl findTableImplByName(Collection<TableImpl> tables, String name) {
+        return tables.stream().filter(table -> table.name().equals(name)).findAny().orElse(null);
     }
 }

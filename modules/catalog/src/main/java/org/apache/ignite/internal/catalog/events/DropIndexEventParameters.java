@@ -26,6 +26,9 @@ public class DropIndexEventParameters extends CatalogEventParameters {
 
     private final int tableId;
 
+    // TODO: IGNITE-19500 добавить описание что надо удалить костылище
+    private final String tableName;
+
     /**
      * Constructor.
      *
@@ -33,12 +36,14 @@ public class DropIndexEventParameters extends CatalogEventParameters {
      * @param catalogVersion Catalog version.
      * @param indexId An id of dropped index.
      * @param tableId Table ID for which the index was removed.
+     * @param tableName Table name for which the index was removed.
      */
-    public DropIndexEventParameters(long causalityToken, int catalogVersion, int indexId, int tableId) {
+    public DropIndexEventParameters(long causalityToken, int catalogVersion, int indexId, int tableId, String tableName) {
         super(causalityToken, catalogVersion);
 
         this.indexId = indexId;
         this.tableId = tableId;
+        this.tableName = tableName;
     }
 
     /** Returns an id of dropped index. */
@@ -49,5 +54,10 @@ public class DropIndexEventParameters extends CatalogEventParameters {
     /** Returns table ID for which the index was removed. */
     public int tableId() {
         return tableId;
+    }
+
+    /** Returns table name for with the index was removed. */
+    public String tableName() {
+        return tableName;
     }
 }
