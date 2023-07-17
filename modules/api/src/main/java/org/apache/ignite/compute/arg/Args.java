@@ -15,8 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+package org.apache.ignite.compute.arg;
 
-public interface Mapper {
-    Class<?> arg(int i);
+public interface Args {
+    static Args empty() {
+        return new Args() {
+            @Override
+            public Object[] args() {
+                return new Object[0];
+            }
+        };
+    }
+
+    Object[] args();
 }

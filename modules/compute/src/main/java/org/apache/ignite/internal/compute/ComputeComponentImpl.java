@@ -36,6 +36,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.arg.Args;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.loader.JobContext;
@@ -101,14 +102,14 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> executeLocally(List<DeploymentUnit> units, String jobClassName, Object... args) {
+    public <R> CompletableFuture<R> executeLocally(List<DeploymentUnit> units, String jobClassName, Args args) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
 
         try {
             return mapClassLoaderExceptions(jobClassLoader(units), jobClassName)
-                    .thenCompose(context -> doExecuteLocally(this.<R, ComputeJob<R>>jobClass(context.classLoader(), jobClassName), args)
+                    .thenCompose(context -> doExecuteLocally(this.<R, ComputeJob<R>>jobClass(context.classLoader(), jobClassName), args.args())
                             .whenComplete((r, e) -> context.close())
                     );
         } finally {
@@ -160,8 +161,12 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> executeRemotely(ClusterNode remoteNode, List<DeploymentUnit> units, String jobClassName,
-            Object... args) {
+    public <R> CompletableFuture<R> executeRemotely(
+            ClusterNode remoteNode,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Args args
+    ) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -173,8 +178,12 @@ public class ComputeComponentImpl implements ComputeComponent {
         }
     }
 
-    private <R> CompletableFuture<R> doExecuteRemotely(ClusterNode remoteNode, List<DeploymentUnit> units, String jobClassName,
-            Object[] args) {
+    private <R> CompletableFuture<R> doExecuteRemotely(
+            ClusterNode remoteNode,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Args args
+    ) {
         List<DeploymentUnitMsg> deploymentUnitMsgs = units.stream()
                 .map(this::toDeploymentUnitMsg)
                 .collect(Collectors.toList());
@@ -182,7 +191,7 @@ public class ComputeComponentImpl implements ComputeComponent {
         ExecuteRequest executeRequest = messagesFactory.executeRequest()
                 .deploymentUnits(deploymentUnitMsgs)
                 .jobClassName(jobClassName)
-                .args(args)
+                .args(args.args())
                 .build();
 
         CompletableFuture<R> future = messagingService.invoke(remoteNode, executeRequest, NETWORK_TIMEOUT_MILLIS)

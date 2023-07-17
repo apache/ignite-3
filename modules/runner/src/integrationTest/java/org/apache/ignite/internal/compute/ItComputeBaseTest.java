@@ -40,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.arg.PojoArgs;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -68,7 +69,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         String result = entryNode.compute()
-                .<String>execute(Set.of(entryNode.node()), units(), concatJobClassName(), "a", 42)
+                .<String>execute(Set.of(entryNode.node()), units(), concatJobClassName(), PojoArgs.fromArray("a", 42))
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(result, is("a42"));
@@ -79,7 +80,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         String result = entryNode.compute()
-                .<String>execute(Set.of(entryNode.node()), units(), concatJobClassName(), "a", 42)
+                .<String>execute(Set.of(entryNode.node()), units(), concatJobClassName(), PojoArgs.fromArray("a", 42))
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(result, is("a42"));
@@ -90,7 +91,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
         Ignite entryNode = node(0);
 
         String result = entryNode.compute()
-                .<String>execute(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42)
+                .<String>execute(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), PojoArgs.fromArray("a", 42))
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(result, is("a42"));
@@ -101,7 +102,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
         Ignite entryNode = node(0);
 
         String result = entryNode.compute()
-                .<String>execute(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42)
+                .<String>execute(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), PojoArgs.fromArray("a", 42))
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(result, is("a42"));
@@ -165,7 +166,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         Map<ClusterNode, CompletableFuture<String>> results = entryNode.compute()
-                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
+                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), concatJobClassName(), PojoArgs.fromArray("a", 42));
 
         assertThat(results, is(aMapWithSize(3)));
         for (int i = 0; i < 3; i++) {
@@ -179,7 +180,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         Map<ClusterNode, CompletableFuture<String>> results = entryNode.compute()
-                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
+                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), concatJobClassName(), PojoArgs.fromArray("a", 42));
 
         assertThat(results, is(aMapWithSize(3)));
         for (int i = 0; i < 3; i++) {

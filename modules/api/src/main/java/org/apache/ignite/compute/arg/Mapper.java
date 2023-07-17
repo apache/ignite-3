@@ -15,15 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+package org.apache.ignite.compute.arg;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
-@Target({ElementType.TYPE, ElementType.FIELD})
-@Retention(RetentionPolicy.RUNTIME)
-public @interface ArgMapper {
-    Class<? extends Mapper> mapper();
+public interface Mapper {
+    Object[] map(Object[] content);
 }

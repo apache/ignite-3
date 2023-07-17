@@ -29,13 +29,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Comparator;
@@ -49,12 +49,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.compute.ArgMapper;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.arg.MappedArgs;
+import org.apache.ignite.compute.arg.PojoArgs;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.serialization.JsonObjectSerializer;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
@@ -106,8 +108,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 Set.of(node(1)),
                 List.of(),
                 NodeNameJob.class.getName(),
-                "_",
-                123);
+                PojoArgs.fromArray("_", 123)
+        );
 
         assertEquals(1, futuresPerNode.size());
 
@@ -122,8 +124,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 new HashSet<>(sortedNodes()),
                 List.of(),
                 NodeNameJob.class.getName(),
-                "_",
-                123);
+                PojoArgs.fromArray("_", 123)
+        );
 
         assertEquals(2, futuresPerNode.size());
 
@@ -137,7 +139,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteWithArgs() {
         var nodes = new HashSet<>(client().clusterNodes());
-        String res = client().compute().<String>execute(nodes, List.of(), ConcatJob.class.getName(), 1, "2", 3.3).join();
+        String res = client().compute().<String>execute(nodes, List.of(), ConcatJob.class.getName(), PojoArgs.fromArray(1, "2", 3.3)).join();
 
         assertEquals("1_2_3.3", res);
     }
@@ -216,7 +218,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 () -> client().compute().<String>execute(
                         Set.of(node(0)),
                         List.of(new DeploymentUnit("u", "latest")),
-                        NodeNameJob.class.getName()).join());
+                        NodeNameJob.class.getName()
+                ).join());
 
         var cause = (IgniteException) ex.getCause();
         assertThat(cause.getMessage(), containsString("Deployment unit u:latest doesn't exist"));
@@ -233,7 +236,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                         TABLE_NAME,
                         Tuple.create().set(COLUMN_KEY, 1),
                         List.of(new DeploymentUnit("u", "latest")),
-                        NodeNameJob.class.getName()).join());
+                        NodeNameJob.class.getName()
+                ).join());
 
         var cause = (IgniteException) ex.getCause();
         assertThat(cause.getMessage(), containsString("Deployment unit u:latest doesn't exist"));
@@ -248,22 +252,26 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         ArgClass arg1 = new ArgClass();
         arg1.setId("id1");
-        arg1.setMap(Map.of("key1", "value1"));
+        arg1.setList(List.of("key1", "value1"));
 
         ArgClass arg2 = new ArgClass();
         arg2.setId("id2");
-        arg2.setMap(Map.of("key2", "value2"));
+        arg2.setList(List.of("key2", "value2"));
 
         ArgClass arg3 = new ArgClass();
         arg3.setId("id3");
-        arg3.setMap(Map.of("key3", "value3"));
+        arg3.setList(List.of("key3", "value3"));
 
-        PojoClass pojo = client.compute()
-                .<PojoClass>execute(Set.of(node(0)), List.of(), PojoClassJob.class.getCanonicalName(), arg1, arg2, arg3).join();
+        JsonObjectSerializer ser = new JsonObjectSerializer();
+
+        MappedArgs args = MappedArgs.fromArray(PojoJobMapper.class, ser.serialize(arg1), ser.serialize(arg2), ser.serialize(arg3));
+        Object join = client.compute()
+                .<PojoClass>execute(Set.of(node(0)), List.of(), PojoClassJob.class.getName(), args).join();
+        PojoClass pojo = ser.deserialize((byte[]) join, PojoClass.class);
 
         assertEquals("id1id2id3", pojo.id);
-        assertEquals(Map.of("key1", "value1", "key2", "value2", "key3", "value3"),
-                pojo.map);
+        assertEquals(List.of("key1", "value1", "key2", "value2", "key3", "value3"),
+                pojo.list);
     }
 
     @Test
@@ -287,7 +295,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     private void testEchoArg(Object arg) {
-        Object res = client().compute().execute(Set.of(node(0)), List.of(), EchoJob.class.getName(), arg, arg.toString()).join();
+        Object res = client().compute().execute(Set.of(node(0)), List.of(), EchoJob.class.getName(), PojoArgs.fromArray(arg, arg.toString())).join();
 
         if (arg instanceof byte[]) {
             assertArrayEquals((byte[]) arg, (byte[]) res);
@@ -362,76 +370,77 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    @ArgMapper(mapper = PojoJobArgMapper.class)
     private static class PojoClassJob implements ComputeJob<PojoClass> {
         @Override
         public PojoClass execute(JobExecutionContext context, Object... args) {
             StringBuilder id = new StringBuilder();
-            Map<String, String> map = new HashMap<>();
+            List<String> list = new ArrayList<>();
             for (Object arg : args) {
                 ArgClass argCast = (ArgClass) arg;
                 id.append(argCast.id);
-                map.putAll(argCast.map);
+                list.addAll((List<String>) argCast.list);
             }
-            return new PojoClass(id.toString(), map);
+            return new PojoClass(id.toString(), list);
         }
     }
 
-    private static class PojoJobArgMapper implements org.apache.ignite.compute.Mapper {
+    private static class PojoJobMapper implements org.apache.ignite.compute.arg.Mapper {
+
         @Override
-        public Class<?> arg(int i) {
-            return ArgClass.class;
+        public Object[] map(Object[] content) {
+            JsonObjectSerializer serializer = new JsonObjectSerializer();
+            return Arrays.stream(content).map(arg -> serializer.deserialize((byte[]) arg, ArgClass.class)).toArray();
         }
     }
 
     private static class PojoClass {
         private String id;
-        private Map<String, String> map;
+        private List<String> list;
 
         public PojoClass() {
             this(null, null);
         }
 
-        public PojoClass(String id, Map<String, String> map) {
+        public PojoClass(String id, List<String> list) {
             this.id = id;
-            this.map = map;
+            this.list = list;
         }
 
         public String getId() {
             return id;
         }
 
-        public Map<String, String> getMap() {
-            return map;
+        public List<String> getList() {
+            return list;
         }
 
         public void setId(String id) {
             this.id = id;
         }
 
-        public void setMap(Map<String, String> map) {
-            this.map = map;
+        public void setList(List<String> list) {
+            this.list = list;
         }
     }
 
     private static class ArgClass {
         private String id;
-        private Map<String, String> map;
+        private List<String> list;
 
         public String getId() {
             return id;
         }
 
-        public void setMap(Map<String, String> map) {
-            this.map = map;
+        public void setList(List<String> list) {
+            this.list = list;
         }
 
         public void setId(String id) {
             this.id = id;
         }
 
-        public Map<String, String> getMap() {
-            return map;
+        public List<String> getList() {
+            return list;
         }
     }
 }

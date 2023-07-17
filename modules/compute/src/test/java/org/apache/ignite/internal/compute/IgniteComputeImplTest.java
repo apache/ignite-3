@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.arg.PojoArgs;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.network.ClusterNode;
@@ -74,29 +75,29 @@ class IgniteComputeImplTest {
 
     @Test
     void whenNodeIsLocalThenExecutesLocally() throws Exception {
-        when(computeComponent.executeLocally(testDeploymentUnits, "org.example.SimpleJob", "a", 42))
+        when(computeComponent.executeLocally(testDeploymentUnits, "org.example.SimpleJob", PojoArgs.fromArray("a", 42)))
                 .thenReturn(CompletableFuture.completedFuture("jobResponse"));
 
-        String result = compute.<String>execute(singleton(localNode), testDeploymentUnits, "org.example.SimpleJob", "a", 42).get();
+        String result = compute.<String>execute(singleton(localNode), testDeploymentUnits, "org.example.SimpleJob", PojoArgs.fromArray("a", 42)).get();
 
         assertThat(result, is("jobResponse"));
 
-        verify(computeComponent).executeLocally(testDeploymentUnits, "org.example.SimpleJob", "a", 42);
+        verify(computeComponent).executeLocally(testDeploymentUnits, "org.example.SimpleJob", PojoArgs.fromArray("a", 42));
     }
 
     @Test
     void whenNodeIsRemoteThenExecutesRemotely() throws Exception {
         respondWhenExecutingSimpleJobRemotely();
 
-        String result = compute.<String>execute(singleton(remoteNode), testDeploymentUnits, "org.example.SimpleJob", "a", 42).get();
+        String result = compute.<String>execute(singleton(remoteNode), testDeploymentUnits, "org.example.SimpleJob", PojoArgs.fromArray("a", 42)).get();
 
         assertThat(result, is("remoteResponse"));
 
-        verify(computeComponent).executeRemotely(remoteNode, testDeploymentUnits, "org.example.SimpleJob", "a", 42);
+        verify(computeComponent).executeRemotely(remoteNode, testDeploymentUnits, "org.example.SimpleJob", PojoArgs.fromArray("a", 42));
     }
 
     private void respondWhenExecutingSimpleJobRemotely() {
-        when(computeComponent.executeRemotely(remoteNode, testDeploymentUnits, "org.example.SimpleJob", "a", 42))
+        when(computeComponent.executeRemotely(remoteNode, testDeploymentUnits, "org.example.SimpleJob", PojoArgs.fromArray("a", 42)))
                 .thenReturn(CompletableFuture.completedFuture("remoteResponse"));
     }
 
@@ -113,7 +114,7 @@ class IgniteComputeImplTest {
                 Tuple.create(Map.of("k", 1)),
                 testDeploymentUnits,
                 "org.example.SimpleJob",
-                "a", 42
+                PojoArgs.fromArray("a", 42)
         ).get();
 
         assertThat(result, is("remoteResponse"));
@@ -133,7 +134,7 @@ class IgniteComputeImplTest {
                 Mapper.of(Integer.class),
                 testDeploymentUnits,
                 "org.example.SimpleJob",
-                "a", 42
+                PojoArgs.fromArray("a", 42)
         ).get();
 
         assertThat(result, is("remoteResponse"));

@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.arg.Args;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -53,7 +54,7 @@ public class ClientComputeExecuteColocatedRequest {
 
             List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
             String jobClassName = in.unpackString();
-            Object[] args = unpackArgs(in, jobClassName);
+            Args args = unpackArgs(in, jobClassName);
 
             return compute.executeColocated(table.name(), keyTuple, deploymentUnits, jobClassName, args).thenAccept(val -> {
                 out.packInt(table.schemaView().lastSchemaVersion());

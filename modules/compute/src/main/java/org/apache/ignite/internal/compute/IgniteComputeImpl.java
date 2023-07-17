@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.compute.arg.Args;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -61,7 +62,7 @@ public class IgniteComputeImpl implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
+    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Args args) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
@@ -88,7 +89,7 @@ public class IgniteComputeImpl implements IgniteCompute {
             ClusterNode targetNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object[] args
+            Args args
     ) {
         if (isLocal(targetNode)) {
             return computeComponent.executeLocally(units, jobClassName, args);
@@ -108,7 +109,7 @@ public class IgniteComputeImpl implements IgniteCompute {
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            Args args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
@@ -128,7 +129,7 @@ public class IgniteComputeImpl implements IgniteCompute {
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            Args args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
@@ -176,7 +177,7 @@ public class IgniteComputeImpl implements IgniteCompute {
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            Args args
     ) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);

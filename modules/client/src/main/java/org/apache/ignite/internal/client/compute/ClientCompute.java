@@ -29,9 +29,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.compute.arg.Args;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ArgsMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -76,7 +78,7 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
+    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Args args) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
@@ -97,7 +99,7 @@ public class ClientCompute implements IgniteCompute {
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            Args args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
@@ -122,7 +124,7 @@ public class ClientCompute implements IgniteCompute {
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            Args args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
@@ -146,7 +148,7 @@ public class ClientCompute implements IgniteCompute {
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            Args args
     ) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);
@@ -163,7 +165,7 @@ public class ClientCompute implements IgniteCompute {
         return map;
     }
 
-    private <R> CompletableFuture<R> executeOnOneNode(ClusterNode node, List<DeploymentUnit> units, String jobClassName, Object[] args) {
+    private <R> CompletableFuture<R> executeOnOneNode(ClusterNode node, List<DeploymentUnit> units, String jobClassName, Args args) {
         return ch.serviceAsync(ClientOp.COMPUTE_EXECUTE, w -> {
             if (w.clientChannel().protocolContext().clusterNode().name().equals(node.name())) {
                 w.out().packNil();
@@ -196,7 +198,7 @@ public class ClientCompute implements IgniteCompute {
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object[] args) {
+            Args args) {
         return t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_COLOCATED,
                 (schema, outputChannel) -> {
@@ -218,7 +220,7 @@ public class ClientCompute implements IgniteCompute {
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object[] args) {
+            Args args) {
         return t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_COLOCATED,
                 (schema, outputChannel) -> {
@@ -278,7 +280,7 @@ public class ClientCompute implements IgniteCompute {
         return res;
     }
 
-    private static void packJob(ClientMessagePacker w, List<DeploymentUnit> units, String jobClassName, Object[] args) {
+    private static void packJob(ClientMessagePacker w, List<DeploymentUnit> units, String jobClassName, Args args) {
         w.packArrayHeader(units.size());
         for (DeploymentUnit unit : units) {
             w.packString(unit.name());
@@ -286,6 +288,6 @@ public class ClientCompute implements IgniteCompute {
         }
 
         w.packString(jobClassName);
-        w.packObjectArrayAsBinaryTuple(args);
+        ArgsMessagePacker.pack(w, args);
     }
 }

@@ -30,20 +30,19 @@ import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.binarytuple.BinaryTupleFormatException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.serialization.JsonObjectSerializer;
 import org.apache.ignite.serialization.UserObjectSerializer;
-import org.apache.ignite.serialization.UserObjectSerializerWrapper;
 import org.apache.ignite.sql.ColumnType;
 
 /**
  * Client binary tuple utils.
  */
 public class ClientBinaryTupleUtils {
-    private static final UserObjectSerializer marshaller = new UserObjectSerializerWrapper();
+    private static final UserObjectSerializer marshaller = new JsonObjectSerializer();
 
-    public static Object readObject(BinaryTupleReader reader, int index, Class<?> classType) {
+    public static Object readObject(BinaryTupleReader reader, int index) {
         if (reader.hasNullValue(index)) {
             return null;
         }
@@ -81,15 +80,8 @@ public class ClientBinaryTupleUtils {
                 return reader.stringValue(valIdx);
 
             case BYTE_ARRAY:
-                try {
-                    reader.intValue(index + 1);
-                    return reader.bytesValue(valIdx);
-                } catch (BinaryTupleFormatException e) {
-                    String className = reader.stringValue(index + 1);
-                    byte[] bytes = reader.bytesValue(index + 2);
+                return reader.bytesValue(valIdx);
 
-                    return marshaller.deserialize(bytes, classType);
-                }
             case BITMASK:
                 return reader.bitmaskValue(valIdx);
 
@@ -120,17 +112,6 @@ public class ClientBinaryTupleUtils {
             default:
                 throw unsupportedTypeException(typeCode);
         }
-    }
-
-    /**
-     * Reads an object from binary tuple at the specified index.
-     *
-     * @param reader Binary tuple reader.
-     * @param index  Starting index in the binary tuple.
-     * @return Object.
-     */
-    public static Object readObject(BinaryTupleReader reader, int index) {
-        return readObject(reader, index, null);
     }
 
     /**

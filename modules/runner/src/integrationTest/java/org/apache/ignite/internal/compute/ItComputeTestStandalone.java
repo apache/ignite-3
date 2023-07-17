@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.arg.PojoArgs;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
@@ -100,7 +101,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
         List<DeploymentUnit> nonExistingUnits = List.of(new DeploymentUnit("non-existing", "1.0.0"));
         CompletableFuture<String> result = entryNode.compute()
-                .execute(Set.of(entryNode.node()), nonExistingUnits, concatJobClassName(), "a", 42);
+                .execute(Set.of(entryNode.node()), nonExistingUnits, concatJobClassName(), PojoArgs.fromArray("a", 42));
 
         assertThat(
                 result,
@@ -135,7 +136,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     @Test
     void undeployAcquiredUnit() {
         IgniteImpl entryNode = node(0);
-        CompletableFuture<Void> job = entryNode.compute().execute(Set.of(entryNode.node()), units, "org.example.SleepJob", 3L);
+        CompletableFuture<Void> job = entryNode.compute().execute(Set.of(entryNode.node()), units, "org.example.SleepJob", PojoArgs.fromArray(3L));
 
         assertThat(entryNode.deployment().undeployAsync(unit.name(), unit.version()), willCompleteSuccessfully());
 
@@ -156,11 +157,11 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     @Test
     void executeJobWithObsoleteUnit() {
         IgniteImpl entryNode = node(0);
-        CompletableFuture<Void> successJob = entryNode.compute().execute(Set.of(entryNode.node()), units, "org.example.SleepJob", 2L);
+        CompletableFuture<Void> successJob = entryNode.compute().execute(Set.of(entryNode.node()), units, "org.example.SleepJob", PojoArgs.fromArray(2L));
 
         assertThat(entryNode.deployment().undeployAsync(unit.name(), unit.version()), willCompleteSuccessfully());
 
-        CompletableFuture<Void> failedJob = entryNode.compute().execute(Set.of(entryNode.node()), units, "org.example.SleepJob", 2L);
+        CompletableFuture<Void> failedJob = entryNode.compute().execute(Set.of(entryNode.node()), units, "org.example.SleepJob", PojoArgs.fromArray(2L));
 
         assertThat(failedJob, willThrow(
                 ClassNotFoundException.class,

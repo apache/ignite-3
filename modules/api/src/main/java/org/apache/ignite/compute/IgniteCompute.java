@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.arg.Args;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -42,7 +43,11 @@ public interface IgniteCompute {
      * @param <R>      Job result type
      * @return CompletableFuture Job result.
      */
-    <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args);
+    default <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName) {
+        return execute(nodes, units, jobClassName, Args.empty());
+    }
+
+    <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Args args);
 
     /**
      * Executes a job of the given class on the node where the given key is located. The node is a leader
@@ -56,7 +61,11 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return CompletableFuture Job result.
      */
-    <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, List<DeploymentUnit> units, String jobClassName, Object... args);
+    <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, List<DeploymentUnit> units, String jobClassName, Args args);
+
+    default <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, List<DeploymentUnit> units, String jobClassName) {
+        return executeColocated(tableName, key, units, jobClassName, Args.empty());
+    }
 
     /**
      * Executes a job of the given class on the node where the given key is located. The node is a leader
@@ -77,8 +86,18 @@ public interface IgniteCompute {
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            Args args
     );
+
+    default <K, R> CompletableFuture<R> executeColocated(
+            String tableName,
+            K key,
+            Mapper<K> keyMapper,
+            List<DeploymentUnit> units,
+            String jobClassName
+    ) {
+        return executeColocated(tableName, key, keyMapper, units, jobClassName, Args.empty());
+    }
 
     /**
      * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
@@ -94,6 +113,14 @@ public interface IgniteCompute {
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            Args args
     );
+
+    default <R> Map<ClusterNode, CompletableFuture<R>> broadcast(
+            Set<ClusterNode> nodes,
+            List<DeploymentUnit> units,
+            String jobClassName
+    ) {
+        return broadcast(nodes, units, jobClassName, Args.empty());
+    }
 }
