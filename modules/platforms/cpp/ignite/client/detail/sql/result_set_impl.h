@@ -285,7 +285,7 @@ private:
 
             for (size_t i = 0; i < columns_cnt; ++i) {
                 auto &column = columns[i];
-                res.set(column.name(), read_next_column(parser, column.type(), column.scale()));
+                res.set(column.name(), protocol::read_next_column(parser, column.type(), column.scale()));
             }
             page.emplace_back(std::move(res));
         });

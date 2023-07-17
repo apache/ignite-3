@@ -31,7 +31,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.Temporal;
-import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
@@ -262,6 +261,24 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    public void testCastToBoolean() {
+        assertQuery("SELECT 'true'::BOOLEAN").returns(true).check();
+        assertQuery("SELECT 'TruE'::BOOLEAN").returns(true).check();
+        assertQuery("SELECT 'false'::BOOLEAN").returns(false).check();
+        assertQuery("SELECT 'FalsE'::BOOLEAN").returns(false).check();
+        assertQuery("SELECT NULL::DOUBLE::BOOLEAN").returns(NULL_RESULT).check();
+        assertQuery("SELECT ?::DOUBLE::BOOLEAN").withParams(NULL_RESULT).returns(NULL_RESULT).check();
+
+        // TODO IGNITE-19877 Cast to boolean from other types (except true/false literals) is not permitted.
+        // assertThrows(SqlException.class, () -> sql("SELECT 1::BOOLEAN"));
+        // assertThrows(SqlException.class, () -> sql("SELECT ?::BOOLEAN", 1));
+        // assertThrows(SqlException.class, () -> sql("SELECT 1.0::BOOLEAN"));
+        // assertThrows(SqlException.class, () -> sql("SELECT ?::BOOLEAN", 1.0));
+        // assertThrows(SqlException.class, () -> sql("SELECT '1'::BOOLEAN"));
+        // assertThrows(SqlException.class, () -> sql("SELECT ?::BOOLEAN", "1"));
+    }
+
+    @Test
     public void testTypeOf() {
         assertQuery("SELECT TYPEOF(1)").returns("INTEGER").check();
         assertQuery("SELECT TYPEOF(1.1::DOUBLE)").returns("DOUBLE").check();
@@ -282,7 +299,7 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
 
         assertThrowsWithCause(() -> sql("SELECT TYPEOF(1, 2)"), SqlValidatorException.class, "Invalid number of arguments");
 
-        assertThrowsWithCause(() -> sql("SELECT TYPEOF(SELECT 1, 2)"), CalciteContextException.class);
+        assertThrowsWithCause(() -> sql("SELECT TYPEOF(SELECT 1, 2)"), IgniteException.class);
     }
 
     /**

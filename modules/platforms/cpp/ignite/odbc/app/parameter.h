@@ -30,8 +30,7 @@ namespace ignite {
 /**
  * statement parameter.
  */
-class parameter
-{
+class parameter {
 public:
     // Default;
     parameter() = default;
@@ -44,12 +43,12 @@ public:
      * @param column_size IPD column size.
      * @param dec_digits IPD decimal digits.
      */
-    parameter(const application_data_buffer& buffer, std::int16_t sql_type, std::size_t column_size,
-        std::int16_t dec_digits)
+    parameter(
+        const application_data_buffer &buffer, std::int16_t sql_type, std::size_t column_size, std::int16_t dec_digits)
         : m_buffer(buffer)
         , m_sql_type(sql_type)
         , m_column_size(column_size)
-        , m_dec_digits(dec_digits) { }
+        , m_dec_digits(dec_digits) {}
 
     /**
      * Claim space for the parameter using provided builder.
@@ -58,7 +57,7 @@ public:
      * @param offset Offset for the buffer.
      * @param idx Index for the array-of-m_parameters case.
      */
-    void claim(binary_tuple_builder& builder, int offset = 0, SQLULEN idx = 0) const;
+    void claim(binary_tuple_builder &builder, int offset = 0, SQLULEN idx = 0) const;
 
     /**
      * Append parameter using provided writer.
@@ -67,21 +66,21 @@ public:
      * @param offset Offset for the buffer.
      * @param idx Index for the array-of-m_parameters case.
      */
-    void append(binary_tuple_builder& builder, int offset = 0, SQLULEN idx = 0) const;
+    void append(binary_tuple_builder &builder, int offset = 0, SQLULEN idx = 0) const;
 
     /**
      * Get data buffer.
      *
      * @return underlying application_data_buffer instance.
      */
-    application_data_buffer& get_buffer();
+    application_data_buffer &get_buffer();
 
     /**
      * Get data buffer.
      *
      * @return underlying application_data_buffer instance.
      */
-    [[nodiscard]] const application_data_buffer& get_buffer() const;
+    [[nodiscard]] const application_data_buffer &get_buffer() const;
 
     /**
      * reset stored at-execution data.
@@ -100,7 +99,7 @@ public:
      * @param data Data buffer pointer.
      * @param len Data length.
      */
-    void put_data(void* data, SQLLEN len);
+    void put_data(void *data, SQLLEN len);
 
 private:
     /** Underlying data buffer. */

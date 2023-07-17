@@ -874,6 +874,8 @@ public class DdlSqlToCommandConverter {
                 case BINARY:
                 case VARBINARY:
                     return literal.getValueAs(byte[].class);
+                case BOOLEAN:
+                    return literal.getValueAs(Boolean.class);
                 default:
                     throw new IllegalStateException("Unknown type [type=" + columnType + ']');
             }
@@ -924,6 +926,8 @@ public class DdlSqlToCommandConverter {
                     return literal.getValueAs(Float.class);
                 case BYTE_ARRAY:
                     return literal.getValueAs(byte[].class);
+                case BOOLEAN:
+                    return literal.getValueAs(Boolean.class);
                 default:
                     throw new IllegalStateException("Unknown type [type=" + columnType + ']');
             }

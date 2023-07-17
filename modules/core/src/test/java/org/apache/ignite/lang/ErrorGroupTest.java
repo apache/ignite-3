@@ -54,7 +54,7 @@ class ErrorGroupTest {
     }
 
     @Test
-    void createsErrorMassage() {
+    void createsErrorMessage() {
         // Given
         UUID traceId = UUID.fromString("24103638-d079-4a19-a8f6-ca9c23662908");
         int code = Common.INTERNAL_ERR;
@@ -88,16 +88,16 @@ class ErrorGroupTest {
     @SuppressWarnings({"rawtypes", "OptionalGetWithoutIsPresent"})
     @Test
     void groupIdsAreUnique() throws IllegalAccessException {
-        Map<Integer, ErrorGroup> errGroups = new HashMap<>();
+        Map<Short, ErrorGroup> errGroups = new HashMap<>();
 
         for (Class cls : ErrorGroups.class.getDeclaredClasses()) {
             var errGroupField = Arrays.stream(cls.getFields()).filter(f -> f.getName().endsWith("_ERR_GROUP")).findFirst().get();
             var errGroup = (ErrorGroup) errGroupField.get(null);
 
-            var existing = errGroups.putIfAbsent(errGroup.code(), errGroup);
+            var existing = errGroups.putIfAbsent(errGroup.groupCode(), errGroup);
 
             if (existing != null) {
-                fail("Duplicate error group id: " + errGroup.code() + " (" + existing.name() + ", " + errGroup.name() + ")");
+                fail("Duplicate error group id: " + errGroup.groupCode() + " (" + existing.name() + ", " + errGroup.name() + ")");
             }
         }
     }

@@ -136,4 +136,4 @@ inline bool operator>=(const end_point &val1, const end_point &val2) {
     return val1.compare(val2) >= 0;
 }
 
-} // namespace ignite::network
+} // namespace ignite

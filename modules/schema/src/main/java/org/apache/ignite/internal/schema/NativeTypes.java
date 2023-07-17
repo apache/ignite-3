@@ -27,6 +27,11 @@ import org.jetbrains.annotations.Contract;
  */
 public class NativeTypes {
     /**
+     * BOOLEAN type.
+     */
+    public static final NativeType BOOLEAN = new NativeType(NativeTypeSpec.BOOLEAN, 1);
+
+    /**
      * INT8 type.
      */
     public static final NativeType INT8 = new NativeType(NativeTypeSpec.INT8, 1);
@@ -204,6 +209,9 @@ public class NativeTypes {
         }
 
         switch (spec) {
+            case BOOLEAN:
+                return BOOLEAN;
+
             case INT8:
                 return INT8;
 

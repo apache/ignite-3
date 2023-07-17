@@ -115,7 +115,7 @@ public class CatalogSqlSchemaManagerTest {
     @ParameterizedTest
     @CsvSource({
             // column type, precision, scale, has native type.
-            "BOOLEAN, -1, -1, false",
+            "BOOLEAN, -1, -1, true",
 
             "INT8, -1, -1, true",
             "INT16, -1, -1, true",

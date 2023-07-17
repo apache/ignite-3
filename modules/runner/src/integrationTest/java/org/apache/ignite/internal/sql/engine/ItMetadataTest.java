@@ -109,7 +109,7 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
     @Test
     public void metadata() {
         sql("CREATE TABLE METADATA_TABLE (" + "ID INT PRIMARY KEY, "
-                // + "BOOLEAN_C BOOLEAN, "  //TODO: IGNITE-17298 Boolean type is not supported by Ignite. ANSI`99 syntax.
+                 + "BOOLEAN_C BOOLEAN, "
 
                 // Exact numeric types
                 + "TINY_C TINYINT, " // TINYINT is not a part of any SQL standard.
@@ -159,7 +159,7 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
         assertQuery("select * from metadata_table")
                 .columnMetadata(
                         new MetadataMatcher().name("ID").nullable(false),
-                        // new MetadataMatcher().name("BOOLEAN_C"), //TODO: IGNITE-17298 Boolean type is not supported by Ignite.
+                        new MetadataMatcher().name("BOOLEAN_C"),
 
                         // Exact numeric types
                         new MetadataMatcher().name("TINY_C").type(ColumnType.INT8).precision(3).scale(0),
