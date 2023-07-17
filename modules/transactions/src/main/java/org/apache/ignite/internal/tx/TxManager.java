@@ -28,6 +28,7 @@ import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -45,13 +46,13 @@ public interface TxManager extends IgniteComponent {
     /**
      * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
      *
-     * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
-     *      Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
+     * @param options Transaction options. Calling this method with options with readOnly {@code false} is an equivalent
+     *     of TxManager#begin().
      * @return The started transaction.
      * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_TOO_OLD_ERR} if transaction much older than the data available
      *      in the tables.
      */
-    InternalTransaction begin(boolean readOnly);
+    InternalTransaction begin(TransactionOptions options);
 
     /**
      * Returns a transaction state.

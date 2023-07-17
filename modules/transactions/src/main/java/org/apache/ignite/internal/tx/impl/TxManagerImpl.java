@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -37,6 +38,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -48,6 +50,7 @@ import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -57,6 +60,9 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
 public class TxManagerImpl implements TxManager {
+    /** Default transaction options. */
+    private static final TransactionOptions DEFAULT_TX_OPTIONS = new TransactionOptions();
+
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
@@ -112,11 +118,14 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public InternalTransaction begin() {
-        return begin(false);
+        return begin(DEFAULT_TX_OPTIONS);
     }
 
     @Override
-    public InternalTransaction begin(boolean readOnly) {
+    public InternalTransaction begin(TransactionOptions options) {
+        requireNonNull(options);
+
+        boolean readOnly = options.readOnly();
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
         changeState(txId, null, PENDING);
@@ -125,7 +134,9 @@ public class TxManagerImpl implements TxManager {
             return new ReadWriteTransactionImpl(this, txId);
         }
 
-        HybridTimestamp readTimestamp = beginTimestamp;
+        HybridTimestamp readTimestamp = options.observableTimestamp() != null
+                ? HybridTimestamp.max(options.observableTimestamp(), currentReadTimestamp())
+                : currentReadTimestamp();
 
         lowWatermarkReadWriteLock.readLock().lock();
 
@@ -150,6 +161,19 @@ public class TxManagerImpl implements TxManager {
         } finally {
             lowWatermarkReadWriteLock.readLock().unlock();
         }
+    }
+
+    /**
+     * @return Current read timestamp.
+     */
+    private HybridTimestamp currentReadTimestamp() {
+        HybridTimestamp now = clock.now();
+
+        return new HybridTimestamp(now.getPhysical()
+                - ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                - HybridTimestamp.CLOCK_SKEW,
+                0
+        );
     }
 
     @Override

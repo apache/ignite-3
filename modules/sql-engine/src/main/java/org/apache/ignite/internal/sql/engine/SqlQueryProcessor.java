@@ -97,6 +97,7 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -432,7 +433,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     boolean implicitTxRequired = outerTx == null;
 
-                    tx.set(implicitTxRequired ? txManager.begin(!rwOp) : outerTx);
+                    tx.set(implicitTxRequired ? txManager.begin(new TransactionOptions().readOnly(!rwOp)) : outerTx);
 
                     SchemaPlus schema = sqlSchemaManager.schema(schemaName);
 
