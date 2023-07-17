@@ -266,9 +266,9 @@ struct transaction_test : public odbc_suite {
      * @param statement Statement.
      * @param key Key.
      */
-    void check_no_test_value(SQLHSTMT statement, std::int64_t key)
+    static void check_no_test_value(SQLHSTMT statement, std::int64_t key)
     {
-        check_test_value(m_statement, key, {});
+        check_test_value(statement, key, {});
     }
 
     /**
