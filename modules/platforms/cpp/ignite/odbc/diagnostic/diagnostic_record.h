@@ -20,18 +20,16 @@
 #include "ignite/odbc/app/application_data_buffer.h"
 #include "ignite/odbc/common_types.h"
 
+#include <cstdint>
 #include <utility>
 #include <vector>
-#include <cstdint>
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Status diagnostic record.
  */
-class diagnostic_record
-{
+class diagnostic_record {
 public:
     // Default
     diagnostic_record() = default;
@@ -54,14 +52,14 @@ public:
         , m_server_name(std::move(server_name))
         , m_row_num(row_num)
         , m_column_num(column_num)
-        , m_retrieved(false) { }
+        , m_retrieved(false) {}
 
     /**
      * Get class origin.
      *
      * @return A string that indicates the document that defines the class portion of the SQLSTATE value in this record.
      */
-    [[nodiscard]] const std::string& get_class_origin() const;
+    [[nodiscard]] const std::string &get_class_origin() const;
 
     /**
      * Get subclass origin.
@@ -69,35 +67,35 @@ public:
      * @return A string with the same format and valid values as origin, that identifies the defining portion of the
      *     subclass portion of the SQLSTATE code.
      */
-    [[nodiscard]] const std::string& get_subclass_origin() const;
+    [[nodiscard]] const std::string &get_subclass_origin() const;
 
     /**
      * Get record message text.
      *
      * @return An informational message on the error or warning.
      */
-    [[nodiscard]] const std::string& get_message_text() const;
+    [[nodiscard]] const std::string &get_message_text() const;
 
     /**
      * Get connection name.
      *
      * @return A string that indicates the name of the connection that the diagnostic record relates to.
      */
-    [[nodiscard]] const std::string& get_connection_name() const;
+    [[nodiscard]] const std::string &get_connection_name() const;
 
     /**
      * Get server name.
      *
      * @return A string that indicates the server name that the diagnostic record relates to.
      */
-    [[nodiscard]] const std::string& get_server_name() const;
+    [[nodiscard]] const std::string &get_server_name() const;
 
     /**
      * Get SQL state of the record.
      *
      * @return A five-character SQLSTATE diagnostic code.
      */
-    [[nodiscard]] const std::string& get_sql_state() const;
+    [[nodiscard]] const std::string &get_sql_state() const;
 
     /**
      * Get row number.

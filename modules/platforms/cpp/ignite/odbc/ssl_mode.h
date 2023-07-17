@@ -21,12 +21,10 @@
 
 #include <string>
 
-namespace ignite
-{
+namespace ignite {
 
 /** SSL Mode enum. */
-enum class ssl_mode
-{
+enum class ssl_mode {
     DISABLE = 0,
 
     REQUIRE = 1,
@@ -41,7 +39,7 @@ enum class ssl_mode
  * @param dflt Default value to return on error.
  * @return Corresponding enum value.
  */
-[[nodiscard]] ssl_mode ssl_mode_from_string(const std::string& val, ssl_mode dflt = ssl_mode::UNKNOWN);
+[[nodiscard]] ssl_mode ssl_mode_from_string(const std::string &val, ssl_mode dflt = ssl_mode::UNKNOWN);
 
 /**
  * Convert mode to string.

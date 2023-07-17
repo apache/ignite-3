@@ -20,24 +20,25 @@
 #include <ignite/client/table/ignite_tuple.h>
 #include <ignite/client/type_mapping.h>
 
+#include <ignite/common/big_decimal.h>
+#include <ignite/common/bit_array.h>
 #include <ignite/common/ignite_date.h>
 #include <ignite/common/ignite_date_time.h>
 #include <ignite/common/ignite_time.h>
 #include <ignite/common/ignite_timestamp.h>
 #include <ignite/common/uuid.h>
-#include <ignite/common/bit_array.h>
-#include <ignite/common/big_decimal.h>
 
-#include <string>
 #include <cstdint>
-
+#include <string>
 
 /**
  * All columns type table mapping (@see ignite_runner_suite::TABLE_NAME_ALL_COLUMNS).
  */
 struct all_fields_type {
     all_fields_type() = default;
-    explicit all_fields_type(std::int64_t key) : m_key(key) {}
+
+    explicit all_fields_type(std::int64_t key)
+        : m_key(key) {}
 
     std::int64_t m_key{0};
     std::string m_str;
@@ -90,7 +91,7 @@ inline ignite_tuple convert_to_tuple(all_fields_type &&value) {
 }
 
 template<>
-inline all_fields_type convert_from_tuple(ignite_tuple&& value) {
+inline all_fields_type convert_from_tuple(ignite_tuple &&value) {
     all_fields_type res;
 
     res.m_key = value.get<std::int64_t>("key");
@@ -120,4 +121,3 @@ inline all_fields_type convert_from_tuple(ignite_tuple&& value) {
 }
 
 } // namespace ignite
-

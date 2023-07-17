@@ -20,11 +20,11 @@
 #include <ignite/common/ignite_error.h>
 
 #include <algorithm>
+#include <random>
 #include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
-#include <random>
 
 namespace ignite::network::detail {
 
@@ -114,8 +114,8 @@ inline void throw_last_system_error(std::string_view description, std::string_vi
  * @return Randomly shuffled addresses.
  */
 template<typename Addrinfo>
-std::vector<Addrinfo*> shuffle_addresses(Addrinfo* addrsIn) {
-    std::vector<Addrinfo*> res;
+std::vector<Addrinfo *> shuffle_addresses(Addrinfo *addrsIn) {
+    std::vector<Addrinfo *> res;
 
     for (Addrinfo *it = addrsIn; it != NULL; it = it->ai_next)
         res.push_back(it);
