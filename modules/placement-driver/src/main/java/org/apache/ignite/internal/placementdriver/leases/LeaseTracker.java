@@ -17,15 +17,22 @@
 
 package org.apache.ignite.internal.placementdriver.leases;
 
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
-import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
+import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.EMPTY_LEASE;
-import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,13 +47,11 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.placementdriver.LeaseMeta;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 
@@ -71,7 +76,7 @@ public class LeaseTracker implements PlacementDriver {
     private final AtomicBoolean isStopped = new AtomicBoolean();
 
     /** Leases cache. */
-    private final Map<ReplicationGroupId, Lease> leases;
+    private volatile IgniteBiTuple<Map<ReplicationGroupId, Lease>, byte[]> leases;
 
     /** Map of primary replica waiters. */
     private final Map<ReplicationGroupId, PendingIndependentComparableValuesTracker<HybridTimestamp, LeaseMeta>> primaryReplicaWaiters;
@@ -89,7 +94,7 @@ public class LeaseTracker implements PlacementDriver {
         this.vaultManager = vaultManager;
         this.msManager = msManager;
 
-        this.leases = new ConcurrentHashMap<>();
+        this.leases = new IgniteBiTuple<>(emptyMap(), new byte[0]);
         this.primaryReplicaWaiters = new ConcurrentHashMap<>();
     }
 
@@ -97,26 +102,32 @@ public class LeaseTracker implements PlacementDriver {
      * Recoveries state from Vault and subscribers on further updates.
      */
     public void startTrack() {
-        msManager.registerPrefixWatch(ByteArray.fromString(PLACEMENTDRIVER_PREFIX), updateListener);
+        msManager.registerPrefixWatch(PLACEMENTDRIVER_LEASES_KEY, updateListener);
 
-        try (Cursor<VaultEntry> cursor = vaultManager.range(
-                ByteArray.fromString(PLACEMENTDRIVER_PREFIX),
-                ByteArray.fromString(incrementLastChar(PLACEMENTDRIVER_PREFIX))
-        )) {
-            for (VaultEntry entry : cursor) {
-                String key = entry.key().toString();
+        CompletableFuture<VaultEntry> entryFut = vaultManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
-                key = key.replace(PLACEMENTDRIVER_PREFIX, "");
+        VaultEntry entry = entryFut.join();
 
-                TablePartitionId grpId = TablePartitionId.fromString(key);
-                Lease lease = fromBytes(entry.value());
+        Map<ReplicationGroupId, Lease> leasesMap = new HashMap<>();
 
-                leases.put(grpId, lease);
+        byte[] leasesBytes;
 
-                primaryReplicaWaiters.computeIfAbsent(grpId, groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
+        if (entry != null) {
+            leasesBytes = entry.value();
+
+            LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leasesBytes).order(ByteOrder.LITTLE_ENDIAN));
+
+            leaseBatch.leases().forEach(lease -> {
+                leasesMap.put(lease.replicationGroupId(), lease);
+                primaryReplicaWaiters.computeIfAbsent(lease.replicationGroupId(),
+                                groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
                         .update(lease.getExpirationTime(), lease);
-            }
+            });
+        } else {
+            leasesBytes = new byte[0];
         }
+
+        leases = new IgniteBiTuple<>(unmodifiableMap(leasesMap), leasesBytes);
 
         LOG.info("Leases cache recovered [leases={}]", leases);
     }
@@ -144,13 +155,18 @@ public class LeaseTracker implements PlacementDriver {
      * @return A lease is associated with the group.
      */
     public @NotNull Lease getLease(ReplicationGroupId grpId) {
-        return leases.getOrDefault(grpId, EMPTY_LEASE);
+        assert leases != null : "Leases not initialized, probably the local placement driver actor hasn't started lease tracking.";
+
+        return leases.get1().getOrDefault(grpId, EMPTY_LEASE);
     }
 
-    private static String incrementLastChar(String str) {
-        char lastChar = str.charAt(str.length() - 1);
-
-        return str.substring(0, str.length() - 1) + (char) (lastChar + 1);
+    /**
+     * Returns collection of leases, ordered by replication group.
+     *
+     * @return Collection of leases.
+     */
+    public IgniteBiTuple<Map<ReplicationGroupId, Lease>, byte[]> leasesCurrent() {
+        return leases;
     }
 
     /**
@@ -162,23 +178,33 @@ public class LeaseTracker implements PlacementDriver {
             for (EntryEvent entry : event.entryEvents()) {
                 Entry msEntry = entry.newEntry();
 
-                String key = new ByteArray(msEntry.key()).toString();
+                byte[] leasesBytes = msEntry.value();
+                Map<ReplicationGroupId, Lease> leasesMap = new HashMap<>();
 
-                key = key.replace(PLACEMENTDRIVER_PREFIX, "");
+                LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leasesBytes).order(ByteOrder.LITTLE_ENDIAN));
 
-                TablePartitionId grpId = TablePartitionId.fromString(key);
+                Set<ReplicationGroupId> actualGroups = new HashSet<>();
 
-                if (msEntry.empty()) {
-                    leases.remove(grpId);
-                    tryRemoveTracker(grpId);
-                } else {
-                    Lease lease = fromBytes(msEntry.value());
+                for (Lease lease : leaseBatch.leases()) {
+                    ReplicationGroupId grpId = lease.replicationGroupId();
+                    actualGroups.add(grpId);
 
-                    leases.put(grpId, lease);
+                    leasesMap.put(grpId, lease);
 
                     primaryReplicaWaiters.computeIfAbsent(grpId, groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
                             .update(lease.getExpirationTime(), lease);
                 }
+
+                for (Iterator<Map.Entry<ReplicationGroupId, Lease>> iterator = leasesMap.entrySet().iterator(); iterator.hasNext();) {
+                    Map.Entry<ReplicationGroupId, Lease> e = iterator.next();
+
+                    if (!actualGroups.contains(e.getKey())) {
+                        iterator.remove();
+                        tryRemoveTracker(e.getKey());
+                    }
+                }
+
+                LeaseTracker.this.leases = new IgniteBiTuple<>(unmodifiableMap(leasesMap), leasesBytes);
             }
 
             return completedFuture(null);
@@ -207,19 +233,21 @@ public class LeaseTracker implements PlacementDriver {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException("Component is stopping."));
         }
+
+        Map<ReplicationGroupId, Lease> leasesMap = leases.get1();
+
         try {
-            Lease lease = leases.get(replicationGroupId);
+            Lease lease = leasesMap.getOrDefault(replicationGroupId, EMPTY_LEASE);
 
             if (lease.getExpirationTime().after(timestamp)) {
                 return completedFuture(lease);
             }
 
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-19532 Race between meta storage safe time publication and listeners.
             return msManager.clusterTime().waitFor(timestamp).thenApply(ignored -> inBusyLock(
                     busyLock, () -> {
-                        Lease lease0 = leases.get(replicationGroupId);
+                        Lease lease0 = leasesMap.getOrDefault(replicationGroupId, EMPTY_LEASE);
 
-                        if (lease.getExpirationTime().after(timestamp)) {
+                        if (lease0.getExpirationTime().after(timestamp)) {
                             return lease0;
                         } else {
                             return null;

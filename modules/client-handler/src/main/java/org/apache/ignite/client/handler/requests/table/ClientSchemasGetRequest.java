@@ -17,12 +17,13 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeSchema;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.manager.IgniteTables;
 
@@ -39,35 +40,33 @@ public class ClientSchemasGetRequest {
      * @return Future.
      * @throws IgniteException When schema registry is no initialized.
      */
-    public static CompletableFuture<Object> process(
+    public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             IgniteTables tables
     ) {
-        var table = readTable(in, tables);
+        return readTableAsync(in, tables).thenAccept(table -> {
+            if (in.tryUnpackNil()) {
+                // Return the latest schema.
+                out.packMapHeader(1);
 
-        if (in.tryUnpackNil()) {
-            // Return the latest schema.
-            out.packMapHeader(1);
+                var schema = table.schemaView().schema();
 
-            var schema = table.schemaView().schema();
+                if (schema == null) {
+                    throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, "Schema registry is not initialized.");
+                }
 
-            if (schema == null) {
-                throw new IgniteException("Schema registry is not initialized.");
+                writeSchema(out, schema.version(), schema);
+            } else {
+                var cnt = in.unpackArrayHeader();
+                out.packMapHeader(cnt);
+
+                for (var i = 0; i < cnt; i++) {
+                    var schemaVer = in.unpackInt();
+                    var schema = table.schemaView().schema(schemaVer);
+                    writeSchema(out, schemaVer, schema);
+                }
             }
-
-            writeSchema(out, schema.version(), schema);
-        } else {
-            var cnt = in.unpackArrayHeader();
-            out.packMapHeader(cnt);
-
-            for (var i = 0; i < cnt; i++) {
-                var schemaVer = in.unpackInt();
-                var schema = table.schemaView().schema(schemaVer);
-                writeSchema(out, schemaVer, schema);
-            }
-        }
-
-        return null;
+        });
     }
 }

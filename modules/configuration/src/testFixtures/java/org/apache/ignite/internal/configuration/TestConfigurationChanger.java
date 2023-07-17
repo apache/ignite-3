@@ -58,11 +58,6 @@ public class TestConfigurationChanger extends ConfigurationChanger {
                     long notificationNumber) {
                 return completedFuture(null);
             }
-
-            @Override
-            public CompletableFuture<Void> onRevisionUpdated(long storageRevision, long notificationNumber) {
-                return completedFuture(null);
-            }
         };
     }
 

@@ -158,9 +158,20 @@ dependencies {
     integrationTestImplementation libs.typesafe.config
     integrationTestImplementation libs.auto.service.annotations
     integrationTestImplementation libs.netty.common
+    integrationTestImplementation libs.netty.handler
 
+    testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-api')
+    testFixturesImplementation project(':ignite-raft-api')
+    testFixturesImplementation project(':ignite-raft')
     testFixturesImplementation project(':ignite-sql-engine')
+    testFixturesImplementation project(':ignite-table')
+    testFixturesImplementation project(':ignite-schema')
+    testFixturesImplementation testFixtures(project(':ignite-api'))
+    testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-network'))
+    testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation libs.hamcrest.core
 }
 
 tasks.register("runnerPlatformTest", JavaExec) {

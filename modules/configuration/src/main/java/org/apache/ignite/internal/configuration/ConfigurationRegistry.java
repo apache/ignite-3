@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -44,8 +43,6 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationChanger.ConfigurationUpdateListener;
-import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
-import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
@@ -64,7 +61,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Configuration registry.
  */
-public class ConfigurationRegistry implements IgniteComponent, ConfigurationStorageRevisionListenerHolder {
+public class ConfigurationRegistry implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ConfigurationRegistry.class);
 
@@ -76,10 +73,6 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
 
     /** Configuration change handler. */
     private final ConfigurationChanger changer;
-
-    /** Configuration storage revision change listeners. */
-    private final ConfigurationListenerHolder<ConfigurationStorageRevisionListener> storageRevisionListeners =
-            new ConfigurationListenerHolder<>();
 
     /**
      * Constructor.
@@ -141,8 +134,6 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
     @Override
     public void stop() throws Exception {
         changer.stop();
-
-        storageRevisionListeners.clear();
     }
 
     /**
@@ -274,14 +265,7 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
                     }
                 }, true);
 
-                futures.addAll(notifyStorageRevisionListeners(storageRevision, notificationNumber));
-
                 return combineFutures(futures);
-            }
-
-            @Override
-            public CompletableFuture<Void> onRevisionUpdated(long storageRevision, long notificationNumber) {
-                return combineFutures(notifyStorageRevisionListeners(storageRevision, notificationNumber));
             }
 
             private CompletableFuture<Void> combineFutures(Collection<CompletableFuture<?>> futures) {
@@ -303,18 +287,6 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
         };
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void listenUpdateStorageRevision(ConfigurationStorageRevisionListener listener) {
-        storageRevisionListeners.addListener(listener, changer.notificationCount());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void stopListenUpdateStorageRevision(ConfigurationStorageRevisionListener listener) {
-        storageRevisionListeners.removeListener(listener);
-    }
-
     /**
      * Notifies all listeners of the current configuration.
      *
@@ -325,33 +297,6 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
      */
     public CompletableFuture<Void> notifyCurrentConfigurationListeners() {
         return changer.notifyCurrentConfigurationListeners();
-    }
-
-    private Collection<CompletableFuture<?>> notifyStorageRevisionListeners(long storageRevision, long notificationNumber) {
-        // Lazy init.
-        List<CompletableFuture<?>> futures = null;
-
-        for (Iterator<ConfigurationStorageRevisionListener> it = storageRevisionListeners.listeners(notificationNumber); it.hasNext(); ) {
-            if (futures == null) {
-                futures = new ArrayList<>();
-            }
-
-            ConfigurationStorageRevisionListener listener = it.next();
-
-            try {
-                CompletableFuture<?> future = listener.onUpdate(storageRevision);
-
-                assert future != null;
-
-                if (future.isCompletedExceptionally() || future.isCancelled() || !future.isDone()) {
-                    futures.add(future);
-                }
-            } catch (Throwable t) {
-                futures.add(CompletableFuture.failedFuture(t));
-            }
-        }
-
-        return futures == null ? List.of() : futures;
     }
 
     /**

@@ -76,23 +76,16 @@ ignite_time load_time(bytes_view bytes) {
 binary_tuple_parser::binary_tuple_parser(tuple_num_t num_elements, bytes_view data)
     : binary_tuple(data)
     , element_count(num_elements)
-    , element_index(0)
-    , has_nullmap(false) {
+    , element_index(0) {
     assert(!data.empty());
 
     binary_tuple_common::header header;
     header.flags = binary_tuple[0];
 
     entry_size = header.get_entry_size();
-    has_nullmap = header.get_nullmap_flag();
-
-    tuple_size_t nullmap_size = 0;
-    if (has_nullmap) {
-        nullmap_size = binary_tuple_common::get_nullmap_size(element_count);
-    }
 
     tuple_size_t table_size = entry_size * element_count;
-    next_entry = binary_tuple.data() + binary_tuple_common::HEADER_SIZE + nullmap_size;
+    next_entry = binary_tuple.data() + binary_tuple_common::HEADER_SIZE;
     value_base = next_entry + table_size;
 
     if (value_base > binary_tuple.data() + binary_tuple.size()) {
@@ -115,7 +108,7 @@ binary_tuple_parser::binary_tuple_parser(tuple_num_t num_elements, bytes_view da
     }
 }
 
-std::optional<bytes_view> binary_tuple_parser::get_next() {
+bytes_view binary_tuple_parser::get_next() {
     using namespace ignite::binary_tuple_common;
 
     assert(num_parsed_elements() < num_elements());
@@ -128,20 +121,29 @@ std::optional<bytes_view> binary_tuple_parser::get_next() {
     const std::byte *value = next_value;
     next_value = value_base + bytes::ltoh(le_offset);
 
-    const auto index = element_index++;
+    element_index++;
 
-    const std::size_t length = next_value - value;
-    if (length == 0 && has_nullmap && (binary_tuple[get_null_offset(index)] & get_null_mask(index)) != std::byte{0}) {
-        return {};
+    if (std::size_t length = next_value - value) {
+        return bytes_view(value, length);
     }
 
-    return bytes_view(value, length);
+    return {};
+}
+
+bytes_view binary_tuple_parser::get_varlen(bytes_view bytes) {
+    switch (bytes.size()) {
+        default:
+            if (bytes.front() == binary_tuple_common::VARLEN_EMPTY_BYTE) {
+                bytes.remove_prefix(1);
+            }
+            return bytes;
+        case 0:
+            throw std::out_of_range("Bad element size");
+    }
 }
 
 bool binary_tuple_parser::get_bool(bytes_view bytes) {
     switch (bytes.size()) {
-        case 0:
-            return false;
         case 1:
             return load_little<std::int8_t>(bytes) != 0;
         default:
@@ -151,8 +153,6 @@ bool binary_tuple_parser::get_bool(bytes_view bytes) {
 
 std::int8_t binary_tuple_parser::get_int8(bytes_view bytes) {
     switch (bytes.size()) {
-        case 0:
-            return 0;
         case 1:
             return load_little<std::int8_t>(bytes);
         default:
@@ -162,8 +162,6 @@ std::int8_t binary_tuple_parser::get_int8(bytes_view bytes) {
 
 std::int16_t binary_tuple_parser::get_int16(bytes_view bytes) {
     switch (bytes.size()) {
-        case 0:
-            return 0;
         case 1:
             return load_little<std::int8_t>(bytes);
         case 2:
@@ -175,8 +173,6 @@ std::int16_t binary_tuple_parser::get_int16(bytes_view bytes) {
 
 std::int32_t binary_tuple_parser::get_int32(bytes_view bytes) {
     switch (bytes.size()) {
-        case 0:
-            return 0;
         case 1:
             return load_little<std::int8_t>(bytes);
         case 2:
@@ -190,8 +186,6 @@ std::int32_t binary_tuple_parser::get_int32(bytes_view bytes) {
 
 std::int64_t binary_tuple_parser::get_int64(bytes_view bytes) {
     switch (bytes.size()) {
-        case 0:
-            return 0;
         case 1:
             return load_little<std::int8_t>(bytes);
         case 2:
@@ -207,8 +201,6 @@ std::int64_t binary_tuple_parser::get_int64(bytes_view bytes) {
 
 float binary_tuple_parser::get_float(bytes_view bytes) {
     switch (bytes.size()) {
-        case 0:
-            return 0.0f;
         case 4:
             return load_little<float>(bytes);
         default:
@@ -218,8 +210,6 @@ float binary_tuple_parser::get_float(bytes_view bytes) {
 
 double binary_tuple_parser::get_double(bytes_view bytes) {
     switch (bytes.size()) {
-        case 0:
-            return 0.0f;
         case 4:
             return load_little<float>(bytes);
         case 8:
@@ -233,15 +223,13 @@ big_integer binary_tuple_parser::get_number(bytes_view bytes) {
     return {bytes.data(), bytes.size()};
 }
 
-big_decimal binary_tuple_parser::get_decimal(bytes_view bytes, int32_t scale) {
+big_decimal binary_tuple_parser::get_decimal(bytes_view bytes, std::int32_t scale) {
     big_integer mag(bytes.data(), bytes.size());
     return {std::move(mag), scale};
 }
 
 uuid binary_tuple_parser::get_uuid(bytes_view bytes) {
     switch (bytes.size()) {
-        case 0:
-            return {};
         case 16:
             return {load_little<std::int64_t>(bytes), load_little<std::int64_t>(bytes, 8)};
         default:
@@ -251,8 +239,6 @@ uuid binary_tuple_parser::get_uuid(bytes_view bytes) {
 
 ignite_date binary_tuple_parser::get_date(bytes_view bytes) {
     switch (bytes.size()) {
-        case 0:
-            return {};
         case 3:
             return load_date(bytes);
         default:
@@ -262,8 +248,6 @@ ignite_date binary_tuple_parser::get_date(bytes_view bytes) {
 
 ignite_time binary_tuple_parser::get_time(bytes_view bytes) {
     switch (bytes.size()) {
-        case 0:
-            return {};
         case 4:
         case 5:
         case 6:
@@ -275,8 +259,6 @@ ignite_time binary_tuple_parser::get_time(bytes_view bytes) {
 
 ignite_date_time binary_tuple_parser::get_date_time(bytes_view bytes) {
     switch (bytes.size()) {
-        case 0:
-            return {};
         case 7:
         case 8:
         case 9:
@@ -288,8 +270,6 @@ ignite_date_time binary_tuple_parser::get_date_time(bytes_view bytes) {
 
 ignite_timestamp binary_tuple_parser::get_timestamp(bytes_view bytes) {
     switch (bytes.size()) {
-        case 0:
-            return {};
         case 8: {
             std::int64_t seconds = load_little<std::int64_t>(bytes);
             return {seconds, 0};
@@ -306,8 +286,6 @@ ignite_timestamp binary_tuple_parser::get_timestamp(bytes_view bytes) {
 
 ignite_period binary_tuple_parser::get_period(bytes_view bytes) {
     switch (bytes.size()) {
-        case 0:
-            return {};
         case 3: {
             auto years = load_little<std::int8_t>(bytes);
             auto months = load_little<std::int8_t>(bytes, 1);
@@ -333,8 +311,6 @@ ignite_period binary_tuple_parser::get_period(bytes_view bytes) {
 
 ignite_duration binary_tuple_parser::get_duration(bytes_view bytes) {
     switch (bytes.size()) {
-        case 0:
-            return {};
         case 8: {
             auto seconds = load_little<std::int64_t>(bytes);
             return {seconds, 0};

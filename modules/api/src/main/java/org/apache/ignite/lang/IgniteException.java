@@ -17,6 +17,7 @@
 
 package org.apache.ignite.lang;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.getOrCreateTraceId;
 import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
 import static org.apache.ignite.lang.ErrorGroup.errorGroupByCode;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
@@ -30,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * General Ignite exception. Used to indicate any error condition within a node.
  */
-public class IgniteException extends RuntimeException {
+public class IgniteException extends RuntimeException implements TraceableException {
     /** Serial version UID. */
     private static final long serialVersionUID = 0L;
 
@@ -107,7 +108,7 @@ public class IgniteException extends RuntimeException {
      */
     public IgniteException(UUID traceId, int code) {
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -132,7 +133,7 @@ public class IgniteException extends RuntimeException {
         super(message);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -143,7 +144,7 @@ public class IgniteException extends RuntimeException {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteException(int code, Throwable cause) {
-        this(UUID.randomUUID(), code, cause);
+        this(getOrCreateTraceId(cause), code, cause);
     }
 
     /**
@@ -157,7 +158,7 @@ public class IgniteException extends RuntimeException {
         super((cause != null) ? cause.getLocalizedMessage() : null, cause);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -169,7 +170,7 @@ public class IgniteException extends RuntimeException {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteException(int code, String message, Throwable cause) {
-        this(UUID.randomUUID(), code, message, cause);
+        this(getOrCreateTraceId(cause), code, message, cause);
     }
 
     /**
@@ -184,7 +185,7 @@ public class IgniteException extends RuntimeException {
         super(message, cause);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -205,6 +206,7 @@ public class IgniteException extends RuntimeException {
      *
      * @return Full error code.
      */
+    @Override
     public int code() {
         return code;
     }
@@ -225,7 +227,8 @@ public class IgniteException extends RuntimeException {
      * @see #code()
      * @return Error group.
      */
-    public int groupCode() {
+    @Override
+    public short groupCode() {
         return extractGroupCode(code);
     }
 
@@ -236,7 +239,8 @@ public class IgniteException extends RuntimeException {
      * @see #groupCode()
      * @return Error code.
      */
-    public int errorCode() {
+    @Override
+    public short errorCode() {
         return extractErrorCode(code);
     }
 
@@ -245,6 +249,7 @@ public class IgniteException extends RuntimeException {
      *
      * @return Unique identifier of the exception.
      */
+    @Override
     public UUID traceId() {
         return traceId;
     }
@@ -252,8 +257,6 @@ public class IgniteException extends RuntimeException {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        String s = getClass().getName();
-        String message = errorMessage(traceId, groupName, code, getLocalizedMessage());
-        return (message != null) ? (s + ": " + message) : s;
+        return getClass().getName() + ": " + errorMessage(traceId, groupName, code, getLocalizedMessage());
     }
 }

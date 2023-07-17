@@ -44,6 +44,13 @@ public interface MarshallerWriter {
     void writeAbsentValue();
 
     /**
+     * Writes boolean.
+     *
+     * @param val Value.
+     */
+    void writeBoolean(boolean val);
+
+    /**
      * Writes byte.
      *
      * @param val Value.

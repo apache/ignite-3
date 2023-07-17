@@ -86,12 +86,12 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
             SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
             TableRowConverter rowConverter = new TableRowConverterImpl(schemaRegistry, schemaDescriptor, tableDescriptor);
             InternalTable internalTable = table.getKey();
-            ScannableTable scannableTable = new ScannableTableImpl(internalTable, rowConverter);
+            ScannableTable scannableTable = new ScannableTableImpl(internalTable, rowConverter, tableDescriptor);
 
             UpdatableTableImpl updatableTable = new UpdatableTableImpl(tableId, tableDescriptor, internalTable.partitions(),
                     replicaService, clock, rowConverter, schemaDescriptor);
 
-            return new ExecutableTableImpl(scannableTable, updatableTable, rowConverter);
+            return new ExecutableTableImpl(scannableTable, updatableTable);
         });
     }
 
@@ -101,17 +101,14 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
 
         private final UpdatableTable updatableTable;
 
-        private final TableRowConverter rowConverter;
-
-        private ExecutableTableImpl(ScannableTable scannableTable, UpdatableTable updatableTable, TableRowConverter rowConverter) {
+        private ExecutableTableImpl(ScannableTable scannableTable, UpdatableTable updatableTable) {
             this.scannableTable = scannableTable;
             this.updatableTable = updatableTable;
-            this.rowConverter = rowConverter;
         }
 
         /** {@inheritDoc} */
         @Override
-        public ScannableTable scanableTable() {
+        public ScannableTable scannableTable() {
             return scannableTable;
         }
 
@@ -119,12 +116,6 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         @Override
         public UpdatableTable updatableTable() {
             return updatableTable;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public TableRowConverter rowConverter() {
-            return rowConverter;
         }
     }
 }

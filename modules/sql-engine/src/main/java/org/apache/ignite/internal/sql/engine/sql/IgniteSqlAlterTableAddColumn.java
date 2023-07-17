@@ -30,17 +30,13 @@ import org.apache.calcite.util.ImmutableNullableList;
  * Parse tree for {@code ALTER TABLE ... ADD COLUMN} statement.
  */
 public class IgniteSqlAlterTableAddColumn extends IgniteAbstractSqlAlterTable {
-    /** Whether to ignore error in case column with the same name already exists. */
-    private final boolean ifNotExistsColumn;
-
     /** Introduced columns. */
     private final SqlNodeList columns;
 
     /** Constructor. */
     public IgniteSqlAlterTableAddColumn(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName,
-            boolean ifNotExistsColumn, SqlNodeList columns) {
+            SqlNodeList columns) {
         super(pos, ifExists, tblName);
-        this.ifNotExistsColumn = ifNotExistsColumn;
         this.columns = Objects.requireNonNull(columns, "columns list");
     }
 
@@ -54,16 +50,7 @@ public class IgniteSqlAlterTableAddColumn extends IgniteAbstractSqlAlterTable {
         writer.keyword("ADD");
         writer.keyword("COLUMN");
 
-        if (ifNotExistsColumn) {
-            writer.keyword("IF NOT EXISTS");
-        }
-
         columns.unparse(writer, leftPrec, rightPrec);
-    }
-
-    /** Returns whether the IF NOT EXISTS is specified for columns. */
-    public boolean ifNotExistsColumn() {
-        return ifNotExistsColumn;
     }
 
     /** Processing columns definition. */

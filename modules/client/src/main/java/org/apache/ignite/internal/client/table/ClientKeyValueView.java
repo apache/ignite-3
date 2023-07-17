@@ -434,7 +434,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     }
 
     private void writeKeyValueRaw(ClientSchema s, PayloadOutputChannel w, @NotNull K key, V val) {
-        var builder = new BinaryTupleBuilder(s.columns().length, true);
+        var builder = new BinaryTupleBuilder(s.columns().length);
         var noValueSet = new BitSet();
         ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 
@@ -464,11 +464,12 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         try {
             for (int i = 0; i < cnt; i++) {
-                in.unpackBoolean(); // TODO: Optimize (IGNITE-16022).
-
-                var tupleReader = new BinaryTupleReader(schema.columns().length, in.readBinaryUnsafe());
-                var reader = new ClientMarshallerReader(tupleReader);
-                res.put((K) keyMarsh.readObject(reader, null), (V) valMarsh.readObject(reader, null));
+                // TODO: Optimize (IGNITE-16022).
+                if (in.unpackBoolean()) {
+                    var tupleReader = new BinaryTupleReader(schema.columns().length, in.readBinaryUnsafe());
+                    var reader = new ClientMarshallerReader(tupleReader);
+                    res.put((K) keyMarsh.readObject(reader, null), (V) valMarsh.readObject(reader, null));
+                }
             }
 
             return res;

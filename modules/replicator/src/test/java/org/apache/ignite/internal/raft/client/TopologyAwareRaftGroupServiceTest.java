@@ -391,7 +391,7 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
             });
         }
 
-        return (TopologyAwareRaftGroupService) TopologyAwareRaftGroupService.start(
+        return TopologyAwareRaftGroupService.start(
                 GROUP_ID,
                 localClusterService,
                 FACTORY,

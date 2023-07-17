@@ -26,19 +26,21 @@ import static org.mockito.Mockito.when;
 import java.io.Serializable;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftManager;
-import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
@@ -78,7 +80,9 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 mockClusterGroupManager(),
                 mock(LogicalTopologyService.class),
                 mockRaftManager(),
-                keyValueStorage
+                keyValueStorage,
+                mock(TopologyAwareRaftGroupServiceFactory.class),
+                mockConfiguration()
         );
     }
 
@@ -92,9 +96,27 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
      * @param raftMgr Raft manager.
      * @param storage Storage. This component owns this resource and will manage its lifecycle.
      */
-    private StandaloneMetaStorageManager(VaultManager vaultMgr, ClusterService clusterService, ClusterManagementGroupManager cmgMgr,
-            LogicalTopologyService logicalTopologyService, RaftManager raftMgr, KeyValueStorage storage) {
-        super(vaultMgr, clusterService, cmgMgr, logicalTopologyService, raftMgr, storage, new HybridClockImpl());
+    private StandaloneMetaStorageManager(
+            VaultManager vaultMgr,
+            ClusterService clusterService,
+            ClusterManagementGroupManager cmgMgr,
+            LogicalTopologyService logicalTopologyService,
+            RaftManager raftMgr,
+            KeyValueStorage storage,
+            TopologyAwareRaftGroupServiceFactory raftServiceFactory,
+            MetaStorageConfiguration configuration
+    ) {
+        super(
+                vaultMgr,
+                clusterService,
+                cmgMgr,
+                logicalTopologyService,
+                raftMgr,
+                storage,
+                new HybridClockImpl(),
+                raftServiceFactory,
+                configuration
+        );
     }
 
     private static ClusterService mockClusterService() {
@@ -115,13 +137,14 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     private static RaftManager mockRaftManager() {
         ArgumentCaptor<RaftGroupListener> listenerCaptor = ArgumentCaptor.forClass(RaftGroupListener.class);
         RaftManager raftManager = mock(RaftManager.class);
-        RaftGroupService raftGroupService = mock(RaftGroupService.class);
+        TopologyAwareRaftGroupService raftGroupService = mock(TopologyAwareRaftGroupService.class);
 
         try {
-            when(raftManager.startRaftGroupNode(
+            when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(
                     any(),
                     any(),
                     listenerCaptor.capture(),
+                    any(),
                     any()
             )).thenReturn(completedFuture(raftGroupService));
 
@@ -130,7 +153,8 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                     any(),
                     listenerCaptor.capture(),
                     any(),
-                    any(RaftNodeDisruptorConfiguration.class)
+                    any(),
+                    any()
             )).thenReturn(completedFuture(raftGroupService));
         } catch (NodeStoppingException e) {
             throw new RuntimeException(e);
@@ -146,6 +170,16 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         });
 
         return raftManager;
+    }
+
+    private static MetaStorageConfiguration mockConfiguration() {
+        MetaStorageConfiguration configuration = mock(MetaStorageConfiguration.class);
+        ConfigurationValue<Long> value = mock(ConfigurationValue.class);
+
+        when(configuration.idleSyncTimeInterval()).thenReturn(value);
+        when(value.value()).thenReturn(1000L);
+
+        return configuration;
     }
 
     private static CompletableFuture<Serializable> runCommand(Command command, RaftGroupListener listener) {

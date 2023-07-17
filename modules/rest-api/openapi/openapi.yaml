@@ -943,11 +943,26 @@ components:
           type: string
           description: Unit identifier.
         versionToStatus:
-          type: object
-          additionalProperties:
-            $ref: '#/components/schemas/DeploymentStatus'
+          type: array
           description: Map from unit version to unit deployment status.
+          items:
+            $ref: '#/components/schemas/UnitVersionStatus'
       description: Unit status.
+    UnitVersionStatus:
+      required:
+      - status
+      - version
+      type: object
+      properties:
+        version:
+          type: string
+          description: Unit version.
+        status:
+          allOf:
+          - $ref: '#/components/schemas/DeploymentStatus'
+          - type: object
+            description: Unit status.
+      description: Unit version and status.
     Void:
       type: object
     deployMode:

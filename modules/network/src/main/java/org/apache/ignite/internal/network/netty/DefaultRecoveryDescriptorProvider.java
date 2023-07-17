@@ -36,8 +36,8 @@ public class DefaultRecoveryDescriptorProvider implements RecoveryDescriptorProv
 
     /** {@inheritDoc} */
     @Override
-    public RecoveryDescriptor getRecoveryDescriptor(String consistentId, UUID launchId, short connectionIndex, boolean inbound) {
-        var key = new ChannelKey(consistentId, launchId, connectionIndex, inbound);
+    public RecoveryDescriptor getRecoveryDescriptor(String consistentId, UUID launchId, short connectionIndex) {
+        var key = new ChannelKey(consistentId, launchId, connectionIndex);
 
         return recoveryDescriptors.computeIfAbsent(key, channelKey -> new RecoveryDescriptor(DEFAULT_QUEUE_LIMIT));
     }
@@ -56,14 +56,10 @@ public class DefaultRecoveryDescriptorProvider implements RecoveryDescriptorProv
          */
         private final short connectionId;
 
-        /** {@code true} if channel is inbound, {@code false} otherwise. */
-        private final boolean inbound;
-
-        private ChannelKey(String consistentId, UUID launchId, short connectionId, boolean inbound) {
+        private ChannelKey(String consistentId, UUID launchId, short connectionId) {
             this.consistentId = consistentId;
             this.launchId = launchId;
             this.connectionId = connectionId;
-            this.inbound = inbound;
         }
 
         /** {@inheritDoc} */
@@ -81,9 +77,6 @@ public class DefaultRecoveryDescriptorProvider implements RecoveryDescriptorProv
             if (connectionId != that.connectionId) {
                 return false;
             }
-            if (inbound != that.inbound) {
-                return false;
-            }
             if (!consistentId.equals(that.consistentId)) {
                 return false;
             }
@@ -96,7 +89,6 @@ public class DefaultRecoveryDescriptorProvider implements RecoveryDescriptorProv
             int result = consistentId.hashCode();
             result = 31 * result + launchId.hashCode();
             result = 31 * result + connectionId;
-            result = 31 * result + (inbound ? 1 : 0);
             return result;
         }
 

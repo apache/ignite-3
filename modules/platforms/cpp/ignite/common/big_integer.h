@@ -36,7 +36,7 @@ class big_integer {
 
 public:
     // Magnitude array type.
-    using MagArray = std::vector<std::uint32_t>;
+    using mag_array = std::vector<std::uint32_t>;
 
     /**
      * Default constructor. Constructs zero-value big integer.
@@ -64,7 +64,7 @@ public:
      * @param mag Magnitude. Moved.
      * @param sign Sign. Can be 1 or -1.
      */
-    big_integer(MagArray &&mag, std::int8_t sign)
+    big_integer(mag_array &&mag, std::int8_t sign)
         : sign(sign)
         , mag(std::move(mag)) {}
 
@@ -166,7 +166,7 @@ public:
      *
      * @return magnitude array.
      */
-    [[nodiscard]] const MagArray &get_magnitude() const noexcept { return mag; }
+    [[nodiscard]] const mag_array &get_magnitude() const noexcept { return mag; }
 
     /**
      * Swap function for the big_integer type.
@@ -301,7 +301,7 @@ public:
     [[nodiscard]] bool is_positive() const noexcept { return sign > 0 && !is_zero(); }
 
     /**
-     * Rverses sign of this value.
+     * Reverses sign of this value.
      */
     void negate() {
         if (!is_zero()) {
@@ -388,7 +388,7 @@ private:
     std::int8_t sign = 1;
 
     /** The magnitude of this big_integer. Byte order is little-endian. */
-    MagArray mag;
+    mag_array mag;
 };
 
 /**

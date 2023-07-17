@@ -20,7 +20,9 @@ package org.apache.ignite.internal.network.handshake;
 /**
  * Handshake exception.
  */
-public class HandshakeException extends Exception {
+public class HandshakeException extends RuntimeException {
+    private static final long serialVersionUID = 0L;
+
     /**
      * Constructor.
      *

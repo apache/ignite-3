@@ -22,7 +22,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.UUID;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -154,32 +153,29 @@ public class ByteUtils {
     }
 
     /**
-     * Converts a {@link UUID} value to a byte array in Big Endian order and stores it in the specified byte array.
+     * Converts a {@link Boolean} value to a single byte.
      *
-     * @param uuid UUID.
-     * @param bytes Bytes array to write result to.
-     * @param off Offset in the target array to write result to.
-     * @return Number of bytes overwritten in {@code bytes} array.
+     * @param val Boolean value.
+     * @return Byte representation of a boolean value.
      */
-    public static byte[] putUuidToBytes(UUID uuid, byte[] bytes, int off) {
-        putLongToBytes(uuid.getMostSignificantBits(), bytes, off);
-        putLongToBytes(uuid.getLeastSignificantBits(), bytes, off + Long.BYTES);
-
-        return bytes;
+    public static byte booleanToByte(boolean val) {
+        return (byte) (val ? 1 : 0);
     }
 
     /**
-     * Constructs {@link UUID} from byte array in Big Endian order.
+     * Converts a {@link Byte} value to a boolean.
      *
-     * @param bytes Array of bytes.
-     * @param off Offset in {@code bytes} array.
-     * @return UUID value.
+     * @param val Byte value.
+     * @return Boolean representation of a byte value.
      */
-    public static UUID bytesToUuid(byte[] bytes, int off) {
-        long msb = bytesToLong(bytes, off);
-        long lsb = bytesToLong(bytes, off + Long.BYTES);
+    public static boolean byteToBoolean(byte val) {
+        if (val == 1) {
+            return true;
+        } else {
+            assert val == 0 : "Unexpected " + val;
 
-        return new UUID(msb, lsb);
+            return false;
+        }
     }
 
     /**

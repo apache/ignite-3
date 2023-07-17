@@ -42,7 +42,7 @@ import org.apache.ignite.configuration.validation.Validator;
  *     <li><b>rootKeys</b> ({@link RootKey} instances)</li>
  *     <li><b>validators</b> ({@link Validator} instances)</li>
  *     <li><b>internalSchemaExtensions</b> (classes annotated with {@link InternalConfiguration})</li>
- *     <li><b>polymorphicSchemaExtensions</b> (classes annotataed with {@link PolymorphicConfig})</li>
+ *     <li><b>polymorphicSchemaExtensions</b> (classes annotated with {@link PolymorphicConfig})</li>
  * </ul>
  *
  * @see ConfigurationType

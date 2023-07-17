@@ -17,6 +17,7 @@
 
 package org.apache.ignite.lang;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.getOrCreateTraceId;
 import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
 import static org.apache.ignite.lang.ErrorGroup.errorGroupByCode;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
@@ -30,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * General internal checked exception. This exception is used to indicate any error condition within the node.
  */
-public class IgniteInternalCheckedException extends Exception {
+public class IgniteInternalCheckedException extends Exception implements TraceableException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
@@ -68,7 +69,7 @@ public class IgniteInternalCheckedException extends Exception {
      */
     public IgniteInternalCheckedException(UUID traceId, int code) {
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -93,7 +94,7 @@ public class IgniteInternalCheckedException extends Exception {
         super(message);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -104,7 +105,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteInternalCheckedException(int code, Throwable cause) {
-        this(UUID.randomUUID(), code, cause);
+        this(getOrCreateTraceId(cause), code, cause);
     }
 
     /**
@@ -118,7 +119,7 @@ public class IgniteInternalCheckedException extends Exception {
         super((cause != null) ? cause.getLocalizedMessage() : null, cause);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -130,7 +131,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteInternalCheckedException(int code, String message, Throwable cause) {
-        this(UUID.randomUUID(), code, message, cause);
+        this(getOrCreateTraceId(cause), code, message, cause);
     }
 
     /**
@@ -145,7 +146,7 @@ public class IgniteInternalCheckedException extends Exception {
         super(message, cause);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -168,7 +169,7 @@ public class IgniteInternalCheckedException extends Exception {
         super(message, cause, true, writableStackTrace);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -241,6 +242,7 @@ public class IgniteInternalCheckedException extends Exception {
      *
      * @return Full error code.
      */
+    @Override
     public int code() {
         return code;
     }
@@ -261,7 +263,8 @@ public class IgniteInternalCheckedException extends Exception {
      * @see #code()
      * @return Error group.
      */
-    public int groupCode() {
+    @Override
+    public short groupCode() {
         return extractGroupCode(code);
     }
 
@@ -272,7 +275,8 @@ public class IgniteInternalCheckedException extends Exception {
      * @see #groupCode()
      * @return Error code.
      */
-    public int errorCode() {
+    @Override
+    public short errorCode() {
         return extractErrorCode(code);
     }
 
@@ -281,6 +285,7 @@ public class IgniteInternalCheckedException extends Exception {
      *
      * @return Unique identifier of this exception.
      */
+    @Override
     public UUID traceId() {
         return traceId;
     }
@@ -288,8 +293,6 @@ public class IgniteInternalCheckedException extends Exception {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        String s = getClass().getName();
-        String message = errorMessage(traceId, groupName, code, getLocalizedMessage());
-        return (message != null) ? (s + ": " + message) : s;
+        return getClass().getName() + ": " + errorMessage(traceId, groupName, code, getLocalizedMessage());
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZoneReplicas;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
@@ -56,6 +57,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -96,6 +98,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -167,6 +170,7 @@ import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -177,6 +181,7 @@ import org.mockito.Mockito;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
 public class ItRebalanceDistributedTest {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
@@ -197,6 +202,9 @@ public class ItRebalanceDistributedTest {
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
+
+    @InjectConfiguration
+    private static MetaStorageConfiguration metaStorageConfiguration;
 
     @Target(ElementType.METHOD)
     @Retention(RetentionPolicy.RUNTIME)
@@ -479,6 +487,7 @@ public class ItRebalanceDistributedTest {
         checkInvokeDestroyedPartitionStorages(evictedNode, TABLE_1_NAME, 0);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
     @Test
     @UseTestTxStateStorage
     @UseRocksMetaStorage
@@ -647,7 +656,11 @@ public class ItRebalanceDistributedTest {
 
             lockManager = new HeapLockManager();
 
-            raftManager = new Loza(clusterService, raftConfiguration, dir, new HybridClockImpl());
+            HybridClock hybridClock = new HybridClockImpl();
+
+            var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
+
+            raftManager = new Loza(clusterService, raftConfiguration, dir, hybridClock, raftGroupEventsClientListener);
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
@@ -665,11 +678,9 @@ public class ItRebalanceDistributedTest {
             replicaManager = new ReplicaManager(
                     clusterService,
                     cmgManager,
-                    new HybridClockImpl(),
+                    hybridClock,
                     Set.of(TableMessageGroup.class, TxMessageGroup.class)
             );
-
-            HybridClock hybridClock = new HybridClockImpl();
 
             ReplicaService replicaSvc = new ReplicaService(
                     clusterService.messagingService(),
@@ -682,9 +693,17 @@ public class ItRebalanceDistributedTest {
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
+            var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                    clusterService,
+                    logicalTopologyService,
+                    Loza.FACTORY,
+                    raftGroupEventsClientListener
+            );
+
             KeyValueStorage keyValueStorage = testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
                     ? new RocksDbKeyValueStorage(nodeName, resolveDir(dir, "metaStorage"))
                     : new SimpleInMemoryKeyValueStorage(nodeName);
+
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
                     clusterService,
@@ -692,10 +711,12 @@ public class ItRebalanceDistributedTest {
                     logicalTopologyService,
                     raftManager,
                     keyValueStorage,
-                    hybridClock
+                    hybridClock,
+                    topologyAwareRaftGroupServiceFactory,
+                    metaStorageConfiguration
             );
 
-            cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
+            cfgStorage = new DistributedConfigurationStorage(metaStorageManager);
 
             clusterCfgGenerator = new ConfigurationTreeGenerator(
                     List.of(
@@ -733,7 +754,7 @@ public class ItRebalanceDistributedTest {
             ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
             Consumer<LongFunction<CompletableFuture<?>>> registry = (LongFunction<CompletableFuture<?>> function) ->
-                    clusterConfigRegistry.listenUpdateStorageRevision(function::apply);
+                    metaStorageManager.registerRevisionUpdateListener(function::apply);
 
             TablesConfiguration tablesCfg = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
@@ -770,13 +791,6 @@ public class ItRebalanceDistributedTest {
             );
 
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
-
-            TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
-                    clusterService,
-                    logicalTopologyService,
-                    Loza.FACTORY,
-                    new RaftGroupEventsClientListener()
-            );
 
             distributionZoneManager = new DistributionZoneManager(
                     zonesCfg,
@@ -854,36 +868,51 @@ public class ItRebalanceDistributedTest {
          * Starts the created components.
          */
         void start() {
-            nodeComponents = List.of(
+            nodeComponents = new CopyOnWriteArrayList<>();
+
+            List<IgniteComponent> firstComponents = List.of(
                     vaultManager,
                     nodeCfgMgr,
                     clusterService,
-                    raftManager,
-                    cmgManager,
-                    metaStorageManager,
-                    clusterCfgMgr,
-                    clockWaiter,
-                    catalogManager,
-                    distributionZoneManager,
-                    replicaManager,
-                    txManager,
-                    baselineMgr,
-                    dataStorageMgr,
-                    schemaManager,
-                    tableManager
+                    raftManager
             );
 
-            nodeComponents.forEach(IgniteComponent::start);
+            firstComponents.forEach(IgniteComponent::start);
 
-            assertThat(
-                    allOf(
+            nodeComponents.addAll(firstComponents);
+
+            deployWatchesFut = CompletableFuture.supplyAsync(() -> {
+                List<IgniteComponent> secondComponents = List.of(
+                        cmgManager,
+                        metaStorageManager,
+                        clusterCfgMgr,
+                        clockWaiter,
+                        catalogManager,
+                        distributionZoneManager,
+                        replicaManager,
+                        txManager,
+                        baselineMgr,
+                        dataStorageMgr,
+                        schemaManager,
+                        tableManager
+                );
+
+                secondComponents.forEach(IgniteComponent::start);
+
+                nodeComponents.addAll(secondComponents);
+
+                var configurationNotificationFut = metaStorageManager.recoveryFinishedFuture().thenCompose(rev -> {
+                    return allOf(
                             nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                            clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
-                    ),
-                    willSucceedIn(1, TimeUnit.MINUTES)
-            );
+                            clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
+                            ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart()
+                    );
+                });
 
-            deployWatchesFut = metaStorageManager.deployWatches();
+                assertThat(configurationNotificationFut, willSucceedIn(1, TimeUnit.MINUTES));
+
+                return metaStorageManager.deployWatches();
+            }).thenCompose(identity());
         }
 
         /**

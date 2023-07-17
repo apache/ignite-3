@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.network.recovery;
 
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.OutNetworkObject;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Recovery protocol descriptor.
@@ -39,6 +43,9 @@ public class RecoveryDescriptor {
 
     /** Count of received messages. */
     private long receivedCount;
+
+    /** Current owner channel of this descriptor. */
+    private final AtomicReference<Channel> channelHolder = new AtomicReference<>();
 
     /**
      * Constructor.
@@ -123,5 +130,44 @@ public class RecoveryDescriptor {
     @Override
     public String toString() {
         return S.toString(RecoveryDescriptor.class, this);
+    }
+
+    /**
+     * Release this descriptor.
+     *
+     * @param ctx Channel handler context.
+     */
+    public void release(ChannelHandlerContext ctx) {
+        channelHolder.compareAndSet(ctx.channel(), null);
+    }
+
+    /**
+     * Acquire this descriptor.
+     *
+     * @param ctx Channel handler context.
+     */
+    public boolean acquire(ChannelHandlerContext ctx) {
+        return channelHolder.compareAndSet(null, ctx.channel());
+    }
+
+    /**
+     * Returns the channel, that holds this descriptor.
+     */
+    @Nullable Channel holderChannel() {
+        return channelHolder.get();
+    }
+
+    /**
+     * Returns {@code toString()} representation of a {@link Channel}, that holds this descriptor.
+     */
+    String holderDescription() {
+        Channel channel = channelHolder.get();
+
+        if (channel == null) {
+            // This can happen if channel was already closed and it released the descriptor.
+            return "No channel";
+        }
+
+        return channel.toString();
     }
 }

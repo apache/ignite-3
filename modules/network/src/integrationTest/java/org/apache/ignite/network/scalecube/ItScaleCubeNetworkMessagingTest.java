@@ -17,6 +17,7 @@
 
 package org.apache.ignite.network.scalecube;
 
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
+import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
@@ -355,25 +357,44 @@ class ItScaleCubeNetworkMessagingTest {
     }
 
     private void knockOutNode(String outcastName) throws InterruptedException {
-        CountDownLatch disappeared = new CountDownLatch(1);
+        CountDownLatch disappeared = new CountDownLatch(2);
 
-        testCluster.members.get(0).topologyService().addEventHandler(new TopologyEventHandler() {
+        TopologyEventHandler disappearListener = new TopologyEventHandler() {
             @Override
             public void onDisappeared(ClusterNode member) {
                 if (Objects.equals(member.name(), outcastName)) {
                     disappeared.countDown();
                 }
             }
+        };
+
+        List<ClusterService> notOutcasts = testCluster.members.stream()
+                .filter(service -> !outcastName.equals(service.nodeName()))
+                .collect(toList());
+
+        notOutcasts.forEach(clusterService -> {
+            clusterService.topologyService().addEventHandler(disappearListener);
         });
 
-        testCluster.members.stream()
-                .filter(service -> !outcastName.equals(service.nodeName()))
-                .forEach(service -> {
-                    DefaultMessagingService messagingService = (DefaultMessagingService) service.messagingService();
-                    messagingService.dropMessages((recipientConsistentId, message) -> outcastName.equals(recipientConsistentId));
-                });
+        notOutcasts.forEach(service -> {
+            DefaultMessagingService messagingService = (DefaultMessagingService) service.messagingService();
+            messagingService.dropMessages((recipientConsistentId, message) -> outcastName.equals(recipientConsistentId));
+        });
 
+        // Wait until all nodes see disappearance of the outcast.
         assertTrue(disappeared.await(10, TimeUnit.SECONDS), "Node did not disappear in time");
+
+        DefaultMessagingService messagingService = (DefaultMessagingService) testCluster.members.stream()
+                .filter(service -> outcastName.equals(service.nodeName()))
+                .findFirst()
+                .get().messagingService();
+
+        ConnectionManager cm = messagingService.connectionManager();
+
+        // Forcefully close channels, so that nodes will create new channels on reanimation of the outcast.
+        cm.channels().forEach((stringConnectorKey, nettySender) -> {
+            nettySender.close().awaitUninterruptibly();
+        });
     }
 
     private IgniteBiTuple<CountDownLatch, AtomicBoolean> reanimateNode(String outcastName) {

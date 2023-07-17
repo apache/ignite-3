@@ -202,7 +202,7 @@ public class SqlSchemaManagerTest {
 
         IgniteTableImpl igniteTable = assertInstanceOf(IgniteTableImpl.class, schemaTable);
 
-        assertEquals(igniteTable.id(), igniteIndex.index().tableId());
+        assertEquals(igniteTable.id(), igniteIndex.tableId());
         assertSame(igniteIndex, igniteTable.indexes().get("PUBLIC.I"));
 
         sqlSchemaManager.onIndexDropped("PUBLIC", igniteTable.id(), indexId, testRevisionRegister.actualToken() + 1);

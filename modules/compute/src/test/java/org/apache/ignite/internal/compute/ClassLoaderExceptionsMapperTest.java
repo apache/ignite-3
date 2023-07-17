@@ -38,7 +38,7 @@ class ClassLoaderExceptionsMapperTest {
                 mapClassLoaderExceptions(failedFuture(toBeThrown), "com.example.Main"),
                 willThrow(
                         ClassNotFoundException.class,
-                        "com.example.Main. Deployment unit id:1.0.0 doesn’t exist"
+                        "com.example.Main. Deployment unit id:1.0.0 doesn't exist"
                 )
         );
     }
@@ -56,7 +56,7 @@ class ClassLoaderExceptionsMapperTest {
                 mapClassLoaderExceptions(failedFuture(toBeThrown), "com.example.Main"),
                 willThrow(
                         ClassNotFoundException.class,
-                        "com.example.Main. Deployment unit id:1.0.0 can’t be used:"
+                        "com.example.Main. Deployment unit id:1.0.0 can't be used:"
                                 + " [clusterStatus = OBSOLETE, nodeStatus = REMOVING]"
                 )
         );

@@ -356,8 +356,9 @@ std::uint32_t big_integer::magnitude_bit_length() const noexcept {
         return 0;
 
     std::uint32_t res = bit_width(mag.back());
-    if (mag.size() > 1)
-        res += uint32_t(mag.size() - 1) * 32;
+    if (mag.size() > 1) {
+        res += std::uint32_t(mag.size() - 1) * 32;
+    }
 
     return res;
 }
@@ -375,6 +376,7 @@ std::uint32_t big_integer::bit_length() const noexcept {
 }
 
 std::size_t big_integer::byte_size() const noexcept {
+    // This includes a sign bit.
     return bit_length() / 8u + 1u;
 }
 
@@ -388,7 +390,7 @@ void big_integer::store_bytes(std::byte *data) const {
         }
 
         if (size > 0) {
-            std::uint32_t last = mag.back();
+            std::uint32_t last = mag.empty() ? 0u : mag.back();
             switch (size) {
                 case 3:
                     data[size - 3] = std::byte(last >> 16);
@@ -488,7 +490,7 @@ void big_integer::pow(int32_t exp) {
 }
 
 void big_integer::multiply(const big_integer &other, big_integer &res) const {
-    MagArray resMag(mag.size() + other.mag.size());
+    mag_array resMag(mag.size() + other.mag.size());
 
     resMag.resize(mag.size() + other.mag.size());
 
@@ -686,21 +688,21 @@ void big_integer::divide(const big_integer &divisor, big_integer &res, big_integ
     // Using Knuth division algorithm D for common case.
 
     // Short aliases.
-    const MagArray &u = mag;
-    const MagArray &v = divisor.mag;
-    MagArray &q = res.mag;
+    const mag_array &u = mag;
+    const mag_array &v = divisor.mag;
+    mag_array &q = res.mag;
     auto ulen = int32_t(u.size());
     auto vlen = int32_t(v.size());
 
     // First we need to normalize divisor.
-    MagArray nv;
+    mag_array nv;
     nv.resize(v.size());
 
     int32_t shift = countl_zero(v.back());
     shift_left(v.data(), vlen, nv.data(), shift);
 
     // Divisor is normalized. Now we need to normalize dividend.
-    MagArray nu;
+    mag_array nu;
 
     // First find out what is the size of it.
     if (countl_zero(u.back()) >= shift) {
