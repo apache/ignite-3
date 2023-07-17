@@ -124,8 +124,7 @@ void try_set_socket_options(SOCKET socket, int buf_size, BOOL no_delay, BOOL out
     }
 }
 
-bool set_non_blocking_mode(SOCKET socket_handle, bool non_blocking)
-{
+bool set_non_blocking_mode(SOCKET socket_handle, bool non_blocking) {
     ULONG opt = non_blocking ? TRUE : FALSE;
     return ::ioctlsocket(socket_handle, FIONBIO, &opt) != SOCKET_ERROR;
 }
@@ -148,8 +147,7 @@ void init_wsa() {
     }
 }
 
-int wait_on_socket(SOCKET socket, std::int32_t timeout, bool rd)
-{
+int wait_on_socket(SOCKET socket, std::int32_t timeout, bool rd) {
     int ready;
     int last_error{0};
 
@@ -163,8 +161,8 @@ int wait_on_socket(SOCKET socket, std::int32_t timeout, bool rd)
         FD_ZERO(&fds);
         FD_SET(socket, &fds);
 
-        fd_set* readFds = 0;
-        fd_set* writeFds = 0;
+        fd_set *readFds = 0;
+        fd_set *writeFds = 0;
 
         if (rd)
             readFds = &fds;

@@ -21,17 +21,15 @@
 
 #include <cstdint>
 
-namespace ignite
-{
+namespace ignite {
 
-class cursor
-{
+class cursor {
 public:
     // Delete
-    cursor(cursor&&) = delete;
-    cursor(const cursor&) = delete;
-    cursor& operator=(cursor&&) = delete;
-    cursor& operator=(const cursor&) = delete;
+    cursor(cursor &&) = delete;
+    cursor(const cursor &) = delete;
+    cursor &operator=(cursor &&) = delete;
+    cursor &operator=(const cursor &) = delete;
 
     /**
      * Constructor.
@@ -83,8 +81,7 @@ public:
      *
      * @param new_page New result page.
      */
-    void update_data(std::unique_ptr<result_page> new_page)
-    {
+    void update_data(std::unique_ptr<result_page> new_page) {
         m_current_page = std::move(new_page);
 
         m_page_pos = -1;
@@ -97,18 +94,14 @@ public:
      *
      * @return  Row.
      */
-    [[nodiscard]] const std::vector<primitive> &get_row() const {
-        return m_row;
-    }
+    [[nodiscard]] const std::vector<primitive> &get_row() const { return m_row; }
 
     /**
      * Get current position in result set.
      *
      * @return Current position in result set.
      */
-    [[nodiscard]] std::int32_t get_result_set_pos() const {
-        return m_result_set_pos;
-    }
+    [[nodiscard]] std::int32_t get_result_set_pos() const { return m_result_set_pos; }
 
 private:
     /** Current page. */
@@ -124,4 +117,4 @@ private:
     std::vector<primitive> m_row;
 };
 
-}
+} // namespace ignite

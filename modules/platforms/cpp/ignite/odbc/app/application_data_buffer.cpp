@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-#include <ignite/odbc/log.h>
-#include <ignite/odbc/utility.h>
 #include <ignite/odbc/app/application_data_buffer.h>
+#include <ignite/odbc/log.h>
 #include <ignite/odbc/system/odbc_constants.h>
+#include <ignite/odbc/utility.h>
 
 #include <ignite/common/bits.h>
 
 #include <algorithm>
-#include <string>
-#include <sstream>
 #include <cstring>
 #include <ctime>
+#include <sstream>
+#include <string>
 
-namespace
-{
+namespace {
 using namespace ignite;
 
 /**
@@ -44,9 +43,8 @@ using namespace ignite;
  * @param wstr_len Wide string length.
  * @return Conversation result.
  */
-ignite::conversion_result string_to_wstring(const char* str, std::int64_t str_len, SQLWCHAR* wstr,
-    std::int64_t wstr_len)
-{
+ignite::conversion_result string_to_wstring(
+    const char *str, std::int64_t str_len, SQLWCHAR *wstr, std::int64_t wstr_len) {
     using namespace ignite;
 
     if (wstr_len <= 0)
@@ -148,92 +146,77 @@ tm timestamp_to_tm(const ignite_timestamp &value) {
 
 } // anonymous namespace
 
-namespace ignite
-{
+namespace ignite {
 
-application_data_buffer::application_data_buffer(odbc_native_type type, void* buffer, SQLLEN buf_len, SQLLEN* res_len)
+application_data_buffer::application_data_buffer(odbc_native_type type, void *buffer, SQLLEN buf_len, SQLLEN *res_len)
     : m_type(type)
     , m_buffer(buffer)
     , m_buffer_len(std::max(buf_len, SQLLEN(0)))
     , m_result_len(res_len)
     , m_byte_offset(0)
-    , m_element_offset(0) { }
+    , m_element_offset(0) {
+}
 
 template<typename T>
-conversion_result application_data_buffer::put_num(T value)
-{
+conversion_result application_data_buffer::put_num(T value) {
     LOG_MSG("value: " << value);
 
-    SQLLEN* res_len_ptr = get_result_len();
-    void* data_ptr = get_data();
+    SQLLEN *res_len_ptr = get_result_len();
+    void *data_ptr = get_data();
 
-    switch (m_type)
-    {
-        case odbc_native_type::AI_SIGNED_TINYINT:
-        {
+    switch (m_type) {
+        case odbc_native_type::AI_SIGNED_TINYINT: {
             return put_num_to_num_buffer<signed char>(value);
         }
 
         case odbc_native_type::AI_BIT:
-        case odbc_native_type::AI_UNSIGNED_TINYINT:
-        {
+        case odbc_native_type::AI_UNSIGNED_TINYINT: {
             return put_num_to_num_buffer<unsigned char>(value);
         }
 
-        case odbc_native_type::AI_SIGNED_SHORT:
-        {
+        case odbc_native_type::AI_SIGNED_SHORT: {
             return put_num_to_num_buffer<SQLSMALLINT>(value);
         }
 
-        case odbc_native_type::AI_UNSIGNED_SHORT:
-        {
+        case odbc_native_type::AI_UNSIGNED_SHORT: {
             return put_num_to_num_buffer<SQLUSMALLINT>(value);
         }
 
-        case odbc_native_type::AI_SIGNED_LONG:
-        {
+        case odbc_native_type::AI_SIGNED_LONG: {
             return put_num_to_num_buffer<SQLINTEGER>(value);
         }
 
-        case odbc_native_type::AI_UNSIGNED_LONG:
-        {
+        case odbc_native_type::AI_UNSIGNED_LONG: {
             return put_num_to_num_buffer<SQLUINTEGER>(value);
         }
 
-        case odbc_native_type::AI_SIGNED_BIGINT:
-        {
+        case odbc_native_type::AI_SIGNED_BIGINT: {
             return put_num_to_num_buffer<SQLBIGINT>(value);
         }
 
-        case odbc_native_type::AI_UNSIGNED_BIGINT:
-        {
+        case odbc_native_type::AI_UNSIGNED_BIGINT: {
             return put_num_to_num_buffer<SQLUBIGINT>(value);
         }
 
-        case odbc_native_type::AI_FLOAT:
-        {
+        case odbc_native_type::AI_FLOAT: {
             return put_num_to_num_buffer<SQLREAL>(value);
         }
 
-        case odbc_native_type::AI_DOUBLE:
-        {
+        case odbc_native_type::AI_DOUBLE: {
             return put_num_to_num_buffer<SQLDOUBLE>(value);
         }
 
-        case odbc_native_type::AI_CHAR:
-        {
+        case odbc_native_type::AI_CHAR: {
             return put_value_to_string_buffer<char>(value);
         }
 
-        case odbc_native_type::AI_WCHAR:
-        {
+        case odbc_native_type::AI_WCHAR: {
             return put_value_to_string_buffer<wchar_t>(value);
         }
 
-        case odbc_native_type::AI_NUMERIC:
-        {
+        case odbc_native_type::AI_NUMERIC: {
             if (data_ptr) {
-                auto* out = reinterpret_cast<SQL_NUMERIC_STRUCT*>(data_ptr);
+                auto *out = reinterpret_cast<SQL_NUMERIC_STRUCT *>(data_ptr);
                 auto u_val = static_cast<std::uint64_t>(value < 0 ? -value : value);
 
                 out->precision = digit_length(u_val);
@@ -252,16 +235,15 @@ conversion_result application_data_buffer::put_num(T value)
         }
 
         case odbc_native_type::AI_BINARY:
-        case odbc_native_type::AI_DEFAULT:
-        {
+        case odbc_native_type::AI_DEFAULT: {
             if (data_ptr)
                 memcpy(data_ptr, &value, std::min(sizeof(value), static_cast<std::size_t>(m_buffer_len)));
 
             if (res_len_ptr)
                 *res_len_ptr = sizeof(value);
 
-            return static_cast<std::size_t>(m_buffer_len) < sizeof(value) ?
-                conversion_result::AI_VARLEN_DATA_TRUNCATED : conversion_result::AI_SUCCESS;
+            return static_cast<std::size_t>(m_buffer_len) < sizeof(value) ? conversion_result::AI_VARLEN_DATA_TRUNCATED
+                                                                          : conversion_result::AI_SUCCESS;
         }
 
         case odbc_native_type::AI_TDATE:
@@ -275,13 +257,12 @@ conversion_result application_data_buffer::put_num(T value)
 }
 
 template<typename TBuf, typename TIn>
-conversion_result application_data_buffer::put_num_to_num_buffer(TIn value)
-{
-    void* data_ptr = get_data();
-    SQLLEN* res_len_ptr = get_result_len();
+conversion_result application_data_buffer::put_num_to_num_buffer(TIn value) {
+    void *data_ptr = get_data();
+    SQLLEN *res_len_ptr = get_result_len();
 
     if (data_ptr) {
-        TBuf* out = reinterpret_cast<TBuf*>(data_ptr);
+        TBuf *out = reinterpret_cast<TBuf *>(data_ptr);
         *out = static_cast<TBuf>(value);
     }
 
@@ -292,8 +273,7 @@ conversion_result application_data_buffer::put_num_to_num_buffer(TIn value)
 }
 
 template<typename CharT, typename Tin>
-conversion_result application_data_buffer::put_value_to_string_buffer(const Tin& value)
-{
+conversion_result application_data_buffer::put_value_to_string_buffer(const Tin &value) {
     std::basic_stringstream<CharT> converter;
     converter << value;
 
@@ -303,8 +283,7 @@ conversion_result application_data_buffer::put_value_to_string_buffer(const Tin&
 }
 
 template<typename CharT>
-conversion_result application_data_buffer::put_value_to_string_buffer(const std::int8_t& value)
-{
+conversion_result application_data_buffer::put_value_to_string_buffer(const std::int8_t &value) {
     std::basic_stringstream<CharT> converter;
     converter << static_cast<int>(value);
 
@@ -314,14 +293,13 @@ conversion_result application_data_buffer::put_value_to_string_buffer(const std:
 }
 
 template<typename OutCharT, typename InCharT>
-conversion_result application_data_buffer::put_string_to_string_buffer(const std::basic_string<InCharT>& value,
-    std::int32_t& written)
-{
+conversion_result application_data_buffer::put_string_to_string_buffer(
+    const std::basic_string<InCharT> &value, std::int32_t &written) {
     written = 0;
     auto char_size = static_cast<SQLLEN>(sizeof(OutCharT));
 
-    SQLLEN* res_len_ptr = get_result_len();
-    void* data_ptr = get_data();
+    SQLLEN *res_len_ptr = get_result_len();
+    void *data_ptr = get_data();
 
     if (res_len_ptr)
         *res_len_ptr = static_cast<SQLLEN>(value.size());
@@ -332,7 +310,7 @@ conversion_result application_data_buffer::put_string_to_string_buffer(const std
     if (m_buffer_len < char_size)
         return conversion_result::AI_VARLEN_DATA_TRUNCATED;
 
-    auto* out = reinterpret_cast<OutCharT*>(data_ptr);
+    auto *out = reinterpret_cast<OutCharT *>(data_ptr);
 
     SQLLEN outLen = (m_buffer_len / char_size) - 1;
 
@@ -351,12 +329,11 @@ conversion_result application_data_buffer::put_string_to_string_buffer(const std
     return conversion_result::AI_SUCCESS;
 }
 
-conversion_result application_data_buffer::put_raw_data_to_buffer(void *data, std::size_t len, std::int32_t& written)
-{
+conversion_result application_data_buffer::put_raw_data_to_buffer(void *data, std::size_t len, std::int32_t &written) {
     auto s_len = static_cast<SQLLEN>(len);
 
-    SQLLEN* res_len_ptr = get_result_len();
-    void* data_ptr = get_data();
+    SQLLEN *res_len_ptr = get_result_len();
+    void *data_ptr = get_data();
 
     if (res_len_ptr)
         *res_len_ptr = s_len;
@@ -371,54 +348,44 @@ conversion_result application_data_buffer::put_raw_data_to_buffer(void *data, st
     return to_copy < s_len ? conversion_result::AI_VARLEN_DATA_TRUNCATED : conversion_result::AI_SUCCESS;
 }
 
-conversion_result application_data_buffer::put_int8(int8_t value)
-{
+conversion_result application_data_buffer::put_int8(int8_t value) {
     return put_num(value);
 }
 
-conversion_result application_data_buffer::put_int16(int16_t value)
-{
+conversion_result application_data_buffer::put_int16(int16_t value) {
     return put_num(value);
 }
 
-conversion_result application_data_buffer::put_int32(std::int32_t value)
-{
+conversion_result application_data_buffer::put_int32(std::int32_t value) {
     return put_num(value);
 }
 
-conversion_result application_data_buffer::put_int64(int64_t value)
-{
+conversion_result application_data_buffer::put_int64(int64_t value) {
     return put_num(value);
 }
 
-conversion_result application_data_buffer::put_float(float value)
-{
+conversion_result application_data_buffer::put_float(float value) {
     return put_num(value);
 }
 
-conversion_result application_data_buffer::put_double(double value)
-{
+conversion_result application_data_buffer::put_double(double value) {
     return put_num(value);
 }
 
-conversion_result application_data_buffer::put_bool(bool value)
-{
+conversion_result application_data_buffer::put_bool(bool value) {
     return put_num(value ? 1 : 0);
 }
 
-conversion_result application_data_buffer::put_string(const std::string & value)
-{
+conversion_result application_data_buffer::put_string(const std::string &value) {
     std::int32_t written = 0;
 
     return put_string(value, written);
 }
 
-conversion_result application_data_buffer::put_string(const std::string& value, std::int32_t& written)
-{
+conversion_result application_data_buffer::put_string(const std::string &value, std::int32_t &written) {
     LOG_MSG("value: " << value);
 
-    switch (m_type)
-    {
+    switch (m_type) {
         case odbc_native_type::AI_SIGNED_TINYINT:
         case odbc_native_type::AI_BIT:
         case odbc_native_type::AI_UNSIGNED_TINYINT:
@@ -428,8 +395,7 @@ conversion_result application_data_buffer::put_string(const std::string& value, 
         case odbc_native_type::AI_UNSIGNED_LONG:
         case odbc_native_type::AI_SIGNED_BIGINT:
         case odbc_native_type::AI_UNSIGNED_BIGINT:
-        case odbc_native_type::AI_NUMERIC:
-        {
+        case odbc_native_type::AI_NUMERIC: {
             std::stringstream converter;
 
             converter << value;
@@ -444,8 +410,7 @@ conversion_result application_data_buffer::put_string(const std::string& value, 
         }
 
         case odbc_native_type::AI_FLOAT:
-        case odbc_native_type::AI_DOUBLE:
-        {
+        case odbc_native_type::AI_DOUBLE: {
             std::stringstream converter;
 
             converter << value;
@@ -461,13 +426,11 @@ conversion_result application_data_buffer::put_string(const std::string& value, 
 
         case odbc_native_type::AI_CHAR:
         case odbc_native_type::AI_BINARY:
-        case odbc_native_type::AI_DEFAULT:
-        {
+        case odbc_native_type::AI_DEFAULT: {
             return put_string_to_string_buffer<char>(value, written);
         }
 
-        case odbc_native_type::AI_WCHAR:
-        {
+        case odbc_native_type::AI_WCHAR: {
             return put_string_to_string_buffer<wchar_t>(value, written);
         }
 
@@ -478,29 +441,24 @@ conversion_result application_data_buffer::put_string(const std::string& value, 
     return conversion_result::AI_UNSUPPORTED_CONVERSION;
 }
 
-conversion_result application_data_buffer::put_uuid(const uuid& value)
-{
+conversion_result application_data_buffer::put_uuid(const uuid &value) {
     LOG_MSG("Value: " << value);
 
-    SQLLEN* res_len_ptr = get_result_len();
+    SQLLEN *res_len_ptr = get_result_len();
 
-    switch (m_type)
-    {
+    switch (m_type) {
         case odbc_native_type::AI_CHAR:
         case odbc_native_type::AI_BINARY:
-        case odbc_native_type::AI_DEFAULT:
-        {
+        case odbc_native_type::AI_DEFAULT: {
             return put_value_to_string_buffer<char>(value);
         }
 
-        case odbc_native_type::AI_WCHAR:
-        {
+        case odbc_native_type::AI_WCHAR: {
             return put_value_to_string_buffer<wchar_t>(value);
         }
 
-        case odbc_native_type::AI_GUID:
-        {
-            auto* guid = reinterpret_cast<SQLGUID*>(get_data());
+        case odbc_native_type::AI_GUID: {
+            auto *guid = reinterpret_cast<SQLGUID *>(get_data());
 
             guid->Data1 = static_cast<uint32_t>(value.get_most_significant_bits() >> 32);
             guid->Data2 = static_cast<uint16_t>(value.get_most_significant_bits() >> 16);
@@ -523,45 +481,32 @@ conversion_result application_data_buffer::put_uuid(const uuid& value)
     return conversion_result::AI_UNSUPPORTED_CONVERSION;
 }
 
-conversion_result application_data_buffer::put_binary_data(void *data, std::size_t len, std::int32_t& written)
-{
-    switch (m_type)
-    {
+conversion_result application_data_buffer::put_binary_data(void *data, std::size_t len, std::int32_t &written) {
+    switch (m_type) {
         case odbc_native_type::AI_BINARY:
-        case odbc_native_type::AI_DEFAULT:
-        {
+        case odbc_native_type::AI_DEFAULT: {
             return put_raw_data_to_buffer(data, len, written);
         }
 
-        case odbc_native_type::AI_CHAR:
-        {
+        case odbc_native_type::AI_CHAR: {
             std::stringstream converter;
 
-            for (std::size_t i = 0; i < len; ++i)
-            {
-                auto *dataBytes = reinterpret_cast<std::uint8_t*>(data);
+            for (std::size_t i = 0; i < len; ++i) {
+                auto *dataBytes = reinterpret_cast<std::uint8_t *>(data);
 
-                converter << std::hex
-                          << std::setfill('0')
-                          << std::setw(2)
-                          << static_cast<unsigned>(dataBytes[i]);
+                converter << std::hex << std::setfill('0') << std::setw(2) << static_cast<unsigned>(dataBytes[i]);
             }
 
             return put_string_to_string_buffer<char>(converter.str(), written);
         }
 
-        case odbc_native_type::AI_WCHAR:
-        {
+        case odbc_native_type::AI_WCHAR: {
             std::wstringstream converter;
 
-            for (std::size_t i = 0; i < len; ++i)
-            {
-                auto *dataBytes = reinterpret_cast<std::uint8_t*>(data);
+            for (std::size_t i = 0; i < len; ++i) {
+                auto *dataBytes = reinterpret_cast<std::uint8_t *>(data);
 
-                converter << std::hex
-                          << std::setfill(L'0')
-                          << std::setw(2)
-                          << static_cast<unsigned>(dataBytes[i]);
+                converter << std::hex << std::setfill(L'0') << std::setw(2) << static_cast<unsigned>(dataBytes[i]);
             }
 
             return put_string_to_string_buffer<wchar_t>(converter.str(), written);
@@ -574,9 +519,8 @@ conversion_result application_data_buffer::put_binary_data(void *data, std::size
     return conversion_result::AI_UNSUPPORTED_CONVERSION;
 }
 
-conversion_result application_data_buffer::put_null()
-{
-    SQLLEN* res_len_ptr = get_result_len();
+conversion_result application_data_buffer::put_null() {
+    SQLLEN *res_len_ptr = get_result_len();
 
     if (!res_len_ptr)
         return conversion_result::AI_INDICATOR_NEEDED;
@@ -586,12 +530,10 @@ conversion_result application_data_buffer::put_null()
     return conversion_result::AI_SUCCESS;
 }
 
-conversion_result application_data_buffer::put_decimal(const big_decimal& value)
-{
-    SQLLEN* res_len_ptr = get_result_len();
+conversion_result application_data_buffer::put_decimal(const big_decimal &value) {
+    SQLLEN *res_len_ptr = get_result_len();
 
-    switch (m_type)
-    {
+    switch (m_type) {
         case odbc_native_type::AI_SIGNED_TINYINT:
         case odbc_native_type::AI_BIT:
         case odbc_native_type::AI_UNSIGNED_TINYINT:
@@ -600,24 +542,21 @@ conversion_result application_data_buffer::put_decimal(const big_decimal& value)
         case odbc_native_type::AI_SIGNED_LONG:
         case odbc_native_type::AI_UNSIGNED_LONG:
         case odbc_native_type::AI_SIGNED_BIGINT:
-        case odbc_native_type::AI_UNSIGNED_BIGINT:
-        {
+        case odbc_native_type::AI_UNSIGNED_BIGINT: {
             put_num<int64_t>(value.to_int64());
 
             return conversion_result::AI_FRACTIONAL_TRUNCATED;
         }
 
         case odbc_native_type::AI_FLOAT:
-        case odbc_native_type::AI_DOUBLE:
-        {
+        case odbc_native_type::AI_DOUBLE: {
             put_num<double>(value.to_double());
 
             return conversion_result::AI_FRACTIONAL_TRUNCATED;
         }
 
         case odbc_native_type::AI_CHAR:
-        case odbc_native_type::AI_WCHAR:
-        {
+        case odbc_native_type::AI_WCHAR: {
             std::stringstream converter;
 
             converter << value;
@@ -627,9 +566,8 @@ conversion_result application_data_buffer::put_decimal(const big_decimal& value)
             return put_string(converter.str(), dummy);
         }
 
-        case odbc_native_type::AI_NUMERIC:
-        {
-            auto* numeric = reinterpret_cast<SQL_NUMERIC_STRUCT*>(get_data());
+        case odbc_native_type::AI_NUMERIC: {
+            auto *numeric = reinterpret_cast<SQL_NUMERIC_STRUCT *>(get_data());
 
             auto sign = value.is_negative() ? 0 : 1;
             big_decimal zero_scaled;
@@ -638,11 +576,10 @@ conversion_result application_data_buffer::put_decimal(const big_decimal& value)
             if (zero_scaled.is_negative())
                 zero_scaled.negate();
 
-            const big_integer& unscaled = zero_scaled.get_unscaled_value();
+            const big_integer &unscaled = zero_scaled.get_unscaled_value();
             std::vector<std::byte> bytes_buffer = unscaled.to_bytes();
 
-            for (std::int32_t i = 0; i < SQL_MAX_NUMERIC_LEN; ++i)
-            {
+            for (std::int32_t i = 0; i < SQL_MAX_NUMERIC_LEN; ++i) {
                 std::ptrdiff_t buf_idx = std::ptrdiff_t(bytes_buffer.size()) - 1 - i;
                 if (buf_idx >= 0)
                     numeric->val[i] = SQLCHAR(bytes_buffer[buf_idx]);
@@ -672,27 +609,23 @@ conversion_result application_data_buffer::put_decimal(const big_decimal& value)
     return conversion_result::AI_UNSUPPORTED_CONVERSION;
 }
 
-conversion_result application_data_buffer::put_date(const ignite_date& value)
-{
+conversion_result application_data_buffer::put_date(const ignite_date &value) {
     SQLLEN *res_len_ptr = get_result_len();
     void *data_ptr = get_data();
 
-    switch (m_type)
-    {
+    switch (m_type) {
         case odbc_native_type::AI_WCHAR:
         case odbc_native_type::AI_CHAR:
-        case odbc_native_type::AI_BINARY:
-        {
+        case odbc_native_type::AI_BINARY: {
             constexpr auto val_len = SQLLEN(sizeof("HHHH-MM-DD"));
             auto tm_time = date_to_tm_for_strftime(value);
 
             return put_tm_to_string(tm_time, val_len, "%Y-%m-%d");
         }
 
-        case odbc_native_type::AI_TDATE:
-        {
+        case odbc_native_type::AI_TDATE: {
             if (data_ptr) {
-                auto *buffer = reinterpret_cast<SQL_DATE_STRUCT*>(data_ptr);
+                auto *buffer = reinterpret_cast<SQL_DATE_STRUCT *>(data_ptr);
                 memset(buffer, 0, sizeof(*buffer));
 
                 buffer->year = SQLSMALLINT(value.get_year());
@@ -706,10 +639,9 @@ conversion_result application_data_buffer::put_date(const ignite_date& value)
             return conversion_result::AI_SUCCESS;
         }
 
-        case odbc_native_type::AI_TTIMESTAMP:
-        {
+        case odbc_native_type::AI_TTIMESTAMP: {
             if (data_ptr) {
-                auto *buffer = reinterpret_cast<SQL_TIMESTAMP_STRUCT*>(data_ptr);
+                auto *buffer = reinterpret_cast<SQL_TIMESTAMP_STRUCT *>(data_ptr);
                 memset(buffer, 0, sizeof(*buffer));
 
                 buffer->year = SQLSMALLINT(value.get_year());
@@ -744,26 +676,22 @@ conversion_result application_data_buffer::put_date(const ignite_date& value)
     return conversion_result::AI_UNSUPPORTED_CONVERSION;
 }
 
-conversion_result application_data_buffer::put_timestamp(const ignite_timestamp& value)
-{
+conversion_result application_data_buffer::put_timestamp(const ignite_timestamp &value) {
     auto *res_len_ptr = get_result_len();
     void *data_ptr = get_data();
 
     auto tm_time = timestamp_to_tm(value);
-    switch (m_type)
-    {
+    switch (m_type) {
         case odbc_native_type::AI_WCHAR:
         case odbc_native_type::AI_CHAR:
-        case odbc_native_type::AI_BINARY:
-        {
+        case odbc_native_type::AI_BINARY: {
             constexpr auto val_len = SQLLEN(sizeof("HHHH-MM-DD HH:MM:SS"));
             return put_tm_to_string(tm_time, val_len, "%Y-%m-%d %H:%M:%S");
         }
 
-        case odbc_native_type::AI_TDATE:
-        {
+        case odbc_native_type::AI_TDATE: {
             if (data_ptr) {
-                auto *buffer = reinterpret_cast<SQL_DATE_STRUCT*>(data_ptr);
+                auto *buffer = reinterpret_cast<SQL_DATE_STRUCT *>(data_ptr);
                 memset(buffer, 0, sizeof(*buffer));
 
                 buffer->year = SQLSMALLINT(tm_time.tm_year + 1900);
@@ -777,8 +705,7 @@ conversion_result application_data_buffer::put_timestamp(const ignite_timestamp&
             return conversion_result::AI_FRACTIONAL_TRUNCATED;
         }
 
-        case odbc_native_type::AI_TTIME:
-        {
+        case odbc_native_type::AI_TTIME: {
             if (data_ptr) {
                 auto *buffer = reinterpret_cast<SQL_TIME_STRUCT *>(data_ptr);
                 memset(buffer, 0, sizeof(*buffer));
@@ -794,8 +721,7 @@ conversion_result application_data_buffer::put_timestamp(const ignite_timestamp&
             return conversion_result::AI_FRACTIONAL_TRUNCATED;
         }
 
-        case odbc_native_type::AI_TTIMESTAMP:
-        {
+        case odbc_native_type::AI_TTIMESTAMP: {
             if (data_ptr) {
                 auto *buffer = reinterpret_cast<SQL_TIMESTAMP_STRUCT *>(data_ptr);
                 memset(buffer, 0, sizeof(*buffer));
@@ -835,25 +761,21 @@ conversion_result application_data_buffer::put_timestamp(const ignite_timestamp&
     return conversion_result::AI_UNSUPPORTED_CONVERSION;
 }
 
-conversion_result application_data_buffer::put_time(const ignite_time& value)
-{
-    SQLLEN* res_len_ptr = get_result_len();
-    void* data_ptr = get_data();
+conversion_result application_data_buffer::put_time(const ignite_time &value) {
+    SQLLEN *res_len_ptr = get_result_len();
+    void *data_ptr = get_data();
 
-    switch (m_type)
-    {
+    switch (m_type) {
         case odbc_native_type::AI_WCHAR:
         case odbc_native_type::AI_CHAR:
-        case odbc_native_type::AI_BINARY:
-        {
+        case odbc_native_type::AI_BINARY: {
             const auto val_len = SQLLEN(sizeof("HH:MM:SS"));
             auto tm_time = time_to_tm_for_strftime(value);
 
             return put_tm_to_string(tm_time, val_len, "%H:%M:%S");
         }
 
-        case odbc_native_type::AI_TTIME:
-        {
+        case odbc_native_type::AI_TTIME: {
             if (data_ptr) {
                 auto *buffer = reinterpret_cast<SQL_TIME_STRUCT *>(data_ptr);
                 memset(buffer, 0, sizeof(*buffer));
@@ -869,8 +791,7 @@ conversion_result application_data_buffer::put_time(const ignite_time& value)
             return conversion_result::AI_SUCCESS;
         }
 
-        case odbc_native_type::AI_TTIMESTAMP:
-        {
+        case odbc_native_type::AI_TTIMESTAMP: {
             if (data_ptr) {
                 auto *buffer = reinterpret_cast<SQL_TIMESTAMP_STRUCT *>(data_ptr);
                 memset(buffer, 0, sizeof(*buffer));
@@ -916,25 +837,21 @@ conversion_result application_data_buffer::put_time(const ignite_time& value)
     return conversion_result::AI_UNSUPPORTED_CONVERSION;
 }
 
-conversion_result application_data_buffer::put_date_time(const ignite_date_time& value)
-{
-    SQLLEN* res_len_ptr = get_result_len();
-    void* data_ptr = get_data();
+conversion_result application_data_buffer::put_date_time(const ignite_date_time &value) {
+    SQLLEN *res_len_ptr = get_result_len();
+    void *data_ptr = get_data();
 
-    switch (m_type)
-    {
+    switch (m_type) {
         case odbc_native_type::AI_WCHAR:
         case odbc_native_type::AI_CHAR:
-        case odbc_native_type::AI_BINARY:
-        {
+        case odbc_native_type::AI_BINARY: {
             const auto val_len = SQLLEN(sizeof("HHHH-MM-DD HH:MM:SS"));
             auto tm_time = time_date_to_tm_for_strftime(value);
 
             return put_tm_to_string(tm_time, val_len, "%Y-%m-%d %H:%M:%S");
         }
 
-        case odbc_native_type::AI_TDATE:
-        {
+        case odbc_native_type::AI_TDATE: {
             if (data_ptr) {
                 auto *buffer = reinterpret_cast<SQL_DATE_STRUCT *>(data_ptr);
                 memset(buffer, 0, sizeof(*buffer));
@@ -950,8 +867,7 @@ conversion_result application_data_buffer::put_date_time(const ignite_date_time&
             return conversion_result::AI_FRACTIONAL_TRUNCATED;
         }
 
-        case odbc_native_type::AI_TTIME:
-        {
+        case odbc_native_type::AI_TTIME: {
             if (data_ptr) {
                 auto *buffer = reinterpret_cast<SQL_TIME_STRUCT *>(data_ptr);
                 memset(buffer, 0, sizeof(*buffer));
@@ -967,8 +883,7 @@ conversion_result application_data_buffer::put_date_time(const ignite_date_time&
             return conversion_result::AI_FRACTIONAL_TRUNCATED;
         }
 
-        case odbc_native_type::AI_TTIMESTAMP:
-        {
+        case odbc_native_type::AI_TTIMESTAMP: {
             if (data_ptr) {
                 auto *buffer = reinterpret_cast<SQL_TIMESTAMP_STRUCT *>(data_ptr);
                 memset(buffer, 0, sizeof(*buffer));
@@ -1008,9 +923,9 @@ conversion_result application_data_buffer::put_date_time(const ignite_date_time&
     return conversion_result::AI_UNSUPPORTED_CONVERSION;
 }
 
-conversion_result application_data_buffer::put_tm_to_string(tm &tm_time, SQLLEN val_len, const char* fmt) {
-    void* data_ptr = get_data();
-    SQLLEN* res_len_ptr = get_result_len();
+conversion_result application_data_buffer::put_tm_to_string(tm &tm_time, SQLLEN val_len, const char *fmt) {
+    void *data_ptr = get_data();
+    SQLLEN *res_len_ptr = get_result_len();
     if (res_len_ptr)
         *res_len_ptr = std::min(val_len, get_size());
 
@@ -1020,27 +935,23 @@ conversion_result application_data_buffer::put_tm_to_string(tm &tm_time, SQLLEN 
         return conversion_result::AI_SUCCESS;
     }
 
-    switch (m_type)
-    {
+    switch (m_type) {
         case odbc_native_type::AI_CHAR:
-        case odbc_native_type::AI_BINARY:
-        {
-            auto *buffer = reinterpret_cast<char*>(data_ptr);
+        case odbc_native_type::AI_BINARY: {
+            auto *buffer = reinterpret_cast<char *>(data_ptr);
             strftime(buffer, get_size(), fmt, &tm_time);
             break;
         }
-        case odbc_native_type::AI_WCHAR:
-        {
-            auto *buffer = reinterpret_cast<SQLWCHAR*>(data_ptr);
-            auto *tmp = reinterpret_cast<char*>(alloca(val_len));
+        case odbc_native_type::AI_WCHAR: {
+            auto *buffer = reinterpret_cast<SQLWCHAR *>(data_ptr);
+            auto *tmp = reinterpret_cast<char *>(alloca(val_len));
 
             strftime(tmp, val_len, fmt, &tm_time);
 
             string_to_wstring(&tmp[0], int64_t(val_len), buffer, get_size());
             break;
         }
-        default:
-        {
+        default: {
             return conversion_result::AI_UNSUPPORTED_CONVERSION;
         }
     }
@@ -1051,21 +962,18 @@ conversion_result application_data_buffer::put_tm_to_string(tm &tm_time, SQLLEN 
     return conversion_result::AI_SUCCESS;
 }
 
-std::string application_data_buffer::get_string(std::size_t maxLen) const
-{
+std::string application_data_buffer::get_string(std::size_t maxLen) const {
     std::string res;
 
-    switch (m_type)
-    {
-        case odbc_native_type::AI_CHAR:
-        {
+    switch (m_type) {
+        case odbc_native_type::AI_CHAR: {
             std::size_t param_len = get_input_size();
 
             if (!param_len)
                 break;
 
             res = sql_string_to_string(
-                reinterpret_cast<const unsigned char*>(get_data()), static_cast<std::int32_t>(param_len));
+                reinterpret_cast<const unsigned char *>(get_data()), static_cast<std::int32_t>(param_len));
 
             if (res.size() > maxLen)
                 res.resize(maxLen);
@@ -1076,8 +984,7 @@ std::string application_data_buffer::get_string(std::size_t maxLen) const
         case odbc_native_type::AI_SIGNED_TINYINT:
         case odbc_native_type::AI_SIGNED_SHORT:
         case odbc_native_type::AI_SIGNED_LONG:
-        case odbc_native_type::AI_SIGNED_BIGINT:
-        {
+        case odbc_native_type::AI_SIGNED_BIGINT: {
             std::stringstream converter;
             converter << get_num<int64_t>();
 
@@ -1090,8 +997,7 @@ std::string application_data_buffer::get_string(std::size_t maxLen) const
         case odbc_native_type::AI_UNSIGNED_TINYINT:
         case odbc_native_type::AI_UNSIGNED_SHORT:
         case odbc_native_type::AI_UNSIGNED_LONG:
-        case odbc_native_type::AI_UNSIGNED_BIGINT:
-        {
+        case odbc_native_type::AI_UNSIGNED_BIGINT: {
             std::stringstream converter;
 
             converter << get_num<std::uint64_t>();
@@ -1101,8 +1007,7 @@ std::string application_data_buffer::get_string(std::size_t maxLen) const
             break;
         }
 
-        case odbc_native_type::AI_FLOAT:
-        {
+        case odbc_native_type::AI_FLOAT: {
             std::stringstream converter;
 
             converter << get_num<float>();
@@ -1113,8 +1018,7 @@ std::string application_data_buffer::get_string(std::size_t maxLen) const
         }
 
         case odbc_native_type::AI_NUMERIC:
-        case odbc_native_type::AI_DOUBLE:
-        {
+        case odbc_native_type::AI_DOUBLE: {
             std::stringstream converter;
 
             converter << get_num<double>();
@@ -1131,51 +1035,42 @@ std::string application_data_buffer::get_string(std::size_t maxLen) const
     return res;
 }
 
-int8_t application_data_buffer::get_int8() const
-{
+int8_t application_data_buffer::get_int8() const {
     return get_num<int8_t>();
 }
 
-int16_t application_data_buffer::get_int16() const
-{
+int16_t application_data_buffer::get_int16() const {
     return get_num<int16_t>();
 }
 
-std::int32_t application_data_buffer::get_int32() const
-{
+std::int32_t application_data_buffer::get_int32() const {
     return get_num<std::int32_t>();
 }
 
-int64_t application_data_buffer::get_int64() const
-{
+int64_t application_data_buffer::get_int64() const {
     return get_num<int64_t>();
 }
 
-float application_data_buffer::get_float() const
-{
+float application_data_buffer::get_float() const {
     return get_num<float>();
 }
 
-double application_data_buffer::get_double() const
-{
+double application_data_buffer::get_double() const {
     return get_num<double>();
 }
 
-uuid application_data_buffer::get_uuid() const
-{
+uuid application_data_buffer::get_uuid() const {
     uuid res;
 
-    switch (m_type)
-    {
-        case odbc_native_type::AI_CHAR:
-        {
+    switch (m_type) {
+        case odbc_native_type::AI_CHAR: {
             SQLLEN param_len = get_input_size();
 
             if (!param_len)
                 break;
 
             std::string str = sql_string_to_string(
-                reinterpret_cast<const unsigned char*>(get_data()), static_cast<std::int32_t>(param_len));
+                reinterpret_cast<const unsigned char *>(get_data()), static_cast<std::int32_t>(param_len));
 
             std::stringstream converter;
 
@@ -1186,13 +1081,11 @@ uuid application_data_buffer::get_uuid() const
             break;
         }
 
-        case odbc_native_type::AI_GUID:
-        {
-            const auto* guid = reinterpret_cast<const SQLGUID*>(get_data());
+        case odbc_native_type::AI_GUID: {
+            const auto *guid = reinterpret_cast<const SQLGUID *>(get_data());
 
-            std::uint64_t msb = static_cast<std::uint64_t>(guid->Data1) << 32 |
-                                static_cast<std::uint64_t>(guid->Data2) << 16 |
-                                static_cast<std::uint64_t>(guid->Data3);
+            std::uint64_t msb = static_cast<std::uint64_t>(guid->Data1) << 32
+                | static_cast<std::uint64_t>(guid->Data2) << 16 | static_cast<std::uint64_t>(guid->Data3);
 
             std::uint64_t lsb = 0;
 
@@ -1211,43 +1104,35 @@ uuid application_data_buffer::get_uuid() const
     return res;
 }
 
-const void* application_data_buffer::get_data() const
-{
+const void *application_data_buffer::get_data() const {
     return apply_offset(m_buffer, get_element_size());
 }
 
-const SQLLEN* application_data_buffer::get_result_len() const
-{
+const SQLLEN *application_data_buffer::get_result_len() const {
     return apply_offset(m_result_len, sizeof(*m_result_len));
 }
 
-void* application_data_buffer::get_data()
-{
+void *application_data_buffer::get_data() {
     return apply_offset(m_buffer, get_element_size());
 }
 
-SQLLEN* application_data_buffer::get_result_len()
-{
+SQLLEN *application_data_buffer::get_result_len() {
     return apply_offset(m_result_len, sizeof(*m_result_len));
 }
-
 
 template<typename T, typename V>
-inline V LoadPrimitive(const void* data) {
+inline V LoadPrimitive(const void *data) {
     T res = T();
     std::memcpy(&res, data, sizeof(res));
     return static_cast<V>(res);
 }
 
 template<typename T>
-T application_data_buffer::get_num() const
-{
+T application_data_buffer::get_num() const {
     T res = T();
 
-    switch (m_type)
-    {
-        case odbc_native_type::AI_CHAR:
-        {
+    switch (m_type) {
+        case odbc_native_type::AI_CHAR: {
             SQLLEN param_len = get_input_size();
 
             if (!param_len)
@@ -1261,87 +1146,74 @@ T application_data_buffer::get_num() const
 
             // Workaround for char types which are recognised as
             // symbolyc types and not numeric types.
-            if (sizeof(T) == 1)
-            {
+            if (sizeof(T) == 1) {
                 short tmp;
 
                 converter >> tmp;
 
                 res = static_cast<T>(tmp);
-            }
-            else
+            } else
                 converter >> res;
 
             break;
         }
 
-        case odbc_native_type::AI_SIGNED_TINYINT:
-        {
+        case odbc_native_type::AI_SIGNED_TINYINT: {
             res = LoadPrimitive<int8_t, T>(get_data());
             break;
         }
 
         case odbc_native_type::AI_BIT:
-        case odbc_native_type::AI_UNSIGNED_TINYINT:
-        {
+        case odbc_native_type::AI_UNSIGNED_TINYINT: {
             res = LoadPrimitive<std::uint8_t, T>(get_data());
             break;
         }
 
-        case odbc_native_type::AI_SIGNED_SHORT:
-        {
+        case odbc_native_type::AI_SIGNED_SHORT: {
             res = LoadPrimitive<int16_t, T>(get_data());
             break;
         }
 
-        case odbc_native_type::AI_UNSIGNED_SHORT:
-        {
+        case odbc_native_type::AI_UNSIGNED_SHORT: {
             res = LoadPrimitive<uint16_t, T>(get_data());
             break;
         }
 
-        case odbc_native_type::AI_SIGNED_LONG:
-        {
+        case odbc_native_type::AI_SIGNED_LONG: {
             res = LoadPrimitive<std::int32_t, T>(get_data());
             break;
         }
 
-        case odbc_native_type::AI_UNSIGNED_LONG:
-        {
+        case odbc_native_type::AI_UNSIGNED_LONG: {
             res = LoadPrimitive<uint32_t, T>(get_data());
             break;
         }
 
-        case odbc_native_type::AI_SIGNED_BIGINT:
-        {
+        case odbc_native_type::AI_SIGNED_BIGINT: {
             res = LoadPrimitive<int64_t, T>(get_data());
             break;
         }
 
-        case odbc_native_type::AI_UNSIGNED_BIGINT:
-        {
+        case odbc_native_type::AI_UNSIGNED_BIGINT: {
             res = LoadPrimitive<std::uint64_t, T>(get_data());
             break;
         }
 
-        case odbc_native_type::AI_FLOAT:
-        {
+        case odbc_native_type::AI_FLOAT: {
             res = LoadPrimitive<float, T>(get_data());
             break;
         }
 
-        case odbc_native_type::AI_DOUBLE:
-        {
+        case odbc_native_type::AI_DOUBLE: {
             res = LoadPrimitive<double, T>(get_data());
             break;
         }
 
-        case odbc_native_type::AI_NUMERIC:
-        {
-            const auto* numeric = reinterpret_cast<const SQL_NUMERIC_STRUCT*>(get_data());
+        case odbc_native_type::AI_NUMERIC: {
+            const auto *numeric = reinterpret_cast<const SQL_NUMERIC_STRUCT *>(get_data());
 
-            big_decimal dec(reinterpret_cast<const int8_t*>(numeric->val),
-                SQL_MAX_NUMERIC_LEN, numeric->scale, numeric->sign ? 1 : -1, false);
+            big_decimal dec(reinterpret_cast<const int8_t *>(numeric->val), SQL_MAX_NUMERIC_LEN, numeric->scale,
+                numeric->sign ? 1 : -1, false);
 
             res = static_cast<T>(dec.to_int64());
 
@@ -1355,31 +1227,26 @@ T application_data_buffer::get_num() const
     return res;
 }
 
-ignite_date application_data_buffer::get_date() const
-{
-    switch (m_type)
-    {
-        case odbc_native_type::AI_TDATE:
-        {
-            const auto* buffer = reinterpret_cast<const SQL_DATE_STRUCT*>(get_data());
+ignite_date application_data_buffer::get_date() const {
+    switch (m_type) {
+        case odbc_native_type::AI_TDATE: {
+            const auto *buffer = reinterpret_cast<const SQL_DATE_STRUCT *>(get_data());
             return {buffer->year, buffer->month, buffer->day};
         }
 
-        case odbc_native_type::AI_TTIMESTAMP:
-        {
-            const auto* buffer = reinterpret_cast<const SQL_TIMESTAMP_STRUCT*>(get_data());
+        case odbc_native_type::AI_TTIMESTAMP: {
+            const auto *buffer = reinterpret_cast<const SQL_TIMESTAMP_STRUCT *>(get_data());
             return {buffer->year, buffer->month, buffer->day};
         }
 
-        case odbc_native_type::AI_CHAR:
-        {
+        case odbc_native_type::AI_CHAR: {
             SQLLEN param_len = get_input_size();
 
             if (!param_len)
                 break;
 
             std::string str = sql_string_to_string(
-                reinterpret_cast<const unsigned char*>(get_data()), static_cast<std::int32_t>(param_len));
+                reinterpret_cast<const unsigned char *>(get_data()), static_cast<std::int32_t>(param_len));
 
             std::int32_t year;
             std::int32_t month;
@@ -1397,20 +1264,16 @@ ignite_date application_data_buffer::get_date() const
     return {};
 }
 
-ignite_date_time application_data_buffer::get_date_time() const
-{
-    switch (m_type)
-    {
-        case odbc_native_type::AI_TDATE:
-        {
-            const auto* buffer = reinterpret_cast<const SQL_DATE_STRUCT*>(get_data());
+ignite_date_time application_data_buffer::get_date_time() const {
+    switch (m_type) {
+        case odbc_native_type::AI_TDATE: {
+            const auto *buffer = reinterpret_cast<const SQL_DATE_STRUCT *>(get_data());
 
             return {{buffer->year, buffer->month, buffer->day}, {}};
         }
 
-        case odbc_native_type::AI_TTIME:
-        {
-            const auto* buffer = reinterpret_cast<const SQL_TIME_STRUCT*>(get_data());
+        case odbc_native_type::AI_TTIME: {
+            const auto *buffer = reinterpret_cast<const SQL_TIME_STRUCT *>(get_data());
 
             auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
             auto tm_time = time_t_to_tm(now);
@@ -1422,26 +1285,24 @@ ignite_date_time application_data_buffer::get_date_time() const
             break;
         }
 
-        case odbc_native_type::AI_TTIMESTAMP:
-        {
-            const auto* buffer = reinterpret_cast<const SQL_TIMESTAMP_STRUCT*>(get_data());
+        case odbc_native_type::AI_TTIMESTAMP: {
+            const auto *buffer = reinterpret_cast<const SQL_TIMESTAMP_STRUCT *>(get_data());
 
             return {{buffer->year, buffer->month, buffer->day},
-                {std::int8_t(buffer->hour), std::int8_t(buffer->minute),
-                    std::int8_t(buffer->second), std::int32_t(buffer->fraction)}};
+                {std::int8_t(buffer->hour), std::int8_t(buffer->minute), std::int8_t(buffer->second),
+                    std::int32_t(buffer->fraction)}};
 
             break;
         }
 
-        case odbc_native_type::AI_CHAR:
-        {
+        case odbc_native_type::AI_CHAR: {
             SQLLEN param_len = get_input_size();
 
             if (!param_len)
                 break;
 
             std::string str = sql_string_to_string(
-                reinterpret_cast<const unsigned char*>(get_data()), static_cast<std::int32_t>(param_len));
+                reinterpret_cast<const unsigned char *>(get_data()), static_cast<std::int32_t>(param_len));
 
             int year = 0;
             int month = 1;
@@ -1464,19 +1325,16 @@ ignite_date_time application_data_buffer::get_date_time() const
     return {};
 }
 
-ignite_timestamp application_data_buffer::get_timestamp() const
-{
+ignite_timestamp application_data_buffer::get_timestamp() const {
     tm tm_time{};
     std::memset(&tm_time, 0, sizeof(tm_time));
     tm_time.tm_isdst = -1;
 
     std::int32_t nanos = 0;
 
-    switch (m_type)
-    {
-        case odbc_native_type::AI_TDATE:
-        {
-            const auto* buffer = reinterpret_cast<const SQL_DATE_STRUCT*>(get_data());
+    switch (m_type) {
+        case odbc_native_type::AI_TDATE: {
+            const auto *buffer = reinterpret_cast<const SQL_DATE_STRUCT *>(get_data());
 
             tm_time.tm_year = buffer->year - 1900;
             tm_time.tm_mon = buffer->month - 1;
@@ -1485,9 +1343,8 @@ ignite_timestamp application_data_buffer::get_timestamp() const
             break;
         }
 
-        case odbc_native_type::AI_TTIME:
-        {
-            const auto* buffer = reinterpret_cast<const SQL_TIME_STRUCT*>(get_data());
+        case odbc_native_type::AI_TTIME: {
+            const auto *buffer = reinterpret_cast<const SQL_TIME_STRUCT *>(get_data());
 
             tm_time.tm_year = 70;
             tm_time.tm_mday = 1;
@@ -1498,9 +1355,8 @@ ignite_timestamp application_data_buffer::get_timestamp() const
             break;
         }
 
-        case odbc_native_type::AI_TTIMESTAMP:
-        {
-            const auto* buffer = reinterpret_cast<const SQL_TIMESTAMP_STRUCT*>(get_data());
+        case odbc_native_type::AI_TTIMESTAMP: {
+            const auto *buffer = reinterpret_cast<const SQL_TIMESTAMP_STRUCT *>(get_data());
 
             tm_time.tm_year = buffer->year - 1900;
             tm_time.tm_mon = buffer->month - 1;
@@ -1514,15 +1370,14 @@ ignite_timestamp application_data_buffer::get_timestamp() const
             break;
         }
 
-        case odbc_native_type::AI_CHAR:
-        {
+        case odbc_native_type::AI_CHAR: {
             SQLLEN param_len = get_input_size();
 
             if (!param_len)
                 break;
 
             std::string str = sql_string_to_string(
-                reinterpret_cast<const unsigned char*>(get_data()), static_cast<std::int32_t>(param_len));
+                reinterpret_cast<const unsigned char *>(get_data()), static_cast<std::int32_t>(param_len));
 
             sscanf(str.c_str(), "%d-%d-%d %d:%d:%d.%d", &tm_time.tm_year, &tm_time.tm_mon, // NOLINT(cert-err34-c)
                 &tm_time.tm_mday, &tm_time.tm_hour, &tm_time.tm_min, &tm_time.tm_sec, &nanos);
@@ -1547,34 +1402,29 @@ ignite_timestamp application_data_buffer::get_timestamp() const
     return {ctime, nanos};
 }
 
-ignite_time application_data_buffer::get_time() const
-{
-    switch (m_type)
-    {
-        case odbc_native_type::AI_TTIME:
-        {
-            const auto* buffer = reinterpret_cast<const SQL_TIME_STRUCT*>(get_data());
+ignite_time application_data_buffer::get_time() const {
+    switch (m_type) {
+        case odbc_native_type::AI_TTIME: {
+            const auto *buffer = reinterpret_cast<const SQL_TIME_STRUCT *>(get_data());
 
             return {std::int_fast8_t(buffer->hour), std::int_fast8_t(buffer->minute), std::int_fast8_t(buffer->second)};
         }
 
-        case odbc_native_type::AI_TTIMESTAMP:
-        {
-            const auto* buffer = reinterpret_cast<const SQL_TIMESTAMP_STRUCT*>(get_data());
+        case odbc_native_type::AI_TTIMESTAMP: {
+            const auto *buffer = reinterpret_cast<const SQL_TIMESTAMP_STRUCT *>(get_data());
 
-            return {std::int_fast8_t(buffer->hour), std::int_fast8_t(buffer->minute),
-                std::int_fast8_t(buffer->second), std::int32_t(buffer->fraction)};
+            return {std::int_fast8_t(buffer->hour), std::int_fast8_t(buffer->minute), std::int_fast8_t(buffer->second),
+                std::int32_t(buffer->fraction)};
         }
 
-        case odbc_native_type::AI_CHAR:
-        {
+        case odbc_native_type::AI_CHAR: {
             SQLLEN param_len = get_input_size();
 
             if (!param_len)
                 break;
 
             std::string str = sql_string_to_string(
-                reinterpret_cast<const unsigned char*>(get_data()), static_cast<std::int32_t>(param_len));
+                reinterpret_cast<const unsigned char *>(get_data()), static_cast<std::int32_t>(param_len));
 
             std::int32_t hour{};
             std::int32_t min{};
@@ -1593,12 +1443,9 @@ ignite_time application_data_buffer::get_time() const
     return {};
 }
 
-void application_data_buffer::get_decimal(big_decimal& val) const
-{
-    switch (m_type)
-    {
-        case odbc_native_type::AI_CHAR:
-        {
+void application_data_buffer::get_decimal(big_decimal &val) const {
+    switch (m_type) {
+        case odbc_native_type::AI_CHAR: {
             SQLLEN param_len = get_input_size();
 
             if (!param_len)
@@ -1619,8 +1466,7 @@ void application_data_buffer::get_decimal(big_decimal& val) const
         case odbc_native_type::AI_BIT:
         case odbc_native_type::AI_SIGNED_SHORT:
         case odbc_native_type::AI_SIGNED_LONG:
-        case odbc_native_type::AI_SIGNED_BIGINT:
-        {
+        case odbc_native_type::AI_SIGNED_BIGINT: {
             val.assign_int64(get_num<int64_t>());
 
             break;
@@ -1629,35 +1475,31 @@ void application_data_buffer::get_decimal(big_decimal& val) const
         case odbc_native_type::AI_UNSIGNED_TINYINT:
         case odbc_native_type::AI_UNSIGNED_SHORT:
         case odbc_native_type::AI_UNSIGNED_LONG:
-        case odbc_native_type::AI_UNSIGNED_BIGINT:
-        {
+        case odbc_native_type::AI_UNSIGNED_BIGINT: {
             val.assign_uint64(get_num<std::uint64_t>());
 
             break;
         }
 
         case odbc_native_type::AI_FLOAT:
-        case odbc_native_type::AI_DOUBLE:
-        {
+        case odbc_native_type::AI_DOUBLE: {
             val.assign_double(get_num<double>());
 
             break;
         }
 
-        case odbc_native_type::AI_NUMERIC:
-        {
-            const auto* numeric = reinterpret_cast<const SQL_NUMERIC_STRUCT*>(get_data());
+        case odbc_native_type::AI_NUMERIC: {
+            const auto *numeric = reinterpret_cast<const SQL_NUMERIC_STRUCT *>(get_data());
 
-            big_decimal dec(reinterpret_cast<const int8_t*>(numeric->val),
-                SQL_MAX_NUMERIC_LEN, numeric->scale, numeric->sign ? 1 : -1, false);
+            big_decimal dec(reinterpret_cast<const int8_t *>(numeric->val), SQL_MAX_NUMERIC_LEN, numeric->scale,
+                numeric->sign ? 1 : -1, false);
 
             val.swap(dec);
 
             break;
         }
 
-        default:
-        {
+        default: {
             val.assign_int64(0);
             break;
         }
@@ -1665,17 +1507,15 @@ void application_data_buffer::get_decimal(big_decimal& val) const
 }
 
 template<typename T>
-T* application_data_buffer::apply_offset(T* ptr, std::size_t elemSize) const
-{
+T *application_data_buffer::apply_offset(T *ptr, std::size_t elemSize) const {
     if (!ptr)
         return ptr;
 
     return get_pointer_with_offset(ptr, m_byte_offset + elemSize * m_element_offset);
 }
 
-bool application_data_buffer::is_data_at_exec() const
-{
-    const SQLLEN* res_len_ptr = get_result_len();
+bool application_data_buffer::is_data_at_exec() const {
+    const SQLLEN *res_len_ptr = get_result_len();
     if (!res_len_ptr)
         return false;
 
@@ -1683,15 +1523,12 @@ bool application_data_buffer::is_data_at_exec() const
     return s_len <= SQL_LEN_DATA_AT_EXEC_OFFSET || s_len == SQL_DATA_AT_EXEC;
 }
 
-SQLLEN application_data_buffer::get_data_at_exec_size() const
-{
-    switch (m_type)
-    {
+SQLLEN application_data_buffer::get_data_at_exec_size() const {
+    switch (m_type) {
         case odbc_native_type::AI_WCHAR:
         case odbc_native_type::AI_CHAR:
-        case odbc_native_type::AI_BINARY:
-        {
-            const SQLLEN* res_len_ptr = get_result_len();
+        case odbc_native_type::AI_BINARY: {
+            const SQLLEN *res_len_ptr = get_result_len();
 
             if (!res_len_ptr)
                 return 0;
@@ -1756,10 +1593,8 @@ SQLLEN application_data_buffer::get_data_at_exec_size() const
     return 0;
 }
 
-SQLLEN application_data_buffer::get_element_size() const
-{
-    switch (m_type)
-    {
+SQLLEN application_data_buffer::get_element_size() const {
+    switch (m_type) {
         case odbc_native_type::AI_WCHAR:
         case odbc_native_type::AI_CHAR:
         case odbc_native_type::AI_BINARY:
@@ -1820,8 +1655,7 @@ SQLLEN application_data_buffer::get_element_size() const
     return 0;
 }
 
-SQLLEN application_data_buffer::get_input_size() const
-{
+SQLLEN application_data_buffer::get_input_size() const {
     if (!is_data_at_exec()) {
         const SQLLEN *len = get_result_len();
         return len ? *len : SQL_NTS;

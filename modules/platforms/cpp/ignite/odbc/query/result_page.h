@@ -17,20 +17,18 @@
 
 #pragma once
 
+#include "ignite/network/data_buffer.h"
 #include "ignite/odbc/app/application_data_buffer.h"
 #include "ignite/odbc/common_types.h"
 #include "ignite/protocol/reader.h"
-#include "ignite/network/data_buffer.h"
 
 #include <cstdint>
 
-namespace ignite
-{
+namespace ignite {
 /**
  * Query result page.
  */
-class result_page
-{
+class result_page {
     enum { DEFAULT_ALLOCATED_MEMORY = 1024 };
 
 public:
@@ -49,8 +47,7 @@ public:
      */
     result_page(network::data_buffer_owning &&data, std::unique_ptr<protocol::reader> &&reader)
         : m_data(std::move(data))
-        , m_reader(std::move(reader))
-    {
+        , m_reader(std::move(reader)) {
         m_size = m_reader->read_array_size();
     }
 
@@ -58,18 +55,14 @@ public:
      * Get page size.
      * @return Page size.
      */
-    [[nodiscard]] std::uint32_t get_size() const {
-        return m_size;
-    }
+    [[nodiscard]] std::uint32_t get_size() const { return m_size; }
 
     /**
      * Get page data.
      *
      * @return Page data.
      */
-    network::data_buffer_owning& get_data() {
-        return m_data;
-    }
+    network::data_buffer_owning &get_data() { return m_data; }
 
     /**
      * Get row.

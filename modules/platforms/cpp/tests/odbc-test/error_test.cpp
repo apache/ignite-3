@@ -49,8 +49,7 @@ public:
     }
 };
 
-TEST_F(error_test, connect_fail)
-{
+TEST_F(error_test, connect_fail) {
     prepare_environment();
 
     // Connect string
@@ -60,15 +59,14 @@ TEST_F(error_test, connect_fail)
     SQLSMALLINT out_str_len;
 
     // Connecting to ODBC server.
-    SQLRETURN ret = SQLDriverConnect(m_conn, NULL, connect_str.data(), SQLSMALLINT(connect_str.size()),
-        out_str, sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
+    SQLRETURN ret = SQLDriverConnect(m_conn, NULL, connect_str.data(), SQLSMALLINT(connect_str.size()), out_str,
+        sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
 
     ASSERT_EQ(ret, SQL_ERROR);
     EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_DBC, m_conn), "08001");
 }
 
-TEST_F(error_test, duplicate_key)
-{
+TEST_F(error_test, duplicate_key) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR insert_req[] = "INSERT INTO tbl_all_columns_sql(key, str) VALUES(1, 'some')";
@@ -85,8 +83,7 @@ TEST_F(error_test, duplicate_key)
     EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "HY000");
 }
 
-TEST_F(error_test, update_key)
-{
+TEST_F(error_test, update_key) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR insert_req[] = "INSERT INTO tbl_all_columns_sql(key, str) VALUES(1, 'some')";
@@ -105,8 +102,7 @@ TEST_F(error_test, update_key)
     EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "HY000");
 }
 
-TEST_F(error_test, table_not_found)
-{
+TEST_F(error_test, table_not_found) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "DROP TABLE Nonexisting";
@@ -123,8 +119,7 @@ TEST_F(error_test, table_not_found)
     EXPECT_THAT(error, testing::HasSubstr("The table does not exist [name=\"PUBLIC\".\"NONEXISTING\"]"));
 }
 
-TEST_F(error_test, object_not_found_message)
-{
+TEST_F(error_test, object_not_found_message) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR select_req[] = "SELECT a FROM B";
@@ -138,8 +133,7 @@ TEST_F(error_test, object_not_found_message)
     EXPECT_THAT(error, testing::HasSubstr("Object 'B' not found"));
 }
 
-TEST_F(error_test, index_not_found)
-{
+TEST_F(error_test, index_not_found) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "DROP INDEX Nonexisting";
@@ -153,8 +147,7 @@ TEST_F(error_test, index_not_found)
     EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "HY000");
 }
 
-TEST_F(error_test, syntax_error)
-{
+TEST_F(error_test, syntax_error) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "INSERT INTO tbl_all_columns_sql(key, non_existing) VALUES(1, 'some')";

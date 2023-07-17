@@ -17,9 +17,9 @@
 
 #include "utils.h"
 
-#include <ignite/protocol/utils.h>
 #include <ignite/common/bits.h>
 #include <ignite/common/uuid.h>
+#include <ignite/protocol/utils.h>
 
 #include <string>
 
@@ -210,7 +210,6 @@ std::vector<std::byte> pack_tuple(
 
     return builder.build();
 }
-
 
 ignite_tuple concat(const ignite_tuple &left, const ignite_tuple &right) {
     // TODO: IGNITE-18855 eliminate unnecessary tuple transformation;

@@ -17,10 +17,10 @@
 
 #pragma once
 
+#include <ignite/client/detail/type_mapping_utils.h>
 #include <ignite/client/table/ignite_tuple.h>
 #include <ignite/client/transaction/transaction.h>
 #include <ignite/client/type_mapping.h>
-#include <ignite/client/detail/type_mapping_utils.h>
 
 #include <ignite/common/config.h>
 #include <ignite/common/ignite_result.h>
@@ -462,7 +462,6 @@ private:
     std::shared_ptr<detail::table_impl> m_impl;
 };
 
-
 /**
  * Record view interface provides methods to access table records.
  */
@@ -492,9 +491,8 @@ public:
      *   exists and @c std::nullopt otherwise
      */
     void get_async(transaction *tx, const value_type &key, ignite_callback<std::optional<value_type>> callback) {
-        m_delegate.get_async(tx, convert_to_tuple(key), [callback = std::move(callback)] (auto res) {
-            callback(convert_result<value_type>(std::move(res)));
-        });
+        m_delegate.get_async(tx, convert_to_tuple(key),
+            [callback = std::move(callback)](auto res) { callback(convert_result<value_type>(std::move(res))); });
     }
 
     /**
@@ -525,9 +523,7 @@ public:
     void get_all_async(transaction *tx, std::vector<value_type> keys,
         ignite_callback<std::vector<std::optional<value_type>>> callback) {
         m_delegate.get_all_async(tx, values_to_tuples<value_type>(std::move(keys)),
-            [callback = std::move(callback)] (auto res) {
-                callback(convert_result<value_type>(std::move(res)));
-            });
+            [callback = std::move(callback)](auto res) { callback(convert_result<value_type>(std::move(res))); });
     }
 
     /**
@@ -591,9 +587,8 @@ public:
      * @param records Records to upsert.
      */
     void upsert_all(transaction *tx, std::vector<value_type> records) {
-        sync<void>([this, tx, records = std::move(records)](auto callback) mutable {
-            upsert_all_async(tx, std::move(records), std::move(callback));
-        });
+        sync<void>([this, tx, records = std::move(records)](
+                       auto callback) mutable { upsert_all_async(tx, std::move(records), std::move(callback)); });
     }
 
     /**
@@ -607,9 +602,8 @@ public:
      */
     void get_and_upsert_async(
         transaction *tx, const value_type &record, ignite_callback<std::optional<value_type>> callback) {
-        m_delegate.get_and_upsert_async(tx, convert_to_tuple(record), [callback = std::move(callback)] (auto res) {
-            callback(convert_result<value_type>(std::move(res)));
-        });
+        m_delegate.get_and_upsert_async(tx, convert_to_tuple(record),
+            [callback = std::move(callback)](auto res) { callback(convert_result<value_type>(std::move(res))); });
     }
 
     /**
@@ -662,10 +656,7 @@ public:
     void insert_all_async(
         transaction *tx, std::vector<value_type> records, ignite_callback<std::vector<value_type>> callback) {
         m_delegate.insert_all_async(tx, values_to_tuples<value_type>(std::move(records)),
-            [callback = std::move(callback)] (auto res) {
-                callback(convert_result<value_type>(std::move(res)));
-            }
-        );
+            [callback = std::move(callback)](auto res) { callback(convert_result<value_type>(std::move(res))); });
     }
 
     /**
@@ -737,9 +728,8 @@ public:
      * @return A value indicating whether a specified record was replaced.
      */
     bool replace(transaction *tx, const value_type &record, const value_type &new_record) {
-        return sync<bool>([this, tx, &record, &new_record] (auto callback) {
-            replace_async(tx, record, new_record, std::move(callback));
-        });
+        return sync<bool>([this, tx, &record, &new_record](
+                              auto callback) { replace_async(tx, record, new_record, std::move(callback)); });
     }
 
     /**
@@ -754,9 +744,8 @@ public:
      */
     void get_and_replace_async(
         transaction *tx, const value_type &record, ignite_callback<std::optional<value_type>> callback) {
-        m_delegate.get_and_replace_async(tx, convert_to_tuple(record), [callback = std::move(callback)] (auto res) {
-            callback(convert_result<value_type>(std::move(res)));
-        });
+        m_delegate.get_and_replace_async(tx, convert_to_tuple(record),
+            [callback = std::move(callback)](auto res) { callback(convert_result<value_type>(std::move(res))); });
     }
 
     /**
@@ -838,9 +827,8 @@ public:
      */
     void get_and_remove_async(
         transaction *tx, const value_type &key, ignite_callback<std::optional<value_type>> callback) {
-        m_delegate.get_and_remove_async(tx, convert_to_tuple(key), [callback = std::move(callback)] (auto res) {
-            callback(convert_result<value_type>(std::move(res)));
-        });
+        m_delegate.get_and_remove_async(tx, convert_to_tuple(key),
+            [callback = std::move(callback)](auto res) { callback(convert_result<value_type>(std::move(res))); });
     }
 
     /**
@@ -868,9 +856,8 @@ public:
      */
     void remove_all_async(
         transaction *tx, std::vector<value_type> keys, ignite_callback<std::vector<value_type>> callback) {
-        m_delegate.remove_all_async(tx, values_to_tuples<value_type>(std::move(keys)), [callback = std::move(callback)] (auto res) {
-            callback(convert_result<value_type>(std::move(res)));
-        });
+        m_delegate.remove_all_async(tx, values_to_tuples<value_type>(std::move(keys)),
+            [callback = std::move(callback)](auto res) { callback(convert_result<value_type>(std::move(res))); });
     }
 
     /**
@@ -901,10 +888,7 @@ public:
     void remove_all_exact_async(
         transaction *tx, std::vector<value_type> records, ignite_callback<std::vector<value_type>> callback) {
         m_delegate.remove_all_exact_async(tx, values_to_tuples<value_type>(std::move(records)),
-            [callback = std::move(callback)] (auto res) {
-                callback(convert_result<value_type>(std::move(res)));
-            }
-        );
+            [callback = std::move(callback)](auto res) { callback(convert_result<value_type>(std::move(res))); });
     }
 
     /**

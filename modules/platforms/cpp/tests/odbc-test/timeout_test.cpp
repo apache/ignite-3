@@ -21,9 +21,9 @@
 
 #include <gtest/gtest.h>
 
-#include <vector>
-#include <string>
 #include <algorithm>
+#include <string>
+#include <vector>
 
 using namespace ignite;
 
@@ -38,8 +38,7 @@ struct timeout_test : public odbc_suite {
     }
 };
 
-TEST_F(timeout_test, login_timeout)
-{
+TEST_F(timeout_test, login_timeout) {
     prepare_environment();
 
     SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_LOGIN_TIMEOUT, reinterpret_cast<SQLPOINTER>(1), 0);
@@ -52,15 +51,14 @@ TEST_F(timeout_test, login_timeout)
     SQLSMALLINT out_str_len;
 
     // Connecting to ODBC server.
-    ret = SQLDriverConnect(m_conn, nullptr, connect_str.data(), static_cast<SQLSMALLINT>(connect_str.size()),
-        out_str, sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
+    ret = SQLDriverConnect(m_conn, nullptr, connect_str.data(), static_cast<SQLSMALLINT>(connect_str.size()), out_str,
+        sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_DBC, m_conn));
 }
 
-TEST_F(timeout_test, login_timeout_fail)
-{
+TEST_F(timeout_test, login_timeout_fail) {
     prepare_environment();
 
     SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_LOGIN_TIMEOUT, reinterpret_cast<SQLPOINTER>(5), 0);
@@ -73,15 +71,14 @@ TEST_F(timeout_test, login_timeout_fail)
     SQLSMALLINT out_str_len;
 
     // Connecting to ODBC server.
-    ret = SQLDriverConnect(m_conn, nullptr, connect_str.data(), static_cast<SQLSMALLINT>(connect_str.size()),
-        out_str, sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
+    ret = SQLDriverConnect(m_conn, nullptr, connect_str.data(), static_cast<SQLSMALLINT>(connect_str.size()), out_str,
+        sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
 
     if (SQL_SUCCEEDED(ret))
         FAIL() << ("Should timeout");
 }
 
-TEST_F(timeout_test, connection_timeout_query)
-{
+TEST_F(timeout_test, connection_timeout_query) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_CONNECTION_TIMEOUT, reinterpret_cast<SQLPOINTER>(10), 0);
@@ -91,8 +88,7 @@ TEST_F(timeout_test, connection_timeout_query)
     insert_test_strings(10);
 }
 
-TEST_F(timeout_test, query_timeout_query)
-{
+TEST_F(timeout_test, query_timeout_query) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLSetStmtAttr(m_statement, SQL_ATTR_QUERY_TIMEOUT, reinterpret_cast<SQLPOINTER>(5), 0);
@@ -102,8 +98,7 @@ TEST_F(timeout_test, query_timeout_query)
     insert_test_strings(10);
 }
 
-TEST_F(timeout_test, query_and_connection_timeout_query)
-{
+TEST_F(timeout_test, query_and_connection_timeout_query) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLSetStmtAttr(m_statement, SQL_ATTR_QUERY_TIMEOUT, reinterpret_cast<SQLPOINTER>(5), 0);
@@ -119,8 +114,7 @@ TEST_F(timeout_test, query_and_connection_timeout_query)
 
 // TODO: IGNITE-19215 Implement DML data batching
 #ifdef MUTED
-TEST_F(timeout_test, connection_timeout_batch)
-{
+TEST_F(timeout_test, connection_timeout_batch) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_CONNECTION_TIMEOUT, reinterpret_cast<SQLPOINTER>(5), 0);
@@ -130,8 +124,7 @@ TEST_F(timeout_test, connection_timeout_batch)
     insert_test_batch(11, 20, 9);
 }
 
-TEST_F(timeout_test, connection_timeout_both)
-{
+TEST_F(timeout_test, connection_timeout_both) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_CONNECTION_TIMEOUT, reinterpret_cast<SQLPOINTER>(5), 0);
@@ -142,8 +135,7 @@ TEST_F(timeout_test, connection_timeout_both)
     insert_test_batch(11, 20, 9);
 }
 
-TEST_F(timeout_test, query_timeout_batch)
-{
+TEST_F(timeout_test, query_timeout_batch) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLSetStmtAttr(m_statement, SQL_ATTR_QUERY_TIMEOUT, reinterpret_cast<SQLPOINTER>(5), 0);
@@ -153,8 +145,7 @@ TEST_F(timeout_test, query_timeout_batch)
     insert_test_batch(11, 20, 9);
 }
 
-TEST_F(timeout_test, query_timeout_both)
-{
+TEST_F(timeout_test, query_timeout_both) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLSetStmtAttr(m_statement, SQL_ATTR_QUERY_TIMEOUT, reinterpret_cast<SQLPOINTER>(5), 0);
@@ -165,8 +156,7 @@ TEST_F(timeout_test, query_timeout_both)
     insert_test_batch(11, 20, 9);
 }
 
-TEST_F(timeout_test, query_and_connection_timeout_batch)
-{
+TEST_F(timeout_test, query_and_connection_timeout_batch) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLSetStmtAttr(m_statement, SQL_ATTR_QUERY_TIMEOUT, reinterpret_cast<SQLPOINTER>(5), 0);
@@ -180,8 +170,7 @@ TEST_F(timeout_test, query_and_connection_timeout_batch)
     insert_test_batch(11, 20, 9);
 }
 
-TEST_F(timeout_test, query_and_connection_timeout_both)
-{
+TEST_F(timeout_test, query_and_connection_timeout_both) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLSetStmtAttr(m_statement, SQL_ATTR_QUERY_TIMEOUT, reinterpret_cast<SQLPOINTER>(5), 0);

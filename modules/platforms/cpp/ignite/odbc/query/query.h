@@ -21,14 +21,13 @@
 #include "ignite/odbc/diagnostic/diagnosable_adapter.h"
 #include "ignite/odbc/meta/column_meta.h"
 
-#include <map>
 #include <cstdint>
+#include <map>
 
 namespace ignite {
 
 /** Query type. */
-enum class query_type
-{
+enum class query_type {
     /** Data query type. */
     DATA,
 };
@@ -36,8 +35,7 @@ enum class query_type
 /**
  * Query.
  */
-class query
-{
+class query {
 public:
     /**
      * Virtual destructor
@@ -57,7 +55,7 @@ public:
      * @param column_bindings Application buffers to put data to.
      * @return Operation result.
      */
-    virtual sql_result fetch_next_row(column_binding_map& m_column_bindings) = 0;
+    virtual sql_result fetch_next_row(column_binding_map &m_column_bindings) = 0;
 
     /**
      * Get data of the specified column in the result set.
@@ -66,7 +64,7 @@ public:
      * @param buffer Buffer to put column data to.
      * @return Operation result.
      */
-    virtual sql_result get_column(std::uint16_t column_idx, application_data_buffer& buffer) = 0;
+    virtual sql_result get_column(std::uint16_t column_idx, application_data_buffer &buffer) = 0;
 
     /**
      * Close query.
@@ -80,8 +78,7 @@ public:
      *
      * @return Column metadata.
      */
-    [[nodiscard]] virtual const column_meta_vector* get_meta()
-    {
+    [[nodiscard]] virtual const column_meta_vector *get_meta() {
         static const column_meta_vector empty;
 
         return &empty;
@@ -113,18 +110,15 @@ public:
      *
      * @return Query type.
      */
-    [[nodiscard]] query_type get_type() const
-    {
-        return m_type;
-    }
+    [[nodiscard]] query_type get_type() const { return m_type; }
 
 protected:
     /**
      * Constructor.
      */
-    query(diagnosable_adapter& diag, query_type type)
+    query(diagnosable_adapter &diag, query_type type)
         : m_diag(diag)
-        , m_type(type) { }
+        , m_type(type) {}
 
     /** Diagnostics collector. */
     diagnosable_adapter &m_diag;

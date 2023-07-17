@@ -17,26 +17,25 @@
 
 #pragma once
 
+#include "ignite/common/ignite_type.h"
 #include "ignite/odbc/app/parameter.h"
 #include "ignite/protocol/writer.h"
-#include "ignite/common/ignite_type.h"
 
-#include <map>
 #include <cstdint>
+#include <map>
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Parameter set.
  */
-class parameter_set
-{
+class parameter_set {
     /** parameter binging map type alias. */
     typedef std::map<std::uint16_t, parameter> parameter_binding_map;
 
     /** parameter meta vector. */
     typedef std::vector<ignite_type> parameter_type_vector;
+
 public:
     /**
      * Default constructor.
@@ -62,7 +61,7 @@ public:
      * @param param_idx parameter index.
      * @param param parameter.
      */
-    void bind_parameter(std::uint16_t param_idx, const parameter& param);
+    void bind_parameter(std::uint16_t param_idx, const parameter &param);
 
     /**
      * Unbind specified parameter.
@@ -88,14 +87,14 @@ public:
      *
      * @param ptr parameter binding offset pointer.
      */
-    void set_param_bind_offset_ptr(int* ptr);
+    void set_param_bind_offset_ptr(int *ptr);
 
     /**
      * Get parameter binding offset pointer.
      *
      * @return parameter binding offset pointer.
      */
-    int* get_param_bind_offset_ptr();
+    int *get_param_bind_offset_ptr();
 
     /**
      * Prepare m_parameters set for statement execution.
@@ -114,7 +113,7 @@ public:
      *
      * @param meta Types metadata.
      */
-    void update_params_types(const parameter_type_vector& meta);
+    void update_params_types(const parameter_type_vector &meta);
 
     /**
      * Get type id of the parameter.
@@ -153,7 +152,7 @@ public:
      * @param idx Index.
      * @return parameter or null, if parameter is not bound.
      */
-    parameter* get_parameter(std::uint16_t idx);
+    parameter *get_parameter(std::uint16_t idx);
 
     /**
      * Get parameter by index.
@@ -161,21 +160,21 @@ public:
      * @param idx Index.
      * @return parameter or null, if parameter is not bound.
      */
-    const parameter* get_parameter(std::uint16_t idx) const;
+    const parameter *get_parameter(std::uint16_t idx) const;
 
     /**
      * Get selected parameter.
      *
      * @return parameter or null, if parameter is not bound.
      */
-    parameter* get_selected_parameter();
+    parameter *get_selected_parameter();
 
     /**
      * Internally selects next parameter for putting data at-execution.
      *
      * @return parameter if found and null otherwise.
      */
-    parameter* select_next_parameter();
+    parameter *select_next_parameter();
 
     /**
      * Write only first row of the param set using provided writer.
@@ -218,28 +217,28 @@ public:
      *
      * @param ptr Pointer.
      */
-    void set_params_processed_ptr(SQLULEN* ptr);
+    void set_params_processed_ptr(SQLULEN *ptr);
 
     /**
      * Get pointer to write number of m_parameters processed in batch.
      *
      * @return Pointer to write number of m_parameters processed in batch.
      */
-    [[nodiscard]] SQLULEN* get_params_processed_ptr() const;
+    [[nodiscard]] SQLULEN *get_params_processed_ptr() const;
 
     /**
      * Set pointer to array in which to return the status of each
      * set of m_parameters.
      * @param value Value.
      */
-    void set_params_status_ptr(SQLUSMALLINT* value);
+    void set_params_status_ptr(SQLUSMALLINT *value);
 
     /**
      * Get pointer to array in which to return the status of each
      * set of m_parameters.
      * @return Value.
      */
-    [[nodiscard]] SQLUSMALLINT* get_params_status_ptr() const;
+    [[nodiscard]] SQLUSMALLINT *get_params_status_ptr() const;
 
     /**
      * Set parameter status.
@@ -263,13 +262,13 @@ private:
     parameter_type_vector m_param_types{};
 
     /** Offset added to pointers to change binding of m_parameters. */
-    int* m_param_bind_offset{nullptr};
+    int *m_param_bind_offset{nullptr};
 
     /** Processed m_parameters. */
-    SQLULEN* m_processed_param_rows{nullptr};
+    SQLULEN *m_processed_param_rows{nullptr};
 
     /** Parameters status. */
-    SQLUSMALLINT* m_params_status{nullptr};
+    SQLUSMALLINT *m_params_status{nullptr};
 
     /** Parameter set size. */
     SQLULEN m_param_set_size{1};

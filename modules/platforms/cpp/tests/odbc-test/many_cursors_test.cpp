@@ -34,8 +34,7 @@ struct many_cursors_test : public odbc_suite {
     }
 };
 
-TEST_F(many_cursors_test, several_inserts_without_closing)
-{
+TEST_F(many_cursors_test, several_inserts_without_closing) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR request[] = "INSERT INTO TBL_ALL_COLUMNS_SQL(key, int32) VALUES(?, ?)";
@@ -57,8 +56,7 @@ TEST_F(many_cursors_test, several_inserts_without_closing)
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    for (std::int32_t i = 0; i < 10; ++i)
-    {
+    for (std::int32_t i = 0; i < 10; ++i) {
         key = i;
         data = i * 10;
 
@@ -69,12 +67,10 @@ TEST_F(many_cursors_test, several_inserts_without_closing)
     }
 }
 
-TEST_F(many_cursors_test, many_cursors)
-{
+TEST_F(many_cursors_test, many_cursors) {
     odbc_connect(get_basic_connection_string());
 
-    for (std::int32_t i = 0; i < 1000; ++i)
-    {
+    for (std::int32_t i = 0; i < 1000; ++i) {
         SQLCHAR req[] = "SELECT 1";
 
         SQLRETURN ret = SQLExecDirect(m_statement, req, SQL_NTS);
@@ -89,8 +85,7 @@ TEST_F(many_cursors_test, many_cursors)
     }
 }
 
-TEST_F(many_cursors_test, many_cursors_2)
-{
+TEST_F(many_cursors_test, many_cursors_2) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLFreeHandle(SQL_HANDLE_STMT, m_statement);
@@ -98,8 +93,7 @@ TEST_F(many_cursors_test, many_cursors_2)
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    for (std::int32_t i = 0; i < 1000; ++i)
-    {
+    for (std::int32_t i = 0; i < 1000; ++i) {
         ret = SQLAllocHandle(SQL_HANDLE_STMT, m_conn, &m_statement);
 
         if (!SQL_SUCCEEDED(ret))
@@ -137,12 +131,10 @@ TEST_F(many_cursors_test, many_cursors_2)
 
 // TODO: IGNITE-19855 Multiple queries execution is not supported.
 #ifdef MUTED
-TEST_F(many_cursors_test, many_cursors_two_selects_1)
-{
+TEST_F(many_cursors_test, many_cursors_two_selects_1) {
     odbc_connect(get_basic_connection_string());
 
-    for (std::int32_t i = 0; i < 1000; ++i)
-    {
+    for (std::int32_t i = 0; i < 1000; ++i) {
         SQLCHAR req[] = "SELECT 1; SELECT 2";
 
         SQLRETURN ret = SQLExecDirect(m_statement, req, SQL_NTS);
@@ -157,12 +149,10 @@ TEST_F(many_cursors_test, many_cursors_two_selects_1)
     }
 }
 
-TEST_F(many_cursors_test, many_cursors_two_selects_2)
-{
+TEST_F(many_cursors_test, many_cursors_two_selects_2) {
     odbc_connect(get_basic_connection_string());
 
-    for (std::int32_t i = 0; i < 1000; ++i)
-    {
+    for (std::int32_t i = 0; i < 1000; ++i) {
         SQLCHAR req[] = "SELECT 1; SELECT 2;";
 
         SQLRETURN ret = SQLExecDirect(m_statement, req, SQL_NTS);
@@ -182,12 +172,10 @@ TEST_F(many_cursors_test, many_cursors_two_selects_2)
     }
 }
 
-TEST_F(many_cursors_test, many_cursors_select_insert_1)
-{
+TEST_F(many_cursors_test, many_cursors_select_insert_1) {
     odbc_connect(get_basic_connection_string());
 
-    for (std::int32_t i = 0; i < 1000; ++i)
-    {
+    for (std::int32_t i = 0; i < 1000; ++i) {
         SQLCHAR req[] = "SELECT 1; INSERT into TBL_ALL_COLUMNS_SQL(key) values(2);";
 
         SQLRETURN ret = SQLExecDirect(m_statement, req, SQL_NTS);
@@ -202,12 +190,10 @@ TEST_F(many_cursors_test, many_cursors_select_insert_1)
     }
 }
 
-TEST_F(many_cursors_test, many_cursors_select_insert_2)
-{
+TEST_F(many_cursors_test, many_cursors_select_insert_2) {
     odbc_connect(get_basic_connection_string());
 
-    for (std::int32_t i = 0; i < 1000; ++i)
-    {
+    for (std::int32_t i = 0; i < 1000; ++i) {
         SQLCHAR req[] = "SELECT 1; INSERT into TBL_ALL_COLUMNS_SQL(key) values(2);";
 
         SQLRETURN ret = SQLExecDirect(m_statement, req, SQL_NTS);
@@ -227,4 +213,4 @@ TEST_F(many_cursors_test, many_cursors_select_insert_2)
     }
 }
 
-#endif //MUTED
+#endif // MUTED

@@ -18,25 +18,23 @@
 #pragma once
 
 #include "ignite/odbc/app/parameter_set.h"
+#include "ignite/odbc/query/cursor.h"
 #include "ignite/odbc/query/query.h"
 #include "ignite/odbc/query/result_page.h"
-#include "ignite/odbc/query/cursor.h"
 #include "ignite/odbc/sql_connection.h"
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Data query.
  */
-class data_query : public query
-{
+class data_query : public query {
 public:
     // Delete
-    data_query(data_query&&) = delete;
-    data_query(const data_query&) = delete;
-    data_query& operator=(data_query&&) = delete;
-    data_query& operator=(const data_query&) = delete;
+    data_query(data_query &&) = delete;
+    data_query(const data_query &) = delete;
+    data_query &operator=(data_query &&) = delete;
+    data_query &operator=(const data_query &) = delete;
 
     /**
      * Constructor.
@@ -119,9 +117,7 @@ public:
      *
      * @return SQL query string.
      */
-    [[nodiscard]] const std::string& get_query() const {
-        return m_query;
-    }
+    [[nodiscard]] const std::string &get_query() const { return m_query; }
 
 private:
     /**
@@ -129,27 +125,21 @@ private:
      *
      * @return true, if all cursors closed remotely.
      */
-    [[nodiscard]] bool is_closed_remotely() const {
-        return !has_more_pages();
-    }
+    [[nodiscard]] bool is_closed_remotely() const { return !has_more_pages(); }
 
     /**
      * Check if there are more data pages locally or on server.
      *
      * @return @c true, if there is more data pages.
      */
-    [[nodiscard]] bool has_more_pages() const {
-        return m_has_more_pages;
-    }
+    [[nodiscard]] bool has_more_pages() const { return m_has_more_pages; }
 
     /**
      * Check if there are more data pages locally or on server.
      *
      * @return @c true, if there is more data pages.
      */
-    [[nodiscard]] bool has_more_rows() const {
-        return has_more_pages() || (m_cursor && m_cursor->has_data());
-    }
+    [[nodiscard]] bool has_more_rows() const { return has_more_pages() || (m_cursor && m_cursor->has_data()); }
 
     /**
      * Make query execute request and use response to set internal

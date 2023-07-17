@@ -203,7 +203,6 @@ void unpack_array_raw(const msgpack_object &object, const std::function<void(con
  */
 [[nodiscard]] std::optional<ignite_error> read_error(protocol::reader &reader);
 
-
 /**
  * Claim type and scale header for a value written in binary tuple.
  *
@@ -253,6 +252,5 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
  * @return Column value.
  */
 [[nodiscard]] primitive read_next_column(binary_tuple_parser &parser, ignite_type typ, std::int32_t scale);
-
 
 } // namespace ignite::protocol

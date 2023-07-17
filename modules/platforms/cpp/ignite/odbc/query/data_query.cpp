@@ -15,17 +15,16 @@
  * limitations under the License.
  */
 
+#include "ignite/odbc/query/data_query.h"
 #include "ignite/odbc/log.h"
 #include "ignite/odbc/odbc_error.h"
-#include "ignite/odbc/query/data_query.h"
 #include "ignite/odbc/query/cursor.h"
 #include "ignite/tuple/binary_tuple_builder.h"
 
 #include <memory>
 #include <utility>
 
-namespace
-{
+namespace {
 using namespace ignite;
 
 /**
@@ -169,8 +168,7 @@ conversion_result put_primitive_to_buffer(application_data_buffer &buffer, const
 
 } // anonymous namespace
 
-namespace ignite
-{
+namespace ignite {
 
 data_query::data_query(diagnosable_adapter &m_diag, sql_connection &m_connection, std::string sql,
     const parameter_set &params, std::int32_t &timeout)
@@ -178,22 +176,20 @@ data_query::data_query(diagnosable_adapter &m_diag, sql_connection &m_connection
     , m_connection(m_connection)
     , m_query(std::move(sql))
     , m_params(params)
-    , m_timeout(timeout) { }
+    , m_timeout(timeout) {
+}
 
-data_query::~data_query()
-{
+data_query::~data_query() {
     internal_close();
 }
 
-sql_result data_query::execute()
-{
+sql_result data_query::execute() {
     internal_close();
 
     return make_request_execute();
 }
 
-const column_meta_vector *data_query::get_meta()
-{
+const column_meta_vector *data_query::get_meta() {
     if (!m_result_meta_available) {
         make_request_resultset_meta();
         if (!m_result_meta_available)
@@ -203,10 +199,8 @@ const column_meta_vector *data_query::get_meta()
     return &m_result_meta;
 }
 
-sql_result data_query::fetch_next_row(column_binding_map &column_bindings)
-{
-    if (!m_executed)
-    {
+sql_result data_query::fetch_next_row(column_binding_map &column_bindings) {
+    if (!m_executed) {
         m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
         return sql_result::AI_ERROR;
@@ -220,8 +214,7 @@ sql_result data_query::fetch_next_row(column_binding_map &column_bindings)
     if (!has_more_rows())
         return sql_result::AI_NO_DATA;
 
-    if (!m_cursor->has_data())
-    {
+    if (!m_cursor->has_data()) {
         std::unique_ptr<result_page> page;
         auto result = make_request_fetch(page);
 
@@ -238,8 +231,7 @@ sql_result data_query::fetch_next_row(column_binding_map &column_bindings)
     auto row = m_cursor->get_row();
     assert(!row.empty());
 
-    for (std::size_t i = 0; i < row.size(); ++i)
-    {
+    for (std::size_t i = 0; i < row.size(); ++i) {
         // Column indexing starts from 1 in ODBC.
         auto column_idx = std::int32_t(i + 1);
         auto it = column_bindings.find(column_idx);
@@ -256,10 +248,8 @@ sql_result data_query::fetch_next_row(column_binding_map &column_bindings)
     return sql_result::AI_SUCCESS;
 }
 
-sql_result data_query::get_column(std::uint16_t column_idx, application_data_buffer &buffer)
-{
-    if (!m_executed)
-    {
+sql_result data_query::get_column(std::uint16_t column_idx, application_data_buffer &buffer) {
+    if (!m_executed) {
         m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
         return sql_result::AI_ERROR;
@@ -269,9 +259,9 @@ sql_result data_query::get_column(std::uint16_t column_idx, application_data_buf
         return sql_result::AI_NO_DATA;
 
     auto row = m_cursor->get_row();
-    if (row.empty())
-    {
-        m_diag.add_status_record(sql_state::S24000_INVALID_CURSOR_STATE, "Cursor is in a wrong position. "
+    if (row.empty()) {
+        m_diag.add_status_record(sql_state::S24000_INVALID_CURSOR_STATE,
+            "Cursor is in a wrong position. "
             "It is either have reached the end of the result set or no data was yet fetched.");
 
         return sql_result::AI_ERROR;
@@ -283,13 +273,11 @@ sql_result data_query::get_column(std::uint16_t column_idx, application_data_buf
     return result;
 }
 
-sql_result data_query::close()
-{
+sql_result data_query::close() {
     return internal_close();
 }
 
-sql_result data_query::internal_close()
-{
+sql_result data_query::internal_close() {
     if (!m_cursor)
         return sql_result::AI_SUCCESS;
 
@@ -298,8 +286,7 @@ sql_result data_query::internal_close()
     if (!is_closed_remotely())
         result = make_request_close();
 
-    if (result == sql_result::AI_SUCCESS)
-    {
+    if (result == sql_result::AI_SUCCESS) {
         m_cursor.reset();
         m_rows_affected = -1;
         m_executed = false;
@@ -308,29 +295,25 @@ sql_result data_query::internal_close()
     return result;
 }
 
-bool data_query::is_data_available() const
-{
+bool data_query::is_data_available() const {
     return m_has_more_pages || (m_cursor && m_cursor->has_data());
 }
 
-std::int64_t data_query::affected_rows() const
-{
+std::int64_t data_query::affected_rows() const {
     return m_rows_affected;
 }
 
-sql_result data_query::next_result_set()
-{
+sql_result data_query::next_result_set() {
     // TODO: IGNITE-19855 Multiple queries execution is not supported.
     internal_close();
     return sql_result::AI_NO_DATA;
 }
 
-sql_result data_query::make_request_execute()
-{
+sql_result data_query::make_request_execute() {
     auto &schema = m_connection.get_schema();
 
     network::data_buffer_owning response;
-    auto success = m_diag.catch_errors([&]{
+    auto success = m_diag.catch_errors([&] {
         response = m_connection.sync_request(detail::client_operation::SQL_EXEC, [&](protocol::writer &writer) {
             // TODO: IGNITE-19399 Implement transactions support.
             writer.write_nil();
@@ -378,25 +361,21 @@ sql_result data_query::make_request_execute()
     return sql_result::AI_SUCCESS;
 }
 
-sql_result data_query::make_request_close()
-{
+sql_result data_query::make_request_close() {
     if (!m_query_id)
         return sql_result::AI_SUCCESS;
 
     LOG_MSG("Closing m_cursor: " << *m_query_id);
 
-    auto success = m_diag.catch_errors([&]{
-        UNUSED_VALUE m_connection.sync_request(detail::client_operation::SQL_CURSOR_CLOSE,
-            [&](protocol::writer &writer) {
-            writer.write(*m_query_id);
-        });
+    auto success = m_diag.catch_errors([&] {
+        UNUSED_VALUE m_connection.sync_request(
+            detail::client_operation::SQL_CURSOR_CLOSE, [&](protocol::writer &writer) { writer.write(*m_query_id); });
     });
 
     return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
 }
 
-sql_result data_query::make_request_fetch(std::unique_ptr<result_page> &page)
-{
+sql_result data_query::make_request_fetch(std::unique_ptr<result_page> &page) {
     if (!m_query_id) {
         m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Cursor already closed");
         return sql_result::AI_ERROR;
@@ -417,56 +396,47 @@ sql_result data_query::make_request_fetch(std::unique_ptr<result_page> &page)
     return sql_result::AI_SUCCESS;
 }
 
-sql_result data_query::make_request_resultset_meta()
-{
+sql_result data_query::make_request_resultset_meta() {
     // TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
-    m_diag.add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
-        "Metadata for non-executed queries is not supported");
+    m_diag.add_status_record(
+        sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Metadata for non-executed queries is not supported");
 
     return sql_result::AI_ERROR;
 }
 
-sql_result data_query::process_conversion_result(conversion_result conv_res, std::int32_t row_idx,
-    std::int32_t column_idx)
-{
-    switch (conv_res)
-    {
-        case conversion_result::AI_SUCCESS:
-        {
+sql_result data_query::process_conversion_result(
+    conversion_result conv_res, std::int32_t row_idx, std::int32_t column_idx) {
+    switch (conv_res) {
+        case conversion_result::AI_SUCCESS: {
             return sql_result::AI_SUCCESS;
         }
 
-        case conversion_result::AI_NO_DATA:
-        {
+        case conversion_result::AI_NO_DATA: {
             return sql_result::AI_NO_DATA;
         }
 
-        case conversion_result::AI_VARLEN_DATA_TRUNCATED:
-        {
+        case conversion_result::AI_VARLEN_DATA_TRUNCATED: {
             m_diag.add_status_record(sql_state::S01004_DATA_TRUNCATED,
                 "Buffer is too small for the column data. Truncated from the right.", row_idx, column_idx);
 
             return sql_result::AI_SUCCESS_WITH_INFO;
         }
 
-        case conversion_result::AI_FRACTIONAL_TRUNCATED:
-        {
+        case conversion_result::AI_FRACTIONAL_TRUNCATED: {
             m_diag.add_status_record(sql_state::S01S07_FRACTIONAL_TRUNCATION,
                 "Buffer is too small for the column data. Fraction truncated.", row_idx, column_idx);
 
             return sql_result::AI_SUCCESS_WITH_INFO;
         }
 
-        case conversion_result::AI_INDICATOR_NEEDED:
-        {
+        case conversion_result::AI_INDICATOR_NEEDED: {
             m_diag.add_status_record(sql_state::S22002_INDICATOR_NEEDED,
                 "Indicator is needed but not supplied for the column buffer.", row_idx, column_idx);
 
             return sql_result::AI_SUCCESS_WITH_INFO;
         }
 
-        case conversion_result::AI_UNSUPPORTED_CONVERSION:
-        {
+        case conversion_result::AI_UNSUPPORTED_CONVERSION: {
             m_diag.add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                 "Data conversion is not supported.", row_idx, column_idx);
 
@@ -474,10 +444,9 @@ sql_result data_query::process_conversion_result(conversion_result conv_res, std
         }
 
         case conversion_result::AI_FAILURE:
-        default:
-        {
-            m_diag.add_status_record(sql_state::S01S01_ERROR_IN_ROW,
-                "Can not retrieve row column.", row_idx, column_idx);
+        default: {
+            m_diag.add_status_record(
+                sql_state::S01S01_ERROR_IN_ROW, "Can not retrieve row column.", row_idx, column_idx);
 
             break;
         }
@@ -486,18 +455,15 @@ sql_result data_query::process_conversion_result(conversion_result conv_res, std
     return sql_result::AI_ERROR;
 }
 
-void data_query::set_resultset_meta(const column_meta_vector& value)
-{
+void data_query::set_resultset_meta(const column_meta_vector &value) {
     m_result_meta.assign(value.begin(), value.end());
     m_result_meta_available = true;
 
-    for (size_t i = 0; i < m_result_meta.size(); ++i)
-    {
-        column_meta& meta = m_result_meta.at(i);
-        LOG_MSG("\n[" << i << "] SchemaName:     " << meta.get_schema_name()
-            <<  "\n[" << i << "] TypeName:       " << meta.get_table_name()
-            <<  "\n[" << i << "] ColumnName:     " << meta.get_column_name()
-            <<  "\n[" << i << "] ColumnType:     " << static_cast<int32_t>(meta.get_data_type()));
+    for (size_t i = 0; i < m_result_meta.size(); ++i) {
+        column_meta &meta = m_result_meta.at(i);
+        LOG_MSG("\n[" << i << "] SchemaName:     " << meta.get_schema_name() << "\n[" << i << "] TypeName:       "
+                      << meta.get_table_name() << "\n[" << i << "] ColumnName:     " << meta.get_column_name() << "\n["
+                      << i << "] ColumnType:     " << static_cast<int32_t>(meta.get_data_type()));
     }
 }
 

@@ -252,9 +252,7 @@ public:
     /**
      * Reverses sign of this value.
      */
-    void negate() {
-        m_magnitude.negate();
-    }
+    void negate() { m_magnitude.negate(); }
 
     /**
      * compare this instance to another.

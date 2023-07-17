@@ -19,18 +19,17 @@
 
 #include <gtest/gtest.h>
 
-#include <vector>
-#include <string>
 #include <algorithm>
 #include <cstring>
+#include <string>
+#include <vector>
 
 using namespace ignite;
 
 /**
  * Test setup fixture.
  */
-struct queries_test : public odbc_suite
-{
+struct queries_test : public odbc_suite {
     void SetUp() override {
         odbc_connect(get_basic_connection_string());
         exec_query("DELETE FROM " + TABLE_NAME_ALL_COLUMNS_SQL);
@@ -38,8 +37,7 @@ struct queries_test : public odbc_suite
     }
 
     template<typename T>
-    void check_two_rows_int(SQLSMALLINT type)
-    {
+    void check_two_rows_int(SQLSMALLINT type) {
         odbc_connect(get_basic_connection_string());
 
         SQLRETURN ret;
@@ -54,8 +52,7 @@ struct queries_test : public odbc_suite
         std::memset(&columns, 0, sizeof(columns));
 
         // Binding columns.
-        for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
-        {
+        for (SQLSMALLINT i = 0; i < columns_cnt; ++i) {
             ret = SQLBindCol(m_statement, i + 1, type, &columns[i], sizeof(columns[i]), nullptr);
 
             if (!SQL_SUCCEEDED(ret))
@@ -94,8 +91,7 @@ struct queries_test : public odbc_suite
         SQLLEN column_lens[columns_cnt];
 
         // Binding columns.
-        for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
-        {
+        for (SQLSMALLINT i = 0; i < columns_cnt; ++i) {
             ret = SQLBindCol(m_statement, i + 1, type, &columns[i], sizeof(columns[i]), &column_lens[i]);
 
             if (!SQL_SUCCEEDED(ret))
@@ -133,8 +129,7 @@ struct queries_test : public odbc_suite
         EXPECT_EQ(ret, SQL_NO_DATA);
     }
 
-    void check_params_num(const std::string& req, SQLSMALLINT expectedParamsNum)
-    {
+    void check_params_num(const std::string &req, SQLSMALLINT expectedParamsNum) {
         std::vector<SQLCHAR> req0(req.begin(), req.end());
 
         SQLRETURN ret = SQLPrepare(m_statement, &req0[0], static_cast<SQLINTEGER>(req0.size()));
@@ -153,48 +148,39 @@ struct queries_test : public odbc_suite
     }
 };
 
-TEST_F(queries_test, two_rows_int8)
-{
+TEST_F(queries_test, two_rows_int8) {
     check_two_rows_int<signed char>(SQL_C_STINYINT);
 }
 
-TEST_F(queries_test, two_rows_uint8)
-{
+TEST_F(queries_test, two_rows_uint8) {
     check_two_rows_int<unsigned char>(SQL_C_UTINYINT);
 }
 
-TEST_F(queries_test, two_rows_int16)
-{
+TEST_F(queries_test, two_rows_int16) {
     check_two_rows_int<signed short>(SQL_C_SSHORT);
 }
 
-TEST_F(queries_test, two_rows_uint16)
-{
+TEST_F(queries_test, two_rows_uint16) {
     check_two_rows_int<unsigned short>(SQL_C_USHORT);
 }
 
-TEST_F(queries_test, two_rows_int32)
-{
+TEST_F(queries_test, two_rows_int32) {
     check_two_rows_int<SQLINTEGER>(SQL_C_SLONG);
 }
 
-TEST_F(queries_test, two_rows_uint32)
-{
+TEST_F(queries_test, two_rows_uint32) {
     check_two_rows_int<SQLUINTEGER>(SQL_C_ULONG);
 }
 
-TEST_F(queries_test, two_rows_int64)
-{
+TEST_F(queries_test, two_rows_int64) {
     check_two_rows_int<std::int64_t>(SQL_C_SBIGINT);
 }
 
-TEST_F(queries_test, two_rows_uint64)
-{
+TEST_F(queries_test, two_rows_uint64) {
     check_two_rows_int<std::uint64_t>(SQL_C_UBIGINT);
 }
 
-TEST_F(queries_test, two_rows_string)
-{
+TEST_F(queries_test, two_rows_string) {
     odbc_connect(get_basic_connection_string());
 
     insert_all_types_row(1);
@@ -206,8 +192,7 @@ TEST_F(queries_test, two_rows_string)
 
     SQLRETURN ret;
     // Binding columns.
-    for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
-    {
+    for (SQLSMALLINT i = 0; i < columns_cnt; ++i) {
         ret = SQLBindCol(m_statement, i + 1, SQL_C_CHAR, &columns[i], ODBC_BUFFER_SIZE, nullptr);
 
         if (!SQL_SUCCEEDED(ret))
@@ -229,25 +214,24 @@ TEST_F(queries_test, two_rows_string)
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[0])), "1");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[1])), "2");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[2])), "3");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[3])), "4");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[4])), "5");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[5])), "6");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[6])), "7");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[7])), "8");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[8])), "00000009-000a-000b-0000-000000000000");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[9])), "2001-02-02");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[10])), "01:01:01");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[11])), "2002-03-03 01:01:01");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[12])), "-1");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[0])), "1");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[1])), "2");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[2])), "3");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[3])), "4");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[4])), "5");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[5])), "6");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[6])), "7");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[7])), "8");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[8])), "00000009-000a-000b-0000-000000000000");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[9])), "2001-02-02");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[10])), "01:01:01");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[11])), "2002-03-03 01:01:01");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[12])), "-1");
 
     SQLLEN column_lens[columns_cnt];
 
     // Binding columns.
-    for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
-    {
+    for (SQLSMALLINT i = 0; i < columns_cnt; ++i) {
         ret = SQLBindCol(m_statement, i + 1, SQL_C_CHAR, &columns[i], ODBC_BUFFER_SIZE, &column_lens[i]);
 
         if (!SQL_SUCCEEDED(ret))
@@ -258,19 +242,19 @@ TEST_F(queries_test, two_rows_string)
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[0])), "2");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[1])), "4");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[2])), "6");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[3])), "8");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[4])), "10");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[5])), "12");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[6])), "14");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[7])), "16");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[8])), "00000012-0014-0016-0000-000000000000");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[9])), "2002-03-03");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[10])), "02:02:02");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[11])), "2003-04-04 02:02:02");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[12])), "2");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[0])), "2");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[1])), "4");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[2])), "6");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[3])), "8");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[4])), "10");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[5])), "12");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[6])), "14");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[7])), "16");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[8])), "00000012-0014-0016-0000-000000000000");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[9])), "2002-03-03");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[10])), "02:02:02");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[11])), "2003-04-04 02:02:02");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[12])), "2");
 
     EXPECT_EQ(column_lens[0], 1);
     EXPECT_EQ(column_lens[1], 1);
@@ -290,8 +274,7 @@ TEST_F(queries_test, two_rows_string)
     EXPECT_TRUE(ret == SQL_NO_DATA);
 }
 
-TEST_F(queries_test, one_row_string_len)
-{
+TEST_F(queries_test, one_row_string_len) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret;
@@ -303,8 +286,7 @@ TEST_F(queries_test, one_row_string_len)
     SQLLEN column_lens[columns_cnt];
 
     // Binding columns.
-    for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
-    {
+    for (SQLSMALLINT i = 0; i < columns_cnt; ++i) {
         ret = SQLBindCol(m_statement, i + 1, SQL_C_CHAR, nullptr, 0, &column_lens[i]);
 
         if (!SQL_SUCCEEDED(ret))
@@ -340,8 +322,7 @@ TEST_F(queries_test, one_row_string_len)
     EXPECT_TRUE(ret == SQL_NO_DATA);
 }
 
-TEST_F(queries_test, data_at_execution)
-{
+TEST_F(queries_test, data_at_execution) {
     odbc_connect(get_basic_connection_string());
 
     insert_all_types_row(1);
@@ -354,8 +335,7 @@ TEST_F(queries_test, data_at_execution)
 
     SQLRETURN ret;
     // Binding columns.
-    for (SQLSMALLINT i = 0; i < columns_cnt; ++i)
-    {
+    for (SQLSMALLINT i = 0; i < columns_cnt; ++i) {
         ret = SQLBindCol(m_statement, i + 1, SQL_C_CHAR, &columns[i], ODBC_BUFFER_SIZE, &column_lens[i]);
 
         if (!SQL_SUCCEEDED(ret))
@@ -393,7 +373,7 @@ TEST_F(queries_test, data_at_execution)
 
     ASSERT_EQ(ret, SQL_NEED_DATA);
 
-    void* oind;
+    void *oind;
 
     ret = SQLParamData(m_statement, &oind);
 
@@ -402,7 +382,7 @@ TEST_F(queries_test, data_at_execution)
     if (oind == &ind1)
         ret = SQLPutData(m_statement, &int32_arg, 0);
     else if (oind == &ind2)
-        ret = SQLPutData(m_statement, (SQLPOINTER)str_arg, (SQLLEN)sizeof(str_arg));
+        ret = SQLPutData(m_statement, (SQLPOINTER) str_arg, (SQLLEN) sizeof(str_arg));
     else
         FAIL() << ("Unknown indicator value");
 
@@ -416,7 +396,7 @@ TEST_F(queries_test, data_at_execution)
     if (oind == &ind1)
         ret = SQLPutData(m_statement, &int32_arg, 0);
     else if (oind == &ind2)
-        ret = SQLPutData(m_statement, (SQLPOINTER)str_arg, (SQLLEN)sizeof(str_arg));
+        ret = SQLPutData(m_statement, (SQLPOINTER) str_arg, (SQLLEN) sizeof(str_arg));
     else
         FAIL() << ("Unknown indicator value");
 
@@ -432,19 +412,19 @@ TEST_F(queries_test, data_at_execution)
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[0])), "1");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[1])), "2");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[2])), "3");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[3])), "4");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[4])), "5");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[5])), "6");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[6])), "7");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[7])), "8");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[8])), "00000009-000a-000b-0000-000000000000");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[9])), "2001-02-02");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[10])), "01:01:01");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[11])), "2002-03-03 01:01:01");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(columns[12])), "-1");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[0])), "1");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[1])), "2");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[2])), "3");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[3])), "4");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[4])), "5");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[5])), "6");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[6])), "7");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[7])), "8");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[8])), "00000009-000a-000b-0000-000000000000");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[9])), "2001-02-02");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[10])), "01:01:01");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[11])), "2002-03-03 01:01:01");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[12])), "-1");
 
     EXPECT_EQ(column_lens[0], 1);
     EXPECT_EQ(column_lens[1], 1);
@@ -464,8 +444,7 @@ TEST_F(queries_test, data_at_execution)
     EXPECT_TRUE(ret == SQL_NO_DATA);
 }
 
-TEST_F(queries_test, null_fields)
-{
+TEST_F(queries_test, null_fields) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret;
@@ -582,8 +561,7 @@ TEST_F(queries_test, null_fields)
     EXPECT_EQ(ret, SQL_NO_DATA);
 }
 
-TEST_F(queries_test, insert_select)
-{
+TEST_F(queries_test, insert_select) {
     odbc_connect(get_basic_connection_string());
 
     const int records_num = 100;
@@ -619,8 +597,7 @@ TEST_F(queries_test, insert_select)
 
     ret = SQL_SUCCESS;
 
-    while (ret == SQL_SUCCESS)
-    {
+    while (ret == SQL_SUCCESS) {
         ret = SQLFetch(m_statement);
 
         if (ret == SQL_NO_DATA)
@@ -642,8 +619,7 @@ TEST_F(queries_test, insert_select)
     EXPECT_EQ(records_num, selected_records_num);
 }
 
-TEST_F(queries_test, insert_update_select)
-{
+TEST_F(queries_test, insert_update_select) {
     odbc_connect(get_basic_connection_string());
 
     const int records_num = 10;
@@ -688,8 +664,7 @@ TEST_F(queries_test, insert_update_select)
 
     ret = SQL_SUCCESS;
 
-    while (ret == SQL_SUCCESS)
-    {
+    while (ret == SQL_SUCCESS) {
         ret = SQLFetch(m_statement);
 
         if (ret == SQL_NO_DATA)
@@ -716,8 +691,7 @@ TEST_F(queries_test, insert_update_select)
     EXPECT_EQ(records_num, selected_records_num);
 }
 
-TEST_F(queries_test, insert_delete_select)
-{
+TEST_F(queries_test, insert_delete_select) {
     odbc_connect(get_basic_connection_string());
 
     const int records_num = 100;
@@ -762,8 +736,7 @@ TEST_F(queries_test, insert_delete_select)
 
     ret = SQL_SUCCESS;
 
-    while (ret == SQL_SUCCESS)
-    {
+    while (ret == SQL_SUCCESS) {
         ret = SQLFetch(m_statement);
 
         if (ret == SQL_NO_DATA)
@@ -786,8 +759,7 @@ TEST_F(queries_test, insert_delete_select)
 
 // TODO: IGNITE-19854: Implement params metadata fetching
 #ifdef MUTED
-TEST_F(queries_test, params_num)
-{
+TEST_F(queries_test, params_num) {
     odbc_connect(get_basic_connection_string());
 
     check_params_num("SELECT * FROM TBL_ALL_COLUMNS_SQL", 0);
@@ -796,10 +768,9 @@ TEST_F(queries_test, params_num)
     check_params_num("INSERT INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(1, 'some')", 0);
     check_params_num("INSERT INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(?, ?)", 2);
 }
-#endif //MUTED
+#endif // MUTED
 
-TEST_F(queries_test, execute_after_cursor_close)
-{
+TEST_F(queries_test, execute_after_cursor_close) {
     odbc_connect(get_basic_connection_string());
 
     exec_query("INSERT INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(1, 'str1')");
@@ -857,8 +828,7 @@ TEST_F(queries_test, execute_after_cursor_close)
     EXPECT_EQ(ret, SQL_NO_DATA);
 }
 
-TEST_F(queries_test, close_non_full_fetch)
-{
+TEST_F(queries_test, close_non_full_fetch) {
     odbc_connect(get_basic_connection_string());
 
     exec_query("INSERT INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(1, 'str1')");
@@ -902,15 +872,14 @@ TEST_F(queries_test, close_non_full_fetch)
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 }
 
-TEST_F(queries_test, bind_null_parameter)
-{
+TEST_F(queries_test, bind_null_parameter) {
     odbc_connect(get_basic_connection_string());
 
     SQLLEN paramInd = SQL_NULL_DATA;
 
     // Binding NULL parameter.
-    SQLRETURN ret = SQLBindParameter(
-        m_statement, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, 100, 100, nullptr, 0, &paramInd);
+    SQLRETURN ret =
+        SQLBindParameter(m_statement, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, 100, 100, nullptr, 0, &paramInd);
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
@@ -954,8 +923,7 @@ TEST_F(queries_test, bind_null_parameter)
     EXPECT_EQ(str_len, SQL_NULL_DATA);
 }
 
-TEST_F(queries_test, affected_rows)
-{
+TEST_F(queries_test, affected_rows) {
     odbc_connect(get_basic_connection_string() + ";PAGE_SIZE=1024");
 
     const int records_num = 100;
@@ -1000,8 +968,7 @@ TEST_F(queries_test, affected_rows)
     EXPECT_EQ(affected, -1);
 }
 
-TEST_F(queries_test, affected_rows_on_select)
-{
+TEST_F(queries_test, affected_rows_on_select) {
     odbc_connect(get_basic_connection_string() + ";PAGE_SIZE=12");
 
     const int records_num = 30;
@@ -1017,8 +984,7 @@ TEST_F(queries_test, affected_rows_on_select)
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    for (int i = 0; i < records_num; ++i)
-    {
+    for (int i = 0; i < records_num; ++i) {
         SQLLEN affected = -1;
         ret = SQLRowCount(m_statement, &affected);
 
@@ -1036,8 +1002,7 @@ TEST_F(queries_test, affected_rows_on_select)
 
 // TODO: IGNITE-19855 Multiple queries execution is not supported.
 #ifdef MUTED
-TEST_F(queries_test, multiple_selects)
-{
+TEST_F(queries_test, multiple_selects) {
     odbc_connect(get_basic_connection_string());
 
     const int stmtCnt = 10;
@@ -1063,8 +1028,7 @@ TEST_F(queries_test, multiple_selects)
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    for (long i = 0; i < stmtCnt; ++i)
-    {
+    for (long i = 0; i < stmtCnt; ++i) {
         ret = SQLFetch(m_statement);
 
         if (!SQL_SUCCEEDED(ret))
@@ -1085,8 +1049,7 @@ TEST_F(queries_test, multiple_selects)
     }
 }
 
-TEST_F(queries_test, multiple_mixed_statements)
-{
+TEST_F(queries_test, multiple_mixed_statements) {
     odbc_connect(get_basic_connection_string());
 
     const int stmtCnt = 10;
@@ -1112,8 +1075,7 @@ TEST_F(queries_test, multiple_mixed_statements)
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    for (long i = 0; i < stmtCnt; ++i)
-    {
+    for (long i = 0; i < stmtCnt; ++i) {
         ret = SQLFetch(m_statement);
 
         if (!SQL_SUCCEEDED(ret))
@@ -1151,8 +1113,7 @@ TEST_F(queries_test, multiple_mixed_statements)
     }
 }
 
-TEST_F(queries_test, multiple_mixed_statements_no_fetch)
-{
+TEST_F(queries_test, multiple_mixed_statements_no_fetch) {
     odbc_connect(get_basic_connection_string());
 
     const int stmtCnt = 10;
@@ -1178,8 +1139,7 @@ TEST_F(queries_test, multiple_mixed_statements_no_fetch)
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    for (long i = 0; i < stmtCnt; ++i)
-    {
+    for (long i = 0; i < stmtCnt; ++i) {
         ret = SQLMoreResults(m_statement);
 
         if (!SQL_SUCCEEDED(ret))
@@ -1205,10 +1165,9 @@ TEST_F(queries_test, multiple_mixed_statements_no_fetch)
             EXPECT_EQ(ret, SQL_NO_DATA);
     }
 }
-#endif //MUTED
+#endif // MUTED
 
-TEST_F(queries_test, close_after_empty_update)
-{
+TEST_F(queries_test, close_after_empty_update) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR query[] = "update TBL_ALL_COLUMNS_SQL set str='test' where key=42";

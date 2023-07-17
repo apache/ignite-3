@@ -109,8 +109,7 @@ void compute_impl::execute_colocated_async(const std::string &table_name, const 
     const std::vector<deployment_unit> &units, const std::string &job, const std::vector<primitive> &args,
     ignite_callback<std::optional<primitive>> callback) {
     m_tables->get_table_async(table_name,
-        [table_name, key, units, job, args, conn = m_connection, callback = std::move(callback)]
-        (auto &&res) mutable {
+        [table_name, key, units, job, args, conn = m_connection, callback = std::move(callback)](auto &&res) mutable {
             if (res.has_error()) {
                 callback({std::move(res.error())});
                 return;
@@ -122,8 +121,8 @@ void compute_impl::execute_colocated_async(const std::string &table_name, const 
             }
 
             auto table = table_impl::from_facade(*table_opt);
-            table->template with_latest_schema_async<std::optional<primitive>>(std::move(callback),
-                [table, key, units, job, args, conn] (const schema &sch, auto callback) mutable {
+            table->template with_latest_schema_async<std::optional<primitive>>(
+                std::move(callback), [table, key, units, job, args, conn](const schema &sch, auto callback) mutable {
                     auto writer_func = [&key, &units, &sch, &table, &job, &args](protocol::writer &writer) {
                         writer.write(table->get_id());
                         writer.write(sch.version);

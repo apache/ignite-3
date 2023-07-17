@@ -18,7 +18,7 @@
 #pragma once
 
 #ifdef _WIN32
-#   include <windows.h>
+# include <windows.h>
 #endif
 
 #include "test_utils.h"
@@ -31,9 +31,9 @@
 #include <sql.h>
 #include <sqlext.h>
 
-#define ODBC_FAIL_ON_ERROR(ret, type, handle)           \
-    if (!SQL_SUCCEEDED(ret))                            \
-        FAIL() << get_odbc_error_message(type, handle)
+#define ODBC_FAIL_ON_ERROR(ret, type, handle)                                                                          \
+ if (!SQL_SUCCEEDED(ret))                                                                                              \
+ FAIL() << get_odbc_error_message(type, handle)
 
 namespace ignite {
 
@@ -47,17 +47,16 @@ constexpr size_t ODBC_BUFFER_SIZE = 1024;
  * @param idx Index of record to get.
  * @return Error state code.
  */
-[[nodiscard]] inline std::string get_odbc_error_state(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT idx = 1)
-{
+[[nodiscard]] inline std::string get_odbc_error_state(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT idx = 1) {
     SQLCHAR sqlstate[7] = {};
     SQLINTEGER native_code;
-    
+
     SQLCHAR message[ODBC_BUFFER_SIZE];
     SQLSMALLINT real_len = 0;
 
     SQLGetDiagRec(handle_type, handle, idx, sqlstate, &native_code, message, ODBC_BUFFER_SIZE, &real_len);
 
-    return {reinterpret_cast<char*>(sqlstate)};
+    return {reinterpret_cast<char *>(sqlstate)};
 }
 
 /**
@@ -68,8 +67,8 @@ constexpr size_t ODBC_BUFFER_SIZE = 1024;
  * @param idx Index of record to get.
  * @return Error message.
  */
-[[nodiscard]] inline std::string get_odbc_error_message(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT idx = 1)
-{
+[[nodiscard]] inline std::string get_odbc_error_message(
+    SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT idx = 1) {
     SQLCHAR sqlstate[7] = {};
     SQLINTEGER native_code{};
 
@@ -78,10 +77,10 @@ constexpr size_t ODBC_BUFFER_SIZE = 1024;
 
     SQLGetDiagRec(handle_type, handle, idx, sqlstate, &native_code, message, ODBC_BUFFER_SIZE, &real_len);
 
-    std::string res(reinterpret_cast<char*>(sqlstate));
+    std::string res(reinterpret_cast<char *>(sqlstate));
 
     if (!res.empty())
-        res.append(": ").append(reinterpret_cast<char*>(message), real_len);
+        res.append(": ").append(reinterpret_cast<char *>(message), real_len);
     else
         res = "No results";
 
@@ -98,10 +97,10 @@ constexpr size_t ODBC_BUFFER_SIZE = 1024;
 }
 
 /**
-  * Prepare handles for connection.
-  *
-  * @param env Environment handle.
-  * @param conn Connection handle.
+ * Prepare handles for connection.
+ *
+ * @param env Environment handle.
+ * @param conn Connection handle.
  */
 inline void prepare_environment(SQLHENV &env, SQLHDBC &conn) {
     // Allocate an environment handle
@@ -110,7 +109,7 @@ inline void prepare_environment(SQLHENV &env, SQLHDBC &conn) {
     EXPECT_TRUE(env != SQL_NULL_HANDLE);
 
     // We want ODBC 3.8 support
-    SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, reinterpret_cast<void*>(SQL_OV_ODBC3_80), 0);
+    SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, reinterpret_cast<void *>(SQL_OV_ODBC3_80), 0);
 
     // Allocate a connection handle
     SQLAllocHandle(SQL_HANDLE_DBC, env, &conn);
@@ -136,8 +135,8 @@ inline void odbc_connect(std::string_view connect_str, SQLHENV &env, SQLHDBC &co
     SQLSMALLINT out_str_len;
 
     // Connecting to ODBC server.
-    SQLRETURN ret = SQLDriverConnect(conn, nullptr, &connect_str0[0],
-        static_cast<SQLSMALLINT>(connect_str0.size()), out_str, sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
+    SQLRETURN ret = SQLDriverConnect(conn, nullptr, &connect_str0[0], static_cast<SQLSMALLINT>(connect_str0.size()),
+        out_str, sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
 
     if (!SQL_SUCCEEDED(ret)) {
         FAIL() << get_odbc_error_message(SQL_HANDLE_DBC, conn);
