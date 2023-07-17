@@ -35,9 +35,11 @@
  if (!SQL_SUCCEEDED(ret))                                                                                              \
  FAIL() << get_odbc_error_message(type, handle)
 
-#define ODBC_THROW_ON_ERROR(ret, type, handle)          \
-    if (!SQL_SUCCEEDED(ret))                            \
-        throw odbc_exception{get_odbc_error_message(type, handle), get_odbc_error_state(type, handle)}
+#define ODBC_THROW_ON_ERROR(ret, type, handle)                                                                         \
+ if (!SQL_SUCCEEDED(ret))                                                                                              \
+  throw odbc_exception {                                                                                               \
+   get_odbc_error_message(type, handle), get_odbc_error_state(type, handle)                                            \
+  }
 
 namespace ignite {
 

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 #include "odbc_suite.h"
 
 #include <gmock/gmock-matchers.h>
@@ -31,7 +30,7 @@ using namespace ignite;
 struct transaction_test : public odbc_suite {
     void SetUp() override {
         odbc_connect(get_basic_connection_string());
-        retry_on_fail([&]{ return exec_query("DELETE FROM " + TABLE_NAME_ALL_COLUMNS_SQL); });
+        retry_on_fail([&] { return exec_query("DELETE FROM " + TABLE_NAME_ALL_COLUMNS_SQL); });
         odbc_clean_up();
     }
 
@@ -41,10 +40,7 @@ struct transaction_test : public odbc_suite {
      * @param key Key.
      * @param value Value.
      */
-    void insert_test_value(std::int64_t key, const std::string& value)
-    {
-        insert_test_value(m_statement, key, value);
-    }
+    void insert_test_value(std::int64_t key, const std::string &value) { insert_test_value(m_statement, key, value); }
 
     /**
      * Insert test string value in cache and make all the necessary checks.
@@ -53,15 +49,14 @@ struct transaction_test : public odbc_suite {
      * @param key Key.
      * @param value Value.
      */
-    static void insert_test_value(SQLHSTMT statement, std::int64_t key, const std::string& value)
-    {
+    static void insert_test_value(SQLHSTMT statement, std::int64_t key, const std::string &value) {
         SQLCHAR insert_req[] = "INSERT INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(?, ?)";
 
         SQLRETURN ret = SQLPrepare(statement, insert_req, SQL_NTS);
 
         ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
-        char str_field[1024] = { 0 };
+        char str_field[1024] = {0};
         SQLLEN str_field_len = 0;
 
         ret = SQLBindParameter(statement, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_BIGINT, 0, 0, &key, 0, nullptr);
@@ -101,10 +96,7 @@ struct transaction_test : public odbc_suite {
      * @param key Key.
      * @param value Value.
      */
-    void update_test_value(std::int64_t key, const std::string& value)
-    {
-        update_test_value(m_statement, key, value);
-    }
+    void update_test_value(std::int64_t key, const std::string &value) { update_test_value(m_statement, key, value); }
 
     /**
      * Update test string value in cache and make all the necessary checks.
@@ -113,15 +105,14 @@ struct transaction_test : public odbc_suite {
      * @param key Key.
      * @param value Value.
      */
-    static void update_test_value(SQLHSTMT statement, std::int64_t key, const std::string& value)
-    {
+    static void update_test_value(SQLHSTMT statement, std::int64_t key, const std::string &value) {
         SQLCHAR update_req[] = "UPDATE TBL_ALL_COLUMNS_SQL SET str=? WHERE key=?";
 
         SQLRETURN ret = SQLPrepare(statement, update_req, SQL_NTS);
 
         ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
 
-        char str_field[1024] = { 0 };
+        char str_field[1024] = {0};
         SQLLEN str_field_len = 0;
 
         ret = SQLBindParameter(statement, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, sizeof(str_field),
@@ -160,10 +151,7 @@ struct transaction_test : public odbc_suite {
      *
      * @param key Key.
      */
-    void delete_test_value(std::int64_t key)
-    {
-        delete_test_value(m_statement, key);
-    }
+    void delete_test_value(std::int64_t key) { delete_test_value(m_statement, key); }
 
     /**
      * Delete test string value.
@@ -171,8 +159,7 @@ struct transaction_test : public odbc_suite {
      * @param statement Statement.
      * @param key Key.
      */
-    static void delete_test_value(SQLHSTMT statement, std::int64_t key)
-    {
+    static void delete_test_value(SQLHSTMT statement, std::int64_t key) {
         SQLCHAR delete_req[] = "DELETE FROM TBL_ALL_COLUMNS_SQL WHERE key=?";
 
         SQLRETURN ret = SQLPrepare(statement, delete_req, SQL_NTS);
@@ -201,16 +188,14 @@ struct transaction_test : public odbc_suite {
 
         reset_statement(statement);
     }
+
     /**
      * Selects and checks the value.
      *
      * @param key Key.
      * @param expect Expected value.
      */
-    void check_test_value(std::int64_t key, const std::string& expect)
-    {
-        check_test_value(m_statement, key, expect);
-    }
+    void check_test_value(std::int64_t key, const std::string &expect) { check_test_value(m_statement, key, expect); }
 
     /**
      * Selects and checks the value.
@@ -219,12 +204,11 @@ struct transaction_test : public odbc_suite {
      * @param key Key.
      * @param expect Expected value.
      */
-    static void check_test_value(SQLHSTMT statement, std::int64_t key, std::optional<std::string_view> expect)
-    {
+    static void check_test_value(SQLHSTMT statement, std::int64_t key, std::optional<std::string_view> expect) {
         // Just selecting everything to make sure everything is OK
         SQLCHAR selectReq[] = "SELECT str FROM TBL_ALL_COLUMNS_SQL WHERE key = ?";
 
-        char str_field[1024] = { 0 };
+        char str_field[1024] = {0};
         SQLLEN str_field_len = 0;
 
         SQLRETURN ret = SQLBindCol(statement, 1, SQL_C_CHAR, &str_field, sizeof(str_field), &str_field_len);
@@ -241,8 +225,7 @@ struct transaction_test : public odbc_suite {
 
         ret = SQLFetch(statement);
 
-        if (expect)
-        {
+        if (expect) {
             ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
             EXPECT_EQ(std::string(str_field, str_field_len), expect);
 
@@ -266,36 +249,26 @@ struct transaction_test : public odbc_suite {
      * @param statement Statement.
      * @param key Key.
      */
-    static void check_no_test_value(SQLHSTMT statement, std::int64_t key)
-    {
-        check_test_value(statement, key, {});
-    }
+    static void check_no_test_value(SQLHSTMT statement, std::int64_t key) { check_test_value(statement, key, {}); }
 
     /**
      * Selects and checks that value is absent.
      *
      * @param key Key.
      */
-    void check_no_test_value(std::int64_t key)
-    {
-        check_no_test_value(m_statement, key);
-    }
+    void check_no_test_value(std::int64_t key) { check_no_test_value(m_statement, key); }
 
     /**
      * Reset statement state.
      */
-    void reset_statement()
-    {
-        reset_statement(m_statement);
-    }
+    void reset_statement() { reset_statement(m_statement); }
 
     /**
      * Reset statement state.
      *
      * @param statement Statement.
      */
-    static void reset_statement(SQLHSTMT statement)
-    {
+    static void reset_statement(SQLHSTMT statement) {
         SQLRETURN ret = SQLFreeStmt(statement, SQL_RESET_PARAMS);
 
         ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, statement);
@@ -306,8 +279,7 @@ struct transaction_test : public odbc_suite {
     }
 };
 
-TEST_F(transaction_test, transaction_connection_commit)
-{
+TEST_F(transaction_test, transaction_connection_commit) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_AUTOCOMMIT, SQL_AUTOCOMMIT_OFF, 0);
@@ -325,8 +297,7 @@ TEST_F(transaction_test, transaction_connection_commit)
     check_test_value(42, "Some");
 }
 
-TEST_F(transaction_test, transaction_connection_rollback_insert)
-{
+TEST_F(transaction_test, transaction_connection_rollback_insert) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_AUTOCOMMIT, SQL_AUTOCOMMIT_OFF, 0);
@@ -344,8 +315,7 @@ TEST_F(transaction_test, transaction_connection_rollback_insert)
     check_no_test_value(42);
 }
 
-TEST_F(transaction_test, transaction_connection_rollback_update_1)
-{
+TEST_F(transaction_test, transaction_connection_rollback_update_1) {
     odbc_connect(get_basic_connection_string());
 
     insert_test_value(42, "Some");
@@ -367,8 +337,7 @@ TEST_F(transaction_test, transaction_connection_rollback_update_1)
     check_test_value(42, "Some");
 }
 
-TEST_F(transaction_test, transaction_connection_rollback_update_2)
-{
+TEST_F(transaction_test, transaction_connection_rollback_update_2) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_AUTOCOMMIT, SQL_AUTOCOMMIT_OFF, 0);
@@ -396,8 +365,7 @@ TEST_F(transaction_test, transaction_connection_rollback_update_2)
     check_test_value(42, "Some");
 }
 
-TEST_F(transaction_test, transaction_connection_rollback_delete_1)
-{
+TEST_F(transaction_test, transaction_connection_rollback_delete_1) {
     odbc_connect(get_basic_connection_string());
 
     insert_test_value(42, "Some");
@@ -419,8 +387,7 @@ TEST_F(transaction_test, transaction_connection_rollback_delete_1)
     check_test_value(42, "Some");
 }
 
-TEST_F(transaction_test, transaction_connection_rollback_delete_2)
-{
+TEST_F(transaction_test, transaction_connection_rollback_delete_2) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_AUTOCOMMIT, SQL_AUTOCOMMIT_OFF, 0);
@@ -448,8 +415,7 @@ TEST_F(transaction_test, transaction_connection_rollback_delete_2)
     check_test_value(42, "Some");
 }
 
-TEST_F(transaction_test, transaction_environment_commit)
-{
+TEST_F(transaction_test, transaction_environment_commit) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_AUTOCOMMIT, SQL_AUTOCOMMIT_OFF, 0);
@@ -467,8 +433,7 @@ TEST_F(transaction_test, transaction_environment_commit)
     check_test_value(42, "Some");
 }
 
-TEST_F(transaction_test, transaction_environment_rollback_insert)
-{
+TEST_F(transaction_test, transaction_environment_rollback_insert) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_AUTOCOMMIT, SQL_AUTOCOMMIT_OFF, 0);
@@ -486,8 +451,7 @@ TEST_F(transaction_test, transaction_environment_rollback_insert)
     check_no_test_value(42);
 }
 
-TEST_F(transaction_test, transaction_environment_rollback_update_1)
-{
+TEST_F(transaction_test, transaction_environment_rollback_update_1) {
     odbc_connect(get_basic_connection_string());
 
     insert_test_value(42, "Some");
@@ -509,8 +473,7 @@ TEST_F(transaction_test, transaction_environment_rollback_update_1)
     check_test_value(42, "Some");
 }
 
-TEST_F(transaction_test, transaction_environment_rollback_update_2)
-{
+TEST_F(transaction_test, transaction_environment_rollback_update_2) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_AUTOCOMMIT, SQL_AUTOCOMMIT_OFF, 0);
@@ -538,8 +501,7 @@ TEST_F(transaction_test, transaction_environment_rollback_update_2)
     check_test_value(42, "Some");
 }
 
-TEST_F(transaction_test, transaction_environment_rollback_delete_1)
-{
+TEST_F(transaction_test, transaction_environment_rollback_delete_1) {
     odbc_connect(get_basic_connection_string());
 
     insert_test_value(42, "Some");
@@ -561,8 +523,7 @@ TEST_F(transaction_test, transaction_environment_rollback_delete_1)
     check_test_value(42, "Some");
 }
 
-TEST_F(transaction_test, transaction_environment_rollback_delete_2)
-{
+TEST_F(transaction_test, transaction_environment_rollback_delete_2) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_AUTOCOMMIT, SQL_AUTOCOMMIT_OFF, 0);
@@ -590,8 +551,7 @@ TEST_F(transaction_test, transaction_environment_rollback_delete_2)
     check_test_value(42, "Some");
 }
 
-TEST_F(transaction_test, transaction_error)
-{
+TEST_F(transaction_test, transaction_error) {
     odbc_connect(get_basic_connection_string());
 
     insert_test_value(1, "test_1");
@@ -611,17 +571,17 @@ TEST_F(transaction_test, transaction_error)
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, conn2.m_conn);
 
     EXPECT_THROW(
-    {
-        try {
-            insert_test_value(conn2.m_statement, 2, "test_2");
-        } catch (const odbc_exception &err) {
-            EXPECT_THAT(err.message, testing::HasSubstr("Failed to acquire a lock due to a conflict"));
-            // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
-            EXPECT_EQ(err.sql_state, "HY000");
-            throw;
-        }
-    },
-    odbc_exception);
+        {
+            try {
+                insert_test_value(conn2.m_statement, 2, "test_2");
+            } catch (const odbc_exception &err) {
+                EXPECT_THAT(err.message, testing::HasSubstr("Failed to acquire a lock due to a conflict"));
+                // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
+                EXPECT_EQ(err.sql_state, "HY000");
+                throw;
+            }
+        },
+        odbc_exception);
 
     ret = SQLEndTran(SQL_HANDLE_DBC, m_conn, SQL_COMMIT);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, conn2.m_conn);
@@ -638,4 +598,3 @@ TEST_F(transaction_test, transaction_error)
     check_no_test_value(2);
     check_no_test_value(conn2.m_statement, 2);
 }
-

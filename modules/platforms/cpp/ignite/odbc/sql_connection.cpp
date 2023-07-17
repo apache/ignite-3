@@ -346,10 +346,8 @@ void sql_connection::transaction_commit() {
     IGNITE_ODBC_API_CALL(internal_transaction_commit());
 }
 
-sql_result sql_connection::internal_transaction_commit()
-{
-    if (!m_transaction_id)
-    {
+sql_result sql_connection::internal_transaction_commit() {
+    if (!m_transaction_id) {
         add_status_record(sql_state::S25000_INVALID_TRANSACTION_STATE, "No transaction to commit");
         return sql_result::AI_ERROR;
     }
@@ -357,10 +355,9 @@ sql_result sql_connection::internal_transaction_commit()
     LOG_MSG("Committing transaction: " << *m_transaction_id);
 
     network::data_buffer_owning response;
-    auto success = catch_errors([&]{
-        auto response = sync_request(detail::client_operation::TX_COMMIT, [&](protocol::writer &writer) {
-            writer.write(*m_transaction_id);
-        });
+    auto success = catch_errors([&] {
+        auto response = sync_request(
+            detail::client_operation::TX_COMMIT, [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
     });
 
     if (!success)
@@ -376,10 +373,8 @@ void sql_connection::transaction_rollback() {
     IGNITE_ODBC_API_CALL(internal_transaction_rollback());
 }
 
-sql_result sql_connection::internal_transaction_rollback()
-{
-    if (!m_transaction_id)
-    {
+sql_result sql_connection::internal_transaction_rollback() {
+    if (!m_transaction_id) {
         add_status_record(sql_state::S25000_INVALID_TRANSACTION_STATE, "No transaction to rollback");
         return sql_result::AI_ERROR;
     }
@@ -387,10 +382,9 @@ sql_result sql_connection::internal_transaction_rollback()
     LOG_MSG("Rolling back transaction: " << *m_transaction_id);
 
     network::data_buffer_owning response;
-    auto success = catch_errors([&]{
-        auto response = sync_request(detail::client_operation::TX_ROLLBACK, [&](protocol::writer &writer) {
-            writer.write(*m_transaction_id);
-        });
+    auto success = catch_errors([&] {
+        auto response = sync_request(
+            detail::client_operation::TX_ROLLBACK, [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
     });
 
     if (!success)
@@ -405,8 +399,8 @@ sql_result sql_connection::internal_transaction_rollback()
 void sql_connection::transaction_start() {
     LOG_MSG("Starting transaction");
 
-    network::data_buffer_owning response = sync_request(
-        detail::client_operation::TX_BEGIN, [&](protocol::writer &writer) {
+    network::data_buffer_owning response =
+        sync_request(detail::client_operation::TX_BEGIN, [&](protocol::writer &writer) {
             writer.write_bool(false); // read_only.
         });
 
@@ -419,8 +413,7 @@ void sql_connection::transaction_start() {
 sql_result sql_connection::enable_autocommit() {
     assert(!m_auto_commit);
 
-    if (m_transaction_id)
-    {
+    if (m_transaction_id) {
         sql_result res;
         if (m_transaction_empty)
             res = internal_transaction_rollback();
@@ -442,7 +435,7 @@ sql_result sql_connection::disable_autocommit() {
     assert(m_auto_commit);
     assert(!m_transaction_id);
 
-    auto success = catch_errors([&]{ transaction_start(); });
+    auto success = catch_errors([&] { transaction_start(); });
     if (!success)
         return sql_result::AI_ERROR;
 

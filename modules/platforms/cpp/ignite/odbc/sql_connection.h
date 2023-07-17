@@ -273,18 +273,14 @@ public:
      *
      * @return Transaction ID.
      */
-    [[nodiscard]] std::optional<std::int64_t> get_transaction_id() const {
-        return m_transaction_id;
-    }
+    [[nodiscard]] std::optional<std::int64_t> get_transaction_id() const { return m_transaction_id; }
 
     /**
      * Mark transaction non-empty.
      *
      * After this call connection assumes there is at least one operation performed with this transaction.
      */
-    void mark_transaction_non_empty() {
-        m_transaction_empty = false;
-    }
+    void mark_transaction_non_empty() { m_transaction_empty = false; }
 
 private:
     /**
