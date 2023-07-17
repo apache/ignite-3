@@ -125,7 +125,6 @@ public class ClientBinaryTupleUtils {
             builder.appendNull(); // Type.
             builder.appendNull(); // Scale.
             builder.appendNull(); // Value.
-            builder.appendNull(); // Value.
         } else if (obj instanceof Boolean) {
             appendTypeAndScale(builder, ColumnType.BOOLEAN);
             builder.appendBoolean((Boolean) obj);
