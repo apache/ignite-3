@@ -17,10 +17,17 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static java.nio.file.Files.readAllBytes;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.core.Is.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
@@ -28,16 +35,28 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.net.URL;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.network.AllTypesMessageGenerator;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
 import org.apache.ignite.internal.network.messages.AllTypesMessage;
+import org.apache.ignite.internal.network.messages.FileListMessage;
+import org.apache.ignite.internal.network.messages.FileMessage;
 import org.apache.ignite.internal.network.messages.NestedMessageMessage;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
@@ -62,6 +81,8 @@ public class InboundDecoderTest {
     /** Registry. */
     private final MessageSerializationRegistry registry = defaultSerializationRegistry();
 
+    private final TestMessagesFactory factory = new TestMessagesFactory();
+
     /**
      * Tests that an {@link InboundDecoder} can successfully read a message with all types supported by direct marshalling.
      *
@@ -75,6 +96,91 @@ public class InboundDecoderTest {
         AllTypesMessage received = sendAndReceive(msg);
 
         assertEquals(msg, received);
+    }
+
+    @ParameterizedTest
+    @MethodSource("testFiles")
+    public void testFile(File file) throws IOException {
+        // given
+        FileMessage msg = factory.fileMessage().file(file).build();
+        FileMessage received = sendAndReceive(msg);
+
+        // then
+        assertContentEquals(file.toPath(), received.file().toPath());
+    }
+
+    @Test
+    public void nullFile() {
+        // given
+        FileMessage msg = factory.fileMessage().file(null).build();
+
+        // then
+        FileMessage received = sendAndReceive(msg);
+        assertThat(received.file(), is(nullValue()));
+    }
+
+    @Test
+    public void testBigFileWithSmallBuffer() throws IOException {
+        // given
+        File file = randomFile(1024);
+        FileMessage msg = factory.fileMessage().file(file).build();
+
+        // then
+        FileMessage received = sendAndReceive(msg, 20);
+        assertContentEquals(file.toPath(), received.file().toPath());
+    }
+
+    @Test
+    public void testFilesList() throws IOException {
+        // given
+        List<File> files = testFiles().collect(Collectors.toList());
+        FileListMessage msg = factory.fileListMessage().files(files).build();
+
+        // then
+        FileListMessage received = sendAndReceive(msg);
+        assertThat(received.files(), hasSize(files.size()));
+        for (int i = 0; i < files.size(); i++) {
+            assertContentEquals(files.get(i).toPath(), received.files().get(i).toPath());
+        }
+    }
+
+    @Test
+    public void testBigFilesListWithSmallBuffer() throws IOException {
+        // given
+        List<File> files = IntStream.range(0, 5)
+                .mapToObj(i -> randomFile(1024))
+                .collect(Collectors.toList());
+        FileListMessage msg = factory.fileListMessage().files(files).build();
+
+        // then
+        FileListMessage received = sendAndReceive(msg, 20);
+        assertThat(received.files(), hasSize(files.size()));
+        for (int i = 0; i < files.size(); i++) {
+            assertContentEquals(files.get(i).toPath(), received.files().get(i).toPath());
+        }
+    }
+
+    @Test
+    public void testNonExistingFile() {
+        // given
+        File file = new File("non-existing-file");
+        FileMessage msg = factory.fileMessage().file(file).build();
+
+        // then
+        Exception exception = assertThrows(Exception.class, () -> sendAndReceive(msg));
+        assertThat(exception.getCause(), instanceOf(FileNotFoundException.class));
+    }
+
+    @Test
+    public void testFileWithoutReadPermissions() {
+        // given
+        File file = randomFile(10);
+        assertTrue(file.setReadable(false));
+        FileMessage msg = factory.fileMessage().file(file).build();
+
+        // then
+        Exception exception = assertThrows(Exception.class, () -> sendAndReceive(msg));
+        assertThat(exception.getCause(), instanceOf(FileNotFoundException.class));
     }
 
     /**
@@ -96,6 +202,10 @@ public class InboundDecoderTest {
      * Serializes and then deserializes the given message.
      */
     private <T extends NetworkMessage> T sendAndReceive(T msg) {
+        return sendAndReceive(msg, 10_000);
+    }
+
+    private <T extends NetworkMessage> T sendAndReceive(T msg, int bufferSize) {
         var serializationService = new SerializationService(registry, mock(UserObjectSerializationContext.class));
         var perSessionSerializationService = new PerSessionSerializationService(serializationService);
         var channel = new EmbeddedChannel(new InboundDecoder(perSessionSerializationService));
@@ -104,7 +214,7 @@ public class InboundDecoderTest {
 
         MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.groupType(), msg.messageType());
 
-        ByteBuffer buf = ByteBuffer.allocate(10_000);
+        ByteBuffer buf = ByteBuffer.allocate(bufferSize);
 
         T received;
 
@@ -234,6 +344,10 @@ public class InboundDecoderTest {
         assertFalse(channel.finish());
     }
 
+    private static void assertContentEquals(Path expected, Path actual) throws IOException {
+        assertThat(readAllBytes(expected), is(readAllBytes(actual)));
+    }
+
     /**
      * Source of parameters for the {@link #testAllTypes(long)} method. Creates seeds for a {@link AllTypesMessage} generation.
      *
@@ -242,5 +356,22 @@ public class InboundDecoderTest {
     private static LongStream messageGenerationSeed() {
         var random = new Random();
         return IntStream.range(0, 100).mapToLong(ignored -> random.nextLong());
+    }
+
+    private static Stream<File> testFiles() throws IOException {
+        URL resource = InboundDecoderTest.class.getClassLoader().getResource("files");
+        return Files.list(Paths.get(resource.getPath()))
+                .map(it -> it.toFile());
+    }
+
+    private static File randomFile(int contentSize) {
+        try {
+            Path tempFile = Files.createTempFile(null, null);
+            byte[] bytes = new byte[contentSize];
+            new Random().nextBytes(bytes);
+            return Files.write(tempFile, bytes).toFile();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

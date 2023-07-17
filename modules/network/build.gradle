@@ -86,4 +86,5 @@ dependencies {
     integrationTestImplementation libs.scalecube.cluster
     integrationTestImplementation libs.javapoet
     integrationTestImplementation libs.classgraph
+    integrationTestImplementation libs.awaitility
 }

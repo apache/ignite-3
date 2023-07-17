@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.direct.stream;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
@@ -275,6 +276,14 @@ public interface DirectByteBufferStream {
      */
     void writeIgniteUuid(IgniteUuid val);
 
+
+    /**
+     * Writes {@link File}.
+     *
+     * @param file Value.
+     */
+    void writeFile(File file);
+
     /**
      * Writes {@link NetworkMessage}.
      *
@@ -528,6 +537,13 @@ public interface DirectByteBufferStream {
      * @return Value.
      */
     IgniteUuid readIgniteUuid();
+
+    /**
+     * Reads {@link File}.
+     *
+     * @return Value.
+     */
+    File readFile();
 
     /**
      * Reads {@link NetworkMessage}.

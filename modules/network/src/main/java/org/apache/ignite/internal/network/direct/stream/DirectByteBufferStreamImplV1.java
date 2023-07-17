@@ -35,9 +35,17 @@ import static org.apache.ignite.internal.util.GridUnsafe.IS_BIG_ENDIAN;
 import static org.apache.ignite.internal.util.GridUnsafe.LONG_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.SHORT_ARR_OFF;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -128,6 +136,18 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     private Iterator<?> mapIt;
 
     private Iterator<?> it;
+
+    private BufferedInputStream fileReader;
+
+    private int fileSate = 0;
+
+    private Path filePath;
+
+    private BufferedOutputStream fileWriter;
+
+    private long bytesWritten = -1;
+
+    private long fileSize = -1;
 
     private int arrPos = -1;
 
@@ -1663,11 +1683,166 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void writeFile(File file) {
+        try {
+            if (file == null) {
+                writeInt(-1);
+                return;
+            }
+
+            switch (fileSate) {
+                case 0:
+                    writeLong(file.length());
+
+                    if (!lastFinished) {
+                        return;
+                    }
+
+                    fileSate++;
+
+                    //noinspection fallthrough
+                case 1:
+                    writeString(file.getName());
+
+                    if (!lastFinished) {
+                        return;
+                    }
+
+                    fileSate++;
+
+                    //noinspection fallthrough
+                case 2:
+                    lastFinished = false;
+
+                    if (fileReader == null) {
+                        fileReader = new BufferedInputStream(new FileInputStream(file));
+                    }
+
+                    int pos = buf.position();
+                    int toWrite = Math.min(buf.remaining(), fileReader.available());
+
+                    if (toWrite > 0) {
+                        byte[] arr = new byte[toWrite];
+                        fileReader.read(arr, 0, toWrite);
+                        GridUnsafe.copyMemory(arr, BYTE_ARR_OFF, heapArr, baseOff + pos, toWrite);
+                        buf.position(pos + toWrite);
+                    }
+
+                    if (fileReader.available() == 0) {
+                        fileReader.close();
+                        fileReader = null;
+
+                        lastFinished = true;
+
+                        fileSate = 0;
+                    }
+                    break;
+
+                default:
+                    throw new IllegalStateException("Invalid file state: " + fileSate);
+            }
+        } catch (IOException e) {
+            if (fileReader != null) {
+                try {
+                    fileReader.close();
+                    fileReader = null;
+                } catch (IOException ex) {
+                    RuntimeException exception = new RuntimeException(ex);
+                    exception.addSuppressed(e);
+                    throw exception;
+                }
+            }
+            throw new RuntimeException(e);
+        }
+
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public File readFile() {
+        try {
+            switch (fileSate) {
+                case 0:
+                    fileSize = readLong();
+                    if (!lastFinished) {
+                        return null;
+                    } else if (fileSize < 0) {
+                        return null;
+                    }
+
+                    fileSate++;
+
+                    //noinspection fallthrough
+                case 1:
+                    String fileName = readString();
+                    if (!lastFinished) {
+                        return null;
+                    }
+
+                    filePath = Files.createTempDirectory("").resolve(fileName);
+                    fileWriter = new BufferedOutputStream(new FileOutputStream(filePath.toFile(), true));
+
+                    fileSate++;
+                    bytesWritten = 0;
+
+                    //noinspection fallthrough
+                case 2:
+                    lastFinished = false;
+
+                    int pos = buf.position();
+                    int remaining = buf.remaining();
+                    int toRead = (int) Math.min(remaining, fileSize - bytesWritten);
+
+                    byte[] arr = new byte[toRead];
+                    GridUnsafe.copyMemory(heapArr, baseOff + pos, arr, BYTE_ARR_OFF, toRead);
+                    fileWriter.write(arr);
+
+                    bytesWritten += toRead;
+                    buf.position(pos + toRead);
+
+                    if (bytesWritten == fileSize) {
+                        fileWriter.flush();
+                        fileWriter.close();
+
+                        lastFinished = true;
+                        fileWriter = null;
+                        fileSate = 0;
+                        bytesWritten = -1;
+
+                        return filePath.toFile();
+                    } else {
+                        return null;
+                    }
+
+                default:
+                    throw new IllegalArgumentException("Unknown fileState: " + fileSate);
+            }
+        } catch (IOException e) {
+            if (fileWriter != null) {
+                try {
+                    fileWriter.close();
+                    fileWriter = null;
+                } catch (IOException ex) {
+                    RuntimeException exception = new RuntimeException(ex);
+                    exception.addSuppressed(e);
+                    throw exception;
+                }
+            }
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
      * Writes array.
      *
-     * @param arr   Array.
-     * @param off   Offset.
-     * @param len   Length.
+     * @param arr Array.
+     * @param off Offset.
+     * @param len Length.
      * @param bytes Length in bytes.
      * @return Whether array was fully written.
      */
@@ -2045,6 +2220,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 break;
 
+            case FILE:
+                writeFile((File) val);
+
+                break;
+
             case MSG:
                 try {
                     if (val != null) {
@@ -2136,6 +2316,9 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             case IGNITE_UUID:
                 return readIgniteUuid();
+
+            case FILE:
+                return readFile();
 
             case MSG:
                 return readMessage(reader);

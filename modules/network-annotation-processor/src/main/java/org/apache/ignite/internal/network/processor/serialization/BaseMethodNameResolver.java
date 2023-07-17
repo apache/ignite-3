@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.processor.serialization;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
@@ -140,6 +141,8 @@ class BaseMethodNameResolver {
             return "Map";
         } else if (typeUtils.isSameType(parameterType, ByteBuffer.class)) {
             return "ByteBuffer";
+        } else if (typeUtils.isSameType(parameterType, File.class)) {
+            return "File";
         } else {
             throw new ProcessingException("Unsupported reference type for message (de-)serialization: " + parameterType);
         }

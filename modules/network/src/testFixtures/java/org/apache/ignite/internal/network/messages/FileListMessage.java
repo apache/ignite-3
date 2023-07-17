@@ -17,31 +17,16 @@
 
 package org.apache.ignite.internal.network.messages;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import java.io.File;
+import java.io.Serializable;
+import java.util.List;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Test message types.
+ * {@link NetworkMessage} implementation.
  */
-@MessageGroup(groupName = "TestMessages", groupType = 2)
-public class TestMessageTypes {
-    /** Type of {@link SerializationOrderMessage}. */
-    public static final short SERIALIZATION_ORDER_MESSAGE = 1;
-
-    /** Type of {@link InheritedMessage}. */
-    public static final short INHERITED_MESSAGE = 2;
-
-    /** Type of {@link EmptyMessage}. */
-    public static final short EMPTY_MESSAGE = 3;
-
-    public static final short ALL_TYPES = 4;
-
-    public static final short TEST = 5;
-
-    public static final short NESTED_MESSAGE = 6;
-
-    public static final short TEST_MESSAGE_WITH_MARSHALLABLE = 7;
-
-    public static final short FILE_MESSAGE = 8;
-
-    public static final short FILE_LIST_MESSAGE = 9;
+@Transferable(TestMessageTypes.FILE_LIST_MESSAGE)
+public interface FileListMessage extends NetworkMessage, Serializable {
+    List<File> files();
 }

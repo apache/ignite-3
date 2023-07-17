@@ -18,8 +18,10 @@
 package org.apache.ignite.network.scalecube;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
@@ -31,14 +33,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.transport.api.Transport;
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -46,6 +54,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.messages.TestMessage;
@@ -330,6 +339,42 @@ class ItScaleCubeNetworkMessagingTest {
     }
 
     /**
+     * Tests that correct files are sent and received.
+     *
+     * @throws Exception in case of errors.
+     */
+    @Test
+    public void testBadFileSequence(TestInfo testInfo) throws Exception {
+        testCluster = new Cluster(2, testInfo);
+        testCluster.startAwait();
+
+        ClusterService node1 = testCluster.members.get(0);
+        ClusterService node2 = testCluster.members.get(1);
+
+        List<NetworkMessage> messages = new CopyOnWriteArrayList<>();
+
+        node1.messagingService().addMessageHandler(
+                TestMessageTypes.class,
+                (message, sender, correlationId) -> messages.add(message)
+        );
+
+        // send a sequence of messages, one of which is a file message with a non-existent file.
+        CompletableFuture<Void>[] array = Stream.of(
+                        randomFile(100),
+                        new File("non-existent-file"),
+                        randomFile(200)
+                )
+                .map(it -> messageFactory.fileMessage().file(it).build())
+                .map(message -> node2.messagingService().send(node1.topologyService().localMember(), message))
+                .toArray(CompletableFuture[]::new);
+
+        assertThat(CompletableFuture.allOf(array), willThrow(RuntimeException.class, "(No such file or directory)"));
+
+        // make sure that the correct files were delivered.
+        await().until(() -> messages.size() == 2);
+    }
+
+    /**
      * Makes sure that a node that dropped out from the Physical Topology cannot reappear with same ID.
      *
      * @throws Exception in case of errors.
@@ -482,6 +527,17 @@ class ItScaleCubeNetworkMessagingTest {
 
         Mono<?> invoke = (Mono<?>) stop.invoke(transport);
         invoke.block();
+    }
+
+    private static File randomFile(int contentSize) {
+        try {
+            Path tempFile = Files.createTempFile(null, null);
+            byte[] bytes = new byte[contentSize];
+            new Random().nextBytes(bytes);
+            return Files.write(tempFile, bytes).toFile();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**

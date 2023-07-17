@@ -17,6 +17,7 @@
 
 package org.apache.ignite.network.serialization;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
@@ -405,6 +406,15 @@ public interface MessageWriter {
      */
     <K, V> boolean writeMap(String name, Map<K, V> map, MessageCollectionItemType keyType,
             MessageCollectionItemType valType);
+
+    /**
+     * Writes a {@link File}.
+     *
+     * @param name Field name.
+     * @param file File.
+     * @return Whether a value was fully written.
+     */
+    boolean writeFile(String name, File file);
 
     /**
      * Returns {@code true} if the header of the current message has been written, {@code false} otherwise.

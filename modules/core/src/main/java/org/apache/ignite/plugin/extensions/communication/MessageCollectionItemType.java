@@ -86,6 +86,9 @@ public enum MessageCollectionItemType {
     /** Ignite UUID. */
     IGNITE_UUID,
 
+    /** File. */
+    FILE,
+
     /** Message. */
     MSG;
 

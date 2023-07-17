@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.processor.serialization;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.UUID;
@@ -128,6 +129,8 @@ class MessageCollectionItemTypeConverter {
             return MessageCollectionItemType.BIT_SET;
         } else if (typeUtils.isSameType(parameterType, ByteBuffer.class)) {
             return MessageCollectionItemType.BYTE_BUFFER;
+        } else if (typeUtils.isSameType(parameterType, File.class)) {
+            return MessageCollectionItemType.FILE;
         } else {
             throw new ProcessingException("Unsupported MessageCollectionItemType: " + parameterType);
         }

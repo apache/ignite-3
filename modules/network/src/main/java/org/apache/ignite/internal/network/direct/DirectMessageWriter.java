@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.direct;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
@@ -444,6 +445,16 @@ public class DirectMessageWriter implements MessageWriter {
         DirectByteBufferStream stream = state.item().stream;
 
         stream.writeMap(map, keyType, valType, this);
+
+        return stream.lastFinished();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean writeFile(String name, File file) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeFile(file);
 
         return stream.lastFinished();
     }

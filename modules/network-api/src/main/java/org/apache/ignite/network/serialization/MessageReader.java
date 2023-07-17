@@ -17,6 +17,7 @@
 
 package org.apache.ignite.network.serialization;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
@@ -353,6 +354,13 @@ public interface MessageReader {
      * @return Set.
      */
     <C extends Set<?>> C readSet(String name, MessageCollectionItemType itemType);
+
+    /**
+     * Reads a file.
+     *
+     * @param name Field name.
+     */
+    File readFile(String name);
 
     /**
      * Reads a map.

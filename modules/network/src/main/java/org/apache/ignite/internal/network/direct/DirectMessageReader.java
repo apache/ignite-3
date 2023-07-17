@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.direct;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
@@ -509,6 +510,18 @@ public class DirectMessageReader implements MessageReader {
         lastRead = stream.lastFinished();
 
         return map;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public File readFile(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        File file = stream.readFile();
+
+        lastRead = stream.lastFinished();
+
+        return file;
     }
 
     /** {@inheritDoc} */
