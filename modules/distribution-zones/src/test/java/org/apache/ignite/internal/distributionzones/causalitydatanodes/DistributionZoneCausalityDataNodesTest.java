@@ -73,7 +73,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -428,7 +427,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-//    @RepeatedTest(100)
     @Test
     void dataNodesUpdatedAfterScaleUpChanged() throws Exception {
         // Prerequisite.
@@ -449,14 +447,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, oneNode);
 
         System.out.println("test_log topologyRevision1=" + topologyRevision1);
-
-//        assertValueInStorage(
-//                metaStorageManager,
-//                zoneDataNodesKey(ZONE_ID_1),
-//                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-//                Set.of(NODE_0.name()),
-//                3000
-//        );
 
         // Check that data nodes value of the the zone is NODE_0.
         Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
@@ -499,7 +489,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-//    @RepeatedTest(100)
     @Test
     void dataNodesUpdatedAfterScaleDownChanged() throws Exception {
         // Prerequisite.
@@ -522,14 +511,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes);
 
         System.out.println("test_log topologyRevision1=" + topologyRevision1);
-
-//        assertValueInStorage(
-//                metaStorageManager,
-//                zoneDataNodesKey(ZONE_ID_1),
-//                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-//                Set.of(NODE_0.name(), NODE_1.name()),
-//                3000
-//        );
 
         // Check that data nodes value of the the zone is NODE_0 and NODE_1.
         Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
@@ -563,7 +544,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-//    @RepeatedTest(100)
     @Test
     void scheduleScaleUpTaskThenDropZone() throws Exception {
         // Prerequisite.
@@ -582,8 +562,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Create logical topology with NODE_0.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, Set.of(NODE_0));
-
-//        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, oneNode, 3000);
 
         // Check that data nodes value of the zone is NODE_0.
         Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
@@ -612,15 +590,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         System.out.println("test_log dropRevision1=" + dropRevision1);
 
-//        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, null, 3000);
-//        assertValueInStorage(
-//                metaStorageManager,
-//                zoneDataNodesKey(ZONE_ID_1),
-//                null,
-//                null,
-//                3000
-//        );
-
         // Check that data nodes value of the zone with the topology update revision is NODE_0 because scale up timer has not fired.
         Set<String> dataNodes3 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
         assertEquals(oneNodeName, dataNodes3);
@@ -634,7 +603,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-//    @RepeatedTest(100)
     @Test
     void scheduleScaleDownTaskThenDropZone() throws Exception {
         // Prerequisite.
@@ -656,14 +624,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes);
 
-//        assertValueInStorage(
-//                metaStorageManager,
-//                zoneDataNodesKey(ZONE_ID_1),
-//                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-//                Set.of(NODE_0.name(), NODE_1.name()),
-//                3000
-//        );
-
         // Check that data nodes value of the the zone is NODE_0 and NODE_1.
         Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
         assertEquals(twoNodesNames, dataNodes1);
@@ -677,14 +637,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long topologyRevision2 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), oneNode);
 
         long dropRevision1 = dropZoneAndGetRevision(ZONE_NAME_1);
-
-//        assertValueInStorage(
-//                metaStorageManager,
-//                zoneDataNodesKey(ZONE_ID_1),
-//                null,
-//                null,
-//                3000
-//        );
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 and NODE_1
         // because scale down timer has not fired.
@@ -700,7 +652,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-//    @RepeatedTest(100)
     @Test
     void changeFilter() throws Exception {
         // Prerequisite.
@@ -729,10 +680,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Check that data nodes value of both zone is NODE_0.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, Set.of(NODE_0));
-
-        // Wait when the zone manager receive event with new topology. Need to do this awaiting in the dataNodes method.
-//        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, oneNode, 3000);
-//        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, oneNode, 3000);
 
         Set<String> dataNodes0 = getDataNodesFromListener(topologyRevision1, DEFAULT_ZONE_ID);
         assertEquals(oneNodeName, dataNodes0);
@@ -776,7 +723,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     }
 
-//    @RepeatedTest(100)
     @Test
     void createZoneWithNotImmediateTimers() throws Exception {
         // Prerequisite.
@@ -806,7 +752,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-//    @RepeatedTest(100)
     @Test
     void createThenDropZone() throws Exception {
         // Prerequisite.
@@ -826,7 +771,10 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long createZoneRevision = createZoneAndGetRevision(ZONE_NAME_1, ZONE_ID_1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
 
         // Check that data nodes value of the zone with the revision lower than the create zone revision is absent.
-        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(createZoneRevision - 1, ZONE_ID_1), DistributionZoneNotFoundException.class);
+        assertThrowsWithCause(
+                () -> distributionZoneManager.dataNodes(createZoneRevision - 1, ZONE_ID_1),
+                DistributionZoneNotFoundException.class
+        );
 
         // Check that data nodes value of the zone with the create zone revision is NODE_0 and NODE_1.
         Set<String> dataNodes2 = getDataNodesFromListener(createZoneRevision, ZONE_ID_1);
@@ -836,7 +784,9 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long dropZoneRevision = dropZoneAndGetRevision(ZONE_NAME_1);
 
         // Check that data nodes value of the zone with the drop zone revision is absent.
-        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(dropZoneRevision, ZONE_ID_1), DistributionZoneNotFoundException.class);
+        assertThrowsWithCause(
+                () -> distributionZoneManager.dataNodes(dropZoneRevision, ZONE_ID_1), DistributionZoneNotFoundException.class
+        );
     }
 
     /**
@@ -844,7 +794,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-//    @RepeatedTest(100)
     @Test
     void validationTest() {
         assertThrowsWithCause(() -> distributionZoneManager.dataNodes(0, DEFAULT_ZONE_ID), IllegalArgumentException.class);
@@ -859,7 +808,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-//    @RepeatedTest(100)
     @Test
     void simpleTopologyChanges() throws Exception {
         // Prerequisite.
@@ -930,7 +878,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertEquals(twoNodesNames1, dataNodes10);
     }
 
-//    @RepeatedTest(100)
     @Test
     void deadlocks() throws Exception {
         prepareZonesWithOneDataNodes();
@@ -1133,14 +1080,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Change logical topology. NODE_0 is added.
         long topologyRevision0 = putNodeInLogicalTopologyAndGetRevision(NODE_0, oneNode);
-
-//        Thread.sleep(300);
-//        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision0, 3000));
-        // Wait when dataNodes will be contain NODE_0.
-//        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, oneNode, 3000);
-//        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, oneNode, 3000);
-//        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_2, oneNode, 3000);
-//        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_3, oneNode, 3000);
 
         Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision0, DEFAULT_ZONE_ID);
         assertEquals(oneNodeName, dataNodes1);
@@ -1489,13 +1428,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         return new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent evt) {
-
-//                try {
-//                    Thread.sleep(300);
-//                } catch (InterruptedException e) {
-//                    throw new RuntimeException(e);
-//                }
-
                 Set<NodeWithAttributes> newLogicalTopology = null;
 
                 long revision = 0;
@@ -1585,7 +1517,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @return Watch listener.
      */
-    private WatchListener createMetastorageDataNodeSupplierListener(Long causalityToken, int zoneId, CompletableFuture<Set<String>> dataNodesFut) {
+    private WatchListener createMetastorageDataNodeSupplierListener(
+            Long causalityToken,
+            int zoneId,
+            CompletableFuture<Set<String>> dataNodesFut
+    ) {
         return new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent evt) {

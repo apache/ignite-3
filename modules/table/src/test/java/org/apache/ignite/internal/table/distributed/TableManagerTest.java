@@ -143,7 +143,7 @@ import org.mockito.quality.Strictness;
  */
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class TableManagerTest extends IgniteAbstractTest {//
+public class TableManagerTest extends IgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(TableManagerTest.class);
 
     /** The name of the table which is preconfigured. */

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static java.lang.Math.max;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
@@ -44,7 +43,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneTopologyAugmentationVault;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneVersionedConfigurationKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesDataNodesPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesFilterUpdateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
@@ -70,13 +68,11 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -133,7 +129,6 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.lang.DistributionZoneBindTableException;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteSystemProperties;
@@ -310,8 +305,6 @@ public class DistributionZoneManager implements IgniteComponent {
         );
 
         causalityDataNodesEngine = new CausalityDataNodesEngine(
-                stopGuard,
-                busyLock,
                 metaStorageManager,
                 vaultMgr,
                 zonesState,
@@ -728,8 +721,6 @@ public class DistributionZoneManager implements IgniteComponent {
                 return completedFuture(null);
             }
 
-            DistributionZoneView zoneView = ctx.newValue(DistributionZoneView.class);
-
             int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
 
             int newScaleDown = ctx.newValue().intValue();
@@ -987,7 +978,8 @@ public class DistributionZoneManager implements IgniteComponent {
                             revision
                     );
                 } else if (res.getAsBoolean()) {
-                    LOG.debug("Update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]", zoneId, dataNodes, revision);
+                    LOG.debug("Update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]",
+                            zoneId, dataNodes, revision);
                 } else {
                     LOG.debug(
                             "Failed to update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]",
@@ -1433,12 +1425,6 @@ public class DistributionZoneManager implements IgniteComponent {
                 }
             }
 
-//            try {
-//                Thread.sleep(1500);
-//            } catch (InterruptedException e) {
-//                throw new RuntimeException(e);
-//            }
-
             if (!removedNodes.isEmpty()) {
                 zonesState.get(zoneId).nodesToRemoveFromDataNodes(removedNodes, revision);
 
@@ -1508,12 +1494,6 @@ public class DistributionZoneManager implements IgniteComponent {
                     zoneScaleDownChangeTriggerKey(zoneId)
             );
 
-//            try {
-//                Thread.sleep(2500);
-//            } catch (InterruptedException e) {
-//                throw new RuntimeException(e);
-//            }
-
             return metaStorageManager.getAll(keysToGetFromMs).thenCompose(values -> inBusyLock(busyLock, () -> {
                 if (values.containsValue(null)) {
                     // Zone was deleted
@@ -1559,17 +1539,10 @@ public class DistributionZoneManager implements IgniteComponent {
                         ops().yield(false)
                 );
 
-//                try {
-//                    Thread.sleep(500);
-//                } catch (InterruptedException e) {
-//                    throw new RuntimeException(e);
-//                }
-
                 return metaStorageManager.invoke(iif)
                         .thenApply(StatementResult::getAsBoolean)
                         .thenCompose(invokeResult -> inBusyLock(busyLock, () -> {
                             if (invokeResult) {
-//                                System.out.println("saveDataNodesToMetaStorageOnScaleUp revision " + zoneId + " " + revision + " " + newDataNodes);
                                 // TODO: https://issues.apache.org/jira/browse/IGNITE-19491 Properly utilise this map
                                 // Currently we call clean up only on a node that successfully writes data nodes.
                                 LOG.info(
@@ -1598,7 +1571,8 @@ public class DistributionZoneManager implements IgniteComponent {
                         }));
             })).whenComplete((v, e) -> {
                 if (e != null) {
-                    LOG.warn("Failed to update zones' dataNodes value after scale up [zoneId = {}, revision = {}]", e, zoneId, revision);
+                    LOG.warn("Failed to update zones' dataNodes value after scale up [zoneId = {}, revision = {}]",
+                            e, zoneId, revision);
                 }
             });
         } finally {
@@ -1632,12 +1606,6 @@ public class DistributionZoneManager implements IgniteComponent {
                     zoneScaleUpChangeTriggerKey(zoneId),
                     zoneScaleDownChangeTriggerKey(zoneId)
             );
-
-//            try {
-//                Thread.sleep(3000);
-//            } catch (InterruptedException e) {
-//                throw new RuntimeException(e);
-//            }
 
             return metaStorageManager.getAll(keysToGetFromMs).thenCompose(values -> inBusyLock(busyLock, () -> {
                 if (values.containsValue(null)) {

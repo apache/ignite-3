@@ -95,7 +95,8 @@ public class DistributionZonesUtil {
     /** Key prefix for zones' logical topology nodes in vault. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT = "vault." + DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY;
 
-    private static final String DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT = "vault." + DISTRIBUTION_ZONE_PREFIX + "versionedConfiguration.";
+    private static final String DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT = "vault." + DISTRIBUTION_ZONE_PREFIX
+            + "versionedConfiguration.";
 
     /** Key prefix for zones' logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "version";
