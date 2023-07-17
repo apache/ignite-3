@@ -500,7 +500,7 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
             sql("INSERT INTO test1 VALUES (4, 's3', 40)");
 
             assertQuery("SELECT str_col, SUM(int_col), COUNT(str_col) FROM test1 GROUP BY GROUPING SETS "
-                    + "( (str_col, int_col), (str_col), (int_col), () )")
+                    + "( (str_col, int_col), (str_col), (int_col), () ) HAVING SUM(int_col) > 0")
                     .disableRules(rules)
                     .returns(null, 80L, 4L)
                     .returns("s1", 10L, 1L)

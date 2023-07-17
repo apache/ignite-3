@@ -25,7 +25,6 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.function.Function;
-import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.EnumUtils;
@@ -300,7 +299,11 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
                 }
             }
 
-            accumulator.add(inAdapter.apply(args));
+            Object[] newArgs = inAdapter.apply(args);
+            accumulator.add(newArgs);
+
+            // acumulator state
+            //accumulator.update(newArgs, state);
         }
 
         /** {@inheritDoc} */
@@ -322,23 +325,49 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         /** {@inheritDoc} */
         @Override
         public Accumulator accumulator() {
-            assert type == AggregateType.MAP || type == AggregateType.REDUCE;
+//            assert type == AggregateType.MAP || type == AggregateType.REDUCE;
 
             return accumulator;
         }
 
         @Override
-        public void applyState(IntFunction<Object> state) {
-            try {
-                this.accumulator.applyState(state);
-            } catch (Exception e) {
-                throw new RuntimeException(accumulator + " failed", e);
+        public void update(AccState state, RowT row) {
+            boolean firstPhase = type == AggregateType.MAP || type == AggregateType.SINGLE;
+            int fieldCount = accumulator.state(Commons.typeFactory()).size();
+            int p = state.position;
+
+            if (firstPhase) {
+                if (filterArg >= 0 && Boolean.TRUE != handler.get(filterArg, row)) {
+                    return;
+                }
+
+                Object[] args = new Object[argList.size()];
+                for (int i = 0; i < argList.size(); i++) {
+                    args[i] = handler.get(argList.get(i), row);
+
+                    if (ignoreNulls && args[i] == null) {
+                        return;
+                    }
+                }
+
+                accumulator.add(inAdapter.apply(args));
+            } else {
+                int start = state.position;
+
+                for (int i = 0; i < fieldCount; i++) {
+                    Object val = handler.get(i + start + state.offset, row);
+                    state.update(i + start, val);
+                }
+
+                accumulator.combine(state);
             }
+
+            state.position = p + fieldCount;
         }
 
         @Override
-        public void write(StateOutput output) {
-            this.accumulator.write(output);
+        public void writeTo(AccState state) {
+            accumulator.writeState(state);
         }
     }
 }

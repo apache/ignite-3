@@ -29,23 +29,20 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.function.IntFunction;
 import java.util.function.Supplier;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccRow;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulator;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper.StateOutput;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
 import org.apache.ignite.internal.sql.engine.rel.agg.AggRowType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * HashAggregateNode.
@@ -242,7 +239,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         private final ImmutableBitSet grpFields;
 
-        private final Map<GroupKey, List<AccumulatorWrapper<RowT>>> groups = new HashMap<>();
+        private final Map<GroupKey, AccRow<RowT>> groups = new HashMap<>();
 
         private final RowHandler<RowT> handler;
 
@@ -277,7 +274,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                     addOnMapper(row);
                 }
             } else {
-                addRow2(row);
+                addRow3(row);
             }
         }
 
@@ -297,8 +294,8 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 } else {
                     return getOnReducer(cnt);
                 }
-            } else {
-                return getRows2(cnt);
+            }  else {
+                return getRows3(cnt);
             }
         }
 
@@ -311,7 +308,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
             GroupKey grpKey = b.build();
 
-            List<AccumulatorWrapper<RowT>> wrappers = groups.computeIfAbsent(grpKey, k -> create());
+            List<AccumulatorWrapper<RowT>> wrappers = groups.computeIfAbsent(grpKey, k -> create()).wrappers;
 
             for (AccumulatorWrapper<RowT> wrapper : wrappers) {
                 wrapper.add(row);
@@ -327,7 +324,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
             GroupKey grpKey = (GroupKey) handler.get(1, row);
 
-            List<AccumulatorWrapper<RowT>> wrappers = groups.computeIfAbsent(grpKey, k -> create());
+            List<AccumulatorWrapper<RowT>> wrappers = groups.computeIfAbsent(grpKey, k -> create()).wrappers;
             List<Accumulator> accums = hasAccumulators() ? (List<Accumulator>) handler.get(2, row) : Collections.emptyList();
 
             for (int i = 0; i < wrappers.size(); i++) {
@@ -339,16 +336,16 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private List<RowT> getOnMapper(int cnt) {
-            Iterator<Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>>> it = groups.entrySet().iterator();
+            Iterator<Map.Entry<GroupKey, AccRow<RowT>>> it = groups.entrySet().iterator();
 
             int amount = Math.min(cnt, groups.size());
             List<RowT> res = new ArrayList<>(amount);
 
             for (int i = 0; i < amount; i++) {
-                Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>> entry = it.next();
+                Map.Entry<GroupKey, AccRow<RowT>> entry = it.next();
 
                 GroupKey grpKey = entry.getKey();
-                List<Accumulator> accums = Commons.transform(entry.getValue(), AccumulatorWrapper::accumulator);
+                List<Accumulator> accums = Commons.transform(entry.getValue().wrappers, AccumulatorWrapper::accumulator);
 
                 RowT row = hasAccumulators() ? rowFactory.create(grpId, grpKey, accums) : rowFactory.create(grpId, grpKey);
 
@@ -361,16 +358,16 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private List<RowT> getOnReducer(int cnt) {
-            Iterator<Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>>> it = groups.entrySet().iterator();
+            Iterator<Map.Entry<GroupKey, AccRow<RowT>>> it = groups.entrySet().iterator();
 
             int amount = Math.min(cnt, groups.size());
             List<RowT> res = new ArrayList<>(amount);
 
             for (int i = 0; i < amount; i++) {
-                Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>> entry = it.next();
+                Map.Entry<GroupKey, AccRow<RowT>> entry = it.next();
 
                 GroupKey grpKey = entry.getKey();
-                List<AccumulatorWrapper<RowT>> wrappers = entry.getValue();
+                List<AccumulatorWrapper<RowT>> wrappers = entry.getValue().wrappers;
 
                 Object[] fields = new Object[grpSet.cardinality() + wrappers.size()];
 
@@ -392,24 +389,30 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             return res;
         }
 
-        private List<AccumulatorWrapper<RowT>> create() {
+        private AccRow<RowT> create() {
+            List<AccumulatorWrapper<RowT>> wrappers;
             if (accFactory == null) {
-                return Collections.emptyList();
+                wrappers = Collections.emptyList();
+            } else {
+                wrappers = accFactory.get();
             }
 
-            return accFactory.get();
+            int readOffset = grpFields.cardinality() + 1;
+            int writeOffset = grpFields.cardinality();
+
+            return new AccRow<>(wrappers, Commons.typeFactory(), type, writeOffset, readOffset);
         }
 
         private boolean isEmpty() {
             return groups.isEmpty();
         }
 
-        private void addRow2(RowT row) {
+        private void addRow3(RowT row) {
             RowHandler<RowT> handler = context().rowHandler();
+            AccRow<RowT> accRow;
 
             if (type == AggregateType.REDUCE) {
                 byte targetGrpId = (byte) handler.get(0, row);
-
                 if (targetGrpId != grpId) {
                     return;
                 }
@@ -420,134 +423,61 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                     b.add(handler.get(target + 1, row));
                 }
                 GroupKey grpKey = b.build();
-                int offset = 1 + mapping.getTargetCount();
 
-                List<AccumulatorWrapper<RowT>> accs = groups.computeIfAbsent(grpKey, k -> create());
-
-                for (int i = 0; i < accs.size(); i++) {
-                    AccumulatorWrapper<RowT> acc = accs.get(i);
-                    int stateOffset = offset;
-                    IntFunction<Object> state = (idx) -> handler.get(idx + stateOffset, row);
-
-                    acc.applyState(state);
-
-                    List<RelDataType> s = acc.accumulator().state(Commons.typeFactory());
-                    offset += s.size();
-                }
-
+                accRow = groups.computeIfAbsent(grpKey, k -> create());
             } else {
                 GroupKey.Builder b = GroupKey.builder(grpFields.cardinality());
-
                 for (Integer field : grpFields) {
                     b.add(handler.get(field, row));
                 }
-
                 GroupKey grpKey = b.build();
 
-                List<AccumulatorWrapper<RowT>> wrappers = groups.computeIfAbsent(grpKey, k -> create());
-
-                for (AccumulatorWrapper<RowT> wrapper : wrappers) {
-                    wrapper.add(row);
-                }
+                accRow = groups.computeIfAbsent(grpKey, k -> create());
             }
+            accRow.update(row);
         }
 
-        private List<RowT> getRows2(int cnt) {
-            if (isEmpty()) {
-                return Collections.emptyList();
-            }
+        private List<RowT> getRows3(int cnt) {
+            Iterator<Map.Entry<GroupKey, AccRow<RowT>>> it = groups.entrySet().iterator();
 
-            if (type == AggregateType.MAP) {
-                Iterator<Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>>> it = groups.entrySet().iterator();
+            int amount = Math.min(cnt, groups.size());
+            List<RowT> res = new ArrayList<>(amount);
 
-                int amount = Math.min(cnt, groups.size());
-                List<RowT> res = new ArrayList<>(amount);
-                int rowSize = aggRowType.getAggRowType().getFieldList().size();
+            for (int i = 0; i < amount; i++) {
+                Map.Entry<GroupKey, AccRow<RowT>> entry = it.next();
 
-                for (int i = 0; i < amount; i++) {
-                    Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>> entry = it.next();
+                GroupKey grpKey = entry.getKey();
+                AccRow<RowT> accRow = entry.getValue();
 
-                    GroupKey grpKey = entry.getKey();
-                    Object[] fields = new Object[rowSize];
+                int j = 0;
+                Object[] fields;
 
-                    fields[0] = grpId;
-
-                    int fieldIdxOffset = 0;
-
-                    for (int fieldIdx : grpFields) {
-                        int target = mapping.getTarget(fieldIdx);
-                        Object fieldValue = grpKey.field(fieldIdxOffset);
-                        fields[target + 1] = fieldValue;
-
-                        fieldIdxOffset++;
-                    }
-
-                    int offset =  1 + mapping.getTargetCount();
-
-                    class Output implements StateOutput {
-                        private int offset;
-
-                        Output(int offset) {
-                            this.offset = offset;
-                        }
-
-                        @Override
-                        public void write(int fieldId, @Nullable Object value) {
-                            fields[offset + fieldId] = value;
-                        }
-                    }
-
-                    Output output = new Output(offset);
-
-                    for (AccumulatorWrapper<RowT> accWrp : entry.getValue()) {
-                        accWrp.write(output);
-
-                        List<RelDataType> state = accWrp.accumulator().state(Commons.typeFactory());
-                        output.offset += state.size();
-                    }
-
-                    RowT row = rowFactory.create(fields);
-
-                    System.err.println("MAP_ROW " + handler.toString(row));
-
-                    res.add(row);
-
-                    it.remove();
+                if (type == AggregateType.MAP) {
+                    fields = new Object[grpSet.cardinality() + accRow.size() + 1];
+                    fields[j] = grpId;
+                    j ++;
+                } else {
+                    fields = new Object[grpSet.cardinality() + accRow.size()];
                 }
 
-                return res;
-            } else {
+                int k = 0;
 
-                Iterator<Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>>> it = groups.entrySet().iterator();
-
-                int amount = Math.min(cnt, groups.size());
-                List<RowT> res = new ArrayList<>(amount);
-
-                for (int i = 0; i < amount; i++) {
-                    Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>> entry = it.next();
-
-                    GroupKey grpKey = entry.getKey();
-                    List<AccumulatorWrapper<RowT>> wrappers = entry.getValue();
-
-                    Object[] fields = new Object[grpSet.cardinality() + wrappers.size()];
-
-                    int j = 0;
-                    int k = 0;
-
-                    for (Integer field : grpSet) {
-                        fields[j++] = grpFields.get(field) ? grpKey.field(k++) : null;
-                    }
-
-                    for (AccumulatorWrapper<RowT> wrapper : wrappers) {
-                        fields[j++] = wrapper.end();
-                    }
-
-                    res.add(rowFactory.create(fields));
-                    it.remove();
+                for (Integer field : grpSet) {
+                    fields[j++] = grpFields.get(field) ? grpKey.field(k++) : null;
                 }
 
-                return res;
+                accRow.appendTo(fields);
+
+                RowT row = rowFactory.create(fields);
+
+                System.err.println("OUT ROW " + grpKey  + " > "  + context().rowHandler().toString(row));
+
+                res.add(row);
+                it.remove();
             }
+
+            return res;
         }
     }
+
 }

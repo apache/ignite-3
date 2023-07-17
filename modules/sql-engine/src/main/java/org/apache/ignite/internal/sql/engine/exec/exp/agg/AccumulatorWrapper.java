@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
-import java.util.function.IntFunction;
-import org.jetbrains.annotations.Nullable;
-
 /**
  * AccumulatorWrapper interface.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -33,15 +30,7 @@ public interface AccumulatorWrapper<RowT> {
 
     Accumulator accumulator();
 
-    void applyState(IntFunction<Object> state);
+    void update(AccState state, RowT row);
 
-    void write(StateOutput output);
-
-    /**
-     * Fix me.
-     */
-    interface StateOutput {
-
-        void write(int fieldId, @Nullable Object value);
-    }
+    void writeTo(AccState state);
 }
