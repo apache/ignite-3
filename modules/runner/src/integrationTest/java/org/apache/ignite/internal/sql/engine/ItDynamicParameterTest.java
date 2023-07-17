@@ -55,19 +55,6 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
         sql("CREATE TABLE t1 (id INTEGER PRIMARY KEY, val1 INTEGER NOT NULL, val2 INTEGER)");
     }
 
-    @Test
-    public void testGroupingSets() {
-        //id: (col1, col2), ()
-        //
-
-        assertQuery("SELECT col1, sum(col2) FROM (VALUES(1,2), (3,4)) t(col1 , col2) GROUP BY GROUPING SETS ( (col1, col2), ())")
-                .disableRules("ColocatedHashAggregateConverterRule")
-                .returns(null, 6L)
-                .returns(1, 2L)
-                .returns(3, 4L)
-                .check();
-    }
-
     @AfterEach
     public void dropTables() {
         sql("DROP TABLE IF EXISTS t1");

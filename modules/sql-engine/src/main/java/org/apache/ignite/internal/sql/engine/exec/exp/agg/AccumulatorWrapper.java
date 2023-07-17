@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
+import java.util.List;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+
 /**
  * AccumulatorWrapper interface.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -28,9 +32,13 @@ public interface AccumulatorWrapper<RowT> {
 
     void apply(Accumulator accumulator);
 
+    List<RelDataType> stateTypes(IgniteTypeFactory typeFactory);
+
     Accumulator accumulator();
 
-    void update(AccState state, RowT row);
+    void update(AccumulatorsState state, RowT row);
 
-    void writeTo(AccState state);
+    void combine(AccumulatorsState state, RowT row);
+
+    void writeTo(AccumulatorsState state);
 }

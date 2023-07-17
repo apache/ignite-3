@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * GroupKey.
@@ -91,7 +92,7 @@ public class GroupKey implements Serializable {
          * Add.
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          */
-        public Builder add(Object val) {
+        public Builder add(@Nullable Object val) {
             if (idx == fields.length) {
                 throw new IndexOutOfBoundsException();
             }

@@ -31,6 +31,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulator;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
@@ -90,7 +91,7 @@ public class IgniteMapHashAggregate extends IgniteMapAggregateBase implements Ig
     protected RelDataType deriveRowType() {
         IgniteTypeFactory typeFactory = (IgniteTypeFactory) getCluster().getTypeFactory();
 
-        if (!AggRowType.ENABLED) {
+        if (!AggregateRow.ENABLED) {
             RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
 
             builder.add("GROUP_ID", typeFactory.createJavaType(byte.class));
@@ -102,27 +103,8 @@ public class IgniteMapHashAggregate extends IgniteMapAggregateBase implements Ig
 
             return builder.build();
         } else {
-            return AggRowType.hashAggrRow(groupSets, typeFactory, input.getRowType(), aggCalls).getAggRowType();
+            return AggregateRow.createHashRowType(groupSets, typeFactory, input.getRowType(), aggCalls);
         }
-    }
-
-    /**
-     * RowType.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static RelDataType rowType(RelDataTypeFactory typeFactory, boolean addData) {
-        assert typeFactory instanceof IgniteTypeFactory;
-
-        RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
-
-        builder.add("GROUP_ID", typeFactory.createJavaType(byte.class));
-        builder.add("GROUP_KEY", typeFactory.createJavaType(GroupKey.class));
-
-        if (addData) {
-            builder.add("AGG_DATA", typeFactory.createArrayType(typeFactory.createJavaType(Accumulator.class), -1));
-        }
-
-        return builder.build();
     }
 
     /** {@inheritDoc} */

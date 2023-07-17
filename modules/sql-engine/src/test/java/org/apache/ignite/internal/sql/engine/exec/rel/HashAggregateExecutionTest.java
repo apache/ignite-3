@@ -34,8 +34,6 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.rel.agg.AggRowType;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * HashAggregateExecutionTest.
@@ -54,15 +52,12 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
     ) {
         assert grpSets.size() == 1 : "Test checks only simple GROUP BY";
 
-        AggRowType aggRowType = AggRowType.hashAggrRow(grpSets, Commons.typeFactory(), inRowType, List.of(call));
-
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(
                 ctx,
                 SINGLE,
                 grpSets,
                 accFactory(ctx, call, SINGLE, inRowType),
-                rowFactory,
-                aggRowType
+                rowFactory
         );
 
         agg.register(scan);
@@ -107,15 +102,12 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
     ) {
         assert grpSets.size() == 1 : "Test checks only simple GROUP BY";
 
-        AggRowType aggRowType2 = AggRowType.hashAggrRow(grpSets, Commons.typeFactory(), inRowType, List.of(call));
-
         HashAggregateNode<Object[]> aggMap = new HashAggregateNode<>(
                 ctx,
                 MAP,
                 grpSets,
                 accFactory(ctx, call, MAP, inRowType),
-                rowFactory,
-                aggRowType2
+                rowFactory
         );
 
         aggMap.register(scan);
@@ -125,8 +117,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
                 REDUCE,
                 grpSets,
                 accFactory(ctx, call, REDUCE, aggRowType),
-                rowFactory,
-                null
+                rowFactory
         );
 
         aggRdc.register(aggMap);

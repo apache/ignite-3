@@ -34,6 +34,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
@@ -123,7 +124,7 @@ public class IgniteMapSortAggregate extends IgniteMapAggregateBase implements Ig
     /** {@inheritDoc} */
     @Override
     protected RelDataType deriveRowType() {
-        if (!AggRowType.ENABLED) {
+        if (!AggregateRow.ENABLED) {
             RelDataTypeFactory typeFactory = Commons.typeFactory(getCluster());
 
             RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
@@ -142,7 +143,7 @@ public class IgniteMapSortAggregate extends IgniteMapAggregateBase implements Ig
         } else {
             IgniteTypeFactory typeFactory = Commons.typeFactory(getCluster());
 
-            return AggRowType.sortAggRow(groupSet, typeFactory, input.getRowType(), aggCalls).getAggRowType();
+            return AggregateRow.createSortRowType(groupSet, typeFactory, input.getRowType(), aggCalls);
         }
     }
 

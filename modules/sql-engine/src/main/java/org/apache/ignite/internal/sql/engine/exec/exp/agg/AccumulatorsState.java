@@ -15,30 +15,19 @@
  * limitations under the License.
  */
 
+
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
-import java.io.Serializable;
-import java.util.List;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Accumulator interface.
+ * State of accumulator.
  */
-public interface Accumulator extends Serializable {
-    void add(Object... args);
+public interface AccumulatorsState {
 
-    void apply(Accumulator other);
+    /** Stores {@code fieldIdx}-th field of an accumulator state. */
+    void set(int fieldIdx, @Nullable Object value);
 
-    Object end();
-
-    List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory);
-
-    RelDataType returnType(IgniteTypeFactory typeFactory);
-
-    List<RelDataType> stateTypes(IgniteTypeFactory typeFactory);
-
-    void writeTo(AccumulatorsState state);
-
-    void combine(AccumulatorsState state);
+    /** Returns a value of {@code fieldIdx}-th field of accumulator state. */
+    Object get(int fieldIdx);
 }

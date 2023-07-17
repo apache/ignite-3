@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
@@ -492,6 +493,9 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource("disabledRulesForGroupingSets")
     public void testGroupingSets(String[] rules) {
+        boolean b = AggregateRow.ENABLED;
+        AggregateRow.ENABLED = true;
+
         try {
             sql("CREATE TABLE test1 (id INTEGER PRIMARY KEY, str_col VARCHAR, int_col INTEGER);");
             sql("INSERT INTO test1 VALUES (1, 's1', 10)");
@@ -517,6 +521,7 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
 
         } finally {
             sql("DROP TABLE test1");
+            AggregateRow.ENABLED = b;
         }
     }
 

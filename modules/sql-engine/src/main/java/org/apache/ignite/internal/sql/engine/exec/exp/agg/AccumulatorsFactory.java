@@ -264,6 +264,8 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
         private final RowHandler<RowT> handler;
 
+        private List<RelDataType> state;
+
         AccumulatorWrapperImpl(
                 Accumulator accumulator,
                 AggregateCall call,
@@ -299,11 +301,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
                 }
             }
 
-            Object[] newArgs = inAdapter.apply(args);
-            accumulator.add(newArgs);
-
-            // acumulator state
-            //accumulator.update(newArgs, state);
+            accumulator.add(inAdapter.apply(args));
         }
 
         /** {@inheritDoc} */
@@ -322,52 +320,46 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             this.accumulator.apply(accumulator);
         }
 
+        @Override
+        public List<RelDataType> stateTypes(IgniteTypeFactory typeFactory) {
+            if (state == null) {
+                state = accumulator.stateTypes(typeFactory);
+            }
+            return state;
+        }
+
         /** {@inheritDoc} */
         @Override
         public Accumulator accumulator() {
-//            assert type == AggregateType.MAP || type == AggregateType.REDUCE;
-
             return accumulator;
         }
 
         @Override
-        public void update(AccState state, RowT row) {
-            boolean firstPhase = type == AggregateType.MAP || type == AggregateType.SINGLE;
-            int fieldCount = accumulator.state(Commons.typeFactory()).size();
-            int p = state.position;
-
-            if (firstPhase) {
-                if (filterArg >= 0 && Boolean.TRUE != handler.get(filterArg, row)) {
-                    return;
-                }
-
-                Object[] args = new Object[argList.size()];
-                for (int i = 0; i < argList.size(); i++) {
-                    args[i] = handler.get(argList.get(i), row);
-
-                    if (ignoreNulls && args[i] == null) {
-                        return;
-                    }
-                }
-
-                accumulator.add(inAdapter.apply(args));
-            } else {
-                int start = state.position;
-
-                for (int i = 0; i < fieldCount; i++) {
-                    Object val = handler.get(i + start + state.offset, row);
-                    state.update(i + start, val);
-                }
-
-                accumulator.combine(state);
+        public void update(AccumulatorsState state, RowT row) {
+            if (filterArg >= 0 && Boolean.TRUE != handler.get(filterArg, row)) {
+                return;
             }
 
-            state.position = p + fieldCount;
+            Object[] args = new Object[argList.size()];
+            for (int i = 0; i < argList.size(); i++) {
+                args[i] = handler.get(argList.get(i), row);
+
+                if (ignoreNulls && args[i] == null) {
+                    return;
+                }
+            }
+
+            accumulator.add(inAdapter.apply(args));
         }
 
         @Override
-        public void writeTo(AccState state) {
-            accumulator.writeState(state);
+        public void combine(AccumulatorsState state, RowT row) {
+            accumulator.combine(state);
+        }
+
+        @Override
+        public void writeTo(AccumulatorsState state) {
+            accumulator.writeTo(state);
         }
     }
 }

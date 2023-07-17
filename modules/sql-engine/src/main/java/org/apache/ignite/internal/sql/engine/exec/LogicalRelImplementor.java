@@ -95,7 +95,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
-import org.apache.ignite.internal.sql.engine.rel.agg.AggRowType;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
@@ -608,7 +607,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 type, rel.getAggCallList(), inputType);
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accFactory, rowFactory, null);
+        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accFactory, rowFactory);
 
         Node<RowT> input = visit(rel.getInput());
 
@@ -629,9 +628,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 type, rel.getAggCallList(), inputType);
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-        AggRowType aggRowType = AggRowType.hashAggrRow(rel.getGroupSets(), ctx.getTypeFactory(), inputType, rel.getAggCallList());
-
-        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accFactory, rowFactory, aggRowType);
+        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accFactory, rowFactory);
 
         Node<RowT> input = visit(rel.getInput());
 
@@ -651,7 +648,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 type, rel.getAggregateCalls(), null);
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accFactory, rowFactory, null);
+        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accFactory, rowFactory);
 
         Node<RowT> input = visit(rel.getInput());
 
@@ -682,16 +679,13 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
             comp = (k1, k2) -> 0;
         }
 
-        AggRowType aggRowType = AggRowType.sortAggRow(rel.getGroupSet(), ctx.getTypeFactory(), inputType, rel.getAggCallList());
-
         SortAggregateNode<RowT> node = new SortAggregateNode<>(
                 ctx,
                 type,
                 rel.getGroupSet(),
                 accFactory,
                 rowFactory,
-                comp,
-                aggRowType
+                comp
         );
 
         Node<RowT> input = visit(rel.getInput());
@@ -719,8 +713,6 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         Comparator<RowT> comp = expressionFactory.comparator(rel.collation());
 
-        AggRowType aggRowType = AggRowType.sortAggRow(rel.getGroupSet(), ctx.getTypeFactory(), inputType, rel.getAggCallList());
-
         if (rel.getGroupSet().isEmpty() && comp == null) {
             comp = (k1, k2) -> 0;
         }
@@ -731,8 +723,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 rel.getGroupSet(),
                 accFactory,
                 rowFactory,
-                comp,
-                aggRowType
+                comp
         );
 
         Node<RowT> input = visit(rel.getInput());
@@ -769,8 +760,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 rel.getGroupSet(),
                 accFactory,
                 rowFactory,
-                comp,
-                null
+                comp
         );
 
         Node<RowT> input = visit(rel.getInput());

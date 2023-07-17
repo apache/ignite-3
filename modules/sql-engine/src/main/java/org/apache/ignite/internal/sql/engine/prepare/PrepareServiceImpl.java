@@ -227,6 +227,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
             IgniteRel igniteRel = optimize(validatedNode, planner);
 
+            System.err.println("QUERY " + sqlNode);
             System.err.println(RelOptUtil.dumpPlan("QUERY", igniteRel, SqlExplainFormat.TEXT, SqlExplainLevel.NON_COST_ATTRIBUTES));
 
             // Split query plan to query fragments.
