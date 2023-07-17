@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.schema.row;
 
-import static org.apache.ignite.internal.schema.BinaryRow.HAS_VALUE_FLD_LEN;
-import static org.apache.ignite.internal.schema.BinaryRow.SCHEMA_VERSION_FLD_LEN;
-import static org.apache.ignite.internal.schema.ByteBufferRow.ORDER;
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.ROW_HAS_VALUE_FLAG;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -34,8 +32,8 @@ import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.AssemblyException;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -115,6 +113,11 @@ public class RowAssembler {
         }
 
         switch (type.spec()) {
+            case BOOLEAN: {
+                rowAsm.appendBoolean((boolean) val);
+
+                break;
+            }
             case INT8: {
                 rowAsm.appendByte((byte) val);
 
@@ -254,6 +257,27 @@ public class RowAssembler {
         shiftColumn();
 
         return this;
+    }
+
+    /**
+     * Appends boolean value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     * @throws SchemaMismatchException If a value doesn't match the current column type.
+     */
+    public RowAssembler appendBoolean(boolean val) throws SchemaMismatchException {
+        checkType(NativeTypes.BOOLEAN);
+
+        builder.appendBoolean(val);
+
+        shiftColumn();
+
+        return this;
+    }
+
+    public RowAssembler appendBoolean(Boolean value) throws SchemaMismatchException {
+        return value == null ? appendNull() : appendBoolean(value.booleanValue());
     }
 
     /**
@@ -653,13 +677,13 @@ public class RowAssembler {
      * @return Created {@link BinaryRow}.
      */
     public static BinaryRow build(ByteBuffer binTupleBuffer, int schemaVersion, boolean hasValue) {
-        ByteBuffer buffer = ByteBuffer.allocate(SCHEMA_VERSION_FLD_LEN + HAS_VALUE_FLD_LEN + binTupleBuffer.limit()).order(ORDER);
-        buffer.putShort((short) schemaVersion);
-        buffer.put(hasValue ? (byte) 1 : 0);
-        buffer.put(binTupleBuffer);
-        buffer.position(0);
+        if (hasValue) {
+            byte flags = binTupleBuffer.get(0);
 
-        return new ByteBufferRow(buffer);
+            binTupleBuffer.put(0, (byte) (flags | ROW_HAS_VALUE_FLAG));
+        }
+
+        return new BinaryRowImpl(schemaVersion, binTupleBuffer);
     }
 
     /**

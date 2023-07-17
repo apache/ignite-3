@@ -21,6 +21,9 @@ package org.apache.ignite.internal.marshaller;
  * Various read/write modes for binary objects that maps Java types to binary types.
  */
 public enum BinaryMode {
+    /** Primitive boolean. */
+    P_BOOLEAN,
+
     /** Primitive byte. */
     P_BYTE,
 
@@ -38,6 +41,9 @@ public enum BinaryMode {
 
     /** Primitive int. */
     P_DOUBLE,
+
+    /** Boxed boolean. */
+    BOOLEAN,
 
     /** Boxed byte. */
     BYTE,

@@ -44,7 +44,7 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.RecordMarshallerTest;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -88,6 +88,7 @@ public class InteropOperationsTest {
 
     static {
         NativeType[] types = {
+                NativeTypes.BOOLEAN,
                 NativeTypes.INT8, NativeTypes.INT16, NativeTypes.INT32, NativeTypes.INT64,
                 NativeTypes.FLOAT, NativeTypes.DOUBLE, NativeTypes.UUID, NativeTypes.STRING,
                 NativeTypes.BYTES, NativeTypes.DATE, NativeTypes.time(), NativeTypes.timestamp(), NativeTypes.datetime(),
@@ -132,7 +133,7 @@ public class InteropOperationsTest {
      */
     @Test
     public void ensureAllTypesTested() {
-        RecordMarshallerTest.ensureAllTypesChecked(Arrays.stream(SCHEMA.valueColumns().columns()));
+        SchemaTestUtils.ensureAllTypesChecked(Arrays.stream(SCHEMA.valueColumns().columns()));
     }
 
     @AfterEach
@@ -360,7 +361,9 @@ public class InteropOperationsTest {
             String colName = col.name();
             NativeType type = col.type();
 
-            if (NativeTypes.INT8.equals(type)) {
+            if (NativeTypes.BOOLEAN.equals(type)) {
+                res.set(colName, id % 2 == 0);
+            } else if (NativeTypes.INT8.equals(type)) {
                 res.set(colName, (byte) id);
             } else if (NativeTypes.INT16.equals(type)) {
                 res.set(colName, (short) id);
@@ -425,7 +428,9 @@ public class InteropOperationsTest {
             String colName = col.name();
             NativeType type = col.type();
 
-            if (NativeTypes.INT8.equals(type)) {
+            if (NativeTypes.BOOLEAN.equals(type)) {
+                assertEquals(expected.booleanValue(colName), t.booleanValue(colName));
+            } else if (NativeTypes.INT8.equals(type)) {
                 assertEquals(expected.byteValue(colName), t.byteValue(colName));
             } else if (NativeTypes.INT16.equals(type)) {
                 assertEquals(expected.shortValue(colName), t.shortValue(colName));
@@ -469,6 +474,8 @@ public class InteropOperationsTest {
      * Class for value in test table.
      */
     private static class Value {
+        private boolean fboolean;
+        private Boolean fbooleanN;
         private byte fint8;
         private Byte fint8N;
         private short fint16;
@@ -507,6 +514,8 @@ public class InteropOperationsTest {
         }
 
         public Value(int id, boolean nulls) {
+            fboolean = id % 2 == 0;
+            fbooleanN = (nulls) ? id % 2 == 0 : null;
             fint8 = (byte) id;
             fint8N = (nulls) ? Byte.valueOf((byte) id) : null;
             fint16 = (short) id;
@@ -554,7 +563,8 @@ public class InteropOperationsTest {
                 return false;
             }
             Value value = (Value) o;
-            return fint8 == value.fint8 && fint16 == value.fint16 && fint32 == value.fint32 && fint64 == value.fint64
+            return fboolean == value.fboolean && Objects.equals(fbooleanN, value.fbooleanN)
+                    && fint8 == value.fint8 && fint16 == value.fint16 && fint32 == value.fint32 && fint64 == value.fint64
                     && Float.compare(value.ffloat, ffloat) == 0 && Double.compare(value.fdouble, fdouble) == 0
                     && Objects.equals(fint8N, value.fint8N) && Objects.equals(fint16N, value.fint16N)
                     && Objects.equals(fint32N, value.fint32N) && Objects.equals(fint64N, value.fint64N)
@@ -576,6 +586,8 @@ public class InteropOperationsTest {
      */
     private static class Row {
         private long id;
+        private boolean fboolean;
+        private Boolean fbooleanN;
         private byte fint8;
         private Byte fint8N;
         private short fint16;
@@ -614,6 +626,8 @@ public class InteropOperationsTest {
 
         public Row(int id, boolean nulls) {
             this.id = id;
+            fboolean = id % 2 == 0;
+            fbooleanN = (nulls) ? id % 2 == 0 : null;
             fint8 = (byte) id;
             fint8N = (nulls) ? Byte.valueOf((byte) id) : null;
             fint16 = (short) id;
@@ -666,7 +680,8 @@ public class InteropOperationsTest {
                 return false;
             }
             Row row = (Row) o;
-            return id == row.id && fint8 == row.fint8 && fint16 == row.fint16 && fint32 == row.fint32 && fint64 == row.fint64
+            return id == row.id && fboolean == row.fboolean && Objects.equals(fbooleanN, row.fbooleanN)
+                    && fint8 == row.fint8 && fint16 == row.fint16 && fint32 == row.fint32 && fint64 == row.fint64
                     && Float.compare(row.ffloat, ffloat) == 0 && Double.compare(row.fdouble, fdouble) == 0
                     && Objects.equals(fint8N, row.fint8N) && Objects.equals(fint16N, row.fint16N) && Objects.equals(
                     fint32N, row.fint32N) && Objects.equals(fint64N, row.fint64N) && Objects.equals(ffloatN, row.ffloatN)

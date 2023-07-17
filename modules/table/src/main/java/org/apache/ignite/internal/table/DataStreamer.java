@@ -38,7 +38,8 @@ class DataStreamer {
             StreamerBatchSender<R, Integer> batchSender,
             StreamerPartitionAwarenessProvider<R, Integer> partitionAwarenessProvider) {
         StreamerOptions streamerOpts = streamerOptions(options);
-        StreamerSubscriber<R, Integer> subscriber = new StreamerSubscriber<>(batchSender, partitionAwarenessProvider, streamerOpts, LOG);
+        StreamerSubscriber<R, Integer> subscriber = new StreamerSubscriber<>(
+                batchSender, partitionAwarenessProvider, streamerOpts, LOG, null);
 
         publisher.subscribe(subscriber);
 

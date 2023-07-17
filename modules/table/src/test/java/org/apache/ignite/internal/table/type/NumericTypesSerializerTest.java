@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.type;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -273,10 +272,7 @@ public class NumericTypesSerializerTest {
         Row firstRow = marshaller.marshal(firstTup);
         Row secondRow = marshaller.marshal(secondTup);
 
-        byte[] firstRowInBytes = firstRow.bytes();
-        byte[] secondRowInBytes = secondRow.bytes();
-
-        assertArrayEquals(firstRowInBytes, secondRowInBytes);
+        assertEquals(firstRow, secondRow);
     }
 
     @NotNull

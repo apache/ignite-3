@@ -62,18 +62,28 @@ public class StripedDisruptor<T extends NodeIdAware> {
     private final String name;
 
     /**
+     * If {@code false}, this stripe will always pass {@code true} into {@link EventHandler#onEvent(Object, long, boolean)}.
+     * Otherwise, the data will be provided with batches.
+     */
+    //TODO: IGNITE-15568 endOfBatch should be set to true to prevent caching tasks until IGNITE-15568 has fixed.
+    private final boolean supportsBatches;
+
+    /**
      * @param name Name of the Striped disruptor.
      * @param bufferSize Buffer size for each Disruptor.
      * @param eventFactory Event factory for the Striped disruptor.
      * @param stripes Amount of stripes.
+     * @param supportsBatches If {@code false}, this stripe will always pass {@code true} into
+     *      {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
      */
-    public StripedDisruptor(String name, int bufferSize, EventFactory<T> eventFactory, int stripes) {
+    public StripedDisruptor(String name, int bufferSize, EventFactory<T> eventFactory, int stripes, boolean supportsBatches) {
         disruptors = new Disruptor[stripes];
         queues = new RingBuffer[stripes];
         eventHandlers = new ArrayList<>(stripes);
         exceptionHandlers = new ArrayList<>(stripes);
         this.stripes = stripes;
         this.name = name;
+        this.supportsBatches = supportsBatches;
 
         for (int i = 0; i < stripes; i++) {
             String stripeName = format("{}_stripe_{}-", name, i);
@@ -160,7 +170,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param nodeId Node id.
      * @return Stripe of the Striped disruptor.
      */
-    private int getStripe(NodeId nodeId) {
+    public int getStripe(NodeId nodeId) {
         return Math.abs(nodeId.hashCode() % stripes);
     }
 
@@ -213,8 +223,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
 
             assert handler != null : format("Group of the event is unsupported [nodeId={}, event={}]", event.nodeId(), event);
 
-            //TODO: IGNITE-15568 endOfBatch should be set to true to prevent caching tasks until IGNITE-15568 has fixed.
-            handler.onEvent(event, sequence, subscribers.size() > 1 ? true : endOfBatch);
+            handler.onEvent(event, sequence, endOfBatch || subscribers.size() > 1 && !supportsBatches);
         }
     }
 

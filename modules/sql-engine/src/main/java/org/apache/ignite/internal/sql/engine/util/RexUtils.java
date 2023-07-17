@@ -28,6 +28,7 @@ import static org.apache.calcite.sql.SqlKind.IS_NOT_NULL;
 import static org.apache.calcite.sql.SqlKind.IS_NULL;
 import static org.apache.calcite.sql.SqlKind.LESS_THAN;
 import static org.apache.calcite.sql.SqlKind.LESS_THAN_OR_EQUAL;
+import static org.apache.calcite.sql.SqlKind.NOT;
 import static org.apache.calcite.sql.SqlKind.SEARCH;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -642,6 +643,8 @@ public class RexUtils {
         Int2ObjectMap<List<RexCall>> res = new Int2ObjectOpenHashMap<>(conjunctions.size());
 
         for (RexNode rexNode : conjunctions) {
+            rexNode = expandBooleanFieldComparison(rexNode, builder(cluster));
+
             if (!isSupportedTreeComparison(rexNode)) {
                 continue;
             }
@@ -683,6 +686,28 @@ public class RexUtils {
         } else {
             return RexUtil.invert(rexBuilder, call);
         }
+    }
+
+    /**
+     * Rewrites a simplified boolean condition so that it can be used to set index scan bounds.
+     *
+     * <p>For example, Calcite simplifies the condition '{@code AND boolField <> TRUE}' to '{@code NOT($boolField)}',
+     * but to perform an index lookup we need to rewrite it back to {@code $boolField = FALSE}.
+     *
+     * @param rexNode Original row expression.
+     * @param builder Row expression builder.
+     * @return Rewritten row expression.
+     */
+    private static RexNode expandBooleanFieldComparison(RexNode rexNode, RexBuilder builder) {
+        if (rexNode instanceof RexSlot) {
+            return builder.makeCall(SqlStdOperatorTable.EQUALS, rexNode, builder.makeLiteral(true));
+        } else if (rexNode instanceof RexCall && rexNode.getKind() == NOT
+                && ((RexCall) rexNode).getOperands().get(0) instanceof RexSlot) {
+            return builder.makeCall(SqlStdOperatorTable.EQUALS, ((RexCall) rexNode).getOperands().get(0),
+                    builder.makeLiteral(false));
+        }
+
+        return rexNode;
     }
 
     private static @Nullable RexSlot extractRefFromBinary(RexCall call, RelOptCluster cluster) {

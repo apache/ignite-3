@@ -79,7 +79,7 @@ public class LogManagerImpl implements LogManager {
     private final Lock writeLock = this.lock.writeLock();
     private final Lock readLock = this.lock.readLock();
     private volatile boolean stopped;
-    private volatile boolean hasError;
+    protected volatile boolean hasError;
     private long nextWaitId;
     private LogId diskId = new LogId(0, 0); // Last log entry written to disk.
     private LogId appliedId = new LogId(0, 0);
@@ -409,7 +409,7 @@ public class LogManagerImpl implements LogManager {
         return true;
     }
 
-    private LogId appendToStorage(final List<LogEntry> toAppend) {
+    protected LogId appendToStorage(final List<LogEntry> toAppend) {
         LogId lastId = null;
         if (!this.hasError) {
             final long startMs = Utils.monotonicMs();
@@ -422,7 +422,7 @@ public class LogManagerImpl implements LogManager {
                     writtenSize += entry.getData() != null ? entry.getData().remaining() : 0;
                 }
                 this.nodeMetrics.recordSize("append-logs-bytes", writtenSize);
-                final int nAppent = this.logStorage.appendEntries(toAppend);
+                final int nAppent = appendToLogStorage(toAppend);
                 if (nAppent != entriesCount) {
                     LOG.error("**Critical error**, fail to appendEntries, nAppent={}, toAppend={}", nAppent,
                         toAppend.size());
@@ -431,7 +431,6 @@ public class LogManagerImpl implements LogManager {
                 if (nAppent > 0) {
                     lastId = toAppend.get(nAppent - 1).getId();
                 }
-                toAppend.clear();
             }
             finally {
                 this.nodeMetrics.recordLatency("append-logs", Utils.monotonicMs() - startMs);
@@ -440,15 +439,19 @@ public class LogManagerImpl implements LogManager {
         return lastId;
     }
 
-    private class AppendBatcher {
-        List<StableClosure> storage;
-        int cap;
-        int size;
-        int bufferSize;
-        List<LogEntry> toAppend;
-        LogId lastId;
+    protected int appendToLogStorage(List<LogEntry> toAppend) {
+        return this.logStorage.appendEntries(toAppend);
+    }
 
-        AppendBatcher(final List<StableClosure> storage, final int cap, final List<LogEntry> toAppend,
+    protected class AppendBatcher {
+        protected final List<StableClosure> storage;
+        protected final int cap;
+        protected int size;
+        protected int bufferSize;
+        protected final List<LogEntry> toAppend;
+        protected LogId lastId;
+
+        protected AppendBatcher(final List<StableClosure> storage, final int cap, final List<LogEntry> toAppend,
             final LogId lastId) {
             super();
             this.storage = storage;
@@ -457,7 +460,7 @@ public class LogManagerImpl implements LogManager {
             this.lastId = lastId;
         }
 
-        LogId flush() {
+        protected LogId flush() {
             if (this.size > 0) {
                 this.lastId = appendToStorage(this.toAppend);
                 for (int i = 0; i < this.size; i++) {
@@ -485,7 +488,7 @@ public class LogManagerImpl implements LogManager {
             return this.lastId;
         }
 
-        void append(final StableClosure done) {
+        protected void append(final StableClosure done) {
             if (this.size == this.cap || this.bufferSize >= LogManagerImpl.this.raftOptions.getMaxAppendBufferSize()) {
                 flush();
             }
@@ -498,10 +501,14 @@ public class LogManagerImpl implements LogManager {
         }
     }
 
+    protected AppendBatcher newAppendBatcher(List<StableClosure> storages, int cap, LogId diskId) {
+        return new AppendBatcher(storages, cap, new ArrayList<>(), diskId);
+    }
+
     private class StableClosureEventHandler implements EventHandler<StableClosureEvent> {
         LogId lastId = LogManagerImpl.this.diskId;
         List<StableClosure> storage = new ArrayList<>(256);
-        AppendBatcher ab = new AppendBatcher(this.storage, 256, new ArrayList<>(), LogManagerImpl.this.diskId);
+        AppendBatcher ab = newAppendBatcher(this.storage, 256, LogManagerImpl.this.diskId);
 
         @Override
         public void onEvent(final StableClosureEvent event, final long sequence, final boolean endOfBatch)
@@ -523,6 +530,8 @@ public class LogManagerImpl implements LogManager {
             }
             else {
                 this.lastId = this.ab.flush();
+                setDiskId(this.lastId);
+
                 boolean ret = true;
                 switch (eventType) {
                     case LAST_LOG_ID:
@@ -582,14 +591,14 @@ public class LogManagerImpl implements LogManager {
 
     }
 
-    private void reportError(final int code, final String fmt, final Object... args) {
+    protected void reportError(final int code, final String fmt, final Object... args) {
         this.hasError = true;
         final RaftException error = new RaftException(ErrorType.ERROR_TYPE_LOG);
         error.setStatus(new Status(code, fmt, args));
         this.fsmCaller.onError(error);
     }
 
-    private void setDiskId(final LogId id) {
+    protected void setDiskId(final LogId id) {
         if (id == null) {
             return;
         }

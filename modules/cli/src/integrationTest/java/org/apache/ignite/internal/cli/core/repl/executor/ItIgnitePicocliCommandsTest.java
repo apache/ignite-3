@@ -245,7 +245,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     }
 
     private void connected() {
-        session.connect(new SessionInfo(DEFAULT_REST_URL, null, null));
+        session.connect(new SessionInfo(DEFAULT_REST_URL, null, null, null));
     }
 
     private Stream<Arguments> nodeConfigUpdateSuggestedSource() {

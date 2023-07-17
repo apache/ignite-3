@@ -15,23 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.notifications;
-
-import java.util.concurrent.CompletableFuture;
+package org.apache.ignite.internal.network.handshake;
 
 /**
- * Configuration storage revision change listener.
- *
- * <p>Storage revision - monotonously increasing counter, linked to the specific storage for current configuration values.
+ * Exception that notifies of existence of a channel with a specific consistent id during handshake.
  */
-// TODO: IGNITE-19801 Get rid of this interface.
-@FunctionalInterface
-public interface ConfigurationStorageRevisionListener {
+public class ChannelAlreadyExistsException extends RuntimeException {
+    private static final long serialVersionUID = 0L;
+
+    /** Consistent id of a remote node. */
+    private final String consistentId;
+
+    public ChannelAlreadyExistsException(String consistentId) {
+        this.consistentId = consistentId;
+    }
+
     /**
-     * Called on update the storage version.
-     *
-     * @param newStorageRevision Updated configuration storage revision.
-     * @return Future that signifies the end of the listener execution.
+     * Returns consistent id of the remote node with which a channel already exists.
      */
-    CompletableFuture<?> onUpdate(long newStorageRevision);
+    public String consistentId() {
+        return consistentId;
+    }
 }

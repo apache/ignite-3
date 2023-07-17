@@ -52,7 +52,11 @@ set(PUBLIC_HEADERS
     compute/deployment_unit.h
     detail/type_mapping_utils.h
     network/cluster_node.h
+    sql/column_metadata.h
+    sql/column_origin.h
+    sql/result_set.h
     sql/sql.h
+    sql/sql_statement.h
     table/ignite_tuple.h
     table/key_value_view.h
     table/record_view.h

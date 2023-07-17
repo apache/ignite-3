@@ -55,9 +55,12 @@ public class InlineUtilsTest {
 
         // Fixed length type checking.
 
-        NativeType nativeType = NativeTypes.INT8;
+        NativeType nativeType = NativeTypes.BOOLEAN;
 
         assertEquals(1, inlineSize(nativeType));
+        nativeTypeSpecs.remove(nativeType.spec());
+
+        assertEquals(1, inlineSize(nativeType = NativeTypes.INT8));
         nativeTypeSpecs.remove(nativeType.spec());
 
         assertEquals(2, inlineSize(nativeType = NativeTypes.INT16));

@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SI
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.MAX_KEY_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.MV_KEY_BUFFER;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.ROW_ID_OFFSET;
-import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.TABLE_ROW_BYTE_ORDER;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.deserializeRow;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.readTimestampNatural;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage.invalid;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
@@ -34,7 +34,6 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.TAB
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.jetbrains.annotations.Nullable;
@@ -246,7 +245,7 @@ class GarbageCollector {
 
                 assert valueBytes.length > 0; // Can't be a tombstone.
 
-                var row = new ByteBufferRow(ByteBuffer.wrap(valueBytes).order(TABLE_ROW_BYTE_ORDER));
+                var row = deserializeRow(ByteBuffer.wrap(valueBytes));
 
                 // Delete the row from the data cf.
                 batch.delete(partCf, dataKey);

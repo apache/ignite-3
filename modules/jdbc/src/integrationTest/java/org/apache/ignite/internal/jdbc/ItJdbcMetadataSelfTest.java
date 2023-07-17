@@ -161,6 +161,9 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         Class cls = null;
 
         switch (dataType) {
+            case Types.BOOLEAN:
+                cls = Boolean.class;
+                break;
             case Types.TINYINT:
                 cls = Byte.class;
                 break;
@@ -231,11 +234,12 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     private void checkMeta(ResultSetMetaData meta) throws SQLException {
         assertNotNull(meta);
 
-        assertEquals(14, meta.getColumnCount());
+        assertEquals(15, meta.getColumnCount());
 
         assertEquals("METATEST", meta.getTableName(1).toUpperCase());
 
         int i = 1;
+        checkMeta(meta, i++, "BOOLEAN_COL", Types.BOOLEAN, "BOOLEAN", Boolean.class);
         checkMeta(meta, i++, "TINYINT_COL", Types.TINYINT, "TINYINT", Byte.class);
         checkMeta(meta, i++, "SMALLINT_COL", Types.SMALLINT, "SMALLINT", Short.class);
         checkMeta(meta, i++, "INTEGER_COL", Types.INTEGER, "INTEGER", Integer.class);
@@ -270,7 +274,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
             // Add columns with All supported types.
             EnumSet<ColumnType> excludeTypes = EnumSet
-                    .of(ColumnType.TIMESTAMP, ColumnType.BOOLEAN, ColumnType.NUMBER, ColumnType.BITMASK, ColumnType.DURATION,
+                    .of(ColumnType.TIMESTAMP, ColumnType.NUMBER, ColumnType.BITMASK, ColumnType.DURATION,
                             ColumnType.PERIOD, ColumnType.NULL);
             Arrays.stream(ColumnType.values()).filter(t -> !excludeTypes.contains(t))
                     .forEach(t -> {

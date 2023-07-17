@@ -17,6 +17,7 @@
 
 package org.apache.ignite.lang;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.getOrCreateTraceId;
 import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
 import static org.apache.ignite.lang.ErrorGroup.errorGroupByCode;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
@@ -68,7 +69,7 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
      */
     public IgniteInternalCheckedException(UUID traceId, int code) {
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -93,7 +94,7 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
         super(message);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -104,7 +105,7 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteInternalCheckedException(int code, Throwable cause) {
-        this(UUID.randomUUID(), code, cause);
+        this(getOrCreateTraceId(cause), code, cause);
     }
 
     /**
@@ -118,7 +119,7 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
         super((cause != null) ? cause.getLocalizedMessage() : null, cause);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -130,7 +131,7 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteInternalCheckedException(int code, String message, Throwable cause) {
-        this(UUID.randomUUID(), code, message, cause);
+        this(getOrCreateTraceId(cause), code, message, cause);
     }
 
     /**
@@ -145,7 +146,7 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
         super(message, cause);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -168,7 +169,7 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
         super(message, cause, true, writableStackTrace);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -263,7 +264,7 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
      * @return Error group.
      */
     @Override
-    public int groupCode() {
+    public short groupCode() {
         return extractGroupCode(code);
     }
 
@@ -275,7 +276,7 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
      * @return Error code.
      */
     @Override
-    public int errorCode() {
+    public short errorCode() {
         return extractErrorCode(code);
     }
 
@@ -292,8 +293,6 @@ public class IgniteInternalCheckedException extends Exception implements Traceab
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        String s = getClass().getName();
-        String message = errorMessage(traceId, groupName, code, getLocalizedMessage());
-        return (message != null) ? (s + ": " + message) : s;
+        return getClass().getName() + ": " + errorMessage(traceId, groupName, code, getLocalizedMessage());
     }
 }

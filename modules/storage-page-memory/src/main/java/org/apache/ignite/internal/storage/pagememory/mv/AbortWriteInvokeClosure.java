@@ -81,7 +81,7 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
             operationType = OperationType.REMOVE;
         }
 
-        previousUncommittedRowVersion = storage.rowVersionToBinaryRow(latestVersion);
+        previousUncommittedRowVersion = latestVersion.value();
     }
 
     @Override

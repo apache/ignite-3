@@ -157,7 +157,7 @@ public class UpdateLogImpl implements UpdateLog {
         // TODO: IGNITE-19790 Read range from metastore
         while (true) {
             ByteArray key = CatalogKey.update(ver++);
-            Entry entry = metastore.getLocally(key.bytes(), appliedRevision);
+            Entry entry = metastore.getLocally(key, appliedRevision);
 
             if (entry.empty() || entry.tombstone()) {
                 break;
