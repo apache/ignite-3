@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <ignite/odbc/meta/column_meta.h>
+#include <ignite/odbc/query/result_page.h>
+
 #include <memory>
 
 #include <cstdint>
