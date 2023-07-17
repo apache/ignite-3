@@ -277,6 +277,15 @@ public:
         return m_transaction_id;
     }
 
+    /**
+     * Mark transaction non-empty.
+     *
+     * After this call connection assumes there is at least one operation performed with this transaction.
+     */
+    void mark_transaction_non_empty() {
+        m_transaction_empty = false;
+    }
+
 private:
     /**
      * Generate and get next request ID.

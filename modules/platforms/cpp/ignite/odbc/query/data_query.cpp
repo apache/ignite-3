@@ -346,6 +346,8 @@ sql_result data_query::make_request_execute() {
             m_params.write(writer);
         });
 
+        m_connection.mark_transaction_non_empty();
+
         auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
         m_query_id = reader->read_object_nullable<std::int64_t>();
 
