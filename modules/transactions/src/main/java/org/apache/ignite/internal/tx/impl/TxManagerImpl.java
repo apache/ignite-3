@@ -123,7 +123,9 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public InternalTransaction begin(TransactionOptions options) {
-        requireNonNull(options);
+        if (options == null) {
+            options = DEFAULT_TX_OPTIONS;
+        }
 
         boolean readOnly = options.readOnly();
         HybridTimestamp beginTimestamp = clock.now();
