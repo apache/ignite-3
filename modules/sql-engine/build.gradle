@@ -86,6 +86,7 @@ dependencies {
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
 
+    testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation libs.jetbrains.annotations

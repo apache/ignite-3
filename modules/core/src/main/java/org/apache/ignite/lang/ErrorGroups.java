@@ -203,6 +203,9 @@ public class ErrorGroups {
 
         /** Execution cancelled. */
         public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 33);
+
+        /** Planning timeouted without any valid plan. */
+        public static final int PLANNING_TIMEOUTED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 34);
     }
 
     /** Meta storage error group. */
