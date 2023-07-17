@@ -30,6 +30,7 @@ set(SOURCES
     meta_queries_test.cpp
     queries_test.cpp
     timeout_test.cpp
+    transaction_test.cpp
 )
 
 add_executable(${TARGET} ${SOURCES})

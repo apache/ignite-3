@@ -15,13 +15,10 @@
  * limitations under the License.
  */
 
-#include "ignite/common/config.h"
 #include "odbc_suite.h"
-#include "test_utils.h"
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <string>
 #include <vector>
 

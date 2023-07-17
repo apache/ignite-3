@@ -35,7 +35,33 @@
  if (!SQL_SUCCEEDED(ret))                                                                                              \
  FAIL() << get_odbc_error_message(type, handle)
 
+#define ODBC_THROW_ON_ERROR(ret, type, handle)                                                                         \
+ if (!SQL_SUCCEEDED(ret))                                                                                              \
+  throw odbc_exception {                                                                                               \
+   get_odbc_error_message(type, handle), get_odbc_error_state(type, handle)                                            \
+  }
+
 namespace ignite {
+
+/**
+ * Utility error type for testing.
+ */
+struct odbc_exception : public std::exception {
+    /**
+     * Constructor.
+     */
+    odbc_exception(std::string message, std::string sql_state)
+        : message(std::move(message))
+        , sql_state(std::move(sql_state)) {}
+
+    /** Message. */
+    std::string message;
+
+    /** SQL state. */
+    std::string sql_state;
+
+    [[nodiscard]] char const *what() const noexcept override { return message.c_str(); }
+};
 
 constexpr size_t ODBC_BUFFER_SIZE = 1024;
 

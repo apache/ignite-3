@@ -172,6 +172,9 @@ void sql_connection::close() {
     if (m_socket) {
         m_socket->close();
         m_socket.reset();
+
+        m_transaction_id = std::nullopt;
+        m_transaction_empty = true;
     }
 }
 
@@ -344,10 +347,26 @@ void sql_connection::transaction_commit() {
 }
 
 sql_result sql_connection::internal_transaction_commit() {
-    // TODO: IGNITE-19399: Implement transaction support
+    if (!m_transaction_id) {
+        add_status_record(sql_state::S25000_INVALID_TRANSACTION_STATE, "No transaction to commit");
+        return sql_result::AI_ERROR;
+    }
 
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Transactions are not supported.");
-    return sql_result::AI_ERROR;
+    LOG_MSG("Committing transaction: " << *m_transaction_id);
+
+    network::data_buffer_owning response;
+    auto success = catch_errors([&] {
+        auto response = sync_request(
+            detail::client_operation::TX_COMMIT, [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
+    });
+
+    if (!success)
+        return sql_result::AI_ERROR;
+
+    m_transaction_id = std::nullopt;
+    m_transaction_empty = true;
+
+    return sql_result::AI_SUCCESS;
 }
 
 void sql_connection::transaction_rollback() {
@@ -355,10 +374,75 @@ void sql_connection::transaction_rollback() {
 }
 
 sql_result sql_connection::internal_transaction_rollback() {
-    // TODO: IGNITE-19399: Implement transaction support
+    if (!m_transaction_id) {
+        add_status_record(sql_state::S25000_INVALID_TRANSACTION_STATE, "No transaction to rollback");
+        return sql_result::AI_ERROR;
+    }
 
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Transactions are not supported.");
-    return sql_result::AI_ERROR;
+    LOG_MSG("Rolling back transaction: " << *m_transaction_id);
+
+    network::data_buffer_owning response;
+    auto success = catch_errors([&] {
+        auto response = sync_request(
+            detail::client_operation::TX_ROLLBACK, [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
+    });
+
+    if (!success)
+        return sql_result::AI_ERROR;
+
+    m_transaction_id = std::nullopt;
+    m_transaction_empty = true;
+
+    return sql_result::AI_SUCCESS;
+}
+
+void sql_connection::transaction_start() {
+    LOG_MSG("Starting transaction");
+
+    network::data_buffer_owning response =
+        sync_request(detail::client_operation::TX_BEGIN, [&](protocol::writer &writer) {
+            writer.write_bool(false); // read_only.
+        });
+
+    protocol::reader reader(response.get_bytes_view());
+    m_transaction_id = reader.read_int64();
+
+    LOG_MSG("Transaction ID: " << *m_transaction_id);
+}
+
+sql_result sql_connection::enable_autocommit() {
+    assert(!m_auto_commit);
+
+    if (m_transaction_id) {
+        sql_result res;
+        if (m_transaction_empty)
+            res = internal_transaction_rollback();
+        else
+            res = internal_transaction_commit();
+
+        if (res != sql_result::AI_SUCCESS)
+            return res;
+    }
+
+    m_transaction_id = std::nullopt;
+    m_transaction_empty = true;
+    m_auto_commit = true;
+
+    return sql_result::AI_SUCCESS;
+}
+
+sql_result sql_connection::disable_autocommit() {
+    assert(m_auto_commit);
+    assert(!m_transaction_id);
+
+    auto success = catch_errors([&] { transaction_start(); });
+    if (!success)
+        return sql_result::AI_ERROR;
+
+    m_transaction_empty = true;
+    m_auto_commit = false;
+
+    return sql_result::AI_SUCCESS;
 }
 
 void sql_connection::get_attribute(int attr, void *buf, SQLINTEGER buf_len, SQLINTEGER *value_len) {
@@ -467,9 +551,12 @@ sql_result sql_connection::internal_set_attribute(int attr, void *value, SQLINTE
                 return sql_result::AI_ERROR;
             }
 
-            m_auto_commit = mode == SQL_AUTOCOMMIT_ON;
+            auto autocommit_now = mode == SQL_AUTOCOMMIT_ON;
 
-            break;
+            if (autocommit_now && !m_auto_commit)
+                return enable_autocommit();
+            else
+                return disable_autocommit();
         }
 
         default: {

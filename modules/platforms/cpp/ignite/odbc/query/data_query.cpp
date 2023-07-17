@@ -314,9 +314,19 @@ sql_result data_query::make_request_execute() {
 
     network::data_buffer_owning response;
     auto success = m_diag.catch_errors([&] {
+        auto tx = m_connection.get_transaction_id();
+        if (!tx && !m_connection.is_auto_commit()) {
+            // Starting transaction if it's not started already.
+            m_connection.transaction_start();
+
+            tx = m_connection.get_transaction_id();
+            assert(tx);
+        }
         response = m_connection.sync_request(detail::client_operation::SQL_EXEC, [&](protocol::writer &writer) {
-            // TODO: IGNITE-19399 Implement transactions support.
-            writer.write_nil();
+            if (tx)
+                writer.write(*tx);
+            else
+                writer.write_nil();
 
             writer.write(schema);
             writer.write(m_connection.get_configuration().get_page_size().get_value());
@@ -335,37 +345,35 @@ sql_result data_query::make_request_execute() {
 
             m_params.write(writer);
         });
+
+        m_connection.mark_transaction_non_empty();
+
+        auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
+        m_query_id = reader->read_object_nullable<std::int64_t>();
+
+        m_has_rowset = reader->read_bool();
+        m_has_more_pages = reader->read_bool();
+        m_was_applied = reader->read_bool();
+        m_rows_affected = reader->read_int64();
+
+        if (m_has_rowset) {
+            auto columns = read_meta(*reader);
+            set_resultset_meta(columns);
+            auto page = std::make_unique<result_page>(std::move(response), std::move(reader));
+            m_cursor = std::make_unique<cursor>(std::move(page));
+        }
+
+        m_executed = true;
     });
 
-    if (!success)
-        return sql_result::AI_ERROR;
-
-    auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
-
-    m_query_id = reader->read_object_nullable<std::int64_t>();
-
-    m_has_rowset = reader->read_bool();
-    m_has_more_pages = reader->read_bool();
-    m_was_applied = reader->read_bool();
-    m_rows_affected = reader->read_int64();
-
-    if (m_has_rowset) {
-        auto columns = read_meta(*reader);
-        set_resultset_meta(columns);
-        auto page = std::make_unique<result_page>(std::move(response), std::move(reader));
-        m_cursor = std::make_unique<cursor>(std::move(page));
-    }
-
-    m_executed = true;
-
-    return sql_result::AI_SUCCESS;
+    return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
 }
 
 sql_result data_query::make_request_close() {
     if (!m_query_id)
         return sql_result::AI_SUCCESS;
 
-    LOG_MSG("Closing m_cursor: " << *m_query_id);
+    LOG_MSG("Closing cursor: " << *m_query_id);
 
     auto success = m_diag.catch_errors([&] {
         UNUSED_VALUE m_connection.sync_request(
@@ -385,15 +393,12 @@ sql_result data_query::make_request_fetch(std::unique_ptr<result_page> &page) {
     auto success = m_diag.catch_errors([&] {
         response = m_connection.sync_request(detail::client_operation::SQL_CURSOR_NEXT_PAGE,
             [&](protocol::writer &writer) { writer.write(*m_query_id); });
+
+        auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
+        page = std::make_unique<result_page>(std::move(response), std::move(reader));
     });
 
-    if (!success)
-        return sql_result::AI_ERROR;
-
-    auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
-
-    page = std::make_unique<result_page>(std::move(response), std::move(reader));
-    return sql_result::AI_SUCCESS;
+    return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
 }
 
 sql_result data_query::make_request_resultset_meta() {
