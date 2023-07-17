@@ -169,8 +169,9 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
      * previous token, then updater is used to process the exception and calculate a new value.<br> This method can be called multiple times
      * for the same token, and doesn't complete the future created for this token. The future is supposed to be completed by storage
      * revision update or a call of {@link #complete(long)} in this case. If this method has been called at least once on the given token,
-     * the updater will receive a value that was evaluated by updater on previous call, as intermediate result.<br> As the order of multiple
-     * calls of this method on the same token is unknown, operations done by the updater must be commutative. For example:
+     * the updater will receive a value that was evaluated by updater on previous call, as intermediate result. If no update were done on
+     * the given token, the updated will immediately receive the value from the previous token, if it's completed. <br> As the order of
+     * multiple calls of this method on the same token is unknown, operations done by the updater must be commutative. For example:
      * <ul>
      *     <li>this method was called for token N-1 and updater evaluated the value V1;</li>
      *     <li>a storage revision update happened;</li>
