@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.distributionzones;
+package org.apache.ignite.internal.distributionzones.causalitydatanodes;
 
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -53,7 +53,12 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.distributionzones.BaseDistributionZoneManagerTest;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
+import org.apache.ignite.internal.distributionzones.Node;
+import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -189,7 +194,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Create the zone with immediate timers.
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                        new Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
@@ -198,7 +203,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Create the zone with not immediate timers.
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_2)
+                        new Builder(ZONE_NAME_2)
                                 .dataNodesAutoAdjustScaleUp(1)
                                 .dataNodesAutoAdjustScaleDown(1)
                                 .build()
@@ -264,7 +269,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Create the zone with immediate timers.
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                        new Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
@@ -273,7 +278,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Alter the zone with immediate timers.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
-                        new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                        new Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
@@ -297,7 +302,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Alter zones with not immediate scale up timer.
         distributionZoneManager.alterZone(ZONE_NAME_1,
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                        new Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(1)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
@@ -305,7 +310,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 .get(3, SECONDS);
 
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
-                        new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                        new Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(1)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
@@ -356,7 +361,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Create the zone with not immediate scale down timer.
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                        new Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(1)
                                 .build()
@@ -365,7 +370,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Alter the zone with not immediate scale down timer.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
-                        new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                        new Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(1)
                                 .build()
@@ -423,14 +428,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(30)
+//    @RepeatedTest(100)
     @Test
     void dataNodesUpdatedAfterScaleUpChanged() throws Exception {
         // Prerequisite.
 
         // Create the zone with immediate timers.
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                        new Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
@@ -460,7 +465,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Changes a scale up timer to not immediate.
         distributionZoneManager.alterZone(
                         ZONE_NAME_1,
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                        new Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(10000)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
@@ -494,14 +499,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(30)
+//    @RepeatedTest(100)
     @Test
     void dataNodesUpdatedAfterScaleDownChanged() throws Exception {
         // Prerequisite.
 
         // Create the zone with immediate scale up timer and not immediate scale down timer.
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                        new Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(10000)
                                 .build()
@@ -558,14 +563,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(30)
+//    @RepeatedTest(100)
     @Test
     void scheduleScaleUpTaskThenDropZone() throws Exception {
         // Prerequisite.
 
         // Create the zone with immediate timers.
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                        new Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
@@ -586,7 +591,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Alter the zones with not immediate scale up timer.
         distributionZoneManager.alterZone(ZONE_NAME_1,
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                        new Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(10000)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
@@ -629,14 +634,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(30)
+//    @RepeatedTest(100)
     @Test
     void scheduleScaleDownTaskThenDropZone() throws Exception {
         // Prerequisite.
 
         // Create the zone with immediate scale up timer and not immediate scale down timer.
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                        new Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(10000)
                                 .build()
@@ -695,14 +700,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(30)
+//    @RepeatedTest(100)
     @Test
     void changeFilter() throws Exception {
         // Prerequisite.
 
         // Create the zone with immediate timers.
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                        new Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
@@ -711,7 +716,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Alter the zone with immediate timers.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
-                        new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                        new Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
@@ -737,7 +742,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Alter the zones with infinite timers.
         distributionZoneManager.alterZone(ZONE_NAME_1,
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                        new Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                                 .build()
@@ -746,7 +751,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Alter the zone with infinite timers.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
-                        new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                        new Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                                 .build()
@@ -771,7 +776,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     }
 
-    @RepeatedTest(30)
+//    @RepeatedTest(100)
     @Test
     void createZoneWithNotImmediateTimers() throws Exception {
         // Prerequisite.
@@ -801,7 +806,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(30)
+//    @RepeatedTest(100)
     @Test
     void createThenDropZone() throws Exception {
         // Prerequisite.
@@ -839,7 +844,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(30)
+//    @RepeatedTest(100)
     @Test
     void validationTest() {
         assertThrowsWithCause(() -> distributionZoneManager.dataNodes(0, DEFAULT_ZONE_ID), IllegalArgumentException.class);
@@ -854,21 +859,21 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(30)
+//    @RepeatedTest(100)
     @Test
     void simpleTopologyChanges() throws Exception {
         // Prerequisite.
 
         // Create zones with immediate timers.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
-                        new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                        new Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
                 )
                 .get(3, SECONDS);
 
-        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+        distributionZoneManager.createZone(new Builder(ZONE_NAME_1)
                         .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                         .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                         .build()
@@ -925,7 +930,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertEquals(twoNodesNames1, dataNodes10);
     }
 
-    @RepeatedTest(30)
+//    @RepeatedTest(100)
     @Test
     void deadlocks() throws Exception {
         prepareZonesWithOneDataNodes();
@@ -1095,28 +1100,28 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private long prepareZonesWithOneDataNodes() throws Exception {
         // Create zones with immediate timers.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
-                        new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                        new Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
                 )
                 .get(3, SECONDS);
 
-        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+        distributionZoneManager.createZone(new Builder(ZONE_NAME_1)
                         .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                         .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                         .build()
                 )
                 .get(3, SECONDS);
 
-        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_2)
+        distributionZoneManager.createZone(new Builder(ZONE_NAME_2)
                         .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                         .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                         .build()
                 )
                 .get(3, SECONDS);
 
-        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_3)
+        distributionZoneManager.createZone(new Builder(ZONE_NAME_3)
                         .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                         .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                         .build()
@@ -1151,7 +1156,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     private void prepareZonesTimerValuesToTest() throws Exception {
         distributionZoneManager.alterZone(ZONE_NAME_1,
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
+                        new Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                                 .build()
@@ -1159,7 +1164,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 .get(3, SECONDS);
 
         distributionZoneManager.alterZone(ZONE_NAME_2,
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_2)
+                        new Builder(ZONE_NAME_2)
                                 .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
@@ -1167,7 +1172,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 .get(3, SECONDS);
 
         distributionZoneManager.alterZone(ZONE_NAME_3,
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_3)
+                        new Builder(ZONE_NAME_3)
                                 .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                                 .build()
@@ -1345,7 +1350,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         createZoneRevisions.put(zoneId, revisionFut);
 
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(zoneName)
+                        new Builder(zoneName)
                                 .dataNodesAutoAdjustScaleUp(scaleUp)
                                 .dataNodesAutoAdjustScaleDown(scaleDown)
                                 .build()

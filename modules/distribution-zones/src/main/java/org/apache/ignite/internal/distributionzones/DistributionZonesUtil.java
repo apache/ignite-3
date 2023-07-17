@@ -171,7 +171,7 @@ public class DistributionZonesUtil {
      *
      * @return ByteArray representation.
      */
-    static ByteArray zonesLogicalTopologyPrefix() {
+    public static ByteArray zonesLogicalTopologyPrefix() {
         return new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX);
     }
 
@@ -230,7 +230,7 @@ public class DistributionZonesUtil {
     /**
      * The key prefix needed for processing an event about zone's data nodes.
      */
-    static ByteArray zonesDataNodesPrefix() {
+    public static ByteArray zonesDataNodesPrefix() {
         return DISTRIBUTION_ZONES_DATA_NODES_KEY;
     }
 
