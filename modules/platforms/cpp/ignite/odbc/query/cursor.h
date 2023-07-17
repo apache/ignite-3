@@ -46,14 +46,12 @@ public:
      *
      * @return False if data update required or no more data.
      */
-    bool next(const column_meta_vector &columns)
-    {
+    bool next(const column_meta_vector &columns) {
         if (!has_data())
             return false;
 
         ++m_page_pos;
-        if (std::uint32_t(m_page_pos) >= m_current_page->get_size())
-        {
+        if (std::uint32_t(m_page_pos) >= m_current_page->get_size()) {
             m_current_page.reset();
             return false;
         }
@@ -78,10 +76,7 @@ public:
      *
      * @return True if the cursor has data.
      */
-    [[nodiscard]] bool has_data() const
-    {
-        return bool(m_current_page);
-    }
+    [[nodiscard]] bool has_data() const { return bool(m_current_page); }
 
     /**
      * Update current cursor page data.

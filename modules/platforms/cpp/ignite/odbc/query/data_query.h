@@ -130,7 +130,7 @@ private:
      * @return true, if all cursors closed remotely.
      */
     [[nodiscard]] bool is_closed_remotely() const {
-        return !m_has_more_pages;
+        return !has_more_pages();
     }
 
     /**
