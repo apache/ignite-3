@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.registry;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.schema.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -85,6 +86,7 @@ public class UpgradingRowAdapterTest {
         SchemaDescriptor schema = new SchemaDescriptor(1,
                 new Column[]{new Column("keyUuidCol", NativeTypes.UUID, false)},
                 new Column[]{
+                        new Column("valBooleanCol", BOOLEAN, true),
                         new Column("valByteCol", INT8, true),
                         new Column("valShortCol", INT16, true),
                         new Column("valIntCol", INT32, true),
@@ -107,6 +109,7 @@ public class UpgradingRowAdapterTest {
                 new Column[]{new Column("keyUuidCol", NativeTypes.UUID, false)},
                 new Column[]{
                         new Column("added", INT8, true),
+                        new Column("valBooleanCol", BOOLEAN, true),
                         new Column("valByteCol", INT8, true),
                         new Column("valShortCol", INT16, true),
                         new Column("valIntCol", INT32, true),
@@ -223,6 +226,10 @@ public class UpgradingRowAdapterTest {
                 NativeType type = schema.column(i).type();
 
                 switch (type.spec()) {
+                    case BOOLEAN:
+                        asm.appendBoolean((Boolean) vals.get(i));
+                        break;
+
                     case INT8:
                         asm.appendByte((Byte) vals.get(i));
                         break;

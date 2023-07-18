@@ -41,6 +41,8 @@ public class ColumnAccessCodeGenerator {
      */
     public static ColumnAccessCodeGenerator createAccessor(BinaryMode mode, String fieldName, int colIdx) {
         switch (mode) {
+            case P_BOOLEAN:
+                return new ColumnAccessCodeGenerator("booleanValue", "appendBoolean", boolean.class, fieldName, colIdx);
             case P_BYTE:
                 return new ColumnAccessCodeGenerator("byteValue", "appendByte", byte.class, fieldName, colIdx);
             case P_SHORT:
@@ -53,6 +55,8 @@ public class ColumnAccessCodeGenerator {
                 return new ColumnAccessCodeGenerator("floatValue", "appendFloat", float.class, fieldName, colIdx);
             case P_DOUBLE:
                 return new ColumnAccessCodeGenerator("doubleValue", "appendDouble", double.class, fieldName, colIdx);
+            case BOOLEAN:
+                return new ColumnAccessCodeGenerator("booleanValueBoxed", "appendBoolean", Boolean.class, fieldName, colIdx);
             case BYTE:
                 return new ColumnAccessCodeGenerator("byteValueBoxed", "appendByte", Byte.class, fieldName, colIdx);
             case SHORT:

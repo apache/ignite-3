@@ -48,7 +48,8 @@ void tables_impl::get_tables_async(ignite_callback<std::vector<table>> callback)
         tables.reserve(reader.read_map_size());
 
         reader.read_map<std::int32_t, std::string>([conn, &tables](auto &&id, auto &&name) {
-            auto table0 = std::make_shared<table_impl>(std::forward<std::string>(name), std::forward<std::int32_t>(id), conn);
+            auto table0 =
+                std::make_shared<table_impl>(std::forward<std::string>(name), std::forward<std::int32_t>(id), conn);
             tables.push_back(table{table0});
         });
 

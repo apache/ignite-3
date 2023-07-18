@@ -36,6 +36,20 @@ public interface MarshallerReader {
     void skipValue();
 
     /**
+     * Reads a boolean.
+     *
+     * @return Value.
+     */
+    boolean readBoolean();
+
+    /**
+     * Reads a boolean.
+     *
+     * @return Value.
+     */
+    Boolean readBooleanBoxed();
+
+    /**
      * Reads a byte.
      *
      * @return Value.

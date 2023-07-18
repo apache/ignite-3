@@ -27,8 +27,7 @@ namespace ignite {
  * @tparam T Type of the value.
  */
 template<typename T>
-class value_with_default
-{
+class value_with_default {
 public:
     /** Type of the value. */
     typedef T value_type;
@@ -48,16 +47,12 @@ public:
      *
      * @return Value or default value if not set.
      */
-    const value_type& get_value() const {
-        return m_value;
-    }
+    const value_type &get_value() const { return m_value; }
 
     /**
      * Check whether value is set to non-default.
      */
-    [[nodiscard]] bool is_set() const {
-        return m_set;
-    }
+    [[nodiscard]] bool is_set() const { return m_set; }
 
 private:
     /** Current value. */

@@ -18,10 +18,10 @@
 #pragma once
 
 #include "ignite/client/detail/cluster_connection.h"
-#include "ignite/client/primitive.h"
 #include "ignite/client/sql/result_set.h"
 #include "ignite/client/sql/sql_statement.h"
 #include "ignite/client/transaction/transaction.h"
+#include "ignite/common/primitive.h"
 
 #include <memory>
 #include <utility>

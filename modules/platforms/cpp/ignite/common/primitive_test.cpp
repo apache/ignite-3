@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include "primitive.h"
+#include "ignite/common/primitive.h"
 
 #include <gtest/gtest.h>
 

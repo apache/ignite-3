@@ -283,11 +283,6 @@ public class TypeUtils {
                                                             ? SqlFunctions.toDouble(num) :
                                                             BigDecimal.class.equals(storageType) ? SqlFunctions.toBigDecimal(num) : num;
         } else {
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-17298 SQL: Support BOOLEAN datatype.
-            //   Fix this after BOOLEAN type supported is implemented.
-            if (storageType == Boolean.class || storageType == boolean.class) {
-                return val;
-            }
             var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
             assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
 
@@ -319,11 +314,6 @@ public class TypeUtils {
         } else if (storageType == byte[].class && val instanceof ByteString) {
             return ((ByteString) val).getBytes();
         } else {
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-17298 SQL: Support BOOLEAN datatype.
-            //   Fix this after BOOLEAN type supported is implemented.
-            if (storageType == Boolean.class) {
-                return val;
-            }
             var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
             assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
 
@@ -420,6 +410,8 @@ public class TypeUtils {
      */
     public static RelDataType native2relationalType(RelDataTypeFactory factory, NativeType nativeType) {
         switch (nativeType.spec()) {
+            case BOOLEAN:
+                return factory.createSqlType(SqlTypeName.BOOLEAN);
             case INT8:
                 return factory.createSqlType(SqlTypeName.TINYINT);
             case INT16:
@@ -493,7 +485,7 @@ public class TypeUtils {
     public static NativeType columnType2NativeType(ColumnType columnType, int precision, int scale) {
         switch (columnType) {
             case BOOLEAN:
-                throw new IllegalArgumentException("No NativeType for type: " + columnType);
+                return NativeTypes.BOOLEAN;
             case INT8:
                 return NativeTypes.INT8;
             case INT16:

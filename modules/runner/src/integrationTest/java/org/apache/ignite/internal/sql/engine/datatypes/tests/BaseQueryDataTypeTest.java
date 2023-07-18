@@ -23,7 +23,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.stream.Stream;
-import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -107,7 +107,7 @@ public abstract class BaseQueryDataTypeTest<T extends Comparable<T>> extends Bas
 
         runSql("INSERT INTO t VALUES(1, ?)", value1);
 
-        var err = assertThrows(CalciteContextException.class, () -> {
+        var err = assertThrows(IgniteException.class, () -> {
             checkQuery("SELECT id FROM t where test_key = ? ORDER BY id")
                     .withParams(arguments.argValue(0))
                     .returns(1)
