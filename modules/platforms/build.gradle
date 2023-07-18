@@ -60,7 +60,9 @@ cmake {
     generator='Unix Makefiles'
     buildConfig='Release'
     buildTarget='install'
-    getDef().put('ENABLE_ODBC', 'ON')
+    getDef().ENABLE_ODBC='ON'
+    getDef().CMAKE_INSTALL_PREFIX="$buildDir/install"
+    getDef().WARNINGS_AS_ERRORS='ON'
 }
 
 task buildNuGet(type: Exec) {
