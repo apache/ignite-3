@@ -49,7 +49,6 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 
 /**

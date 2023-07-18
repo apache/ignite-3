@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -125,8 +126,8 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(1L)
                 .check();
 
-        var ex = assertThrows(
-                SqlException.class,
+        var ex = assertThrowsSqlException(
+                CONSTRAINT_VIOLATION_ERR,
                 () -> sql("INSERT INTO test VALUES (0, 0), (1, 1), (2, 2)")
         );
 
@@ -175,8 +176,8 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .map(Object::toString)
                 .collect(Collectors.joining("), (", "(", ")"));
 
-        SqlException ex = assertThrows(
-                SqlException.class,
+        SqlException ex = assertThrowsSqlException(
+                CONSTRAINT_VIOLATION_ERR,
                 () -> sql(insertStatement)
         );
 
@@ -385,7 +386,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE TABLE test2 (k int PRIMARY KEY, a int, b int)");
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> sql(
+        SqlException ex = assertThrowsSqlException(CONSTRAINT_VIOLATION_ERR, () -> sql(
                         "MERGE INTO test2 USING test1 ON test1.a = test2.a "
                                 + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
                                 + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));

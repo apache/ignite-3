@@ -93,7 +93,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
