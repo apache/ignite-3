@@ -1854,7 +1854,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForInsert(searchRow, rowId0, txId)
                             .thenCompose(rowIdLock -> applyUpdateCommand(
-                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId, full))
+                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow, txId, full))
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1876,7 +1876,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return lockFut
                             .thenCompose(rowIdLock -> applyUpdateCommand(
-                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId, full))
+                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow, txId, full))
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1898,7 +1898,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return lockFut
                             .thenCompose(rowIdLock -> applyUpdateCommand(
-                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId, full))
+                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow, txId, full))
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1916,7 +1916,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
                             .thenCompose(rowIdLock -> applyUpdateCommand(
-                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow.byteBuffer(), txId, full))
+                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow, txId, full))
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1934,7 +1934,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
                             .thenCompose(rowLock -> applyUpdateCommand(
-                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow.byteBuffer(), txId, full))
+                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow, txId, full))
                                     .thenApply(ignored -> rowLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -2096,7 +2096,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             }
 
                             return applyUpdateCommand(
-                                    updateCommand(commitPartitionId, validatedRowId.get1().uuid(), newRow.byteBuffer(), txId,
+                                    updateCommand(commitPartitionId, validatedRowId.get1().uuid(), newRow, txId,
                                             request.full()))
                                     .thenApply(ignored -> validatedRowId)
                                     .thenApply(rowIdLock -> {
@@ -2339,12 +2339,12 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param tablePartId {@link TablePartitionId} object to construct {@link UpdateCommand} object with.
      * @param rowUuid Row UUID.
-     * @param rowBuf {@link ByteBuffer} representation of {@link BinaryRow}.
+     * @param row Row.
      * @param txId Transaction ID.
      * @param full {@code True} if this is a full transaction.
      * @return Constructed {@link UpdateCommand} object.
      */
-    private UpdateCommand updateCommand(TablePartitionId tablePartId, UUID rowUuid, @Nullable ByteBuffer rowBuf, UUID txId, boolean full) {
+    private UpdateCommand updateCommand(TablePartitionId tablePartId, UUID rowUuid, @Nullable BinaryRow row, UUID txId, boolean full) {
         UpdateCommandBuilder bldr = MSG_FACTORY.updateCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowUuid(rowUuid)
@@ -2352,8 +2352,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .full(full)
                 .safeTimeLong(hybridClock.nowLong());
 
-        if (rowBuf != null) {
-            bldr.rowBuffer(rowBuf);
+        if (row != null) {
+            bldr.rowBuffer(row.byteBuffer());
         }
 
         return bldr.build();

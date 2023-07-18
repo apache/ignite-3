@@ -385,7 +385,6 @@ public class DdlSqlToCommandConverter {
         alterTblCmd.schemaName(deriveSchemaName(alterTblNode.name(), ctx));
         alterTblCmd.tableName(deriveObjectName(alterTblNode.name(), ctx, "table name"));
         alterTblCmd.ifTableExists(alterTblNode.ifExists());
-        alterTblCmd.ifColumnNotExists(alterTblNode.ifNotExistsColumn());
 
         List<ColumnDefinition> cols = new ArrayList<>(alterTblNode.columns().size());
 
@@ -468,7 +467,6 @@ public class DdlSqlToCommandConverter {
         alterTblCmd.schemaName(deriveSchemaName(alterTblNode.name(), ctx));
         alterTblCmd.tableName(deriveObjectName(alterTblNode.name(), ctx, "table name"));
         alterTblCmd.ifTableExists(alterTblNode.ifExists());
-        alterTblCmd.ifColumnExists(alterTblNode.ifExistsColumn());
 
         Set<String> cols = new HashSet<>(alterTblNode.columns().size());
         alterTblNode.columns().forEach(c -> cols.add(((SqlIdentifier) c).getSimple()));
@@ -876,6 +874,8 @@ public class DdlSqlToCommandConverter {
                 case BINARY:
                 case VARBINARY:
                     return literal.getValueAs(byte[].class);
+                case BOOLEAN:
+                    return literal.getValueAs(Boolean.class);
                 default:
                     throw new IllegalStateException("Unknown type [type=" + columnType + ']');
             }
@@ -926,6 +926,8 @@ public class DdlSqlToCommandConverter {
                     return literal.getValueAs(Float.class);
                 case BYTE_ARRAY:
                     return literal.getValueAs(byte[].class);
+                case BOOLEAN:
+                    return literal.getValueAs(Boolean.class);
                 default:
                     throw new IllegalStateException("Unknown type [type=" + columnType + ']');
             }

@@ -145,7 +145,6 @@ public class SessionBuilderImpl implements SessionBuilder {
                 sessionId,
                 qryProc,
                 pageSize,
-                sessionTimeout,
                 propsHolder
         );
     }

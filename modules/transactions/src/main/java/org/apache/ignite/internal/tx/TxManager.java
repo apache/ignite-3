@@ -69,11 +69,10 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @param before Before state.
      * @param after After state.
-     * @return {@code True} if a state was changed.
      */
     // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
     @Deprecated
-    boolean changeState(UUID txId, @Nullable TxState before, TxState after);
+    void changeState(UUID txId, @Nullable TxState before, TxState after);
 
     /**
      * Returns lock manager.
@@ -128,6 +127,14 @@ public interface TxManager extends IgniteComponent {
      */
     @TestOnly
     int finished();
+
+    /**
+     * Returns a number of pending transactions, that is, transactions that have not yet been committed or rolled back.
+     *
+     * @return A number of pending transactions.
+     */
+    @TestOnly
+    int pending();
 
     /**
      * Updates the low watermark, the value is expected to only increase.

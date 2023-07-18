@@ -24,7 +24,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -32,6 +35,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteQuadFunction;
 import org.apache.ignite.lang.IgniteTriFunction;
+import org.apache.ignite.lang.TraceableException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -436,5 +440,31 @@ public final class ExceptionUtils {
         }
 
         return supplier.apply(UUID.randomUUID(), defaultCode, t.getMessage(), t);
+    }
+
+    /**
+     * Returns trace identifier from the provided throwable if it is an instance of {@link TraceableException}
+     * or it has a cause that is an instance of {@link TraceableException}. Otherwise a new trace identifier is generated.
+     *
+     * @param t Throwable to extract a trace identifier.
+     * @return Returns trace identifier.
+     */
+    public static UUID getOrCreateTraceId(Throwable t) {
+        Throwable e = t;
+
+        // This collection is used to avoid infinite loops in case of cyclic dependencies.
+        Set<Throwable> dejaVu = Collections.newSetFromMap(new IdentityHashMap<>());
+
+        while (e != null) {
+            if (e instanceof TraceableException) {
+                return ((TraceableException) e).traceId();
+            }
+            if (!dejaVu.add(e)) {
+                break;
+            }
+            e = e.getCause();
+        }
+
+        return UUID.randomUUID();
     }
 }

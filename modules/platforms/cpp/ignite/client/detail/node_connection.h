@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <ignite/client/detail/client_operation.h>
+#include "ignite/protocol/client_operation.h"
 #include <ignite/client/detail/protocol_context.h>
 #include <ignite/client/detail/response_handler.h>
 #include <ignite/client/ignite_client_configuration.h>
@@ -68,7 +68,7 @@ public:
      * @return New instance.
      */
     static std::shared_ptr<node_connection> make_new(uint64_t id, std::shared_ptr<network::async_client_pool> pool,
-        std::shared_ptr<ignite_logger> logger, const ignite_client_configuration& cfg) {
+        std::shared_ptr<ignite_logger> logger, const ignite_client_configuration &cfg) {
         return std::shared_ptr<node_connection>(new node_connection(id, std::move(pool), std::move(logger), cfg));
     }
 
@@ -242,7 +242,7 @@ private:
     std::shared_ptr<ignite_logger> m_logger;
 
     /** Configuration. */
-    const ignite_client_configuration& m_configuration;
+    const ignite_client_configuration &m_configuration;
 };
 
 } // namespace ignite::detail

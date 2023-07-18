@@ -24,6 +24,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Internal.Buffers;
+using NUnit.Framework;
 
 [SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "Tests.")]
 public abstract class IgniteServerBase : IDisposable
@@ -47,6 +48,9 @@ public abstract class IgniteServerBase : IDisposable
 
         _listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
         _listener.Listen(backlog: 1);
+
+        Console.WriteLine($"Fake server started [port={Port}, test={TestContext.CurrentContext.Test.Name}]");
+
         Task.Run(ListenLoop);
     }
 

@@ -220,6 +220,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertNotNull(res);
         assertNotNull(binRes);
 
+        assertNull(res.zboolean);
         assertNull(res.zbyte);
         assertNull(res.zshort);
         assertNull(res.zint);

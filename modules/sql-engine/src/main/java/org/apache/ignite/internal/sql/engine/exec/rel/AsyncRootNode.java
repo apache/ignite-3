@@ -160,7 +160,6 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
                     source.context().execute(() -> {
                         try {
                             source.close();
-                            source.context().cancel();
 
                             cancelFut.complete(null);
                         } catch (Throwable t) {
@@ -175,7 +174,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
             }
         }
 
-        return cancelFut.thenApply(Function.identity());
+        return cancelFut;
     }
 
     /**

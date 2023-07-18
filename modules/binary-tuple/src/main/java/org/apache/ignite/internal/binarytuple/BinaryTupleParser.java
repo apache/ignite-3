@@ -29,6 +29,7 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.internal.util.ByteUtils;
 
 /**
  * Binary tuple parser allows to get bytes of individual elements from entirety of tuple bytes.
@@ -155,6 +156,23 @@ public class BinaryTupleParser {
 
             entry += entrySize;
         }
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    public final boolean booleanValue(int begin, int end) {
+        int len = end - begin;
+
+        if (len == Byte.BYTES) {
+            return ByteUtils.byteToBoolean(buffer.get(begin));
+        }
+
+        throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
     }
 
     /**

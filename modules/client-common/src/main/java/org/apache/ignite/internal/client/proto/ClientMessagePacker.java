@@ -26,7 +26,7 @@ import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
 
 /**
  * ByteBuf-based MsgPack implementation. Replaces {@link org.msgpack.core.MessagePacker} to avoid
@@ -609,18 +609,11 @@ public class ClientMessagePacker implements AutoCloseable {
     /**
      * Packs binary tuple.
      *
-     * @param binaryTupleReader Binary tuple parser.
-     * @param elementCount Number of elements to pack. When {@code -1} all elements are packed.
+     * @param binaryTupleParser Binary tuple parser.
      */
-    public void packBinaryTuple(BinaryTupleReader binaryTupleReader, int elementCount) {
-        ByteBuffer buf = binaryTupleReader.byteBuffer();
+    public void packBinaryTuple(BinaryTupleParser binaryTupleParser) {
+        ByteBuffer buf = binaryTupleParser.byteBuffer();
         int len = buf.limit() - buf.position();
-
-        if (elementCount > -1) {
-            binaryTupleReader.seek(elementCount - 1);
-            len = binaryTupleReader.end();
-            buf.limit(len + buf.position());
-        }
 
         packBinaryHeader(len);
         writePayload(buf);

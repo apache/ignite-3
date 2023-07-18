@@ -31,10 +31,12 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
@@ -737,6 +739,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     private static void validateCreateTableParams(CreateTableParams params) {
+        // Table must have columns.
+        if (params.columns().isEmpty()) {
+            throw new IgniteInternalException(ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR, "Table must include at least one column.");
+        }
+
+        // Column names must be unique.
         params.columns().stream()
                 .map(ColumnParams::name)
                 .filter(Predicate.not(new HashSet<>()::add))
@@ -749,11 +757,63 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                     );
                 });
 
+        // Table must have PK columns.
         if (params.primaryKeyColumns().isEmpty()) {
             throw new IgniteInternalException(
                     ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                    "Missing primary key columns"
+                    "Table without primary key is not supported."
             );
+        }
+
+        // PK columns must be valid columns.
+        Set<String> columns = params.columns().stream().map(ColumnParams::name).collect(Collectors.toSet());
+        params.primaryKeyColumns().stream()
+                .filter(Predicate.not(columns::contains))
+                .findAny()
+                .ifPresent(columnName -> {
+                    throw new IgniteInternalException(
+                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                            "Invalid primary key columns: {}",
+                            params.columns().stream().map(ColumnParams::name).collect(joining(", "))
+                    );
+                });
+
+        // PK column names must be unique.
+        params.primaryKeyColumns().stream()
+                .filter(Predicate.not(new HashSet<>()::add))
+                .findAny()
+                .ifPresent(columnName -> {
+                    throw new IgniteInternalException(
+                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                            "Primary key columns contains duplicates: {}",
+                            String.join(", ", params.primaryKeyColumns())
+                    );
+                });
+
+        List<String> colocationCols = params.colocationColumns();
+        if (colocationCols != null) {
+            // Colocation columns must be unique
+            colocationCols.stream()
+                    .filter(Predicate.not(new HashSet<>()::add))
+                    .findAny()
+                    .ifPresent(columnName -> {
+                        throw new IgniteInternalException(
+                                ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                                "Colocation columns contains duplicates: {}",
+                                String.join(", ", colocationCols)
+                        );
+                    });
+
+            // Colocation column must be valid PK column
+            Set<String> pkColumns = new HashSet<>(params.primaryKeyColumns());
+            List<String> outstandingColumns = colocationCols.stream()
+                    .filter(Predicate.not(pkColumns::contains))
+                    .collect(Collectors.toList());
+            if (!outstandingColumns.isEmpty()) {
+                throw new IgniteInternalException(
+                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                        "Colocation columns must be subset of primary key: outstandingColumns=" + outstandingColumns);
+            }
         }
     }
 
@@ -764,13 +824,13 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     ) {
         for (String columnName : params.columns()) {
             if (table.column(columnName) == null) {
-                throw new ColumnNotFoundException(columnName);
+                throw new ColumnNotFoundException(schema.name(), params.tableName(), columnName);
             }
 
             if (table.isPrimaryKeyColumn(columnName)) {
                 throw new SqlException(
                         Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR,
-                        "Can't drop primary key column: [column={}]",
+                        "Can't drop primary key column: [name={}]",
                         columnName
                 );
             }

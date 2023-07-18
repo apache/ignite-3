@@ -23,7 +23,6 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_EXPIRED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_SQL_OPERATION_KIND_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
@@ -41,8 +40,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -81,11 +78,11 @@ import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 import org.apache.ignite.internal.sql.engine.session.SessionManager;
 import org.apache.ignite.internal.sql.engine.session.SessionProperty;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
-import org.apache.ignite.internal.sql.engine.sql.ParseResult;
-import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
+import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
+import org.apache.ignite.internal.sql.engine.sql.ParserService;
+import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -110,11 +107,10 @@ import org.jetbrains.annotations.Nullable;
 public class SqlQueryProcessor implements QueryProcessor {
     private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
 
-    /** Default planner timeout, in ms. */
-    private static final long PLANNER_TIMEOUT = 15000L;
-
     /** Size of the cache for query plans. */
     private static final int PLAN_CACHE_SIZE = 1024;
+
+    private static final int PARSED_RESULT_CACHE_SIZE = 10_000;
 
     /** Size of the table access cache. */
     private static final int TABLE_CACHE_SIZE = 1024;
@@ -135,6 +131,10 @@ public class SqlQueryProcessor implements QueryProcessor {
             .set(QueryProperty.DEFAULT_SCHEMA, DEFAULT_SCHEMA_NAME)
             .set(SessionProperty.IDLE_TIMEOUT, DEFAULT_SESSION_IDLE_TIMEOUT)
             .build();
+
+    private final ParserService parserService = new ParserServiceImpl(
+            PARSED_RESULT_CACHE_SIZE, CaffeineCacheFactory.INSTANCE
+    );
 
     private final List<LifecycleAware> services = new ArrayList<>();
 
@@ -420,16 +420,12 @@ public class SqlQueryProcessor implements QueryProcessor {
         AtomicReference<InternalTransaction> tx = new AtomicReference<>();
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
-                .thenApply(v -> {
-                    StatementParseResult parseResult = IgniteSqlParser.parse(sql, StatementParseResult.MODE);
-                    SqlNode sqlNode = parseResult.statement();
+                .thenCompose(ignored -> {
+                    ParsedResult result = parserService.parse(sql);
 
-                    validateParsedStatement(context, outerTx, parseResult, sqlNode, params);
+                    validateParsedStatement(context, outerTx, result, params);
 
-                    return sqlNode;
-                })
-                .thenCompose(sqlNode -> {
-                    boolean rwOp = dataModificationOp(sqlNode);
+                    boolean rwOp = dataModificationOp(result);
 
                     boolean implicitTxRequired = outerTx == null;
 
@@ -450,10 +446,9 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .logger(LOG)
                             .cancel(queryCancel)
                             .parameters(params)
-                            .plannerTimeout(PLANNER_TIMEOUT)
                             .build();
 
-                    return prepareSvc.prepareAsync(sqlNode, ctx)
+                    return prepareSvc.prepareAsync(result, ctx)
                             .thenApply(plan -> {
                                 var dataCursor = executionSrvc.executePlan(tx.get(), plan, ctx);
 
@@ -609,26 +604,19 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     /** Returns {@code true} if this is data modification operation. */
-    private static boolean dataModificationOp(SqlNode sqlNode) {
-        return SqlKind.DML.contains(sqlNode.getKind());
+    private static boolean dataModificationOp(ParsedResult parsedResult) {
+        return parsedResult.queryType() == SqlQueryType.DML;
     }
 
     /** Performs additional validation of a parsed statement. **/
     private static void validateParsedStatement(
             QueryContext context,
-            InternalTransaction outerTx,
-            ParseResult parseResult,
-            SqlNode node,
+            @Nullable InternalTransaction outerTx,
+            ParsedResult parsedResult,
             Object[] params
     ) {
         Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
-        SqlQueryType queryType = Commons.getQueryType(node);
-
-        if (queryType == null) {
-            throw new IgniteInternalException(UNSUPPORTED_SQL_OPERATION_KIND_ERR, "Unsupported operation ["
-                    + "sqlNodeKind=" + node.getKind() + "; "
-                    + "querySql=\"" + node + "\"]");
-        }
+        SqlQueryType queryType = parsedResult.queryType();
 
         if (!allowedTypes.contains(queryType)) {
             String message = format("Invalid SQL statement type in the batch. Expected {} but got {}.", allowedTypes, queryType);
@@ -640,10 +628,10 @@ public class SqlQueryProcessor implements QueryProcessor {
             throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, "DDL doesn't support transactions.");
         }
 
-        if (parseResult.dynamicParamsCount() != params.length) {
+        if (parsedResult.dynamicParamsCount() != params.length) {
             String message = format(
                     "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
-                    params.length, parseResult.dynamicParamsCount()
+                    params.length, parsedResult.dynamicParamsCount()
             );
 
             throw new SqlException(QUERY_INVALID_ERR, message);

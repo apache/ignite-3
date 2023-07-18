@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.tx.TxState.ABORTED;
+import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -148,6 +151,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                         id()
                                 );
                             } else {
+                                // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
+                                txManager.changeState(id(), PENDING, commit ? COMMITED : ABORTED);
+
                                 return completedFuture(null);
                             }
                         }

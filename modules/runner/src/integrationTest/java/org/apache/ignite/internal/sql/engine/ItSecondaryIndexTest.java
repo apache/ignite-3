@@ -30,6 +30,7 @@ import java.time.LocalDate;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -965,6 +966,148 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
                     .check();
         } finally {
             sql("DROP TABLE IF EXISTS t");
+        }
+    }
+
+    /**
+     * Saturated value are placed in search bounds of a sorted index.
+     */
+    @Test
+    public void testSaturatedBoundsSortedIndex() {
+        sql("CREATE TABLE t100 (ID INTEGER PRIMARY KEY, VAL TINYINT)");
+        sql("CREATE INDEX t100_idx ON t100 (VAL)");
+
+        sql("INSERT INTO t100 VALUES (1, 127)");
+
+        assertQuery("SELECT * FROM t100 WHERE val = 1024").returnNothing().check();
+    }
+
+    /**
+     * Saturated value are placed in search bounds of a hash index.
+     */
+    @Test
+    public void testSaturatedBoundsHashIndex() {
+        sql("CREATE TABLE t200 (ID INTEGER PRIMARY KEY, VAL TINYINT)");
+        sql("CREATE INDEX t200_idx ON t200 USING HASH (VAL)");
+
+        sql("INSERT INTO t200 VALUES (1, 127)");
+
+        assertQuery("SELECT * FROM t200 WHERE val = 1024").returnNothing().check();
+    }
+
+    @Test
+    public void testScanBooleanField() {
+        try {
+            sql("CREATE TABLE t(i INTEGER PRIMARY KEY, b BOOLEAN)");
+            sql("INSERT INTO t VALUES (0, TRUE), (1, TRUE), (2, FALSE), (3, FALSE), (4, null)");
+            sql("CREATE INDEX t_idx ON t(b)");
+
+            assertQuery("SELECT i FROM t WHERE b = TRUE")
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .returns(0)
+                    .returns(1)
+                    .check();
+
+            assertQuery("SELECT i FROM t WHERE b = FALSE")
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .returns(2)
+                    .returns(3)
+                    .check();
+
+            assertQuery("SELECT i FROM t WHERE b IS TRUE")
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .returns(0)
+                    .returns(1)
+                    .check();
+
+            assertQuery("SELECT i FROM t WHERE b IS FALSE")
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .returns(2)
+                    .returns(3)
+                    .check();
+
+            assertQuery("SELECT i FROM t WHERE b IS NULL")
+                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .returns(4)
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS t");
+        }
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19964")
+    public void testScanBooleanFieldMostlyPopulatedWithTrueValues() {
+        try {
+            sql("CREATE TABLE t_true(i INTEGER PRIMARY KEY, b BOOLEAN)");
+            sql("INSERT INTO t_true VALUES (0, TRUE), (1, TRUE), (2, TRUE), (3, TRUE), (4, FALSE)");
+            sql("CREATE INDEX t_true_idx ON t_true(b)");
+
+            assertQuery("SELECT i FROM t_true WHERE b IS NOT TRUE")
+                    .matches(containsIndexScan("PUBLIC", "T_TRUE", "T_TRUE_IDX"))
+                    .returns(4)
+                    .check();
+
+            assertQuery("SELECT i FROM t_true WHERE b = FALSE or b is NULL")
+                    .matches(containsIndexScan("PUBLIC", "T_TRUE", "T_TRUE_IDX"))
+                    .returns(4)
+                    .check();
+
+            assertQuery("SELECT i FROM t_true WHERE b IS NOT FALSE")
+                    .matches(containsTableScan("PUBLIC", "T_TRUE"))
+                    .returns(0)
+                    .returns(1)
+                    .returns(2)
+                    .returns(3)
+                    .check();
+
+            assertQuery("SELECT i FROM t_true WHERE b = TRUE or b is NULL")
+                    .matches(containsTableScan("PUBLIC", "T_TRUE"))
+                    .returns(0)
+                    .returns(1)
+                    .returns(2)
+                    .returns(3)
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS t_true");
+        }
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19964")
+    public void testScanBooleanFieldMostlyPopulatedWithFalseValues() {
+        try {
+            sql("CREATE TABLE t_false(i INTEGER PRIMARY KEY, b BOOLEAN)");
+            sql("INSERT INTO t_false VALUES (0, FALSE), (1, FALSE), (2, FALSE), (3, FALSE), (4, TRUE)");
+            sql("CREATE INDEX t_false_idx ON t_false(b)");
+
+            assertQuery("SELECT i FROM t_false WHERE b IS NOT FALSE")
+                    .matches(containsIndexScan("PUBLIC", "T_FALSE", "T_FALSE_IDX"))
+                    .returns(4)
+                    .check();
+
+            assertQuery("SELECT i FROM t_false WHERE b = TRUE or b is NULL")
+                    .matches(containsIndexScan("PUBLIC", "T_FALSE", "T_FALSE_IDX"))
+                    .returns(4)
+                    .check();
+
+            assertQuery("SELECT i FROM t_false WHERE b IS NOT TRUE")
+                    .matches(containsTableScan("PUBLIC", "T_FALSE"))
+                    .returns(0)
+                    .returns(1)
+                    .returns(2)
+                    .returns(3)
+                    .check();
+
+            assertQuery("SELECT i FROM t_false WHERE b = FALSE or b is NULL")
+                    .matches(containsTableScan("PUBLIC", "T_FALSE"))
+                    .returns(0)
+                    .returns(1)
+                    .returns(2)
+                    .returns(3)
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS t_false");
         }
     }
 }

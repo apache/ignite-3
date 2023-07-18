@@ -97,9 +97,7 @@ public:
      *
      * @return Addresses.
      */
-    static std::vector<std::string> get_node_addrs() {
-        return ignite_runner::get_node_addrs();
-    }
+    static std::vector<std::string> get_node_addrs() { return ignite_runner::get_node_addrs(); }
 
     /**
      * Clear table @c TABLE_1.

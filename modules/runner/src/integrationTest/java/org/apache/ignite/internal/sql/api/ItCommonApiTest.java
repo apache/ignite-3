@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ErrorGroups.Sql;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Instant;
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -94,9 +94,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         ResultSet rs1 = ses1.execute(null, "SELECT id FROM TST");
         ResultSet rs2 = ses2.execute(null, "SELECT id FROM TST");
 
-        waitForCondition(() -> {
-            return queryProcessor().liveSessions().size() == 1;
-        }, 10_000);
+        waitForCondition(() -> queryProcessor().liveSessions().size() == 1, 10_000);
 
         // first session should be expired for the moment
         SqlException ex = assertThrows(SqlException.class, () -> ses1.execute(null, "SELECT 1 + 1"));
@@ -184,15 +182,12 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
     public void testTxStateChangedOnErroneousOp() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        // TODO: need to be refactored after https://issues.apache.org/jira/browse/IGNITE-19663
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19916 need to be refactored
         TxManager txManagerInternal =
                 (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
 
-        SqlQueryProcessor queryProc =
-                (SqlQueryProcessor) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "qryEngine");
-
         SqlSchemaManager oldManager =
-                (SqlSchemaManager) IgniteTestUtils.getFieldValue(queryProc, SqlQueryProcessor.class, "sqlSchemaManager");
+                (SqlSchemaManager) IgniteTestUtils.getFieldValue(queryProcessor(), SqlQueryProcessor.class, "sqlSchemaManager");
 
         int txPrevCnt = txManagerInternal.finished();
 
@@ -206,19 +201,22 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         }
 
         assertEquals(0, txManagerInternal.finished() - txPrevCnt);
+        assertEquals(1, txManagerInternal.pending());
         InternalTransaction tx0 = (InternalTransaction) tx;
-        assertNull(tx0.state());
+        assertEquals(TxState.PENDING, tx0.state());
 
         tx.rollback();
         assertEquals(1, txManagerInternal.finished() - txPrevCnt);
+        assertEquals(0, txManagerInternal.pending());
 
         sql("INSERT INTO TEST VALUES(1, 1)");
         assertEquals(2, txManagerInternal.finished() - txPrevCnt);
+        assertEquals(0, txManagerInternal.pending());
 
         var schemaManager = new ErroneousSchemaManager();
 
         // TODO: refactor after https://issues.apache.org/jira/browse/IGNITE-17694
-        IgniteTestUtils.setFieldValue(queryProc, "sqlSchemaManager", schemaManager);
+        IgniteTestUtils.setFieldValue(queryProcessor(), "sqlSchemaManager", schemaManager);
 
         try {
             sql("SELECT a FROM NOTEXIST.TEST");
@@ -232,9 +230,10 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
             // No op.
         }
 
-        assertEquals(2, txManagerInternal.finished() - txPrevCnt);
+        assertEquals(4, txManagerInternal.finished() - txPrevCnt);
+        assertEquals(0, txManagerInternal.pending());
 
-        IgniteTestUtils.setFieldValue(queryProc, "sqlSchemaManager", oldManager);
+        IgniteTestUtils.setFieldValue(queryProcessor(), "sqlSchemaManager", oldManager);
     }
 
     private static class ErroneousSchemaManager implements SqlSchemaManager {

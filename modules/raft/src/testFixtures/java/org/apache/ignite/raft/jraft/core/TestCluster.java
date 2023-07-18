@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.core;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -31,9 +32,11 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
@@ -390,22 +393,39 @@ public class TestCluster {
     }
 
     /**
-     * Wait until a leader is elected.
+     * Wait until a leader is elected and return it.
      * @throws InterruptedException
+     * @return Leader.
      */
-    public void waitLeader() throws InterruptedException {
-        Node node;
+    public Node waitAndGetLeader() throws InterruptedException {
+        AtomicReference<Node> node = new AtomicReference<>();
 
-        while (true) {
-            node = getLeader();
+        assertTrue(waitForCondition(() -> {
+            node.set(getLeader());
 
-            if (node != null) {
-                break;
-            }
-            else {
-                Thread.sleep(10);
-            }
-        }
+            return node.get() != null;
+        }, 10_000L));
+
+        return node.get();
+    }
+
+    /**
+     * Wait until a leader is elected and a leader is from the expected set of nodes {@code expectedLeaderPeer} and return it.
+     *
+     * @param expectedLeaderPeer Set of nodes with the expected node;
+     * @return Leader.
+     * @throws InterruptedException If failed.
+     */
+    public Node waitAndGetLeader(Set<PeerId> expectedLeaderPeer) throws InterruptedException {
+        AtomicReference<Node> node = new AtomicReference<>();
+
+        assertTrue(waitForCondition(() -> {
+            node.set(getLeader());
+
+            return node.get() != null && expectedLeaderPeer.contains(node.get().getNodeId().getPeerId());
+        }, 10_000L));
+
+        return node.get();
     }
 
     public List<Node> getFollowers() {
