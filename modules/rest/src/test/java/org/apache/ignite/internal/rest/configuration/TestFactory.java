@@ -65,6 +65,7 @@ public class TestFactory {
         );
 
         configurationRegistry.start();
+        configurationRegistry.persistDefaults().join();
 
         return configurationRegistry;
     }

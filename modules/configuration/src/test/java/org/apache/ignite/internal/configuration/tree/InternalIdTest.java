@@ -83,7 +83,7 @@ public class InternalIdTest {
     private ConfigurationTreeGenerator generator;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         generator = new ConfigurationTreeGenerator(
                 List.of(InternalIdParentConfiguration.KEY),
                 List.of(InternalIdInternalConfigurationSchema.class),
@@ -98,8 +98,7 @@ public class InternalIdTest {
         );
 
         registry.start();
-
-        registry.initializeDefaults();
+        registry.persistDefaults().get(1, TimeUnit.SECONDS);
     }
 
     @AfterEach

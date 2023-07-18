@@ -50,6 +50,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -162,7 +163,7 @@ public class ConfigurationListenerTest {
      * Before each.
      */
     @BeforeEach
-    public void before() {
+    public void before() throws Exception {
         storage = new TestConfigurationStorage(LOCAL);
 
         generator = new ConfigurationTreeGenerator(
@@ -178,8 +179,7 @@ public class ConfigurationListenerTest {
         );
 
         registry.start();
-
-        registry.initializeDefaults();
+        registry.persistDefaults().get(1, TimeUnit.SECONDS);
 
         config = registry.getConfiguration(ParentConfiguration.KEY);
     }

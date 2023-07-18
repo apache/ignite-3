@@ -221,6 +221,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         vault.putName(name).join();
 
         nodeCfgMgr.start();
+        nodeCfgMgr.configurationRegistry().persistDefaults();
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(

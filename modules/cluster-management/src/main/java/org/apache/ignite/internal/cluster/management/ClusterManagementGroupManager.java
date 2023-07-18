@@ -413,15 +413,12 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                         updateDistributedConfigurationActionFuture.completeExceptionally(e);
                     } else {
                         String configuration = state.clusterConfigurationToApply();
-                        if (configuration != null) {
-                            updateDistributedConfigurationActionFuture.complete(
-                                    new UpdateDistributedConfigurationAction(
-                                            configuration,
-                                            () -> removeClusterConfigFromClusterState(service)
-                                    ));
-                        } else {
-                            updateDistributedConfigurationActionFuture.cancel(true);
-                        }
+                        UpdateDistributedConfigurationAction action =
+                                configuration != null
+                                        ? new UpdateDistributedConfigurationAction(configuration,
+                                                () -> removeClusterConfigFromClusterState(service))
+                                        : UpdateDistributedConfigurationAction.NOP;
+                        updateDistributedConfigurationActionFuture.complete(action);
                     }
                 })
         );

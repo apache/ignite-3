@@ -25,9 +25,9 @@ import static org.apache.ignite.internal.configuration.FirstConfiguration.KEY;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.emptyString;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -131,6 +131,7 @@ public class ConfigurationChangerTest {
     public void testSimpleConfigurationChange() throws Exception {
         ConfigurationChanger changer = createChanger(KEY);
         changer.start();
+        changer.persistDefaults().get(1, SECONDS);
 
         changer.change(source(KEY, (FirstChange parent) -> parent
                 .changeChild(change -> change.changeIntCfg(1).changeStrCfg("1"))
@@ -151,6 +152,7 @@ public class ConfigurationChangerTest {
     public void testSimpleConfigurationChangeWithoutExtraLambdas() throws Exception {
         ConfigurationChanger changer = createChanger(KEY);
         changer.start();
+        changer.persistDefaults().get(1, SECONDS);
 
         changer.change(source(KEY, (FirstChange parent) -> {
             parent.changeChild().changeIntCfg(1).changeStrCfg("1");
@@ -171,9 +173,11 @@ public class ConfigurationChangerTest {
     public void testModifiedFromAnotherStorage() throws Exception {
         ConfigurationChanger changer1 = createChanger(KEY);
         changer1.start();
+        changer1.persistDefaults().get(1, SECONDS);
 
         ConfigurationChanger changer2 = createChanger(KEY);
         changer2.start();
+        changer2.persistDefaults().get(1, SECONDS);
 
         changer1.change(source(KEY, (FirstChange parent) -> parent
                 .changeChild(change -> change.changeIntCfg(1).changeStrCfg("1"))
@@ -210,6 +214,7 @@ public class ConfigurationChangerTest {
     public void testModifiedFromAnotherStorageWithIncompatibleChanges() throws Exception {
         ConfigurationChanger changer1 = createChanger(KEY);
         changer1.start();
+        changer1.persistDefaults().get(1, SECONDS);
 
         Validator<MaybeInvalid, Object> validator = new Validator<>() {
             /** {@inheritDoc} */
@@ -229,6 +234,7 @@ public class ConfigurationChangerTest {
         );
 
         changer2.start();
+        changer2.persistDefaults().get(1, SECONDS);
 
         changer1.change(source(KEY, (FirstChange parent) -> parent
                 .changeChild(change -> change.changeIntCfg(1).changeStrCfg("1"))
@@ -254,7 +260,7 @@ public class ConfigurationChangerTest {
      * Test that change fails with right exception if storage is inaccessible.
      */
     @Test
-    public void testFailedToWrite() {
+    public void testFailedToWrite() throws Exception {
         ConfigurationChanger changer = createChanger(KEY);
 
         storage.fail(true);
@@ -264,6 +270,7 @@ public class ConfigurationChangerTest {
         storage.fail(false);
 
         changer.start();
+        changer.persistDefaults().get(1, SECONDS);
 
         storage.fail(true);
 
@@ -275,7 +282,10 @@ public class ConfigurationChangerTest {
 
         CompletableFuture<Map<String, ? extends Serializable>> dataFuture = storage.readDataOnRecovery().thenApply(Data::values);
 
-        assertThat(dataFuture, willBe(anEmptyMap()));
+        //these are the default values taken from FirstConfigurationSchema
+        assertThat(dataFuture, willBe(equalTo(Map.of(
+                "key.child.intCfg", 0,
+                "key.child.strCfg", ""))));
 
         FirstView newRoot = (FirstView) changer.getRootNode(KEY);
         assertNotNull(newRoot.child());
@@ -315,7 +325,7 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        changer.initializeDefaults();
+        changer.persistDefaults().get(1, SECONDS);
 
         DefaultsView root = (DefaultsView) changer.getRootNode(DefaultsConfiguration.KEY);
 
@@ -344,7 +354,7 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        changer.initializeDefaults();
+        changer.persistDefaults().get(1, SECONDS);
 
         ConfigurationSource source = source(
                 DefaultsConfiguration.KEY,
@@ -366,12 +376,11 @@ public class ConfigurationChangerTest {
      * Tests the {@link DynamicConfigurationChanger#getLatest} method by retrieving different nested configuration values.
      */
     @Test
-    public void testGetLatestNested() {
+    public void testGetLatestNested() throws Exception {
         ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
 
         changer.start();
-
-        changer.initializeDefaults();
+        changer.persistDefaults().get(1, SECONDS);
 
         DefaultsChildView childView = changer.getLatest(List.of(node("def"), node("child")));
 
@@ -396,7 +405,7 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        changer.initializeDefaults();
+        changer.persistDefaults().get(1, SECONDS);
 
         ConfigurationSource source = source(
                 DefaultsConfiguration.KEY,
@@ -447,7 +456,7 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        changer.initializeDefaults();
+        changer.persistDefaults().get(1, SECONDS);
 
         ConfigurationSource source = source(
                 DefaultsConfiguration.KEY,
@@ -513,7 +522,7 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        changer.initializeDefaults();
+        changer.persistDefaults().get(1, SECONDS);
 
         assertEquals(1, storage.lastRevision().get(1, SECONDS));
 
@@ -565,8 +574,7 @@ public class ConfigurationChangerTest {
         ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
 
         changer.start();
-
-        changer.initializeDefaults();
+        changer.persistDefaults().get(1, SECONDS);
 
         assertEquals(1, storage.lastRevision().get(1, SECONDS));
 

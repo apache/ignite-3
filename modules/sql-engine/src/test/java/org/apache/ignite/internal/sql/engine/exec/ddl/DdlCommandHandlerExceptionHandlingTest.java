@@ -100,8 +100,6 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     void before() {
         registry.start();
 
-        registry.initializeDefaults();
-
         DistributionZonesConfiguration zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class);

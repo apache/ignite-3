@@ -19,8 +19,8 @@ package org.apache.ignite.internal.cluster.management;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -36,7 +36,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -370,7 +369,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
                 .get();
 
         // Check the leader has configuration.
-        assertEquals(clusterConfiguration, leaderAction.configuration());
+        assertEquals(clusterConfiguration, leaderAction.configuration().orElseThrow());
 
         // Execute the next action (remove the configuration from the cluster state)
         assertThat(leaderAction.nextAction().get(), willCompleteSuccessfully());
@@ -385,10 +384,10 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
                 .until(() -> findLeaderNode(cluster), Optional::isPresent)
                 .get();
 
-        // Check the new leader cancels the action.
+        // Check the new leader completes with an empty action
         assertThat(
                 newLeaderNode.clusterManager().clusterConfigurationToUpdate(),
-                willThrow(CancellationException.class, 5, TimeUnit.SECONDS)
+                willBe(UpdateDistributedConfigurationAction.NOP)
         );
     }
 

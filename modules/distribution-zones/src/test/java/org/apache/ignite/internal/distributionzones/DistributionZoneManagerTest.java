@@ -92,8 +92,6 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
         registry.start();
 
-        registry.initializeDefaults();
-
         DistributionZonesConfiguration zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         distributionZoneManager = new DistributionZoneManager(

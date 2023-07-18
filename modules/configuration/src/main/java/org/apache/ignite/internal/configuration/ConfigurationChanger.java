@@ -49,7 +49,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -94,6 +93,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
     /** Storage trees. */
     private volatile StorageRoots storageRoots;
+
+    @Nullable
+    private volatile Map<String, Serializable> defaultChanges;
 
     /** Configuration listener notification counter, must be incremented before each use of {@link #configurationUpdateListener}. */
     private final AtomicLong notificationListenerCnt = new AtomicLong();
@@ -251,8 +253,14 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             superRoot.addRoot(rootKey, rootNode);
         }
 
+        SuperRoot superRootNoDefaults = superRoot.copy();
+
         //Workaround for distributed configuration.
         addDefaults(superRoot);
+
+        //This map contains properties that are set as 'defaults' from the code and are missing in the storage.
+        Map<String, Serializable> allChanges = createFlattenedUpdatesMap(superRootNoDefaults, superRoot);
+        defaultChanges = allChanges.isEmpty() ? null : allChanges;
 
         // Validate the restored configuration.
         validateConfiguration(superRoot);
@@ -263,40 +271,63 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     }
 
     /**
-     * Initializes the configuration storage - reads data and sets default values for missing configuration properties.
+     * Persist default values to the storage.
      *
-     * @throws ConfigurationValidationException If configuration validation failed.
-     * @throws ConfigurationChangeException If configuration framework failed to add default values and save them to storage.
+     * <p>Make sure all properties that have their values set in the schema defaults are persisted to the storage.
+     * The goal is to keep all configuration values in onl place
+     * and avoid possible cluster inconsistency when code defaults change in the future releases.
+     *
+     * @return Future that will be completed after changes have been written to the storage.
      */
-    public void initializeDefaults() throws ConfigurationValidationException, ConfigurationChangeException {
+    public CompletableFuture<Void> persistDefaults() {
+        if (storageRoots == null) {
+            throw new ComponentNotStartedException();
+        }
+        if (defaultChanges == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return storage.lastRevision()
+                .thenComposeAsync(this::persistDefaultsInternal, pool)
+                .thenRun(() -> defaultChanges = null)
+                .exceptionally(throwable -> {
+                    Throwable cause = throwable.getCause();
+
+                    if (cause instanceof ConfigurationChangeException) {
+                        throw (ConfigurationChangeException) cause;
+                    } else {
+                        throw new ConfigurationChangeException("Failed to persist defaults", cause);
+                    }
+                });
+    }
+
+    /**
+     * Internal configuration persist method.
+     */
+    private CompletableFuture<Void> persistDefaultsInternal(long storageRevision) {
+        rwLock.readLock().lock();
         try {
-            ConfigurationSource defaultsCfgSource = new ConfigurationSource() {
-                /** {@inheritDoc} */
-                @Override
-                public void descend(ConstructableTreeNode node) {
-                    addDefaults((InnerNode) node);
-                }
-            };
-
-            changeInternally(defaultsCfgSource).get(5, TimeUnit.SECONDS);
-        } catch (ExecutionException e) {
-            Throwable cause = e.getCause();
-
-            if (cause instanceof ConfigurationValidationException) {
-                throw (ConfigurationValidationException) cause;
+            Map<String, Serializable> allChanges = defaultChanges;
+            if (allChanges == null) {
+                return CompletableFuture.completedFuture(null);
+            }
+            StorageRoots localRoots = storageRoots;
+            if (localRoots.version < storageRevision) {
+                // Need to wait for the configuration updates from the storage, then try to update again (loop).
+                return localRoots.changeFuture.thenCompose(v -> persistDefaults());
             }
 
-            if (cause instanceof ConfigurationChangeException) {
-                throw (ConfigurationChangeException) cause;
-            }
-
-            throw new ConfigurationChangeException(
-                    "Failed to write default configuration values into the storage " + storage.getClass(), e
-            );
-        } catch (InterruptedException | TimeoutException e) {
-            throw new ConfigurationChangeException(
-                    "Failed to initialize configuration storage " + storage.getClass(), e
-            );
+            return storage.write(allChanges, localRoots.version)
+                    .thenCompose(casWroteSuccessfully -> {
+                        if (casWroteSuccessfully) {
+                            return localRoots.changeFuture;
+                        } else {
+                            // Here we go to next iteration of an implicit spin loop; we have to do it via recursion
+                            // because we work with async code (futures).
+                            return localRoots.changeFuture.thenCompose(v -> persistDefaults());
+                        }
+                    });
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
@@ -608,6 +639,16 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         }
     }
 
+    private void onParamsChanged(Map<String, ? extends Serializable> values) {
+        Map<String, Serializable> changes = defaultChanges;
+        if (changes != null) {
+            changes.keySet().removeAll(values.keySet());
+            if (changes.isEmpty()) {
+                defaultChanges = null;
+            }
+        }
+    }
+
     private ConfigurationStorageListener configurationStorageListener() {
         return changedEntries -> {
             StorageRoots oldStorageRoots = storageRoots;
@@ -629,6 +670,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             try {
                 storageRoots = newStorageRoots;
+                // If there was a change before we persisted the defaults,
+                // make sure we would not override the properties with the default values.
+                onParamsChanged(changedEntries.values());
             } finally {
                 rwLock.writeLock().unlock();
             }
