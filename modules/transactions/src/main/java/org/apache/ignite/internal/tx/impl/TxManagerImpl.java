@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -166,6 +165,8 @@ public class TxManagerImpl implements TxManager {
     }
 
     /**
+     * Current read timestamp, for calculation of read timestamp of read-only transactions.
+     *
      * @return Current read timestamp.
      */
     private HybridTimestamp currentReadTimestamp() {
