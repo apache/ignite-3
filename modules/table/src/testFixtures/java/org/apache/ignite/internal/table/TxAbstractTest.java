@@ -1910,6 +1910,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         testTransactionAlreadyFinished(false);
     }
 
+    @Test
+    public void testImplicit() {
+        accounts.recordView().upsert(null, makeValue(1, BALANCE_1));
+        assertEquals(BALANCE_1, accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
+    }
+
     /**
      * Checks operations that act after a transaction is committed, are finished with exception.
      *

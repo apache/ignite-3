@@ -34,4 +34,9 @@ public interface ReadWriteSingleRowReplicaRequest extends SingleRowReplicaReques
      */
     @Marshallable
     TablePartitionId commitPartitionId();
+
+    /**
+     * @return {@code True} if this is a full transaction.
+     */
+    boolean full();
 }

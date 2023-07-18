@@ -233,10 +233,29 @@ public class PartitionListener implements RaftGroupListener {
 
         storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.rowBuffer(),
                 rowId -> {
-                    txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new TreeSet<>()).add(rowId);
+                    if (!cmd.full()) {
+                        txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new TreeSet<>()).add(rowId);
+                    } else {
+                        TxMeta txMetaToSet = new TxMeta(
+                                COMMITED,
+                                List.of(cmd.tablePartitionId().asTablePartitionId()),
+                                cmd.safeTime()
+                        );
+
+                        boolean txStateChangeRes = txStateStorage.compareAndSet(
+                                cmd.txId(),
+                                null,
+                                txMetaToSet,
+                                commandIndex,
+                                commandTerm
+                        );
+
+                        assert txStateChangeRes : "Expecting successful commit for full txn";
+                    }
 
                     storage.lastApplied(commandIndex, commandTerm);
-                }
+                },
+                cmd.full() ? cmd.safeTime() : null
         );
     }
 
@@ -365,7 +384,7 @@ public class PartitionListener implements RaftGroupListener {
      *
      * @param cmd Command.
      * @param commandIndex RAFT index of the command.
-     * @param commandTerm  RAFT term of the command.
+     * @param commandTerm RAFT term of the command.
      */
     private void handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.

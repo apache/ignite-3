@@ -21,31 +21,28 @@ import java.util.function.Function;
 
 /**
  * Represents a function that accepts four arguments and produces a result.
- * This is the five-arity specialization of {@link Function}.
+ * This is the four-arity specialization of {@link Function}.
  *
  * <p>This is a <a href="package-summary.html">functional interface</a>
- * whose functional method is {@link #apply(Object, Object, Object, Object, Object)}.
+ * whose functional method is {@link #apply(Object, Object, Object, Object)}.
  *
  * @param <T> the type of the first argument to the function
  * @param <U> the type of the second argument to the function
  * @param <V> the type of the third argument to the function
  * @param <M> the type of the fourth argument to the function
- * @param <N> the type of the fifth argument to the function
  * @param <R> the type of the result of the function
  *
  * @see Function
  */
 @FunctionalInterface
-public interface IgniteFiveFunction<T, U, V, M, N, R> {
+public interface IgniteQuadFunction<T, U, V, M, R> {
     /**
      * Applies this function to the given arguments.
      *
      * @param t the first function argument
      * @param u the second function argument
      * @param v the third function argument
-     * @param m the fourth function argument
-     * @param n the fifth function argument
      * @return the function result
      */
-    R apply(T t, U u, V v, M m, N n);
+    R apply(T t, U u, V v, M m);
 }

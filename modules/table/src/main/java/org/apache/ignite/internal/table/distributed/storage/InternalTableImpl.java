@@ -88,10 +88,10 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteFiveFunction;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteQuadFunction;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.IgniteTetraFunction;
+import org.apache.ignite.lang.IgniteTriFunction;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -215,14 +215,14 @@ public class InternalTableImpl implements InternalTable {
      * Enlists a single row into a transaction.
      *
      * @param row The row.
-     * @param tx The transaction.
-     * @param op Replica requests factory.
+     * @param tx The transaction, not null if explicit.
+     * @param fac Replica requests factory.
      * @return The future.
      */
     private <R> CompletableFuture<R> enlistInTx(
             BinaryRowEx row,
             @Nullable InternalTransaction tx,
-            IgniteTetraFunction<TablePartitionId, InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> op
+            IgniteTriFunction<InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> fac
     ) {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
         // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
@@ -249,9 +249,9 @@ public class InternalTableImpl implements InternalTable {
         CompletableFuture<R> fut;
 
         if (primaryReplicaAndTerm != null) {
-            TablePartitionId commitPart = tx.commitPartition();
+            assert tx != null;
 
-            ReplicaRequest request = op.apply(commitPart, tx0, partGroupId, primaryReplicaAndTerm.get2());
+            ReplicaRequest request = fac.apply(tx, partGroupId, primaryReplicaAndTerm.get2());
 
             try {
                 fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
@@ -261,15 +261,10 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlistWithRetry(
-                    tx0,
-                    partId,
-                    (commitPart, term) -> op.apply(commitPart, tx0, partGroupId, term),
-                    ATTEMPTS_TO_ENLIST_PARTITION
-            );
+            fut = enlistWithRetry(tx0, partId, term -> fac.apply(tx0, partGroupId, term), ATTEMPTS_TO_ENLIST_PARTITION);
         }
 
-        return postEnlist(fut, implicit, tx0);
+        return postEnlist(fut, false, tx0); // Implicit single key request is never committed from txn coordinator.
     }
 
     /**
@@ -284,7 +279,7 @@ public class InternalTableImpl implements InternalTable {
     private <T> CompletableFuture<T> enlistInTx(
             Collection<BinaryRowEx> keyRows,
             @Nullable InternalTransaction tx,
-            IgniteFiveFunction<TablePartitionId, Collection<BinaryRow>, InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> op,
+            IgniteQuadFunction<Collection<BinaryRow>, InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> op,
             Function<Collection<RowBatch>, CompletableFuture<T>> reducer
     ) {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
@@ -321,9 +316,7 @@ public class InternalTableImpl implements InternalTable {
             CompletableFuture<Object> fut;
 
             if (primaryReplicaAndTerm != null) {
-                TablePartitionId commitPart = tx.commitPartition();
-
-                ReplicaRequest request = op.apply(commitPart, rowBatch.requestedRows, tx0, partGroupId, primaryReplicaAndTerm.get2());
+                ReplicaRequest request = op.apply(rowBatch.requestedRows, tx0, partGroupId, primaryReplicaAndTerm.get2());
 
                 try {
                     fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
@@ -336,7 +329,7 @@ public class InternalTableImpl implements InternalTable {
                 fut = enlistWithRetry(
                         tx0,
                         partitionId,
-                        (commitPart, term) -> op.apply(commitPart, rowBatch.requestedRows, tx0, partGroupId, term),
+                        term -> op.apply(rowBatch.requestedRows, tx0, partGroupId, term),
                         ATTEMPTS_TO_ENLIST_PARTITION
                 );
             }
@@ -405,7 +398,7 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlistWithRetry(tx, partId, (commitPart, term) -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION);
+            fut = enlistWithRetry(tx, partId, term -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION);
         }
 
         return postEnlist(fut, false, tx);
@@ -427,14 +420,14 @@ public class InternalTableImpl implements InternalTable {
      *
      * @param tx Internal transaction.
      * @param partId Partition number.
-     * @param requestFunction Function to create replica request with new raft term.
+     * @param mapFunc Function to create replica request with new raft term.
      * @param attempts Number of attempts.
      * @return The future.
      */
     private <R> CompletableFuture<R> enlistWithRetry(
             InternalTransaction tx,
             int partId,
-            BiFunction<TablePartitionId, Long, ReplicaRequest> requestFunction,
+            Function<Long, ReplicaRequest> mapFunc,
             int attempts
     ) {
         CompletableFuture<R> result = new CompletableFuture<>();
@@ -444,7 +437,7 @@ public class InternalTableImpl implements InternalTable {
                             try {
                                 return replicaSvc.invoke(
                                         primaryReplicaAndTerm.get1(),
-                                        requestFunction.apply(tx.commitPartition(), primaryReplicaAndTerm.get2())
+                                        mapFunc.apply(primaryReplicaAndTerm.get2())
                                 );
                             } catch (PrimaryReplicaMissException e) {
                                 throw new TransactionException(e);
@@ -463,7 +456,7 @@ public class InternalTableImpl implements InternalTable {
                 .handle((res0, e) -> {
                     if (e != null) {
                         if (e.getCause() instanceof PrimaryReplicaMissException && attempts > 0) {
-                            return enlistWithRetry(tx, partId, requestFunction, attempts - 1).handle((r2, e2) -> {
+                            return enlistWithRetry(tx, partId, mapFunc, attempts - 1).handle((r2, e2) -> {
                                 if (e2 != null) {
                                     return result.completeExceptionally(e2);
                                 } else {
@@ -485,12 +478,12 @@ public class InternalTableImpl implements InternalTable {
      * Performs post enlist operation.
      *
      * @param fut The future.
-     * @param implicit {@code true} for implicit tx.
+     * @param autoCommit {@code True} for auto commit.
      * @param tx0 The transaction.
      * @param <T> Operation return type.
      * @return The future.
      */
-    private <T> CompletableFuture<T> postEnlist(CompletableFuture<T> fut, boolean implicit, InternalTransaction tx0) {
+    private <T> CompletableFuture<T> postEnlist(CompletableFuture<T> fut, boolean autoCommit, InternalTransaction tx0) {
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
             if (e != null) {
                 RuntimeException e0 = wrapReplicationException(e);
@@ -503,9 +496,9 @@ public class InternalTableImpl implements InternalTable {
                     throw e0;
                 }); // Preserve failed state.
             } else {
-                tx0.enlistResultFuture(fut);
+                tx0.enlistResultFuture(fut); // TODO why is this deprecated ?
 
-                if (implicit) {
+                if (autoCommit) {
                     return tx0.commitAsync()
                             .exceptionally(ex -> {
                                 throw wrapReplicationException(ex);
@@ -528,14 +521,15 @@ public class InternalTableImpl implements InternalTable {
             return enlistInTx(
                     keyRow,
                     tx,
-                    (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                    (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                             .groupId(groupId)
                             .binaryRowBytes(keyRow.byteBuffer())
-                            .commitPartitionId(commitPart)
+                            .commitPartitionId(txo.commitPartition())
                             .transactionId(txo.id())
                             .term(term)
                             .requestType(RequestType.RW_GET)
                             .timestampLong(clock.nowLong())
+                            .full(tx == null)
                             .build()
             );
         }
@@ -575,10 +569,10 @@ public class InternalTableImpl implements InternalTable {
             return enlistInTx(
                     keyRows,
                     tx,
-                    (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                    (keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                             .groupId(groupId)
                             .binaryRowsBytes(serializeBinaryRows(keyRows0))
-                            .commitPartitionId(commitPart)
+                            .commitPartitionId(txo.commitPartition())
                             .transactionId(txo.id())
                             .term(term)
                             .requestType(RequestType.RW_GET_ALL)
@@ -631,14 +625,15 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(commitPart)
+                        .commitPartitionId(txo.commitPartition())
                         .binaryRowBytes(row.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_UPSERT)
                         .timestampLong(clock.nowLong())
+                        .full(tx == null)
                         .build());
     }
 
@@ -662,11 +657,11 @@ public class InternalTableImpl implements InternalTable {
         CompletableFuture<Void> fut = enlistWithRetry(
                 tx,
                 partition,
-                (commitPart, term) -> upsertAllInternal(commitPart, rows, tx, partGroupId, term),
+                term -> upsertAllInternal(rows, tx, partGroupId, term),
                 ATTEMPTS_TO_ENLIST_PARTITION
         );
 
-        return postEnlist(fut, true, tx);
+        return postEnlist(fut, false, tx); // Will be committed in one RTT.
     }
 
     /** {@inheritDoc} */
@@ -675,14 +670,15 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(commitPart)
+                        .commitPartitionId(txo.commitPartition())
                         .binaryRowBytes(row.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_UPSERT)
                         .timestampLong(clock.nowLong())
+                        .full(tx == null)
                         .build()
         );
     }
@@ -693,14 +689,15 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(commitPart)
+                        .commitPartitionId(txo.commitPartition())
                         .binaryRowBytes(row.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_INSERT)
                         .timestampLong(clock.nowLong())
+                        .full(tx == null)
                         .build()
         );
     }
@@ -711,9 +708,9 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                (keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(commitPart)
+                        .commitPartitionId(txo.commitPartition())
                         .binaryRowsBytes(serializeBinaryRows(keyRows0))
                         .transactionId(txo.id())
                         .term(term)
@@ -730,14 +727,15 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(commitPart)
+                        .commitPartitionId(txo.commitPartition())
                         .binaryRowBytes(row.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_REPLACE_IF_EXIST)
                         .timestampLong(clock.nowLong())
+                        .full(tx == null)
                         .build()
         );
     }
@@ -748,15 +746,16 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 newRow,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSwapRowReplicaRequest()
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSwapRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(commitPart)
+                        .commitPartitionId(txo.commitPartition())
                         .oldBinaryRowBytes(oldRow.byteBuffer())
                         .binaryRowBytes(newRow.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_REPLACE)
                         .timestampLong(clock.nowLong())
+                        .full(tx == null)
                         .build()
         );
     }
@@ -767,14 +766,15 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(commitPart)
+                        .commitPartitionId(txo.commitPartition())
                         .binaryRowBytes(row.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_REPLACE)
                         .timestampLong(clock.nowLong())
+                        .full(tx == null)
                         .build()
         );
     }
@@ -785,14 +785,15 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 keyRow,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(commitPart)
+                        .commitPartitionId(txo.commitPartition())
                         .binaryRowBytes(keyRow.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_DELETE)
                         .timestampLong(clock.nowLong())
+                        .full(tx == null)
                         .build()
         );
     }
@@ -803,14 +804,15 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 oldRow,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(commitPart)
+                        .commitPartitionId(txo.commitPartition())
                         .binaryRowBytes(oldRow.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_DELETE_EXACT)
                         .timestampLong(clock.nowLong())
+                        .full(tx == null)
                         .build()
         );
     }
@@ -821,14 +823,15 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(commitPart)
+                        .commitPartitionId(txo.commitPartition())
                         .binaryRowBytes(row.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_DELETE)
                         .timestampLong(clock.nowLong())
+                        .full(tx == null)
                         .build()
         );
     }
@@ -839,9 +842,9 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                (keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(commitPart)
+                        .commitPartitionId(txo.commitPartition())
                         .binaryRowsBytes(serializeBinaryRows(keyRows0))
                         .transactionId(txo.id())
                         .term(term)
@@ -861,9 +864,9 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                (keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                         .groupId(groupId)
-                        .commitPartitionId(commitPart)
+                        .commitPartitionId(txo.commitPartition())
                         .binaryRowsBytes(serializeBinaryRows(keyRows0))
                         .transactionId(txo.id())
                         .term(term)
@@ -1612,14 +1615,15 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private ReplicaRequest upsertAllInternal(
-            TablePartitionId commitPart,
             Collection<? extends BinaryRow> keyRows0,
             InternalTransaction txo,
             ReplicationGroupId groupId,
             Long term) {
+        assert txo.commitPartition() != null;
+
         return tableMessagesFactory.readWriteMultiRowReplicaRequest()
                 .groupId(groupId)
-                .commitPartitionId(commitPart)
+                .commitPartitionId(txo.commitPartition())
                 .binaryRowsBytes(serializeBinaryRows(keyRows0))
                 .transactionId(txo.id())
                 .term(term)

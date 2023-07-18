@@ -30,7 +30,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteTetraFunction;
+import org.apache.ignite.lang.IgniteQuadFunction;
 import org.apache.ignite.lang.IgniteTriFunction;
 import org.jetbrains.annotations.Nullable;
 
@@ -363,7 +363,7 @@ public final class ExceptionUtils {
      * @return New exception with the given cause.
      */
     public static <T extends Exception> T withCause(
-            IgniteTetraFunction<UUID, Integer, String, Throwable, T> supplier,
+            IgniteQuadFunction<UUID, Integer, String, Throwable, T> supplier,
             int defaultCode,
             String message,
             Throwable t
@@ -403,7 +403,7 @@ public final class ExceptionUtils {
      * @return New exception with the given cause.
      */
     public static <T extends Exception> T withCauseAndCode(
-            IgniteTetraFunction<UUID, Integer, String, Throwable, T> supplier,
+            IgniteQuadFunction<UUID, Integer, String, Throwable, T> supplier,
             int code,
             String message,
             Throwable t
@@ -421,7 +421,7 @@ public final class ExceptionUtils {
      * @return New
      */
     private static <T extends Exception> T withCauseInternal(
-            IgniteTetraFunction<UUID, Integer, String, Throwable, T> supplier,
+            IgniteQuadFunction<UUID, Integer, String, Throwable, T> supplier,
             int defaultCode,
             Throwable t
     ) {

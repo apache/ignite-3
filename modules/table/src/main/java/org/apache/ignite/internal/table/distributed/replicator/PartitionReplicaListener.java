@@ -326,19 +326,19 @@ public class PartitionReplicaListener implements ReplicaListener {
         if (request instanceof ReadWriteSingleRowReplicaRequest) {
             var req = (ReadWriteSingleRowReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), req.requestType(), () -> processSingleEntryAction(req));
+            return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processSingleEntryAction(req));
         } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
             var req = (ReadWriteMultiRowReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), req.requestType(), () -> processMultiEntryAction(req));
+            return appendTxCommand(req.transactionId(), req.requestType(), false, () -> processMultiEntryAction(req));
         } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
             var req = (ReadWriteSwapRowReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), req.requestType(), () -> processTwoEntriesAction(req));
+            return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processTwoEntriesAction(req));
         } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
             var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, () -> processScanRetrieveBatchAction(req));
+            return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req));
         } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
             processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
 
@@ -918,13 +918,13 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             return committedReadResult.binaryRow();
         })
-        .thenComposeAsync(resolvedReadResult -> {
-            if (resolvedReadResult != null && indexRowMatches(indexRow, resolvedReadResult, schemaAwareIndexStorage)) {
-                result.add(resolvedReadResult);
-            }
+                .thenComposeAsync(resolvedReadResult -> {
+                    if (resolvedReadResult != null && indexRowMatches(indexRow, resolvedReadResult, schemaAwareIndexStorage)) {
+                        result.add(resolvedReadResult);
+                    }
 
-            return continueReadOnlyIndexScan(schemaAwareIndexStorage, cursor, timestamp, batchSize, result);
-        }, scanRequestExecutor);
+                    return continueReadOnlyIndexScan(schemaAwareIndexStorage, cursor, timestamp, batchSize, result);
+                }, scanRequestExecutor);
     }
 
     /**
@@ -1332,7 +1332,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param <T> Type of execution result.
      * @return A future object representing the result of the given operation.
      */
-    private <T> CompletableFuture<T> appendTxCommand(UUID txId, RequestType cmdType, Supplier<CompletableFuture<T>> op) {
+    private <T> CompletableFuture<T> appendTxCommand(UUID txId, RequestType cmdType, boolean full, Supplier<CompletableFuture<T>> op) {
         var fut = new CompletableFuture<T>();
 
         txCleanupReadyFutures.compute(txId, (id, txOps) -> {
@@ -1354,6 +1354,21 @@ public class PartitionReplicaListener implements ReplicaListener {
                 if (th != null) {
                     fut.completeExceptionally(th);
                 } else {
+                    if (full) {
+                        // Cleanup local
+                        txCleanupReadyFutures.compute(txId, (id, txOps) -> {
+                            assert txOps != null;
+
+                            txOps.futures.clear();
+
+                            txOps.state = TxState.COMMITED;
+
+                            return txOps;
+                        });
+
+                        releaseTxLocks(txId);
+                    }
+
                     fut.complete(v);
                 }
             });
@@ -1396,9 +1411,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                 checkWriteIntentsBelongSameTx(writeIntents);
 
                 return resolveTxState(
-                                new TablePartitionId(writeIntent.commitTableId(), writeIntent.commitPartitionId()),
-                                writeIntent.transactionId(),
-                                ts)
+                        new TablePartitionId(writeIntent.commitTableId(), writeIntent.commitPartitionId()),
+                        writeIntent.transactionId(),
+                        ts)
                         .thenApply(readLastCommitted -> {
                             if (readLastCommitted) {
                                 for (ReadResult wi : writeIntents) {
@@ -1460,7 +1475,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Tests row values for equality.
      *
-     * @param row  Row.
+     * @param row Row.
      * @param row2 Row.
      * @return {@code true} if rows are equal.
      */
@@ -1735,13 +1750,16 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
      */
     private CompletableFuture<Object> applyUpdateCommand(UpdateCommand cmd) {
-        storageUpdateHandler.handleUpdate(
-                cmd.txId(),
-                cmd.rowUuid(),
-                cmd.tablePartitionId().asTablePartitionId(),
-                cmd.rowBuffer(),
-                null
-        );
+        if (!cmd.full()) { // Skip in-place update for implicit txn.
+            storageUpdateHandler.handleUpdate(
+                    cmd.txId(),
+                    cmd.rowUuid(),
+                    cmd.tablePartitionId().asTablePartitionId(),
+                    cmd.rowBuffer(),
+                    null,
+                    null
+            );
+        }
 
         return applyCmdWithExceptionHandling(cmd);
     }
@@ -1768,6 +1786,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         UUID txId = request.transactionId();
         BinaryRow searchRow = request.binaryRow();
         TablePartitionId commitPartitionId = request.commitPartitionId();
+        boolean full = request.full();
 
         assert commitPartitionId != null || request.requestType() == RequestType.RW_GET :
                 "Commit partition is null [type=" + request.requestType() + ']';
@@ -1791,7 +1810,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForDelete(row, rowId, txId)
                             .thenCompose(ignored -> applyUpdateCommand(
-                                    updateCommand(commitPartitionId, rowId.uuid(), null, txId)))
+                                    updateCommand(commitPartitionId, rowId.uuid(), null, txId, full)))
                             .thenApply(ignored -> true);
                 });
             }
@@ -1803,7 +1822,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForDelete(row, rowId, txId)
                             .thenCompose(ignored -> applyUpdateCommand(
-                                    updateCommand(commitPartitionId, rowId.uuid(), null, txId)))
+                                    updateCommand(commitPartitionId, rowId.uuid(), null, txId, full)))
                             .thenApply(ignored -> row);
                 });
             }
@@ -1820,7 +1839,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 }
 
                                 return applyUpdateCommand(
-                                        updateCommand(commitPartitionId, validatedRowId.uuid(), null, txId))
+                                        updateCommand(commitPartitionId, validatedRowId.uuid(), null, txId, full))
                                         .thenApply(ignored -> true);
                             });
                 });
@@ -1835,7 +1854,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForInsert(searchRow, rowId0, txId)
                             .thenCompose(rowIdLock -> applyUpdateCommand(
-                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId))
+                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId, full))
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1857,7 +1876,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return lockFut
                             .thenCompose(rowIdLock -> applyUpdateCommand(
-                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId))
+                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId, full))
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1879,7 +1898,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return lockFut
                             .thenCompose(rowIdLock -> applyUpdateCommand(
-                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId))
+                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId, full))
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1897,7 +1916,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
                             .thenCompose(rowIdLock -> applyUpdateCommand(
-                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow.byteBuffer(), txId))
+                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow.byteBuffer(), txId, full))
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1915,7 +1934,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
                             .thenCompose(rowLock -> applyUpdateCommand(
-                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow.byteBuffer(), txId))
+                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow.byteBuffer(), txId, full))
                                     .thenApply(ignored -> rowLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1935,7 +1954,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Takes all required locks on a key, before upserting.
      *
-     * @param txId      Transaction id.
+     * @param txId Transaction id.
      * @return Future completes with tuple {@link RowId} and collection of {@link Lock}.
      */
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForUpdate(BinaryRow binaryRow, RowId rowId, UUID txId) {
@@ -2007,7 +2026,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Takes all required locks on a key, before deleting the value.
      *
-     * @param txId      Transaction id.
+     * @param txId Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no value for remove.
      */
     private CompletableFuture<RowId> takeLocksForDeleteExact(BinaryRow expectedRow, RowId rowId, BinaryRow actualRow, UUID txId) {
@@ -2027,7 +2046,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Takes all required locks on a key, before deleting the value.
      *
-     * @param txId      Transaction id.
+     * @param txId Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no value for the key.
      */
     private CompletableFuture<RowId> takeLocksForDelete(BinaryRow binaryRow, RowId rowId, UUID txId) {
@@ -2040,7 +2059,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Takes all required locks on a key, before getting the value.
      *
-     * @param txId      Transaction id.
+     * @param txId Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no value for the key.
      */
     private CompletableFuture<RowId> takeLocksForGet(RowId rowId, UUID txId) {
@@ -2077,7 +2096,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                             }
 
                             return applyUpdateCommand(
-                                    updateCommand(commitPartitionId, validatedRowId.get1().uuid(), newRow.byteBuffer(), txId))
+                                    updateCommand(commitPartitionId, validatedRowId.get1().uuid(), newRow.byteBuffer(), txId,
+                                            request.full()))
                                     .thenApply(ignored -> validatedRowId)
                                     .thenApply(rowIdLock -> {
                                         // Release short term locks.
@@ -2096,7 +2116,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Takes all required locks on a key, before updating the value.
      *
-     * @param txId      Transaction id.
+     * @param txId Transaction id.
      * @return Future completes with tuple {@link RowId} and collection of {@link Lock} or {@code null} if there is no suitable row.
      */
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForReplace(BinaryRow expectedRow, BinaryRow oldRow,
@@ -2256,8 +2276,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Resolves a read result to the matched row.
-     * If the result does not match any row, the method returns a future to {@code null}.
+     * Resolves a read result to the matched row. If the result does not match any row, the method returns a future to {@code null}.
      *
      * @param readResult Read result.
      * @param timestamp Timestamp.
@@ -2270,9 +2289,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             Supplier<BinaryRow> lastCommitted
     ) {
         return resolveTxState(
-                        new TablePartitionId(readResult.commitTableId(), readResult.commitPartitionId()),
-                        readResult.transactionId(),
-                        timestamp)
+                new TablePartitionId(readResult.commitTableId(), readResult.commitPartitionId()),
+                readResult.transactionId(),
+                timestamp)
                 .thenApply(readLastCommitted -> {
                     if (readLastCommitted) {
                         return lastCommitted.get();
@@ -2316,30 +2335,21 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Compounds a RAFT group unique name.
-     *
-     * @param tblId Table identifier.
-     * @param partition Number of table partitions.
-     * @return A RAFT group name.
-     */
-    private String partitionRaftGroupName(UUID tblId, int partition) {
-        return tblId + "_part_" + partition;
-    }
-
-    /**
      * Method to construct {@link UpdateCommand} object.
      *
      * @param tablePartId {@link TablePartitionId} object to construct {@link UpdateCommand} object with.
      * @param rowUuid Row UUID.
      * @param rowBuf {@link ByteBuffer} representation of {@link BinaryRow}.
      * @param txId Transaction ID.
+     * @param full {@code True} if this is a full transaction.
      * @return Constructed {@link UpdateCommand} object.
      */
-    private UpdateCommand updateCommand(TablePartitionId tablePartId, UUID rowUuid, @Nullable ByteBuffer rowBuf, UUID txId) {
+    private UpdateCommand updateCommand(TablePartitionId tablePartId, UUID rowUuid, @Nullable ByteBuffer rowBuf, UUID txId, boolean full) {
         UpdateCommandBuilder bldr = MSG_FACTORY.updateCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowUuid(rowUuid)
                 .txId(txId)
+                .full(full)
                 .safeTimeLong(hybridClock.nowLong());
 
         if (rowBuf != null) {
@@ -2390,8 +2400,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Class that stores a list of futures for operations that has happened in a specific transaction.
-     * Also, the class has a property {@code state} that represents a transaction state.
+     * Class that stores a list of futures for operations that has happened in a specific transaction. Also, the class has a property
+     * {@code state} that represents a transaction state.
      */
     private static class TxCleanupReadyFutureList {
         /**
@@ -2400,8 +2410,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         final Map<RequestType, List<CompletableFuture<?>>> futures = new EnumMap<>(RequestType.class);
 
         /**
-         * Transaction state. {@code TxState#ABORTED} and {@code TxState#COMMITED} match the final transaction states.
-         * If the property is {@code null} the transaction is in pending state.
+         * Transaction state. {@code TxState#ABORTED} and {@code TxState#COMMITED} match the final transaction states. If the property is
+         * {@code null} the transaction is in pending state.
          */
         TxState state;
     }

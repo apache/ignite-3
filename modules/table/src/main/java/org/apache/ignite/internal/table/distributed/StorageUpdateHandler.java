@@ -104,13 +104,15 @@ public class StorageUpdateHandler {
      * @param commitPartitionId Commit partition id.
      * @param rowBuffer Row buffer.
      * @param onReplication Callback on replication.
+     * @param commitTs Commit timestamp to use on autocommit.
      */
     public void handleUpdate(
             UUID txId,
             UUID rowUuid,
             TablePartitionId commitPartitionId,
             @Nullable ByteBuffer rowBuffer,
-            @Nullable Consumer<RowId> onReplication
+            @Nullable Consumer<RowId> onReplication,
+            @Nullable HybridTimestamp commitTs
     ) {
         indexUpdateHandler.waitIndexes();
 
@@ -124,7 +126,12 @@ public class StorageUpdateHandler {
 
             BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
+            if (commitTs != null) { // TODO do in one step.
+                storage.commitWrite(rowId, commitTs);
+            }
+
             if (oldRow != null) {
+                assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
                 // Previous uncommitted row should be removed from indexes.
                 tryRemovePreviousWritesIndex(rowId, oldRow);
             }

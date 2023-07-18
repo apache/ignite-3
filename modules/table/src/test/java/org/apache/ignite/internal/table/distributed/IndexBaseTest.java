@@ -165,7 +165,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 rowUuid,
                 partitionId,
                 row == null ? null : row.byteBuffer(),
-                (unused) -> {}
+                (unused) -> {},
+                null
         );
     }
 
@@ -231,7 +232,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                         rowUuid,
                         partitionId,
                         row == null ? null : row.byteBuffer(),
-                        (unused) -> {}
+                        (unused) -> {},
+                        null
                 );
             }
         },

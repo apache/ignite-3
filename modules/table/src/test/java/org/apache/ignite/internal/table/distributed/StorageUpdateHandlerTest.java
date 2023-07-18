@@ -111,6 +111,7 @@ public class StorageUpdateHandlerTest {
                 UUID.randomUUID(),
                 new TablePartitionId(1, PARTITION_ID),
                 null,
+                null,
                 null
         );
 
