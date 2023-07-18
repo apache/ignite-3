@@ -335,7 +335,6 @@ public class SessionImpl implements Session {
         } catch (ExecutionException e) {
             sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
         } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
             throw new SqlException(SESSION_CLOSED_ERR, e);
         }
     }
