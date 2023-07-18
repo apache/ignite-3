@@ -30,7 +30,6 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
@@ -113,7 +112,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 + "WHEN MATCHED THEN UPDATE SET b = src.b, k1 = src.k1 "
                 + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b) VALUES (src.k1, src.k2, src.a, src.b)";
 
-        assertThrows(CalciteContextException.class, () -> sql(sql));
+        assertThrows(IgniteException.class, () -> sql(sql));
     }
 
     @Test
@@ -345,11 +344,11 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT * FROM test2").returns(1, 0, 0, "0").check();
 
         // Target table alias duplicate source table name.
-        assertThrows(CalciteContextException.class, () -> sql("MERGE INTO test2 test1 USING test1 ON c = e "
+        assertThrows(IgniteException.class, () -> sql("MERGE INTO test2 test1 USING test1 ON c = e "
                 + "WHEN MATCHED THEN UPDATE SET d = b + 1"), "Duplicate relation name");
 
         // Source table alias duplicate target table name.
-        assertThrows(CalciteContextException.class, () -> sql("MERGE INTO test2 USING test1 test2 ON c = e "
+        assertThrows(IgniteException.class, () -> sql("MERGE INTO test2 USING test1 test2 ON c = e "
                 + "WHEN MATCHED THEN UPDATE SET d = b + 1"), "Duplicate relation name");
 
         // Without aliases, reference columns by table name.
@@ -359,11 +358,11 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT * FROM test2").returns(1, 1, 0, "0").check();
 
         // Ambiguous column name in condition.
-        assertThrows(CalciteContextException.class, () -> sql("MERGE INTO test2 USING test1 ON a = test1.a "
+        assertThrows(IgniteException.class, () -> sql("MERGE INTO test2 USING test1 ON a = test1.a "
                 + "WHEN MATCHED THEN UPDATE SET a = test1.a + 1"), "Column 'A' is ambiguous");
 
         // Ambiguous column name in update statement.
-        assertThrows(CalciteContextException.class, () -> sql("MERGE INTO test2 USING test1 ON c = e "
+        assertThrows(IgniteException.class, () -> sql("MERGE INTO test2 USING test1 ON c = e "
                 + "WHEN MATCHED THEN UPDATE SET a = a + 1"), "Column 'A' is ambiguous");
 
         // With aliases, reference columns by table alias.
@@ -442,9 +441,8 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     @Test
     public void testInsertDefaultValue() {
         var args = List.of(
-                // TODO: IGNITE-17298
-                // new DefaultValueArg("BOOLEAN", "TRUE", Boolean.TRUE),
-                // new DefaultValueArg("BOOLEAN NOT NULL", "TRUE", Boolean.TRUE),
+                new DefaultValueArg("BOOLEAN", "TRUE", Boolean.TRUE),
+                new DefaultValueArg("BOOLEAN NOT NULL", "TRUE", Boolean.TRUE),
 
                 new DefaultValueArg("BIGINT", "10", 10L),
                 new DefaultValueArg("INTEGER", "10", 10),
@@ -485,9 +483,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         checkWrongDefault("DATE", "10");
         checkWrongDefault("DATE", "TIME '01:01:01'");
         checkWrongDefault("TIME", "TIMESTAMP '2021-01-01 01:01:01'");
-
-        // TODO: IGNITE-17298
-        // checkWrongDefault("BOOLEAN", "1");
+        checkWrongDefault("BOOLEAN", "1");
 
         // TODO: IGNITE-17373
         // checkWrongDefault("INTERVAL DAYS", "INTERVAL '10' MONTHS");
@@ -542,7 +538,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     public void testCheckNullValueErrorMessageForColumnWithDefaultValue() {
         sql("CREATE TABLE tbl(key int DEFAULT 9 primary key, val varchar)");
 
-        var e = assertThrows(CalciteContextException.class,
+        var e = assertThrows(IgniteException.class,
                 () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
 
         var expectedMessage = "From line 1, column 28 to line 1, column 45: Column 'KEY' does not allow NULLs";

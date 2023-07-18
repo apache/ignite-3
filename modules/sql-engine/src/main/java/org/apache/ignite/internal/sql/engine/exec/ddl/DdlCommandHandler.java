@@ -567,6 +567,7 @@ public class DdlCommandHandler {
         colTypeChg.changeType(typeName);
 
         switch (spec) {
+            case BOOLEAN:
             case INT8:
             case INT16:
             case INT32:

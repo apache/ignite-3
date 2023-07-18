@@ -110,6 +110,7 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
 
         switch (typeSpec) {
             case INT8:
+            case BOOLEAN:
                 return Byte.compare(tuple1.byteValue(index), tuple2.byteValue(index));
 
             case INT16:

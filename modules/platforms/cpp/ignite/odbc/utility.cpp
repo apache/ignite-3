@@ -15,15 +15,14 @@
  * limitations under the License.
  */
 
-#include "ignite/odbc/system/odbc_constants.h"
 #include "ignite/odbc/utility.h"
+#include "ignite/odbc/system/odbc_constants.h"
 
 #include <cstring>
 
 namespace ignite {
 
-size_t copy_string_to_buffer(const std::string& str, char* buf, std::size_t buffer_len)
-{
+size_t copy_string_to_buffer(const std::string &str, char *buf, std::size_t buffer_len) {
     if (!buf || !buffer_len)
         return 0;
 
@@ -35,11 +34,10 @@ size_t copy_string_to_buffer(const std::string& str, char* buf, std::size_t buff
     return bytes_to_copy;
 }
 
-std::string sql_string_to_string(const unsigned char* sql_str, std::int32_t sql_str_len)
-{
+std::string sql_string_to_string(const unsigned char *sql_str, std::int32_t sql_str_len) {
     std::string res;
 
-    const char* sql_str_c = reinterpret_cast<const char*>(sql_str);
+    const char *sql_str_c = reinterpret_cast<const char *>(sql_str);
 
     if (!sql_str || !sql_str_len)
         return res;

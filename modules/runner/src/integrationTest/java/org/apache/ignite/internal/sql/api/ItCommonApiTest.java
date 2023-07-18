@@ -187,11 +187,8 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         TxManager txManagerInternal =
                 (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
 
-        SqlQueryProcessor queryProc =
-                (SqlQueryProcessor) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "qryEngine");
-
         SqlSchemaManager oldManager =
-                (SqlSchemaManager) IgniteTestUtils.getFieldValue(queryProc, SqlQueryProcessor.class, "sqlSchemaManager");
+                (SqlSchemaManager) IgniteTestUtils.getFieldValue(queryProcessor(), SqlQueryProcessor.class, "sqlSchemaManager");
 
         int txPrevCnt = txManagerInternal.finished();
 
@@ -220,7 +217,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         var schemaManager = new ErroneousSchemaManager();
 
         // TODO: refactor after https://issues.apache.org/jira/browse/IGNITE-17694
-        IgniteTestUtils.setFieldValue(queryProc, "sqlSchemaManager", schemaManager);
+        IgniteTestUtils.setFieldValue(queryProcessor(), "sqlSchemaManager", schemaManager);
 
         try {
             sql("SELECT a FROM NOTEXIST.TEST");
@@ -237,7 +234,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         assertEquals(4, txManagerInternal.finished() - txPrevCnt);
         assertEquals(0, txManagerInternal.pending());
 
-        IgniteTestUtils.setFieldValue(queryProc, "sqlSchemaManager", oldManager);
+        IgniteTestUtils.setFieldValue(queryProcessor(), "sqlSchemaManager", oldManager);
     }
 
     private static class ErroneousSchemaManager implements SqlSchemaManager {

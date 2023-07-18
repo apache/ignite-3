@@ -29,13 +29,13 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
-import org.apache.ignite.internal.sql.util.SqlTestUtils;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
@@ -164,8 +164,8 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
      */
     @Test
     public void testWithDifferentParametersTypesMismatch() {
-        assertThrows(CalciteContextException.class, () -> assertQuery("SELECT COALESCE(12.2, ?)").withParams("b").check());
-        assertThrows(CalciteContextException.class, () -> assertQuery("SELECT COALESCE(?, ?)").withParams(12.2, "b").check());
+        assertThrows(IgniteException.class, () -> assertQuery("SELECT COALESCE(12.2, ?)").withParams("b").check());
+        assertThrows(IgniteException.class, () -> assertQuery("SELECT COALESCE(?, ?)").withParams(12.2, "b").check());
     }
 
     @Test

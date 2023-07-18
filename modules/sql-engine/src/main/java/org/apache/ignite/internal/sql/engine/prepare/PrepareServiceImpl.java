@@ -32,6 +32,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -53,6 +54,10 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
@@ -63,6 +68,9 @@ import org.jetbrains.annotations.Nullable;
  */
 public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener {
     private static final IgniteLogger LOG = Loggers.forClass(PrepareServiceImpl.class);
+
+    /** Default planner timeout, in ms. */
+    public static final long DEFAULT_PLANNER_TIMEOUT = 15000L;
 
     private static final long THREAD_TIMEOUT_MS = 60_000;
 
@@ -75,6 +83,8 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     private final String nodeName;
 
     private volatile ThreadPoolExecutor planningPool;
+
+    private final long plannerTimeout;
 
     /**
      * Factory method.
@@ -93,7 +103,8 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         return new PrepareServiceImpl(
                 nodeName,
                 cacheSize,
-                new DdlSqlToCommandConverter(dataStorageFields, dataStorageManager::defaultDataStorage)
+                new DdlSqlToCommandConverter(dataStorageFields, dataStorageManager::defaultDataStorage),
+                DEFAULT_PLANNER_TIMEOUT
         );
     }
 
@@ -103,14 +114,17 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
      * @param nodeName Name of the current Ignite node. Will be used in thread factory as part of the thread name.
      * @param cacheSize Size of the cache of query plans. Should be non negative.
      * @param ddlConverter A converter of the DDL-related AST to the actual command.
+     * @param plannerTimeout Timeout in milliseconds to planning.
      */
     public PrepareServiceImpl(
             String nodeName,
             int cacheSize,
-            DdlSqlToCommandConverter ddlConverter
+            DdlSqlToCommandConverter ddlConverter,
+            long plannerTimeout
     ) {
         this.nodeName = nodeName;
         this.ddlConverter = ddlConverter;
+        this.plannerTimeout = plannerTimeout;
 
         cache = Caffeine.newBuilder()
                 .maximumSize(cacheSize)
@@ -142,24 +156,38 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, BaseQueryContext ctx) {
-        try {
-            PlanningContext planningContext = PlanningContext.builder()
-                    .parentContext(ctx)
-                    .build();
+        CompletableFuture<QueryPlan> result;
 
+        PlanningContext planningContext = PlanningContext.builder()
+                .parentContext(ctx)
+                .query(parsedResult.originalQuery())
+                .plannerTimeout(plannerTimeout)
+                .build();
+
+        result = prepareAsync0(parsedResult, planningContext);
+
+        return result.exceptionally(ex -> {
+                    Throwable th = ExceptionUtils.unwrapCause(ex);
+                    if (planningContext.timeouted() && th instanceof RelOptPlanner.CannotPlanException) {
+                        throw new SqlException(ErrorGroups.Sql.PLANNING_TIMEOUTED_ERR);
+                    }
+
+                    throw new IgniteException(th);
+                }
+        );
+    }
+
+    private CompletableFuture<QueryPlan> prepareAsync0(ParsedResult parsedResult, PlanningContext planningContext) {
+        try {
             switch (parsedResult.queryType()) {
                 case QUERY:
                     return prepareQuery(parsedResult, planningContext);
-
                 case DDL:
                     return prepareDdl(parsedResult, planningContext);
-
                 case DML:
                     return prepareDml(parsedResult, planningContext);
-
                 case EXPLAIN:
                     return prepareExplain(parsedResult, planningContext);
-
                 default:
                     throw new AssertionError("Unexpected queryType=" + parsedResult.queryType());
             }

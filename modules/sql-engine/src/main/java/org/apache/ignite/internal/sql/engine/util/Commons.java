@@ -575,6 +575,9 @@ public final class Commons {
         assert type != null;
 
         switch (type.spec()) {
+            case BOOLEAN:
+                return Boolean.class;
+
             case INT8:
                 return Byte.class;
 
@@ -680,6 +683,7 @@ public final class Commons {
             case DECIMAL:
                 return ((DecimalNativeType) type).precision();
 
+            case BOOLEAN:
             case UUID:
             case DATE:
                 return -1;
@@ -714,6 +718,7 @@ public final class Commons {
             case NUMBER:
                 return 0;
 
+            case BOOLEAN:
             case FLOAT:
             case DOUBLE:
             case UUID:

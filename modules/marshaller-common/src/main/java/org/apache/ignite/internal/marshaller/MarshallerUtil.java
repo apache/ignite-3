@@ -40,7 +40,9 @@ public class MarshallerUtil {
         assert cls != null;
 
         // Primitives.
-        if (cls == byte.class) {
+        if (cls == boolean.class) {
+            return BinaryMode.P_BOOLEAN;
+        } else if (cls == byte.class) {
             return BinaryMode.P_BYTE;
         } else if (cls == short.class) {
             return BinaryMode.P_SHORT;
@@ -52,6 +54,8 @@ public class MarshallerUtil {
             return BinaryMode.P_FLOAT;
         } else if (cls == double.class) {
             return BinaryMode.P_DOUBLE;
+        } else if (cls == Boolean.class) { // Boxed primitives.
+            return BinaryMode.BOOLEAN;
         } else if (cls == Byte.class) { // Boxed primitives.
             return BinaryMode.BYTE;
         } else if (cls == Short.class) {

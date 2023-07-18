@@ -76,6 +76,8 @@ import org.apache.calcite.tools.Planner;
 import org.apache.calcite.tools.Program;
 import org.apache.calcite.tools.RuleSets;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
@@ -537,6 +539,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     }
 
     private static class VolcanoPlannerExt extends VolcanoPlanner {
+        private static final IgniteLogger LOG = Loggers.forClass(IgnitePlanner.class);
+
         protected VolcanoPlannerExt(RelOptCostFactory costFactory, Context externalCtx) {
             super(costFactory, externalCtx);
             setTopDownOpt(true);
@@ -559,6 +563,11 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
                 long startTs = ctx.startTs();
 
                 if (FastTimestamps.coarseCurrentTimeMillis() - startTs > timeout) {
+                    LOG.debug("Planning of a query aborted due to planner timeout threshold is reached [timeout={}, query={}]",
+                            timeout,
+                            ctx.query());
+
+                    ctx.abortByTimeout();
                     cancelFlag.set(true);
                 }
             }

@@ -65,16 +65,16 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
     }
 
     private ErrorComponentBuilder unrecognizedErrComponent(IgniteException e) {
-        return fromExWithHeader(UNRECOGNIZED_ERROR_MESSAGE, e.errorCode(), e.traceId(), e.getMessage());
+        return fromExWithHeader(UNRECOGNIZED_ERROR_MESSAGE, e.code(), e.traceId(), e.getMessage());
     }
 
     private ErrorComponentBuilder connectionErrUiComponent(IgniteException e) {
         if (e.getCause() instanceof IgniteClientConnectionException) {
             IgniteClientConnectionException cause = (IgniteClientConnectionException) e.getCause();
-            return fromExWithHeader(CLIENT_CONNECTION_FAILED_MESSAGE, cause.errorCode(), cause.traceId(), cause.getMessage());
+            return fromExWithHeader(CLIENT_CONNECTION_FAILED_MESSAGE, cause.code(), cause.traceId(), cause.getMessage());
         }
 
-        return fromExWithHeader(CLIENT_CONNECTION_FAILED_MESSAGE, e.errorCode(), e.traceId(), e.getMessage());
+        return fromExWithHeader(CLIENT_CONNECTION_FAILED_MESSAGE, e.code(), e.traceId(), e.getMessage());
     }
 
     private static ErrorComponentBuilder fromExWithHeader(String header, int errorCode, UUID traceId, String message) {
@@ -133,7 +133,7 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
     }
 
     private int handleIgniteCheckedException(ExceptionWriter err, IgniteCheckedException e) {
-        String renderedError = fromExWithHeader(UNRECOGNIZED_ERROR_MESSAGE, e.errorCode(), e.traceId(), e.getMessage())
+        String renderedError = fromExWithHeader(UNRECOGNIZED_ERROR_MESSAGE, e.code(), e.traceId(), e.getMessage())
                 .build().render();
         err.write(renderedError);
 
