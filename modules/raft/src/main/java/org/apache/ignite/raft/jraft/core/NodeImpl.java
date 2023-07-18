@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -1599,7 +1600,8 @@ public class NodeImpl implements Node, RaftServerService {
                     st.setError(RaftError.EBUSY, "Is transferring leadership.");
                 }
                 LOG.debug("Node {} can't apply, status={}.", getNodeId(), st);
-                final List<Closure> dones = tasks.stream().map(ele -> ele.done).collect(Collectors.toList());
+                final List<Closure> dones = tasks.stream().map(ele -> ele.done)
+                        .filter(Objects::nonNull).collect(Collectors.toList());
                 Utils.runInThread(this.getOptions().getCommonExecutor(), () -> {
                     for (final Closure done : dones) {
                         done.run(st);
