@@ -183,14 +183,16 @@ public class CausalityDataNodesEngine {
 
         ZoneState zoneState = zonesState.get(zoneId);
 
-        TreeMap<Long, Augmentation> subAugmentationMap = null;
+        LOG.info("+++++++ dataNodes zoneState " + zoneState);
+
+        ConcurrentSkipListMap<Long, Augmentation> subAugmentationMap = null;
 
         // On the data nodes recalculation we write new data nodes to the meta storage then clear the augmentation map.
         // Therefore, first we need to read the augmentation map before it is cleared and then read the last data nodes value
         // from the meta storage.
         if (zoneState != null) {
-            subAugmentationMap = new TreeMap<>(zoneState.topologyAugmentationMap()
-                    .subMap(0L, false, causalityToken, true));
+            subAugmentationMap = new ConcurrentSkipListMap<>(zoneState.topologyAugmentationMap()
+                    .headMap(causalityToken, true));
         }
 
         // Wait if needed when the data nodes value will be updated in the meta storage according to calculated lastScaleUpRevision,
@@ -207,6 +209,11 @@ public class CausalityDataNodesEngine {
         Entry dataNodesEntry = msManager.getLocally(zoneDataNodesKey(zoneId), dataNodesRevision);
         Entry scaleUpChangeTriggerKey = msManager.getLocally(zoneScaleUpChangeTriggerKey(zoneId), dataNodesRevision);
         Entry scaleDownChangeTriggerKey = msManager.getLocally(zoneScaleDownChangeTriggerKey(zoneId), dataNodesRevision);
+
+        if (dataNodesEntry.value() == null) {
+            // The zone was removed. In this case it is impossible to find out the data nodes value idempotently.
+            return emptySet();
+        }
 
         Set<Node> baseDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesEntry.value()));
         long scaleUpTriggerRevision = bytesToLong(scaleUpChangeTriggerKey.value());
@@ -441,40 +448,32 @@ public class CausalityDataNodesEngine {
      * @return Future with the revision.
      */
     private long searchTriggerKey(Long scaleRevision, int zoneId, ByteArray triggerKey) {
-        System.out.println("waitTriggerKey " + scaleRevision + " " + zoneId);
+        System.out.println("searchTriggerKey " + scaleRevision + " " + zoneId);
 
-        System.out.println("waitTriggerKey after registerExactWatch");
-
-        // Must first register the watch listener to listen to new entries. Then read entries from scaleRevision to appliedRevision() + 2.
-        // In this case, we are guaranteed to get all entries from the start revision.
-        long revAfterRegister = msManager.appliedRevision() + 2;
-
-        System.out.println("waitTriggerKey revAfterRegister " + revAfterRegister);
-
-        long upperRevision = max(revAfterRegister, scaleRevision);
-
-        // Gets old entries from storage to check if the expected value was handled before watch listener was registered.
-        List<Entry> entryList = msManager.getLocally(triggerKey.bytes(), scaleRevision, upperRevision);
+        Entry lastEntry = msManager.getLocally(triggerKey, Long.MAX_VALUE);
 
         long revision = 0;
 
-        for (Entry entry : entryList) {
-            System.out.println("waitTriggerKey iteration revision " + entry.value());
+        if (!lastEntry.empty()) {
 
-            // scaleRevision is null if the zone was removed.
-            if (scaleRevision == null) {
+            long upperRevision = max(lastEntry.revision(), scaleRevision);
+
+            // Gets old entries from storage to check if the expected value was handled before watch listener was registered.
+            List<Entry> entryList = msManager.getLocally(triggerKey.bytes(), scaleRevision, upperRevision);
+
+            for (Entry entry : entryList) {
+
+                // scaleRevision is null if the zone was removed.
                 if (entry.value() == null) {
-                    revision = entry.revision();
+//                    System.out.println("searchTriggerKey iteration revision NULL " + revision);
+                    return revision;
+                } else {
+                    long entryScaleRevision = bytesToLong(entry.value());
+//                    System.out.println("searchTriggerKey iteration revision NOT NULL " + entryScaleRevision + " " + entry.revision());
 
-                    break;
-                }
-            } else {
-                long entryValue = bytesToLong(entry.value());
-
-                if (entryValue >= scaleRevision) {
-                    revision = entry.revision();
-
-                    break;
+                    if (entryScaleRevision >= scaleRevision) {
+                        return entry.revision();
+                    }
                 }
             }
         }

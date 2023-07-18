@@ -49,6 +49,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 
@@ -163,8 +164,14 @@ public class DistributionZoneRebalanceEngine {
 
                     int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
 
-                    DistributionZoneView zoneConfig =
-                            getZoneById(zonesConfiguration, zoneId).value();
+                    DistributionZoneView zoneConfig;
+
+                    try {
+                        zoneConfig = getZoneById(zonesConfiguration, zoneId).value();
+                    } catch (DistributionZoneNotFoundException e) {
+                        //The zone was removed.
+                        return completedFuture(null);
+                    }
 
                     Set<String> filteredDataNodes = filterDataNodes(
                             dataNodes,

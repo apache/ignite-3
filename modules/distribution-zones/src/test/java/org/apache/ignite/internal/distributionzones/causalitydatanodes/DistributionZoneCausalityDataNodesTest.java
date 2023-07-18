@@ -103,17 +103,17 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private static final LogicalNode NODE_3 =
             new LogicalNode("node_id_3", "node_name_3", new NetworkAddress("localhost", 123));
 
-    private static final Set<LogicalNode> oneNode = Set.of(NODE_0);
-    private static final Set<String> oneNodeName = Set.of(NODE_0.name());
+    private static final Set<LogicalNode> ONE_NODE = Set.of(NODE_0);
+    private static final Set<String> ONE_NODE_NAME = Set.of(NODE_0.name());
 
-    private static final Set<LogicalNode> twoNodes = Set.of(NODE_0, NODE_1);
-    private static final Set<String> twoNodesNames = Set.of(NODE_0.name(), NODE_1.name());
+    private static final Set<LogicalNode> TWO_NODES = Set.of(NODE_0, NODE_1);
+    private static final Set<String> TWO_NODES_NAMES = Set.of(NODE_0.name(), NODE_1.name());
 
-    private static final Set<LogicalNode> threeNodes = Set.of(NODE_0, NODE_1, NODE_2);
-    private static final Set<String> threeNodesNames = Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name());
+    private static final Set<LogicalNode> THREE_NODES = Set.of(NODE_0, NODE_1, NODE_2);
+    private static final Set<String> THREE_NODES_NAMES = Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name());
 
-    private static final Set<LogicalNode> fourNodes = Set.of(NODE_0, NODE_1, NODE_2, NODE_3);
-    private static final Set<String> fourNodesNames = Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name(), NODE_3.name());
+    private static final Set<LogicalNode> FOUR_NODES = Set.of(NODE_0, NODE_1, NODE_2, NODE_3);
+    private static final Set<String> FOUR_NODES_NAMES = Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name(), NODE_3.name());
 
     /**
      * Contains futures that is completed when the topology watch listener receive the event with expected logical topology.
@@ -536,7 +536,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Check that data nodes value of the zone with the scale down update revision is NODE_0.
         Set<String> dataNodes3 = getDataNodesFromListener(scaleDownRevision, ZONE_ID_1);
-        assertEquals(oneNodeName, dataNodes3); // New flaky.
+        assertEquals(oneNodeName, dataNodes3);
     }
 
     /**
@@ -583,6 +583,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         Set<String> twoNodesNames = Set.of(NODE_0.name(), NODE_1.name());
 
         long topologyRevision2 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes);
+
+        assertValueInStorage(
+                metaStorageManager,
+                zoneDataNodesKey(ZONE_ID_1),
+                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                oneNodeName,
+                3000
+        );
 
         System.out.println("test_log topologyRevision2=" + topologyRevision2);
 
@@ -635,6 +643,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         Set<String> oneNodeName = Set.of(NODE_0.name());
 
         long topologyRevision2 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), oneNode);
+
+        assertValueInStorage(
+                metaStorageManager,
+                zoneDataNodesKey(ZONE_ID_1),
+                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                twoNodesNames,
+                3000
+        );
 
         long dropRevision1 = dropZoneAndGetRevision(ZONE_NAME_1);
 
@@ -867,6 +883,9 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Change logical topology. NODE_1 is left.
         long topologyRevision3 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), twoNodes1);
 
+        System.out.println("test_log topologyRevision2=" + topologyRevision2);
+        System.out.println("test_log topologyRevision3=" + topologyRevision3);
+
         Set<String> dataNodes7 = getDataNodesFromListener(topologyRevision2, DEFAULT_ZONE_ID);
         assertEquals(threeNodeNames, dataNodes7);
         Set<String> dataNodes8 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
@@ -923,11 +942,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask);
 
         // Change logical topology. NODE_1 is added.
-        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes);
+        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
         waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision1, 3000);
 
         // Change logical topology. NODE_1 is removed.
-        long topologyRevision2 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), oneNode);
+        long topologyRevision2 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), ONE_NODE);
         waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision2, 3000);
 
         // Change logical topology. NODE_2 is added.
@@ -954,16 +973,16 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         Set<String> dataNodes8 = getDataNodesFromListener(topologyRevision5, ZONE_ID_3);
         assertEquals(Set.of(NODE_0.name()), dataNodes8);
 
-        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, oneNode, 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, oneNode, 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_2, oneNode, 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_3, oneNode, 3000);
+        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, ONE_NODE, 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, ONE_NODE, 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_2, ONE_NODE, 3000);
+        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_3, ONE_NODE, 3000);
 
         assertValueInStorage(
                 metaStorageManager,
                 zoneDataNodesKey(DEFAULT_ZONE_ID),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                oneNodeName,
+                ONE_NODE_NAME,
                 3000
         );
 
@@ -971,7 +990,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 metaStorageManager,
                 zoneDataNodesKey(ZONE_ID_1),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                oneNodeName,
+                ONE_NODE_NAME,
                 3000
         );
 
@@ -979,7 +998,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 metaStorageManager,
                 zoneDataNodesKey(ZONE_ID_2),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                oneNodeName,
+                ONE_NODE_NAME,
                 3000
         );
 
@@ -987,7 +1006,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 metaStorageManager,
                 zoneDataNodesKey(ZONE_ID_3),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                oneNodeName,
+                ONE_NODE_NAME,
                 3000
         );
 
