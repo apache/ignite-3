@@ -230,7 +230,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
         if (snapshotStorage instanceof LocalSnapshotStorage) {
             final LocalSnapshotStorage tmp = (LocalSnapshotStorage) this.snapshotStorage;
-            if (tmp != null && !tmp.hasServerPeerId()) {
+            if (!tmp.hasServerPeerId()) {
                 tmp.setServerPeerId(opts.getPeerId());
             }
         }
