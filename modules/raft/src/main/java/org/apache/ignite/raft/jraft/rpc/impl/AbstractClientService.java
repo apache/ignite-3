@@ -94,7 +94,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         configRpcClient(this.rpcClient);
 
         // TODO asch should the client be created lazily? A client doesn't make sence without a server IGNITE-14832
-        this.rpcClient.init(null);
+        this.rpcClient.init(this.rpcOptions);
 
         this.rpcExecutor = rpcOptions.getClientExecutor();
 
