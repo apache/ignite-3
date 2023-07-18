@@ -63,6 +63,7 @@ cmake {
     getDef().ENABLE_ODBC='ON'
     getDef().CMAKE_INSTALL_PREFIX="$buildDir/install"
     getDef().WARNINGS_AS_ERRORS='ON'
+    getDef().CMAKE_BUILD_TYPE='Release'
 }
 
 task buildNuGet(type: Exec) {
