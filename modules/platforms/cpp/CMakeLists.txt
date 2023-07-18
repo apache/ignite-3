@@ -23,7 +23,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
 
-option(ENABLE_CONAN "Use Conan package manager to get dependencies" ON)
+option(ENABLE_CONAN "Use Conan package manager to get dependencies" OFF)
 option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
 option(ENABLE_ODBC "Build Ignite ODBC driver module" OFF)
 option(ENABLE_ODBC_MSI "Build Ignite ODBC driver installer for Windows" OFF)

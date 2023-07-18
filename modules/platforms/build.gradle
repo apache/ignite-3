@@ -23,6 +23,10 @@ plugins {
 
 import org.gradle.crypto.checksum.Checksum
 
+configurations {
+    odbc
+}
+
 task restoreTool(type: Exec) {
     workingDir "$rootDir/modules/platforms/dotnet"
 
@@ -56,6 +60,7 @@ cmake {
     generator='Unix Makefiles'
     buildConfig='Release'
     buildTarget='install'
+    getDef().put('ENABLE_ODBC', 'ON')
 }
 
 task buildNuGet(type: Exec) {
@@ -118,5 +123,11 @@ if (project.hasProperty('prepareRelease')) {
         platformsRelease(file("$buildDir/checksums")) {
             builtBy createChecksums
         }
+    }
+}
+
+artifacts {
+    odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
+        builtBy cmakeBuild
     }
 }
