@@ -56,6 +56,7 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowRequest;
@@ -596,8 +597,8 @@ public class Replicator implements ThreadId.OnError {
             return;
         }
         boolean doUnlock = true;
-        if (!rpcService.connect(options.getPeerId())) {
-            LOG.error("Fail to check install snapshot connection to peer={}, give up to send install snapshot request.", options.getPeerId());
+        if (!this.rpcService.connect(this.options.getPeerId())) {
+            LOG.error("Fail to check install snapshot connection to peer={}, give up to send install snapshot request.", this.options.getPeerId());
             block(Utils.nowMs(), RaftError.EHOSTDOWN.getNumber());
             return;
         }
@@ -1444,6 +1445,20 @@ public class Replicator implements ThreadId.OnError {
         }
         r.consecutiveErrorTimes = 0;
         if (!response.success()) {
+             // Target node is is busy, sleep for a while.
+            if (response.errorCode() == RaftError.EBUSY.getNumber()) {
+                if (isLogDebugEnabled) {
+                    sb.append(" is busy, sleep, errorMsg='") //
+                        .append(response.errorMsg()).append("'");
+                    LOG.debug(sb.toString());
+                }
+                r.resetInflights();
+                r.setState(State.Probe);
+                // unlock in in block
+                r.block(startTimeMs, status.getCode());
+                return false;
+            }
+
             if (response.term() > r.options.getTerm()) {
                 if (isLogDebugEnabled) {
                     sb.append(" fail, greater term ") //

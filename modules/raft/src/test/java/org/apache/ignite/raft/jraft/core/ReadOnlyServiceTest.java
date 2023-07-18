@@ -300,7 +300,7 @@ public class ReadOnlyServiceTest {
     @Test
     public void testOverMaxReadIndexLag() throws Exception {
         Mockito.when(this.fsmCaller.getLastAppliedIndex()).thenReturn(1L);
-        readOnlyServiceImpl.getRaftOptions().setMaxReadIndexLag(50);
+        this.readOnlyServiceImpl.getRaftOptions().setMaxReadIndexLag(50);
 
         byte[] requestContext = TestUtils.getRandomBytes();
         CountDownLatch latch = new CountDownLatch(1);

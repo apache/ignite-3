@@ -253,6 +253,11 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /** */
     private List<Stripe> logStripes;
 
+    /**
+     * Apply task in blocking or non-blocking mode, ApplyTaskMode.NonBlocking by default.
+     */
+    private ApplyTaskMode applyTaskMode = ApplyTaskMode.NonBlocking;
+
     public NodeOptions() {
         raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());
     }
@@ -279,7 +284,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      * @return {@code true} if shared pools mode is in use.
      */
     public boolean isSharedPools() {
-        return sharedPools;
+        return this.sharedPools;
     }
 
     /**
@@ -287,6 +292,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      */
     public void setSharedPools(boolean sharedPools) {
         this.sharedPools = sharedPools;
+    }
+
+    public ApplyTaskMode getApplyTaskMode() {
+        return this.applyTaskMode;
+    }
+
+    public void setApplyTaskMode(final ApplyTaskMode applyTaskMode) {
+        this.applyTaskMode = applyTaskMode;
     }
 
     /**
@@ -374,7 +387,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     }
 
     public int getElectionPriority() {
-        return electionPriority;
+        return this.electionPriority;
     }
 
     public void setElectionPriority(int electionPriority) {
@@ -382,7 +395,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     }
 
     public int getDecayPriorityGap() {
-        return decayPriorityGap;
+        return this.decayPriorityGap;
     }
 
     public void setDecayPriorityGap(int decayPriorityGap) {
@@ -423,7 +436,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     }
 
     public int getSnapshotLogIndexMargin() {
-        return snapshotLogIndexMargin;
+        return this.snapshotLogIndexMargin;
     }
 
     public void setSnapshotLogIndexMargin(int snapshotLogIndexMargin) {
@@ -507,11 +520,11 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     }
 
     public ExecutorService getCommonExecutor() {
-        return commonExecutor;
+        return this.commonExecutor;
     }
 
     public FixedThreadsExecutorGroup getStripedExecutor() {
-        return stripedExecutor;
+        return this.stripedExecutor;
     }
 
     public void setStripedExecutor(FixedThreadsExecutorGroup stripedExecutor) {
@@ -519,7 +532,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     }
 
     public Scheduler getScheduler() {
-        return scheduler;
+        return this.scheduler;
     }
 
     public void setScheduler(Scheduler scheduler) {
@@ -527,7 +540,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     }
 
     public Timer getElectionTimer() {
-        return electionTimer;
+        return this.electionTimer;
     }
 
     public void setElectionTimer(Timer electionTimer) {
@@ -535,7 +548,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     }
 
     public Timer getVoteTimer() {
-        return voteTimer;
+        return this.voteTimer;
     }
 
     public void setVoteTimer(Timer voteTimer) {
@@ -543,7 +556,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     }
 
     public Timer getSnapshotTimer() {
-        return snapshotTimer;
+        return this.snapshotTimer;
     }
 
     public void setSnapshotTimer(Timer snapshotTimer) {
@@ -551,7 +564,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     }
 
     public Timer getStepDownTimer() {
-        return stepDownTimer;
+        return this.stepDownTimer;
     }
 
     public void setStepDownTimer(Timer stepDownTimer) {
@@ -559,7 +572,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     }
 
     public String getServerName() {
-        return serverName;
+        return this.serverName;
     }
 
     public void setServerName(String serverName) {
@@ -567,7 +580,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     }
 
     public StripedDisruptor<FSMCallerImpl.ApplyTask> getfSMCallerExecutorDisruptor() {
-        return fSMCallerExecutorDisruptor;
+        return this.fSMCallerExecutorDisruptor;
     }
 
     public void setfSMCallerExecutorDisruptor(StripedDisruptor<FSMCallerImpl.ApplyTask> fSMCallerExecutorDisruptor) {
@@ -575,7 +588,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     }
 
     public StripedDisruptor<NodeImpl.LogEntryAndClosure> getNodeApplyDisruptor() {
-        return nodeApplyDisruptor;
+        return this.nodeApplyDisruptor;
     }
 
     public void setNodeApplyDisruptor(StripedDisruptor<NodeImpl.LogEntryAndClosure> nodeApplyDisruptor) {
@@ -583,7 +596,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     }
 
     public StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent> getReadOnlyServiceDisruptor() {
-        return readOnlyServiceDisruptor;
+        return this.readOnlyServiceDisruptor;
     }
 
     public void setReadOnlyServiceDisruptor(StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent> readOnlyServiceDisruptor) {
@@ -591,7 +604,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     }
 
     public StripedDisruptor<LogManagerImpl.StableClosureEvent> getLogManagerDisruptor() {
-        return logManagerDisruptor;
+        return this.logManagerDisruptor;
     }
 
     public void setLogManagerDisruptor(StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor) {
@@ -603,11 +616,11 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     }
 
     public List<Stripe> getLogStripes() {
-        return logStripes;
+        return this.logStripes;
     }
 
     public HybridClock getClock() {
-        return clock;
+        return this.clock;
     }
 
     public void setClock(HybridClock clock) {
@@ -656,18 +669,18 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         return nodeOptions;
     }
 
-    @Override
     public String toString() {
-        return "NodeOptions{" + "electionTimeoutMs=" + electionTimeoutMs + ", electionPriority=" + electionPriority
-            + ", decayPriorityGap=" + decayPriorityGap + ", leaderLeaseTimeRatio=" + leaderLeaseTimeRatio
-            + ", snapshotIntervalSecs=" + snapshotIntervalSecs + ", snapshotLogIndexMargin="
-            + snapshotLogIndexMargin + ", catchupMargin=" + catchupMargin + ", initialConf=" + initialConf
-            + ", fsm=" + fsm + ", logUri='" + logUri + '\'' + ", raftMetaUri='" + raftMetaUri + '\''
-            + ", snapshotUri='" + snapshotUri + '\'' + ", filterBeforeCopyRemote=" + filterBeforeCopyRemote
-            + ", disableCli=" + disableCli + ", timerPoolSize="
-            + timerPoolSize + ", cliRpcThreadPoolSize=" + cliRpcThreadPoolSize + ", raftRpcThreadPoolSize="
-            + raftRpcThreadPoolSize + ", enableMetrics=" + enableMetrics + ", snapshotThrottle=" + snapshotThrottle
-            + ", serviceFactory=" + serviceFactory + ", raftOptions=" + raftOptions + "} " + super.toString();
+        return "NodeOptions{" + "electionTimeoutMs=" + this.electionTimeoutMs + ", electionPriority="
+               + this.electionPriority + ", decayPriorityGap=" + this.decayPriorityGap + ", leaderLeaseTimeRatio="
+               + this.leaderLeaseTimeRatio + ", snapshotIntervalSecs=" + this.snapshotIntervalSecs
+               + ", snapshotLogIndexMargin=" + this.snapshotLogIndexMargin + ", catchupMargin=" + this.catchupMargin
+               + ", initialConf=" + this.initialConf + ", fsm=" + this.fsm + ", logUri='" + this.logUri + '\''
+               + ", raftMetaUri='" + this.raftMetaUri + '\'' + ", snapshotUri='" + this.snapshotUri + '\''
+               + ", filterBeforeCopyRemote=" + this.filterBeforeCopyRemote + ", disableCli=" + this.disableCli + ", timerPoolSize="
+               + this.timerPoolSize + ", cliRpcThreadPoolSize=" + this.cliRpcThreadPoolSize + ", raftRpcThreadPoolSize="
+               + this.raftRpcThreadPoolSize + ", enableMetrics=" + this.enableMetrics + ", snapshotThrottle="
+               + this.snapshotThrottle + ", serviceFactory=" + this.serviceFactory + ", applyTaskMode="
+               + this.applyTaskMode + ", raftOptions=" + this.raftOptions + "} " + super.toString();
     }
 
     /**

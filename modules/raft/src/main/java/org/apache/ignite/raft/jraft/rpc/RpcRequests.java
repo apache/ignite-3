@@ -189,7 +189,7 @@ public final class RpcRequests {
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.APPEND_ENTRIES_RESPONSE)
-    public interface AppendEntriesResponse extends Message {
+    public interface AppendEntriesResponse extends ErrorResponse {
         long term();
 
         boolean success();
