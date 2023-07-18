@@ -27,8 +27,6 @@ public class ThreadId {
 
     private static final IgniteLogger LOG = Loggers.forClass(ThreadId.class);
 
-    private static final int TRY_LOCK_TIMEOUT_MS = 10;
-
     private final Object data;
     private final ReentrantLock lock = new ReentrantLock();
     private final OnError onError;

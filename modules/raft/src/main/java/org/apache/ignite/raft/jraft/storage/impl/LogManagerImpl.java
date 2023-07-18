@@ -65,8 +65,6 @@ import org.apache.ignite.raft.jraft.util.Utils;
  * LogManager implementation.
  */
 public class LogManagerImpl implements LogManager {
-    private static final int APPEND_LOG_RETRY_TIMES = 50;
-
     private static final IgniteLogger LOG = Loggers.forClass(LogManagerImpl.class);
 
     /** Raft node id. */
