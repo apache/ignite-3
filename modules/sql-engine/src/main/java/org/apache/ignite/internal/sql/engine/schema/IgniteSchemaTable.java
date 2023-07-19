@@ -193,7 +193,7 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
     /** {@inheritDoc} */
     @Override
     public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-        throw new UnsupportedOperationException("Execution related methods are not available.");
+        return IgniteTableImpl.partitionedGroup(ctx.tableManager().getTable(id).internalTable()).get();
     }
 
     /** {@inheritDoc} */

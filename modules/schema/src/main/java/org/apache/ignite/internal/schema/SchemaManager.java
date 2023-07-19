@@ -121,7 +121,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     private CompletableFuture<?> onSchemaChange(CreateTableEventParameters evt) {
         CatalogTableDescriptor tableDescriptor = evt.tableDescriptor();
 
-        int newSchemaVersion = INITIAL_SCHEMA_VERSION;// evt.catalogVersion();
+        int newSchemaVersion = INITIAL_SCHEMA_VERSION; // evt.catalogVersion();
         int tblId = tableDescriptor.id();
 
         SchemaDescriptor newSchema = CatalogDescriptorUtils.convert(newSchemaVersion, tableDescriptor);
@@ -196,9 +196,9 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                             );
                         }
 
-                return saveSchemaDescriptor(tblId, newSchema)
+                        return saveSchemaDescriptor(tblId, newSchema)
                         .thenApply(t -> registerSchema(tblId, newSchema, registries));
-            }));
+                    }));
         } finally {
             busyLock.leaveBusy();
         }

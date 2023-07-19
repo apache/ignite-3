@@ -613,7 +613,8 @@ public class ExecutionServiceImplTest {
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
                 dependencyResolver,
-                (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps)
+                (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps),
+                null
         );
 
         taskExecutor.start();

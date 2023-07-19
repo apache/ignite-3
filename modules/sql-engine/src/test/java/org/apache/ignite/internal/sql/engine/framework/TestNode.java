@@ -150,8 +150,8 @@ public class TestNode implements LifecycleAware {
 
                         return new ScanNode<>(ctx, dataProvider);
                     }
-                }
-        ));
+                },
+                null));
 
         parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
     }

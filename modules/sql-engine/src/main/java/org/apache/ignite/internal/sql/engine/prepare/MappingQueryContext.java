@@ -23,6 +23,7 @@ import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
 import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.table.distributed.TableManager;
 
 /**
  * Query mapping context.
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 public class MappingQueryContext {
     private final String locNodeName;
     private final MappingService mappingService;
+    private final TableManager tableManager;
 
     private RelOptCluster cluster;
 
@@ -41,10 +43,12 @@ public class MappingQueryContext {
      */
     public MappingQueryContext(
             String locNodeName,
-            MappingService mappingService
+            MappingService mappingService,
+            TableManager tableManager
     ) {
         this.locNodeName = locNodeName;
         this.mappingService = mappingService;
+        this.tableManager = tableManager;
     }
 
     /** Creates a cluster. */
@@ -65,5 +69,9 @@ public class MappingQueryContext {
 
     public MappingService mappingService() {
         return mappingService;
+    }
+
+    public TableManager tableManager() {
+        return tableManager;
     }
 }

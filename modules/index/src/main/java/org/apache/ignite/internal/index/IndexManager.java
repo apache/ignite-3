@@ -308,7 +308,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             }
         });
 
-         return createIndexFuture;
+        return createIndexFuture;
     }
 
     /**

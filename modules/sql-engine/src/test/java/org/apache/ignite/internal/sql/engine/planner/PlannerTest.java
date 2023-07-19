@@ -915,6 +915,6 @@ public class PlannerTest extends AbstractPlannerTest {
 
     private static MappingQueryContext mapContext(String locNodeName,
             MappingService mappingService) {
-        return new MappingQueryContext(locNodeName, mappingService);
+        return new MappingQueryContext(locNodeName, mappingService, null);
     }
 }

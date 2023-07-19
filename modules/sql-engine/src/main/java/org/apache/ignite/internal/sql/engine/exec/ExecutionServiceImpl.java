@@ -85,6 +85,7 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -128,6 +129,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final ExecutionDependencyResolver dependencyResolver;
 
+    private final TableManager tableManager;
+
     private final ImplementorFactory<RowT> implementorFactory;
 
     private final Map<UUID, DistributedQueryManager> queryManagerMap = new ConcurrentHashMap<>();
@@ -135,6 +138,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /**
      * Creates the execution services.
      *
+     * @param <RowT> Type of the sql row.
      * @param topSrvc Topology service.
      * @param msgSrvc Message service.
      * @param sqlSchemaManager Schema manager.
@@ -143,7 +147,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * @param handler Row handler.
      * @param mailboxRegistry Mailbox registry.
      * @param exchangeSrvc Exchange service.
-     * @param <RowT> Type of the sql row.
+     * @param tableManager Table Manager.
      * @return An execution service.
      */
     public static <RowT> ExecutionServiceImpl<RowT> create(
@@ -155,7 +159,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             RowHandler<RowT> handler,
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSrvc,
-            ExecutionDependencyResolver dependencyResolver
+            ExecutionDependencyResolver dependencyResolver,
+            TableManager tableManager
     ) {
         return new ExecutionServiceImpl<>(
                 msgSrvc,
@@ -171,7 +176,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         new HashFunctionFactoryImpl<>(sqlSchemaManager, handler),
                         mailboxRegistry,
                         exchangeSrvc,
-                        deps)
+                        deps),
+                tableManager
         );
     }
 
@@ -186,6 +192,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * @param taskExecutor Task executor.
      * @param handler Row handler.
      * @param implementorFactory Relational node implementor factory.
+     * @param tableManager Table manager.
      */
     public ExecutionServiceImpl(
             MessageService messageService,
@@ -196,7 +203,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
             ExecutionDependencyResolver dependencyResolver,
-            ImplementorFactory<RowT> implementorFactory
+            ImplementorFactory<RowT> implementorFactory,
+            TableManager tableManager
     ) {
         this.localNode = topSrvc.localMember();
         this.handler = handler;
@@ -208,6 +216,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         this.ddlCmdHnd = ddlCmdHnd;
         this.dependencyResolver = dependencyResolver;
         this.implementorFactory = implementorFactory;
+        this.tableManager = tableManager;
     }
 
     /** {@inheritDoc} */
@@ -639,7 +648,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private AsyncCursor<List<Object>> execute(InternalTransaction tx, MultiStepPlan plan) {
             taskExecutor.execute(() -> {
                 try {
-                    plan.init(new MappingQueryContext(localNode.name(), mappingSrvc));
+                    plan.init(new MappingQueryContext(localNode.name(), mappingSrvc, tableManager));
 
                     List<Fragment> fragments = plan.fragments();
 

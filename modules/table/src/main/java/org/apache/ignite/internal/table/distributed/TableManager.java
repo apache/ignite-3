@@ -202,7 +202,6 @@ import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -1292,10 +1291,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         // We use the event notification future as the result so that dependent components can complete the schema updates.
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
-        CompletableFuture<?> eventFut = fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableId));
+        fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableId));
 
-        // TODO: investigate why createParts and eventFutures hangs.
-//         return allOf(createPartsFut, eventFut);
+        // TODO: investigate why createParts hangs.
         return completedFuture(false);
     }
 
@@ -2851,7 +2849,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             }
 
                             if (primaryCols.contains(colName)) {
-                                throw new SqlException(STMT_VALIDATION_ERR, format("Can`t delete column, belongs to primary key: [name={}]", colName));
+                                throw new SqlException(STMT_VALIDATION_ERR,
+                                        format("Can`t delete column, belongs to primary key: [name={}]", colName));
                             }
                         }
 
