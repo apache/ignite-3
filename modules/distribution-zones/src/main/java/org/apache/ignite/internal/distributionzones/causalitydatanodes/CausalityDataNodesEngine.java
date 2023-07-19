@@ -386,10 +386,6 @@ public class CausalityDataNodesEngine {
             while ((scaleUpTopologyRevision == 0) || (scaleDownTopologyRevision == 0)) {
                 topologyEntry = msManager.getLocally(zonesLogicalTopologyKey(), newerTopologyRevision - 1);
 
-//                if (!topologyEntry.empty() && newerTopologyRevision == topologyEntry.revision()) {
-//                    break;
-//                }
-
                 Set<NodeWithAttributes> olderLogicalTopology;
 
                 if (topologyEntry.empty()) {
