@@ -3023,6 +3023,8 @@ public class ItNodeTest {
 
         verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any());
 
+        // Wait until every node sees every other node, otherwise
+        // changePeersAsync can fail.
         cluster.getAllNodes().forEach(peerId -> {
             assertTrue(waitForTopology(cluster, peerId, 5, TimeUnit.SECONDS.toMillis(10)));
         });
