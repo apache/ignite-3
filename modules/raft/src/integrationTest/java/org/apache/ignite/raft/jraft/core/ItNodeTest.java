@@ -3023,6 +3023,10 @@ public class ItNodeTest {
 
         verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any());
 
+        cluster.getAllNodes().forEach(peerId -> {
+            assertTrue(waitForTopology(cluster, peerId, 5, TimeUnit.SECONDS.toMillis(10)));
+        });
+
         for (int i = 0; i < 4; i++) {
             leader = cluster.getLeader();
             assertNotNull(leader);

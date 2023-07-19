@@ -268,7 +268,11 @@ public class ConnectionManager implements ChannelCreationListener {
         ConnectorKey<String> key = new ConnectorKey<>(channel.consistentId(), getChannel(channel.channelId()));
         NettySender oldChannel = channels.put(key, channel);
 
-        assert oldChannel == null : "Incorrect channel creation flow";
+        if (oldChannel != null) {
+            // Old channel can still be in the map, but it must be closed already by the tie breaker in the
+            // handshake manager.
+            assert !oldChannel.isOpen() : "Incorrect channel creation flow";
+        }
     }
 
     /**
