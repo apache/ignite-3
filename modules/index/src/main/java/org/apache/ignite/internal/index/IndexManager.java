@@ -312,6 +312,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             });
 
             return future;
+        } catch (Exception ex) {
+            return failedFuture(ex);
         } finally {
             busyLock.leaveBusy();
         }
