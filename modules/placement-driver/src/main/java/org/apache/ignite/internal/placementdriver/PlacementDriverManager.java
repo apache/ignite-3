@@ -202,6 +202,8 @@ public class PlacementDriverManager implements IgniteComponent {
         busyLock.block();
 
         withRaftClientIfPresent(TopologyAwareRaftGroupService::shutdown);
+
+        leaseUpdater.deactivate();
     }
 
     private void withRaftClientIfPresent(Consumer<TopologyAwareRaftGroupService> closure) {
