@@ -274,7 +274,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     }
 
     /**
-     * Persist default values to the storage.
+     * Persists default values to the storage.
      *
      * <p>Specifically, this method runs a check whether there are
      * default values that are not persisted to the storage and writes them if there are any.
