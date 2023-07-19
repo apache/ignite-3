@@ -20,9 +20,11 @@ package org.apache.ignite.internal.sql.engine.planner;
 import static java.util.function.Predicate.not;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
@@ -360,6 +362,28 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 .and(input(0, subtreePredicate))
                 .and(input(1, subtreePredicate))
         ), disableRules);
+    }
+
+    /**
+     * Validates that COUNT aggregate is split into COUNT and COUNT_REDUCE.
+     */
+    @Test
+    public void twoPhaseCountAgg() throws Exception {
+        Predicate<AggregateCall> countMap = (a) -> {
+            return Objects.equals(a.getName(), "COUNT") && a.getArgList().equals(List.of(1));
+        };
+
+        Predicate<AggregateCall> countReduce = (a) -> {
+            return Objects.equals(a.getName(), "$REDUCE_COUNT") && a.getArgList().equals(List.of(1));
+        };
+
+        assertPlan(TestCase.CASE_22, isInstanceOf(IgniteReduceSortAggregate.class)
+                .and(in -> hasAggregates(countReduce).test(in.getAggregateCalls()))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                        .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
+                                )
+                        ))), disableRules);
     }
 
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {

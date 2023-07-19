@@ -35,6 +35,7 @@ import java.util.stream.IntStream;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
@@ -723,5 +724,18 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         COLOCATED,
 
         MAP_REDUCE
+    }
+
+    protected AggregateCall newAggCall(SqlAggFunction func, int arg, RelDataType resultType) {
+        return AggregateCall.create(
+                func,
+                false,
+                false,
+                false,
+                ImmutableIntList.of(arg),
+                -1,
+                RelCollations.EMPTY,
+                resultType,
+                null);
     }
 }

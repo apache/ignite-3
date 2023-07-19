@@ -20,9 +20,11 @@ package org.apache.ignite.internal.sql.engine.planner;
 import static java.util.function.Predicate.not;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
@@ -95,7 +97,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkSimpleAggWithGroupBySingle(TestCase.CASE_6);
 
         checkSimpleAggWithGroupByHash(TestCase.CASE_5A);
-        checkAggWithGroupByHashFromExchange(TestCase.CASE_6A);
+        checkSimpleAggWithGroupByHash(TestCase.CASE_6A);
     }
 
     /**
@@ -142,8 +144,8 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkAggWithGroupByIndexColumnsSingle(TestCase.CASE_11);
 
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_9A);
-        checkAggWithGroupByIndexColumnsHashFromExchange(TestCase.CASE_10A);
-        checkAggWithGroupByIndexColumnsHashFromExchange(TestCase.CASE_11A);
+        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_10A);
+        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_11A);
     }
 
     /**
@@ -332,6 +334,29 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         ), disableRules);
     }
 
+    /**
+     * Validates that COUNT aggregate is split into COUNT and COUNT_REDUCE.
+     */
+    @Test
+    public void twoPhaseCountAgg() throws Exception {
+        Predicate<AggregateCall> countMap = (a) -> {
+            return Objects.equals(a.getName(), "COUNT") && a.getArgList().equals(List.of(1));
+        };
+
+        Predicate<AggregateCall> countReduce = (a) -> {
+            return Objects.equals(a.getName(), "$REDUCE_COUNT") && a.getArgList().equals(List.of(1));
+        };
+
+        assertPlan(TestCase.CASE_22, isInstanceOf(IgniteReduceHashAggregate.class)
+                .and(in -> hasAggregates(countReduce).test(in.getAggregateCalls()))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
+                                .and(input(isTableScan("TEST")))
+                        )
+                ))), disableRules);
+    }
+
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
@@ -378,21 +403,6 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(input(isInstanceOf(IgniteMapHashAggregate.class)
                                         .and(hasAggregate())
                                         .and(hasGroups())
-                                        .and(input(isTableScan("TEST")))
-                                ))
-                        ))
-                ),
-                disableRules
-        );
-    }
-
-    private void checkAggWithGroupByHashFromExchange(TestCase testCase) throws Exception {
-        assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
-                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                .and(hasAggregate())
-                                .and(hasGroups())
-                                .and(input(isInstanceOf(IgniteExchange.class)
                                         .and(input(isTableScan("TEST")))
                                 ))
                         ))

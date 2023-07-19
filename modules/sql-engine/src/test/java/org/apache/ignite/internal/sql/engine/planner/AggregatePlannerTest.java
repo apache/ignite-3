@@ -20,9 +20,11 @@ package org.apache.ignite.internal.sql.engine.planner;
 import static java.util.function.Predicate.not;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
@@ -92,7 +94,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         checkSimpleAggWithGroupBySingle(TestCase.CASE_5);
         checkSimpleAggWithGroupBySingle(TestCase.CASE_6);
 
-        checkSimpleAggWithGroupByHashColocatedFromExchange(TestCase.CASE_5A);
+        checkSimpleAggWithGroupByHash(TestCase.CASE_5A);
         checkSimpleAggWithGroupByHashColocatedFromExchange(TestCase.CASE_6A);
     }
 
@@ -140,8 +142,8 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         checkAggWithGroupByIndexColumnsSingle(TestCase.CASE_11);
 
         checkAggWithGroupByIndexColumnsSort(TestCase.CASE_9A);
-        checkAggWithGroupByIndexColumnsColocatedSortFromExchange(TestCase.CASE_10A);
-        checkAggWithGroupByIndexColumnsColocatedSortFromExchange(TestCase.CASE_11A);
+        checkAggWithGroupByIndexColumnsSort(TestCase.CASE_10A);
+        checkAggWithGroupByIndexColumnsSort(TestCase.CASE_11A);
     }
 
     /**
@@ -366,6 +368,27 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         ));
     }
 
+    /** Validate that we choose two-phase count aggregate for COUNT by default. */
+    @Test
+    public void countAgg() throws Exception {
+        Predicate<AggregateCall> countMap = (a) -> {
+            return Objects.equals(a.getName(), "COUNT") && a.getArgList().equals(List.of(1));
+        };
+
+        Predicate<AggregateCall> countReduce = (a) -> {
+            return Objects.equals(a.getName(), "$REDUCE_COUNT") && a.getArgList().equals(List.of(1));
+        };
+
+        assertPlan(TestCase.CASE_22, isInstanceOf(IgniteReduceHashAggregate.class)
+                .and(in -> hasAggregates(countReduce).test(in.getAggregateCalls()))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                        .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
+                                        .and(input(isTableScan("TEST")))
+                                )
+                        ))));
+    }
+
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
@@ -468,18 +491,6 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                         .and(hasGroups())
                         .and(input(isInstanceOf(IgniteExchange.class)
                                 .and(input(isTableScan("TEST")))
-                        ))
-                )
-        );
-    }
-
-    private void checkAggWithGroupByIndexColumnsColocatedSortFromExchange(TestCase testCase) throws Exception {
-        assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
-                        .and(hasAggregate())
-                        .and(hasGroups())
-                        .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(input(isIndexScan("TEST", "grp0_grp1")))
                         ))
                 )
         );

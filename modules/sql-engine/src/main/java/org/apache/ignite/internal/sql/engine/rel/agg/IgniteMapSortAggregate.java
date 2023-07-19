@@ -158,4 +158,8 @@ public class IgniteMapSortAggregate extends IgniteMapAggregateBase implements Ig
     public RelCollation collation() {
         return collation;
     }
+
+    public List<AggregateCall> aggregateCalls() {
+        return aggCalls;
+    }
 }

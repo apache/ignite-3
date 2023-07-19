@@ -50,6 +50,7 @@ import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
+import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -132,7 +133,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         );
 
         cluster.setMetadataQuerySupplier(() -> {
-            throw new AssertionError(cantBeUsedMsg);
+            return RelMetadataQueryEx.create();
         });
 
         CLUSTER = cluster;

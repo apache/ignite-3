@@ -264,8 +264,6 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
         private final RowHandler<RowT> handler;
 
-        private List<RelDataType> state;
-
         AccumulatorWrapperImpl(
                 Accumulator accumulator,
                 AggregateCall call,
@@ -286,9 +284,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         /** {@inheritDoc} */
         @Override
         public void add(RowT row) {
-            assert type != AggregateType.REDUCE;
-
-            if (filterArg >= 0 && Boolean.TRUE != handler.get(filterArg, row)) {
+            if (type != AggregateType.REDUCE && filterArg >= 0 && Boolean.TRUE != handler.get(filterArg, row)) {
                 return;
             }
 
@@ -307,8 +303,6 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         /** {@inheritDoc} */
         @Override
         public Object end() {
-            assert type != AggregateType.MAP;
-
             return outAdapter.apply(accumulator.end());
         }
 
@@ -320,46 +314,11 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             this.accumulator.apply(accumulator);
         }
 
-        @Override
-        public List<RelDataType> stateTypes(IgniteTypeFactory typeFactory) {
-            if (state == null) {
-                state = accumulator.stateTypes(typeFactory);
-            }
-            return state;
-        }
-
         /** {@inheritDoc} */
         @Override
         public Accumulator accumulator() {
             return accumulator;
         }
 
-        @Override
-        public void update(AccumulatorsState state, RowT row) {
-            if (filterArg >= 0 && Boolean.TRUE != handler.get(filterArg, row)) {
-                return;
-            }
-
-            Object[] args = new Object[argList.size()];
-            for (int i = 0; i < argList.size(); i++) {
-                args[i] = handler.get(argList.get(i), row);
-
-                if (ignoreNulls && args[i] == null) {
-                    return;
-                }
-            }
-
-            accumulator.add(inAdapter.apply(args));
-        }
-
-        @Override
-        public void combine(AccumulatorsState state, RowT row) {
-            accumulator.combine(state);
-        }
-
-        @Override
-        public void writeTo(AccumulatorsState state) {
-            accumulator.writeTo(state);
-        }
     }
 }

@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.sql.engine.rule;
 
 import static org.apache.ignite.internal.sql.engine.util.PlanUtils.complexDistinctAgg;
+import static org.apache.ignite.internal.sql.engine.util.PlanUtils.complexStateAgg;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
@@ -27,6 +29,7 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
@@ -36,6 +39,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
+import org.apache.ignite.internal.sql.engine.util.PlanUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -101,7 +105,9 @@ public class SortAggregateConverterRule {
                 return null;
             }
 
-            if (complexDistinctAgg(agg.getAggCallList()) || HintUtils.isExpandDistinctAggregate(agg)) {
+            if (complexDistinctAgg(agg.getAggCallList())
+                    || complexStateAgg(agg.getAggCallList())
+                    || HintUtils.isExpandDistinctAggregate(agg)) {
                 return null;
             }
 
@@ -123,13 +129,16 @@ public class SortAggregateConverterRule {
                     collation
             );
 
+            List<AggregateCall> aggregateCalls = PlanUtils.convertAggsForReduce(agg.getAggCallList(),
+                    List.of(agg.getGroupSet()));
+
             return new IgniteReduceSortAggregate(
                     cluster,
                     outTrait.replace(IgniteDistributions.single()),
                     convert(map, inTrait.replace(IgniteDistributions.single())),
                     agg.getGroupSet(),
                     agg.getGroupSets(),
-                    agg.getAggCallList(),
+                    aggregateCalls,
                     agg.getRowType(),
                     collation
             );

@@ -34,6 +34,7 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.util.PlanUtils;
 
 /**
  * HashAggregateExecutionTest.
@@ -112,11 +113,13 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         aggMap.register(scan);
 
+        List<AggregateCall> aggregateCalls = PlanUtils.convertAggsForReduce(List.of(call), grpSets);
+
         HashAggregateNode<Object[]> aggRdc = new HashAggregateNode<>(
                 ctx,
                 REDUCE,
                 grpSets,
-                accFactory(ctx, call, REDUCE, aggRowType),
+                accFactory(ctx, aggregateCalls.get(0), REDUCE, aggRowType),
                 rowFactory
         );
 

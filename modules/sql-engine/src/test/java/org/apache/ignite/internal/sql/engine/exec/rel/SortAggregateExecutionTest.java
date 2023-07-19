@@ -34,6 +34,7 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.util.PlanUtils;
 
 /**
  * SortAggregateExecutionTest.
@@ -133,11 +134,13 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             rdcCmp = (k1, k2) -> 0;
         }
 
+        List<AggregateCall> aggregateCalls = PlanUtils.convertAggsForReduce(List.of(call), grpSets);
+
         SortAggregateNode<Object[]> aggRdc = new SortAggregateNode<>(
                 ctx,
                 REDUCE,
                 ImmutableBitSet.of(reduceGrpFields),
-                accFactory(ctx, call, REDUCE, aggRowType),
+                accFactory(ctx, aggregateCalls.get(0), REDUCE, aggRowType),
                 rowFactory,
                 rdcCmp
         );

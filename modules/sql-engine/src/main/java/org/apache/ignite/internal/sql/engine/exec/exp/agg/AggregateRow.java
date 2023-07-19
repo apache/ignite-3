@@ -33,8 +33,6 @@ import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Per group/grouping set row that contains state of accumulators.
@@ -49,29 +47,20 @@ public final class AggregateRow<RowT> {
 
     private final AggregateType type;
 
-    private final AccumulatorsStateImpl state;
-
     /** Constructor. */
     public AggregateRow(List<AccumulatorWrapper<RowT>> accs, IgniteTypeFactory typeFactory,
             AggregateType type, ImmutableBitSet groupFields, ImmutableBitSet allFields) {
 
-        int rowSize = 0;
-
-        for (AccumulatorWrapper<RowT> acc : accs) {
-            rowSize += acc.stateTypes(typeFactory).size();
-        }
-
         this.type = type;
         this.accs = accs;
-
-        state = new AccumulatorsStateImpl(rowSize);
     }
 
+    /** Initialized an empty group if necessary. */
     public static boolean addEmptyGroup(ImmutableBitSet groupKeys, AggregateType type) {
         return groupKeys.isEmpty() && (type == AggregateType.REDUCE || type == AggregateType.SINGLE);
     }
 
-    /** Checks whether the given row matches a grouping set wtih the given id. */
+    /** Checks whether the given row matches a grouping set with the given id. */
     public static <RowT> boolean groupMatches(RowHandler<RowT> handler, RowT row, AggregateType type, byte groupId) {
         if (type == AggregateType.REDUCE) {
             int columnCount = handler.columnCount(row);
@@ -85,73 +74,44 @@ public final class AggregateRow<RowT> {
 
     /** Updates this row by using data of the given row. */
     public void update(ImmutableBitSet allFields, RowHandler<RowT> handler, RowT row) {
-        state.reset();
-
-        if (type == AggregateType.MAP || type == AggregateType.SINGLE) {
-            for (AccumulatorWrapper<RowT> acc : accs) {
-                state.next(acc);
-
-                acc.update(state, row);
-            }
-        } else {
-            for (int i = 0; i < state.data.length; i++) {
-                Object val = handler.get(i + allFields.cardinality(), row);
-                state.initState(i, val);
-            }
-
-            for (AccumulatorWrapper<RowT> acc : accs) {
-                state.next(acc);
-
-                acc.combine(state, row);
-            }
+        for (AccumulatorWrapper<RowT> acc : accs) {
+            acc.add(row);
         }
     }
 
     /** Creates an empty array for fields to populate output row with. */
     public Object[] createOutput(ImmutableBitSet allFields, byte groupId) {
-        int rowSize;
-
-        if (type == AggregateType.MAP) {
-            int extra = groupId == NO_GROUP_ID ? 0 : 1;
-
-            rowSize = allFields.cardinality() + state.data.length + extra;
-        } else {
-            rowSize = allFields.cardinality() + accs.size();
-        }
+        int extra = groupId == NO_GROUP_ID || type != AggregateType.MAP ? 0 : 1;
+        int rowSize = allFields.cardinality() + accs.size() + extra;
 
         return new Object[rowSize];
     }
 
-    /** Writes collected state of the given aggregate row to given array. */
+    /** Writes aggregate state of the given row to given array. */
     public void writeTo(Object[] output, ImmutableBitSet allFields, byte groupId) {
-        state.reset();
+        for (int i = 0; i < accs.size(); i++) {
+            AccumulatorWrapper<RowT> wrapper = accs.get(i);
+            output[i + allFields.cardinality()] = wrapper.end();
+        }
 
-        if (type == AggregateType.MAP) {
-            for (AccumulatorWrapper<RowT> acc : accs) {
-                state.next(acc);
-
-                acc.writeTo(state);
-            }
-
-            for (int i = 0; i < state.data.length; i++) {
-                int pos = i + allFields.cardinality();
-                output[pos] = state.data[i];
-            }
-
-            if (groupId != NO_GROUP_ID) {
-                output[output.length - 1] = groupId;
-            }
-        } else {
-            for (int i = 0; i < accs.size(); i++) {
-                AccumulatorWrapper<RowT> wrapper = accs.get(i);
-                Object val = wrapper.end();
-
-                output[i + allFields.cardinality()] = val;
-            }
+        if (groupId != NO_GROUP_ID && type == AggregateType.MAP) {
+            output[output.length - 1] = groupId;
         }
     }
 
-    /** Utility method. */
+    /**
+     * Creates a row type for REDUCE phase of a two phase aggregate used by hash-based map/reduce implementation.
+     *
+     * <p>Given the grouping keys f0, f1, f2 and aggregates (agg1 and agg2) in produces the following type:
+     *
+     * <pre>
+     *     field_0 -> f0_type
+     *     field_1 -> f1_type
+     *     field_2 -> f2_type
+     *     field_3 -> agg1_result_type
+     *     field_4 -> agg2_result_type
+     * </pre>
+     */
     public static RelDataType createSortRowType(ImmutableBitSet grpKeys,
             IgniteTypeFactory typeFactory, RelDataType inputType, List<AggregateCall> aggregateCalls) {
 
@@ -167,7 +127,22 @@ public final class AggregateRow<RowT> {
         return builder.build();
     }
 
-    /** Utility method. */
+    /**
+     * Creates a row type returned from a MAP phase of a two phase aggregate used by hash-based map/reduce implementation.
+     *
+     * <p>Given the input row [f0, f1, f2, f3, f4], grouping sets [f1], [f2, f0], [f4], and 2 aggregates (agg1 and agg2)
+     * it produces the following type:
+     *
+     * <pre>
+     *     field_0 -> f0_type
+     *     field_1 -> f1_type
+     *     field_2 -> f2_type
+     *     field_3 -> f4_type
+     *     field_4 -> agg1_result_type
+     *     field_5 -> agg2_result_type
+     *     _group_id -> byte # each grouping set has id assigned to id and that id is equal to its position in GROUP BY GROUPING SET clause.
+     * </pre>
+     */
     public static RelDataType createHashRowType(List<ImmutableBitSet> groupSets,
             IgniteTypeFactory typeFactory, RelDataType inputType, List<AggregateCall> aggregateCalls) {
 
@@ -188,7 +163,22 @@ public final class AggregateRow<RowT> {
         return builder.build();
     }
 
-    /** Utility method. */
+    /**
+     * Field mapping for hash execution nodes. See {@link #createHashRowType(List, IgniteTypeFactory, RelDataType, List)}.
+     *
+     * <p>For REDUCE phase it produce the following mapping:
+     *
+     * <pre>
+     * group sets:
+     *   [0], [2, 0], [3]
+     * mapping:
+     *   0 -> 0
+     *   2 -> 1
+     *   3 -> 2
+     * </pre>
+     *
+     * <p>Generates identity mapping for other phases.
+     */
     public static Mapping computeFieldMapping(List<ImmutableBitSet> groupingSets, AggregateType aggregateType) {
         BitSet fieldIndices = new BitSet();
 
@@ -220,56 +210,12 @@ public final class AggregateRow<RowT> {
 
         for (int i = 0; i < aggregateCalls.size(); i++) {
             AggregateCall call = aggregateCalls.get(i);
-            List<RelDataType> state = accumulators.getState(call);
 
-            for (int j = 0; j < state.size(); j++) {
-                String fieldName = format("_ACC_{}_FLD_{}", i, j);
-                builder.add(fieldName, state.get(j));
-            }
-        }
-    }
+            Accumulator acc = accumulators.accumulatorFactory(call).get();
+            RelDataType fieldType = acc.returnType(typeFactory);
+            String fieldName = format("_ACC{}", i);
 
-    private static class AccumulatorsStateImpl implements AccumulatorsState {
-
-        private final Object[] data;
-
-        private int position;
-
-        private int maxPosition;
-
-        AccumulatorsStateImpl(int rowSize) {
-            this.data = new Object[rowSize];
-        }
-
-        void initState(int fieldIdx, @Nullable Object val) {
-            data[fieldIdx] = val;
-        }
-
-        void next(AccumulatorWrapper<?> accumulator) {
-            List<RelDataType> args = accumulator.stateTypes(Commons.typeFactory());
-
-            position = maxPosition;
-            maxPosition += args.size();
-        }
-
-        void reset() {
-            position = 0;
-            maxPosition = 0;
-        }
-
-        @Override
-        public void set(int fieldIdx, @Nullable Object value) {
-            int p = fieldIdx + position;
-
-            assert p >= 0 && p < maxPosition :
-                    format("Invalid position: {}. Index: {}. Min: {}, max: {}", p, fieldIdx, position, maxPosition);
-
-            data[p] = value;
-        }
-
-        @Override
-        public Object get(int fieldIdx) {
-            return data[fieldIdx + position];
+            builder.add(fieldName, fieldType);
         }
     }
 }

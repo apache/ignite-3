@@ -28,6 +28,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 public interface Accumulator extends Serializable {
     void add(Object... args);
 
+    @Deprecated(forRemoval = true)
     void apply(Accumulator other);
 
     Object end();
@@ -35,10 +36,4 @@ public interface Accumulator extends Serializable {
     List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory);
 
     RelDataType returnType(IgniteTypeFactory typeFactory);
-
-    List<RelDataType> stateTypes(IgniteTypeFactory typeFactory);
-
-    void writeTo(AccumulatorsState state);
-
-    void combine(AccumulatorsState state);
 }
