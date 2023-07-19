@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -256,7 +257,7 @@ public class StopCalciteModuleTest {
         when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
         when(tbl.storage().getTableDescriptor()).thenReturn(new StorageTableDescriptor(tblId, 1, "none"));
 
-        when(txManager.begin(any())).thenReturn(new NoOpTransaction(localNode.name()));
+        when(txManager.begin(anyBoolean(), any())).thenReturn(new NoOpTransaction(localNode.name()));
 
         qryProc.start();
 

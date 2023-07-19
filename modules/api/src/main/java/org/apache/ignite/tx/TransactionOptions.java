@@ -17,8 +17,6 @@
 
 package org.apache.ignite.tx;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-
 /**
  * Ignite transaction options.
  */
@@ -28,9 +26,6 @@ public class TransactionOptions {
 
     /** Read-only transaction. */
     private boolean readOnly = false;
-
-    /** Observable timestamp for read-only transactions only. */
-    private HybridTimestamp observableTimestamp = null;
 
     /**
      * Returns transaction timeout, in milliseconds.
@@ -77,30 +72,6 @@ public class TransactionOptions {
      */
     public TransactionOptions readOnly(boolean readOnly) {
         this.readOnly = readOnly;
-
-        return this;
-    }
-
-    /**
-     * Observable timestamp for read-only transactions only.
-     *
-     * @return Observable timestamp.
-     */
-    public HybridTimestamp observableTimestamp() {
-        return observableTimestamp;
-    }
-
-    /**
-     * Set observable timestamp for read-only transactions only.
-     *
-     * @param observableTimestamp Observable timestamp.
-     *
-     * @return {@code this} for chaining.
-     */
-    public TransactionOptions setObservableTimestamp(HybridTimestamp observableTimestamp) {
-        assert this.readOnly : "Observable timestamp is applicable only for read-only transactions.";
-
-        this.observableTimestamp = observableTimestamp;
 
         return this;
     }
