@@ -154,7 +154,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
         // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
         CatalogSchemaDescriptor schemaPublic = new CatalogSchemaDescriptor(
-                objectIdGen++,
+                0,
                 DEFAULT_SCHEMA_NAME,
                 new CatalogTableDescriptor[0],
                 new CatalogIndexDescriptor[0]
