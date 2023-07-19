@@ -47,7 +47,7 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
             throw new UnsupportedOperationException("Timeouts are not supported yet");
         }
 
-        return txManager.begin(options);
+        return txManager.begin(options.readOnly(), null);
     }
 
     /** {@inheritDoc} */
@@ -58,6 +58,6 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
             throw new UnsupportedOperationException("Timeouts are not supported yet");
         }
 
-        return CompletableFuture.completedFuture(txManager.begin(options));
+        return CompletableFuture.completedFuture(txManager.begin(options.readOnly(), null));
     }
 }

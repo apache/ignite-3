@@ -49,7 +49,6 @@ import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -59,9 +58,6 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
 public class TxManagerImpl implements TxManager {
-    /** Default transaction options. */
-    private static final TransactionOptions DEFAULT_TX_OPTIONS = new TransactionOptions();
-
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
@@ -117,16 +113,15 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public InternalTransaction begin() {
-        return begin(DEFAULT_TX_OPTIONS);
+        return begin(false, null);
     }
 
     @Override
-    public InternalTransaction begin(TransactionOptions options) {
-        if (options == null) {
-            options = DEFAULT_TX_OPTIONS;
+    public InternalTransaction begin(boolean readOnly, HybridTimestamp observableTimestamp) {
+        if (!readOnly) {
+            assert observableTimestamp == null : "Observable timestamp is applicable just for read-only transactions.";
         }
 
-        boolean readOnly = options.readOnly();
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
         changeState(txId, null, PENDING);
@@ -137,8 +132,8 @@ public class TxManagerImpl implements TxManager {
 
         HybridTimestamp currentReadTimestamp = currentReadTimestamp();
 
-        HybridTimestamp readTimestamp = options.observableTimestamp() != null
-                ? HybridTimestamp.max(options.observableTimestamp(), currentReadTimestamp)
+        HybridTimestamp readTimestamp = observableTimestamp != null
+                ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp)
                 : clock.now();
 
         lowWatermarkReadWriteLock.readLock().lock();

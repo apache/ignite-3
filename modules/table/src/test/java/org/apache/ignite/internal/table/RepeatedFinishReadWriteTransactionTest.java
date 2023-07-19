@@ -45,7 +45,6 @@ import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -237,7 +236,7 @@ public class RepeatedFinishReadWriteTransactionTest {
         }
 
         @Override
-        public InternalTransaction begin(TransactionOptions options) {
+        public InternalTransaction begin(boolean readOnly, HybridTimestamp observableTimestamp) {
             return null;
         }
 
