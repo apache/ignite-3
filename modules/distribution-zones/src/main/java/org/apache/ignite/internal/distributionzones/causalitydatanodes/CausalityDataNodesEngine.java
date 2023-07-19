@@ -113,9 +113,9 @@ public class CausalityDataNodesEngine {
     }
 
     /**
-     * Asynchronously gets data nodes of the zone using causality token.
+     * Gets data nodes of the zone using causality token.
      *
-     * <p>The returned future can be completed with {@link DistributionZoneNotFoundException} if the zone with the provided {@code zoneId}
+     * <p>Return data nodes or throw the {@link DistributionZoneNotFoundException} if the zone with the provided {@code zoneId}
      * does not exist.
      *
      * @param causalityToken Causality token.
@@ -139,6 +139,7 @@ public class CausalityDataNodesEngine {
         Map.Entry<Long, ZoneConfiguration> zoneLastCfgEntry = versionedCfg.floorEntry(causalityToken);
 
         if (zoneLastCfgEntry == null) {
+            // It means that the zone does not exist on a given causality token.
             throw new DistributionZoneNotFoundException(zoneId);
         }
 
@@ -150,22 +151,23 @@ public class CausalityDataNodesEngine {
 
         boolean isZoneRemoved = zoneLastCfg.getIsRemoved();
 
-        // Get the last scaleUp and scaleDown revisions.
         if (isZoneRemoved) {
+            // It means that the zone was removed on a given causality token.
             throw new DistributionZoneNotFoundException(zoneId);
         }
 
+        // Get revisions of the last scale up and scale down event which triggered immediate data nodes recalculation.
         IgniteBiTuple<Long, Long> revisions = getRevisionsOfLastScaleUpAndScaleDownEvents(causalityToken, zoneId);
-
         long lastScaleUpRevision = revisions.get1();
         long lastScaleDownRevision = revisions.get2();
 
-        // At the dataNodesRevision the zone was created but the data nodes value had not updated yet.
-        // So the data nodes value will be equals to the logical topology on the dataNodesRevision.
         if (lastCfgRevision == versionedCfg.firstKey()
                 && lastCfgRevision >= lastScaleUpRevision
                 && lastCfgRevision >= lastScaleDownRevision
         ) {
+            // It means that the zone was created but the data nodes value had not updated yet.
+            // So the data nodes value will be equals to the logical topology on the lastCfgRevision.
+
             Entry topologyEntry = msManager.getLocally(zonesLogicalTopologyKey(), zoneLastCfgEntry.getKey());
 
             Set<NodeWithAttributes> logicalTopology = fromBytes(topologyEntry.value());
@@ -189,28 +191,32 @@ public class CausalityDataNodesEngine {
         // On the data nodes recalculation we write new data nodes to the meta storage then clear the augmentation map.
         // Therefore, first we need to read the augmentation map before it is cleared and then read the last data nodes value
         // from the meta storage.
+        // The zoneState can be null if the zone was removed.
         if (zoneState != null) {
             subAugmentationMap = new ConcurrentSkipListMap<>(zoneState.topologyAugmentationMap()
                     .headMap(causalityToken, true));
         }
 
-        // Wait if needed when the data nodes value will be updated in the meta storage according to calculated lastScaleUpRevision,
-        // lastScaleDownRevision and causalityToken.
+        // Search the revisions of zoneScaleUpChangeTriggerKey and zoneScaleDownChangeTriggerKey with value greater or equals
+        // to expected one.
         long scaleUpDataNodesRevision = searchTriggerKey(lastScaleUpRevision, zoneId, zoneScaleUpChangeTriggerKey(zoneId));
-
         long scaleDownDataNodesRevision = searchTriggerKey(lastScaleDownRevision, zoneId, zoneScaleDownChangeTriggerKey(zoneId));
 
+        // Choose the highest revision.
         long dataNodesRevision = max(causalityToken, max(scaleUpDataNodesRevision, scaleDownDataNodesRevision));
 
         LOG.info("+++++++ dataNodes scaleUpDataNodesRevision " + scaleUpDataNodesRevision);
         LOG.info("+++++++ dataNodes scaleDownDataNodesRevision " + scaleDownDataNodesRevision);
 
+        // Read data nodes value from the meta storage on dataNodesRevision and associated trigger keys.
         Entry dataNodesEntry = msManager.getLocally(zoneDataNodesKey(zoneId), dataNodesRevision);
         Entry scaleUpChangeTriggerKey = msManager.getLocally(zoneScaleUpChangeTriggerKey(zoneId), dataNodesRevision);
         Entry scaleDownChangeTriggerKey = msManager.getLocally(zoneScaleDownChangeTriggerKey(zoneId), dataNodesRevision);
 
         if (dataNodesEntry.value() == null) {
-            // The zone was removed. In this case it is impossible to find out the data nodes value idempotently.
+            LOG.info("+++++++ dataNodes The zone was removed not idempotently");
+            // The zone was removed.
+            // In this case it is impossible to find out the data nodes value idempotently.
             return emptySet();
         }
 
@@ -225,11 +231,12 @@ public class CausalityDataNodesEngine {
 
         Set<Node> finalDataNodes = new HashSet<>(baseDataNodes);
 
+        LOG.info("+++++++ dataNodes subAugmentationMap " + subAugmentationMap);
+
         // If the subAugmentationMap is null then it means that the zone was removed. In this case all nodes from topologyAugmentationMap
         // must be already written to the meta storage.
         if (subAugmentationMap != null) {
-            LOG.info("+++++++ dataNodes subAugmentationMap " + subAugmentationMap);
-
+            // Update the data nodes set with pending data from augmentation map
             subAugmentationMap.forEach((rev, augmentation) -> {
                 if (augmentation.addition() && rev > scaleUpTriggerRevision && rev <= lastScaleUpRevision) {
                     for (Node node : augmentation.nodes()) {
@@ -237,6 +244,7 @@ public class CausalityDataNodesEngine {
                         finalDataNodes.add(node);
                     }
                 }
+
                 if (!augmentation.addition() && rev > scaleDownTriggerRevision && rev <= lastScaleDownRevision) {
                     for (Node node : augmentation.nodes()) {
                         LOG.info("+++++++ dataNodes finalDataNodes.remove " + node);
@@ -246,6 +254,7 @@ public class CausalityDataNodesEngine {
             });
         }
 
+        // Apply the filter to get the final data nodes set.
         Set<String> result = filterDataNodes(finalDataNodes, filter, nodesAttributes);
 
         LOG.info("+++++++ dataNodes result " + result);
@@ -298,6 +307,7 @@ public class CausalityDataNodesEngine {
         long scaleUpRevision = 0;
         long scaleDownRevision = 0;
 
+        // Iterate over zone configurations from newest to oldest.
         while (reversedIterator.hasNext()) {
             Map.Entry<Long, ZoneConfiguration> entryOlderCfg = reversedIterator.next();
 
@@ -334,12 +344,14 @@ public class CausalityDataNodesEngine {
         }
 
         // The case when there is only one configuration in the history.
-        if (scaleUpRevision == 0 && entryNewerCfg != null) {
-            scaleUpRevision = entryNewerCfg.getKey();
-        }
+        if (entryNewerCfg != null) {
+            if (scaleUpRevision == 0) {
+                scaleUpRevision = entryNewerCfg.getKey();
+            }
 
-        if (scaleDownRevision == 0 && entryNewerCfg != null) {
-            scaleDownRevision = entryNewerCfg.getKey();
+            if (scaleDownRevision == 0) {
+                scaleDownRevision = entryNewerCfg.getKey();
+            }
         }
 
         return new IgniteBiTuple<>(scaleUpRevision, scaleDownRevision);
@@ -354,9 +366,9 @@ public class CausalityDataNodesEngine {
      * @return Revisions.
      */
     private IgniteBiTuple<Long, Long> getLastScaleUpAndScaleDownTopologyRevisions(long causalityToken, int zoneId) {
-        Set<NodeWithAttributes> newerLogicalTopology = null;
+        Set<NodeWithAttributes> newerLogicalTopology;
 
-        long newerTopologyRevision = 0;
+        long newerTopologyRevision;
 
         Entry topologyEntry = msManager.getLocally(zonesLogicalTopologyKey(), causalityToken);
 
@@ -374,13 +386,15 @@ public class CausalityDataNodesEngine {
             while ((scaleUpTopologyRevision == 0) || (scaleDownTopologyRevision == 0)) {
                 topologyEntry = msManager.getLocally(zonesLogicalTopologyKey(), newerTopologyRevision - 1);
 
-                if (!topologyEntry.empty() && newerTopologyRevision == topologyEntry.revision()) {
-                    break;
-                }
+//                if (!topologyEntry.empty() && newerTopologyRevision == topologyEntry.revision()) {
+//                    break;
+//                }
 
                 Set<NodeWithAttributes> olderLogicalTopology;
 
                 if (topologyEntry.empty()) {
+                    // If older topology is empty then it means that each topology changes were iterated
+                    // so use empty set to compare it with the first topology.
                     olderLogicalTopology = emptySet();
                 } else {
                     byte[] olderLogicalTopologyBytes = topologyEntry.value();
@@ -438,46 +452,39 @@ public class CausalityDataNodesEngine {
 
     /**
      * Search a value of zoneScaleUpChangeTriggerKey/zoneScaleDownChangeTriggerKey which equals or greater than scaleRevision.
-     * It iterates over the entries in the local metastorage. If there is an entry with a value equal to or greater than
-     * the scaleRevision, then it returns the revision of that entry. If there is no such entry then it returns zero.
+     * It iterates over the entries in the local meta storage. If there is an entry with a value equals to or greater than
+     * the scaleRevision, then it returns the revision of this entry. If there is no such entry then it returns zero.
      *
      * @param scaleRevision Scale revision.
      * @param zoneId Zone id.
      * @param triggerKey Trigger key.
-     * @return Future with the revision.
+     * @return Revision.
      */
     private long searchTriggerKey(Long scaleRevision, int zoneId, ByteArray triggerKey) {
         System.out.println("searchTriggerKey " + scaleRevision + " " + zoneId);
 
         Entry lastEntry = msManager.getLocally(triggerKey, Long.MAX_VALUE);
 
-        long revision = 0;
+        long upperRevision = max(lastEntry.revision(), scaleRevision);
 
-        if (!lastEntry.empty()) {
+        // Gets old entries from storage to check if the expected value was handled before watch listener was registered.
+        List<Entry> entryList = msManager.getLocally(triggerKey.bytes(), scaleRevision, upperRevision);
 
-            long upperRevision = max(lastEntry.revision(), scaleRevision);
+        for (Entry entry : entryList) {
 
-            // Gets old entries from storage to check if the expected value was handled before watch listener was registered.
-            List<Entry> entryList = msManager.getLocally(triggerKey.bytes(), scaleRevision, upperRevision);
+            // scaleRevision is null if the zone was removed.
+            if (entry.value() == null) {
+                return entry.revision();
+            } else {
+                long entryScaleRevision = bytesToLong(entry.value());
 
-            for (Entry entry : entryList) {
-
-                // scaleRevision is null if the zone was removed.
-                if (entry.value() == null) {
-//                    System.out.println("searchTriggerKey iteration revision NULL " + revision);
-                    return revision;
-                } else {
-                    long entryScaleRevision = bytesToLong(entry.value());
-//                    System.out.println("searchTriggerKey iteration revision NOT NULL " + entryScaleRevision + " " + entry.revision());
-
-                    if (entryScaleRevision >= scaleRevision) {
-                        return entry.revision();
-                    }
+                if (entryScaleRevision >= scaleRevision) {
+                    return entry.revision();
                 }
             }
         }
 
-        return revision;
+        return 0;
     }
 
     /**

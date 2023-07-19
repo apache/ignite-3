@@ -1410,7 +1410,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
                 System.out.println("test log onUpdate " + causalityToken + " " + zoneId);
 
-                dataNodesFut.complete(distributionZoneManager.dataNodes(revision, zoneId));
+                try {
+                    dataNodesFut.complete(distributionZoneManager.dataNodes(revision, zoneId));
+                } catch (Exception e) {
+                    dataNodesFut.completeExceptionally(e);
+                }
 
                 return completedFuture(null);
             }
