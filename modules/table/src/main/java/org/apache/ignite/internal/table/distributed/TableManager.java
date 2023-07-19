@@ -46,7 +46,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.extractPartitionNum
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.lang.ErrorGroups.Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
@@ -2858,7 +2858,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             }
 
                             if (primaryCols.contains(colName)) {
-                                throw new SqlException(DROP_IDX_COLUMN_CONSTRAINT_ERR, IgniteStringFormatter
+                                throw new SqlException(STMT_VALIDATION_ERR, IgniteStringFormatter
                                         .format("Can`t delete column, belongs to primary key: [name={}]", colName));
                             }
                         }
