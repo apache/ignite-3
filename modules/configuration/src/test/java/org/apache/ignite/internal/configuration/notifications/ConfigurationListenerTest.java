@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.configuration.notifications.Configurati
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.randomUuid;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier.notifyListeners;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,7 +51,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -163,7 +163,7 @@ public class ConfigurationListenerTest {
      * Before each.
      */
     @BeforeEach
-    public void before() throws Exception {
+    public void before() {
         storage = new TestConfigurationStorage(LOCAL);
 
         generator = new ConfigurationTreeGenerator(
@@ -179,7 +179,7 @@ public class ConfigurationListenerTest {
         );
 
         registry.start();
-        registry.persistDefaults().get(1, TimeUnit.SECONDS);
+        assertThat(registry.onDefaultsPersisted(), willCompleteSuccessfully());
 
         config = registry.getConfiguration(ParentConfiguration.KEY);
     }

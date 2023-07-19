@@ -444,8 +444,7 @@ public class IgniteImpl implements Ignite {
 
         distributedConfigurationUpdater = new DistributedConfigurationUpdater(
                 cmgMgr,
-                new HoconPresentation(clusterCfgMgr.configurationRegistry()),
-                clusterCfgMgr.configurationRegistry()
+                new HoconPresentation(clusterCfgMgr.configurationRegistry())
         );
 
         metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageConfiguration.KEY));
@@ -724,8 +723,7 @@ public class IgniteImpl implements Ignite {
 
             LOG.info("Components started, joining the cluster");
 
-            return nodeCfgMgr.configurationRegistry().persistDefaults()
-                    .thenComposeAsync(unused -> cmgMgr.joinFuture(), startupExecutor)
+            return cmgMgr.joinFuture()
                     .thenComposeAsync(unused -> {
                         LOG.info("Join complete, starting MetaStorage");
 
@@ -771,6 +769,7 @@ public class IgniteImpl implements Ignite {
 
                         return recoverComponentsStateOnStart(startupExecutor);
                     }, startupExecutor)
+                    .thenComposeAsync(v -> clusterCfgMgr.configurationRegistry().onDefaultsPersisted(), startupExecutor)
                     .thenRunAsync(() -> {
                         try {
                             lifecycleManager.startComponent(distributedConfigurationUpdater);

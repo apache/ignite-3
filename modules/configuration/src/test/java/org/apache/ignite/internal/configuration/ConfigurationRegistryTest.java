@@ -32,7 +32,6 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -174,7 +173,6 @@ public class ConfigurationRegistryTest {
         );
 
         registry.start();
-        registry.persistDefaults().get(1, TimeUnit.SECONDS);
 
         try {
             registry.getConfiguration(SixthRootConfiguration.KEY).change(c -> c
@@ -203,7 +201,6 @@ public class ConfigurationRegistryTest {
         );
 
         registry.start();
-        registry.persistDefaults().get(1, TimeUnit.SECONDS);
 
         try {
             FirstRootConfiguration firstConfiguration = registry.getConfiguration(FirstRootConfiguration.KEY);

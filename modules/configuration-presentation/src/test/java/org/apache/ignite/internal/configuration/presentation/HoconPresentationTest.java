@@ -69,7 +69,7 @@ public class HoconPresentationTest {
      * Before all.
      */
     @BeforeAll
-    static void beforeAll() throws Exception {
+    static void beforeAll() {
         Validator<Value, Object> validator = new Validator<>() {
             /** {@inheritDoc} */
             @Override
@@ -90,7 +90,6 @@ public class HoconPresentationTest {
         );
 
         cfgRegistry.start();
-        cfgRegistry.persistDefaults().get(1, SECONDS);
 
         cfgPresentation = new HoconPresentation(cfgRegistry);
 

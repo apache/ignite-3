@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.ConfigurationReadOnlyException;
 import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
 import org.apache.ignite.configuration.RootKey;
@@ -113,7 +112,7 @@ public class ConfigurationTreeGeneratorTest {
     }
 
     @BeforeEach
-    void beforeEach() throws Exception {
+    void beforeEach() {
         changer = new TestConfigurationChanger(
                 rootKeys,
                 new TestConfigurationStorage(LOCAL),
@@ -122,7 +121,6 @@ public class ConfigurationTreeGeneratorTest {
         );
 
         changer.start();
-        changer.persistDefaults().get(1, TimeUnit.SECONDS);
     }
 
     @AfterEach

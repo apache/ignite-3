@@ -94,8 +94,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /** Storage trees. */
     private volatile StorageRoots storageRoots;
 
-    @Nullable
-    private volatile Map<String, Serializable> defaultChanges;
+    private final CompletableFuture<Void> defaultsPersisted = new CompletableFuture<>();
 
     /** Configuration listener notification counter, must be incremented before each use of {@link #configurationUpdateListener}. */
     private final AtomicLong notificationListenerCnt = new AtomicLong();
@@ -127,6 +126,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      */
     private static class StorageRoots {
         /** Immutable forest, so to say. */
+        private final SuperRoot rootsWithoutDefaults;
+
+        /** Immutable forest, so to say. */
         private final SuperRoot roots;
 
         /** Version associated with the currently known storage state. */
@@ -138,14 +140,17 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         /**
          * Constructor.
          *
-         * @param roots Forest.
+         * @param rootsWithoutDefaults Forest without the defaults
+         * @param roots Forest with the defaults filled in
          * @param version Version associated with the currently known storage state.
          */
-        private StorageRoots(SuperRoot roots, long version) {
+        private StorageRoots(SuperRoot rootsWithoutDefaults, SuperRoot roots, long version) {
+            this.rootsWithoutDefaults = rootsWithoutDefaults;
             this.roots = roots;
             this.version = version;
 
             makeImmutable(roots);
+            makeImmutable(rootsWithoutDefaults);
         }
     }
 
@@ -153,7 +158,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * Makes the node immutable by calling {@link ConstructableTreeNode#makeImmutable()} on each sub-node recursively.
      */
     private static void makeImmutable(InnerNode node) {
-        if (!node.makeImmutable()) {
+        if (node == null || !node.makeImmutable()) {
             return;
         }
 
@@ -255,86 +260,53 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         SuperRoot superRootNoDefaults = superRoot.copy();
 
-        //Workaround for distributed configuration.
+        // Workaround for distributed configuration.
         addDefaults(superRoot);
-
-        //This map contains properties that are set as 'defaults' from the code and are missing in the storage.
-        Map<String, Serializable> allChanges = createFlattenedUpdatesMap(superRootNoDefaults, superRoot);
-        defaultChanges = allChanges.isEmpty() ? null : allChanges;
 
         // Validate the restored configuration.
         validateConfiguration(superRoot);
 
-        storageRoots = new StorageRoots(superRoot, data.changeId());
+        storageRoots = new StorageRoots(superRootNoDefaults, superRoot, data.changeId());
 
         storage.registerConfigurationListener(configurationStorageListener());
+
+        persistDefaults();
     }
 
     /**
      * Persist default values to the storage.
      *
-     * <p>Make sure all properties that have their values set in the schema defaults are persisted to the storage.
-     * The goal is to keep all configuration values in onl place
-     * and avoid possible cluster inconsistency when code defaults change in the future releases.
-     *
-     * @return Future that will be completed after changes have been written to the storage.
+     * <p>Specifically, this method runs a check whether there are
+     * default values that are not persisted to the storage and writes them if there are any.
      */
-    public CompletableFuture<Void> persistDefaults() {
+    private CompletableFuture<Void> persistDefaults() {
         if (storageRoots == null) {
             throw new ComponentNotStartedException();
         }
-        if (defaultChanges == null) {
-            return CompletableFuture.completedFuture(null);
-        }
-        return storage.lastRevision()
-                .thenComposeAsync(this::persistDefaultsInternal, pool)
-                .thenRun(() -> defaultChanges = null)
-                .exceptionally(throwable -> {
-                    Throwable cause = throwable.getCause();
-
-                    if (cause instanceof ConfigurationChangeException) {
-                        throw (ConfigurationChangeException) cause;
+        return changeInternally(ConfigurationUtil.EMPTY_CFG_SRC, true)
+                .whenComplete((v, e) -> {
+                    if (e == null) {
+                        defaultsPersisted.complete(null);
                     } else {
-                        throw new ConfigurationChangeException("Failed to persist defaults", cause);
+                        defaultsPersisted.completeExceptionally(e);
                     }
                 });
-    }
-
-    /**
-     * Internal configuration persist method.
-     */
-    private CompletableFuture<Void> persistDefaultsInternal(long storageRevision) {
-        rwLock.readLock().lock();
-        try {
-            Map<String, Serializable> allChanges = defaultChanges;
-            if (allChanges == null) {
-                return CompletableFuture.completedFuture(null);
-            }
-            StorageRoots localRoots = storageRoots;
-            if (localRoots.version < storageRevision) {
-                // Need to wait for the configuration updates from the storage, then try to update again (loop).
-                return localRoots.changeFuture.thenCompose(v -> persistDefaults());
-            }
-
-            return storage.write(allChanges, localRoots.version)
-                    .thenCompose(casWroteSuccessfully -> {
-                        if (casWroteSuccessfully) {
-                            return localRoots.changeFuture;
-                        } else {
-                            // Here we go to next iteration of an implicit spin loop; we have to do it via recursion
-                            // because we work with async code (futures).
-                            return localRoots.changeFuture.thenCompose(v -> persistDefaults());
-                        }
-                    });
-        } finally {
-            rwLock.readLock().unlock();
-        }
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> change(ConfigurationSource source) {
-        return changeInternally(source);
+        if (storageRoots == null) {
+            throw new ComponentNotStartedException();
+        }
+        return defaultsPersisted.thenCompose(v -> changeInternally(source, false));
+    }
+
+    /**
+     * Returns a future that resolves after the defaults are persisted to the storage.
+     */
+    public CompletableFuture<Void> onDefaultsPersisted() {
+        return defaultsPersisted;
     }
 
     /** {@inheritDoc} */
@@ -505,6 +477,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     public void stop() {
         IgniteUtils.shutdownAndAwaitTermination(pool, 10, TimeUnit.SECONDS);
 
+        defaultsPersisted.completeExceptionally(new NodeStoppingException());
+
         StorageRoots roots = storageRoots;
 
         if (roots != null) {
@@ -543,16 +517,12 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * @return Future that will be completed after changes are written to the storage.
      * @throws ComponentNotStartedException if changer is not started.
      */
-    private CompletableFuture<Void> changeInternally(ConfigurationSource src) {
-        if (storageRoots == null) {
-            throw new ComponentNotStartedException();
-        }
-
+    private CompletableFuture<Void> changeInternally(ConfigurationSource src, boolean onStartup) {
         return storage.lastRevision()
             .thenComposeAsync(storageRevision -> {
                 assert storageRevision != null;
 
-                return changeInternally0(src, storageRevision);
+                return changeInternally0(src, storageRevision, onStartup);
             }, pool)
             .exceptionally(throwable -> {
                 Throwable cause = throwable.getCause();
@@ -572,8 +542,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * @param storageRevision Latest storage revision from the metastorage.
      * @return Future that will be completed after changes are written to the storage.
      */
-    private CompletableFuture<Void> changeInternally0(ConfigurationSource src, long storageRevision) {
-        // Read lock protects "storageRoots" field from being updated, thus guaranteeing a thread-safe read of configuration inside of the
+    private CompletableFuture<Void> changeInternally0(ConfigurationSource src, long storageRevision, boolean onStartup) {
+        // Read lock protects "storageRoots" field from being updated, thus guaranteeing a thread-safe read of configuration inside the
         // change closure.
         rwLock.readLock().lock();
 
@@ -584,7 +554,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             if (localRoots.version < storageRevision) {
                 // Need to wait for the configuration updates from the storage, then try to update again (loop).
-                return localRoots.changeFuture.thenCompose(v -> changeInternally(src));
+                return localRoots.changeFuture.thenCompose(v -> changeInternally(src, onStartup));
             }
 
             SuperRoot curRoots = localRoots.roots;
@@ -597,7 +567,11 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             addDefaults(changes);
 
-            Map<String, Serializable> allChanges = createFlattenedUpdatesMap(curRoots, changes);
+            Map<String, Serializable> allChanges = createFlattenedUpdatesMap(localRoots.rootsWithoutDefaults, changes);
+            if (allChanges.isEmpty() && onStartup) {
+                // We don't want an empty storage update if this is the initialization changer
+                return CompletableFuture.completedFuture(null);
+            }
 
             dropNulls(changes);
 
@@ -614,7 +588,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                         } else {
                             // Here we go to next iteration of an implicit spin loop; we have to do it via recursion
                             // because we work with async code (futures).
-                            return localRoots.changeFuture.thenCompose(v -> changeInternally(src));
+                            return localRoots.changeFuture.thenCompose(v -> changeInternally(src, onStartup));
                         }
                     });
         } finally {
@@ -639,40 +613,30 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         }
     }
 
-    private void onParamsChanged(Map<String, ? extends Serializable> values) {
-        Map<String, Serializable> changes = defaultChanges;
-        if (changes != null) {
-            changes.keySet().removeAll(values.keySet());
-            if (changes.isEmpty()) {
-                defaultChanges = null;
-            }
-        }
-    }
-
     private ConfigurationStorageListener configurationStorageListener() {
         return changedEntries -> {
             StorageRoots oldStorageRoots = storageRoots;
 
             SuperRoot oldSuperRoot = oldStorageRoots.roots;
+            SuperRoot oldSuperRootNoDefaults = oldStorageRoots.rootsWithoutDefaults;
             SuperRoot newSuperRoot = oldSuperRoot.copy();
+            SuperRoot newSuperNoDefaults = oldSuperRootNoDefaults.copy();
 
             Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedEntries.values());
 
             compressDeletedEntries(dataValuesPrefixMap);
 
             fillFromPrefixMap(newSuperRoot, dataValuesPrefixMap);
+            fillFromPrefixMap(newSuperNoDefaults, dataValuesPrefixMap);
 
             long newChangeId = changedEntries.changeId();
 
-            var newStorageRoots = new StorageRoots(newSuperRoot, newChangeId);
+            var newStorageRoots = new StorageRoots(newSuperNoDefaults, newSuperRoot, newChangeId);
 
             rwLock.writeLock().lock();
 
             try {
                 storageRoots = newStorageRoots;
-                // If there was a change before we persisted the defaults,
-                // make sure we would not override the properties with the default values.
-                onParamsChanged(changedEntries.values());
             } finally {
                 rwLock.writeLock().unlock();
             }

@@ -125,7 +125,6 @@ public class TestServer implements AutoCloseable {
         );
 
         cfg.start();
-        cfg.persistDefaults().join();
 
         cfg.getConfiguration(ClientConnectorConfiguration.KEY).change(
                 local -> local.changePort(port != null ? port : getFreePort()).changeIdleTimeout(idleTimeout)

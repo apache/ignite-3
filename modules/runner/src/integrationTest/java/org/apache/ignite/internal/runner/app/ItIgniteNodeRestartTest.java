@@ -411,7 +411,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         vault.putName(name).join();
 
         nodeCfgMgr.start();
-        nodeCfgMgr.configurationRegistry().persistDefaults();
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(

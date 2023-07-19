@@ -103,7 +103,7 @@ public class DirectPropertiesTest {
     private ConfigurationRegistry registry;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         registry = new ConfigurationRegistry(
                 List.of(DirectConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
@@ -112,7 +112,6 @@ public class DirectPropertiesTest {
         );
 
         registry.start();
-        registry.persistDefaults().get(1, TimeUnit.SECONDS);
     }
 
     @AfterEach

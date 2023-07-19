@@ -131,10 +131,10 @@ public class ConfigurationRegistry implements IgniteComponent {
     }
 
     /**
-     * Persist default values to the storage.
+     * Returns a future that resolves after the defaults are persisted to the storage.
      */
-    public CompletableFuture<Void> persistDefaults() {
-        return changer.persistDefaults();
+    public CompletableFuture<Void> onDefaultsPersisted() {
+        return changer.onDefaultsPersisted();
     }
 
     /**

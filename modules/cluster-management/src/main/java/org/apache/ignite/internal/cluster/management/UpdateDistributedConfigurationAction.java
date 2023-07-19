@@ -17,22 +17,13 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Action to update the distributed configuration.
  */
 public class UpdateDistributedConfigurationAction {
-
-    /**
-     * Empty action.
-     */
-    public static final UpdateDistributedConfigurationAction NOP = new UpdateDistributedConfigurationAction();
 
     /**
      * Configuration that should be applied.
@@ -50,15 +41,9 @@ public class UpdateDistributedConfigurationAction {
      * @param configuration the configuration.
      * @param nextAction the next action.
      */
-    public UpdateDistributedConfigurationAction(
-            @Nullable String configuration,
-            Supplier<CompletableFuture<Void>> nextAction) {
+    public UpdateDistributedConfigurationAction(String configuration, Supplier<CompletableFuture<Void>> nextAction) {
         this.configuration = configuration;
         this.nextAction = nextAction;
-    }
-
-    private UpdateDistributedConfigurationAction() {
-        this(null, () -> completedFuture(null));
     }
 
     /**
@@ -66,8 +51,8 @@ public class UpdateDistributedConfigurationAction {
      *
      * @return the configuration.
      */
-    public Optional<String> configuration() {
-        return Optional.ofNullable(configuration);
+    public String configuration() {
+        return configuration;
     }
 
     /**

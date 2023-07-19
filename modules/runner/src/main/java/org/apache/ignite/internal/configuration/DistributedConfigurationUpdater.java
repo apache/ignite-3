@@ -34,35 +34,28 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
 
     private final ConfigurationPresentation<String> presentation;
 
-    private final ConfigurationRegistry registry;
-
-    /** Constructor. */
-    public DistributedConfigurationUpdater(
-            ClusterManagementGroupManager cmgMgr,
-            ConfigurationPresentation<String> presentation,
-            ConfigurationRegistry registry) {
+    public DistributedConfigurationUpdater(ClusterManagementGroupManager cmgMgr, ConfigurationPresentation<String> presentation) {
         this.cmgMgr = cmgMgr;
         this.presentation = presentation;
-        this.registry = registry;
     }
 
     @Override
     public void start() {
         cmgMgr.clusterConfigurationToUpdate()
-                .thenCompose(action -> registry.persistDefaults().thenApply(v -> action))
-                .thenAccept(action ->
-                        action.configuration().map(configuration ->
-                                presentation.update(configuration)
-                                        .thenCompose(ignored -> action.nextAction().get())
-                                        .whenComplete((v, e) -> {
-                                            if (e != null) {
-                                                LOG.error("Failed to update the distributed configuration", e);
-                                            } else {
-                                                LOG.info("Distributed configuration is updated");
-                                            }
-                                        })
-                        )
-                );
+                .thenAccept(action -> {
+                    if (action.configuration() != null) {
+                        presentation.update(action.configuration())
+                                .thenApply(ignored -> action)
+                                .thenCompose(it -> it.nextAction().get())
+                                .whenComplete((v, e) -> {
+                                    if (e != null) {
+                                        LOG.error("Failed to update the distributed configuration", e);
+                                    } else {
+                                        LOG.info("Distributed configuration is updated");
+                                    }
+                                });
+                    }
+                });
     }
 
     @Override

@@ -46,15 +46,11 @@ class DistributedConfigurationUpdaterTest {
     @Mock
     public ClusterManagementGroupManager cmgMgr;
 
-    @Mock
-    public ConfigurationRegistry registry;
-
     @Test
     public void nextActionIsCompletedAfterUpdatingConfiguration() {
 
         // Set up mocks.
         when(presentation.update(anyString())).thenReturn(completedFuture(null));
-        when(registry.persistDefaults()).thenReturn(completedFuture(null));
 
         CompletableFuture<Void> nextAction = new CompletableFuture<>();
         String configuration = "security.authentication.enabled:true";
@@ -73,8 +69,7 @@ class DistributedConfigurationUpdaterTest {
         // Run updater.
         DistributedConfigurationUpdater distributedConfigurationUpdater = new DistributedConfigurationUpdater(
                 cmgMgr,
-                presentation,
-                registry
+                presentation
         );
 
         distributedConfigurationUpdater.start();
@@ -106,8 +101,7 @@ class DistributedConfigurationUpdaterTest {
         // Run updater.
         DistributedConfigurationUpdater distributedConfigurationUpdater = new DistributedConfigurationUpdater(
                 cmgMgr,
-                presentation,
-                registry
+                presentation
         );
 
         distributedConfigurationUpdater.start();

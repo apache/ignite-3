@@ -35,7 +35,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
@@ -208,7 +207,7 @@ public class HoconConverterTest {
      * Before all.
      */
     @BeforeAll
-    public static void beforeAll() throws Exception {
+    public static void beforeAll() {
         registry = new ConfigurationRegistry(
                 List.of(HoconRootConfiguration.KEY, HoconInjectedNameRootConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
@@ -224,7 +223,6 @@ public class HoconConverterTest {
         );
 
         registry.start();
-        registry.persistDefaults().get(1, TimeUnit.SECONDS);
 
         configuration = registry.getConfiguration(HoconRootConfiguration.KEY);
         injectedNameRootConfig = registry.getConfiguration(HoconInjectedNameRootConfiguration.KEY);
