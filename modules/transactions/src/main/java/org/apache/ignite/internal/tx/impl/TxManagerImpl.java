@@ -135,8 +135,10 @@ public class TxManagerImpl implements TxManager {
             return new ReadWriteTransactionImpl(this, txId);
         }
 
+        HybridTimestamp currentReadTimestamp = currentReadTimestamp();
+
         HybridTimestamp readTimestamp = options.observableTimestamp() != null
-                ? HybridTimestamp.max(options.observableTimestamp(), currentReadTimestamp())
+                ? HybridTimestamp.max(options.observableTimestamp(), currentReadTimestamp)
                 : clock.now();
 
         lowWatermarkReadWriteLock.readLock().lock();

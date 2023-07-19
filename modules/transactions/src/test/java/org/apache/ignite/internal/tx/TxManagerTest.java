@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.tx;
 
 
+import static java.lang.Math.abs;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
+import static org.apache.ignite.internal.replicator.ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -231,5 +234,34 @@ public class TxManagerTest extends IgniteAbstractTest {
         tx.commit();
         assertEquals(0, txManager.pending());
         assertEquals(1, txManager.finished());
+    }
+
+    @Test
+    public void testObservableTimestamp() {
+        int compareThreshold = 50;
+        // Check that idle safe time propagation period is significantly greater than compareThreshold.
+        assertTrue(IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS + CLOCK_SKEW > compareThreshold * 5);
+
+        HybridTimestamp now = clock.now();
+
+        InternalTransaction tx = txManager.begin(new TransactionOptions().readOnly(true));
+
+        assertTrue(abs(now.getPhysical() - tx.readTimestamp().getPhysical()) < compareThreshold);
+        tx.commit();
+
+        tx = txManager.begin(new TransactionOptions().readOnly(true).setObservableTimestamp(now));
+
+        assertTrue(abs(now.getPhysical() - tx.readTimestamp().getPhysical()) < compareThreshold);
+        tx.commit();
+
+        HybridTimestamp timestampInPast = new HybridTimestamp(
+                now.getPhysical() - IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS * 2,
+                now.getLogical()
+        );
+        tx = txManager.begin(new TransactionOptions().readOnly(true).setObservableTimestamp(timestampInPast));
+
+        long readTime = now.getPhysical() - IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS - CLOCK_SKEW;
+        assertTrue(abs(readTime - tx.readTimestamp().getPhysical()) < compareThreshold);
+        tx.commit();
     }
 }
