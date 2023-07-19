@@ -29,6 +29,9 @@ import org.jetbrains.annotations.Nullable;
  */
 public class UpdateDistributedConfigurationAction {
 
+    /**
+     * Empty action.
+     */
     public static final UpdateDistributedConfigurationAction NOP = new UpdateDistributedConfigurationAction();
 
     /**
