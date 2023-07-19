@@ -29,7 +29,7 @@ import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -78,7 +78,7 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
             RelTraitSet traits,
             RelOptTable tbl,
             String idxName,
-            IgniteIndex.Type type,
+            Type type,
             RelCollation collation,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
@@ -109,7 +109,7 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
             RelTraitSet traits,
             RelOptTable tbl,
             String idxName,
-            IgniteIndex.Type type,
+            Type type,
             RelCollation collation,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,

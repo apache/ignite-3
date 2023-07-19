@@ -24,7 +24,6 @@ import static org.apache.calcite.rel.RelDistribution.Type.BROADCAST_DISTRIBUTED;
 import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
@@ -58,6 +57,10 @@ import org.apache.calcite.rex.RexSlot;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.mapping.Mappings;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
@@ -65,11 +68,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -411,56 +410,60 @@ public class TraitUtils {
     }
 
     /**
-     * Creates {@link RelCollation} object from a given collations.
+     * Creates {@link RelCollation} object for given index.
      *
-     * @param collations List of collations.
+     * @param descriptor Index descriptor.
+     * @param tableDescriptor Table descriptor to derive column indexes from.
      * @return a {@link RelCollation} object.
      */
-    public static RelCollation createCollation(List<Collation> collations) {
-        List<RelFieldCollation> fieldCollations = new ArrayList<>(collations.size());
+    public static RelCollation createIndexCollation(CatalogIndexDescriptor descriptor, TableDescriptor tableDescriptor) {
+        if (descriptor instanceof CatalogSortedIndexDescriptor) {
+            CatalogSortedIndexDescriptor sortedIndexDescriptor = (CatalogSortedIndexDescriptor) descriptor;
+            List<CatalogIndexColumnDescriptor> columns = sortedIndexDescriptor.columns();
+            List<RelFieldCollation> fieldCollations = new ArrayList<>(columns.size());
 
-        for (int i = 0; i < collations.size(); i++) {
-            fieldCollations.add(createFieldCollation(i,  collations.get(i)));
-        }
+            for (int i = 0; i < columns.size(); i++) {
+                CatalogIndexColumnDescriptor column = columns.get(i);
+                ColumnDescriptor columnDesc = tableDescriptor.columnDescriptor(column.name());
+                int fieldIndex = columnDesc.logicalIndex();
 
-        return RelCollations.of(fieldCollations);
-    }
+                RelFieldCollation fieldCollation;
+                switch (column.collation()) {
+                    case ASC_NULLS_FIRST:
+                        fieldCollation = new RelFieldCollation(fieldIndex, Direction.ASCENDING, NullDirection.FIRST);
+                        break;
+                    case ASC_NULLS_LAST:
+                        fieldCollation = new RelFieldCollation(fieldIndex, Direction.ASCENDING, NullDirection.LAST);
+                        break;
+                    case DESC_NULLS_FIRST:
+                        fieldCollation = new RelFieldCollation(fieldIndex, Direction.DESCENDING, NullDirection.FIRST);
+                        break;
+                    case DESC_NULLS_LAST:
+                        fieldCollation = new RelFieldCollation(fieldIndex, Direction.DESCENDING, NullDirection.LAST);
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unexpected collation: " + column.collation());
+                }
 
-    /**
-     * Creates {@link RelCollation} object from a given collations.
-     *
-     * @param indexedColumns List of columns names.
-     * @param collations List of collations.
-     * @param descriptor Table descriptor to derive column indexes from.
-     * @return a {@link RelCollation} object.
-     */
-    public static RelCollation createCollation(
-            List<String> indexedColumns,
-            @Nullable List<IgniteIndex.Collation> collations,
-            TableDescriptor descriptor
-    ) {
-        List<RelFieldCollation> fieldCollations = new ArrayList<>(indexedColumns.size());
+                fieldCollations.add(fieldCollation);
+            }
 
-        if (collations == null) { // Build collation for Hash index.
-            for (int i = 0; i < indexedColumns.size(); i++) {
-                String columnName = indexedColumns.get(i);
-                ColumnDescriptor columnDesc = descriptor.columnDescriptor(columnName);
+            return RelCollations.of(fieldCollations);
+        } else if (descriptor instanceof CatalogHashIndexDescriptor) {
+            CatalogHashIndexDescriptor hashIndexDescriptor = (CatalogHashIndexDescriptor) descriptor;
+            List<String> columns = hashIndexDescriptor.columns();
+            List<RelFieldCollation> fieldCollations = new ArrayList<>(columns.size());
+
+            for (String columnName : columns) {
+                ColumnDescriptor columnDesc = tableDescriptor.columnDescriptor(columnName);
 
                 fieldCollations.add(new RelFieldCollation(columnDesc.logicalIndex(), Direction.CLUSTERED, NullDirection.UNSPECIFIED));
             }
 
             return RelCollations.of(fieldCollations);
+        } else {
+            throw new IllegalArgumentException("Unexpected index type: " + descriptor);
         }
-
-        for (int i = 0; i < indexedColumns.size(); i++) {
-            String columnName = indexedColumns.get(i);
-            IgniteIndex.Collation collation = collations.get(i);
-            ColumnDescriptor columnDesc = descriptor.columnDescriptor(columnName);
-
-            fieldCollations.add(createFieldCollation(columnDesc.logicalIndex(), collation));
-        }
-
-        return RelCollations.of(fieldCollations);
     }
 
     /**
@@ -483,22 +486,6 @@ public class TraitUtils {
                 : RelFieldCollation.NullDirection.LAST;
 
         return new RelFieldCollation(fieldIdx, direction, nullDirection);
-    }
-
-    /** Creates field collation. */
-    public static RelFieldCollation createFieldCollation(int fieldIdx, IgniteIndex.Collation collation) {
-        switch (collation) {
-            case ASC_NULLS_LAST:
-                return new RelFieldCollation(fieldIdx, RelFieldCollation.Direction.ASCENDING, RelFieldCollation.NullDirection.LAST);
-            case ASC_NULLS_FIRST:
-                return new RelFieldCollation(fieldIdx, RelFieldCollation.Direction.ASCENDING, RelFieldCollation.NullDirection.FIRST);
-            case DESC_NULLS_LAST:
-                return new RelFieldCollation(fieldIdx, RelFieldCollation.Direction.DESCENDING, RelFieldCollation.NullDirection.LAST);
-            case DESC_NULLS_FIRST:
-                return new RelFieldCollation(fieldIdx, RelFieldCollation.Direction.DESCENDING, RelFieldCollation.NullDirection.FIRST);
-            default:
-                throw new IgniteInternalException(Common.INTERNAL_ERR, format("Unknown collation [collation={}]", collation));
-        }
     }
 
     public static boolean distributionEnabled(RelNode node) {

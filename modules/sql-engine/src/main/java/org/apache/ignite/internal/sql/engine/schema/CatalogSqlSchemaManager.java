@@ -50,6 +50,7 @@ import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -72,8 +73,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
     @Override
     public SchemaPlus schema(@Nullable String schema) {
         // Should be removed -schema(name, version) must be used instead
-        // throw new UnsupportedOperationException();
-        return activeSchema(schema, catalogManager.activeCatalogVersion(Long.MAX_VALUE));
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -129,7 +129,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
             tableDescriptorMap.put(tableDescriptor.id(), descriptorImpl);
         }
 
-        Map<Integer, Map<String, IgniteSchemaIndex>> schemaTableIndexes = new HashMap<>(descriptor.indexes().length);
+        Map<Integer, Map<String, IgniteIndex>> schemaTableIndexes = new HashMap<>(descriptor.indexes().length);
 
         // Assemble indexes as they are required by tables.
         for (CatalogIndexDescriptor indexDescriptor : descriptor.indexes()) {
@@ -138,19 +138,20 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
             assert tableDescriptorImpl != null : "Table is not found in schema: " + tableId;
 
             String indexName = indexDescriptor.name();
-            Map<String, IgniteSchemaIndex> tableIndexes = schemaTableIndexes.computeIfAbsent(tableId, id -> new LinkedHashMap<>());
+            Map<String, IgniteIndex> tableIndexes = schemaTableIndexes.computeIfAbsent(tableId, id -> new LinkedHashMap<>());
 
             Type type;
             if (indexDescriptor instanceof CatalogSortedIndexDescriptor) {
-                type = Type.SORTED;
+                type = IgniteIndex.Type.SORTED;
             } else if (indexDescriptor instanceof CatalogHashIndexDescriptor) {
-                type = Type.HASH;
+                type = IgniteIndex.Type.HASH;
             } else {
                 throw new IllegalArgumentException("Unexpected index type: " + indexDescriptor);
             }
 
-            RelCollation indexCollation = IgniteSchemaIndex.createIndexCollation(indexDescriptor, tableDescriptorImpl);
-            IgniteSchemaIndex schemaIndex = new IgniteSchemaIndex(indexName, type, tableDescriptorImpl.distribution(), indexCollation);
+            RelCollation indexCollation = TraitUtils.createIndexCollation(indexDescriptor, tableDescriptorImpl);
+            IgniteDistribution distribution = tableDescriptorImpl.distribution();
+            IgniteIndex schemaIndex = new IgniteIndex(indexDescriptor.id(), indexName, type, distribution, indexCollation);
             tableIndexes.put(indexName, schemaIndex);
 
             schemaTableIndexes.put(tableId, tableIndexes);
@@ -164,7 +165,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
             assert descriptorImpl != null;
 
             IgniteStatistic statistic = new IgniteStatistic(() -> 0.0d, descriptorImpl.distribution());
-            Map<String, IgniteSchemaIndex> tableIndexMap = schemaTableIndexes.getOrDefault(tableId, Collections.emptyMap());
+            Map<String, IgniteIndex> tableIndexMap = schemaTableIndexes.getOrDefault(tableId, Collections.emptyMap());
 
             IgniteSchemaTable schemaTable = new IgniteSchemaTable(tableName, tableId, version, descriptorImpl, statistic, tableIndexMap);
 
@@ -217,7 +218,6 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
                 defaultValueStrategy = null;
                 defaultValueSupplier = null;
             }
-
 
             CatalogColumnDescriptor columnDescriptor = new CatalogColumnDescriptor(
                     col.name(),

@@ -107,9 +107,9 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     @Override
     public void start() {
         catalogManager.listen(CatalogEvent.TABLE_CREATE,
-                (params, ex) -> onSchemaChange((CreateTableEventParameters) params).thenApply(ignore -> false));
+                (params, ex) -> onTableCreated((CreateTableEventParameters) params).thenApply(ignore -> false));
         catalogManager.listen(CatalogEvent.TABLE_ALTER,
-                (params, ex) -> onSchemaChange(params).thenApply(ignore -> false));
+                (params, ex) -> onTableChanged(params).thenApply(ignore -> false));
     }
 
     /**
@@ -118,7 +118,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param evt Event parameters.
      * @return A future.
      */
-    private CompletableFuture<?> onSchemaChange(CreateTableEventParameters evt) {
+    private CompletableFuture<?> onTableCreated(CreateTableEventParameters evt) {
         CatalogTableDescriptor tableDescriptor = evt.tableDescriptor();
 
         int newSchemaVersion = INITIAL_SCHEMA_VERSION; // evt.catalogVersion();
@@ -135,7 +135,11 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param evt Event parameters.
      * @return A future.
      */
-    private CompletableFuture<?> onSchemaChange(CatalogEventParameters evt) {
+    private CompletableFuture<?> onTableChanged(CatalogEventParameters evt) {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
+        }
+
         try {
             CatalogTableDescriptor tableDescriptor;
 
@@ -155,14 +159,17 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 return completedFuture(new UnsupportedOperationException("Unexpected event."));
             }
 
-            int newSchemaVersion = registriesVv.latest().get(tableDescriptor.id()).lastSchemaVersion() + 1;;
+            int newSchemaVersion = registriesVv.latest().get(tableDescriptor.id()).lastSchemaVersion() + 1;
 
             SchemaDescriptor newSchema = CatalogDescriptorUtils.convert(newSchemaVersion, tableDescriptor);
 
             return onSchemaChange(tableDescriptor.id(), newSchema, evt.causalityToken());
         } catch (Throwable th) {
+            //TODO: drop debug print.
             th.printStackTrace();
             return failedFuture(th);
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 

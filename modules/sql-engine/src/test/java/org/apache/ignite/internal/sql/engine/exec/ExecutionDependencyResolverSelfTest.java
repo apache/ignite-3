@@ -29,17 +29,18 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
@@ -114,7 +115,9 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
 
         int t1Id = tester.addTable("TEST1", tableType);
         tester.setDependencies(t1Id, table1, update1);
-        tester.addIndex("TEST1", new IgniteIndex(TestHashIndex.create(List.of("ID"), "ID_IDX")));
+        tester.addIndex("TEST1", new IgniteIndex(1, "ID_IDX", Type.HASH,
+                tester.tableDescriptor("TEST1").distribution(),
+                RelCollations.of(0)));
 
         CompletableFuture<ResolvedDependencies> f = tester.resolveDependencies("SELECT * FROM test1 WHERE id=1");
         tester.checkDependencies(f.join(), t1Id);

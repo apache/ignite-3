@@ -25,12 +25,15 @@ import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -42,6 +45,8 @@ import org.jetbrains.annotations.Nullable;
  * Execution node for index scan. Provide result of index scan by given index, partitions and range conditions.
  */
 public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
+    private final int indexId;
+
     /** Schema index. */
     private final IgniteIndex schemaIndex;
 
@@ -59,6 +64,8 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final @Nullable Comparator<RowT> comp;
 
+    private final TableDescriptor tableDescriptor;
+
     /**
      * Constructor.
      *
@@ -73,6 +80,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
      * @param requiredColumns Optional set of column of interest.
      */
     public IndexScanNode(
+            int indexId,
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
             IgniteIndex schemaIndex,
@@ -89,6 +97,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
         assert partsWithTerms != null && !partsWithTerms.isEmpty();
 
+        this.indexId = indexId;
         this.schemaIndex = schemaIndex;
         this.table = table;
         this.partsWithTerms = partsWithTerms;
@@ -96,6 +105,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         this.rangeConditions = rangeConditions;
         this.comp = comp;
         this.factory = rowFactory;
+        this.tableDescriptor = tableDescriptor;
     }
 
     /** {@inheritDoc} */
@@ -123,8 +133,12 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     }
 
     private Publisher<RowT> partitionPublisher(PartitionWithTerm partWithTerm, @Nullable RangeCondition<RowT> cond) {
-        int indexId = schemaIndex.id();
-        List<String> columns = schemaIndex.columns();
+        //TODO: optimize this
+        List<String> columns = schemaIndex.collation().getFieldCollations().stream()
+                .map(RelFieldCollation::getFieldIndex)
+                .map(tableDescriptor::columnDescriptor)
+                .map(ColumnDescriptor::name)
+                .collect(Collectors.toList());
         ExecutionContext<RowT> ctx = context();
 
         switch (schemaIndex.type()) {

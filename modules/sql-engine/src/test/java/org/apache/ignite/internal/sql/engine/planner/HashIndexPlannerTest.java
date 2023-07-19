@@ -22,14 +22,12 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
-import java.util.List;
 import org.apache.calcite.plan.RelOptPlanner.CannotPlanException;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -113,7 +111,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
                 "VAL", Integer.class
         );
 
-        tbl.addIndex(new IgniteIndex(TestHashIndex.create(List.of("VAL"), indexName)));
+        tbl.addIndex(indexName, 1);
 
         return createSchema(tbl);
     }
@@ -138,7 +136,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
                 "VAL1", Integer.class
         );
 
-        rightTable.addIndex(new IgniteIndex(TestHashIndex.create(List.of("VAL0", "VAL1"), indexName)));
+        rightTable.addIndex(indexName, 1, 2);
 
         IgniteSchema schema = createSchema(leftTable, rightTable);
 
@@ -174,7 +172,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
                 "VAL1", Integer.class
         );
 
-        rightTable.addIndex(new IgniteIndex(TestHashIndex.create(List.of("VAL0", "VAL1"), indexName)));
+        rightTable.addIndex(indexName, 1, 2);
 
         IgniteSchema schema = createSchema(leftTable, rightTable);
 

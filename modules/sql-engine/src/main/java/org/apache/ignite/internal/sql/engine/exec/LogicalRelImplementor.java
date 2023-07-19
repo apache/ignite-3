@@ -32,12 +32,14 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Intersect;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.Minus;
 import org.apache.calcite.rel.core.Spool;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
@@ -343,11 +345,15 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         if (searchBounds != null) {
             Comparator<RowT> searchRowComparator = null;
 
-            if (idx.collations() != null) {
-                searchRowComparator = expressionFactory.comparator(TraitUtils.createCollation(idx.collations()));
+            // TODO: cache comparator?
+            if (idx.type() != Type.HASH) {
+                searchRowComparator = expressionFactory.comparator(idx.collation());
             }
 
-            ranges = expressionFactory.ranges(searchBounds, idx.getRowType(typeFactory, tbl.descriptor()), searchRowComparator);
+            // TODO: cache rowtype?
+            RelDataType idxRowType = getIndexRowType(typeFactory, tbl, idx);
+
+            ranges = expressionFactory.ranges(searchBounds, idxRowType, searchRowComparator);
         }
 
         RelCollation outputCollation = rel.collation();
@@ -361,13 +367,14 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         }
 
         ColocationGroup group = ctx.group(rel.sourceId());
-        Comparator<RowT> comp = idx.type() == Type.SORTED ? ctx.expressionFactory().comparator(outputCollation) : null;
+        Comparator<RowT> comp = idx.type() == IgniteIndex.Type.SORTED ? ctx.expressionFactory().comparator(outputCollation) : null;
 
         if (!group.nodeNames().contains(ctx.localNode().name())) {
             return new ScanNode<>(ctx, Collections.emptyList());
         }
 
         return new IndexScanNode<>(
+                idx.id(),
                 ctx,
                 ctx.rowHandler().factory(ctx.getTypeFactory(), rowType),
                 idx,
@@ -380,6 +387,18 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 prj,
                 requiredColumns == null ? null : requiredColumns.toBitSet()
         );
+    }
+
+    private static RelDataType getIndexRowType(IgniteTypeFactory typeFactory, IgniteTable tbl, IgniteIndex idx) {
+        RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(typeFactory);
+
+        RelDataType rt = tbl.getRowType(typeFactory);
+        for (RelFieldCollation fc : idx.collation().getFieldCollations()) {
+            b.add(rt.getFieldList().get(fc.getFieldIndex()));
+        }
+
+        RelDataType idxRowType = b.build();
+        return idxRowType;
     }
 
     /** {@inheritDoc} */

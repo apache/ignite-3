@@ -31,7 +31,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.RelVisitor;
@@ -40,7 +39,6 @@ import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.MappingService;
@@ -767,7 +765,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
         };
 
-        emp.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(ImmutableIntList.of(1, 2)), "emp_idx", emp)));
+        emp.addIndex("emp_idx", 1, 2);
 
         TestTable dept = new TestTable("DEPT",
                 new RelDataTypeFactory.Builder(f)
@@ -781,7 +779,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
         };
 
-        dept.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(ImmutableIntList.of(1, 0)), "dep_idx", dept)));
+        dept.addIndex("dep_idx", 1, 0);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 

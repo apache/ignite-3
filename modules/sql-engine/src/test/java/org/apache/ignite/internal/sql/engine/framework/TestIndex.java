@@ -19,11 +19,11 @@ package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.calcite.rel.RelCollation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 
 /**
  * A test index that implements all the necessary for the optimizer methods to be used to prepare a query, as well as provides access to the
@@ -34,20 +34,18 @@ public class TestIndex extends IgniteIndex {
             "DataProvider is not configured [index={}, node={}]";
 
     /** Factory method for creating hash-index. */
-    static TestIndex createHash(String name, List<String> indexedColumns, Map<String, DataProvider<?>> dataProviders) {
-        return new TestIndex(name, Type.HASH, indexedColumns, null, dataProviders);
+    static TestIndex createHash(String name, IgniteDistribution distribution, RelCollation collations,
+            Map<String, DataProvider<?>> dataProviders) {
+        return new TestIndex(name, Type.HASH, distribution, collations, dataProviders);
     }
 
     /** Factory method for creating sorted-index. */
-    static TestIndex createSorted(String name, List<String> columns, List<Collation> collations,
+    static TestIndex createSorted(String name, IgniteDistribution distribution, RelCollation collations,
             Map<String, DataProvider<?>> dataProviders) {
-        return new TestIndex(name, Type.SORTED, columns, collations, dataProviders);
+        return new TestIndex(name, Type.SORTED, distribution, collations, dataProviders);
     }
 
     private static final AtomicInteger ID = new AtomicInteger();
-
-    private final int id = ID.incrementAndGet();
-    private final String name;
 
     private final Map<String, DataProvider<?>> dataProviders;
 
@@ -55,25 +53,13 @@ public class TestIndex extends IgniteIndex {
     TestIndex(
             String name,
             Type type,
-            List<String> columns,
-            @Nullable List<Collation> collations,
+            IgniteDistribution distribution,
+            RelCollation collations,
             Map<String, DataProvider<?>> dataProviders
     ) {
-        super(type, columns, collations);
+        super(ID.incrementAndGet(), name, type, distribution, collations);
 
-        this.name = name;
         this.dataProviders = dataProviders;
-    }
-
-    /** Returns an id of the index. */
-    public int id() {
-        return id;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String name() {
-        return name;
     }
 
     /**

@@ -30,7 +30,6 @@ import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
@@ -54,7 +53,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
         IgniteTable tbl = table.unwrap(IgniteTable.class);
         IgniteTypeFactory typeFactory = Commons.typeFactory(cluster);
         IgniteIndex index = tbl.getIndex(idxName);
-        RelCollation collation = TraitUtils.createCollation(index.columns(), index.collations(), tbl.descriptor());
+        RelCollation collation = index.collation();
 
         List<SearchBounds> searchBounds;
         if (index.type() == Type.HASH) {
@@ -111,7 +110,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             RelTraitSet traits,
             RelOptTable tbl,
             String idxName,
-            IgniteIndex.Type type,
+            Type type,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable List<SearchBounds> searchBounds,

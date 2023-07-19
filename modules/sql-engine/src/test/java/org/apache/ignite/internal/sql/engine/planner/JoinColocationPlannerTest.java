@@ -26,7 +26,6 @@ import static org.hamcrest.Matchers.hasSize;
 
 import java.util.List;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
@@ -35,7 +34,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.junit.jupiter.api.Test;
@@ -56,7 +54,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 "VAL", String.class
         );
 
-        tbl.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(0), "PK", tbl)));
+        tbl.addIndex("PK", 0);
 
         IgniteSchema schema = createSchema(tbl);
 
@@ -89,7 +87,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 "VAL", String.class
         );
 
-        tbl.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(ImmutableIntList.of(0, 1)), "PK", tbl)));
+        tbl.addIndex("PK", 0, 1);
 
         IgniteSchema schema = createSchema(tbl);
 
@@ -125,7 +123,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 "VAL", String.class
         );
 
-        complexTbl.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(ImmutableIntList.of(0, 1)), "PK", complexTbl)));
+        complexTbl.addIndex("PK", 0, 1);
 
         TestTable simpleTbl = createTable(
                 "SIMPLE_TBL",
@@ -136,7 +134,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 "VAL", String.class
         );
 
-        simpleTbl.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(0), "PK", simpleTbl)));
+        simpleTbl.addIndex("PK", 0);
 
         IgniteSchema schema = createSchema(complexTbl, simpleTbl);
 
@@ -179,8 +177,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 "VAL", String.class
         );
 
-        complexTblDirect.addIndex(new IgniteIndex(
-                TestSortedIndex.create(RelCollations.of(ImmutableIntList.of(0, 1)), "PK", complexTblDirect)));
+        complexTblDirect.addIndex("PK", 0, 1);
 
         TestTable complexTblIndirect = createTable(
                 "COMPLEX_TBL_INDIRECT",
@@ -191,8 +188,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 "VAL", String.class
         );
 
-        complexTblIndirect.addIndex(new IgniteIndex(
-                TestSortedIndex.create(RelCollations.of(ImmutableIntList.of(0, 1)), "PK", complexTblIndirect)));
+        complexTblIndirect.addIndex("PK", 0, 1);
 
         IgniteSchema schema = createSchema(complexTblDirect, complexTblIndirect);
 

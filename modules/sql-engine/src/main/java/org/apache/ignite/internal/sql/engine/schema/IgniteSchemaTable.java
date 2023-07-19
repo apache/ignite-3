@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -35,11 +38,13 @@ import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.table.InternalTable;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -57,11 +62,11 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
 
     private final IgniteStatistic statistic;
 
-    private final Map<String, IgniteSchemaIndex> indexMap;
+    private final Map<String, IgniteIndex> indexMap;
 
     /** Constructor. */
     public IgniteSchemaTable(String name, int tableId,  int version, TableDescriptor desc,
-            IgniteStatistic statistic, Map<String, IgniteSchemaIndex> indexMap) {
+            IgniteStatistic statistic, Map<String, IgniteIndex> indexMap) {
 
         this.id = tableId;
         this.name = name;
@@ -69,6 +74,18 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
         this.version = version;
         this.statistic = statistic;
         this.indexMap = indexMap;
+    }
+
+    // TODO: should be moved to a separate component after https://issues.apache.org/jira/browse/IGNITE-18453
+    static Supplier<ColocationGroup> partitionedGroup(InternalTable table) {
+        return () -> {
+            List<List<NodeWithTerm>> assignments = table.primaryReplicas().stream()
+                    .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
+                    .map(Collections::singletonList)
+                    .collect(Collectors.toList());
+
+            return ColocationGroup.forAssignments(assignments);
+        };
     }
 
     /** {@inheritDoc} */
@@ -193,13 +210,13 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
     /** {@inheritDoc} */
     @Override
     public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-        return IgniteTableImpl.partitionedGroup(ctx.tableManager().getTable(id).internalTable()).get();
+        return partitionedGroup(ctx.tableManager().getTable(id).internalTable()).get();
     }
 
     /** {@inheritDoc} */
     @Override
     public Map<String, IgniteIndex> indexes() {
-        throw new UnsupportedOperationException("getIndexes() should be used instead");
+        return indexMap;
     }
 
     /** {@inheritDoc} */
@@ -211,17 +228,12 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
     /** {@inheritDoc} */
     @Override
     public IgniteIndex getIndex(String idxName) {
-        throw new UnsupportedOperationException("getIndexes(name) should be used instead");
+        return indexMap.get(idxName);
     }
 
     /** {@inheritDoc} */
     @Override
     public void removeIndex(String idxName) {
         throw new UnsupportedOperationException("IndexMap is not modifiable");
-    }
-
-    /** Returns a map of indexes defined for this table. */
-    public Map<String, IgniteSchemaIndex> getIndexes() {
-        return indexMap;
     }
 }

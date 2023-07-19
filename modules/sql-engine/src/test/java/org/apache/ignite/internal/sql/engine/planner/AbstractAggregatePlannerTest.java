@@ -39,6 +39,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceAggregateBase;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
@@ -556,7 +557,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
 
     private static IgniteIndex createIndex(org.apache.ignite.internal.sql.engine.framework.TestTable tbl, String name,
             RelCollation collation) {
-        return new IgniteIndex(TestSortedIndex.create(collation, name, tbl));
+        return new IgniteIndex(1, name, Type.SORTED, tbl.distribution(), collation);
     }
 
     <T extends RelNode> Predicate<T> hasAggregate() {

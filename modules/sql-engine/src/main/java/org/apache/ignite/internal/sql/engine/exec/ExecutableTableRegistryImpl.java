@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridClock;

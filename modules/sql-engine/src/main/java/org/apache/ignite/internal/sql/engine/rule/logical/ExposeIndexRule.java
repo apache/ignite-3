@@ -33,8 +33,6 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchemaTable;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.immutables.value.Value;
 
@@ -52,7 +50,7 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
 
     private static boolean preMatch(IgniteLogicalTableScan scan) {
         // has indexes to expose
-        return !scan.getTable().unwrap(IgniteSchemaTable.class).getIndexes().isEmpty();
+        return !scan.getTable().unwrap(IgniteTable.class).indexes().isEmpty();
     }
 
     /** {@inheritDoc} */
@@ -62,12 +60,12 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
         RelOptCluster cluster = scan.getCluster();
 
         RelOptTable optTable = scan.getTable();
-        IgniteSchemaTable igniteTable = optTable.unwrap(IgniteSchemaTable.class);
+        IgniteTable igniteTable = optTable.unwrap(IgniteTable.class);
         List<RexNode> proj = scan.projects();
         RexNode condition = scan.condition();
         ImmutableBitSet requiredCols = scan.requiredColumns();
 
-        List<IgniteLogicalIndexScan> indexes = igniteTable.getIndexes().values().stream()
+        List<IgniteLogicalIndexScan> indexes = igniteTable.indexes().values().stream()
                 .map(idx -> idx.toRel(cluster, optTable, proj, condition, requiredCols))
                 .filter(idx -> filter(igniteTable, idx.indexName(), idx.searchBounds()))
                 .collect(Collectors.toList());
@@ -88,7 +86,7 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
     private static boolean filter(IgniteTable table, String idxName, List<SearchBounds> searchBounds) {
         IgniteIndex index = table.getIndex(idxName);
 
-        return index.type() == Type.SORTED || (searchBounds != null
+        return index.type() == IgniteIndex.Type.SORTED || (searchBounds != null
                 && searchBounds.stream().noneMatch(bound -> bound.type() == SearchBounds.Type.RANGE));
     }
 

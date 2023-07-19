@@ -31,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -91,7 +92,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
     public void testProjectFilterMergeSortedIndex() throws Exception {
         // Test project and filter merge into index scan.
         TestTable tbl = ((TestTable) publicSchema.getTable("TBL"));
-        tbl.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(2), "IDX_C", tbl)));
+        tbl.addIndex("IDX_C", 2);
 
         // Without index condition shift.
         assertPlan("SELECT a, b FROM tbl WHERE c = 0", publicSchema, isInstanceOf(IgniteIndexScan.class)
@@ -118,7 +119,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
     public void testProjectFilterMergeHashIndex() throws Exception {
         // Test project and filter merge into index scan.
         TestTable tbl = ((TestTable) publicSchema.getTable("TBL"));
-        tbl.addIndex(new IgniteIndex(TestHashIndex.create(List.of("c"), "IDX_C")));
+        tbl.addIndex(new IgniteIndex(1, "IDX_C", Type.HASH, tbl.distribution(), RelCollations.of(2)));
 
         // Without index condition shift.
         assertPlan("SELECT a, b FROM tbl WHERE c = 0", publicSchema, isInstanceOf(IgniteIndexScan.class)
@@ -145,7 +146,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
     public void testIdentityFilterMergeIndex() throws Exception {
         // Test project and filter merge into index scan.
         TestTable tbl = ((TestTable) publicSchema.getTable("TBL"));
-        tbl.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(2), "IDX_C", tbl)));
+        tbl.addIndex("IDX_C", 2);
 
         // Without index condition shift.
         assertPlan("SELECT a, b, c FROM tbl WHERE c = 0", publicSchema, isInstanceOf(IgniteIndexScan.class)
@@ -170,7 +171,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
     public void testIdentityFilterMergeHashIndex() throws Exception {
         // Test project and filter merge into index scan.
         TestTable tbl = ((TestTable) publicSchema.getTable("TBL"));
-        tbl.addIndex(new IgniteIndex(TestHashIndex.create(List.of("c"), "IDX_C")));
+        tbl.addIndex(new IgniteIndex(1, "IDX_C", Type.HASH, tbl.distribution(), RelCollations.of(2)));
 
         // Without index condition shift.
         assertPlan("SELECT a, b, c FROM tbl WHERE c = 0", publicSchema, isInstanceOf(IgniteIndexScan.class)

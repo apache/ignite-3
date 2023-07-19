@@ -114,6 +114,7 @@ import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
@@ -1002,7 +1003,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          */
         public TestTable addIndex(RelCollation collation, String name) {
-            indexes.put(name, new IgniteIndex(TestSortedIndex.create(collation, name, this)));
+            indexes.put(name, new IgniteIndex(1, name, Type.SORTED, distribution(), collation));
 
             return this;
         }

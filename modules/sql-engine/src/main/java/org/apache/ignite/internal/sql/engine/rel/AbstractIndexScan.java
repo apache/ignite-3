@@ -53,7 +53,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
 
     protected final @Nullable List<SearchBounds> searchBounds;
 
-    protected final IgniteIndex.Type type;
+    protected final Type type;
 
     /**
      * Constructor used for deserialization.
@@ -63,7 +63,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
     AbstractIndexScan(RelInput input) {
         super(input);
         idxName = input.getString("index");
-        type = input.getEnum("type", IgniteIndex.Type.class);
+        type = input.getEnum("type", Type.class);
         searchBounds = ((RelInputEx) input).getSearchBounds("searchBounds");
     }
 
@@ -77,7 +77,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
             List<RelHint> hints,
             RelOptTable table,
             String idxName,
-            IgniteIndex.Type type,
+            Type type,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable List<SearchBounds> searchBounds,
@@ -126,7 +126,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
 
         double cost = 0;
 
-        if (type == Type.HASH) {
+        if (type == IgniteIndex.Type.HASH) {
             boolean notExact = (searchBounds() == null)
                     || searchBounds().stream().anyMatch(bound -> bound.type() == SearchBounds.Type.RANGE);
 

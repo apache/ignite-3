@@ -44,6 +44,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -271,8 +272,8 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
             }
         }
 
-        Stream<Arguments> s1 = filterTypes().filter(filter).map(new AddIndexType(Type.SORTED));
-        Stream<Arguments> s2 = filterTypes().filter(filter).map(new AddIndexType(Type.HASH));
+        Stream<Arguments> s1 = filterTypes().filter(filter).map(new AddIndexType(IgniteIndex.Type.SORTED));
+        Stream<Arguments> s2 = filterTypes().filter(filter).map(new AddIndexType(IgniteIndex.Type.HASH));
 
         return Stream.concat(s1, s2);
     }

@@ -57,7 +57,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -375,10 +374,10 @@ public class CatalogSqlSchemaManagerTest {
         IgniteSchemaTable table = (IgniteSchemaTable) schema.getTable(testTable.name);
         assertNotNull(table);
 
-        IgniteSchemaIndex testIdx = table.getIndexes().get(testIndex.name);
+        IgniteIndex testIdx = table.getIndex(testIndex.name);
 
         assertEquals(testIndex.name, testIdx.name());
-        assertEquals(Type.HASH, testIdx.type());
+        assertEquals(IgniteIndex.Type.HASH, testIdx.type());
         assertEquals(RelCollations.of(
                 new RelFieldCollation(0, Direction.CLUSTERED, NullDirection.UNSPECIFIED),
                 new RelFieldCollation(1, Direction.CLUSTERED, NullDirection.UNSPECIFIED)
@@ -419,10 +418,10 @@ public class CatalogSqlSchemaManagerTest {
         IgniteSchemaTable table = (IgniteSchemaTable) schema.getTable(testTable.name);
         assertNotNull(table);
 
-        IgniteSchemaIndex testIdx = table.getIndexes().get(testIndex.name);
+        IgniteIndex testIdx = table.getIndex(testIndex.name);
 
         assertEquals(testIndex.name, testIdx.name());
-        assertEquals(Type.SORTED, testIdx.type());
+        assertEquals(IgniteIndex.Type.SORTED, testIdx.type());
         assertEquals(RelCollations.of(
                 new RelFieldCollation(0, Direction.ASCENDING, NullDirection.LAST),
                 new RelFieldCollation(1, Direction.ASCENDING, NullDirection.FIRST),

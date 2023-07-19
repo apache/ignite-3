@@ -31,7 +31,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.rel.RelFieldCollation;
+import org.apache.calcite.rel.RelFieldCollation.Direction;
+import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.schema.Table;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -42,9 +48,9 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -431,7 +437,7 @@ public class TestBuilders {
                     size
             );
 
-            indexBuilders.stream().map(AbstractIndexBuilderImpl::build).forEach(testTable::addIndex);
+            indexBuilders.stream().map(idxBuilder -> idxBuilder.build(testTable)).forEach(testTable::addIndex);
 
             return testTable;
         }
@@ -479,7 +485,7 @@ public class TestBuilders {
         private TestTable build() {
             TestTable testTable = new TestTable(new TableDescriptorImpl(columns, distribution), name, dataProviders, size);
 
-            indexBuilders.forEach(idx -> testTable.addIndex(idx.build()));
+            indexBuilders.forEach(idx -> testTable.addIndex(idx.build(testTable)));
 
             return testTable;
         }
@@ -509,7 +515,7 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
-        public TestIndex build() {
+        public TestIndex build(TestTable table) {
             if (name == null) {
                 throw new IllegalArgumentException("Name is not specified");
             }
@@ -522,7 +528,9 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Collation must be specified for each of columns.");
             }
 
-            return new TestIndex(name, Type.SORTED, columns, collations, dataProviders);
+            RelCollation relCollation = sortedIndexCollation(columns, collations, table.descriptor());
+
+            return new TestIndex(name, Type.SORTED, table.distribution(), relCollation, dataProviders);
         }
     }
 
@@ -549,7 +557,7 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
-        public TestIndex build() {
+        public TestIndex build(TestTable table) {
             if (name == null) {
                 throw new IllegalArgumentException("Name is not specified");
             }
@@ -560,7 +568,10 @@ public class TestBuilders {
 
             assert collations == null : "Collation is not supported.";
 
-            return new TestIndex(name, Type.HASH, columns, null, dataProviders);
+
+            RelCollation relCollation = hashIndexCollation(columns, table.descriptor());
+
+            return new TestIndex(name, Type.SORTED, table.distribution(), relCollation, dataProviders);
         }
     }
 
@@ -587,10 +598,12 @@ public class TestBuilders {
         }
 
         @Override
-        TestIndex build() {
+        TestIndex build(TestTable table) {
             assert collations.size() == columns.size();
 
-            return TestIndex.createSorted(name, columns, collations, dataProviders);
+            RelCollation relCollation = sortedIndexCollation(columns, collations, table.descriptor());
+
+            return new TestIndex(name, Type.SORTED, table.distribution(), relCollation, dataProviders);
         }
     }
 
@@ -617,10 +630,12 @@ public class TestBuilders {
         }
 
         @Override
-        TestIndex build() {
+        TestIndex build(TestTable table) {
             assert collations == null;
 
-            return TestIndex.createHash(name, columns, dataProviders);
+            RelCollation relCollation = hashIndexCollation(columns, table.descriptor());
+
+            return new TestIndex(name, Type.SORTED, table.distribution(), relCollation, dataProviders);
         }
     }
 
@@ -700,7 +715,7 @@ public class TestBuilders {
     private abstract static class AbstractIndexBuilderImpl<ChildT> extends AbstractDataSourceBuilderImpl<ChildT>
             implements SortedIndexBuilderBase<ChildT>, HashIndexBuilderBase<ChildT> {
         protected final List<String> columns = new ArrayList<>();
-        protected List<Collation> collations;
+        protected List<CatalogColumnCollation> collations;
 
         /** {@inheritDoc} */
         @Override
@@ -712,7 +727,7 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
-        public ChildT addColumn(String columnName, Collation collation) {
+        public ChildT addColumn(String columnName, CatalogColumnCollation collation) {
             if (collations == null) {
                 collations = new ArrayList<>();
             }
@@ -723,7 +738,7 @@ public class TestBuilders {
             return self();
         }
 
-        abstract TestIndex build();
+        abstract TestIndex build(TestTable table);
     }
 
     private abstract static class AbstractDataSourceBuilderImpl<ChildT> {
@@ -802,7 +817,7 @@ public class TestBuilders {
      */
     private interface SortedIndexBuilderBase<ChildT> extends IndexBuilderBase<ChildT> {
         /** Adds a column with specified collation to the index. */
-        ChildT addColumn(String columnName, Collation collation);
+        ChildT addColumn(String columnName, CatalogColumnCollation collation);
     }
 
     /**
@@ -847,5 +862,49 @@ public class TestBuilders {
          * @return An instance of the parent builder.
          */
         ParentT end();
+    }
+
+    private static RelCollation sortedIndexCollation(List<String> columns, List<CatalogColumnCollation> collations, TableDescriptor table) {
+        assert collations.size() == columns.size();
+
+        List<RelFieldCollation> fieldCollations = new ArrayList<>(columns.size());
+        for (int i = 0; i < columns.size(); i++) {
+            ColumnDescriptor columnDesc = table.columnDescriptor(columns.get(i));
+            int fieldIndex = columnDesc.logicalIndex();
+
+            RelFieldCollation fieldCollation;
+            switch (collations.get(i)) {
+                case ASC_NULLS_FIRST:
+                    fieldCollation = new RelFieldCollation(fieldIndex, Direction.ASCENDING, NullDirection.FIRST);
+                    break;
+                case ASC_NULLS_LAST:
+                    fieldCollation = new RelFieldCollation(fieldIndex, Direction.ASCENDING, NullDirection.LAST);
+                    break;
+                case DESC_NULLS_FIRST:
+                    fieldCollation = new RelFieldCollation(fieldIndex, Direction.DESCENDING, NullDirection.FIRST);
+                    break;
+                case DESC_NULLS_LAST:
+                    fieldCollation = new RelFieldCollation(fieldIndex, Direction.DESCENDING, NullDirection.LAST);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unexpected collation: " + collations.get(i));
+            }
+
+            fieldCollations.add(fieldCollation);
+        }
+
+        return RelCollations.of(fieldCollations);
+    }
+
+    private static RelCollation hashIndexCollation(List<String> columns, TableDescriptor tableDescriptor) {
+        List<RelFieldCollation> fieldCollations = new ArrayList<>(columns.size());
+
+        for (String columnName : columns) {
+            ColumnDescriptor columnDesc = tableDescriptor.columnDescriptor(columnName);
+
+            fieldCollations.add(new RelFieldCollation(columnDesc.logicalIndex(), Direction.CLUSTERED, NullDirection.UNSPECIFIED));
+        }
+
+        return RelCollations.of(fieldCollations);
     }
 }
