@@ -32,8 +32,7 @@ using namespace ignite;
 /**
  * Test suite.
  */
-class basic_authenticator_test : public ignite_runner_suite
-{
+class basic_authenticator_test : public ignite_runner_suite {
 public:
     /** Correct username */
     inline static const std::string CORRECT_USERNAME{"user-1"};
@@ -44,9 +43,7 @@ public:
     /**
      * Tear down.
      */
-    static void TearDownTestSuite() {
-        set_authentication_enabled(false);
-    }
+    static void TearDownTestSuite() { set_authentication_enabled(false); }
 
     /**
      * Get default configuration.
@@ -100,7 +97,7 @@ public:
             auto client = ignite_client::start(cfg, std::chrono::seconds(30));
             auto nodes = client.get_cluster_nodes();
             client.get_compute().execute(nodes, {}, ENABLE_AUTHN_JOB, {enable ? 1 : 0});
-        } catch (const ignite_error&) {
+        } catch (const ignite_error &) {
             // Ignore.
             // As a result of this call, the client may be disconnected from the server due to authn config change.
         }

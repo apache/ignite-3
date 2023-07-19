@@ -38,6 +38,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -142,16 +143,15 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         publisher.submit(tuple(1, "foo"));
         assertTrue(waitForCondition(() -> {
+            @SuppressWarnings("resource")
+            var tx = ignite().transactions().begin(new TransactionOptions().readOnly(true));
+
             try {
-                return view.get(null, tupleKey(1)) != null;
-            } catch (Exception e) {
-                // TODO IGNITE-19824: Remove try-catch.
-                // Ignore tx conflicts caused by deadlock detection mechanism issues.
-                // noinspection CallToPrintStackTrace
-                e.printStackTrace();
-                return false;
+                return view.get(tx, tupleKey(1)) != null;
+            } finally {
+                tx.rollback();
             }
-        }, 1000));
+        }, 50, 5000));
     }
 
     @Test

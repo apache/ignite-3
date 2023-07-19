@@ -58,10 +58,10 @@ namespace Apache.Ignite.Internal.Generators
             // ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 7);
             var javaErrorGroups = Regex.Matches(
                     javaErrorGroupsText,
-                    @"public static class ([A-Za-z]+) {\s+/\*\*.*?\*/\s+public static final ErrorGroup ([\w_]+)_ERR_GROUP = ErrorGroup.newGroup\(""([\w_]+)"", (\d+)",
+                    @"public static class ([A-Za-z]+) {\s+/\*\*.*?\*/\s+public static final ErrorGroup ([\w_]+)_ERR_GROUP = ErrorGroup.newGroup\(""([\w_]+)"", \(short\)\s*(\d+)",
                     RegexOptions.Singleline | RegexOptions.CultureInvariant)
                 .Cast<Match>()
-                .Select(x => (ClassName: x.Groups[1].Value, GroupName: x.Groups[2].Value, ShortGroupName: x.Groups[3].Value, Code: int.Parse(x.Groups[4].Value, CultureInfo.InvariantCulture)))
+                .Select(x => (ClassName: x.Groups[1].Value, GroupName: x.Groups[2].Value, ShortGroupName: x.Groups[3].Value, Code: short.Parse(x.Groups[4].Value, CultureInfo.InvariantCulture)))
                 .ToList();
 
             if (javaErrorGroups.Count == 0)
@@ -106,7 +106,7 @@ namespace Apache.Ignite.Internal.Generators
                 sb.AppendLine($"        public static class {className}");
                 sb.AppendLine($"        {{");
                 sb.AppendLine($"            /// <summary> {className} group code. </summary>");
-                sb.AppendLine($"            public const int GroupCode = {groupCode};");
+                sb.AppendLine($"            public const short GroupCode = {groupCode};");
                 sb.AppendLine();
                 sb.AppendLine($"            /// <summary> {className} group name. </summary>");
                 sb.AppendLine($"            public const string GroupName = \"{shortGroupName}\";");
@@ -114,9 +114,9 @@ namespace Apache.Ignite.Internal.Generators
                 // TX_STATE_STORAGE_CREATE_ERR = TX_ERR_GROUP.registerErrorCode(1)
                 var javaErrors = Regex.Matches(
                         javaErrorGroupsText,
-                        @"([\w_]+)_ERR = " + groupName + @"_ERR_GROUP\.registerErrorCode\((\d+)\);")
+                        @"([\w_]+)_ERR = " + groupName + @"_ERR_GROUP\.registerErrorCode\(\(short\)\s*(\d+)\);")
                     .Cast<Match>()
-                    .Select(x => (Name: x.Groups[1].Value, Code: int.Parse(x.Groups[2].Value, CultureInfo.InvariantCulture)))
+                    .Select(x => (Name: x.Groups[1].Value, Code: short.Parse(x.Groups[2].Value, CultureInfo.InvariantCulture)))
                     .ToList();
 
                 if (javaErrors.Count == 0)

@@ -171,6 +171,7 @@ public interface Mapper<T> {
     static boolean nativelySupported(Class<?> type) {
         return !Objects.requireNonNull(type).isPrimitive()
                        && (String.class == type
+                                   || Boolean.class == type
                                    || UUID.class == type
                                    || BitSet.class == type
                                    || byte[].class == type

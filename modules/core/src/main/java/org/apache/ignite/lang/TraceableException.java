@@ -44,7 +44,7 @@ public interface TraceableException {
      * @see #code()
      * @return Error group.
      */
-    public int groupCode();
+    public short groupCode();
 
     /**
      * Returns an error code that uniquely identifies the problem within a group.
@@ -53,5 +53,5 @@ public interface TraceableException {
      * @see #groupCode()
      * @return Error code.
      */
-    public int errorCode();
+    public short errorCode();
 }

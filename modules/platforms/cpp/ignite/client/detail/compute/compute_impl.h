@@ -21,9 +21,9 @@
 #include "ignite/client/detail/cluster_connection.h"
 #include "ignite/client/detail/table/tables_impl.h"
 #include "ignite/client/network/cluster_node.h"
-#include "ignite/client/primitive.h"
 #include "ignite/client/table/ignite_tuple.h"
 #include "ignite/common/ignite_result.h"
+#include "ignite/common/primitive.h"
 
 #include <memory>
 #include <utility>

@@ -69,7 +69,7 @@ public class IgniteExceptionMapperUtilTest {
 
         IgniteException e = assertThrows(IgniteException.class, () -> registerMapping(m, mappers));
 
-        assertThat("Unexpected error group code, it should be COMMON_ERR_GROUP.", e.groupCode(), is(COMMON_ERR_GROUP.code()));
+        assertThat("Unexpected error group code, it should be COMMON_ERR_GROUP.", e.groupCode(), is(COMMON_ERR_GROUP.groupCode()));
         assertThat("Unexpected error code, it should be INTERNAL_ERR.", e.code(), is(INTERNAL_ERR));
     }
 
@@ -84,7 +84,7 @@ public class IgniteExceptionMapperUtilTest {
 
         IgniteException mapped = (IgniteException) t;
 
-        assertThat("Unexpected error group code, it should be COMMON_ERR_GROUP.", mapped.groupCode(), is(COMMON_ERR_GROUP.code()));
+        assertThat("Unexpected error group code, it should be COMMON_ERR_GROUP.", mapped.groupCode(), is(COMMON_ERR_GROUP.groupCode()));
         assertThat("Unexpected error code, it should be INTERNAL_ERR.", mapped.code(), is(INTERNAL_ERR));
     }
 
@@ -144,7 +144,7 @@ public class IgniteExceptionMapperUtilTest {
 
         IgniteException mapped = (IgniteException) t;
 
-        assertThat("Unexpected error group code, it should be COMMON_ERR_GROUP.", mapped.groupCode(), is(COMMON_ERR_GROUP.code()));
+        assertThat("Unexpected error group code, it should be COMMON_ERR_GROUP.", mapped.groupCode(), is(COMMON_ERR_GROUP.groupCode()));
         assertThat("Unexpected error code, it should be INTERNAL_ERR.", mapped.code(), is(INTERNAL_ERR));
     }
 

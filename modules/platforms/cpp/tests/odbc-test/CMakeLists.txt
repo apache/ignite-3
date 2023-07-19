@@ -26,7 +26,11 @@ set(SOURCES
     connection_test.cpp
     error_test.cpp
     main.cpp
+    many_cursors_test.cpp
     meta_queries_test.cpp
+    queries_test.cpp
+    timeout_test.cpp
+    transaction_test.cpp
 )
 
 add_executable(${TARGET} ${SOURCES})

@@ -18,19 +18,19 @@
 #include "ignite/common/utils.h"
 
 #include "ignite/odbc/log.h"
-#include "ignite/odbc/type_traits.h"
-#include "ignite/odbc/string_utils.h"
 #include "ignite/odbc/meta/column_meta.h"
+#include "ignite/odbc/string_utils.h"
 #include "ignite/odbc/system/odbc_constants.h"
+#include "ignite/odbc/type_traits.h"
 
 namespace ignite {
 
-#define DBG_STR_CASE(x) case x: return #x
+#define DBG_STR_CASE(x)                                                                                                \
+ case x:                                                                                                               \
+  return #x
 
-const char* column_meta::attr_id_to_string(uint16_t id)
-{
-    switch (id)
-    {
+const char *column_meta::attr_id_to_string(uint16_t id) {
+    switch (id) {
         DBG_STR_CASE(SQL_DESC_LABEL);
         DBG_STR_CASE(SQL_DESC_BASE_COLUMN_NAME);
         DBG_STR_CASE(SQL_DESC_NAME);
@@ -61,8 +61,8 @@ const char* column_meta::attr_id_to_string(uint16_t id)
         DBG_STR_CASE(SQL_COLUMN_LENGTH);
         DBG_STR_CASE(SQL_COLUMN_PRECISION);
         DBG_STR_CASE(SQL_COLUMN_SCALE);
-    default:
-        break;
+        default:
+            break;
     }
     return "<< UNKNOWN ID >>";
 }
@@ -80,10 +80,8 @@ nullability nullability_from_int(std::int8_t int_value) {
     }
 }
 
-SQLLEN nullability_to_sql(nullability value)
-{
-    switch (value)
-    {
+SQLLEN nullability_to_sql(nullability value) {
+    switch (value) {
         case nullability::NO_NULL:
             return SQL_NO_NULLS;
 
@@ -101,8 +99,7 @@ SQLLEN nullability_to_sql(nullability value)
     return SQL_NULLABLE_UNKNOWN;
 }
 
-void column_meta::read(protocol::reader &reader, const protocol_version &)
-{
+void column_meta::read(protocol::reader &reader, const protocol_version &) {
     m_schema_name = reader.read_string();
     m_table_name = reader.read_string();
     m_column_name = reader.read_string();
@@ -112,44 +109,37 @@ void column_meta::read(protocol::reader &reader, const protocol_version &)
     m_nullability = nullability_from_int(reader.read_int8());
 }
 
-bool column_meta::get_attribute(uint16_t field_id, std::string& value) const
-{
-    switch (field_id)
-    {
+bool column_meta::get_attribute(uint16_t field_id, std::string &value) const {
+    switch (field_id) {
         case SQL_DESC_LABEL:
         case SQL_DESC_BASE_COLUMN_NAME:
-        case SQL_DESC_NAME:
-        {
+        case SQL_DESC_NAME: {
             value = m_column_name;
 
             return true;
         }
 
         case SQL_DESC_TABLE_NAME:
-        case SQL_DESC_BASE_TABLE_NAME:
-        {
+        case SQL_DESC_BASE_TABLE_NAME: {
             value = m_table_name;
 
             return true;
         }
 
-        case SQL_DESC_SCHEMA_NAME:
-        {
+        case SQL_DESC_SCHEMA_NAME: {
             value = m_schema_name;
 
             return true;
         }
 
-        case SQL_DESC_CATALOG_NAME:
-        {
+        case SQL_DESC_CATALOG_NAME: {
             value.clear();
 
             return true;
         }
 
         case SQL_DESC_LITERAL_PREFIX:
-        case SQL_DESC_LITERAL_SUFFIX:
-        {
+        case SQL_DESC_LITERAL_SUFFIX: {
             if (m_data_type == ignite_type::STRING)
                 value = "'";
             else
@@ -159,8 +149,7 @@ bool column_meta::get_attribute(uint16_t field_id, std::string& value) const
         }
 
         case SQL_DESC_TYPE_NAME:
-        case SQL_DESC_LOCAL_TYPE_NAME:
-        {
+        case SQL_DESC_LOCAL_TYPE_NAME: {
             value = ignite_type_to_sql_type_name(m_data_type);
 
             return true;
@@ -168,8 +157,7 @@ bool column_meta::get_attribute(uint16_t field_id, std::string& value) const
 
         case SQL_DESC_PRECISION:
         case SQL_COLUMN_LENGTH:
-        case SQL_COLUMN_PRECISION:
-        {
+        case SQL_COLUMN_PRECISION: {
             if (m_precision == -1)
                 return false;
 
@@ -179,8 +167,7 @@ bool column_meta::get_attribute(uint16_t field_id, std::string& value) const
         }
 
         case SQL_DESC_SCALE:
-        case SQL_COLUMN_SCALE:
-        {
+        case SQL_COLUMN_SCALE: {
             if (m_scale == -1)
                 return false;
 
@@ -194,12 +181,9 @@ bool column_meta::get_attribute(uint16_t field_id, std::string& value) const
     }
 }
 
-bool column_meta::get_attribute(uint16_t field_id, SQLLEN& value) const
-{
-    switch (field_id)
-    {
-        case SQL_DESC_FIXED_PREC_SCALE:
-        {
+bool column_meta::get_attribute(uint16_t field_id, SQLLEN &value) const {
+    switch (field_id) {
+        case SQL_DESC_FIXED_PREC_SCALE: {
             if (m_scale == -1)
                 value = SQL_FALSE;
             else
@@ -208,15 +192,13 @@ bool column_meta::get_attribute(uint16_t field_id, SQLLEN& value) const
             break;
         }
 
-        case SQL_DESC_AUTO_UNIQUE_VALUE:
-        {
+        case SQL_DESC_AUTO_UNIQUE_VALUE: {
             value = SQL_FALSE;
 
             break;
         }
 
-        case SQL_DESC_CASE_SENSITIVE:
-        {
+        case SQL_DESC_CASE_SENSITIVE: {
             if (m_data_type == ignite_type::STRING)
                 value = SQL_TRUE;
             else
@@ -226,15 +208,13 @@ bool column_meta::get_attribute(uint16_t field_id, SQLLEN& value) const
         }
 
         case SQL_DESC_CONCISE_TYPE:
-        case SQL_DESC_TYPE:
-        {
+        case SQL_DESC_TYPE: {
             value = ignite_type_to_sql_type(m_data_type);
 
             break;
         }
 
-        case SQL_DESC_DISPLAY_SIZE:
-        {
+        case SQL_DESC_DISPLAY_SIZE: {
             value = ignite_type_display_size(m_data_type);
 
             break;
@@ -242,8 +222,7 @@ bool column_meta::get_attribute(uint16_t field_id, SQLLEN& value) const
 
         case SQL_DESC_LENGTH:
         case SQL_DESC_OCTET_LENGTH:
-        case SQL_COLUMN_LENGTH:
-        {
+        case SQL_COLUMN_LENGTH: {
             if (m_precision == -1)
                 value = ignite_type_transfer_length(m_data_type);
             else
@@ -252,59 +231,51 @@ bool column_meta::get_attribute(uint16_t field_id, SQLLEN& value) const
             break;
         }
 
-        case SQL_DESC_NULLABLE:
-        {
+        case SQL_DESC_NULLABLE: {
             value = nullability_to_sql(m_nullability);
 
             break;
         }
 
-        case SQL_DESC_NUM_PREC_RADIX:
-        {
+        case SQL_DESC_NUM_PREC_RADIX: {
             value = ignite_type_num_precision_radix(m_data_type);
 
             break;
         }
 
         case SQL_DESC_PRECISION:
-        case SQL_COLUMN_PRECISION:
-        {
+        case SQL_COLUMN_PRECISION: {
             value = m_precision < 0 ? 0 : m_precision;
 
             break;
         }
 
         case SQL_DESC_SCALE:
-        case SQL_COLUMN_SCALE:
-        {
+        case SQL_COLUMN_SCALE: {
             value = m_scale < 0 ? 0 : m_scale;
 
             break;
         }
 
-        case SQL_DESC_SEARCHABLE:
-        {
+        case SQL_DESC_SEARCHABLE: {
             value = SQL_PRED_BASIC;
 
             break;
         }
 
-        case SQL_DESC_UNNAMED:
-        {
+        case SQL_DESC_UNNAMED: {
             value = m_column_name.empty() ? SQL_UNNAMED : SQL_NAMED;
 
             break;
         }
 
-        case SQL_DESC_UNSIGNED:
-        {
+        case SQL_DESC_UNSIGNED: {
             value = is_ignite_type_unsigned(m_data_type) ? SQL_TRUE : SQL_FALSE;
 
             break;
         }
 
-        case SQL_DESC_UPDATABLE:
-        {
+        case SQL_DESC_UPDATABLE: {
             value = SQL_ATTR_READWRITE_UNKNOWN;
 
             break;
@@ -319,15 +290,13 @@ bool column_meta::get_attribute(uint16_t field_id, SQLLEN& value) const
     return true;
 }
 
-void read_column_meta_vector(protocol::reader &reader, column_meta_vector &meta, const protocol_version &ver)
-{
+void read_column_meta_vector(protocol::reader &reader, column_meta_vector &meta, const protocol_version &ver) {
     std::int32_t meta_num = reader.read_int32();
 
     meta.clear();
     meta.reserve(static_cast<size_t>(meta_num));
 
-    for (std::int32_t i = 0; i < meta_num; ++i)
-    {
+    for (std::int32_t i = 0; i < meta_num; ++i) {
         meta.emplace_back();
         meta.back().read(reader, ver);
     }
