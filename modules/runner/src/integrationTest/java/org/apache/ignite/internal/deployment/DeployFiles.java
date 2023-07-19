@@ -116,8 +116,10 @@ class DeployFiles {
 
         CompletableFuture<Boolean> deploy;
 
+        DeploymentUnit deploymentUnit = fromPaths(paths);
         deploy = entryNode.deployment()
-                .deployAsync(id, version, force, fromPaths(paths), nodesToDeploy);
+                .deployAsync(id, version, force, deploymentUnit, nodesToDeploy)
+                .whenComplete((res, err) -> deploymentUnit.close());
 
         assertThat(deploy, willBe(true));
 
@@ -154,7 +156,7 @@ class DeployFiles {
         return builder.build();
     }
 
-    private static CompletableFuture<DeploymentUnit> fromPaths(List<Path> paths) {
+    private static DeploymentUnit fromPaths(List<Path> paths) {
         Objects.requireNonNull(paths);
         Map<String, InputStream> map = new HashMap<>();
         try {
@@ -164,6 +166,6 @@ class DeployFiles {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return CompletableFuture.completedFuture(() -> map);
+        return new DeploymentUnit(map);
     }
 }

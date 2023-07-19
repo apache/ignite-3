@@ -83,7 +83,13 @@ public class DefaultNodeCallback extends NodeEventCallback {
     public void onUploading(String id, Version version, List<UnitNodeStatus> holders) {
         tracker.track(id, version,
                 () -> messaging.downloadUnitContent(id, version, new ArrayList<>(getDeployedNodeIds(holders)))
-                        .thenCompose(content -> deployer.deploy(id, version, content))
+                        .thenCompose(content -> {
+                            org.apache.ignite.internal.deployunit.DeploymentUnit unit = UnitContent.toDeploymentUnit(content);
+                            return deployer.deploy(id, version, unit)
+                                    .whenComplete((deployed, err) -> {
+                                        unit.close();
+                                    });
+                        })
                         .thenApply(deployed -> {
                             if (deployed) {
                                 return deploymentUnitStore.updateNodeStatus(nodeName, id, version, DEPLOYED);
