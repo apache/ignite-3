@@ -59,6 +59,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
@@ -697,6 +699,71 @@ public class DistributionZonesTestUtil {
 
             @Override
             public void onError(Throwable e) {
+            }
+        };
+    }
+
+    /**
+     * Creates a zone and return the revision of a create zone event.
+     *
+     * @param zoneName Zone name.
+     * @param zoneId Zone id.
+     * @param scaleUp Scale up value.
+     * @param scaleDown Scale down value.
+     * @return Revision.
+     * @throws Exception If failed.
+     */
+    public static long createZoneAndGetRevision(String zoneName,
+            int zoneId,
+            int scaleUp,
+            int scaleDown,
+            DistributionZoneManager distributionZoneManager,
+            ConcurrentHashMap<Integer, CompletableFuture<Long>> createZoneRevisions
+    ) throws Exception {
+        CompletableFuture<Long> revisionFut = new CompletableFuture<>();
+
+        createZoneRevisions.put(zoneId, revisionFut);
+
+        distributionZoneManager.createZone(
+                        new Builder(zoneName)
+                                .dataNodesAutoAdjustScaleUp(scaleUp)
+                                .dataNodesAutoAdjustScaleDown(scaleDown)
+                                .build()
+                )
+                .get(3, SECONDS);
+
+        return revisionFut.get(3, SECONDS);
+    }
+
+    /**
+     * A configuration listener which completes futures from {@code createZoneRevisions} and {@code dropZoneRevisions}
+     * when receives event with expected zone id.
+     */
+    public static ConfigurationNamedListListener<DistributionZoneView> createZonesConfigurationListener(
+            ConcurrentHashMap<Integer, CompletableFuture<Long>> createZoneRevisions,
+            ConcurrentHashMap<Integer, CompletableFuture<Long>> dropZoneRevisions
+    ) {
+        return new ConfigurationNamedListListener<>() {
+            @Override
+            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
+                int zoneId = ctx.newValue().zoneId();
+
+                if (createZoneRevisions.containsKey(zoneId)) {
+                    createZoneRevisions.remove(zoneId).complete(ctx.storageRevision());
+                }
+
+                return completedFuture(null);
+            }
+
+            @Override
+            public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
+                int zoneId = ctx.oldValue().zoneId();
+
+                if (dropZoneRevisions.containsKey(zoneId)) {
+                    dropZoneRevisions.remove(zoneId).complete(ctx.storageRevision());
+                }
+
+                return completedFuture(null);
             }
         };
     }

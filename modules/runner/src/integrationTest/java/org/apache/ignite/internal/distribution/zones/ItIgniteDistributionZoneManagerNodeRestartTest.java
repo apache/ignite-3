@@ -23,9 +23,14 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createMetastorageTopologyListener;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZoneAndGetRevision;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZonesConfigurationListener;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.putNodeInLogicalTopologyAndGetRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyPrefix;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
@@ -46,9 +51,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -68,6 +76,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneConfiguratio
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -114,6 +123,24 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     private static final String ZONE_NAME = "zone1";
 
     private static final int ZONE_ID = 1;
+
+    /**
+     * Contains futures that is completed when the zone configuration listener receive the zone creation event with expected zone id.
+     * Mapping of zone id -> future with event revision.
+     */
+    private final ConcurrentHashMap<Integer, CompletableFuture<Long>> createZoneRevisions = new ConcurrentHashMap<>();
+
+    /**
+     * Contains futures that is completed when the zone configuration listener receive the zone dropping event with expected zone id.
+     * Mapping of zone id -> future with event revision.
+     */
+    private final ConcurrentHashMap<Integer, CompletableFuture<Long>> dropZoneRevisions = new ConcurrentHashMap<>();
+
+    /**
+     * Contains futures that is completed when the topology watch listener receive the event with expected logical topology.
+     * Mapping of node names -> future with event revision.
+     */
+    private final ConcurrentHashMap<Set<String>, CompletableFuture<Long>> topologyRevisions = new ConcurrentHashMap<>();
 
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
@@ -267,15 +294,16 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         partialNode.logicalTopology().putNode(B);
         partialNode.logicalTopology().putNode(C);
 
-        distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        ConfigurationNamedListListener<DistributionZoneView> zonesConfigurationListener = createZonesConfigurationListener(
+                createZoneRevisions, dropZoneRevisions);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 change this to the causality versioned call to dataNodes.
-        assertDataNodesFromManager(distributionZoneManager, 1, Set.of(A, B, C), TIMEOUT_MILLIS);
+        distributionZoneManager.zonesConfiguration().distributionZones().listenElements(zonesConfigurationListener);
+        distributionZoneManager.zonesConfiguration().defaultDistributionZone().listen(zonesConfigurationListener);
+
+        long createZoneRevision = createZoneAndGetRevision(ZONE_NAME, 1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE,
+                distributionZoneManager, createZoneRevisions);
+
+        assertEquals(Set.of(A.name(), B.name(), C.name()), distributionZoneManager.dataNodes(createZoneRevision, 1));
 
         Map<String, Map<String, String>> nodeAttributesBeforeRestart = distributionZoneManager.nodesAttributes();
 
@@ -324,15 +352,21 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         PartialNode partialNode = startPartialNode(0);
 
         DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+        MetaStorageManager metaStorageManager = findComponent(partialNode.startedComponents(), MetaStorageManager.class);
 
         partialNode.logicalTopology().putNode(A);
         partialNode.logicalTopology().putNode(B);
-        partialNode.logicalTopology().putNode(C);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 change this to the causality versioned call to dataNodes.
-        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, Set.of(A, B, C), TIMEOUT_MILLIS);
+        metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), createMetastorageTopologyListener(topologyRevisions));
 
-        MetaStorageManager metaStorageManager = findComponent(partialNode.startedComponents(), MetaStorageManager.class);
+        long topologyRevision = putNodeInLogicalTopologyAndGetRevision(
+                C,
+                Set.of(A, B, C),
+                partialNode.logicalTopology(),
+                topologyRevisions
+        );
+
+        assertEquals(Set.of(A.name(), B.name(), C.name()), distributionZoneManager.dataNodes(topologyRevision, DEFAULT_ZONE_ID));
 
         long scaleUpChangeTriggerRevision = bytesToLong(
                 metaStorageManager.get(zoneScaleUpChangeTriggerKey(DEFAULT_ZONE_ID)).join().value()

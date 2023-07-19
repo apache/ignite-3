@@ -30,6 +30,8 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createMetastorageTopologyListener;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZoneAndGetRevision;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZonesConfigurationListener;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.onUpdateFilter;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.onUpdateScaleDown;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.onUpdateScaleUp;
@@ -52,7 +54,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.distributionzones.BaseDistributionZoneManagerTest;
@@ -164,7 +165,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         metaStorageManager.registerPrefixWatch(zonesDataNodesPrefix(), createMetastorageDataNodesListener());
 
-        ZonesConfigurationListener zonesConfigurationListener = new ZonesConfigurationListener();
+        ConfigurationNamedListListener<DistributionZoneView> zonesConfigurationListener = createZonesConfigurationListener(
+                createZoneRevisions, dropZoneRevisions);
 
         zonesConfiguration.distributionZones().listenElements(zonesConfigurationListener);
         zonesConfiguration.distributionZones().any().dataNodesAutoAdjustScaleUp().listen(onUpdateScaleUp(zoneScaleUpRevisions));
@@ -754,7 +756,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Test steps.
 
         // Create a zone.
-        long createZoneRevision = createZoneAndGetRevision(ZONE_NAME_1, ZONE_ID_1, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE);
+        long createZoneRevision = createZoneAndGetRevision(
+                ZONE_NAME_1,
+                ZONE_ID_1,
+                INFINITE_TIMER_VALUE,
+                INFINITE_TIMER_VALUE,
+                distributionZoneManager,
+                createZoneRevisions);
 
         System.out.println("test_log createZoneRevision=" + createZoneRevision);
 
@@ -784,7 +792,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Test steps.
 
         // Create a zone.
-        long createZoneRevision = createZoneAndGetRevision(ZONE_NAME_1, ZONE_ID_1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        long createZoneRevision = createZoneAndGetRevision(
+                ZONE_NAME_1,
+                ZONE_ID_1,
+                IMMEDIATE_TIMER_VALUE,
+                IMMEDIATE_TIMER_VALUE,
+                distributionZoneManager,
+                createZoneRevisions);
 
         // Check that data nodes value of the zone with the revision lower than the create zone revision is absent.
         assertThrowsWithCause(
@@ -1250,32 +1264,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     }
 
     /**
-     * Creates a zone and return the revision of a create zone event.
-     *
-     * @param zoneName Zone name.
-     * @param zoneId Zone id.
-     * @param scaleUp Scale up value.
-     * @param scaleDown Scale down value.
-     * @return Revision.
-     * @throws Exception If failed.
-     */
-    private long createZoneAndGetRevision(String zoneName, int zoneId, int scaleUp, int scaleDown) throws Exception {
-        CompletableFuture<Long> revisionFut = new CompletableFuture<>();
-
-        createZoneRevisions.put(zoneId, revisionFut);
-
-        distributionZoneManager.createZone(
-                        new Builder(zoneName)
-                                .dataNodesAutoAdjustScaleUp(scaleUp)
-                                .dataNodesAutoAdjustScaleDown(scaleDown)
-                                .build()
-                )
-                .get(3, SECONDS);
-
-        return revisionFut.get(3, SECONDS);
-    }
-
-    /**
      * Drops a zone and return the revision of a drop zone event.
      *
      * @param zoneName Zone name.
@@ -1310,34 +1298,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         zoneDataNodesRevisions.put(new IgniteBiTuple<>(zoneId, nodeNames), revisionFut);
 
         return revisionFut;
-    }
-
-    /**
-     * A configuration listener which completes futures from {@code createZoneRevisions} and {@code dropZoneRevisions}
-     * when receives event with expected zone id.
-     */
-    private class ZonesConfigurationListener implements ConfigurationNamedListListener<DistributionZoneView> {
-        @Override
-        public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
-            int zoneId = ctx.newValue().zoneId();
-
-            if (createZoneRevisions.containsKey(zoneId)) {
-                createZoneRevisions.remove(zoneId).complete(ctx.storageRevision());
-            }
-
-            return completedFuture(null);
-        }
-
-        @Override
-        public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
-            int zoneId = ctx.oldValue().zoneId();
-
-            if (dropZoneRevisions.containsKey(zoneId)) {
-                dropZoneRevisions.remove(zoneId).complete(ctx.storageRevision());
-            }
-
-            return completedFuture(null);
-        }
     }
 
     /**

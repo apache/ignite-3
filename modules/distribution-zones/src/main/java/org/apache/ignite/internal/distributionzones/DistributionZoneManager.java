@@ -2116,4 +2116,9 @@ public class DistributionZoneManager implements IgniteComponent {
     public Set<NodeWithAttributes> logicalTopology() {
         return logicalTopology;
     }
+
+    @TestOnly
+    public DistributionZonesConfiguration zonesConfiguration() {
+        return zonesConfiguration;
+    }
 }
