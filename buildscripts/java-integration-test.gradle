@@ -49,6 +49,7 @@ testing {
                     testTask.configure {
                         shouldRunAfter(test)
                         maxHeapSize = '16g'
+                        jvmArgs "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=/tmp/"
 
                         // Define default test timeouts to avoid everhanging tests.
                         systemProperty 'junit.jupiter.execution.timeout.testable.method.default', '10m'
