@@ -126,24 +126,17 @@ class JdbcQueryEventHandlerImplTest {
 
         when(queryProcessor.createSession(any())).thenAnswer(inv -> sessionId);
 
-//        SessionExpiredException expired = new SessionExpiredException(sessionId, new RuntimeException());
-        SessionNotFoundException notFound = new SessionNotFoundException(sessionId);
+        AtomicBoolean shouldThrow = new AtomicBoolean(true);
 
-        List<Throwable> errors = List.of(notFound);
+        await(context.doInSession(id -> {
+            if (shouldThrow.compareAndSet(true, false)) {
+                return CompletableFuture.failedFuture(new SessionNotFoundException(sessionId));
+            }
 
-        for (Throwable error : errors) {
-            AtomicBoolean shouldThrow = new AtomicBoolean(true);
+            return CompletableFuture.completedFuture(null);
+        }));
 
-            await(context.doInSession(id -> {
-                if (shouldThrow.compareAndSet(true, false)) {
-                    return CompletableFuture.failedFuture(error);
-                }
-
-                return CompletableFuture.completedFuture(null);
-            }));
-        }
-
-        verify(queryProcessor, times(errors.size() + 1 /* initial session */)).createSession(any());
+        verify(queryProcessor, times(2 /* initial session + 1 not session found error */)).createSession(any());
         verifyNoMoreInteractions(queryProcessor);
     }
 
