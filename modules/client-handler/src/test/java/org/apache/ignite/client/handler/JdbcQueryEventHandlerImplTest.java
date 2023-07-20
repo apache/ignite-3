@@ -49,7 +49,6 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.session.SessionExpiredException;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -127,10 +126,10 @@ class JdbcQueryEventHandlerImplTest {
 
         when(queryProcessor.createSession(any())).thenAnswer(inv -> sessionId);
 
-        SessionExpiredException expired = new SessionExpiredException(sessionId, new RuntimeException());
+//        SessionExpiredException expired = new SessionExpiredException(sessionId, new RuntimeException());
         SessionNotFoundException notFound = new SessionNotFoundException(sessionId);
 
-        List<Throwable> errors = List.of(expired, notFound);
+        List<Throwable> errors = List.of(notFound);
 
         for (Throwable error : errors) {
             AtomicBoolean shouldThrow = new AtomicBoolean(true);
@@ -157,7 +156,7 @@ class JdbcQueryEventHandlerImplTest {
         when(queryProcessor.createSession(any())).thenAnswer(inv -> new SessionId(UUID.randomUUID()));
 
         CompletableFuture<?> result = context.doInSession(
-                sessionId -> CompletableFuture.failedFuture(new SessionExpiredException(sessionId, new RuntimeException()))
+                sessionId -> CompletableFuture.failedFuture(new SessionNotFoundException(sessionId))
         );
 
         assertThat(result.isDone(), is(true));

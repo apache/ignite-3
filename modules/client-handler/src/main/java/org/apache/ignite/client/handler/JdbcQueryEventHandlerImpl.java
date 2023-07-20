@@ -61,7 +61,6 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
-import org.apache.ignite.internal.sql.engine.session.SessionExpiredException;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -539,7 +538,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
         private static boolean sessionExpiredError(Throwable t) {
-            return t instanceof SessionExpiredException || t instanceof SessionNotFoundException;
+            return t instanceof SessionNotFoundException;
         }
     }
 

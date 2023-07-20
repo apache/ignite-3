@@ -71,7 +71,6 @@ import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.session.Session;
-import org.apache.ignite.internal.sql.engine.session.SessionExpiredException;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 import org.apache.ignite.internal.sql.engine.session.SessionManager;
@@ -409,7 +408,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         try {
             session.registerResource(closeableResource);
         } catch (IllegalStateException ex) {
-            return CompletableFuture.failedFuture(new SessionExpiredException(sessionId, ex));
+            return CompletableFuture.failedFuture(new SessionNotFoundException(sessionId));
         }
 
         CompletableFuture<Void> start = new CompletableFuture<>();
