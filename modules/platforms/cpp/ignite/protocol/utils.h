@@ -20,9 +20,11 @@
 #include <ignite/common/bytes.h>
 #include <ignite/common/bytes_view.h>
 #include <ignite/common/ignite_error.h>
+#include <ignite/common/primitive.h>
 #include <ignite/common/uuid.h>
 #include <ignite/protocol/extension_types.h>
 #include <ignite/tuple/binary_tuple_builder.h>
+#include <ignite/tuple/binary_tuple_parser.h>
 
 #include <array>
 #include <functional>
@@ -201,7 +203,6 @@ void unpack_array_raw(const msgpack_object &object, const std::function<void(con
  */
 [[nodiscard]] std::optional<ignite_error> read_error(protocol::reader &reader);
 
-
 /**
  * Claim type and scale header for a value written in binary tuple.
  *
@@ -225,5 +226,31 @@ inline void append_type_and_scale(binary_tuple_builder &builder, ignite_type typ
     builder.append_int32(static_cast<std::int32_t>(typ));
     builder.append_int32(scale);
 }
+
+/**
+ * Claim space for a value with type header in tuple builder.
+ *
+ * @param builder Tuple builder.
+ * @param value Value.
+ */
+void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &value);
+
+/**
+ * Append a value with type header in tuple builder.
+ *
+ * @param builder Tuple builder.
+ * @param value Value.
+ */
+void append_primitive_with_type(binary_tuple_builder &builder, const primitive &value);
+
+/**
+ * Read column value from binary tuple.
+ *
+ * @param parser Binary tuple parser.
+ * @param typ Column type.
+ * @param scale Column scale.
+ * @return Column value.
+ */
+[[nodiscard]] primitive read_next_column(binary_tuple_parser &parser, ignite_type typ, std::int32_t scale);
 
 } // namespace ignite::protocol

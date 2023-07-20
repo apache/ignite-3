@@ -26,7 +26,8 @@ node_connection::node_connection(uint64_t id, std::shared_ptr<network::async_cli
     : m_id(id)
     , m_pool(std::move(pool))
     , m_logger(std::move(logger))
-    , m_configuration(cfg) { }
+    , m_configuration(cfg) {
+}
 
 node_connection::~node_connection() {
     for (auto &handler : m_request_handlers) {
@@ -57,8 +58,8 @@ bool node_connection::handshake() {
         protocol::buffer_adapter buffer(message);
         buffer.write_raw(bytes_view(protocol::MAGIC_BYTES));
 
-        protocol::write_message_to_buffer(buffer,
-            [&context = m_protocol_context, &extensions](protocol::writer &writer) {
+        protocol::write_message_to_buffer(
+            buffer, [&context = m_protocol_context, &extensions](protocol::writer &writer) {
                 auto ver = context.get_version();
 
                 writer.write(ver.major());

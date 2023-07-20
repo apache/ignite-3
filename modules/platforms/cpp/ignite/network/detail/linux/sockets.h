@@ -21,7 +21,7 @@
 #include <string>
 
 #ifndef SOCKET_ERROR
-#   define SOCKET_ERROR (-1)
+# define SOCKET_ERROR (-1)
 #endif // SOCKET_ERROR
 
 namespace ignite::network::detail {

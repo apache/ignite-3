@@ -32,7 +32,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -126,7 +125,7 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
         assertEquals(Set.of(101), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 
         //todo: correct exception https://issues.apache.org/jira/browse/IGNITE-16095
-        assertThrows(CalciteContextException.class, () -> sql("INSERT INTO tbl(c1, c2) VALUES (2, NULL)"));
+        assertThrows(IgniteException.class, () -> sql("INSERT INTO tbl(c1, c2) VALUES (2, NULL)"));
     }
 
     /**

@@ -27,7 +27,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -62,7 +62,7 @@ public class ItIntervalTest extends ClusterPerClassIntegrationTest {
         assertEquals(Duration.ofSeconds(3723), eval("INTERVAL '1:2:3' HOUR TO SECOND"));
         assertEquals(Duration.ofMillis(3723456), eval("INTERVAL '0 1:2:3.456' DAY TO SECOND"));
 
-        assertThrowsEx("SELECT INTERVAL '123' SECONDS", CalciteContextException.class, "exceeds precision");
+        assertThrowsEx("SELECT INTERVAL '123' SECONDS", IgniteException.class, "exceeds precision");
     }
 
     /**
@@ -91,11 +91,11 @@ public class ItIntervalTest extends ClusterPerClassIntegrationTest {
         assertEquals(Period.ofYears(6), eval("CAST(6 AS INTERVAL YEARS)"));
 
         // Compound interval types cannot be cast.
-        assertThrowsEx("SELECT CAST(INTERVAL '1-2' YEAR TO MONTH AS INT)", CalciteContextException.class, "cannot convert");
-        assertThrowsEx("SELECT CAST(INTERVAL '1 2' DAY TO HOUR AS INT)", CalciteContextException.class, "cannot convert");
+        assertThrowsEx("SELECT CAST(INTERVAL '1-2' YEAR TO MONTH AS INT)", IgniteException.class, "cannot convert");
+        assertThrowsEx("SELECT CAST(INTERVAL '1 2' DAY TO HOUR AS INT)", IgniteException.class, "cannot convert");
 
-        assertThrowsEx("SELECT CAST(1 AS INTERVAL YEAR TO MONTH)", CalciteContextException.class, "cannot convert");
-        assertThrowsEx("SELECT CAST(1 AS INTERVAL DAY TO HOUR)", CalciteContextException.class, "cannot convert");
+        assertThrowsEx("SELECT CAST(1 AS INTERVAL YEAR TO MONTH)", IgniteException.class, "cannot convert");
+        assertThrowsEx("SELECT CAST(1 AS INTERVAL DAY TO HOUR)", IgniteException.class, "cannot convert");
     }
 
     /**
@@ -145,8 +145,8 @@ public class ItIntervalTest extends ClusterPerClassIntegrationTest {
         assertEquals(Period.ofYears(1), eval("CAST(INTERVAL 12 MONTHS AS INTERVAL YEARS)"));
 
         // Cannot convert between month-year and day-time interval types.
-        assertThrowsEx("SELECT CAST(INTERVAL 1 MONTHS AS INTERVAL DAYS)", CalciteContextException.class, "cannot convert");
-        assertThrowsEx("SELECT CAST(INTERVAL 1 DAYS AS INTERVAL MONTHS)", CalciteContextException.class, "cannot convert");
+        assertThrowsEx("SELECT CAST(INTERVAL 1 MONTHS AS INTERVAL DAYS)", IgniteException.class, "cannot convert");
+        assertThrowsEx("SELECT CAST(INTERVAL 1 DAYS AS INTERVAL MONTHS)", IgniteException.class, "cannot convert");
     }
 
     /**
@@ -313,7 +313,7 @@ public class ItIntervalTest extends ClusterPerClassIntegrationTest {
         assertEquals(Period.of(1, 1, 0), eval("INTERVAL 1 YEAR + INTERVAL 1 MONTH"));
         assertEquals(Period.ofMonths(11), eval("INTERVAL 1 YEAR - INTERVAL 1 MONTH"));
         assertEquals(Period.ofMonths(11), eval("INTERVAL 1 YEAR + INTERVAL -1 MONTH"));
-        assertThrowsEx("SELECT INTERVAL 1 DAY + INTERVAL 1 MONTH", CalciteContextException.class, "Cannot apply");
+        assertThrowsEx("SELECT INTERVAL 1 DAY + INTERVAL 1 MONTH", IgniteException.class, "Cannot apply");
 
         // Interval * scalar.
         assertEquals(Duration.ofSeconds(2), eval("INTERVAL 1 SECONDS * 2"));
@@ -372,8 +372,8 @@ public class ItIntervalTest extends ClusterPerClassIntegrationTest {
         assertEquals(-4L, eval("EXTRACT(SECOND FROM INTERVAL '-1 2:3:4.567' DAY TO SECOND)"));
         assertEquals(-4567L, eval("EXTRACT(MILLISECOND FROM INTERVAL '-1 2:3:4.567' DAY TO SECOND)"));
 
-        assertThrowsEx("SELECT EXTRACT(DAY FROM INTERVAL 1 MONTH)", CalciteContextException.class, "Cannot apply");
-        assertThrowsEx("SELECT EXTRACT(MONTH FROM INTERVAL 1 DAY)", CalciteContextException.class, "Cannot apply");
+        assertThrowsEx("SELECT EXTRACT(DAY FROM INTERVAL 1 MONTH)", IgniteException.class, "Cannot apply");
+        assertThrowsEx("SELECT EXTRACT(MONTH FROM INTERVAL 1 DAY)", IgniteException.class, "Cannot apply");
     }
 
     /**

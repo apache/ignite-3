@@ -20,15 +20,15 @@
 #include "ignite/odbc/config/configuration.h"
 #include "ignite/odbc/config/connection_info.h"
 #include "ignite/odbc/diagnostic/diagnosable_adapter.h"
-#include "ignite/odbc/protocol_version.h"
 #include "ignite/odbc/odbc_error.h"
+#include "ignite/odbc/protocol_version.h"
 
 #include "ignite/network/data_buffer.h"
 #include "ignite/network/socket_client.h"
 #include "ignite/network/tcp_range.h"
 #include "ignite/protocol/buffer_adapter.h"
-#include "ignite/protocol/writer.h"
 #include "ignite/protocol/client_operation.h"
+#include "ignite/protocol/writer.h"
 
 #include <atomic>
 #include <cstdint>
@@ -44,22 +44,15 @@ class sql_statement;
  */
 class sql_connection : public diagnosable_adapter {
     friend class sql_environment;
+
 public:
     /**
      * Operation with timeout result.
      */
-    enum class operation_result
-    {
-        SUCCESS,
-        FAIL,
-        TIMEOUT
-    };
+    enum class operation_result { SUCCESS, FAIL, TIMEOUT };
 
     /** Default connection timeout in seconds. */
-    enum
-    {
-        DEFAULT_CONNECT_TIMEOUT = 5
-    };
+    enum { DEFAULT_CONNECT_TIMEOUT = 5 };
 
     // Delete
     sql_connection(sql_connection &&) = delete;
@@ -72,10 +65,7 @@ public:
      *
      * @return Connection info.
      */
-    [[nodiscard]] const connection_info& get_info() const
-    {
-        return m_info;
-    }
+    [[nodiscard]] const connection_info &get_info() const { return m_info; }
 
     /**
      * Get info of any type.
@@ -85,7 +75,7 @@ public:
      * @param buffer_len Result buffer length.
      * @param result_len Result value length pointer.
      */
-    void get_info(connection_info::info_type type, void* buf, short buffer_len, short* result_len);
+    void get_info(connection_info::info_type type, void *buf, short buffer_len, short *result_len);
 
     /**
      * Establish connection to ODBC server.
@@ -93,14 +83,14 @@ public:
      * @param connectStr Connection string.
      * @param parentWindow Parent window pointer.
      */
-    void establish(const std::string& connectStr, void* parentWindow);
+    void establish(const std::string &connectStr, void *parentWindow);
 
     /**
      * Establish connection to ODBC server.
      *
      * @param cfg Configuration.
      */
-    void establish(const configuration& cfg);
+    void establish(const configuration &cfg);
 
     /**
      * Release established connection.
@@ -119,7 +109,7 @@ public:
      *
      * @return Pointer to valid instance on success and NULL on failure.
      */
-    sql_statement * create_statement();
+    sql_statement *create_statement();
 
     /**
      * Send data by established connection.
@@ -130,10 +120,7 @@ public:
      * @return @c true on success, @c false on timeout.
      * @throw odbc_error on error.
      */
-    bool send(const std::byte* data, std::size_t len)
-    {
-        return send(data, len, m_timeout);
-    }
+    bool send(const std::byte *data, std::size_t len) { return send(data, len, m_timeout); }
 
     /**
      * Send data by established connection.
@@ -144,7 +131,7 @@ public:
      * @return @c true on success, @c false on timeout.
      * @throw odbc_error on error.
      */
-    bool send(const std::byte* data, std::size_t len, std::int32_t timeout);
+    bool send(const std::byte *data, std::size_t len, std::int32_t timeout);
 
     /**
      * Receive next message.
@@ -154,7 +141,7 @@ public:
      * @return @c true on success, @c false on timeout.
      * @throw odbc_error on error.
      */
-    bool receive(std::vector<std::byte>& msg, std::int32_t timeout);
+    bool receive(std::vector<std::byte> &msg, std::int32_t timeout);
 
     /**
      * Synchronously send request message.
@@ -172,9 +159,7 @@ public:
      * @param req Request message.
      * @throw OdbcError on error.
      */
-    void send_message(bytes_view req) {
-        send_message(req, m_timeout);
-    }
+    void send_message(bytes_view req) { send_message(req, m_timeout); }
 
     /**
      * Receive message.
@@ -191,16 +176,14 @@ public:
      * @param id Expected message ID.
      * @return Message.
      */
-    network::data_buffer_owning receive_message(std::int64_t id) {
-        return receive_message(id, m_timeout);
-    }
+    network::data_buffer_owning receive_message(std::int64_t id) { return receive_message(id, m_timeout); }
 
     /**
      * Get configuration.
      *
      * @return Connection configuration.
      */
-    [[nodiscard]] const configuration& get_configuration() const;
+    [[nodiscard]] const configuration &get_configuration() const;
 
     /**
      * Is auto commit.
@@ -220,6 +203,13 @@ public:
     void transaction_rollback();
 
     /**
+     * Start transaction.
+     *
+     * @return Operation result.
+     */
+    void transaction_start();
+
+    /**
      * Get connection attribute.
      *
      * @param attr Attribute type.
@@ -227,7 +217,7 @@ public:
      * @param buf_len Buffer length.
      * @param value_len Resulting value length.
      */
-    void get_attribute(int attr, void* buf, SQLINTEGER buf_len, SQLINTEGER *value_len);
+    void get_attribute(int attr, void *buf, SQLINTEGER buf_len, SQLINTEGER *value_len);
 
     /**
      * Set connection attribute.
@@ -236,7 +226,7 @@ public:
      * @param value Value pointer.
      * @param value_len Value length.
      */
-    void set_attribute(int attr, void* value, SQLINTEGER value_len);
+    void set_attribute(int attr, void *value, SQLINTEGER value_len);
 
     /**
      * Make new request.
@@ -245,26 +235,22 @@ public:
      * @param op Operation.
      * @param func Function.
      */
-    [[nodiscard]] static std::vector<std::byte> make_request(std::int64_t id, detail::client_operation op,
-        const std::function<void(protocol::writer &)> &func);
+    [[nodiscard]] static std::vector<std::byte> make_request(
+        std::int64_t id, detail::client_operation op, const std::function<void(protocol::writer &)> &func);
 
     /**
      * Get connection schema.
      *
      * @return Schema.
      */
-    const std::string& get_schema() const {
-        return m_config.get_schema().get_value();
-    }
+    const std::string &get_schema() const { return m_config.get_schema().get_value(); }
 
     /**
      * Get timeout.
      *
      * @return Timeout.
      */
-    std::int32_t get_timeout() const {
-        return m_timeout;
-    }
+    std::int32_t get_timeout() const { return m_timeout; }
 
     /**
      * Make a synchronous request and get a response.
@@ -273,8 +259,8 @@ public:
      * @param wr Payload writing function.
      * @return Response.
      */
-    network::data_buffer_owning sync_request(detail::client_operation op,
-        const std::function<void(protocol::writer &)> &wr) {
+    network::data_buffer_owning sync_request(
+        detail::client_operation op, const std::function<void(protocol::writer &)> &wr) {
         auto req_id = generate_next_req_id();
         auto request = make_request(req_id, op, wr);
 
@@ -282,15 +268,27 @@ public:
         return receive_message(req_id);
     }
 
+    /**
+     * Get transaction ID.
+     *
+     * @return Transaction ID.
+     */
+    [[nodiscard]] std::optional<std::int64_t> get_transaction_id() const { return m_transaction_id; }
+
+    /**
+     * Mark transaction non-empty.
+     *
+     * After this call connection assumes there is at least one operation performed with this transaction.
+     */
+    void mark_transaction_non_empty() { m_transaction_empty = false; }
+
 private:
     /**
      * Generate and get next request ID.
      *
      * @return Request ID.
      */
-    std::int64_t generate_next_req_id() {
-        return m_req_id_gen.fetch_add(1);
-    }
+    std::int64_t generate_next_req_id() { return m_req_id_gen.fetch_add(1); }
 
     /**
      * Init connection socket, using configuration.
@@ -307,7 +305,7 @@ private:
      * @param parentWindow Parent window.
      * @return Operation result.
      */
-    sql_result internal_establish(const std::string& connectStr, void* parentWindow);
+    sql_result internal_establish(const std::string &connectStr, void *parentWindow);
 
     /**
      * Establish connection to ODBC server.
@@ -316,7 +314,7 @@ private:
      * @param cfg Configuration.
      * @return Operation result.
      */
-    sql_result internal_establish(const configuration& cfg);
+    sql_result internal_establish(const configuration &cfg);
 
     /**
      * Release established connection.
@@ -341,7 +339,7 @@ private:
      * @param result_len Result value length pointer.
      * @return Operation result.
      */
-    sql_result internal_get_info(connection_info::info_type type, void* buf, short buffer_len, short* result_len);
+    sql_result internal_get_info(connection_info::info_type type, void *buf, short buffer_len, short *result_len);
 
     /**
      * Create statement associated with the connection.
@@ -350,7 +348,7 @@ private:
      * @param statement Pointer to valid instance on success and NULL on failure.
      * @return Operation result.
      */
-    sql_result internal_create_statement(sql_statement *& statement);
+    sql_result internal_create_statement(sql_statement *&statement);
 
     /**
      * Perform transaction commit on all the associated connections.
@@ -369,6 +367,20 @@ private:
     sql_result internal_transaction_rollback();
 
     /**
+     * Enable autocommit.
+     *
+     * @return Operation result.
+     */
+    sql_result enable_autocommit();
+
+    /**
+     * Disable autocommit.
+     *
+     * @return Operation result.
+     */
+    sql_result disable_autocommit();
+
+    /**
      * Get connection attribute.
      * Internal call.
      *
@@ -378,7 +390,7 @@ private:
      * @param value_len Resulting value length.
      * @return Operation result.
      */
-    sql_result internal_get_attribute(int attr, void* buf, SQLINTEGER buf_len, SQLINTEGER* value_len);
+    sql_result internal_get_attribute(int attr, void *buf, SQLINTEGER buf_len, SQLINTEGER *value_len);
 
     /**
      * Set connection attribute.
@@ -389,7 +401,7 @@ private:
      * @param value_len Value length.
      * @return Operation result.
      */
-    sql_result internal_set_attribute(int attr, void* value, SQLINTEGER value_len);
+    sql_result internal_set_attribute(int attr, void *value, SQLINTEGER value_len);
 
     /**
      * Receive specified number of bytes.
@@ -399,7 +411,7 @@ private:
      * @param timeout Timeout.
      * @return Operation result.
      */
-    operation_result receive_all(void* dst, std::size_t len, std::int32_t timeout);
+    operation_result receive_all(void *dst, std::size_t len, std::int32_t timeout);
 
     /**
      * Send specified number of bytes.
@@ -409,7 +421,7 @@ private:
      * @param timeout Timeout.
      * @return Operation result.
      */
-    operation_result send_all(const std::byte* data, std::size_t len, std::int32_t timeout);
+    operation_result send_all(const std::byte *data, std::size_t len, std::int32_t timeout);
 
     /**
      * Perform handshake request.
@@ -439,7 +451,7 @@ private:
      * @param value parameter.
      * @return Timeout.
      */
-    std::int32_t retrieve_timeout(void* value);
+    std::int32_t retrieve_timeout(void *value);
 
     /**
      * Safe connect.
@@ -452,7 +464,7 @@ private:
     /**
      * Constructor.
      */
-    explicit sql_connection(sql_environment * env)
+    explicit sql_connection(sql_environment *env)
         : m_env(env)
         , m_config()
         , m_info(m_config) {}
@@ -468,6 +480,12 @@ private:
 
     /** Autocommit flag. */
     bool m_auto_commit{true};
+
+    /** Current transaction ID. */
+    std::optional<std::int64_t> m_transaction_id;
+
+    /** Current transaction empty. */
+    bool m_transaction_empty{true};
 
     /** Configuration. */
     configuration m_config;

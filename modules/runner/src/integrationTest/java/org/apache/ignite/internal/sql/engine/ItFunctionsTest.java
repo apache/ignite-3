@@ -31,7 +31,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.Temporal;
-import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
@@ -300,7 +299,7 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
 
         assertThrowsWithCause(() -> sql("SELECT TYPEOF(1, 2)"), SqlValidatorException.class, "Invalid number of arguments");
 
-        assertThrowsWithCause(() -> sql("SELECT TYPEOF(SELECT 1, 2)"), CalciteContextException.class);
+        assertThrowsWithCause(() -> sql("SELECT TYPEOF(SELECT 1, 2)"), IgniteException.class);
     }
 
     /**

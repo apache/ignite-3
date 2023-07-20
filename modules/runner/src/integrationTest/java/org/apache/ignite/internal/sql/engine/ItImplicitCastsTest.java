@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
@@ -34,6 +33,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -155,7 +155,7 @@ public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
      */
     @Test
     public void expressionWithMixedParametersIsIllegal() {
-        assertThrows(CalciteContextException.class, () -> assertQuery("SELECT COALESCE(12.2, 'b')").check());
+        assertThrows(IgniteException.class, () -> assertQuery("SELECT COALESCE(12.2, 'b')").check());
     }
 
     private static Stream<ColumnPair> columnPairs() {

@@ -19,7 +19,7 @@
 
 #include "ignite/client/detail/argument_check_utils.h"
 #include "ignite/client/detail/utils.h"
-
+#include "ignite/protocol/utils.h"
 #include "ignite/tuple/binary_tuple_builder.h"
 
 namespace ignite::detail {
@@ -39,12 +39,12 @@ void write_primitives_as_binary_tuple(protocol::writer &writer, const std::vecto
 
     args_builder.start();
     for (const auto &arg : args) {
-        claim_primitive_with_type(args_builder, arg);
+        protocol::claim_primitive_with_type(args_builder, arg);
     }
 
     args_builder.layout();
     for (const auto &arg : args) {
-        append_primitive_with_type(args_builder, arg);
+        protocol::append_primitive_with_type(args_builder, arg);
     }
 
     auto args_data = args_builder.build();
@@ -63,7 +63,7 @@ std::optional<primitive> read_primitive_from_binary_tuple(protocol::reader &read
 
     auto typ = static_cast<ignite_type>(binary_tuple_parser::get_int32(parser.get_next()));
     auto scale = binary_tuple_parser::get_int32(parser.get_next());
-    return read_next_column(parser, typ, scale);
+    return protocol::read_next_column(parser, typ, scale);
 }
 
 /**
@@ -109,8 +109,7 @@ void compute_impl::execute_colocated_async(const std::string &table_name, const 
     const std::vector<deployment_unit> &units, const std::string &job, const std::vector<primitive> &args,
     ignite_callback<std::optional<primitive>> callback) {
     m_tables->get_table_async(table_name,
-        [table_name, key, units, job, args, conn = m_connection, callback = std::move(callback)]
-        (auto &&res) mutable {
+        [table_name, key, units, job, args, conn = m_connection, callback = std::move(callback)](auto &&res) mutable {
             if (res.has_error()) {
                 callback({std::move(res.error())});
                 return;
@@ -122,8 +121,8 @@ void compute_impl::execute_colocated_async(const std::string &table_name, const 
             }
 
             auto table = table_impl::from_facade(*table_opt);
-            table->template with_latest_schema_async<std::optional<primitive>>(std::move(callback),
-                [table, key, units, job, args, conn] (const schema &sch, auto callback) mutable {
+            table->template with_latest_schema_async<std::optional<primitive>>(
+                std::move(callback), [table, key, units, job, args, conn](const schema &sch, auto callback) mutable {
                     auto writer_func = [&key, &units, &sch, &table, &job, &args](protocol::writer &writer) {
                         writer.write(table->get_id());
                         writer.write(sch.version);
