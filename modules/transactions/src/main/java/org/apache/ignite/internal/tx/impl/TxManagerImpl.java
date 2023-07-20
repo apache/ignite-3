@@ -143,7 +143,7 @@ public class TxManagerImpl implements TxManager {
                 if (lowWatermark != null && readTimestamp.compareTo(lowWatermark) <= 0) {
                     throw new IgniteInternalException(
                             TX_READ_ONLY_TOO_OLD_ERR,
-                            "Timestamp read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
+                            "Timestamp of read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
                             readTimestamp, lowWatermark
                     );
                 }
