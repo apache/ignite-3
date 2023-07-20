@@ -648,8 +648,6 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 type, rel.getAggregateCalls(), rel.getInput().getRowType());
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-        System.err.println("IgniteHashAggregate Reduce " + rel.getInput().getRowType() + " " + rel.getAggregateCalls());
-
         HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accFactory, rowFactory);
 
         Node<RowT> input = visit(rel.getInput());

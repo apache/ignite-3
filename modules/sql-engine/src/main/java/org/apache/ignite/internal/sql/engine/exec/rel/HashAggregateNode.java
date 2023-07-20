@@ -54,11 +54,12 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
     private final RowFactory<RowT> rowFactory;
 
-    /** All fields. */
-    private final ImmutableBitSet grpSet;
+    /** A bit set that contains fields included in all grouping sets. */
+    private final ImmutableBitSet allFields;
 
     private final List<Grouping> groupings;
 
+    /** Mapping between group columns and their positions inside an input row.*/
     private final Mapping mapping;
 
     private int requested;
@@ -92,18 +93,15 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         for (byte i = 0; i < grpSets.size(); i++) {
             ImmutableBitSet grpFields = grpSets.get(i);
-            groupings.add(new Grouping(i, grpFields));
-
             b.addAll(grpFields);
-        }
 
-        grpSet = b.build();
-        mapping = AggregateRow.computeFieldMapping(grpSets, type);
-
-        // Grouping.init() has dependency on grpSet
-        for (Grouping grouping : groupings) {
+            Grouping grouping = new Grouping(i, grpFields);
             grouping.init();
+            groupings.add(grouping);
         }
+
+        allFields = b.build();
+        mapping = AggregateRow.computeFieldMapping(grpSets, type);
     }
 
     /** {@inheritDoc} */
@@ -174,10 +172,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         return this;
     }
 
-    private boolean hasAccumulators() {
-        return accFactory != null;
-    }
-
     private void flush() throws Exception {
         if (isClosed()) {
             return;
@@ -240,13 +234,9 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         private final Map<GroupKey, AggregateRow<RowT>> groups = new HashMap<>();
 
-        private final RowHandler<RowT> handler;
-
         private Grouping(byte grpId, ImmutableBitSet grpFields) {
             this.grpId = grpId;
             this.grpFields = grpFields;
-
-            handler = context().rowHandler();
         }
 
         private void init() {
@@ -280,7 +270,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             GroupKey grpKey = b.build();
 
             AggregateRow<RowT> aggRow = groups.computeIfAbsent(grpKey, k -> create());
-            aggRow.update(grpSet, handler, row);
+            aggRow.update(allFields, handler, row);
         }
 
         /**
@@ -302,16 +292,16 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 GroupKey grpKey = entry.getKey();
                 AggregateRow<RowT> aggRow = entry.getValue();
 
-                Object[] fields = aggRow.createOutput(grpSet, grpId);
+                Object[] fields = aggRow.createOutput(allFields, grpId);
 
                 int j = 0;
                 int k = 0;
 
-                for (int field : grpSet) {
+                for (int field : allFields) {
                     fields[j++] = grpFields.get(field) ? grpKey.field(k++) : null;
                 }
 
-                aggRow.writeTo(fields, grpSet, grpId);
+                aggRow.writeTo(fields, allFields, grpId);
 
                 RowT row = rowFactory.create(fields);
 
@@ -331,7 +321,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 wrappers = accFactory.get();
             }
 
-            return new AggregateRow<>(wrappers, Commons.typeFactory(), type, grpFields, grpSet);
+            return new AggregateRow<>(wrappers, Commons.typeFactory(), type, grpFields, allFields);
         }
 
         private boolean isEmpty() {

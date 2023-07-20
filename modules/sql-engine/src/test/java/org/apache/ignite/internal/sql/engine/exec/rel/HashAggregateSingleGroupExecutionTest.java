@@ -41,7 +41,6 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.PlanUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -49,60 +48,6 @@ import org.junit.jupiter.api.Test;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest {
-    @Test
-    @Disabled
-    public void mapReduceAvg() {
-        ExecutionContext<Object[]> ctx = executionContext();
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
-                row("Igor", 200),
-                row("Roman", 300),
-                row("Ivan", 1400),
-                row("Alexey", 1000)
-        ));
-
-        AggregateCall call = AggregateCall.create(
-                SqlStdOperatorTable.AVG,
-                false,
-                false,
-                false,
-                ImmutableIntList.of(1),
-                -1,
-                null,
-                RelCollations.EMPTY,
-                tf.createJavaType(double.class),
-                null);
-
-        List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
-
-        HashAggregateNode<Object[]> map = new HashAggregateNode<>(
-                ctx,
-                MAP,
-                grpSets,
-                accFactory(ctx, call, MAP, rowType),
-                rowFactory()
-        );
-
-        map.register(scan);
-
-        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(
-                ctx,
-                REDUCE,
-                grpSets,
-                accFactory(ctx, call, REDUCE, null),
-                rowFactory()
-        );
-
-        reduce.register(map);
-
-        RootNode<Object[]> root = new RootNode<>(ctx);
-        root.register(reduce);
-
-        assertTrue(root.hasNext());
-        assertEquals(725d, root.next()[0]);
-        assertFalse(root.hasNext());
-    }
 
     @Test
     public void mapReduceSum() {
