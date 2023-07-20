@@ -429,7 +429,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     boolean implicitTxRequired = outerTx == null;
 
-                    tx.set(implicitTxRequired ? txManager.begin(!rwOp) : outerTx);
+                    tx.set(implicitTxRequired ? txManager.begin(!rwOp, null) : outerTx);
 
                     SchemaPlus schema = sqlSchemaManager.schema(schemaName);
 

@@ -53,7 +53,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      * Cluster cLock skew. The constant determines the undefined inclusive interval to compares timestamp from various nodes.
      * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
      */
-    private static final long CLOCK_SKEW = 7L;
+    public static final long CLOCK_SKEW = 7L;
 
     /** Long time value, that consists of physical time in higher 6 bytes and logical time in lower 2 bytes. */
     private final long time;
