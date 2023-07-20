@@ -271,6 +271,15 @@ public class LeaseUpdater {
     }
 
     /**
+     * Whether is active.
+     *
+     * @return Whether is active.
+     */
+    public boolean active() {
+        return active.get();
+    }
+
+    /**
      * Runnable to update lease in Meta storage.
      */
     private class Updater implements Runnable {

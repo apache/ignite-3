@@ -89,8 +89,6 @@ public class PlacementDriverManager implements IgniteComponent {
     /** Lease updater. */
     private final LeaseUpdater leaseUpdater;
 
-    private volatile boolean isActiveActor;
-
     /**
      * The constructor.
      *
@@ -238,8 +236,6 @@ public class PlacementDriverManager implements IgniteComponent {
     private void takeOverActiveActor() {
         LOG.info("Placement driver active actor is starting.");
 
-        isActiveActor = true;
-
         leaseUpdater.activate();
     }
 
@@ -250,13 +246,11 @@ public class PlacementDriverManager implements IgniteComponent {
     private void stepDownActiveActor() {
         LOG.info("Placement driver active actor is stopping.");
 
-        isActiveActor = false;
-
         leaseUpdater.deactivate();
     }
 
     @TestOnly
     boolean isActiveActor() {
-        return isActiveActor;
+        return leaseUpdater.active();
     }
 }
