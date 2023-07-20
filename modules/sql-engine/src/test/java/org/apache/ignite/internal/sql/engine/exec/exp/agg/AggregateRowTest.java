@@ -86,35 +86,11 @@ public class AggregateRowTest {
         RelDataType expectedType = new RelDataTypeFactory.Builder(typeFactory)
                 .add("f1", typeFactory.createSqlType(SqlTypeName.INTEGER))
                 .add("f2", typeFactory.createSqlType(SqlTypeName.VARCHAR))
-                .add("f3", typeFactory.createSqlType(SqlTypeName.TINYINT))
-                .add("_ACC0", acc1.returnType(typeFactory))
-                .build();
-
-        ImmutableBitSet group = ImmutableBitSet.of(0, 1, 2);
-
-        RelDataType rowType = AggregateRow.createSortRowType(group, typeFactory, inputType, Arrays.asList(call1));
-        assertEquals(expectedType, rowType);
-    }
-
-    @Test
-    public void testSortRowType2() {
-        RelDataType inputType = new RelDataTypeFactory.Builder(typeFactory)
-                .add("f1", typeFactory.createSqlType(SqlTypeName.INTEGER))
-                .add("f2", typeFactory.createSqlType(SqlTypeName.VARCHAR))
-                .add("f3", typeFactory.createSqlType(SqlTypeName.TINYINT))
-                .add("f4", typeFactory.createSqlType(SqlTypeName.VARBINARY))
-                .build();
-
-        AggregateCall call1 = newCall(typeFactory.createSqlType(SqlTypeName.BIGINT));
-        Accumulator acc1 = accumulators.accumulatorFactory(call1).get();
-
-        RelDataType expectedType = new RelDataTypeFactory.Builder(typeFactory)
-                .add("f2", typeFactory.createSqlType(SqlTypeName.VARCHAR))
                 .add("f4", typeFactory.createSqlType(SqlTypeName.VARBINARY))
                 .add("_ACC0", acc1.returnType(typeFactory))
                 .build();
 
-        ImmutableBitSet group = ImmutableBitSet.of(1, 3);
+        ImmutableBitSet group = ImmutableBitSet.of(0, 1, 3);
 
         RelDataType rowType = AggregateRow.createSortRowType(group, typeFactory, inputType, Arrays.asList(call1));
         assertEquals(expectedType, rowType);
