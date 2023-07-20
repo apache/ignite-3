@@ -22,9 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.util.Cancellable;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.sql.SqlException;
 
 /**
  * Holds query cancel state.
