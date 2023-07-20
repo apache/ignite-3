@@ -61,7 +61,7 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
     }
 
     private ErrorComponentBuilder sqlParseErrUiComponent(IgniteException e) {
-        return fromExWithHeader(PARSING_ERROR_MESSAGE, e.errorCode(), e.traceId(), e.getMessage());
+        return fromExWithHeader(PARSING_ERROR_MESSAGE, e.code(), e.traceId(), e.getMessage());
     }
 
     private ErrorComponentBuilder unrecognizedErrComponent(IgniteException e) {
