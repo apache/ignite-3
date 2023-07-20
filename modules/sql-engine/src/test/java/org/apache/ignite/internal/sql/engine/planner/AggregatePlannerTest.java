@@ -372,11 +372,11 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @Test
     public void countAgg() throws Exception {
         Predicate<AggregateCall> countMap = (a) -> {
-            return Objects.equals(a.getName(), "COUNT") && a.getArgList().equals(List.of(1));
+            return Objects.equals(a.getAggregation().getName(), "COUNT") && a.getArgList().equals(List.of(1));
         };
 
         Predicate<AggregateCall> countReduce = (a) -> {
-            return Objects.equals(a.getName(), "$REDUCE_COUNT") && a.getArgList().equals(List.of(1));
+            return Objects.equals(a.getAggregation().getName(), "$REDUCE_COUNT") && a.getArgList().equals(List.of(1));
         };
 
         assertPlan(TestCase.CASE_22, isInstanceOf(IgniteReduceHashAggregate.class)

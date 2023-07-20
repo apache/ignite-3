@@ -340,11 +340,13 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
     @Test
     public void twoPhaseCountAgg() throws Exception {
         Predicate<AggregateCall> countMap = (a) -> {
-            return Objects.equals(a.getName(), "COUNT") && a.getArgList().equals(List.of(1));
+            String aggName = a.getAggregation().getName();
+            return Objects.equals(aggName, "COUNT") && a.getArgList().equals(List.of(1));
         };
 
         Predicate<AggregateCall> countReduce = (a) -> {
-            return Objects.equals(a.getName(), "$REDUCE_COUNT") && a.getArgList().equals(List.of(1));
+            String aggName = a.getAggregation().getName();
+            return Objects.equals(aggName, "$REDUCE_COUNT") && a.getArgList().equals(List.of(1));
         };
 
         assertPlan(TestCase.CASE_22, isInstanceOf(IgniteReduceHashAggregate.class)

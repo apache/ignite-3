@@ -25,6 +25,7 @@ import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
+import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
@@ -370,11 +371,13 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
     @Test
     public void twoPhaseCountAgg() throws Exception {
         Predicate<AggregateCall> countMap = (a) -> {
-            return Objects.equals(a.getName(), "COUNT") && a.getArgList().equals(List.of(1));
+            SqlAggFunction aggName = a.getAggregation();
+            return Objects.equals(aggName.getName(), "COUNT") && a.getArgList().equals(List.of(1));
         };
 
         Predicate<AggregateCall> countReduce = (a) -> {
-            return Objects.equals(a.getName(), "$REDUCE_COUNT") && a.getArgList().equals(List.of(1));
+            SqlAggFunction aggName = a.getAggregation();
+            return Objects.equals(aggName.getName(), "$REDUCE_COUNT") && a.getArgList().equals(List.of(1));
         };
 
         assertPlan(TestCase.CASE_22, isInstanceOf(IgniteReduceSortAggregate.class)

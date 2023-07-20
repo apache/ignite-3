@@ -25,6 +25,7 @@ import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
+import org.apache.calcite.sql.fun.SqlCountAggFunction;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
@@ -346,7 +347,8 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
     @Test
     public void testCountAgg() throws Exception {
         Predicate<AggregateCall> countMap = (a) -> {
-            return Objects.equals(a.getName(), "COUNT") && a.getArgList().equals(List.of(1));
+            String aggName = a.getAggregation().getName();
+            return Objects.equals(aggName, "COUNT") && a.getArgList().equals(List.of(1));
         };
 
         assertPlan(TestCase.CASE_22, isInstanceOf(IgniteColocatedSortAggregate.class)

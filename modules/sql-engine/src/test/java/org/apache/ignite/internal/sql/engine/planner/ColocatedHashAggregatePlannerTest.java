@@ -321,7 +321,7 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
     @Test
     public void testCountAgg() throws Exception {
         Predicate<AggregateCall> countMap = (a) -> {
-            return Objects.equals(a.getName(), "COUNT") && a.getArgList().equals(List.of(1));
+            return Objects.equals(a.getAggregation().getName(), "COUNT") && a.getArgList().equals(List.of(1));
         };
 
         assertPlan(TestCase.CASE_22, isInstanceOf(IgniteColocatedHashAggregate.class)

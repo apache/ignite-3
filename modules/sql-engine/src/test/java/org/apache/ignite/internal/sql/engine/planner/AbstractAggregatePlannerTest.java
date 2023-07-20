@@ -600,7 +600,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
             for (int i = 0; i < calls.length; i++) {
                 AggregateCall actual = list.get(i);
                 Predicate<AggregateCall> expected = calls[i];
-                if (expected.test(actual)) {
+                if (!expected.test(actual)) {
                     return false;
                 }
             }
