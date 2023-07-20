@@ -97,7 +97,8 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     public SchemaManager(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             MetaStorageManager metastorageMgr,
-            CatalogManager catalogManager) {
+            CatalogManager catalogManager
+    ) {
         this.registriesVv = new IncrementalVersionedValue<>(registry, HashMap::new);
         this.catalogManager = catalogManager;
         this.metastorageMgr = metastorageMgr;

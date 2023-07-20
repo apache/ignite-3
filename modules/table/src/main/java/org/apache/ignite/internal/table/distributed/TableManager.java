@@ -26,7 +26,6 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
@@ -98,6 +97,7 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -613,10 +613,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             assert !assignments.isEmpty() : "Couldn't create the table with empty assignments.";
 
+            int[] indexesToWait = Arrays.stream(catalogManager.schema(evt.catalogVersion()).indexes())
+                    .filter(i -> i.tableId() == tableId)
+                    .mapToInt(CatalogObjectDescriptor::id)
+                    .toArray();
+
             CompletableFuture<?> createTableFut = createTableLocally(
                     evt.causalityToken(),
                     tableDescriptor,
                     zoneDescriptor,
+                    indexesToWait,
                     assignments
             ).whenComplete((v, e) -> {
                 if (e == null) {
@@ -1230,12 +1236,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param causalityToken Causality token.
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distributed zone descriptor.
+     * @param indexesToWait
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<?> createTableLocally(
             long causalityToken,
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
+            int[] indexesToWait,
             List<Set<Assignment>> assignments
     ) {
         String tableName = tableDescriptor.name();
@@ -1256,7 +1264,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         var table = new TableImpl(internalTable, lockMgr);
 
         // TODO: IGNITE-19082 Need another way to wait for indexes
-        table.addIndexesToWait(collectTableIndexIds(tableId));
+//        table.addIndexesToWait(indexesToWait);
 
         tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
@@ -1293,7 +1301,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
         fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableId));
 
-        // TODO: investigate why createParts hangs.
+        // TODO: investigate why createParts future hangs.
         return completedFuture(false);
     }
 
@@ -1481,7 +1489,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
         try {
             String tableName = parameters.tableName();
-            String zoneName = Objects.requireNonNullElse(parameters.zone(), DEFAULT_ZONE_NAME);
+            String zoneName = parameters.zone();
 
             // Copied from DdlCommandHandler
             Consumer<TableChange> tblChanger = tableChange -> {
@@ -1491,18 +1499,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
                 });
 
-                var colocationKeys = parameters.colocationColumns();
-
-                if (nullOrEmpty(colocationKeys)) {
-                    colocationKeys = parameters.primaryKeyColumns();
-                }
-
-                var colocationKeys0 = colocationKeys;
+                List<String> colocationKeys = nullOrEmpty(parameters.colocationColumns())
+                        ? parameters.primaryKeyColumns()
+                        : parameters.colocationColumns();
 
                 tableChange.changePrimaryKey(pkChange -> pkChange.changeColumns(parameters.primaryKeyColumns().toArray(String[]::new))
-                        .changeColocationColumns(colocationKeys0.toArray(String[]::new)));
+                        .changeColocationColumns(colocationKeys.toArray(String[]::new)));
             };
-
 
             return catalogManager.createTable(parameters)
                     .thenApply(ignore -> catalogManager.table(tableName, Long.MAX_VALUE).id())
@@ -2718,13 +2721,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         if (t instanceof NodeStoppingException) {
             nodeStoppingEx.set(true);
         }
-    }
-
-    private int[] collectTableIndexIds(int tableId) {
-        return tablesCfg.value().indexes().stream()
-                .filter(tableIndexView -> tableIndexView.tableId() == tableId)
-                .mapToInt(TableIndexView::id)
-                .toArray();
     }
 
     private static void closePartitionTrackers(InternalTable internalTable, int partitionId) {

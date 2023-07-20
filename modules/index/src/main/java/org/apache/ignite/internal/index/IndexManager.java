@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
@@ -199,10 +200,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
-            CompletableFuture<?> fireEventFuture = fireEvent(IndexEvent.DROP, new IndexEventParameters(causalityToken, tableId, idxId));
+            fireEvent(IndexEvent.DROP, new IndexEventParameters(causalityToken, tableId, idxId));
 
-            catalogManager.table(tableId, evt.catalogVersion());
-            CompletableFuture<?> dropIndexFuture = tableManager.tableAsync(tableId)
+            CompletableFuture<?> dropIndexFuture = tableManager.tableAsync(evt.causalityToken(), tableId)
                     .thenAccept(table -> {
                         if (table != null) { // in case of DROP TABLE the table will be removed first
                             table.unregisterIndex(idxId);
@@ -210,7 +210,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     });
 
             // TODO: investigate why DropIndexFuture hangs.
-            return allOf(fireEventFuture, dropIndexFuture);
+            return completedFuture(null); // dropIndexFuture;
         } catch (Throwable th) {
             LOG.warn("Failed to process drop index event.", th);
 

@@ -311,7 +311,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
             validateCreateTableParams(params);
 
-            CatalogZoneDescriptor zone = getZone(catalog, Objects.requireNonNullElse(params.zone(), DEFAULT_ZONE_NAME));
+            CatalogZoneDescriptor zone = getZone(catalog, params.zone());
 
             int id = catalog.objectIdGenState();
 

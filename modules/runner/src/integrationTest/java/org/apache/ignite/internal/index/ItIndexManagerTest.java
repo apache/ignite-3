@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -72,7 +73,7 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         await(indexManager.createIndexAsync(
                 CreateHashIndexParams.builder()
-                        .schemaName("PUBLIC")
+                        .schemaName(CatalogService.DEFAULT_SCHEMA_NAME)
                         .indexName("INAME")
                         .tableName("TNAME")
                         .columns(List.of("C3", "C2"))
@@ -93,7 +94,8 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<IndexEventParameters> indexDroppedFuture = registerListener(indexManager, IndexEvent.DROP);
 
-        await(indexManager.dropIndexAsync(DropIndexParams.builder().schemaName("PUBLIC").indexName("INAME").build()));
+        await(indexManager.dropIndexAsync(DropIndexParams.builder()
+                .schemaName(CatalogService.DEFAULT_SCHEMA_NAME).indexName("INAME").build()));
 
         {
             IndexEventParameters params = await(indexDroppedFuture);

@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import java.util.List;
+import java.util.Objects;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,8 +43,7 @@ public class CreateTableParams extends AbstractTableCommandParams {
     private List<ColumnParams> cols;
 
     /** Distribution zone name. */
-    @Nullable
-    private String zone;
+    private String zone = CatalogService.DEFAULT_ZONE_NAME;
 
     private CreateTableParams() {
     }
@@ -72,7 +73,6 @@ public class CreateTableParams extends AbstractTableCommandParams {
     /**
      * Gets zone name.
      */
-    @Nullable
     public String zone() {
         return zone;
     }
@@ -126,8 +126,8 @@ public class CreateTableParams extends AbstractTableCommandParams {
          * @param zoneName Zone name.
          * @return {@code this}.
          */
-        public Builder zone(@Nullable String zoneName) {
-            params.zone = zoneName;
+        public Builder zone(String zoneName) {
+            params.zone = Objects.requireNonNullElse(zoneName, CatalogService.DEFAULT_ZONE_NAME);
 
             return this;
         }

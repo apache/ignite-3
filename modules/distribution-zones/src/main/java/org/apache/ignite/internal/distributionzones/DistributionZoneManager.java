@@ -191,7 +191,7 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Tables configuration. */
     private final TablesConfiguration tablesConfiguration;
 
-    /** Catalog service. */
+    /** Catalog manager. */
     private final CatalogManager catalogManager;
 
     /** Meta Storage manager. */
