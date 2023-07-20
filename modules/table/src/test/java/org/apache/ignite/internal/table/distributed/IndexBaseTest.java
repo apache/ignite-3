@@ -245,7 +245,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                         TX_ID,
                         singletonMap(rowUuid, row == null ? null : row.byteBuffer()),
                         partitionId,
-                        (unused) -> {}
+                        (unused) -> {},
+                        null
                 );
             }
         };

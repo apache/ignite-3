@@ -273,12 +273,31 @@ public class PartitionListener implements RaftGroupListener {
         }
 
         storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), rowIds -> {
-            for (RowId rowId : rowIds) {
-                txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new TreeSet<>()).add(rowId);
-            }
+                    if (!cmd.full()) {
+                        for (RowId rowId : rowIds) {
+                            txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new TreeSet<>()).add(rowId);
+                        }
+                    } else {
+                        TxMeta txMetaToSet = new TxMeta(
+                                COMMITED,
+                                List.of(cmd.tablePartitionId().asTablePartitionId()),
+                                cmd.safeTime()
+                        );
 
-            storage.lastApplied(commandIndex, commandTerm);
-        });
+                        boolean txStateChangeRes = txStateStorage.compareAndSet(
+                                cmd.txId(),
+                                null,
+                                txMetaToSet,
+                                commandIndex,
+                                commandTerm
+                        );
+
+                        assert txStateChangeRes : "Expecting successful commit for full txn";
+                    }
+
+                    storage.lastApplied(commandIndex, commandTerm);
+                },
+                cmd.full() ? cmd.safeTime() : null);
     }
 
     /**

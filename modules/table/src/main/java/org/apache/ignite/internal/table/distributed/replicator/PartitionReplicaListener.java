@@ -330,7 +330,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
             var req = (ReadWriteMultiRowReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), req.requestType(), false, () -> processMultiEntryAction(req));
+            return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processMultiEntryAction(req));
         } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
             var req = (ReadWriteSwapRowReplicaRequest) request;
 
@@ -1492,6 +1492,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> processMultiEntryAction(ReadWriteMultiRowReplicaRequest request) {
         UUID txId = request.transactionId();
         TablePartitionId committedPartitionId = request.commitPartitionId();
+        boolean full = request.full();
 
         assert committedPartitionId != null || request.requestType() == RequestType.RW_GET_ALL
                 : "Commit partition is null [type=" + request.requestType() + ']';
@@ -1559,7 +1560,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(result);
                     }
 
-                    return applyUpdateAllCommand(updateAllCommand(committedPartitionId, rowIdsToDelete, txId))
+                    return applyUpdateAllCommand(updateAllCommand(committedPartitionId, rowIdsToDelete, txId, full))
                             .thenApply(ignored -> result);
                 });
             }
@@ -1595,7 +1596,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     CompletableFuture<Object> raftFut = rowIdsToDelete.isEmpty() ? completedFuture(null)
-                            : applyUpdateAllCommand(updateAllCommand(committedPartitionId, rowIdsToDelete, txId));
+                            : applyUpdateAllCommand(updateAllCommand(committedPartitionId, rowIdsToDelete, txId, full));
 
                     return raftFut.thenApply(ignored -> result);
                 });
@@ -1656,7 +1657,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return allOf(insertLockFuts)
                             .thenCompose(ignored -> applyUpdateAllCommand(
-                                    updateAllCommand(committedPartitionId, convertedMap, txId)))
+                                    updateAllCommand(committedPartitionId, convertedMap, txId, full)))
                             .thenApply(ignored -> {
                                 // Release short term locks.
                                 for (CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> insertLockFut : insertLockFuts) {
@@ -1700,7 +1701,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(null);
                     }
 
-                    return applyUpdateAllCommand(updateAllCommand(committedPartitionId, rowsToUpdate, txId))
+                    return applyUpdateAllCommand(updateAllCommand(committedPartitionId, rowsToUpdate, txId, full))
                             .thenApply(ignored -> {
                                 // Release short term locks.
                                 for (CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> rowIdFut : rowIdFuts) {
@@ -1751,14 +1752,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<Object> applyUpdateCommand(UpdateCommand cmd) {
         if (!cmd.full()) { // Skip in-place update for implicit txn.
-            storageUpdateHandler.handleUpdate(
-                    cmd.txId(),
-                    cmd.rowUuid(),
-                    cmd.tablePartitionId().asTablePartitionId(),
-                    cmd.rowBuffer(),
-                    null,
-                    null
-            );
+            storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.rowBuffer(), null,
+                    null);
         }
 
         return applyCmdWithExceptionHandling(cmd);
@@ -1771,7 +1766,9 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
      */
     private CompletableFuture<Object> applyUpdateAllCommand(UpdateAllCommand cmd) {
-        storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), null);
+        if (!cmd.full()) { // Skip in-place update for implicit txn.
+            storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), null, null);
+        }
 
         return applyCmdWithExceptionHandling(cmd);
     }
@@ -2365,14 +2362,16 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param tablePartId {@link TablePartitionId} object to construct {@link UpdateCommand} object with.
      * @param rowsToUpdate All {@link BinaryRow}s represented as {@link ByteBuffer}s to be updated.
      * @param txId Transaction ID.
+     * @param full {@code True} if full transaction.
      * @return Constructed {@link UpdateAllCommand} object.
      */
-    private UpdateAllCommand updateAllCommand(TablePartitionId tablePartId, Map<UUID, ByteBuffer> rowsToUpdate, UUID txId) {
+    private UpdateAllCommand updateAllCommand(TablePartitionId tablePartId, Map<UUID, ByteBuffer> rowsToUpdate, UUID txId, boolean full) {
         return MSG_FACTORY.updateAllCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowsToUpdate(rowsToUpdate)
                 .txId(txId)
                 .safeTimeLong(hybridClock.nowLong())
+                .full(full)
                 .build();
     }
 
