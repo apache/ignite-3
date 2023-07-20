@@ -55,7 +55,6 @@ import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
-import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
  * Causality data nodes manager.
@@ -157,9 +156,8 @@ public class CausalityDataNodesEngine {
         }
 
         // Get revisions of the last scale up and scale down event which triggered immediate data nodes recalculation.
-        IgniteBiTuple<Long, Long> revisions = getRevisionsOfLastScaleUpAndScaleDownEvents(causalityToken, zoneId);
-        long lastScaleUpRevision = revisions.get1();
-        long lastScaleDownRevision = revisions.get2();
+        long lastScaleUpRevision = getRevisionsOfLastScaleUpEvent(causalityToken, zoneId);
+        long lastScaleDownRevision = getRevisionsOfLastScaleDownEvent(causalityToken, zoneId);
 
         if (lastCfgRevision == versionedCfg.firstKey()
                 && lastCfgRevision >= lastScaleUpRevision
@@ -263,36 +261,33 @@ public class CausalityDataNodesEngine {
     }
 
     /**
-     * These revisions correspond to the last configuration and topology events after which need to wait for the data nodes recalculation.
-     * These events are: a zone creation, changing a scale up timer to immediate, changing a scale down timer to immediate,
-     * changing a filter, deleting a zone, topology changes with the adding nodes, topology changes with removing nodes.
-     *
-     * @param causalityToken causalityToken.
-     * @param zoneId zoneId.
-     * @return Revisions.
+     * Return revision of the last event which triggers immediate scale up recalculation of the data nodes value.
      */
-    private IgniteBiTuple<Long, Long> getRevisionsOfLastScaleUpAndScaleDownEvents(
+    private long getRevisionsOfLastScaleUpEvent(
             long causalityToken,
-            int zoneId) {
-        long scaleUpConfigRevision = getLastScaleUpConfigRevision(causalityToken, zoneId);
-        long scaleDownConfigRevision = getLastScaleDownConfigRevision(causalityToken, zoneId);
-
-        IgniteBiTuple<Long, Long> scaleUpAndScaleDownTopologyRevisions =
-                getLastScaleUpAndScaleDownTopologyRevisions(causalityToken, zoneId);
-
-        long lastScaleUpRevision = max(scaleUpConfigRevision, scaleUpAndScaleDownTopologyRevisions.get1());
-
-        long lastScaleDownRevision = max(scaleDownConfigRevision, scaleUpAndScaleDownTopologyRevisions.get2());
-
-        return new IgniteBiTuple<>(lastScaleUpRevision, lastScaleDownRevision);
+            int zoneId
+    ) {
+        return max(
+                getLastScaleUpConfigRevision(causalityToken, zoneId),
+                getLastScaleUpTopologyRevisions(causalityToken, zoneId)
+        );
     }
 
     /**
-     * Get revision of the latest configuration change event which triggers immediate scale up recalculation of the data nodes value.
-     *
-     * @param causalityToken causalityToken.
-     * @param zoneId zoneId.
-     * @return Revision.
+     * Return revision of the last event which triggers immediate scale down recalculation of the data nodes value.
+     */
+    private long getRevisionsOfLastScaleDownEvent(
+            long causalityToken,
+            int zoneId
+    ) {
+        return max(
+                getLastScaleDownConfigRevision(causalityToken, zoneId),
+                getLastScaleDownTopologyRevisions(causalityToken, zoneId)
+        );
+    }
+
+    /**
+     * Return revision of the last configuration change event which triggers immediate scale up recalculation of the data nodes value.
      */
     private long getLastScaleUpConfigRevision(
             long causalityToken,
@@ -302,11 +297,7 @@ public class CausalityDataNodesEngine {
     }
 
     /**
-     * Get revision of the latest configuration change event which triggers immediate scale down recalculation of the data nodes value.
-     *
-     * @param causalityToken causalityToken.
-     * @param zoneId zoneId.
-     * @return Revision.
+     * Return revision of the last configuration change event which triggers immediate scale down recalculation of the data nodes value.
      */
     private long getLastScaleDownConfigRevision(
             long causalityToken,
@@ -318,11 +309,6 @@ public class CausalityDataNodesEngine {
     /**
      * Get revision of the latest configuration change event which trigger immediate scale up or scale down recalculation
      * of the data nodes value.
-     *
-     * @param causalityToken causalityToken.
-     * @param zoneId zoneId.
-     * @param isScaleUp isScaleUp.
-     * @return Revision.
      */
     private long getLastConfigRevision(
             long causalityToken,
@@ -346,11 +332,11 @@ public class CausalityDataNodesEngine {
                 ZoneConfiguration newerCfg = entryNewerCfg.getValue();
 
                 if (isScaleUp) {
-                    if (isScaleUpRevision(olderCfg, newerCfg)) {
+                    if (isScaleUpConfigRevision(olderCfg, newerCfg)) {
                         return entryNewerCfg.getKey();
                     }
                 } else {
-                    if (isScaleDownRevision(olderCfg, newerCfg)) {
+                    if (isScaleDownConfigRevision(olderCfg, newerCfg)) {
                         return entryNewerCfg.getKey();
                     }
                 }
@@ -367,28 +353,42 @@ public class CausalityDataNodesEngine {
 
     /**
      * Check if newer configuration triggers immediate scale up recalculation of the data nodes value.
+     * Return true if an older configuration has not immediate scale up and an newer configuration has immediate scale up
+     * or older and newer configuration have different filter.
      */
-    private static boolean isScaleUpRevision(ZoneConfiguration olderCfg, ZoneConfiguration newerCfg) {
-        if (olderCfg.getDataNodesAutoAdjustScaleUp() != newerCfg.getDataNodesAutoAdjustScaleUp()
-                && newerCfg.getDataNodesAutoAdjustScaleUp() == IMMEDIATE_TIMER_VALUE) {
-            return true;
-        } else if (!olderCfg.getFilter().equals(newerCfg.getFilter())) {
-            return true;
-        }
-
-        return false;
+    private static boolean isScaleUpConfigRevision(ZoneConfiguration olderCfg, ZoneConfiguration newerCfg) {
+        return olderCfg.getDataNodesAutoAdjustScaleUp() != newerCfg.getDataNodesAutoAdjustScaleUp()
+                    && newerCfg.getDataNodesAutoAdjustScaleUp() == IMMEDIATE_TIMER_VALUE
+                || !olderCfg.getFilter().equals(newerCfg.getFilter());
     }
 
     /**
      * Check if newer configuration triggers immediate scale down recalculation of the data nodes value.
+     * Return true if an older configuration has not immediate scale down and an newer configuration has immediate scale down.
      */
-    private static boolean isScaleDownRevision(ZoneConfiguration olderCfg, ZoneConfiguration newerCfg) {
-        if (olderCfg.getDataNodesAutoAdjustScaleDown() != newerCfg.getDataNodesAutoAdjustScaleDown()
-                && newerCfg.getDataNodesAutoAdjustScaleDown() == IMMEDIATE_TIMER_VALUE) {
-            return true;
-        }
+    private static boolean isScaleDownConfigRevision(ZoneConfiguration olderCfg, ZoneConfiguration newerCfg) {
+        return olderCfg.getDataNodesAutoAdjustScaleDown() != newerCfg.getDataNodesAutoAdjustScaleDown()
+                && newerCfg.getDataNodesAutoAdjustScaleDown() == IMMEDIATE_TIMER_VALUE;
+    }
 
-        return false;
+    /**
+     * Return revision of the last topology change event which triggers immediate scale up recalculation of the data nodes value.
+     */
+    private long getLastScaleUpTopologyRevisions(
+            long causalityToken,
+            int zoneId
+    ) {
+        return getLastTopologyRevisions(causalityToken, zoneId, true);
+    }
+
+    /**
+     * Return revision of the last topology change event which triggers immediate scale down recalculation of the data nodes value.
+     */
+    private long getLastScaleDownTopologyRevisions(
+            long causalityToken,
+            int zoneId
+    ) {
+        return getLastTopologyRevisions(causalityToken, zoneId, false);
     }
 
     /**
@@ -399,16 +399,16 @@ public class CausalityDataNodesEngine {
      * @param zoneId zoneId.
      * @return Revisions.
      */
-    private IgniteBiTuple<Long, Long> getLastScaleUpAndScaleDownTopologyRevisions(long causalityToken, int zoneId) {
+    private long getLastTopologyRevisions(
+            long causalityToken,
+            int zoneId,
+            boolean isScaleUp
+    ) {
         Set<NodeWithAttributes> newerLogicalTopology;
 
         long newerTopologyRevision;
 
         Entry topologyEntry = msManager.getLocally(zonesLogicalTopologyKey(), causalityToken);
-
-        long scaleUpTopologyRevision = 0;
-        long scaleDownTopologyRevision = 0;
-
 
         if (!topologyEntry.empty()) {
             byte[] newerLogicalTopologyBytes = topologyEntry.value();
@@ -417,7 +417,7 @@ public class CausalityDataNodesEngine {
 
             newerTopologyRevision = topologyEntry.revision();
 
-            while ((scaleUpTopologyRevision == 0) || (scaleDownTopologyRevision == 0)) {
+            while (true) {
                 topologyEntry = msManager.getLocally(zonesLogicalTopologyKey(), newerTopologyRevision - 1);
 
                 Set<NodeWithAttributes> olderLogicalTopology;
@@ -432,20 +432,6 @@ public class CausalityDataNodesEngine {
                     olderLogicalTopology = fromBytes(olderLogicalTopologyBytes);
                 }
 
-                Set<NodeWithAttributes> finalNewerLogicalTopology = newerLogicalTopology;
-
-                Set<Node> removedNodes =
-                        olderLogicalTopology.stream()
-                                .filter(node -> !finalNewerLogicalTopology.contains(node))
-                                .map(NodeWithAttributes::node)
-                                .collect(toSet());
-
-                Set<Node> addedNodes =
-                        newerLogicalTopology.stream()
-                                .filter(node -> !olderLogicalTopology.contains(node))
-                                .map(NodeWithAttributes::node)
-                                .collect(toSet());
-
                 Map.Entry<Long, ZoneConfiguration> zoneConfigurationEntry = zonesVersionedCfg.get(zoneId)
                         .floorEntry(newerTopologyRevision);
 
@@ -455,16 +441,14 @@ public class CausalityDataNodesEngine {
 
                 ZoneConfiguration zoneCfg = zoneConfigurationEntry.getValue();
 
-                if (scaleUpTopologyRevision == 0
-                        && !addedNodes.isEmpty()
-                        && zoneCfg.getDataNodesAutoAdjustScaleUp() == IMMEDIATE_TIMER_VALUE) {
-                    scaleUpTopologyRevision = newerTopologyRevision;
-                }
-
-                if (scaleDownTopologyRevision == 0
-                        && !removedNodes.isEmpty()
-                        && zoneCfg.getDataNodesAutoAdjustScaleDown() == IMMEDIATE_TIMER_VALUE) {
-                    scaleDownTopologyRevision = newerTopologyRevision;
+                if (isScaleUp) {
+                    if (isScaleUpTopologyRevision(olderLogicalTopology, newerLogicalTopology, zoneCfg)) {
+                        return newerTopologyRevision;
+                    }
+                } else {
+                    if (isScaleDownTopologyRevision(olderLogicalTopology, newerLogicalTopology, zoneCfg)) {
+                        return newerTopologyRevision;
+                    }
                 }
 
                 newerLogicalTopology = olderLogicalTopology;
@@ -477,7 +461,33 @@ public class CausalityDataNodesEngine {
             }
         }
 
-        return new IgniteBiTuple<>(scaleUpTopologyRevision, scaleDownTopologyRevision);
+        return 0;
+    }
+
+    /**
+     * Check if newer topology triggers immediate scale up recalculation of the data nodes value.
+     * Return true if newer logical topology has added nodes and a zone configuration has immediate scale up.
+     */
+    private static boolean isScaleUpTopologyRevision(
+            Set<NodeWithAttributes> olderLogicalTopology,
+            Set<NodeWithAttributes> newerLogicalTopology,
+            ZoneConfiguration zoneCfg
+    ) {
+        return newerLogicalTopology.stream().anyMatch(node -> !olderLogicalTopology.contains(node))
+                && zoneCfg.getDataNodesAutoAdjustScaleUp() == IMMEDIATE_TIMER_VALUE;
+    }
+
+    /**
+     * Check if newer topology triggers immediate scale down recalculation of the data nodes value.
+     * Return true if newer logical topology has removed nodes and a zone configuration has immediate scale down.
+     */
+    private static boolean isScaleDownTopologyRevision(
+            Set<NodeWithAttributes> olderLogicalTopology,
+            Set<NodeWithAttributes> newerLogicalTopology,
+            ZoneConfiguration zoneCfg
+    ) {
+        return olderLogicalTopology.stream().anyMatch(node -> !newerLogicalTopology.contains(node))
+                && zoneCfg.getDataNodesAutoAdjustScaleDown() == IMMEDIATE_TIMER_VALUE;
     }
 
     /**
