@@ -36,13 +36,19 @@ public class TableRowConverterImpl implements TableRowConverter {
 
     private final SchemaDescriptor schemaDescriptor;
 
-    private final TableDescriptor desc;
+    private final int[] physicalIndexMap;
 
     /** Constructor. */
     public TableRowConverterImpl(SchemaRegistry schemaRegistry, SchemaDescriptor schemaDescriptor, TableDescriptor desc) {
         this.schemaRegistry = schemaRegistry;
         this.schemaDescriptor = schemaDescriptor;
-        this.desc = desc;
+
+        physicalIndexMap = new int[desc.columnsCount()];
+
+        for (int i = 0; i < desc.columnsCount(); i++) {
+            ColumnDescriptor col = desc.columnDescriptor(i);
+            physicalIndexMap[i] = schemaDescriptor.column(col.name()).schemaIndex();
+        }
     }
 
     /** {@inheritDoc} */
@@ -59,21 +65,17 @@ public class TableRowConverterImpl implements TableRowConverter {
 
         RowT res = factory.create();
 
-        assert handler.columnCount(res) == (requiredColumns == null ? desc.columnsCount() : requiredColumns.cardinality());
+        assert handler.columnCount(res) == (requiredColumns == null ? physicalIndexMap.length : requiredColumns.cardinality());
 
         Row row = schemaRegistry.resolve(binaryRow, schemaDescriptor);
 
         if (requiredColumns == null) {
-            for (int i = 0; i < desc.columnsCount(); i++) {
-                ColumnDescriptor colDesc = desc.columnDescriptor(i);
-
-                handler.set(i, res, TypeUtils.toInternal(row.value(colDesc.physicalIndex())));
+            for (int i = 0; i < physicalIndexMap.length; i++) {
+                handler.set(i, res, TypeUtils.toInternal(row.value(physicalIndexMap[i])));
             }
         } else {
             for (int i = 0, j = requiredColumns.nextSetBit(0); j != -1; j = requiredColumns.nextSetBit(j + 1), i++) {
-                ColumnDescriptor colDesc = desc.columnDescriptor(j);
-
-                handler.set(i, res, TypeUtils.toInternal(row.value(colDesc.physicalIndex())));
+                handler.set(i, res, TypeUtils.toInternal(row.value(physicalIndexMap[j])));
             }
         }
 

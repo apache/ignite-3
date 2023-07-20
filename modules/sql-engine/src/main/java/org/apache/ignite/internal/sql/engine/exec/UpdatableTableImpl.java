@@ -43,6 +43,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -69,7 +70,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private final SchemaDescriptor schemaDescriptor;
 
-    private final List<ColumnDescriptor> columnsOrderedByPhysSchema;
+    private final int[] columnsOrderedByPhysSchema;
 
     private final PartitionExtractor partitionExtractor;
 
@@ -96,14 +97,15 @@ public final class UpdatableTableImpl implements UpdatableTable {
         this.schemaDescriptor = schemaDescriptor;
         this.partitionExtractor = (row) -> IgniteUtils.safeAbs(row.colocationHash()) % partitions;
 
-        List<ColumnDescriptor> tmp = new ArrayList<>(desc.columnsCount());
+        columnsOrderedByPhysSchema = new int[desc.columnsCount()];
         for (int i = 0; i < desc.columnsCount(); i++) {
-            tmp.add(desc.columnDescriptor(i));
+            ColumnDescriptor col = desc.columnDescriptor(i);
+
+            int physIndex = schemaDescriptor.column(col.name()).schemaIndex();
+
+            columnsOrderedByPhysSchema[physIndex] = col.logicalIndex();
         }
 
-        tmp.sort(Comparator.comparingInt(ColumnDescriptor::physicalIndex));
-
-        columnsOrderedByPhysSchema = tmp;
         this.rowConverter = rowConverter;
     }
 
@@ -276,7 +278,9 @@ public final class UpdatableTableImpl implements UpdatableTable {
     private <RowT> BinaryRowEx convertRow(RowT row, ExecutionContext<RowT> ectx, boolean keyOnly) {
         RowHandler<RowT> hnd = ectx.rowHandler();
 
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
+        for (int i : columnsOrderedByPhysSchema) {
+            ColumnDescriptor colDesc = desc.columnDescriptor(i);
+
             if (keyOnly && !colDesc.key()) {
                 continue;
             }
@@ -293,7 +297,9 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         RowAssembler rowAssembler = keyOnly ? RowAssembler.keyAssembler(schemaDescriptor) : new RowAssembler(schemaDescriptor);
 
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
+        for (int i : columnsOrderedByPhysSchema) {
+            ColumnDescriptor colDesc = desc.columnDescriptor(i);
+
             if (keyOnly && !colDesc.key()) {
                 continue;
             }
