@@ -29,6 +29,8 @@ description = 'ignite-core'
 dependencies {
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
+    implementation project(':ignite-api')
+
     testImplementation libs.hamcrest.core
     testImplementation libs.junit.testkit
     testImplementation libs.mockito.core
