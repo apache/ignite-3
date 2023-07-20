@@ -470,7 +470,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(ZONE_1_ID, Set.of(), keyValueStorage);
 
-        assertZoneScaleUpChangeTriggerKey(3L, ZONE_1_ID, keyValueStorage);
+        assertZoneScaleUpChangeTriggerKey(4L, ZONE_1_ID, keyValueStorage);
 
         doAnswer(invocation -> {
             If iif = invocation.getArgument(0);
@@ -516,7 +516,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(ZONE_1_ID, Set.of(NODE_1), keyValueStorage);
 
-        assertZoneScaleDownChangeTriggerKey(5L, ZONE_1_ID, keyValueStorage);
+        assertZoneScaleDownChangeTriggerKey(6L, ZONE_1_ID, keyValueStorage);
 
         doAnswer(invocation -> {
             If iif = invocation.getArgument(0);

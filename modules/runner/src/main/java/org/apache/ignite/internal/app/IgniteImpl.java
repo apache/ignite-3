@@ -714,7 +714,6 @@ public class IgniteImpl implements Ignite {
                     restComponent,
                     raftMgr,
                     clusterStateStorage,
-                    distributedConfigurationUpdater,
                     cmgMgr
             );
 
@@ -770,6 +769,7 @@ public class IgniteImpl implements Ignite {
 
                         return recoverComponentsStateOnStart(startupExecutor);
                     }, startupExecutor)
+                    .thenComposeAsync(v -> clusterCfgMgr.configurationRegistry().onDefaultsPersisted(), startupExecutor)
                     .thenRunAsync(() -> {
                         try {
                             lifecycleManager.startComponent(distributedConfigurationUpdater);

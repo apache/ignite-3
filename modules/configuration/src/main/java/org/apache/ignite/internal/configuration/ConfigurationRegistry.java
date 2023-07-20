@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.touch;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
@@ -68,9 +67,6 @@ public class ConfigurationRegistry implements IgniteComponent {
     /** Generated configuration implementations. Mapping: {@link RootKey#key} -> configuration implementation. */
     private final Map<String, DynamicConfiguration<?, ?>> configs = new HashMap<>();
 
-    /** Root keys. */
-    private final Collection<RootKey<?, ?>> rootKeys;
-
     /** Configuration change handler. */
     private final ConfigurationChanger changer;
 
@@ -91,8 +87,6 @@ public class ConfigurationRegistry implements IgniteComponent {
             ConfigurationValidator configurationValidator
     ) {
         checkConfigurationType(rootKeys, storage);
-
-        this.rootKeys = rootKeys;
 
         changer = new ConfigurationChanger(notificationUpdateListener(), rootKeys, storage, configurationValidator) {
             @Override
@@ -137,16 +131,10 @@ public class ConfigurationRegistry implements IgniteComponent {
     }
 
     /**
-     * Initializes the configuration storage - reads data and sets default values for missing configuration properties.
+     * Returns a future that resolves after the defaults are persisted to the storage.
      */
-    public void initializeDefaults() {
-        changer.initializeDefaults();
-
-        for (RootKey<?, ?> rootKey : rootKeys) {
-            DynamicConfiguration<?, ?> dynCfg = configs.get(rootKey.key());
-
-            touch(dynCfg);
-        }
+    public CompletableFuture<Void> onDefaultsPersisted() {
+        return changer.onDefaultsPersisted();
     }
 
     /**
