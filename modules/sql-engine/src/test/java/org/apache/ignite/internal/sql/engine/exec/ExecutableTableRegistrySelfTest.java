@@ -150,7 +150,7 @@ public class ExecutableTableRegistrySelfTest {
             when(schemaManager.schemaRegistry(tableId)).thenReturn(schemaRegistry);
             when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
 
-            return registry.getTable(tableId, descriptor);
+            return registry.getTable(schemaVersion, tableId, descriptor);
         }
     }
 }

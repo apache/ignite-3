@@ -389,18 +389,6 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         );
     }
 
-    private static RelDataType getIndexRowType(IgniteTypeFactory typeFactory, IgniteTable tbl, IgniteIndex idx) {
-        RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(typeFactory);
-
-        RelDataType rt = tbl.getRowType(typeFactory);
-        for (RelFieldCollation fc : idx.collation().getFieldCollations()) {
-            b.add(rt.getFieldList().get(fc.getFieldIndex()));
-        }
-
-        RelDataType idxRowType = b.build();
-        return idxRowType;
-    }
-
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteTableScan rel) {
@@ -808,5 +796,17 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     @SuppressWarnings("unchecked")
     public <T extends Node<RowT>> T go(IgniteRel rel) {
         return (T) visit(rel);
+    }
+
+    private static RelDataType getIndexRowType(IgniteTypeFactory typeFactory, IgniteTable tbl, IgniteIndex idx) {
+        RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(typeFactory);
+
+        RelDataType rt = tbl.getRowType(typeFactory);
+        for (RelFieldCollation fc : idx.collation().getFieldCollations()) {
+            b.add(rt.getFieldList().get(fc.getFieldIndex()));
+        }
+
+        RelDataType idxRowType = b.build();
+        return idxRowType;
     }
 }

@@ -298,7 +298,9 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                 ? EMPTY_CLASS_ARRAY :
                 Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
 
-        return new CacheKey(ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
+        int version = (int) ctx.unwrap(BaseQueryContext.class).schemaVersion();
+
+        return new CacheKey(version, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
     }
 
     private ResultSetMetadata resultSetMetadata(

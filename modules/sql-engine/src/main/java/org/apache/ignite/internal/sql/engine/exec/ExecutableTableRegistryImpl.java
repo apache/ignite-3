@@ -61,8 +61,10 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int tableId, TableDescriptor tableDescriptor) {
-        return tableCache.computeIfAbsent(tableId, (k) -> loadTable(k, tableDescriptor));
+    public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId, TableDescriptor tableDescriptor) {
+        //TODO: SchemaVersion must a part of cache key, or cache InternalTable only.
+        // return tableCache.computeIfAbsent(tableId, (k) -> loadTable(schemaVersion, k, tableDescriptor));
+        return loadTable(schemaVersion, tableId, tableDescriptor);
     }
 
     /** {@inheritDoc} */
@@ -71,27 +73,21 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         tableCache.clear();
     }
 
-    private CompletableFuture<ExecutableTable> loadTable(int tableId, TableDescriptor tableDescriptor) {
-
-        CompletableFuture<Map.Entry<InternalTable, SchemaRegistry>> f = tableManager.tableAsync(tableId)
+    private CompletableFuture<ExecutableTable> loadTable(int schemaVersion, int tableId, TableDescriptor tableDescriptor) {
+        return tableManager.tableAsync(tableId)
                 .thenApply(table -> {
                     InternalTable internalTable = table.internalTable();
                     SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(tableId);
-                    return Map.entry(internalTable, schemaRegistry);
+
+                    SchemaDescriptor schemaDescriptor = schemaRegistry.schema(schemaVersion);
+                    TableRowConverter rowConverter = new TableRowConverterImpl(schemaRegistry, schemaDescriptor, tableDescriptor);
+                    ScannableTable scannableTable = new ScannableTableImpl(internalTable, rowConverter, tableDescriptor);
+
+                    UpdatableTableImpl updatableTable = new UpdatableTableImpl(tableId, tableDescriptor, internalTable.partitions(),
+                            replicaService, clock, rowConverter, schemaDescriptor);
+
+                    return new ExecutableTableImpl(scannableTable, updatableTable);
                 });
-
-        return f.thenApply((table) -> {
-            SchemaRegistry schemaRegistry = table.getValue();
-            SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
-            TableRowConverter rowConverter = new TableRowConverterImpl(schemaRegistry, schemaDescriptor, tableDescriptor);
-            InternalTable internalTable = table.getKey();
-            ScannableTable scannableTable = new ScannableTableImpl(internalTable, rowConverter, tableDescriptor);
-
-            UpdatableTableImpl updatableTable = new UpdatableTableImpl(tableId, tableDescriptor, internalTable.partitions(),
-                    replicaService, clock, rowConverter, schemaDescriptor);
-
-            return new ExecutableTableImpl(scannableTable, updatableTable);
-        });
     }
 
     private static final class ExecutableTableImpl implements ExecutableTable {

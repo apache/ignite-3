@@ -82,7 +82,7 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
                 int tableId = igniteTable.id();
                 TableDescriptor tableDescriptor = igniteTable.descriptor();
 
-                tableMap.computeIfAbsent(tableId, (id) -> registry.getTable(tableId, tableDescriptor));
+                tableMap.computeIfAbsent(tableId, (id) -> registry.getTable((int) schemaVersion, tableId, tableDescriptor));
             }
         };
 

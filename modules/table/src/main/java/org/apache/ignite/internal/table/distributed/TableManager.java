@@ -1236,14 +1236,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param causalityToken Causality token.
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distributed zone descriptor.
-     * @param indexesToWait
+     * @param tableIndexes Ids of indexes belongs to the table.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<?> createTableLocally(
             long causalityToken,
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
-            int[] indexesToWait,
+            int[] tableIndexes,
             List<Set<Assignment>> assignments
     ) {
         String tableName = tableDescriptor.name();
@@ -1264,7 +1264,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         var table = new TableImpl(internalTable, lockMgr);
 
         // TODO: IGNITE-19082 Need another way to wait for indexes
-//        table.addIndexesToWait(indexesToWait);
+        table.addIndexesToWait(tableIndexes);
 
         tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
@@ -1292,8 +1292,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             pendingTables.remove(tableId);
         }));
 
-        createPartsFut
-                .thenRunAsync(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
+        createPartsFut.thenRunAsync(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
 
         // TODO should be reworked in IGNITE-16763
         // We use the event notification future as the result so that dependent components can complete the schema updates.

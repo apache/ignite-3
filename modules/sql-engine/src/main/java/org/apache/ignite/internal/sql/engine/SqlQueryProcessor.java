@@ -250,8 +250,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
 
-        CatalogSqlSchemaManager sqlSchemaManager = new CatalogSqlSchemaManager(catalogManager, 1000);
-        this.sqlSchemaManager = sqlSchemaManager;
+        sqlSchemaManager = new CatalogSqlSchemaManager(catalogManager, 1000);
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
