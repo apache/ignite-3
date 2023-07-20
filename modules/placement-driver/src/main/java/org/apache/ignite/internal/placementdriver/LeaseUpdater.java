@@ -195,14 +195,14 @@ public class LeaseUpdater {
 
         stateActorLock.block();
 
+        leaseNegotiator = null;
+
         //TODO: IGNITE-18879 Implement lease maintenance.
         if (updaterTread != null) {
             updaterTread.interrupt();
 
             updaterTread = null;
         }
-
-        leaseNegotiator = null;
     }
 
     /**
