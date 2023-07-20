@@ -205,18 +205,6 @@ public class Accumulators {
             super.add(args);
         }
 
-        /** {@inheritDoc} */
-        @Override public void apply(Accumulator other) {
-            if (((SingleVal) other).touched) {
-                if (touched) {
-                    throw new IllegalArgumentException("Subquery returned more than 1 value.");
-                } else {
-                    touched = true;
-                }
-            }
-
-            super.apply(other);
-        }
     }
 
     /**
@@ -235,14 +223,6 @@ public class Accumulators {
 
             if (holder == null) {
                 holder = args[0];
-            }
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void apply(Accumulator other) {
-            if (holder == null) {
-                holder = ((AnyVal) other).holder;
             }
         }
 
@@ -291,15 +271,6 @@ public class Accumulators {
 
         /** {@inheritDoc} */
         @Override
-        public void apply(Accumulator other) {
-            DecimalAvg other0 = (DecimalAvg) other;
-
-            sum = sum.add(other0.sum);
-            cnt = cnt.add(other0.cnt);
-        }
-
-        /** {@inheritDoc} */
-        @Override
         public Object end() {
             return cnt.compareTo(BigDecimal.ZERO) == 0 ? null : sum.divide(cnt, MathContext.DECIMAL64);
         }
@@ -343,15 +314,6 @@ public class Accumulators {
 
         /** {@inheritDoc} */
         @Override
-        public void apply(Accumulator other) {
-            DoubleAvg other0 = (DoubleAvg) other;
-
-            sum += other0.sum;
-            cnt += other0.cnt;
-        }
-
-        /** {@inheritDoc} */
-        @Override
         public Object end() {
             return cnt > 0 ? sum / cnt : null;
         }
@@ -382,13 +344,6 @@ public class Accumulators {
             if (nullOrEmpty(args) || args[0] != null) {
                 cnt++;
             }
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void apply(Accumulator other) {
-            LongCount other0 = (LongCount) other;
-            cnt += other0.cnt;
         }
 
         /** {@inheritDoc} */
@@ -430,18 +385,6 @@ public class Accumulators {
         }
 
         /** {@inheritDoc} */
-        @Override public void apply(Accumulator other) {
-            Sum other0 = (Sum) other;
-
-            if (other0.empty) {
-                return;
-            }
-
-            empty = false;
-            acc.apply(other0.acc);
-        }
-
-        /** {@inheritDoc} */
         @Override public Object end() {
             return empty ? null : acc.end();
         }
@@ -472,14 +415,6 @@ public class Accumulators {
             }
 
             sum += in;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void apply(Accumulator other) {
-            DoubleSumEmptyIsZero other0 = (DoubleSumEmptyIsZero) other;
-
-            sum += other0.sum;
         }
 
         /** {@inheritDoc} */
@@ -520,14 +455,6 @@ public class Accumulators {
 
         /** {@inheritDoc} */
         @Override
-        public void apply(Accumulator other) {
-            LongSumEmptyIsZero other0 = (LongSumEmptyIsZero) other;
-
-            sum += other0.sum;
-        }
-
-        /** {@inheritDoc} */
-        @Override
         public Object end() {
             return sum;
         }
@@ -560,14 +487,6 @@ public class Accumulators {
             }
 
             sum = sum == null ? in : sum.add(in);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void apply(Accumulator other) {
-            DecimalSumEmptyIsZero other0 = (DecimalSumEmptyIsZero) other;
-
-            sum = sum == null ? other0.sum : sum.add(other0.sum);
         }
 
         /** {@inheritDoc} */
@@ -621,13 +540,6 @@ public class Accumulators {
             Comparable in = (Comparable) args[0];
 
             doApply(in);
-        }
-
-        /** {@inheritDoc} **/
-        @Override
-        public void apply(Accumulator other) {
-            MinMaxAccumulator other0 = (MinMaxAccumulator) other;
-            doApply(other0.val);
         }
 
         /** {@inheritDoc} **/
@@ -694,22 +606,6 @@ public class Accumulators {
             val = empty ? in : min
                     ? (CharSeqComparator.INSTANCE.compare(val, in) < 0 ? val : in) :
                     (CharSeqComparator.INSTANCE.compare(val, in) < 0 ? in : val);
-
-            empty = false;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void apply(Accumulator other) {
-            VarCharMinMax other0 = (VarCharMinMax) other;
-
-            if (other0.empty) {
-                return;
-            }
-
-            val = empty ? other0.val : min
-                    ? (CharSeqComparator.INSTANCE.compare(val, other0.val) < 0 ? val : other0.val) :
-                    (CharSeqComparator.INSTANCE.compare(val, other0.val) < 0 ? other0.val : val);
 
             empty = false;
         }
@@ -793,22 +689,6 @@ public class Accumulators {
 
         /** {@inheritDoc} */
         @Override
-        public void apply(Accumulator other) {
-            VarBinaryMinMax other0 = (VarBinaryMinMax) other;
-
-            if (other0.empty) {
-                return;
-            }
-
-            val = empty ? other0.val : min
-                    ? (val.compareTo(other0.val) < 0 ? val : other0.val)
-                    : (val.compareTo(other0.val) < 0 ? other0.val : val);
-
-            empty = false;
-        }
-
-        /** {@inheritDoc} */
-        @Override
         public Object end() {
             return empty ? null : val;
         }
@@ -846,14 +726,6 @@ public class Accumulators {
             }
 
             set.add(in);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void apply(Accumulator other) {
-            DistinctAccumulator other0 = (DistinctAccumulator) other;
-
-            set.addAll(other0.set);
         }
 
         /** {@inheritDoc} */

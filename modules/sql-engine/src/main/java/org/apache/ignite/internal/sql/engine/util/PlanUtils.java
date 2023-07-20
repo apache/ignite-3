@@ -67,11 +67,6 @@ public class PlanUtils {
 
     /** Converts a list of accumulators for map phase to a list accumulators for reduce phase. */
     public static List<AggregateCall> convertAggsForReduce(List<AggregateCall> calls, List<ImmutableBitSet> groupSets) {
-
-        if (!AggregateRow.ENABLED) {
-            return calls;
-        }
-
         Mapping mapping = AggregateRow.computeFieldMapping(groupSets, AggregateType.REDUCE);
         int argumentsOffset = mapping.getTargetCount();
         List<AggregateCall> result = new ArrayList<>(calls.size());

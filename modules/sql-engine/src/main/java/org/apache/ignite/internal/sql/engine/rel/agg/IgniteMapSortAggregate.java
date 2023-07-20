@@ -31,8 +31,6 @@ import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
@@ -124,27 +122,9 @@ public class IgniteMapSortAggregate extends IgniteMapAggregateBase implements Ig
     /** {@inheritDoc} */
     @Override
     protected RelDataType deriveRowType() {
-        if (!AggregateRow.ENABLED) {
-            RelDataTypeFactory typeFactory = Commons.typeFactory(getCluster());
+        IgniteTypeFactory typeFactory = Commons.typeFactory(getCluster());
 
-            RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
-
-            groupSet.forEach(fieldIdx -> {
-                RelDataTypeField fld = input.getRowType().getFieldList().get(fieldIdx);
-
-                builder.add(fld);
-            });
-
-            if (!aggCalls.isEmpty()) {
-                builder.add("AGG_DATA", typeFactory.createArrayType(typeFactory.createJavaType(Object.class/*Accumulator.class*/), -1));
-            }
-
-            return builder.build();
-        } else {
-            IgniteTypeFactory typeFactory = Commons.typeFactory(getCluster());
-
-            return AggregateRow.createSortRowType(groupSet, typeFactory, input.getRowType(), aggCalls);
-        }
+        return AggregateRow.createSortRowType(groupSet, typeFactory, input.getRowType(), aggCalls);
     }
 
     /** {@inheritDoc} */
@@ -157,9 +137,5 @@ public class IgniteMapSortAggregate extends IgniteMapAggregateBase implements Ig
     @Override
     public RelCollation collation() {
         return collation;
-    }
-
-    public List<AggregateCall> aggregateCalls() {
-        return aggCalls;
     }
 }

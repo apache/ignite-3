@@ -38,12 +38,10 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
  * Per group/grouping set row that contains state of accumulators.
  */
 public final class AggregateRow<RowT> {
-
-    public static volatile boolean ENABLED = true;
-
+    /** A placeholder of absent group id. */
     public static final byte NO_GROUP_ID = -1;
 
-    public final List<AccumulatorWrapper<RowT>> accs;
+    private final List<AccumulatorWrapper<RowT>> accs;
 
     private final AggregateType type;
 

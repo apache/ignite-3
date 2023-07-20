@@ -25,11 +25,4 @@ public interface AccumulatorWrapper<RowT> {
     void add(RowT row);
 
     Object end();
-
-    @Deprecated(forRemoval = true)
-    void apply(Accumulator accumulator);
-
-    @Deprecated(forRemoval = true)
-    Accumulator accumulator();
-
 }

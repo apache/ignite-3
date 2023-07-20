@@ -28,11 +28,8 @@ import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulator;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -91,20 +88,7 @@ public class IgniteMapHashAggregate extends IgniteMapAggregateBase implements Ig
     protected RelDataType deriveRowType() {
         IgniteTypeFactory typeFactory = (IgniteTypeFactory) getCluster().getTypeFactory();
 
-        if (!AggregateRow.ENABLED) {
-            RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
-
-            builder.add("GROUP_ID", typeFactory.createJavaType(byte.class));
-            builder.add("GROUP_KEY", typeFactory.createJavaType(GroupKey.class));
-
-            if (!aggCalls.isEmpty()) {
-                builder.add("AGG_DATA", typeFactory.createArrayType(typeFactory.createJavaType(Accumulator.class), -1));
-            }
-
-            return builder.build();
-        } else {
-            return AggregateRow.createHashRowType(groupSets, typeFactory, input.getRowType(), aggCalls);
-        }
+        return AggregateRow.createHashRowType(groupSets, typeFactory, input.getRowType(), aggCalls);
     }
 
     /** {@inheritDoc} */

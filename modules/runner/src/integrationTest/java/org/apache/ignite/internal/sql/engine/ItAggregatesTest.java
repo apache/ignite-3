@@ -25,7 +25,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
@@ -499,19 +498,6 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("rulesForGroupingSets")
-    public void testGroupingSetsOld(String[] rules) {
-        boolean b = AggregateRow.ENABLED;
-        AggregateRow.ENABLED = false;
-
-        try {
-            testGroupingSets(rules);
-        } finally {
-            AggregateRow.ENABLED = b;
-        }
-    }
-
-    @ParameterizedTest
-    @MethodSource("rulesForGroupingSets")
     public void testGroupingSets(String[] rules) {
         try {
             sql("CREATE TABLE test1 (id INTEGER PRIMARY KEY, str_col VARCHAR, int_col INTEGER);");
@@ -543,7 +529,7 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("rulesForGroupingSets")
-    public void testGroupingSetsMultiple(String[] rules) {
+    public void testDuplicateGroupingSets(String[] rules) {
         try {
             sql("CREATE TABLE test1 (id INTEGER PRIMARY KEY, str_col VARCHAR, int_col INTEGER);");
             sql("INSERT INTO test1 VALUES (1, 's1', 10)");

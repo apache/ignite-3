@@ -306,19 +306,5 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             return outAdapter.apply(accumulator.end());
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public void apply(Accumulator accumulator) {
-            assert type == AggregateType.REDUCE;
-
-            this.accumulator.apply(accumulator);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Accumulator accumulator() {
-            return accumulator;
-        }
-
     }
 }
