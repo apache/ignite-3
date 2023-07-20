@@ -17,18 +17,23 @@
 
 package org.apache.ignite.internal.cli.call.connect;
 
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import io.micronaut.http.HttpStatus;
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import java.util.Objects;
+import java.util.Optional;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
+import org.apache.ignite.internal.cli.config.ConfigManager;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
 import org.apache.ignite.internal.cli.core.JdbcUrlFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.exception.handler.IgniteCliApiExceptionHandler;
 import org.apache.ignite.internal.cli.core.repl.Session;
@@ -47,28 +52,27 @@ import org.jetbrains.annotations.Nullable;
  * Call for connect to Ignite 3 node. As a result {@link Session} will hold a valid node-url.
  */
 @Singleton
-public class ConnectCall implements Call<UrlCallInput, String> {
-    private final Session session;
+public class ConnectCall implements Call<ConnectCallInput, String> {
+    @Inject
+    private Session session;
 
-    private final StateConfigProvider stateConfigProvider;
+    @Inject
+    private StateConfigProvider stateConfigProvider;
 
-    private final ApiClientFactory clientFactory;
+    @Inject
+    private ApiClientFactory clientFactory;
 
-    private final JdbcUrlFactory jdbcUrlFactory;
+    @Inject
+    private JdbcUrlFactory jdbcUrlFactory;
+
+    @Inject
+    private ConfigManagerProvider configManagerProvider;
 
     /**
      * Constructor.
      */
-    public ConnectCall(Session session, StateConfigProvider stateConfigProvider, ApiClientFactory clientFactory,
-            JdbcUrlFactory jdbcUrlFactory) {
-        this.session = session;
-        this.stateConfigProvider = stateConfigProvider;
-        this.clientFactory = clientFactory;
-        this.jdbcUrlFactory = jdbcUrlFactory;
-    }
-
     @Override
-    public CallOutput<String> execute(UrlCallInput input) {
+    public CallOutput<String> execute(ConnectCallInput input) {
         String nodeUrl = input.getUrl();
         SessionInfo sessionInfo = session.info();
         if (sessionInfo != null && Objects.equals(sessionInfo.nodeUrl(), nodeUrl)) {
@@ -76,7 +80,7 @@ public class ConnectCall implements Call<UrlCallInput, String> {
             return DefaultCallOutput.success(message.render());
         }
         try {
-            String username = getAuthenticatedUsername(nodeUrl);
+            String username = getAuthenticatedUsername(nodeUrl, input.getUsername(), input.getPassword());
             String configuration = fetchNodeConfiguration(nodeUrl);
             stateConfigProvider.get().setProperty(CliConfigKeys.LAST_CONNECTED_URL.value(), nodeUrl);
 
@@ -102,10 +106,11 @@ public class ConnectCall implements Call<UrlCallInput, String> {
      * @throws ApiException If fails to call an API.
      */
     @Nullable
-    private String getAuthenticatedUsername(String nodeUrl) throws ApiException {
+    private String getAuthenticatedUsername(String nodeUrl, @Nullable String inputUsername, @Nullable String inputPassword)
+            throws ApiException {
         // Try without authentication first to check whether the authentication is enabled on the cluster.
         String username = clientFactory.basicAuthenticationUsername();
-        if (!nullOrBlank(username)) {
+        if (!nullOrBlank(username) || !nullOrBlank(inputUsername)) {
             try {
                 new NodeConfigurationApi(clientFactory.getClientWithoutBasicAuthentication(nodeUrl)).getNodeConfiguration();
                 return null;
@@ -113,8 +118,31 @@ public class ConnectCall implements Call<UrlCallInput, String> {
                 if (e.getCause() == null) {
                     Problem problem = IgniteCliApiExceptionHandler.extractProblem(e);
                     if (problem.getStatus() == HttpStatus.UNAUTHORIZED.getCode()) {
-                        new NodeConfigurationApi(clientFactory.getClient(nodeUrl)).getNodeConfiguration();
-                        return username;
+                        ConfigManager configManager = configManagerProvider.get();
+                        String storedUsername = configManager.getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value());
+                        String storedPassword = configManager.getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value());
+                        //Use passed username/password instead of stored in configuration
+                        if (!nullOrBlank(inputUsername) && !nullOrBlank(inputPassword)) {
+                            configManager.setProperty(BASIC_AUTHENTICATION_USERNAME.value(), inputUsername);
+                            configManager.setProperty(BASIC_AUTHENTICATION_PASSWORD.value(), inputPassword);
+                        }
+                        try {
+                            new NodeConfigurationApi(clientFactory.getClient(nodeUrl)).getNodeConfiguration();
+                            return clientFactory.basicAuthenticationUsername();
+                        } catch (ApiException ex) {
+                            // restore initial username/password from config in case of authentication failure
+                            if (e.getCause() == null) {
+                                problem = IgniteCliApiExceptionHandler.extractProblem(e);
+                                if (problem.getStatus() == HttpStatus.UNAUTHORIZED.getCode()) {
+                                    Optional.ofNullable(storedUsername).ifPresentOrElse(
+                                            user -> configManager.setProperty(BASIC_AUTHENTICATION_USERNAME.value(), user),
+                                            () -> configManager.removeCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value()));
+                                    Optional.ofNullable(storedPassword).ifPresentOrElse(
+                                            user -> configManager.setProperty(BASIC_AUTHENTICATION_PASSWORD.value(), user),
+                                            () -> configManager.removeCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value()));
+                                }
+                            }
+                        }
                     }
                 }
                 throw e;

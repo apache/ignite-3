@@ -22,10 +22,13 @@ import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManage
 import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.readClusterConfigurationWithEnabledAuth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.cli.commands.ItConnectToClusterTestBase;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
+import org.apache.ignite.internal.cli.config.CliConfigKeys.Constants;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTestBase {
@@ -98,5 +101,126 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         );
         // And prompt is still disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+    }
+
+    @Test
+    @DisplayName("Should connect to cluster with username/password")
+    void connectWithAuthenticationParameters() {
+        // Given basic authentication is NOT configured in config file
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig());
+
+        // Given prompt before connect
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // When connect with auth parameters
+        //execute("connect", nodeName(), "--username", "admin1", "--password", "password1");
+
+        execute("connect", "--username", "admin", "--password", "password");
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Connected to http://localhost:10300")
+        );
+
+        // And prompt shows user name and node name
+        assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
+    }
+
+    @Test
+    @DisplayName("Should NOT connect to cluster with incorrect password")
+    void connectWithWrongAuthenticationParameters() {
+        // Given basic authentication is NOT configured in config file
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig());
+
+        // Given prompt before connect
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // When connect with auth parameters
+        execute("connect", "--username", "admin", "--password", "wrong-password");
+
+        // Then
+        assertAll(
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputIs("Authentication error" + System.lineSeparator()
+                        + "Could not connect to node with URL http://localhost:10300. Check authentication configuration"
+                        + System.lineSeparator())
+        );
+        // And prompt is still disconnected
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+    }
+
+    @Test
+    void connectFailIfPasswordNotDefined() {
+        // Given basic authentication is NOT configured in config file
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig());
+
+        // Given prompt before connect
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // When connect with auth parameters
+        //execute("connect", nodeName(), "--username", "admin1", "--password", "password1");
+
+        execute("connect", "--username", "admin", "--password", "");
+
+        // Then
+        assertAll(
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputIs("Authentication error" + System.lineSeparator()
+                        + "Could not connect to node with URL http://localhost:10300. Check authentication configuration"
+                        + System.lineSeparator())
+        );
+        // And prompt is still disconnected
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+    }
+
+    @Test
+    @DisplayName("Should connect to cluster with incorrect password in config but correct in command")
+    void connectWithWrongAuthenticationParametersInConfig() {
+        // Given basic authentication is NOT configured in config file
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
+        // And wrong password is in config
+        configManagerProvider.configManager.setProperty(CliConfigKeys.Constants.BASIC_AUTHENTICATION_PASSWORD, "wrong-password");
+
+        // Given prompt before connect
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // When connect with auth parameters
+        execute("connect", "--username", "admin", "--password", "password");
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Connected to http://localhost:10300")
+        );
+
+        // And prompt shows user name and node name
+        assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
+    }
+
+    @Test
+    @DisplayName("Should restore initial values in config in case of connect failed")
+    void connectWithWrongAuthenticationParametersRestorePreviousCredentials() {
+        // Given basic authentication is NOT configured in config file
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
+
+        // Given prompt before connect
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // When connect with auth parameters
+        execute("connect", "--username", "admin", "--password", "wrong-password");
+
+        // Then
+        assertAll(
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputIs("Authentication error" + System.lineSeparator()
+                        + "Could not connect to node with URL http://localhost:10300. Check authentication configuration"
+                        + System.lineSeparator())
+        );
+        // And prompt is still disconnected
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+        //Previous correct values restored in config
+        assertEquals("admin", configManagerProvider.get().getCurrentProperty(Constants.BASIC_AUTHENTICATION_USERNAME));
+        assertEquals("password", configManagerProvider.get().getCurrentProperty(Constants.BASIC_AUTHENTICATION_PASSWORD));
     }
 }

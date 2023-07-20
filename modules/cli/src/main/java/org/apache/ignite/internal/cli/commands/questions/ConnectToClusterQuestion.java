@@ -22,12 +22,12 @@ import static org.apache.ignite.internal.cli.core.style.component.QuestionUiComp
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import java.util.Objects;
+import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.call.connect.ConnectSslCall;
 import org.apache.ignite.internal.cli.call.connect.SslConfig;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
-import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.core.flow.question.QuestionAskerFactory;
@@ -74,7 +74,7 @@ public class ConnectToClusterQuestion {
                 UiElements.url(defaultUrl)
         );
 
-        return Flows.<Void, UrlCallInput>acceptQuestion(questionUiComponent, () -> new UrlCallInput(defaultUrl))
+        return Flows.<Void, ConnectCallInput>acceptQuestion(questionUiComponent, () -> new ConnectCallInput(defaultUrl, null, null))
                 .then(Flows.fromCall(connectCall))
                 .print()
                 .map(ignored -> sessionNodeUrl());
@@ -136,7 +136,7 @@ public class ConnectToClusterQuestion {
             return;
         }
 
-        Flows.acceptQuestion(question, () -> new UrlCallInput(clusterUrl))
+        Flows.acceptQuestion(question, () -> new ConnectCallInput(clusterUrl, null, null))
                 .then(Flows.fromCall(connectCall))
                 .print()
                 .ifThen(s -> !Objects.equals(clusterUrl, defaultUrl) && session.info() != null,
