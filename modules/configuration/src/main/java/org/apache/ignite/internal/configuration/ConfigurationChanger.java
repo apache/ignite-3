@@ -94,6 +94,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /** Storage trees. */
     private volatile StorageRoots storageRoots;
 
+    /** Future that resolves after the defaults are persisted to the storage. */
     private final CompletableFuture<Void> defaultsPersisted = new CompletableFuture<>();
 
     /** Configuration listener notification counter, must be incremented before each use of {@link #configurationUpdateListener}. */
@@ -260,12 +261,16 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         SuperRoot superRootNoDefaults = superRoot.copy();
 
-        // Workaround for distributed configuration.
         addDefaults(superRoot);
 
         // Validate the restored configuration.
         validateConfiguration(superRoot);
-
+        // We store two configuration roots, one with the defaults set and another one without them.
+        // The root WITH the defaults is used when we calculate who to notify of a configuration change or
+        // when we provide the configuration outside.
+        // The root WITHOUT the defaults is used to calculate which properties to write to the underlying storage,
+        // in other words it allows us to persist the defaults from the code.
+        // After the storage listener fires for the first time both roots are supposed to become equal.
         storageRoots = new StorageRoots(superRootNoDefaults, superRoot, data.changeId());
 
         storage.registerConfigurationListener(configurationStorageListener());
@@ -279,11 +284,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * <p>Specifically, this method runs a check whether there are
      * default values that are not persisted to the storage and writes them if there are any.
      */
-    private CompletableFuture<Void> persistDefaults() {
-        if (storageRoots == null) {
-            throw new ComponentNotStartedException();
-        }
-        return changeInternally(ConfigurationUtil.EMPTY_CFG_SRC, true)
+    private void persistDefaults() {
+        changeInternally(ConfigurationUtil.EMPTY_CFG_SRC, true)
                 .whenComplete((v, e) -> {
                     if (e == null) {
                         defaultsPersisted.complete(null);
@@ -514,6 +516,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * Entry point for configuration changes.
      *
      * @param src Configuration source.
+     * @param onStartup if {@code true} this change is triggered right after startup
      * @return Future that will be completed after changes are written to the storage.
      * @throws ComponentNotStartedException if changer is not started.
      */
@@ -540,6 +543,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      *
      * @param src Configuration source.
      * @param storageRevision Latest storage revision from the metastorage.
+     * @param onStartup if {@code true} this change is triggered right after startup
      * @return Future that will be completed after changes are written to the storage.
      */
     private CompletableFuture<Void> changeInternally0(ConfigurationSource src, long storageRevision, boolean onStartup) {
@@ -569,7 +573,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             Map<String, Serializable> allChanges = createFlattenedUpdatesMap(localRoots.rootsWithoutDefaults, changes);
             if (allChanges.isEmpty() && onStartup) {
-                // We don't want an empty storage update if this is the initialization changer
+                // We don't want an empty storage update if this is the initialization changer.
                 return CompletableFuture.completedFuture(null);
             }
 
