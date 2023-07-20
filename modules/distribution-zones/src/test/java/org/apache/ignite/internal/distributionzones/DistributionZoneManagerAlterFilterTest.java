@@ -21,30 +21,26 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterFilterAndGetRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createMetastorageTopologyListener;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.onUpdateFilter;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.putNodeInLogicalTopologyAndGetRevision;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyPrefix;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -52,7 +48,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Test scenarios when filter of a zone is altered and immediate scale up is triggered.
  */
-public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZoneManagerTest {
+public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZoneManagerTest {
     private static final String ZONE_NAME = "zone1";
 
     private static final int ZONE_ID = 1;
@@ -84,27 +80,6 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
     );
 
     /**
-     * Contains futures that is completed when the filter update listener receive the event with expected zone id.
-     * Mapping of zone id -> future with event revision.
-     */
-    private final ConcurrentHashMap<Integer, CompletableFuture<Long>> zoneChangeFilterRevisions = new ConcurrentHashMap<>();
-
-    /**
-     * Contains futures that is completed when the topology watch listener receive the event with expected logical topology.
-     * Mapping of node names -> future with event revision.
-     */
-    private final ConcurrentHashMap<Set<String>, CompletableFuture<Long>> topologyRevisions = new ConcurrentHashMap<>();
-
-    @BeforeEach
-    void beforeEach() {
-        metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), createMetastorageTopologyListener(topologyRevisions));
-
-        zonesConfiguration.distributionZones().any().filter().listen(onUpdateFilter(zoneChangeFilterRevisions));
-
-        zonesConfiguration.defaultDistributionZone().filter().listen(onUpdateFilter(zoneChangeFilterRevisions));
-    }
-
-    /**
      * Tests that node that was added before altering filter is taken into account after altering of a filter and corresponding
      * immediate scale up.
      *
@@ -130,9 +105,14 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
         // Nodes C and D match the filter.
         String newFilter = "$[?(@.region == 'CN')]";
 
-        long filterRevision = alterFilterAndGetRevision(zoneName, newFilter, distributionZoneManager, zoneChangeFilterRevisions);
+        distributionZoneManager.alterZone(
+                zoneName,
+                new DistributionZoneConfigurationParameters.Builder(zoneName)
+                        .filter(newFilter)
+                        .build()
+        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
-        assertEquals(Set.of(C.name(), D.name()), distributionZoneManager.dataNodes(filterRevision, zoneId));
+        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(C, D), TIMEOUT_MILLIS);
     }
 
     /**
@@ -160,9 +140,14 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
         // No nodes are matching the filter
         String newFilter = "$[?(@.region == 'JP')]";
 
-        long filterRevision = alterFilterAndGetRevision(zoneName, newFilter, distributionZoneManager, zoneChangeFilterRevisions);
+        distributionZoneManager.alterZone(
+                zoneName,
+                new DistributionZoneConfigurationParameters.Builder(zoneName)
+                        .filter(newFilter)
+                        .build()
+        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
-        assertEquals(Set.of(), distributionZoneManager.dataNodes(filterRevision, zoneId));
+        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(), TIMEOUT_MILLIS);
     }
 
     /**
@@ -194,10 +179,15 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
         // Nodes C and D match the filter.
         String newFilter = "$[?(@.region == 'CN')]";
 
-        long filterRevision = alterFilterAndGetRevision(zoneName, newFilter, distributionZoneManager, zoneChangeFilterRevisions);
+        distributionZoneManager.alterZone(
+                zoneName,
+                new DistributionZoneConfigurationParameters.Builder(zoneName)
+                        .filter(newFilter)
+                        .build()
+        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
         // Node C is still in data nodes because altering a filter triggers only immediate scale up.
-        assertEquals(Set.of(C.name(), D.name()), distributionZoneManager.dataNodes(filterRevision, zoneId));
+        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(C, D), TIMEOUT_MILLIS);
 
         // Check that scale down task is still scheduled.
         assertNotNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
@@ -243,14 +233,33 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
         // Nodes C and D and E match the filter.
         String newFilter = "$[?(@.region == 'CN')]";
 
-        long filterRevision = alterFilterAndGetRevision(zoneName, newFilter, distributionZoneManager, zoneChangeFilterRevisions);
+        distributionZoneManager.alterZone(zoneName,
+                new DistributionZoneConfigurationParameters.Builder(zoneName)
+                        .filter(newFilter)
+                        .build()
+        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
         LogicalNode e = new LogicalNode(
                 new ClusterNode("5", "E", new NetworkAddress("localhost", 123)),
                 Map.of("region", "CN", "storage", "HDD", "dataRegionSize", "20")
         );
 
-        assertEquals(Set.of(C.name(), D.name()), distributionZoneManager.dataNodes(filterRevision, zoneId));
+        doAnswer(invocation -> {
+            If iif = invocation.getArgument(0);
+
+            // Emulate a situation when immediate timer was run after filter altering and new node was added, so timer was scheduled.
+            byte[] key = zoneScaleUpChangeTriggerKey(zoneId).bytes();
+
+            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
+                assertNotNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
+
+                topology.putNode(e);
+            }
+            return invocation.callRealMethod();
+        }).when(keyValueStorage).invoke(any(), any());
+
+        // Check that node E, that was added while filter's altering, is not propagated to data nodes.
+        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(C, D), TIMEOUT_MILLIS);
 
         // Assert that scheduled timer was not canceled because of immediate scale up after filter altering.
         assertNotNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
@@ -260,18 +269,12 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
                 new DistributionZoneConfigurationParameters.Builder(zoneName)
                         .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                         .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
+                        .filter(newFilter)
                         .build()
         ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
-        long topologyRevision = putNodeInLogicalTopologyAndGetRevision(
-                e,
-                Set.of(A, B, C, D, e),
-                topology,
-                topologyRevisions
-        );
-
-        // Check that node E, that was added after filter's altering, was added after altering immediate scale up.
-        assertEquals(Set.of(C.name(), D.name(), e.name()), distributionZoneManager.dataNodes(topologyRevision, zoneId));
+        // Check that node E, that was added after filter's altering, was added only after altering immediate scale up.
+        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(C, D, e), TIMEOUT_MILLIS);
     }
 
     /**

@@ -659,6 +659,13 @@ public class DistributionZoneManager implements IgniteComponent {
         });
     }
 
+    /**
+     * Returns the data nodes of the specified zone.
+     *
+     * @param causalityToken Causality token.
+     * @param zoneId Zone id.
+     * @return The latest data nodes.
+     */
     public Set<String> dataNodes(long causalityToken, int zoneId) {
         return causalityDataNodesEngine.dataNodes(causalityToken, zoneId);
     }

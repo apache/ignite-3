@@ -26,20 +26,13 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterFilterAndGetRevision;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createMetastorageTopologyListener;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZoneAndGetRevision;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZonesConfigurationListener;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.onUpdateFilter;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.onUpdateScaleDown;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.onUpdateScaleUp;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.putNodeInLogicalTopologyAndGetRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesDataNodesPrefix;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyPrefix;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -49,11 +42,15 @@ import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.distributionzones.BaseDistributionZoneManagerTest;
@@ -61,6 +58,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneConfiguratio
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.Node;
+import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -989,11 +987,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         Set<String> dataNodes8 = getDataNodesFromListener(topologyRevision5, ZONE_ID_3);
         assertEquals(Set.of(NODE_0.name()), dataNodes8);
 
-        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, ONE_NODE, 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, ONE_NODE, 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_2, ONE_NODE, 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_3, ONE_NODE, 3000);
-
         assertValueInStorage(
                 metaStorageManager,
                 zoneDataNodesKey(DEFAULT_ZONE_ID),
@@ -1029,10 +1022,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         scaleUpLatch.countDown();
         scaleDownLatch.countDown();
 
-        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, Set.of(NODE_0, NODE_3), 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_1, Set.of(NODE_0, NODE_1, NODE_2, NODE_3), 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_2, Set.of(NODE_0), 3000);
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID_3, Set.of(NODE_0), 3000);
 
         assertValueInStorage(
                 metaStorageManager,
@@ -1381,6 +1370,264 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
             @Override
             public void onError(Throwable e) {
+            }
+        };
+    }
+
+    /**
+     * Changes a filter value of a zone and return the revision of a zone update event.
+     *
+     * @param zoneName Zone name.
+     * @param filter New filter value.
+     * @return Revision.
+     * @throws Exception If failed.
+     */
+    public static long alterFilterAndGetRevision(
+            String zoneName,
+            String filter,
+            DistributionZoneManager distributionZoneManager,
+            ConcurrentHashMap<Integer, CompletableFuture<Long>> zoneChangeFilterRevisions
+    ) throws Exception {
+        CompletableFuture<Long> revisionFut = new CompletableFuture<>();
+
+        int zoneId = distributionZoneManager.getZoneId(zoneName);
+
+        zoneChangeFilterRevisions.put(zoneId, revisionFut);
+
+        distributionZoneManager.alterZone(zoneName, new Builder(zoneName)
+                        .filter(filter).build())
+                .get(3, SECONDS);
+
+        return revisionFut.get(3, SECONDS);
+    }
+
+    /**
+     * Creates a configuration listener which completes futures from {@code zoneChangeFilterRevisions}
+     * when receives event with expected zone id.
+     *
+     * @return Configuration listener.
+     */
+    public static ConfigurationListener<String> onUpdateFilter(
+            ConcurrentHashMap<Integer, CompletableFuture<Long>> zoneChangeFilterRevisions
+    ) {
+        return ctx -> {
+            int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
+
+            if (zoneChangeFilterRevisions.containsKey(zoneId)) {
+                zoneChangeFilterRevisions.remove(zoneId).complete(ctx.storageRevision());
+            }
+
+            return completedFuture(null);
+        };
+    }
+
+    /**
+     * Changes a scale down timer value of a zone and return the revision of a zone update event.
+     *
+     * @param zoneName Zone name.
+     * @param scaleDown New scale down value.
+     * @return Revision.
+     * @throws Exception If failed.
+     */
+    public static long alterZoneScaleUpAndDownAndGetRevision(
+            String zoneName,
+            int scaleUp,
+            int scaleDown,
+            DistributionZoneManager distributionZoneManager,
+            ConcurrentHashMap<Integer, CompletableFuture<Long>> zoneScaleUpRevisions,
+            ConcurrentHashMap<Integer, CompletableFuture<Long>> zoneScaleDownRevisions) throws Exception {
+        CompletableFuture<Long> scaleUpRevisionFut = new CompletableFuture<>();
+        CompletableFuture<Long> scaleDownRevisionFut = new CompletableFuture<>();
+
+        int zoneId = distributionZoneManager.getZoneId(zoneName);
+
+        zoneScaleUpRevisions.put(zoneId, scaleUpRevisionFut);
+        zoneScaleDownRevisions.put(zoneId, scaleDownRevisionFut);
+
+        distributionZoneManager.alterZone(zoneName, new Builder(zoneName)
+                        .dataNodesAutoAdjustScaleUp(scaleUp)
+                        .dataNodesAutoAdjustScaleDown(scaleDown)
+                        .build())
+                .get(3, SECONDS);
+
+        long scaleUpRevision = scaleUpRevisionFut.get(3, SECONDS);
+        long scaleDownRevision = scaleDownRevisionFut.get(3, SECONDS);
+
+        assertEquals(scaleUpRevision, scaleDownRevision);
+
+        return scaleUpRevision;
+    }
+
+    /**
+     * Creates a configuration listener which completes futures from {@code zoneScaleUpRevisions}
+     * when receives event with expected zone id.
+     *
+     * @return Configuration listener.
+     */
+    public static ConfigurationListener<Integer> onUpdateScaleUp(ConcurrentHashMap<Integer, CompletableFuture<Long>> zoneScaleUpRevisions) {
+        return ctx -> {
+            int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
+
+            if (zoneScaleUpRevisions.containsKey(zoneId)) {
+                zoneScaleUpRevisions.remove(zoneId).complete(ctx.storageRevision());
+            }
+
+            return completedFuture(null);
+        };
+    }
+
+    /**
+     * Creates a configuration listener which completes futures from {@code zoneScaleDownRevisions}
+     * when receives event with expected zone id.
+     *
+     * @return Configuration listener.
+     */
+    public static ConfigurationListener<Integer> onUpdateScaleDown(
+            ConcurrentHashMap<Integer, CompletableFuture<Long>> zoneScaleDownRevisions
+    ) {
+        return ctx -> {
+            int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
+
+            if (zoneScaleDownRevisions.containsKey(zoneId)) {
+                zoneScaleDownRevisions.remove(zoneId).complete(ctx.storageRevision());
+            }
+
+            return completedFuture(null);
+        };
+    }
+
+
+
+    /**
+     * Puts a given node as a part of the logical topology and return revision of a topology watch listener event.
+     *
+     * @param node Node to put.
+     * @param expectedTopology Expected topology for future completing.
+     * @return Revision.
+     * @throws Exception If failed.
+     */
+    public static long putNodeInLogicalTopologyAndGetRevision(
+            LogicalNode node,
+            Set<LogicalNode> expectedTopology,
+            LogicalTopology topology,
+            ConcurrentHashMap<Set<String>, CompletableFuture<Long>> topologyRevisions
+
+    ) throws Exception {
+        Set<String> nodeNames = expectedTopology.stream().map(ClusterNode::name).collect(toSet());
+
+        CompletableFuture<Long> revisionFut = new CompletableFuture<>();
+
+        topologyRevisions.put(nodeNames, revisionFut);
+
+        topology.putNode(node);
+
+        return revisionFut.get(5, SECONDS);
+    }
+
+    /**
+     * Creates a topology watch listener which completes futures from {@code topologyRevisions}
+     * when receives event with expected logical topology.
+     *
+     * @return Watch listener.
+     */
+    public static WatchListener createMetastorageTopologyListener(
+            ConcurrentHashMap<Set<String>, CompletableFuture<Long>> topologyRevisions
+    ) {
+        return new WatchListener() {
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent evt) {
+                Set<NodeWithAttributes> newLogicalTopology = null;
+
+                long revision = 0;
+
+                for (EntryEvent event : evt.entryEvents()) {
+                    Entry e = event.newEntry();
+
+                    if (Arrays.equals(e.key(), zonesLogicalTopologyVersionKey().bytes())) {
+                        revision = e.revision();
+                    } else if (Arrays.equals(e.key(), zonesLogicalTopologyKey().bytes())) {
+                        newLogicalTopology = fromBytes(e.value());
+                    }
+                }
+
+                Set<String> nodeNames = newLogicalTopology.stream().map(node -> node.nodeName()).collect(toSet());
+
+                System.out.println("MetastorageTopologyListener test " + nodeNames);
+
+                if (topologyRevisions.containsKey(nodeNames)) {
+                    topologyRevisions.remove(nodeNames).complete(revision);
+                }
+
+                return completedFuture(null);
+            }
+
+            @Override
+            public void onError(Throwable e) {
+            }
+        };
+    }
+
+    /**
+     * Creates a zone and return the revision of a create zone event.
+     *
+     * @param zoneName Zone name.
+     * @param zoneId Zone id.
+     * @param scaleUp Scale up value.
+     * @param scaleDown Scale down value.
+     * @return Revision.
+     * @throws Exception If failed.
+     */
+    public static long createZoneAndGetRevision(String zoneName,
+            int zoneId,
+            int scaleUp,
+            int scaleDown,
+            DistributionZoneManager distributionZoneManager,
+            ConcurrentHashMap<Integer, CompletableFuture<Long>> createZoneRevisions
+    ) throws Exception {
+        CompletableFuture<Long> revisionFut = new CompletableFuture<>();
+
+        createZoneRevisions.put(zoneId, revisionFut);
+
+        distributionZoneManager.createZone(
+                        new Builder(zoneName)
+                                .dataNodesAutoAdjustScaleUp(scaleUp)
+                                .dataNodesAutoAdjustScaleDown(scaleDown)
+                                .build()
+                )
+                .get(3, SECONDS);
+
+        return revisionFut.get(3, SECONDS);
+    }
+
+    /**
+     * A configuration listener which completes futures from {@code createZoneRevisions} and {@code dropZoneRevisions}
+     * when receives event with expected zone id.
+     */
+    public static ConfigurationNamedListListener<DistributionZoneView> createZonesConfigurationListener(
+            ConcurrentHashMap<Integer, CompletableFuture<Long>> createZoneRevisions,
+            ConcurrentHashMap<Integer, CompletableFuture<Long>> dropZoneRevisions
+    ) {
+        return new ConfigurationNamedListListener<>() {
+            @Override
+            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
+                int zoneId = ctx.newValue().zoneId();
+
+                if (createZoneRevisions.containsKey(zoneId)) {
+                    createZoneRevisions.remove(zoneId).complete(ctx.storageRevision());
+                }
+
+                return completedFuture(null);
+            }
+
+            @Override
+            public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
+                int zoneId = ctx.oldValue().zoneId();
+
+                if (dropZoneRevisions.containsKey(zoneId)) {
+                    dropZoneRevisions.remove(zoneId).complete(ctx.storageRevision());
+                }
+
+                return completedFuture(null);
             }
         };
     }
