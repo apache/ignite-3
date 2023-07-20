@@ -274,28 +274,60 @@ public class CausalityDataNodesEngine {
     private IgniteBiTuple<Long, Long> getRevisionsOfLastScaleUpAndScaleDownEvents(
             long causalityToken,
             int zoneId) {
-        IgniteBiTuple<Long, Long> scaleUpAndScaleDownConfigRevisions = getLastScaleUpAndScaleDownConfigRevisions(causalityToken, zoneId);
+        long scaleUpConfigRevision = getLastScaleUpConfigRevision(causalityToken, zoneId);
+        long scaleDownConfigRevision = getLastScaleDownConfigRevision(causalityToken, zoneId);
 
         IgniteBiTuple<Long, Long> scaleUpAndScaleDownTopologyRevisions =
                 getLastScaleUpAndScaleDownTopologyRevisions(causalityToken, zoneId);
 
-        long lastScaleUpRevision = max(scaleUpAndScaleDownConfigRevisions.get1(), scaleUpAndScaleDownTopologyRevisions.get1());
+        long lastScaleUpRevision = max(scaleUpConfigRevision, scaleUpAndScaleDownTopologyRevisions.get1());
 
-        long lastScaleDownRevision = max(scaleUpAndScaleDownConfigRevisions.get2(), scaleUpAndScaleDownTopologyRevisions.get2());
+        long lastScaleDownRevision = max(scaleDownConfigRevision, scaleUpAndScaleDownTopologyRevisions.get2());
 
         return new IgniteBiTuple<>(lastScaleUpRevision, lastScaleDownRevision);
     }
 
     /**
-     * Get revisions of the latest configuration change events which trigger immediate recalculation of the data nodes value.
+     * Get revision of the latest configuration change event which triggers immediate scale up recalculation of the data nodes value.
      *
      * @param causalityToken causalityToken.
      * @param zoneId zoneId.
-     * @return Revisions.
+     * @return Revision.
      */
-    private IgniteBiTuple<Long, Long> getLastScaleUpAndScaleDownConfigRevisions(
+    private long getLastScaleUpConfigRevision(
             long causalityToken,
             int zoneId
+    ) {
+        return getLastConfigRevision(causalityToken, zoneId, true);
+    }
+
+    /**
+     * Get revision of the latest configuration change event which triggers immediate scale down recalculation of the data nodes value.
+     *
+     * @param causalityToken causalityToken.
+     * @param zoneId zoneId.
+     * @return Revision.
+     */
+    private long getLastScaleDownConfigRevision(
+            long causalityToken,
+            int zoneId
+    ) {
+        return getLastConfigRevision(causalityToken, zoneId, false);
+    }
+
+    /**
+     * Get revision of the latest configuration change event which trigger immediate scale up or scale down recalculation
+     * of the data nodes value.
+     *
+     * @param causalityToken causalityToken.
+     * @param zoneId zoneId.
+     * @param isScaleUp isScaleUp.
+     * @return Revision.
+     */
+    private long getLastConfigRevision(
+            long causalityToken,
+            int zoneId,
+            boolean isScaleUp
     ) {
         ConcurrentSkipListMap<Long, ZoneConfiguration> versionedCfg = zonesVersionedCfg.get(zoneId);
 
@@ -304,9 +336,6 @@ public class CausalityDataNodesEngine {
 
         Map.Entry<Long, ZoneConfiguration> entryNewerCfg = null;
 
-        long scaleUpRevision = 0;
-        long scaleDownRevision = 0;
-
         // Iterate over zone configurations from newest to oldest.
         while (reversedIterator.hasNext()) {
             Map.Entry<Long, ZoneConfiguration> entryOlderCfg = reversedIterator.next();
@@ -314,47 +343,52 @@ public class CausalityDataNodesEngine {
             ZoneConfiguration olderCfg = entryOlderCfg.getValue();
 
             if (entryNewerCfg != null) {
-                boolean isScaleUpImmediate = entryNewerCfg.getValue().getDataNodesAutoAdjustScaleUp() == IMMEDIATE_TIMER_VALUE;
-                boolean isScaleDownImmediate = entryNewerCfg.getValue().getDataNodesAutoAdjustScaleDown() == IMMEDIATE_TIMER_VALUE;
-
                 ZoneConfiguration newerCfg = entryNewerCfg.getValue();
 
-                if (scaleUpRevision == 0 && olderCfg.getDataNodesAutoAdjustScaleUp() != newerCfg.getDataNodesAutoAdjustScaleUp()
-                        && newerCfg.getDataNodesAutoAdjustScaleUp() == IMMEDIATE_TIMER_VALUE
-                        && isScaleUpImmediate) {
-                    scaleUpRevision = entryNewerCfg.getKey();
+                if (isScaleUp) {
+                    if (isScaleUpRevision(olderCfg, newerCfg)) {
+                        return entryNewerCfg.getKey();
+                    }
+                } else {
+                    if (isScaleDownRevision(olderCfg, newerCfg)) {
+                        return entryNewerCfg.getKey();
+                    }
                 }
-
-                if (scaleDownRevision == 0 && olderCfg.getDataNodesAutoAdjustScaleDown() != newerCfg.getDataNodesAutoAdjustScaleDown()
-                        && newerCfg.getDataNodesAutoAdjustScaleDown() == IMMEDIATE_TIMER_VALUE
-                        && isScaleDownImmediate) {
-                    scaleDownRevision = entryNewerCfg.getKey();
-                }
-
-                if (scaleUpRevision == 0 && !olderCfg.getFilter().equals(newerCfg.getFilter())) {
-                    scaleUpRevision = entryNewerCfg.getKey();
-                }
-            }
-
-            if ((scaleUpRevision > 0) && (scaleDownRevision > 0)) {
-                break;
             }
 
             entryNewerCfg = entryOlderCfg;
         }
 
-        // The case when there is only one configuration in the history.
-        if (entryNewerCfg != null) {
-            if (scaleUpRevision == 0) {
-                scaleUpRevision = entryNewerCfg.getKey();
-            }
+        assert entryNewerCfg != null : "At least one zone configuration must be present .";
 
-            if (scaleDownRevision == 0) {
-                scaleDownRevision = entryNewerCfg.getKey();
-            }
+        // The case when there is only one configuration in the history. This configuration corresponds to the zone creation.
+        return entryNewerCfg.getKey();
+    }
+
+    /**
+     * Check if newer configuration triggers immediate scale up recalculation of the data nodes value.
+     */
+    private static boolean isScaleUpRevision(ZoneConfiguration olderCfg, ZoneConfiguration newerCfg) {
+        if (olderCfg.getDataNodesAutoAdjustScaleUp() != newerCfg.getDataNodesAutoAdjustScaleUp()
+                && newerCfg.getDataNodesAutoAdjustScaleUp() == IMMEDIATE_TIMER_VALUE) {
+            return true;
+        } else if (!olderCfg.getFilter().equals(newerCfg.getFilter())) {
+            return true;
         }
 
-        return new IgniteBiTuple<>(scaleUpRevision, scaleDownRevision);
+        return false;
+    }
+
+    /**
+     * Check if newer configuration triggers immediate scale down recalculation of the data nodes value.
+     */
+    private static boolean isScaleDownRevision(ZoneConfiguration olderCfg, ZoneConfiguration newerCfg) {
+        if (olderCfg.getDataNodesAutoAdjustScaleDown() != newerCfg.getDataNodesAutoAdjustScaleDown()
+                && newerCfg.getDataNodesAutoAdjustScaleDown() == IMMEDIATE_TIMER_VALUE) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -544,11 +578,12 @@ public class CausalityDataNodesEngine {
      * onCreateOrRestoreZoneState.
      *
      * @param revision revision.
-     * @param zoneId zoneId.
      * @param zoneCreation zoneCreation.
      * @param zone zone.
      */
-    public void onCreateOrRestoreZoneState(long revision, int zoneId, boolean zoneCreation, DistributionZoneView zone) {
+    public void onCreateOrRestoreZoneState(long revision, boolean zoneCreation, DistributionZoneView zone) {
+        int zoneId = zone.zoneId();
+
         if (zoneCreation) {
             ZoneConfiguration zoneConfiguration = new ZoneConfiguration(
                     false,

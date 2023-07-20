@@ -842,7 +842,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         // First creation of a zone, or first call on the manager start for the default zone.
         if (isZoneCreation) {
-            ZoneState zoneState = new ZoneState(executor, zoneId);
+            ZoneState zoneState = new ZoneState(executor);
 
             ZoneState prevZoneState = zonesState.putIfAbsent(zoneId, zoneState);
 
@@ -878,7 +878,7 @@ public class DistributionZoneManager implements IgniteComponent {
             restoreTimers(zone, zoneState, maxScaleUpRevision, maxScaleDownRevision, filterUpdateRevision);
         }
 
-        causalityDataNodesEngine.onCreateOrRestoreZoneState(revision, zoneId, isZoneCreation, zone);
+        causalityDataNodesEngine.onCreateOrRestoreZoneState(revision, isZoneCreation, zone);
     }
 
     /**
@@ -1836,20 +1836,6 @@ public class DistributionZoneManager implements IgniteComponent {
         /** Data nodes. */
         private volatile Set<String> nodes;
 
-        int zoneId;
-
-        /**
-         * Constructor.
-         *
-         * @param executor Executor for scheduling tasks for scale up and scale down processes.
-         */
-        ZoneState(ScheduledExecutorService executor, int zoneId) {
-            this.executor = executor;
-            topologyAugmentationMap = new ConcurrentSkipListMap<>();
-            nodes = emptySet();
-            this.zoneId = zoneId;
-        }
-
         /**
          * Constructor.
          *
@@ -1859,7 +1845,6 @@ public class DistributionZoneManager implements IgniteComponent {
             this.executor = executor;
             topologyAugmentationMap = new ConcurrentSkipListMap<>();
             nodes = emptySet();
-            this.zoneId = zoneId;
         }
 
         /**
@@ -1937,7 +1922,6 @@ public class DistributionZoneManager implements IgniteComponent {
         synchronized void stopScaleUp() {
             if (scaleUpTask != null && scaleUpTaskDelay > 0) {
                 scaleUpTask.cancel(false);
-                System.out.println("stopScaleUp cancel task " + zoneId + " " + scaleUpTaskDelay);
             }
         }
 
@@ -1947,7 +1931,6 @@ public class DistributionZoneManager implements IgniteComponent {
         synchronized void stopScaleDown() {
             if (scaleDownTask != null && scaleDownTaskDelay > 0) {
                 scaleDownTask.cancel(false);
-                System.out.println("stopScaleDown cancel task " + zoneId + " " + scaleDownTaskDelay);
             }
         }
 

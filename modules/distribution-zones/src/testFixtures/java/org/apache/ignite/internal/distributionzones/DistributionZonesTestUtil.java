@@ -620,7 +620,9 @@ public class DistributionZonesTestUtil {
      *
      * @return Configuration listener.
      */
-    public static ConfigurationListener<Integer> onUpdateScaleDown(ConcurrentHashMap<Integer, CompletableFuture<Long>> zoneScaleDownRevisions) {
+    public static ConfigurationListener<Integer> onUpdateScaleDown(
+            ConcurrentHashMap<Integer, CompletableFuture<Long>> zoneScaleDownRevisions
+    ) {
         return ctx -> {
             int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
 
