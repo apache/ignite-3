@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.exp.agg;
+package org.apache.ignite.internal.sql.engine.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -28,21 +28,22 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulator;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link AggregateRow}.
+ * Tests for {@link PlanUtils}.
  */
-public class AggregateRowTest {
+public class PlanUtilsTest {
 
     private final IgniteTypeFactory typeFactory = Commons.typeFactory();
 
     private final Accumulators accumulators = new Accumulators(typeFactory);
 
     @Test
-    public void testHashRowType() {
+    public void testHashAggRowType() {
         RelDataType inputType = new RelDataTypeFactory.Builder(typeFactory)
                 .add("f1", typeFactory.createSqlType(SqlTypeName.INTEGER))
                 .add("f2", typeFactory.createSqlType(SqlTypeName.VARCHAR))
@@ -65,14 +66,14 @@ public class AggregateRowTest {
         ImmutableBitSet group2 = ImmutableBitSet.of(1);
         ImmutableBitSet group3 = ImmutableBitSet.of(3);
 
-        RelDataType rowType = AggregateRow.createHashRowType(List.of(group1, group2, group3), typeFactory,
+        RelDataType rowType = PlanUtils.createHashAggRowType(List.of(group1, group2, group3), typeFactory,
                 inputType, Arrays.asList(call1));
 
         assertEquals(expectedType, rowType);
     }
 
     @Test
-    public void testSortRowType() {
+    public void testSortAggRowType() {
         RelDataType inputType = new RelDataTypeFactory.Builder(typeFactory)
                 .add("f1", typeFactory.createSqlType(SqlTypeName.INTEGER))
                 .add("f2", typeFactory.createSqlType(SqlTypeName.VARCHAR))
@@ -92,7 +93,7 @@ public class AggregateRowTest {
 
         ImmutableBitSet group = ImmutableBitSet.of(0, 1, 3);
 
-        RelDataType rowType = AggregateRow.createSortRowType(group, typeFactory, inputType, Arrays.asList(call1));
+        RelDataType rowType = PlanUtils.createSortAggRowType(group, typeFactory, inputType, Arrays.asList(call1));
         assertEquals(expectedType, rowType);
     }
 

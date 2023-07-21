@@ -32,6 +32,7 @@ import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.util.PlanUtils;
@@ -52,13 +53,15 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
             ScanNode<Object[]> scan
     ) {
         assert grpSets.size() == 1 : "Test checks only simple GROUP BY";
+        Mapping mapping = PlanUtils.computeAggFieldMapping(grpSets, SINGLE);
 
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(
                 ctx,
                 SINGLE,
                 grpSets,
                 accFactory(ctx, call, SINGLE, inRowType),
-                rowFactory
+                rowFactory,
+                mapping
         );
 
         agg.register(scan);
@@ -103,24 +106,28 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
     ) {
         assert grpSets.size() == 1 : "Test checks only simple GROUP BY";
 
+        Mapping mapMapping = PlanUtils.computeAggFieldMapping(grpSets, MAP);
         HashAggregateNode<Object[]> aggMap = new HashAggregateNode<>(
                 ctx,
                 MAP,
                 grpSets,
                 accFactory(ctx, call, MAP, inRowType),
-                rowFactory
+                rowFactory,
+                mapMapping
         );
 
         aggMap.register(scan);
 
         List<AggregateCall> aggregateCalls = PlanUtils.convertAggsForReduce(List.of(call), grpSets);
 
+        Mapping reduceMapping = PlanUtils.computeAggFieldMapping(grpSets, REDUCE);
         HashAggregateNode<Object[]> aggRdc = new HashAggregateNode<>(
                 ctx,
                 REDUCE,
                 grpSets,
                 accFactory(ctx, aggregateCalls.get(0), REDUCE, aggRowType),
-                rowFactory
+                rowFactory,
+                reduceMapping
         );
 
         aggRdc.register(aggMap);

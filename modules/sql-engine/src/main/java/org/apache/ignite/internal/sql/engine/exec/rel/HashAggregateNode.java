@@ -39,7 +39,6 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -75,7 +74,8 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
      */
     public HashAggregateNode(
             ExecutionContext<RowT> ctx, AggregateType type, List<ImmutableBitSet> grpSets,
-            Supplier<List<AccumulatorWrapper<RowT>>> accFactory, RowFactory<RowT> rowFactory) {
+            Supplier<List<AccumulatorWrapper<RowT>>> accFactory, RowFactory<RowT> rowFactory,
+            Mapping fieldMapping) {
 
         super(ctx);
 
@@ -101,7 +101,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         allFields = b.build();
-        mapping = AggregateRow.computeFieldMapping(grpSets, type);
+        this.mapping = fieldMapping;
     }
 
     /** {@inheritDoc} */
@@ -274,8 +274,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         /**
-         * Get rows.
-         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+         * Returns up to {@code cnt} rows collected by the given node group by group.
          *
          * @param cnt Number of rows.
          * @return Actually sent rows number.
@@ -321,7 +320,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 wrappers = accFactory.get();
             }
 
-            return new AggregateRow<>(wrappers, Commons.typeFactory(), type, grpFields, allFields);
+            return new AggregateRow<>(wrappers, type);
         }
 
         private boolean isEmpty() {

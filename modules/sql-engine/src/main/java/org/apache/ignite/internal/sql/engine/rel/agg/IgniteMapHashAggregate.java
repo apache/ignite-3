@@ -29,10 +29,10 @@ import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.PlanUtils;
 
 /**
  * IgniteMapHashAggregate.
@@ -88,7 +88,7 @@ public class IgniteMapHashAggregate extends IgniteMapAggregateBase implements Ig
     protected RelDataType deriveRowType() {
         IgniteTypeFactory typeFactory = (IgniteTypeFactory) getCluster().getTypeFactory();
 
-        return AggregateRow.createHashRowType(groupSets, typeFactory, input.getRowType(), aggCalls);
+        return PlanUtils.createHashAggRowType(groupSets, typeFactory, input.getRowType(), aggCalls);
     }
 
     /** {@inheritDoc} */
