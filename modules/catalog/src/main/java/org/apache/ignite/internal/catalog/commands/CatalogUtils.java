@@ -60,6 +60,7 @@ public class CatalogUtils {
                 id,
                 params.tableName(),
                 zoneId,
+                CatalogTableDescriptor.INITIAL_TABLE_VERSION,
                 params.columns().stream().map(CatalogUtils::fromParams).collect(toList()),
                 params.primaryKeyColumns(),
                 params.colocationColumns()

@@ -89,6 +89,7 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
                                         table.id(),
                                         table.name(),
                                         table.zoneId(),
+                                        table.tableVersion() + 1,
                                         CollectionUtils.concat(table.columns(), descriptors),
                                         table.primaryKeyColumns(),
                                         table.colocationColumns()) : table

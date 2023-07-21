@@ -92,6 +92,7 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
                                                 table.id(),
                                                 table.name(),
                                                 table.zoneId(),
+                                                table.tableVersion() + 1,
                                                 table.columns().stream()
                                                         .map(source -> source.name().equals(column.name()) ? column : source)
                                                         .collect(toList()),
