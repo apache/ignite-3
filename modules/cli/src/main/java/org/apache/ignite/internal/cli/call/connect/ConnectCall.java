@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTI
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import io.micronaut.http.HttpStatus;
-import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import java.util.Objects;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
@@ -51,27 +50,31 @@ import org.jetbrains.annotations.Nullable;
  */
 @Singleton
 public class ConnectCall implements Call<ConnectCallInput, String> {
-    @Inject
-    private Session session;
+    private final Session session;
 
-    @Inject
-    private StateConfigProvider stateConfigProvider;
+    private final StateConfigProvider stateConfigProvider;
 
-    @Inject
-    private ApiClientFactory clientFactory;
+    private final ApiClientFactory clientFactory;
 
-    @Inject
-    private JdbcUrlFactory jdbcUrlFactory;
+    private final JdbcUrlFactory jdbcUrlFactory;
 
-    @Inject
     private ConfigManagerProvider configManagerProvider;
 
     /**
      * Constructor.
      */
+    public ConnectCall(Session session, StateConfigProvider stateConfigProvider, ApiClientFactory clientFactory,
+            JdbcUrlFactory jdbcUrlFactory, ConfigManagerProvider configManagerProvider) {
+        this.session = session;
+        this.stateConfigProvider = stateConfigProvider;
+        this.clientFactory = clientFactory;
+        this.jdbcUrlFactory = jdbcUrlFactory;
+        this.configManagerProvider = configManagerProvider;
+    }
+
     @Override
     public CallOutput<String> execute(ConnectCallInput input) {
-        String nodeUrl = input.getUrl();
+        String nodeUrl = input.url();
         SessionInfo sessionInfo = session.info();
         if (sessionInfo != null && Objects.equals(sessionInfo.nodeUrl(), nodeUrl)) {
             MessageUiComponent message = MessageUiComponent.fromMessage("You are already connected to %s", UiElements.url(nodeUrl));
@@ -82,8 +85,8 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
             sessionInfo = connectWithoutAuthentication(nodeUrl);
             if (sessionInfo == null) {
                 // Try with authentication
-                if (!nullOrBlank(input.getUsername()) && !nullOrBlank(input.getPassword())) {
-                    sessionInfo = connectWithAuthentication(nodeUrl, input.getUsername(), input.getPassword());
+                if (!nullOrBlank(input.username()) && !nullOrBlank(input.password())) {
+                    sessionInfo = connectWithAuthentication(nodeUrl, input.username(), input.password());
                 } else {
                     sessionInfo = connectWithAuthentication(nodeUrl);
                 }

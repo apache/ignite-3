@@ -12,23 +12,54 @@ public class ConnectCallInput implements CallInput {
     @Nullable
     private final String password;
 
-    public ConnectCallInput(String url, @Nullable String username, @Nullable String password) {
+    private ConnectCallInput(String url, @Nullable String username, @Nullable String password) {
         this.url = url;
         this.username = username;
         this.password = password;
     }
 
-    String getUrl() {
+    String url() {
         return url;
     }
 
     @Nullable
-    String getUsername() {
+    String username() {
         return username;
     }
 
     @Nullable
-    String getPassword() {
+    String password() {
         return password;
+    }
+
+    public static class ConnectCallInputBuilder {
+
+        private String url;
+        @Nullable
+        private String username;
+        @Nullable
+        private String password;
+
+        public ConnectCallInputBuilder() {
+        }
+
+        public ConnectCallInputBuilder url(String url) {
+            this.url = url;
+            return this;
+        }
+
+        public ConnectCallInputBuilder username(@Nullable String username) {
+            this.username = username;
+            return this;
+        }
+
+        public ConnectCallInputBuilder password(@Nullable String password) {
+            this.password = password;
+            return this;
+        }
+        
+        public ConnectCallInput build() {
+            return new ConnectCallInput(url, username, password);
+        }
     }
 }

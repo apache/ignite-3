@@ -26,6 +26,7 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import java.util.Objects;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
+import org.apache.ignite.internal.cli.call.connect.ConnectCallInput.ConnectCallInputBuilder;
 import org.apache.ignite.internal.cli.call.connect.ConnectSslCall;
 import org.apache.ignite.internal.cli.call.connect.SslConfig;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
@@ -78,7 +79,8 @@ public class ConnectToClusterQuestion {
                 UiElements.url(defaultUrl)
         );
 
-        return Flows.<Void, ConnectCallInput>acceptQuestion(questionUiComponent, () -> new ConnectCallInput(defaultUrl, null, null))
+        return Flows.<Void, ConnectCallInput>acceptQuestion(questionUiComponent,
+                        () -> new ConnectCallInputBuilder().url(defaultUrl).build())
                 .then(Flows.fromCall(connectCall))
                 .print()
                 .map(ignored -> sessionNodeUrl());
@@ -117,18 +119,21 @@ public class ConnectToClusterQuestion {
      *
      * @param username username.
      * @param password password
-     * @return {@link FlowBuilder} instance which provides result.
      */
     public void askQuestionToStoreCredentials(@Nullable String username, @Nullable String password) {
         if (!nullOrBlank(username) && !nullOrBlank(password)) {
-            QuestionUiComponent question = fromYesNoQuestion(
-                    "Do you want to store username and password in cli configuration config?"
-            );
-            Flows.acceptQuestion(question, () -> {
-                configManagerProvider.get().setProperty(BASIC_AUTHENTICATION_USERNAME.value(), username);
-                configManagerProvider.get().setProperty(BASIC_AUTHENTICATION_PASSWORD.value(), password);
-                return "Config saved";
-            }).print().build().start(Flowable.empty());
+            String storedUsername = configManagerProvider.get().getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value());
+            String storedPassword = configManagerProvider.get().getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value());
+
+            //Ask question only if cli config has different values
+            if (!username.equals(storedUsername) || !password.equals(storedPassword)) {
+                QuestionUiComponent question = fromYesNoQuestion("Remember current credentials?");
+                Flows.acceptQuestion(question, () -> {
+                    configManagerProvider.get().setProperty(BASIC_AUTHENTICATION_USERNAME.value(), username);
+                    configManagerProvider.get().setProperty(BASIC_AUTHENTICATION_PASSWORD.value(), password);
+                    return "Config saved";
+                }).print().build().start(Flowable.empty());
+            }
         }
     }
 
@@ -159,7 +164,7 @@ public class ConnectToClusterQuestion {
             return;
         }
 
-        Flows.acceptQuestion(question, () -> new ConnectCallInput(clusterUrl, null, null))
+        Flows.acceptQuestion(question, () -> new ConnectCallInputBuilder().url(defaultUrl).build())
                 .then(Flows.fromCall(connectCall))
                 .print()
                 .ifThen(s -> !Objects.equals(clusterUrl, defaultUrl) && session.info() != null,

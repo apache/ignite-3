@@ -49,7 +49,7 @@ public class ConnectSslCall implements Call<ConnectCallInput, String> {
                     FlowBuilder<Void, SslConfig> flowBuilder = ConnectToClusterQuestion.askQuestionOnSslError();
                     Flowable<SslConfig> result = flowBuilder.build().start(Flowable.empty());
                     if (result.hasResult()) {
-                        return connectSslConfigCall.execute(new ConnectSslConfigCallInput(input.getUrl(), result.value()));
+                        return connectSslConfigCall.execute(new ConnectSslConfigCallInput(input.url(), result.value()));
                     }
                 }
             }

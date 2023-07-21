@@ -19,16 +19,13 @@ package org.apache.ignite.internal.cli.commands.connect;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OR_NAME_DESC;
-import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
+import org.apache.ignite.internal.cli.call.connect.ConnectCallInput.ConnectCallInputBuilder;
 import org.apache.ignite.internal.cli.call.connect.ConnectSslCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.core.flow.Flow;
-import org.apache.ignite.internal.cli.core.flow.Flowable;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -57,11 +54,14 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
     @Override
     public void run() {
         question.askQuestionIfConnected(nodeNameOrUrl.stringUrl())
-                .map(url -> new ConnectCallInput(url, connectOptions.username(), connectOptions.password()))
+                .map(url -> new ConnectCallInputBuilder().url(url)
+                        .username(connectOptions.username())
+                        .password(connectOptions.password())
+                        .build())
                 .then(Flows.fromCall(connectCall))
+                .onSuccess(() -> question.askQuestionToStoreCredentials(connectOptions.username(), connectOptions.password()))
                 .verbose(verbose)
                 .print()
-                .onSuccess(() -> question.askQuestionToStoreCredentials(connectOptions.username(), connectOptions.password()))
                 .start();
     }
 }

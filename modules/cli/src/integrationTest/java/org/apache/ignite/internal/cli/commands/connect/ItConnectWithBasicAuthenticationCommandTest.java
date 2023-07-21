@@ -106,16 +106,14 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
 
     @Test
     @DisplayName("Should connect to cluster with username/password")
-    void connectWithAuthenticationParameters() {
+    void connectWithAuthenticationParameters() throws IOException {
         // Given basic authentication is NOT configured in config file
-        configManagerProvider.setConfigFile(createIntegrationTestsConfig());
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
 
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
         // When connect with auth parameters
-        //execute("connect", nodeName(), "--username", "admin1", "--password", "password1");
-
         execute("connect", "--username", "admin", "--password", "password");
 
         // Then
@@ -160,8 +158,6 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
         // When connect with auth parameters
-        //execute("connect", nodeName(), "--username", "admin1", "--password", "password1");
-
         execute("connect", "--username", "admin", "--password", "");
 
         // Then
@@ -250,8 +246,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         resetOutput();
         execute("disconnect");
 
-        // And prompt is changed to another node
-        String promptAfter = getPrompt();
-        assertThat(promptAfter).isEqualTo("[" + CLUSTER_NODES.get(1).name() + "]> ");
+        // And prompt shows user name and node name
+        assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
     }
 }

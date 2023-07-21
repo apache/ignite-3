@@ -15,7 +15,6 @@ import picocli.CommandLine.Option;
  */
 public class ConnectOptions {
 
-
     @Option(names = {USERNAME_OPTION, USERNAME_OPTION_SHORT}, description = USERNAME_OPTION_DESC)
     private String username;
 

@@ -24,7 +24,7 @@ import java.net.URL;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.ReplManager;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
-import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
+import org.apache.ignite.internal.cli.call.connect.ConnectCallInput.ConnectCallInputBuilder;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.converters.UrlConverter;
@@ -55,7 +55,11 @@ public class ConnectCommand extends BaseCommand implements Callable<Integer> {
     @Override
     public Integer call() {
         int exitCode = CallExecutionPipeline.builder(connectCall)
-                .inputProvider(() -> new ConnectCallInput(nodeUrl.toString(), connectOptions.username(), connectOptions.password()))
+                .inputProvider(() -> new ConnectCallInputBuilder()
+                        .url(nodeUrl.toString())
+                        .username(connectOptions.username())
+                        .password(connectOptions.password())
+                        .build())
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)

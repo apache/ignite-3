@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.call.connect;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.call.connect.ConnectCallInput.ConnectCallInputBuilder;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
@@ -49,7 +50,7 @@ public class ConnectSslConfigCall implements Call<ConnectSslConfigCallInput, Str
         try {
             checkConnection(input);
             saveConfig(input.getConfig());
-            return connectCall.execute(new ConnectCallInput(input.getUrl(), null, null));
+            return connectCall.execute(new ConnectCallInputBuilder().url(input.getUrl()).build());
         } catch (ApiException e) {
             return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getUrl()));
         }

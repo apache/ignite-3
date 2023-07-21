@@ -261,7 +261,7 @@ public enum Options {
 
         public static final String PASSWORD_OPTION = "--password";
 
-        public static final String PASSWORD_OPTION_SHORT = "--pwd";
+        public static final String PASSWORD_OPTION_SHORT = "--p";
 
         public static final String PASSWORD_OPTION_DESC = "Password to connect to cluster";
 
