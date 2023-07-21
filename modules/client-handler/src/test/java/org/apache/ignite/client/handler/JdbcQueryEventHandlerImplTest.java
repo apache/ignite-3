@@ -123,9 +123,6 @@ class JdbcQueryEventHandlerImplTest {
         JdbcConnectionContext context = resourceRegistry.get(connectionId).get(JdbcConnectionContext.class);
 
         SessionId sessionId = new SessionId(UUID.randomUUID());
-
-        when(queryProcessor.createSession(any())).thenAnswer(inv -> sessionId);
-
         AtomicBoolean shouldThrow = new AtomicBoolean(true);
 
         await(context.doInSession(id -> {
