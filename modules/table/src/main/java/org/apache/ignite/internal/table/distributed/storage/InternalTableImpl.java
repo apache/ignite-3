@@ -396,7 +396,7 @@ public class InternalTableImpl implements InternalTable {
                 .upperBoundPrefix(binaryTupleMessage(upperBound))
                 .flags(flags)
                 .columnsToInclude(columnsToInclude)
-                .full(implicit)
+                .full(implicit) // Intent for one phase commit.
                 .batchSize(batchSize);
 
         if (primaryReplicaAndTerm != null) {
@@ -413,7 +413,7 @@ public class InternalTableImpl implements InternalTable {
             fut = enlistWithRetry(tx, partId, term -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION);
         }
 
-        return postEnlist(fut, false, tx, implicit);
+        return postEnlist(fut, false, tx, false);
     }
 
     private @Nullable BinaryTupleMessage binaryTupleMessage(@Nullable BinaryTupleReader binaryTuple) {
@@ -497,10 +497,10 @@ public class InternalTableImpl implements InternalTable {
      * @return The future.
      */
     private <T> CompletableFuture<T> postEnlist(CompletableFuture<T> fut, boolean autoCommit, InternalTransaction tx0, boolean full) {
-        assert !(autoCommit && full) : "Full txn is expected to be committed in one RTT";
+        assert !(autoCommit && full) : "Invalid combination of flags";
 
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
-            if (full) {
+            if (full) { // Full txn is already finished remotely.
                 // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
                 txManager.changeState(tx0.id(), PENDING, e == null ? COMMITED : ABORTED);
                 return e != null ? failedFuture(wrapReplicationException(e)) : completedFuture(r);
@@ -977,7 +977,7 @@ public class InternalTableImpl implements InternalTable {
                     return replicaSvc.invoke(recipientNode, request);
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
-                Function.identity());
+                (unused, fut) -> fut);
     }
 
     @Override
@@ -1035,7 +1035,7 @@ public class InternalTableImpl implements InternalTable {
                         columnsToInclude,
                         implicit
                 ),
-                fut -> postEnlist(fut, false, tx0, implicit)
+                (full, fut) -> postEnlist(fut, implicit && !full, tx0, implicit && full)
         );
     }
 
@@ -1087,7 +1087,7 @@ public class InternalTableImpl implements InternalTable {
                     return replicaSvc.invoke(recipient.node(), request);
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
-                Function.identity());
+                (unused, fut) -> fut);
     }
 
     /**
@@ -1369,7 +1369,7 @@ public class InternalTableImpl implements InternalTable {
         private final BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch;
 
         /** The closure will be invoked before the cursor closed. */
-        Function<CompletableFuture<Void>, CompletableFuture<Void>> onClose;
+        BiFunction<Boolean, CompletableFuture<Void>, CompletableFuture<Void>> onClose;
 
         /** True when the publisher has a subscriber, false otherwise. */
         private AtomicBoolean subscribed;
@@ -1383,7 +1383,7 @@ public class InternalTableImpl implements InternalTable {
          */
         PartitionScanPublisher(
                 BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch,
-                Function<CompletableFuture<Void>, CompletableFuture<Void>> onClose
+                BiFunction<Boolean, CompletableFuture<Void>, CompletableFuture<Void>> onClose
         ) {
             this.retrieveBatch = retrieveBatch;
             this.onClose = onClose;
@@ -1425,6 +1425,11 @@ public class InternalTableImpl implements InternalTable {
             private static final int INTERNAL_BATCH_SIZE = 10_000;
 
             /**
+             * Set to true if a first batch was loaded.
+             */
+            private volatile boolean first = true;
+
+            /**
              * The constructor.
              * TODO: IGNITE-15544 Close partition scans on node left.
              *
@@ -1441,7 +1446,7 @@ public class InternalTableImpl implements InternalTable {
             @Override
             public void request(long n) {
                 if (n <= 0) {
-                    cancel();
+                    cancel(null, false);
 
                     subscriber.onError(new IllegalArgumentException(IgniteStringFormatter
                             .format("Invalid requested amount of items [requested={}, minValue=1]", n))
@@ -1468,20 +1473,21 @@ public class InternalTableImpl implements InternalTable {
             /** {@inheritDoc} */
             @Override
             public void cancel() {
-                cancel(null);
+                cancel(null, false); // Explicit cancel.
             }
 
             /**
              * After the method is called, a subscriber won't be received updates from the publisher.
              *
              * @param t An exception which was thrown when entries were retrieving from the cursor.
+             * @param full {@code True} if no more data for the scan.
              */
-            public void cancel(Throwable t) {
+            private void cancel(Throwable t, boolean full) {
                 if (!canceled.compareAndSet(false, true)) {
                     return;
                 }
 
-                onClose.apply(t == null ? completedFuture(null) : failedFuture(t)).handle((ignore, th) -> {
+                onClose.apply(full, t == null ? completedFuture(null) : failedFuture(t)).handle((ignore, th) -> {
                     if (th != null) {
                         subscriber.onError(th);
                     } else {
@@ -1504,7 +1510,7 @@ public class InternalTableImpl implements InternalTable {
 
                 retrieveBatch.apply(scanId, n).thenAccept(binaryRows -> {
                     if (binaryRows == null) {
-                        cancel();
+                        cancel(null, false);
 
                         return;
                     } else {
@@ -1514,8 +1520,10 @@ public class InternalTableImpl implements InternalTable {
                     }
 
                     if (binaryRows.size() < n) {
-                        cancel();
+                        cancel(null, first);
                     } else {
+                        first = false;
+
                         long remaining = requestedItemsCnt.addAndGet(Math.negateExact(binaryRows.size()));
 
                         if (remaining > 0) {
@@ -1523,7 +1531,7 @@ public class InternalTableImpl implements InternalTable {
                         }
                     }
                 }).exceptionally(t -> {
-                    cancel(t);
+                    cancel(t, false);
 
                     return null;
                 });

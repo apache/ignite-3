@@ -338,7 +338,16 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
             var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, req.full(), () -> processScanRetrieveBatchAction(req));
+            // RW scan can be committed in one RTT if it has a single batch of data.
+            return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req)).handle(
+                    (rows, err) -> {
+                        // This is full transaction (has only one scan) and no more rows left.
+                        if (req.full() && rows.size() < req.batchSize()) {
+                            cleanupLocal(req.transactionId(), err != null);
+                        }
+
+                        return rows;
+                    });
         } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
             processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
 
@@ -1323,16 +1332,31 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     }
 
+    private void cleanupLocal(UUID txId, boolean commited) {
+        txCleanupReadyFutures.compute(txId, (id, txOps) -> {
+            assert txOps != null;
+
+            txOps.futures.clear();
+
+            txOps.state = commited ? TxState.COMMITED : TxState.ABORTED;
+
+            return txOps;
+        });
+
+        releaseTxLocks(txId);
+    }
+
     /**
      * Appends an operation to prevent the race between commit/rollback and the operation execution.
      *
      * @param txId Transaction id.
      * @param cmdType Command type.
+     * @param cleanup {@code True} to immediate cleanup.
      * @param op Operation closure.
      * @param <T> Type of execution result.
      * @return A future object representing the result of the given operation.
      */
-    private <T> CompletableFuture<T> appendTxCommand(UUID txId, RequestType cmdType, boolean full, Supplier<CompletableFuture<T>> op) {
+    private <T> CompletableFuture<T> appendTxCommand(UUID txId, RequestType cmdType, boolean cleanup, Supplier<CompletableFuture<T>> op) {
         var fut = new CompletableFuture<T>();
 
         txCleanupReadyFutures.compute(txId, (id, txOps) -> {
@@ -1351,24 +1375,13 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         if (!fut.isDone()) {
             op.get().whenComplete((v, th) -> {
+                if (cleanup) { // Cleanup local
+                    cleanupLocal(txId, th == null);
+                }
+
                 if (th != null) {
                     fut.completeExceptionally(th);
                 } else {
-                    if (full) {
-                        // Cleanup local
-                        txCleanupReadyFutures.compute(txId, (id, txOps) -> {
-                            assert txOps != null;
-
-                            txOps.futures.clear();
-
-                            txOps.state = TxState.COMMITED;
-
-                            return txOps;
-                        });
-
-                        releaseTxLocks(txId);
-                    }
-
                     fut.complete(v);
                 }
             });
