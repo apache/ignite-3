@@ -26,7 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.calcite.plan.RelOptUtil;
@@ -37,26 +39,33 @@ import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.RelVisitor;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.HintStrategyTable;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
 import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
-import org.apache.ignite.internal.sql.engine.prepare.MultiStepQueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerPhase;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
-import org.apache.ignite.internal.sql.engine.prepare.QueryTemplate;
 import org.apache.ignite.internal.sql.engine.prepare.Splitter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
+import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -115,7 +124,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
 
             @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+            public ColocationGroup colocationGroup() {
                 return ColocationGroup.forAssignments(Arrays.asList(
                         select(NODES_WITH_TERM, 0, 1),
                         select(NODES_WITH_TERM, 1, 2),
@@ -136,7 +145,7 @@ public class PlannerTest extends AbstractPlannerTest {
                     .add("NAME", f.createJavaType(String.class))
                     .add("VER", f.createJavaType(Integer.class))
                     .build(), "PROJECT") {
-            @Override public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+            @Override public ColocationGroup colocationGroup() {
                 return ColocationGroup.forAssignments(Arrays.asList(
                     select(NODES_WITH_TERM, 0, 1),
                     select(NODES_WITH_TERM, 1, 2),
@@ -180,11 +189,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
-
-        assertNotNull(plan);
-
-        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
+        MultiStepPlan plan = newPlan(phys);
 
         assertNotNull(plan);
 
@@ -202,7 +207,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("PROJECTID", f.createJavaType(Integer.class))
                         .build(), "DEVELOPER") {
             @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+            public ColocationGroup colocationGroup() {
                 return ColocationGroup.forNodes(select(NODES, 0, 1, 2, 3));
             }
 
@@ -219,7 +224,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("VER", f.createJavaType(Integer.class))
                         .build(), "PROJECT") {
             @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+            public ColocationGroup colocationGroup() {
                 return ColocationGroup.forNodes(select(NODES, 0, 1, 2, 3));
             }
 
@@ -258,11 +263,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
-
-        assertNotNull(plan);
-
-        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
+        MultiStepPlan plan = newPlan(phys);
 
         assertNotNull(plan);
 
@@ -280,7 +281,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("PROJECTID", f.createJavaType(Integer.class))
                         .build(), "DEVELOPER") {
             @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+            public ColocationGroup colocationGroup() {
                 return ColocationGroup.forNodes(select(NODES, 0));
             }
 
@@ -297,7 +298,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("VER", f.createJavaType(Integer.class))
                         .build(), "PROJECT") {
             @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+            public ColocationGroup colocationGroup() {
                 return ColocationGroup.forAssignments(Arrays.asList(
                         select(NODES_WITH_TERM, 1, 2),
                         select(NODES_WITH_TERM, 2, 3),
@@ -341,11 +342,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
-
-        assertNotNull(plan);
-
-        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
+        MultiStepPlan plan = newPlan(phys);
 
         assertEquals(3, plan.fragments().size());
     }
@@ -361,7 +358,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("PROJECTID", f.createJavaType(Integer.class))
                         .build(), "DEVELOPER") {
             @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+            public ColocationGroup colocationGroup() {
                 return ColocationGroup.forNodes(select(NODES, 1, 2, 3));
             }
 
@@ -378,7 +375,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("VER", f.createJavaType(Integer.class))
                         .build(), "PROJECT") {
             @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+            public ColocationGroup colocationGroup() {
                 return ColocationGroup.forAssignments(Arrays.asList(
                         select(NODES_WITH_TERM, 0),
                         select(NODES_WITH_TERM, 1),
@@ -422,11 +419,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
-
-        assertNotNull(plan);
-
-        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
+        MultiStepPlan plan = newPlan(phys);
 
         assertNotNull(plan);
 
@@ -444,7 +437,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("PROJECTID", f.createJavaType(Integer.class))
                         .build(), "DEVELOPER") {
             @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+            public ColocationGroup colocationGroup() {
                 return ColocationGroup.forNodes(select(NODES, 0));
             }
 
@@ -460,7 +453,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("VER", f.createJavaType(Integer.class))
                         .build(), "PROJECT") {
             @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+            public ColocationGroup colocationGroup() {
                 return ColocationGroup.forAssignments(Arrays.asList(
                         select(NODES_WITH_TERM, 1),
                         select(NODES_WITH_TERM, 2),
@@ -504,11 +497,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
-
-        assertNotNull(plan);
-
-        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
+        MultiStepPlan plan = newPlan(phys);
 
         assertEquals(3, plan.fragments().size());
     }
@@ -524,7 +513,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("PROJECTID", f.createJavaType(Integer.class))
                         .build(), "DEVELOPER") {
             @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+            public ColocationGroup colocationGroup() {
                 return ColocationGroup.forNodes(select(NODES, 2));
             }
 
@@ -541,7 +530,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("VER", f.createJavaType(Integer.class))
                         .build(), "PROJECT") {
             @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+            public ColocationGroup colocationGroup() {
                 return ColocationGroup.forNodes(select(NODES, 0, 1));
             }
 
@@ -581,11 +570,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
-
-        assertNotNull(plan);
-
-        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
+        MultiStepPlan plan = newPlan(phys);
 
         assertNotNull(plan);
 
@@ -904,6 +889,19 @@ public class PlannerTest extends AbstractPlannerTest {
         checkSplitAndSerialization(phys, publicSchema);
     }
 
+    private MultiStepPlan newPlan(IgniteRel phys) {
+        List<Fragment> fragments = new Splitter().go(phys);
+        MappingQueryContext ctx = mapContext(CollectionUtils.first(NODES), this::intermediateMapping);
+
+        CollectColocationGroups colocationGroups = new CollectColocationGroups();
+
+        phys.accept(colocationGroups);
+
+        List<Fragment> mappedFragments = FragmentMapping.mapFragments(ctx, fragments, colocationGroups.colocationGroups);
+
+        return new MultiStepPlan(SqlQueryType.QUERY, mappedFragments, new ResultSetMetadataImpl(Collections.emptyList()));
+    }
+
     /**
      * IntermediateMapping.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -916,5 +914,64 @@ public class PlannerTest extends AbstractPlannerTest {
     private static MappingQueryContext mapContext(String locNodeName,
             MappingService mappingService) {
         return new MappingQueryContext(locNodeName, mappingService);
+    }
+
+    abstract static class TestTable extends AbstractPlannerTest.TestTable {
+
+        private ColocationGroup colocationGroup;
+
+        TestTable(RelDataType type, String name) {
+            super(type, name);
+        }
+
+        TestTable(String name, RelDataType type, double rowCnt) {
+            super(name, type, rowCnt);
+        }
+
+        public ColocationGroup colocationGroup() {
+            throw new IllegalStateException("Not used");
+        }
+
+        ColocationGroup getColocationGroup() {
+            if (colocationGroup == null) {
+                this.colocationGroup = colocationGroup();
+            }
+            return colocationGroup;
+        }
+    }
+
+    private static final class CollectColocationGroups extends IgniteRelShuttle {
+
+        private final Map<Integer, ColocationGroup> colocationGroups = new HashMap<>();
+
+        @Override
+        public IgniteRel visit(IgniteTableModify rel) {
+            TestTable testTable = rel.getTable().unwrapOrThrow(TestTable.class);
+            ColocationGroup group = testTable.getColocationGroup();
+
+            colocationGroups.put(testTable.id(), group);
+
+            return super.visit(rel);
+        }
+
+        @Override
+        public IgniteRel visit(IgniteIndexScan rel) {
+            TestTable testTable = rel.getTable().unwrapOrThrow(TestTable.class);
+            ColocationGroup group = testTable.getColocationGroup();
+
+            colocationGroups.put(testTable.id(), group);
+
+            return super.visit(rel);
+        }
+
+        @Override
+        public IgniteRel visit(IgniteTableScan rel) {
+            TestTable testTable = rel.getTable().unwrapOrThrow(TestTable.class);
+            ColocationGroup group = testTable.getColocationGroup();
+
+            colocationGroups.put(testTable.id(), group);
+
+            return super.visit(rel);
+        }
     }
 }

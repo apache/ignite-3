@@ -38,7 +38,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
 import java.util.function.LongFunction;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
@@ -56,7 +55,6 @@ import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.table.InternalTable;
@@ -390,7 +388,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         IgniteDistribution distribution = IgniteDistributions.affinity(colocationColumns, table.tableId(), table.tableId());
 
         InternalTable internalTable = table.internalTable();
-        Supplier<ColocationGroup> colocationGroup = IgniteTableImpl.partitionedGroup(internalTable);
         DoubleSupplier rowCount = IgniteTableImpl.rowCountStatistic(internalTable);
 
         return new IgniteTableImpl(
@@ -398,7 +395,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 internalTable.tableId(),
                 internalTable.name(),
                 schemaRegistry.lastSchemaVersion(),
-                colocationGroup,
                 rowCount
         );
     }

@@ -18,6 +18,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 
@@ -25,8 +26,9 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
  * Resolves components required for execution.
  */
 public interface ExecutionDependencyResolver {
+
     /**
-     * Resolves dependencies required to execute the given operator tree.
+     * Resolves dependencies required to execute the given list of relations.
      */
-    CompletableFuture<ResolvedDependencies> resolveDependencies(IgniteRel rel, long schemaVersion);
+    CompletableFuture<ResolvedDependencies> resolveDependencies(List<IgniteRel> rels, long schemaVersion);
 }

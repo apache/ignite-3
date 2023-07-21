@@ -97,11 +97,9 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.Cloner;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.Splitter;
@@ -964,12 +962,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 SqlNode parent,
                 CalciteConnectionConfig config
         ) {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public ColocationGroup colocationGroup(MappingQueryContext ctx) {
             throw new AssertionError();
         }
 
