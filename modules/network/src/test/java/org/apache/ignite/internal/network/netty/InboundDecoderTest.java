@@ -36,11 +36,12 @@ import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -100,7 +101,7 @@ public class InboundDecoderTest {
 
     @ParameterizedTest
     @MethodSource("testFiles")
-    public void testFile(File file) throws IOException {
+    public void testFile(File file) {
         // given
         FileMessage msg = factory.fileMessage().file(file).build();
         FileMessage received = sendAndReceive(msg);
@@ -120,7 +121,18 @@ public class InboundDecoderTest {
     }
 
     @Test
-    public void testBigFileWithSmallBuffer() throws IOException {
+    public void emptyFile() {
+        // given
+        File emptyFile = randomFile(0);
+        FileMessage msg = factory.fileMessage().file(emptyFile).build();
+
+        // then
+        FileMessage received = sendAndReceive(msg);
+        assertContentEquals(emptyFile.toPath(), received.file().toPath());
+    }
+
+    @Test
+    public void testBigFileWithSmallBuffer() {
         // given
         File file = randomFile(1024);
         FileMessage msg = factory.fileMessage().file(file).build();
@@ -145,7 +157,7 @@ public class InboundDecoderTest {
     }
 
     @Test
-    public void testBigFilesListWithSmallBuffer() throws IOException {
+    public void testBigFilesListWithSmallBuffer() {
         // given
         List<File> files = IntStream.range(0, 5)
                 .mapToObj(i -> randomFile(1024))
@@ -168,7 +180,7 @@ public class InboundDecoderTest {
 
         // then
         Exception exception = assertThrows(Exception.class, () -> sendAndReceive(msg));
-        assertThat(exception.getCause(), instanceOf(FileNotFoundException.class));
+        assertThat(exception.getCause(), instanceOf(NoSuchFileException.class));
     }
 
     @Test
@@ -180,7 +192,7 @@ public class InboundDecoderTest {
 
         // then
         Exception exception = assertThrows(Exception.class, () -> sendAndReceive(msg));
-        assertThat(exception.getCause(), instanceOf(FileNotFoundException.class));
+        assertThat(exception.getCause(), instanceOf(AccessDeniedException.class));
     }
 
     /**
@@ -344,8 +356,12 @@ public class InboundDecoderTest {
         assertFalse(channel.finish());
     }
 
-    private static void assertContentEquals(Path expected, Path actual) throws IOException {
-        assertThat(readAllBytes(expected), is(readAllBytes(actual)));
+    private static void assertContentEquals(Path expected, Path actual) {
+        try {
+            assertThat(readAllBytes(expected), is(readAllBytes(actual)));
+        } catch (IOException e) {
+            throw new AssertionError(e);
+        }
     }
 
     /**

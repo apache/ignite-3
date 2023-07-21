@@ -35,17 +35,15 @@ import static org.apache.ignite.internal.util.GridUnsafe.IS_BIG_ENDIAN;
 import static org.apache.ignite.internal.util.GridUnsafe.LONG_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.SHORT_ARR_OFF;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -61,6 +59,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.util.ArrayFactory;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageDeserializer;
@@ -137,15 +136,15 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     private Iterator<?> it;
 
-    private BufferedInputStream fileReader;
+    private FileChannel readFileChannel;
 
-    private int fileSate = 0;
+    private int fileState = 0;
 
     private Path filePath;
 
-    private BufferedOutputStream fileWriter;
+    private FileChannel writeFileChannel;
 
-    private long bytesWritten = -1;
+    private long fileBytesWritten = -1;
 
     private long fileSize = -1;
 
@@ -1693,7 +1692,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 return;
             }
 
-            switch (fileSate) {
+            switch (fileState) {
                 case 0:
                     writeLong(file.length());
 
@@ -1701,7 +1700,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                         return;
                     }
 
-                    fileSate++;
+                    fileState++;
 
                     //noinspection fallthrough
                 case 1:
@@ -1711,49 +1710,37 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                         return;
                     }
 
-                    fileSate++;
+                    fileState++;
 
                     //noinspection fallthrough
                 case 2:
                     lastFinished = false;
 
-                    if (fileReader == null) {
-                        fileReader = new BufferedInputStream(new FileInputStream(file));
+                    if (readFileChannel == null) {
+                        readFileChannel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
                     }
 
-                    int pos = buf.position();
-                    int toWrite = Math.min(buf.remaining(), fileReader.available());
+                    readFileChannel.read(buf);
 
-                    if (toWrite > 0) {
-                        byte[] arr = new byte[toWrite];
-                        fileReader.read(arr, 0, toWrite);
-                        GridUnsafe.copyMemory(arr, BYTE_ARR_OFF, heapArr, baseOff + pos, toWrite);
-                        buf.position(pos + toWrite);
-                    }
-
-                    if (fileReader.available() == 0) {
-                        fileReader.close();
-                        fileReader = null;
+                    if (readFileChannel.position() == readFileChannel.size()) {
+                        IgniteUtils.closeAll(readFileChannel);
+                        readFileChannel = null;
 
                         lastFinished = true;
-
-                        fileSate = 0;
+                        fileState = 0;
                     }
                     break;
 
                 default:
-                    throw new IllegalStateException("Invalid file state: " + fileSate);
+                    throw new IllegalStateException("Invalid file state: " + fileState);
             }
-        } catch (IOException e) {
-            if (fileReader != null) {
-                try {
-                    fileReader.close();
-                    fileReader = null;
-                } catch (IOException ex) {
-                    RuntimeException exception = new RuntimeException(ex);
-                    exception.addSuppressed(e);
-                    throw exception;
-                }
+        } catch (Exception e) {
+            try {
+                IgniteUtils.closeAll(readFileChannel);
+                readFileChannel = null;
+            } catch (Exception ex) {
+                ex.addSuppressed(e);
+                throw new RuntimeException(ex);
             }
             throw new RuntimeException(e);
         }
@@ -1766,7 +1753,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public File readFile() {
         try {
-            switch (fileSate) {
+            switch (fileState) {
                 case 0:
                     fileSize = readLong();
                     if (!lastFinished) {
@@ -1775,7 +1762,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                         return null;
                     }
 
-                    fileSate++;
+                    fileState++;
 
                     //noinspection fallthrough
                 case 1:
@@ -1785,34 +1772,29 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                     }
 
                     filePath = Files.createTempDirectory("").resolve(fileName);
-                    fileWriter = new BufferedOutputStream(new FileOutputStream(filePath.toFile(), true));
+                    writeFileChannel = FileChannel.open(filePath, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 
-                    fileSate++;
-                    bytesWritten = 0;
+                    fileState++;
+                    fileBytesWritten = 0;
 
                     //noinspection fallthrough
                 case 2:
                     lastFinished = false;
 
-                    int pos = buf.position();
-                    int remaining = buf.remaining();
-                    int toRead = (int) Math.min(remaining, fileSize - bytesWritten);
+                    if (buf.hasRemaining()) {
+                        int toRead = (int) Math.min(buf.remaining(), fileSize - fileBytesWritten);
+                        buf.limit(buf.position() + toRead);
+                        writeFileChannel.write(buf);
+                        fileBytesWritten += toRead;
+                    }
 
-                    byte[] arr = new byte[toRead];
-                    GridUnsafe.copyMemory(heapArr, baseOff + pos, arr, BYTE_ARR_OFF, toRead);
-                    fileWriter.write(arr);
-
-                    bytesWritten += toRead;
-                    buf.position(pos + toRead);
-
-                    if (bytesWritten == fileSize) {
-                        fileWriter.flush();
-                        fileWriter.close();
+                    if (fileBytesWritten == fileSize) {
+                        IgniteUtils.closeAll(writeFileChannel);
+                        writeFileChannel = null;
 
                         lastFinished = true;
-                        fileWriter = null;
-                        fileSate = 0;
-                        bytesWritten = -1;
+                        fileState = 0;
+                        fileBytesWritten = -1;
 
                         return filePath.toFile();
                     } else {
@@ -1820,18 +1802,14 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                     }
 
                 default:
-                    throw new IllegalArgumentException("Unknown fileState: " + fileSate);
+                    throw new IllegalArgumentException("Unknown fileState: " + fileState);
             }
-        } catch (IOException e) {
-            if (fileWriter != null) {
-                try {
-                    fileWriter.close();
-                    fileWriter = null;
-                } catch (IOException ex) {
-                    RuntimeException exception = new RuntimeException(ex);
-                    exception.addSuppressed(e);
-                    throw exception;
-                }
+        } catch (Exception e) {
+            try {
+                IgniteUtils.closeAll(writeFileChannel);
+            } catch (Exception ex) {
+                ex.addSuppressed(e);
+                throw new RuntimeException(ex);
             }
             throw new RuntimeException(e);
         }
@@ -2325,6 +2303,17 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             default:
                 throw new IllegalArgumentException("Unknown type: " + type);
+        }
+    }
+
+    private void closeReadFileChannel() {
+        if (readFileChannel != null) {
+            try {
+                readFileChannel.close();
+                readFileChannel = null;
+            } catch (IOException e) {
+                throw new IgniteException("Failed to close file channel", e);
+            }
         }
     }
 }

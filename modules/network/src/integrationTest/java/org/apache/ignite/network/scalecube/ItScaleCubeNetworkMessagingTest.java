@@ -20,6 +20,7 @@ package org.apache.ignite.network.scalecube;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -54,9 +55,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.messages.FileMessage;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
@@ -359,16 +360,16 @@ class ItScaleCubeNetworkMessagingTest {
         );
 
         // send a sequence of messages, one of which is a file message with a non-existent file.
-        CompletableFuture<Void>[] array = Stream.of(
-                        randomFile(100),
-                        new File("non-existent-file"),
-                        randomFile(200)
-                )
-                .map(it -> messageFactory.fileMessage().file(it).build())
-                .map(message -> node2.messagingService().send(node1.topologyService().localMember(), message))
-                .toArray(CompletableFuture[]::new);
+        FileMessage file1 = messageFactory.fileMessage().file(randomFile(100)).build();
+        FileMessage nonExistingFile = messageFactory.fileMessage().file(new File("non-existent-file")).build();
+        FileMessage file2 = messageFactory.fileMessage().file(randomFile(200)).build();
 
-        assertThat(CompletableFuture.allOf(array), willThrow(RuntimeException.class, "(No such file or directory)"));
+        assertThat(node2.messagingService().send(node1.topologyService().localMember(), file1), willCompleteSuccessfully());
+        assertThat(
+                node2.messagingService().send(node1.topologyService().localMember(), nonExistingFile),
+                willThrow(RuntimeException.class, "non-existent-file")
+        );
+        assertThat(node2.messagingService().send(node1.topologyService().localMember(), file2), willCompleteSuccessfully());
 
         // make sure that the correct files were delivered.
         await().until(() -> messages.size() == 2);
