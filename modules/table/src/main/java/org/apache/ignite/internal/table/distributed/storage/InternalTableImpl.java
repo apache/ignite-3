@@ -310,7 +310,6 @@ public class InternalTableImpl implements InternalTable {
         final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
 
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
-        assert !rowBatchByPartitionId.isEmpty() : "Mapping produced empty result";
 
         boolean singlePart = rowBatchByPartitionId.size() == 1;
 
