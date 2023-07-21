@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
@@ -99,7 +100,8 @@ public class TestNode implements LifecycleAware {
             SqlSchemaManager schemaManager
     ) {
         this.nodeName = nodeName;
-        this.prepareService = registerService(new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class), PLANNING_TIMEOUT));
+        var ps = new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class), PLANNING_TIMEOUT, mock(MetricManager.class));
+        this.prepareService = registerService(ps);
         this.schema = schemaManager.schema("PUBLIC");
 
         TopologyService topologyService = clusterService.topologyService();

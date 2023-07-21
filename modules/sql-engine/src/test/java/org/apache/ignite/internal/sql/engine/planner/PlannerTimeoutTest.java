@@ -35,6 +35,7 @@ import org.apache.calcite.rel.RelVisitor;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -62,7 +63,7 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
         IgniteSchema schema = createSchema(createTestTable("T1", "A", Integer.class, "B", Integer.class));
         BaseQueryContext ctx = baseQueryContext(Collections.singletonList(schema), null);
 
-        PrepareService prepareService = new PrepareServiceImpl("test", 0, null, plannerTimeout);
+        PrepareService prepareService = new PrepareServiceImpl("test", 0, null, plannerTimeout, new MetricManager());
         prepareService.start();
         try {
             ParserService parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);

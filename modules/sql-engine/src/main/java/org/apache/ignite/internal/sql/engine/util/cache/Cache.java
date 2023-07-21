@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.util;
+package org.apache.ignite.internal.sql.engine.util.cache;
 
+import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -36,6 +37,16 @@ public interface Cache<K, V> {
      * @return A value.
      */
     @Nullable V get(K key);
+
+    /**
+     * Returns the value associated with the {@code key} in this cache, obtaining that value from the {@code mappingFunction} if necessary.
+     * This method provides a simple substitute for the conventional "if cached, return; otherwise create, cache and return" pattern.
+     *
+     * @param key A key to look up value for.
+     * @param mappingFunction the function to compute a value.
+     * @return the current (existing or computed) value associated with the specified key.
+     */
+    V get(K key, Function<? super K, ? extends V> mappingFunction);
 
     /**
      * Associates the {@code value} with the {@code key} in this cache. If the cache previously

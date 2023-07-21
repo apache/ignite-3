@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.util;
+package org.apache.ignite.internal.sql.engine.util.cache;
 
 /**
  * Factory that creates a cache.
@@ -30,4 +30,15 @@ public interface CacheFactory {
      * @param <V> Type of the value object.
      */
     <K, V> Cache<K, V> create(int size);
+
+    /**
+     * Creates a cache of the required size and controls whether statistics should be collected.
+     *
+     * @param size Desired size of the cache.
+     * @param statCounter Cache statistic accumulator.
+     * @return An instance of the cache.
+     * @param <K> Type of the key object.
+     * @param <V> Type of the value object.
+     */
+    <K, V> Cache<K, V> create(int size, StatsCounter statCounter);
 }

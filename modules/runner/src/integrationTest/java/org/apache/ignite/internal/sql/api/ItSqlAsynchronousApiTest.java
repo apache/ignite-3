@@ -45,7 +45,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
@@ -104,15 +103,6 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         }
 
         tearDownBase(testInfo);
-    }
-
-    /**
-     * Gets the SQL API.
-     *
-     * @return SQL API.
-     */
-    protected IgniteSql igniteSql() {
-        return CLUSTER_NODES.get(0).sql();
     }
 
     protected IgniteTransactions igniteTx() {
@@ -275,9 +265,9 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         Session ses = sql.createSession();
 
-        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
+        TxManager txManager = txManager();
 
-        int txPrevCnt = txManagerInternal.finished();
+        int txPrevCnt = txManager.finished();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
             CompletableFuture<AsyncResultSet<SqlRow>> fut = ses.executeAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)", i, i);
@@ -296,7 +286,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         }
 
         // No new transactions through ddl.
-        assertEquals(0, txManagerInternal.finished() - txPrevCnt);
+        assertEquals(0, txManager.finished() - txPrevCnt);
     }
 
     /** Check correctness of explicit transaction rollback. */
@@ -337,7 +327,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         Session ses = sql.createSession();
 
-        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
+        TxManager txManagerInternal = txManager();
 
         int txPrevCnt = txManagerInternal.finished();
 

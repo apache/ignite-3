@@ -69,9 +69,11 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -534,6 +536,30 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     public static TablesConfiguration getTablesConfiguration(Ignite node) {
         return ((IgniteImpl) node).clusterConfiguration().getConfiguration(TablesConfiguration.KEY);
+    }
+
+
+    /**
+     * Returns internal  {@code SqlQueryProcessor} for first cluster node.
+     */
+    protected SqlQueryProcessor queryProcessor() {
+        return (SqlQueryProcessor) ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
+    }
+
+    /**
+     * Returns internal {@code TxManager} for first cluster node.
+     */
+    protected TxManager txManager() {
+        return ((IgniteImpl) CLUSTER_NODES.get(0)).txManager();
+    }
+
+    /**
+     * Gets the SQL API.
+     *
+     * @return SQL API.
+     */
+    protected IgniteSql igniteSql() {
+        return CLUSTER_NODES.get(0).sql();
     }
 
     /**

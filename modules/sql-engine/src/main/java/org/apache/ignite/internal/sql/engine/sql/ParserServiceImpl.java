@@ -20,9 +20,9 @@ package org.apache.ignite.internal.sql.engine.sql;
 import java.util.function.Supplier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.util.Cache;
-import org.apache.ignite.internal.sql.engine.util.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.cache.Cache;
+import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 
 /**
  * An implementation of {@link ParserService} that, apart of parsing, introduces cache of parsed results.
