@@ -1061,9 +1061,11 @@ public class Replicator implements ThreadId.OnError {
             }
         }
         else if (errorCode == RaftError.ETIMEDOUT.getNumber()) {
+            id.unlock();
             Utils.runInThread(options.getCommonExecutor(), () -> sendHeartbeat(id));
         }
         else {
+            id.unlock();
             // noinspection ConstantConditions
             Requires.requireTrue(false, "Unknown error code for replicator: " + errorCode);
         }

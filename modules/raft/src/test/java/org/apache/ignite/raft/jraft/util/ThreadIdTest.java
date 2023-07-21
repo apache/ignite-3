@@ -36,6 +36,7 @@ public class ThreadIdTest implements ThreadId.OnError {
     public void onError(final ThreadId id, final Object data, final int errorCode) {
         assertSame(id, this.id);
         this.errorCode = errorCode;
+        id.unlock();
     }
 
     @BeforeEach
@@ -72,6 +73,7 @@ public class ThreadIdTest implements ThreadId.OnError {
     public void testSetError() throws Exception {
         this.id.setError(100);
         assertEquals(100, this.errorCode);
+        this.id.lock();
         CountDownLatch latch = new CountDownLatch(1);
         Thread t = new Thread(() -> {
             ThreadIdTest.this.id.setError(99);
@@ -80,6 +82,10 @@ public class ThreadIdTest implements ThreadId.OnError {
         try {
             t.start();
             latch.await();
+            //just go into pending errors.
+            assertEquals(100, this.errorCode);
+            //invoke onError when unlock
+            this.id.unlock();
             assertEquals(99, this.errorCode);
         } finally {
             t.join();
