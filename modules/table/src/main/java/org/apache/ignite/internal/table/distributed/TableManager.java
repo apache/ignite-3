@@ -631,11 +631,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         listener.accept(this);
                     }
                 }
-            });
-
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 Probably should be reworked so that
-            // the future is returned along with createTableFut. Right now it will break some tests.
-            writeTableAssignmentsToMetastore(tableId, assignments);
+            }).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignments));
 
             return createTableFut;
         } finally {
