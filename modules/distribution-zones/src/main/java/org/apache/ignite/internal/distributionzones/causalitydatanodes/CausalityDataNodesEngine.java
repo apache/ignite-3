@@ -161,6 +161,10 @@ public class CausalityDataNodesEngine {
 
             Entry topologyEntry = msManager.getLocally(zonesLogicalTopologyKey(), zoneLastCfgEntry.getKey());
 
+            if (topologyEntry.value() == null) {
+                return emptySet();
+            }
+
             Set<NodeWithAttributes> logicalTopology = fromBytes(topologyEntry.value());
 
             Set<Node> logicalTopologyNodes = logicalTopology.stream().map(n -> n.node()).collect(toSet());
