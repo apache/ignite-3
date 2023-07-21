@@ -22,7 +22,7 @@ Creates a new distribution zone.
 
 [source,sql]
 ----
-CREATE ZONE [IF NOT EXISTS]   qualified_zone_name
+CREATE ZONE [IF NOT EXISTS] qualified_zone_name [ENGINE engine_name]
 [WITH
     [PARTITIONS = partitionNumber],
     [REPLICAS = replicaNumber],
@@ -39,6 +39,7 @@ Parameters:
 
 * `qualified_zone_name` - name of the distribution zone. Can be schema-qualified.
 * `IF NOT EXISTS` - create a zone only if a different zone with the same name does not exist.
+* `ENGINE` - selects the storage engine to use. Currently `aipersist`, `aimem` and `rocksdb` are available.
 * `WITH` - accepts the following additional parameters:
 - `PARTITIONS` - the number of parts data is divinded into. Partitions are then split between nodes for storage.
 - `REPLICAS` - the number of copies of each partition.
