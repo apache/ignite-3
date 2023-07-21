@@ -316,7 +316,7 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
     }
 
     /**
-     * Validates that COUNT aggregate is not rewritten.
+     * Validates that single phase COUNT aggregate is used.
      */
     @Test
     public void testCountAgg() throws Exception {
@@ -325,6 +325,21 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
         };
 
         assertPlan(TestCase.CASE_22, isInstanceOf(IgniteColocatedHashAggregate.class)
+                .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(IgniteDistributions.single())))), disableRules);
+    }
+
+    /**
+     * Validates that single phase AVG aggregate is used.
+     */
+    @Test
+    public void testAvgAgg() throws Exception {
+        Predicate<AggregateCall> countMap = (a) -> {
+            return Objects.equals(a.getAggregation().getName(), "AVG") && a.getArgList().equals(List.of(1));
+        };
+
+        assertPlan(TestCase.CASE_23, isInstanceOf(IgniteColocatedHashAggregate.class)
                 .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
                 .and(input(isInstanceOf(IgniteExchange.class)
                         .and(hasDistribution(IgniteDistributions.single())))), disableRules);

@@ -36,6 +36,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.junit.jupiter.api.Test;
 
@@ -368,7 +369,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         ));
     }
 
-    /** Validate that we choose two-phase count aggregate for COUNT by default. */
+    /** Validate that we choose two-phase COUNT aggregate for COUNT by default. */
     @Test
     public void countAgg() throws Exception {
         Predicate<AggregateCall> countMap = (a) -> {
@@ -387,6 +388,19 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                                         .and(input(isTableScan("TEST")))
                                 )
                         ))));
+    }
+
+    /** Validate that we choose single phase AVG aggregate for AVG by default. */
+    @Test
+    public void avgAgg() throws Exception {
+        Predicate<AggregateCall> countMap = (a) -> {
+            return Objects.equals(a.getAggregation().getName(), "AVG") && a.getArgList().equals(List.of(1));
+        };
+
+        assertPlan(TestCase.CASE_23, isInstanceOf(IgniteColocatedHashAggregate.class)
+                .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(IgniteDistributions.single())))));
     }
 
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {

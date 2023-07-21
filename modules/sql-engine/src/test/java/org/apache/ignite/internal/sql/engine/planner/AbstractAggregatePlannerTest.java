@@ -469,6 +469,12 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
          */
         CASE_22("SELECT val0, COUNT(val1) FROM test GROUP BY val0", schema(hash())),
 
+        /**
+         * Query: SELECT val0, AVG(val1) FROM test GROUP BY val0.
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_23("SELECT val0, AVG(val1) FROM test GROUP BY val0", schema(hash())),
         ;
 
         final String query;

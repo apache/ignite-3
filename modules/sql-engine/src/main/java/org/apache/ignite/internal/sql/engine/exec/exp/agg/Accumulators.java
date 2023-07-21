@@ -704,7 +704,6 @@ public class Accumulators {
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createTypeWithNullability(typeFactory.createSqlType(VARBINARY), true);
         }
-
     }
 
     private static class DistinctAccumulator implements Accumulator {

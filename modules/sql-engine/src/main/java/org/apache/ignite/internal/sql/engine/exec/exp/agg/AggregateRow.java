@@ -164,7 +164,7 @@ public final class AggregateRow<RowT> {
     /**
      * Field mapping for hash execution nodes. See {@link #createHashRowType(List, IgniteTypeFactory, RelDataType, List)}.
      *
-     * <p>For REDUCE phase it produce the following mapping:
+     * <p>For REDUCE phase it produces the following mapping:
      *
      * <pre>
      * group sets:

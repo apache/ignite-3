@@ -18,6 +18,10 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static java.util.function.Predicate.not;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 import java.util.Objects;
@@ -29,11 +33,14 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.lang.IgniteException;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -357,6 +364,18 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(input(isTableScan("TEST")))
                         )
                 ))), disableRules);
+    }
+
+    /**
+     * Validates that AVG can not be used as two phase mode.
+     * Should be fixed with TODO https://issues.apache.org/jira/browse/IGNITE-20009
+     */
+    @Test
+    public void testAvgAgg() {
+        RuntimeException e = assertThrows(RuntimeException.class,
+                () -> assertPlan(TestCase.CASE_23, isInstanceOf(IgniteRel.class), disableRules));
+
+        assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
     }
 
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
