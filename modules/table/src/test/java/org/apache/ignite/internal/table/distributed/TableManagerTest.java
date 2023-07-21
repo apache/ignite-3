@@ -69,6 +69,7 @@ import org.apache.ignite.internal.catalog.CatalogServiceImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -887,8 +888,9 @@ public class TableManagerTest extends IgniteAbstractTest {
         ) {
 
             @Override
-            protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
-                mvTableStorage = spy(super.createTableStorage(tableDescriptor, zoneDescriptor));
+            protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor,
+                    List<CatalogIndexDescriptor> indexDescriptors) {
+                mvTableStorage = spy(super.createTableStorage(tableDescriptor, zoneDescriptor, indexDescriptors));
 
                 tableStorageDecorator.accept(mvTableStorage);
 

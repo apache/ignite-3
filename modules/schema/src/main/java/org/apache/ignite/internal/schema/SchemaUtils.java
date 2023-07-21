@@ -19,8 +19,6 @@ package org.apache.ignite.internal.schema;
 
 import java.util.Arrays;
 import java.util.Comparator;
-import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
-import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 

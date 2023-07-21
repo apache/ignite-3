@@ -42,7 +42,6 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.extractPartitionNum
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -90,10 +89,10 @@ import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
-import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -137,7 +136,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.PrimaryKeyView;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesChange;
@@ -191,8 +189,6 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.ColumnAlreadyExistsException;
-import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteExceptionUtils;
@@ -206,7 +202,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
-import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -602,16 +597,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             assert !assignments.isEmpty() : "Couldn't create the table with empty assignments.";
 
-            int[] indexesToWait = Arrays.stream(catalogManager.schema(evt.catalogVersion()).indexes())
+            List<CatalogIndexDescriptor> indexDescriptors = Arrays.stream(catalogManager.schema(evt.catalogVersion()).indexes())
                     .filter(i -> i.tableId() == tableId)
-                    .mapToInt(CatalogObjectDescriptor::id)
-                    .toArray();
+                    .collect(toList());
 
             CompletableFuture<?> createTableFut = createTableLocally(
                     evt.causalityToken(),
                     tableDescriptor,
                     zoneDescriptor,
-                    indexesToWait,
+                    indexDescriptors,
                     assignments
             ).whenComplete((v, e) -> {
                 if (e == null) {
@@ -730,6 +724,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         String localMemberName = localNode().name();
+
+        CompletableFuture<SchemaRegistry> schemaRegistryFuture = schemaManager.schemaRegistry(causalityToken, tableId);
 
         // Create new raft nodes according to new assignments.
         Supplier<CompletableFuture<Void>> updateAssignmentsClosure = () -> {
@@ -888,7 +884,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         txStateStorage,
                                         partitionUpdateHandlers,
                                         updatedRaftGroupService,
-                                        schemaManager.schemaRegistry(causalityToken, tableId)
+                                        schemaRegistryFuture
                                 );
                             } catch (NodeStoppingException ex) {
                                 throw new AssertionError("Loza was stopped before Table manager", ex);
@@ -1225,14 +1221,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param causalityToken Causality token.
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distributed zone descriptor.
-     * @param tableIndexes Ids of indexes belongs to the table.
+     * @param indexDescriptors Catalog index descriptors for given table.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<?> createTableLocally(
             long causalityToken,
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
-            int[] tableIndexes,
+            List<CatalogIndexDescriptor> indexDescriptors,
             List<Set<Assignment>> assignments
     ) {
         String tableName = tableDescriptor.name();
@@ -1240,7 +1236,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         LOG.trace("Creating local table: name={}, id={}, token={}", tableDescriptor.name(), tableDescriptor.id(), causalityToken);
 
-        MvTableStorage tableStorage = createTableStorage(tableDescriptor, zoneDescriptor);
+        MvTableStorage tableStorage = createTableStorage(tableDescriptor, zoneDescriptor, indexDescriptors);
         TxStateTableStorage txStateStorage = createTxStateTableStorage(tableDescriptor, zoneDescriptor);
 
         int partitions = zoneDescriptor.partitions();
@@ -1253,7 +1249,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         var table = new TableImpl(internalTable, lockMgr);
 
         // TODO: IGNITE-19082 Need another way to wait for indexes
-        table.addIndexesToWait(tableIndexes);
+        table.addIndexesToWait(indexDescriptors.stream().mapToInt(CatalogObjectDescriptor::id).toArray());
 
         tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
@@ -1290,6 +1286,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableId));
 
         // TODO: investigate why createParts future hangs.
+        // return createPartsFut;
         return completedFuture(false);
     }
 
@@ -1298,8 +1295,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distributed zone descriptor.
+     * @param indexDescriptors Index descriptors.
      */
-    protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
+    protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor,
+            List<CatalogIndexDescriptor> indexDescriptors) {
         CatalogDataStorageDescriptor dataStorage = zoneDescriptor.getDataStorage();
 
         StorageEngine engine = dataStorageMgr.engine(dataStorage.getEngine());
@@ -1308,7 +1307,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         MvTableStorage tableStorage = engine.createMvTable(
                 new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), dataStorage.getDataRegion()),
-                new StorageIndexDescriptorSupplier(tablesCfg)
+                new StorageIndexDescriptorSupplier(tableDescriptor, indexDescriptors)
         );
 
         tableStorage.start();
@@ -1678,8 +1677,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return catalogManager.addColumn(params)
-                    .thenCompose(ignore -> addColumnInternal(params.tableName(), params.columns()));
+            return catalogManager.addColumn(params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -1697,8 +1695,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return catalogManager.dropColumn(params)
-                    .thenCompose(ignore -> dropColumnInternal(params.tableName(), params.columns()));
+            return catalogManager.dropColumn(params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -2770,78 +2767,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return zone.replicas();
     }
 
-    // Copied from DdlCommandHandler
     @Deprecated(forRemoval = true)
-    private CompletableFuture<Void> addColumnInternal(String fullName, List<ColumnParams> columnParams) {
-        return alterTableAsyncInternal(
-                fullName,
-                chng -> {
-                    if (columnParams.isEmpty()) {
-                        return false;
-                    }
+    private static CatalogDataStorageDescriptor toDataStorageDescriptor(DataStorageView config) {
+        String dataRegion;
 
-                    chng.changeColumns(cols -> {
-                        Set<String> colNamesToOrders = new HashSet<>(cols.namedListKeys());
+        try {
+            Method dataRegionMethod = config.getClass().getMethod("dataRegion");
 
-                        columnParams.stream()
-                                .filter(k -> colNamesToOrders.contains(k.name()))
-                                .findAny()
-                                .ifPresent(c -> {
-                                    throw new ColumnAlreadyExistsException(c.name());
-                                });
+            dataRegionMethod.setAccessible(true);
 
-                        for (ColumnParams col : columnParams) {
-                            cols.create(col.name(), colChg -> CatalogDescriptorUtils.convertColumnDefinition(col, colChg));
-                        }
-                    });
+            dataRegion = (String) dataRegionMethod.invoke(config);
+        } catch (ReflectiveOperationException e) {
+            dataRegion = e.getMessage();
+        }
 
-                    return true;
-                }
-        );
-    }
-
-    // Copied from DdlCommandHandler
-    // TODO: IGNITE-19082 Drop unused temporary method.
-    @Deprecated(forRemoval = true)
-    private CompletableFuture<Void> dropColumnInternal(String tableName, Set<String> colNames) {
-        AtomicBoolean ret = new AtomicBoolean(true);
-
-        return alterTableAsyncInternal(
-                tableName,
-                chng -> {
-                    chng.changeColumns(cols -> {
-                        ret.set(true); // Reset state if closure have been restarted.
-
-                        PrimaryKeyView priKey = chng.primaryKey();
-
-                        Set<String> colNamesToOrders = new HashSet<>(cols.namedListKeys());
-
-                        Set<String> colNames0 = new HashSet<>();
-
-                        Set<String> primaryCols = Set.of(priKey.columns());
-
-                        // Catalog verification passe, so we can omit validation here.
-                        // reportIndexedColumns(tableName, colNames, primaryCols);
-
-                        for (String colName : colNames) {
-                            if (!colNamesToOrders.contains(colName)) {
-                                ret.set(false);
-
-                                throw new ColumnNotFoundException(DEFAULT_SCHEMA_NAME, tableName, colName);
-                            } else {
-                                colNames0.add(colName);
-                            }
-
-                            if (primaryCols.contains(colName)) {
-                                throw new SqlException(STMT_VALIDATION_ERR,
-                                        format("Can`t delete column, belongs to primary key: [name={}]", colName));
-                            }
-                        }
-
-                        colNames0.forEach(cols::delete);
-                    });
-
-                    return ret.get();
-                });
+        return new CatalogDataStorageDescriptor(config.name(), dataRegion);
     }
 }

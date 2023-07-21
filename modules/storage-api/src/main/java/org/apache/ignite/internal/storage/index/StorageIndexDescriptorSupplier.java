@@ -22,6 +22,12 @@ import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDe
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findIndexView;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesView;
@@ -34,6 +40,7 @@ import org.jetbrains.annotations.Nullable;
 // TODO: IGNITE-19717 Get rid of it
 public class StorageIndexDescriptorSupplier {
     private final TablesConfiguration tablesConfig;
+    private final Map<Integer, StorageIndexDescriptor> indexDescriptors;
 
     /**
      * Constructor.
@@ -42,6 +49,17 @@ public class StorageIndexDescriptorSupplier {
      */
     public StorageIndexDescriptorSupplier(TablesConfiguration tablesConfig) {
         this.tablesConfig = tablesConfig;
+        this.indexDescriptors = null;
+    }
+
+    /**
+     * Constructor.
+     */
+    public StorageIndexDescriptorSupplier(CatalogTableDescriptor tableDescriptor, List<CatalogIndexDescriptor> indexDescriptors) {
+        this.tablesConfig = null;
+        this.indexDescriptors = indexDescriptors.stream()
+                .map(idx -> StorageIndexDescriptor.create(tableDescriptor, idx))
+                .collect(Collectors.toMap(StorageIndexDescriptor::id, Function.identity()));
     }
 
     /**
@@ -51,6 +69,10 @@ public class StorageIndexDescriptorSupplier {
      */
     @Nullable
     public StorageIndexDescriptor get(int id) {
+        if (tablesConfig == null) {
+            return indexDescriptors.get(id);
+        }
+
         TablesView tablesView = tablesConfig.value();
 
         TableIndexView indexView = findIndexView(tablesView, id);
