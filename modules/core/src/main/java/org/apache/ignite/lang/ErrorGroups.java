@@ -199,7 +199,7 @@ public class ErrorGroups {
         public static final int INDEX_NOT_FOUND_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 2);
 
         /** Index already exists. */
-        public static int INDEX_ALREADY_EXISTS_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 3);
+        public static final int INDEX_ALREADY_EXISTS_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 3);
     }
 
     /** Transactions error group. */
