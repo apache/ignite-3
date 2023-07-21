@@ -338,7 +338,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
             var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req));
+            return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, req.full(), () -> processScanRetrieveBatchAction(req));
         } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
             processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
 

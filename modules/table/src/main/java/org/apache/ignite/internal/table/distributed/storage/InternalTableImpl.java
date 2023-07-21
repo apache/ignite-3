@@ -397,6 +397,7 @@ public class InternalTableImpl implements InternalTable {
                 .upperBoundPrefix(binaryTupleMessage(upperBound))
                 .flags(flags)
                 .columnsToInclude(columnsToInclude)
+                .full(implicit)
                 .batchSize(batchSize);
 
         if (primaryReplicaAndTerm != null) {
@@ -413,7 +414,7 @@ public class InternalTableImpl implements InternalTable {
             fut = enlistWithRetry(tx, partId, term -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION);
         }
 
-        return postEnlist(fut, implicit, tx, false); // TODO support scans
+        return postEnlist(fut, false, tx, implicit);
     }
 
     private @Nullable BinaryTupleMessage binaryTupleMessage(@Nullable BinaryTupleReader binaryTuple) {
@@ -1035,7 +1036,7 @@ public class InternalTableImpl implements InternalTable {
                         columnsToInclude,
                         implicit
                 ),
-                fut -> postEnlist(fut, implicit, tx0, false)
+                fut -> postEnlist(fut, false, tx0, implicit)
         );
     }
 
