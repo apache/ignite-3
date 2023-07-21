@@ -35,6 +35,7 @@ import org.jetbrains.annotations.Nullable;
 public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     private static final long serialVersionUID = -2021394971104316570L;
 
+    private final int version;
     private final int zoneId;
 
     private final List<CatalogTableColumnDescriptor> columns;
@@ -49,6 +50,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      *
      * @param id Table id.
      * @param name Table name.
+     * @param version Table descriptor version.
      * @param zoneId Distribution zone ID.
      * @param columns Table column descriptors.
      * @param pkCols Primary key column names.
@@ -57,6 +59,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     public CatalogTableDescriptor(
             int id,
             String name,
+            int version,
             int zoneId,
             List<CatalogTableColumnDescriptor> columns,
             List<String> pkCols,
@@ -64,6 +67,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     ) {
         super(id, Type.TABLE, name);
 
+        this.version = version;
         this.zoneId = zoneId;
         this.columns = Objects.requireNonNull(columns, "No columns defined.");
         primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.");
@@ -83,6 +87,10 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      */
     public CatalogTableColumnDescriptor columnDescriptor(String columnName) {
         return columnsMap.get(columnName);
+    }
+
+    public int version() {
+        return version;
     }
 
     public int zoneId() {

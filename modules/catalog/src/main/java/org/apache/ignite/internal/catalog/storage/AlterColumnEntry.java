@@ -91,6 +91,7 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
                                         : new CatalogTableDescriptor(
                                                 table.id(),
                                                 table.name(),
+                                                table.version() + 1,
                                                 table.zoneId(),
                                                 table.columns().stream()
                                                         .map(source -> source.name().equals(column.name()) ? column : source)

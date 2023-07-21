@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -76,10 +77,12 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
     private CompletableFuture<ExecutableTable> loadTable(int schemaVersion, int tableId, TableDescriptor tableDescriptor) {
         return tableManager.tableAsync(tableId)
                 .thenApply(table -> {
+                    CatalogTableDescriptor descriptor = tableManager.catalogManager.table(tableId, schemaVersion);
+
                     InternalTable internalTable = table.internalTable();
                     SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(tableId);
 
-                    SchemaDescriptor schemaDescriptor = schemaRegistry.schema(schemaVersion);
+                    SchemaDescriptor schemaDescriptor = schemaRegistry.schema(descriptor.version());
                     TableRowConverter rowConverter = new TableRowConverterImpl(schemaRegistry, schemaDescriptor, tableDescriptor);
                     ScannableTable scannableTable = new ScannableTableImpl(internalTable, rowConverter, tableDescriptor);
 

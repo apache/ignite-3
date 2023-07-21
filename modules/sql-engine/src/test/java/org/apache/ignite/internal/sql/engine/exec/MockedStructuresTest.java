@@ -557,11 +557,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 new NetworkAddress("localhost", 47500)
         ));
 
-        try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
-            schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(anyInt(), any()))
-                    .thenReturn(mock(SchemaDescriptor.class));
-        }
-
         when(cs.messagingService()).thenAnswer(invocation -> {
             MessagingService ret = mock(MessagingService.class);
 

@@ -29,17 +29,6 @@ import org.apache.ignite.internal.schema.mapping.ColumnMapping;
  */
 public class SchemaUtils {
     /**
-     * Creates schema descriptor for the table with specified configuration.
-     *
-     * @param schemaVer Schema version.
-     * @param tableView Table configuration.
-     * @return Schema descriptor.
-     */
-    public static SchemaDescriptor prepareSchemaDescriptor(int schemaVer, TableView tableView) {
-        return ConfigurationToSchemaDescriptorConverter.convert(schemaVer, tableView);
-    }
-
-    /**
      * Prepares column mapper.
      *
      * @param oldDesc Old schema descriptor.

@@ -328,7 +328,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final SchemaManager schemaManager;
 
     /** Catalog manager. */
-    private final CatalogManager catalogManager;
+    public final CatalogManager catalogManager;
 
     private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
 

@@ -88,6 +88,7 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
                                 .map(table -> table.id() == tableId ? new CatalogTableDescriptor(
                                         table.id(),
                                         table.name(),
+                                        table.version() + 1,
                                         table.zoneId(),
                                         CollectionUtils.concat(table.columns(), descriptors),
                                         table.primaryKeyColumns(),

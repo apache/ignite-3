@@ -122,10 +122,9 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     private CompletableFuture<?> onTableCreated(CreateTableEventParameters evt) {
         CatalogTableDescriptor tableDescriptor = evt.tableDescriptor();
 
-        int newSchemaVersion = INITIAL_SCHEMA_VERSION; // evt.catalogVersion();
         int tblId = tableDescriptor.id();
 
-        SchemaDescriptor newSchema = CatalogDescriptorUtils.convert(newSchemaVersion, tableDescriptor);
+        SchemaDescriptor newSchema = CatalogDescriptorUtils.convert(tableDescriptor);
 
         return onSchemaChange(tblId, newSchema, evt.causalityToken());
     }
@@ -160,9 +159,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 return completedFuture(new UnsupportedOperationException("Unexpected event."));
             }
 
-            int newSchemaVersion = registriesVv.latest().get(tableDescriptor.id()).lastSchemaVersion() + 1;
-
-            SchemaDescriptor newSchema = CatalogDescriptorUtils.convert(newSchemaVersion, tableDescriptor);
+            SchemaDescriptor newSchema = CatalogDescriptorUtils.convert(tableDescriptor);
 
             return onSchemaChange(tableDescriptor.id(), newSchema, evt.causalityToken());
         } catch (Throwable th) {

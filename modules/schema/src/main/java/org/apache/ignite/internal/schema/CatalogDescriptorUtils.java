@@ -74,6 +74,7 @@ public class CatalogDescriptorUtils {
         return new CatalogTableDescriptor(
                 config.id(),
                 config.name(),
+                1,
                 config.zoneId(),
                 config.columns().stream().map(CatalogDescriptorUtils::toTableColumnDescriptor).collect(toList()),
                 List.of(primaryKeyConfig.columns()),
@@ -314,7 +315,7 @@ public class CatalogDescriptorUtils {
     /**
      * Converts table descriptor to table schema descriptor.
      */
-    public static SchemaDescriptor convert(int schemaVer, CatalogTableDescriptor tableDescriptor) {
+    public static SchemaDescriptor convert(CatalogTableDescriptor tableDescriptor) {
         List<Column> keyCols = new ArrayList<>(tableDescriptor.primaryKeyColumns().size());
         List<Column> valCols = new ArrayList<>(tableDescriptor.columns().size() - tableDescriptor.primaryKeyColumns().size());
 
@@ -331,7 +332,7 @@ public class CatalogDescriptorUtils {
         }
 
         return new SchemaDescriptor(
-                schemaVer,
+                tableDescriptor.version(),
                 keyCols.toArray(Column[]::new),
                 tableDescriptor.colocationColumns().toArray(String[]::new),
                 valCols.toArray(Column[]::new)

@@ -87,6 +87,7 @@ public class CatalogUtils {
         return new CatalogTableDescriptor(
                 id,
                 params.tableName(),
+                1,
                 zoneId,
                 params.columns().stream().map(CatalogUtils::fromParams).collect(toList()),
                 params.primaryKeyColumns(),
