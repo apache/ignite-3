@@ -570,6 +570,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 return;
             }
         } catch (Throwable th) {
+            if (lastErrorMsg == null) {
+                lastErrorMsg = th.getMessage();
+            }
+
             String invalidPlanMsg = "Failed to validate plan (" + lastErrorMsg + "):\n"
                     + RelOptUtil.toString(plan, SqlExplainLevel.ALL_ATTRIBUTES);
 

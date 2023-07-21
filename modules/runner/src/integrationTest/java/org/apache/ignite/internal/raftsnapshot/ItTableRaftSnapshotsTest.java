@@ -212,7 +212,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         Predicate<RuntimeException> stopOnDuplicateKeyError = (e) -> {
             if (e instanceof IgniteException) {
                 IgniteException ie = (IgniteException) e;
-                return ie.code() == Sql.DUPLICATE_KEYS_ERR;
+                return ie.code() == Sql.CONSTRAINT_VIOLATION_ERR;
             } else {
                 return false;
             }

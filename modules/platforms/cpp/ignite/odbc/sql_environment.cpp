@@ -101,7 +101,7 @@ sql_result sql_environment::internal_set_attribute(int32_t attr, void *value, in
         case environment_attribute::ODBC_VERSION: {
             auto version = static_cast<int32_t>(reinterpret_cast<intptr_t>(value));
 
-            if (version != m_odbc_version) {
+            if (version != SQL_OV_ODBC3_80 && version != SQL_OV_ODBC3) {
                 add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, "ODBC version is not supported.");
 
                 return sql_result::AI_SUCCESS_WITH_INFO;

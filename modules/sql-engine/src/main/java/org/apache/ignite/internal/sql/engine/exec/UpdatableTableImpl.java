@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.DEFAULT_VALUE_PLACEHOLDER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -48,7 +49,6 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.sql.SqlException;
 
 /**
@@ -344,7 +344,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
     private static RuntimeException conflictKeysException(List<String> conflictKeys) {
         LOG.debug("Unable to insert rows because of conflict [rows={}]", conflictKeys);
 
-        return new SqlException(ErrorGroups.Sql.DUPLICATE_KEYS_ERR, "PK unique constraint is violated");
+        return new SqlException(CONSTRAINT_VIOLATION_ERR, "PK unique constraint is violated");
     }
 
     /**
