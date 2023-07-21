@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -30,8 +33,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -73,7 +76,11 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(1)
                 .check();
 
-        assertThrowsSqlException(Sql.DUPLICATE_KEYS_ERR, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 2));
+        {
+            SqlException ex = assertThrows(SqlException.class, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 2));
+
+            checkDuplicatePk(ex);
+        }
 
         assertQuery("DELETE FROM my WHERE id=?")
                 .withParams(0)
@@ -89,7 +96,11 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(2)
                 .check();
 
-        assertThrowsSqlException(Sql.DUPLICATE_KEYS_ERR, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 3));
+        {
+            SqlException ex = assertThrows(SqlException.class, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 3));
+
+            checkDuplicatePk(ex);
+        }
     }
 
     @Test
@@ -115,10 +126,12 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(1L)
                 .check();
 
-        assertThrowsSqlException(
-                Sql.DUPLICATE_KEYS_ERR,
+        var ex = assertThrowsSqlException(
+                CONSTRAINT_VIOLATION_ERR,
                 () -> sql("INSERT INTO test VALUES (0, 0), (1, 1), (2, 2)")
         );
+
+        checkDuplicatePk(ex);
 
         assertQuery("SELECT count(*) FROM test")
                 .returns(1L)
@@ -163,10 +176,12 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .map(Object::toString)
                 .collect(Collectors.joining("), (", "(", ")"));
 
-        assertThrowsSqlException(
-                Sql.DUPLICATE_KEYS_ERR,
+        SqlException ex = assertThrowsSqlException(
+                CONSTRAINT_VIOLATION_ERR,
                 () -> sql(insertStatement)
         );
+
+        checkDuplicatePk(ex);
 
         assertQuery("SELECT count(*) FROM test")
                 .returns(0L)
@@ -371,10 +386,12 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE TABLE test2 (k int PRIMARY KEY, a int, b int)");
 
-        assertThrowsSqlException(Sql.DUPLICATE_KEYS_ERR, () -> sql(
-                "MERGE INTO test2 USING test1 ON test1.a = test2.a "
-                        + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
-                        + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
+        SqlException ex = assertThrowsSqlException(CONSTRAINT_VIOLATION_ERR, () -> sql(
+                        "MERGE INTO test2 USING test1 ON test1.a = test2.a "
+                                + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
+                                + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
+
+        checkDuplicatePk(ex);
     }
 
     /**
@@ -594,5 +611,10 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(4, 4)
                 .returns(5, 2)
                 .check();
+    }
+
+    private static void checkDuplicatePk(IgniteException ex) {
+        assertEquals(CONSTRAINT_VIOLATION_ERR, ex.code());
+        assertThat(ex.getMessage(), containsString("PK unique constraint is violated"));
     }
 }

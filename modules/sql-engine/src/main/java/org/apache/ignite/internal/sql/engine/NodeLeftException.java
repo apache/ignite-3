@@ -15,24 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_LEFT_ERR;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * QueryValidationException is used during query validation.
- *
- * <p>The exception is used when the expected query type does not match the actual query type obtained after parsing a sql string.
+ * The exception is thrown when SQL engine can not process an operation because a node has a left cluster.
  */
-public class QueryValidationException extends IgniteInternalException {
-    /**
-     * Creates a new exception with the given error message.
-     *
-     * @param msg Error message.
-     */
-    public QueryValidationException(String msg) {
-        super(STMT_VALIDATION_ERR, msg);
+public class NodeLeftException extends IgniteException {
+
+    private static final long serialVersionUID = 0L;
+
+    /** Constructor. */
+    public NodeLeftException(String nodeName) {
+        super(NODE_LEFT_ERR, "Node left the cluster. Node: " + nodeName);
     }
 }
