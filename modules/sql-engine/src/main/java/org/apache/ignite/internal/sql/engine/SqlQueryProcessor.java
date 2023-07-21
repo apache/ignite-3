@@ -71,7 +71,6 @@ import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
-import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.session.Session;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
@@ -146,8 +145,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final SchemaManager schemaManager;
 
-    private final Consumer<LongFunction<CompletableFuture<?>>> registry;
-
     private final DataStorageManager dataStorageManager;
 
     private final Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier;
@@ -168,7 +165,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile PrepareService prepareSvc;
 
-    private volatile SqlSchemaManager sqlSchemaManager;
+    private volatile SqlSchemaManagerImpl sqlSchemaManager;
 
     /** Transaction manager. */
     private final TxManager txManager;
@@ -197,7 +194,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             HybridClock clock,
             CatalogManager catalogManager
     ) {
-        this.registry = registry;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
         this.indexManager = indexManager;
@@ -209,6 +205,16 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.replicaService = replicaService;
         this.clock = clock;
         this.catalogManager = catalogManager;
+
+        sqlSchemaManager = new SqlSchemaManagerImpl(
+                tableManager,
+                schemaManager,
+                registry,
+                busyLock
+        );
+
+        registerTableListener(TableEvent.CREATE, new TableCreatedListener(sqlSchemaManager));
+        registerIndexListener(IndexEvent.CREATE, new IndexCreatedListener(sqlSchemaManager));
     }
 
     /** {@inheritDoc} */
@@ -239,13 +245,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                 mailboxRegistry,
                 msgSrvc
         ));
-
-        SqlSchemaManagerImpl sqlSchemaManager = new SqlSchemaManagerImpl(
-                tableManager,
-                schemaManager,
-                registry,
-                busyLock
-        );
 
         sqlSchemaManager.registerListener(prepareSvc);
 
@@ -282,14 +281,10 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.executionSrvc = executionSrvc;
 
-        registerTableListener(TableEvent.CREATE, new TableCreatedListener(sqlSchemaManager));
         registerTableListener(TableEvent.ALTER, new TableUpdatedListener(sqlSchemaManager));
         registerTableListener(TableEvent.DROP, new TableDroppedListener(sqlSchemaManager));
 
-        registerIndexListener(IndexEvent.CREATE, new IndexCreatedListener(sqlSchemaManager));
         registerIndexListener(IndexEvent.DROP, new IndexDroppedListener(sqlSchemaManager));
-
-        this.sqlSchemaManager = sqlSchemaManager;
 
         services.forEach(LifecycleAware::start);
     }

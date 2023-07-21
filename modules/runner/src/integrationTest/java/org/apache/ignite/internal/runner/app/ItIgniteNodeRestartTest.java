@@ -383,7 +383,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 null
         );
 
-        var indexManager = new IndexManager(tablesConfig, schemaManager, tableManager, catalogManager);
+        var indexManager = new IndexManager(tablesConfig, schemaManager, tableManager, catalogManager, metaStorageMgr, registry);
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,

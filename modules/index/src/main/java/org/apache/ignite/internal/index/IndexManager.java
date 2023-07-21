@@ -30,7 +30,9 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -46,12 +48,14 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
+import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -64,10 +68,13 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageColumnDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.event.TableEvent;
+import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups;
@@ -97,11 +104,16 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /** Catalog manager. */
     private final CatalogManager catalogManager;
 
+    /** Meta storage manager. */
+    private final MetaStorageManager metaStorageManager;
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    private final IncrementalVersionedValue<Void> startVv;
 
     /**
      * Constructor.
@@ -115,12 +127,17 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             TablesConfiguration tablesCfg,
             SchemaManager schemaManager,
             TableManager tableManager,
-            CatalogManager catalogManager
+            CatalogManager catalogManager,
+            MetaStorageManager metaStorageManager,
+            Consumer<LongFunction<CompletableFuture<?>>> registry
     ) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
         this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
         this.tableManager = tableManager;
         this.catalogManager = catalogManager;
+        this.metaStorageManager = metaStorageManager;
+
+        startVv = new IncrementalVersionedValue<>(registry);
     }
 
     @Override
@@ -128,6 +145,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         if (LOG.isDebugEnabled()) {
             LOG.debug("Index manager is about to start");
         }
+
+        startIndexes();
 
         catalogManager.listen(INDEX_CREATE, (parameters, exception) -> {
             assert exception == null : parameters;
@@ -275,6 +294,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @param tableName Table name.
      * @return List of index configuration views.
      */
+    // TODO: IGNITE-19500 указать мол удалить когда откажемся от конфигурации таблицы
     public List<TableIndexView> indexConfigurations(String tableName) {
         List<TableIndexView> res = new ArrayList<>();
         Integer targetTableId = null;
@@ -579,5 +599,84 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    private void startIndexes() {
+        int catalogVersion = catalogManager.latestCatalogVersion();
+        long causalityToken = metaStorageManager.recoveryFinishedFuture().join();
+
+        NamedListView<TableView> tableListView = tablesCfg.tables().value();
+
+        List<CompletableFuture<?>> startIndexFutures = new ArrayList<>();
+
+        for (CatalogIndexDescriptor index : catalogManager.indexes(catalogVersion)) {
+            CatalogTableDescriptor table = catalogManager.table(index.tableId(), catalogVersion);
+
+            assert table != null : "tableId=" + index.tableId() + ", indexId=" + index.id();
+
+            TableView configTable = tableListView.get(table.name());
+
+            assert configTable != null : "tableName=" + table.name() + ", indexId=" + index.id();
+
+            int configTableId = configTable.id();
+
+            startIndexFutures.add(startIndex(table, index, causalityToken, configTableId));
+        }
+
+        startVv.update(causalityToken, (unused, throwable) -> allOf(startIndexFutures.toArray(CompletableFuture[]::new)));
+    }
+
+    private CompletableFuture<Void> startIndex(
+            CatalogTableDescriptor table,
+            CatalogIndexDescriptor index,
+            long causalityToken,
+            int configTableId
+    ) {
+        CompletableFuture<?> fireEventFuture1 = tableManager.fireEvent(
+                TableEvent.CREATE,
+                new TableEventParameters(causalityToken, configTableId)
+        );
+
+        CompletableFuture<?> fireEventFuture = fireEvent(
+                IndexEvent.CREATE,
+                new IndexEventParameters(causalityToken, configTableId, index.id(), toEventIndexDescriptor(index))
+        );
+
+        CompletableFuture<PartitionSet> tablePartitionFuture = tableManager.localPartitionSetAsync(causalityToken, configTableId);
+
+        CompletableFuture<SchemaRegistry> schemaRegistryFuture = schemaManager.schemaRegistry(causalityToken, configTableId);
+
+        CompletableFuture<Void> startIndexFuture = tableManager.tableAsync(causalityToken, configTableId)
+                .thenCompose(tableImpl -> tablePartitionFuture.thenAcceptBoth(schemaRegistryFuture, (partitionSet, schemaRegistry) -> {
+                    var storageIndexDescriptor = StorageIndexDescriptor.create(table, index);
+
+                    TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
+                            schemaRegistry,
+                            storageIndexDescriptor.columns().stream().map(StorageColumnDescriptor::name).toArray(String[]::new)
+                    );
+
+                    if (storageIndexDescriptor instanceof StorageSortedIndexDescriptor) {
+                        tableImpl.registerSortedIndex(
+                                (StorageSortedIndexDescriptor) storageIndexDescriptor,
+                                tableRowConverter::convert,
+                                partitionSet
+                        );
+                    } else {
+                        boolean unique = index.unique();
+
+                        tableImpl.registerHashIndex(
+                                (StorageHashIndexDescriptor) storageIndexDescriptor,
+                                unique,
+                                tableRowConverter::convert,
+                                partitionSet
+                        );
+
+                        if (unique) {
+                            tableImpl.pkId(index.id());
+                        }
+                    }
+                }));
+
+        return allOf(fireEventFuture, fireEventFuture1, startIndexFuture);
     }
 }

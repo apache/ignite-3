@@ -25,6 +25,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_E
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -964,5 +965,15 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         validateCreateHashIndexParams(params, table);
 
         return CatalogUtils.fromParams(indexId, table.id(), params);
+    }
+
+    @Override
+    public int latestCatalogVersion() {
+        return catalogByVer.lastEntry().getKey();
+    }
+
+    @Override
+    public Collection<CatalogIndexDescriptor> indexes(int catalogVersion) {
+        return catalog(catalogVersion).indexes();
     }
 }

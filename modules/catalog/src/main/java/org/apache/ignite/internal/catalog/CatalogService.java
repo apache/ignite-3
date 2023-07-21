@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog;
 
+import java.util.Collection;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -35,6 +36,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>TBD: events
  */
+// TODO: IGNITE-19500 написать тесты для новых методов
 public interface CatalogService {
     String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
@@ -50,6 +52,8 @@ public interface CatalogService {
 
     CatalogIndexDescriptor index(int indexId, long timestamp);
 
+    Collection<CatalogIndexDescriptor> indexes(int catalogVersion);
+
     CatalogSchemaDescriptor schema(int version);
 
     CatalogSchemaDescriptor schema(@Nullable String schemaName, int version);
@@ -63,6 +67,8 @@ public interface CatalogService {
     CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
 
     int activeCatalogVersion(long timestamp);
+
+    int latestCatalogVersion();
 
     void listen(CatalogEvent evt, EventListener<CatalogEventParameters> closure);
 }

@@ -43,6 +43,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
@@ -146,7 +147,14 @@ public class IndexManagerTest {
 
         catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageManager), clockWaiter);
 
-        indexManager = new IndexManager(tablesConfig, schManager, tableManagerMock, catalogManager);
+        indexManager = new IndexManager(
+                tablesConfig,
+                schManager,
+                tableManagerMock,
+                catalogManager,
+                metaStorageManager,
+                mock(Consumer.class)
+        );
 
         vaultManager.start();
         metaStorageManager.start();

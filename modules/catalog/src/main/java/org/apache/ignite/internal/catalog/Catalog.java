@@ -123,6 +123,10 @@ public class Catalog {
         return indexesById.get(indexId);
     }
 
+    public Collection<CatalogIndexDescriptor> indexes() {
+        return indexesById.values();
+    }
+
     public CatalogZoneDescriptor zone(String name) {
         return zonesByName.get(name);
     }
@@ -135,7 +139,6 @@ public class Catalog {
         return zonesByName.values();
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);
