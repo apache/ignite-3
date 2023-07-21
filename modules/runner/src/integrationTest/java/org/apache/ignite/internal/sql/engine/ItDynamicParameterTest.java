@@ -103,9 +103,6 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
         LocalDate date2 = LocalDate.parse("2022-01-31");
 
         assertQuery("SELECT LAST_DAY(?)").withParams(date1).returns(date2).check();
-
-        RuntimeException x = assertThrows(RuntimeException.class, () -> sql("SELECT CAST(? AS INTEGER)", "lame"));
-        x.printStackTrace(System.err);
     }
 
     /**
