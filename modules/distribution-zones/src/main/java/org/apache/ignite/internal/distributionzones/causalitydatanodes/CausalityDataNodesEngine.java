@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Augmentation;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
@@ -69,6 +70,8 @@ public class CausalityDataNodesEngine {
     /** Vault manager. */
     private final VaultManager vaultMgr;
 
+    private final DistributionZoneManager distributionZoneManager;
+
     /**
      * Map with states for distribution zones. States are needed to track nodes that we want to add or remove from the data nodes,
      * schedule and stop scale up and scale down processes.
@@ -81,32 +84,22 @@ public class CausalityDataNodesEngine {
     private final ConcurrentHashMap<Integer, ConcurrentSkipListMap<Long, ZoneConfiguration>> zonesVersionedCfg;
 
     /**
-     * Local mapping of {@code nodeId} -> node's attributes, where {@code nodeId} is a node id, that changes between restarts.
-     * This map is updated every time we receive a topology event in a {@code topologyWatchListener}.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-19491 properly clean up this map
-     *
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/distribution-zones/tech-notes/filters.md">Filter documentation</a>
-     */
-    private Map<String, Map<String, String>> nodesAttributes;
-
-    /**
      * The constructor.
      *
      * @param msManager msManager.
      * @param vaultMgr vaultMgr.
      * @param zonesState zonesState.
-     * @param nodesAttributes nodesAttributes.
      */
     public CausalityDataNodesEngine(
             MetaStorageManager msManager,
             VaultManager vaultMgr,
             Map<Integer, ZoneState> zonesState,
-            Map<String, Map<String, String>> nodesAttributes
+            DistributionZoneManager distributionZoneManager
     ) {
         this.msManager = msManager;
         this.vaultMgr = vaultMgr;
         this.zonesState = zonesState;
-        this.nodesAttributes = nodesAttributes;
+        this.distributionZoneManager = distributionZoneManager;
 
         zonesVersionedCfg = new ConcurrentHashMap<>();
     }
@@ -172,7 +165,7 @@ public class CausalityDataNodesEngine {
 
             Set<Node> logicalTopologyNodes = logicalTopology.stream().map(n -> n.node()).collect(toSet());
 
-            Set<String> dataNodesNames = filterDataNodes(logicalTopologyNodes, filter, nodesAttributes);
+            Set<String> dataNodesNames = filterDataNodes(logicalTopologyNodes, filter, distributionZoneManager.nodesAttributes());
 
             return dataNodesNames;
         }
@@ -252,8 +245,11 @@ public class CausalityDataNodesEngine {
             });
         }
 
+        LOG.info("+++++++ dataNodes filter " + filter);
+        LOG.info("+++++++ dataNodes nodesAttributes " + distributionZoneManager.nodesAttributes());
+
         // Apply the filter to get the final data nodes set.
-        Set<String> result = filterDataNodes(finalDataNodes, filter, nodesAttributes);
+        Set<String> result = filterDataNodes(finalDataNodes, filter, distributionZoneManager.nodesAttributes());
 
         LOG.info("+++++++ dataNodes result " + result);
 

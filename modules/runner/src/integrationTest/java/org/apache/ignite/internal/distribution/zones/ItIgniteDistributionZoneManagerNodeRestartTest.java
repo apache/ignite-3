@@ -18,17 +18,21 @@
 package org.apache.ignite.internal.distribution.zones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -67,6 +71,8 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
+import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
+import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -394,11 +400,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         partialNode.logicalTopology().putNode(C);
         partialNode.logicalTopology().removeNodes(Set.of(B));
 
-        assertDataNodesFromManager(
-                distributionZoneManager,
-                zoneId,
-                Set.of(A),
-                TIMEOUT_MILLIS
+        assertValueInStorage(
+                metaStorageManager,
+                zoneDataNodesKey(zoneId),
+                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                Set.of(A.name()),
+                3000
         );
 
         partialNode.stop();
@@ -448,7 +455,13 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                         .build()
         ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A), TIMEOUT_MILLIS);
+        assertValueInStorage(
+                metaStorageManager,
+                zoneDataNodesKey(zoneId),
+                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                Set.of(A.name()),
+                3000
+        );
 
         partialNode.stop();
 
@@ -501,7 +514,13 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         partialNode.logicalTopology().removeNodes(Set.of(A));
 
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(), TIMEOUT_MILLIS);
+        assertValueInStorage(
+                metaStorageManager,
+                zoneDataNodesKey(zoneId),
+                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                Set.of(),
+                3000
+        );
 
         partialNode.stop();
 
@@ -546,11 +565,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         partialNode.logicalTopology().removeNodes(Set.of(B));
         partialNode.logicalTopology().putNode(C);
 
-        assertDataNodesFromManager(
-                distributionZoneManager,
-                zoneId,
-                Set.of(A, B, C),
-                TIMEOUT_MILLIS
+        assertValueInStorage(
+                metaStorageManager,
+                zoneDataNodesKey(zoneId),
+                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                Set.of(A.name(), B.name(), C.name()),
+                3000
         );
 
         partialNode.stop();

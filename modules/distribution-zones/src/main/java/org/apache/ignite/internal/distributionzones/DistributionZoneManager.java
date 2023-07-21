@@ -308,8 +308,8 @@ public class DistributionZoneManager implements IgniteComponent {
                 metaStorageManager,
                 vaultMgr,
                 zonesState,
-                nodesAttributes
-                );
+                this
+        );
     }
 
     /** {@inheritDoc} */
