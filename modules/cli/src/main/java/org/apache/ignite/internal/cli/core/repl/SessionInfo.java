@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.cli.core.repl;
 
+
+import javax.annotation.Nullable;
+
 /** Representation of session details. */
 public class SessionInfo {
     private final String nodeUrl;
@@ -28,7 +31,7 @@ public class SessionInfo {
     private final String username;
 
     /** Constructor. */
-    public SessionInfo(String nodeUrl, String nodeName, String jdbcUrl, String username) {
+    public SessionInfo(String nodeUrl, String nodeName, String jdbcUrl, @Nullable String username) {
         this.nodeUrl = nodeUrl;
         this.nodeName = nodeName;
         this.jdbcUrl = jdbcUrl;
@@ -47,6 +50,7 @@ public class SessionInfo {
         return jdbcUrl;
     }
 
+    @Nullable
     public String username() {
         return username;
     }

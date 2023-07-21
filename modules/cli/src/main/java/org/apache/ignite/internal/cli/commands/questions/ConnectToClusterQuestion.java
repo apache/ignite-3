@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.cli.commands.questions;
 
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
 import static org.apache.ignite.internal.cli.core.style.component.QuestionUiComponent.fromYesNoQuestion;
+import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -28,6 +31,7 @@ import org.apache.ignite.internal.cli.call.connect.SslConfig;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
+import org.apache.ignite.internal.cli.core.flow.Flowable;
 import org.apache.ignite.internal.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.core.flow.question.QuestionAskerFactory;
@@ -107,6 +111,25 @@ public class ConnectToClusterQuestion {
             return Flows.acceptQuestion(question, () -> nodeUrl);
         }
         return Flows.from(nodeUrl);
+    }
+    /**
+     * Ask if the user wants to store credentials in config.
+     *
+     * @param username username.
+     * @param password password
+     * @return {@link FlowBuilder} instance which provides result.
+     */
+    public void askQuestionToStoreCredentials(@Nullable String username, @Nullable String password) {
+        if (!nullOrBlank(username) && !nullOrBlank(password)) {
+            QuestionUiComponent question = fromYesNoQuestion(
+                    "Do you want to store username and password in cli configuration config?"
+            );
+            Flows.acceptQuestion(question, () -> {
+                configManagerProvider.get().setProperty(BASIC_AUTHENTICATION_USERNAME.value(), username);
+                configManagerProvider.get().setProperty(BASIC_AUTHENTICATION_PASSWORD.value(), password);
+                return "Config saved";
+            }).print().build().start(Flowable.empty());
+        }
     }
 
     /**

@@ -79,7 +79,20 @@ public class ApiClientFactory {
      * @return created API client.
      */
     public ApiClient getClient(String path) {
-        return getClientFromSettings(settings(path, true));
+        return getClientFromSettings(settings(path, true).build());
+    }
+
+    /**
+     * Returns {@link ApiClient} for the base path with basic authentication.
+     *
+     * @param path Base path.
+     * @return created API client.
+     */
+    public ApiClient getClient(String path, String username, String password) {
+        ApiClientSettingsBuilder clientSettingsBuilder = settings(path, false);
+        clientSettingsBuilder.basicAuthenticationUsername(username);
+        clientSettingsBuilder.basicAuthenticationPassword(password);
+        return getClientFromSettings(clientSettingsBuilder.build());
     }
 
     /**
@@ -89,7 +102,7 @@ public class ApiClientFactory {
      * @return created API client.
      */
     public ApiClient getClientWithoutBasicAuthentication(String path) {
-        return getClientFromSettings(settings(path, false));
+        return getClientFromSettings(settings(path, false).build());
     }
 
     private ApiClient getClientFromSettings(ApiClientSettings settings) {
@@ -98,7 +111,7 @@ public class ApiClientFactory {
         return apiClient;
     }
 
-    private ApiClientSettings settings(String path, boolean enableBasicAuthentication) {
+    private ApiClientSettingsBuilder settings(String path, boolean enableBasicAuthentication) {
         ConfigManager configManager = configManagerProvider.get();
         ApiClientSettingsBuilder builder = ApiClientSettings.builder()
                 .basePath(path)
@@ -113,7 +126,7 @@ public class ApiClientFactory {
                     .basicAuthenticationPassword(configManager.getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value()));
         }
 
-        return builder.build();
+        return builder;
     }
 
     public String basicAuthenticationUsername() {

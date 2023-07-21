@@ -12,7 +12,7 @@ public class ConnectCallInput implements CallInput {
     @Nullable
     private final String password;
 
-    public ConnectCallInput(String url, @org.jetbrains.annotations.Nullable String username, @org.jetbrains.annotations.Nullable String password) {
+    public ConnectCallInput(String url, @Nullable String username, @Nullable String password) {
         this.url = url;
         this.username = username;
         this.password = password;
@@ -22,10 +22,12 @@ public class ConnectCallInput implements CallInput {
         return url;
     }
 
+    @Nullable
     String getUsername() {
         return username;
     }
 
+    @Nullable
     String getPassword() {
         return password;
     }

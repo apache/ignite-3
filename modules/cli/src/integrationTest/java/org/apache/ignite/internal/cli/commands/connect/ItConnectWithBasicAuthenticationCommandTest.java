@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.io.IOException;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.cli.commands.ItConnectToClusterTestBase;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
@@ -177,7 +178,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
     @Test
     @DisplayName("Should connect to cluster with incorrect password in config but correct in command")
     void connectWithWrongAuthenticationParametersInConfig() {
-        // Given basic authentication is NOT configured in config file
+        // Given basic authentication is configured in config file
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
         // And wrong password is in config
         configManagerProvider.configManager.setProperty(CliConfigKeys.Constants.BASIC_AUTHENTICATION_PASSWORD, "wrong-password");
@@ -201,7 +202,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
     @Test
     @DisplayName("Should restore initial values in config in case of connect failed")
     void connectWithWrongAuthenticationParametersRestorePreviousCredentials() {
-        // Given basic authentication is NOT configured in config file
+        // Given basic authentication is configured in config file
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
 
         // Given prompt before connect
@@ -222,5 +223,35 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         //Previous correct values restored in config
         assertEquals("admin", configManagerProvider.get().getCurrentProperty(Constants.BASIC_AUTHENTICATION_USERNAME));
         assertEquals("password", configManagerProvider.get().getCurrentProperty(Constants.BASIC_AUTHENTICATION_PASSWORD));
+    }
+
+    @Test
+    @DisplayName("Should ask to store credentials")
+    void shouldAskToStoreCredentials() throws IOException {
+        // Given basic authentication is NOT configured in config file
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig());
+        // Given prompt before connect
+        String promptBefore = getPrompt();
+        assertThat(promptBefore).isEqualTo("[disconnected]> ");
+
+        // And connected
+        execute("connect", "--username", "admin", "--password", "password");
+
+        // And output is
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputIs("Connected to http://localhost:10300" + System.lineSeparator())
+        );
+
+        // And answer is "y"
+        bindAnswers("y");
+
+        // And disconnect
+        resetOutput();
+        execute("disconnect");
+
+        // And prompt is changed to another node
+        String promptAfter = getPrompt();
+        assertThat(promptAfter).isEqualTo("[" + CLUSTER_NODES.get(1).name() + "]> ");
     }
 }

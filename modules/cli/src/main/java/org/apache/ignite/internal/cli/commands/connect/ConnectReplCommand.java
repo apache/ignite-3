@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.commands.connect;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OR_NAME_DESC;
+import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
@@ -26,6 +27,8 @@ import org.apache.ignite.internal.cli.call.connect.ConnectSslCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.core.flow.Flow;
+import org.apache.ignite.internal.cli.core.flow.Flowable;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -58,6 +61,7 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
                 .then(Flows.fromCall(connectCall))
                 .verbose(verbose)
                 .print()
+                .onSuccess(() -> question.askQuestionToStoreCredentials(connectOptions.username(), connectOptions.password()))
                 .start();
     }
 }
