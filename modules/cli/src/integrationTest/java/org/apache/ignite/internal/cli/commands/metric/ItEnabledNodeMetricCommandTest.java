@@ -58,7 +58,9 @@ class ItEnabledNodeMetricCommandTest extends CliCommandTestInitializedIntegratio
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputIs("Set name\tEnabled" + NL
                         + "jvm\tenabled" + NL
-                        + "client.handler\tdisabled" + NL)
+                        + "client.handler\tdisabled" + NL
+                        + "sql.client\tdisabled" + NL
+                        + "sql.plan.cache\tdisabled" + NL)
         );
     }
 
