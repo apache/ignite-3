@@ -27,14 +27,11 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneCatalogDescriptorUtils.toZoneDescriptor;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -107,7 +104,6 @@ import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -144,7 +140,6 @@ import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.PrimaryKeyView;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
@@ -243,9 +238,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Tables configuration. */
     private final TablesConfiguration tablesCfg;
-
-    /** Distribution zones configuration. */
-    private final DistributionZonesConfiguration zonesConfig;
 
     /** Garbage collector configuration. */
     private final GcConfiguration gcConfig;
@@ -396,7 +388,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param nodeName Node name.
      * @param registry Registry for versioned values.
      * @param tablesCfg Tables configuration.
-     * @param zonesConfig Distribution zones configuration.
      * @param gcConfig Garbage collector configuration.
      * @param raftMgr Raft manager.
      * @param replicaMgr Replica manager.
@@ -416,7 +407,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             String nodeName,
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             TablesConfiguration tablesCfg,
-            DistributionZonesConfiguration zonesConfig,
             GcConfiguration gcConfig,
             ClusterService clusterService,
             RaftManager raftMgr,
@@ -440,7 +430,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             DistributionZoneManager distributionZoneManager
     ) {
         this.tablesCfg = tablesCfg;
-        this.zonesConfig = zonesConfig;
         this.gcConfig = gcConfig;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -1463,15 +1452,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private Set<Assignment> calculateAssignments(TablePartitionId tablePartitionId) {
-        CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId());
-
-        assert tableDescriptor != null : tablePartitionId;
+        int replicas = tableReplicas(tablePartitionId.tableId());
 
         return AffinityUtils.calculateAssignmentForPartition(
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 we must use distribution zone keys here
                 baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
                 tablePartitionId.partitionId(),
-                getZoneDescriptor(tableDescriptor.zoneId()).replicas()
+                replicas
         );
     }
 
@@ -2493,14 +2480,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 }
 
                                 try {
-                                    CatalogTableDescriptor tableDescriptor = getTableDescriptor(tableId);
-
-                                    assert tableDescriptor != null : replicaGrpId;
+                                    int replicas = tableReplicas(tableId);
 
                                     return RebalanceUtil.handleReduceChanged(
                                             metaStorageMgr,
                                             baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
-                                            getZoneDescriptor(tableDescriptor.zoneId()).replicas(),
+                                            replicas,
                                             replicaGrpId,
                                             evt
                                     );
@@ -2771,14 +2756,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return startedTables.get(tableId);
     }
 
-    private @Nullable CatalogTableDescriptor getTableDescriptor(int id) {
-        TableView tableView = findTableView(tablesCfg.value(), id);
+    private int tableReplicas(int tableId) {
+        int version = catalogManager.activeCatalogVersion(Long.MAX_VALUE);
 
-        return tableView == null ? null : toTableDescriptor(tableView);
-    }
+        CatalogTableDescriptor table = catalogManager.table(tableId, version);
 
-    private CatalogZoneDescriptor getZoneDescriptor(int id) {
-        return toZoneDescriptor(getZoneById(zonesConfig, id).value());
+        assert table != null;
+
+        CatalogZoneDescriptor zone = catalogManager.zone(table.zoneId(), version);
+
+        assert zone != null;
+
+        return zone.replicas();
     }
 
     // Copied from DdlCommandHandler

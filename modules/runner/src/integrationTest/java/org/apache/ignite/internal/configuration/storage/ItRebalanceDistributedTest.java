@@ -801,7 +801,6 @@ public class ItRebalanceDistributedTest {
                     name,
                     registry,
                     tablesCfg,
-                    zonesCfg,
                     gcConfig,
                     clusterService,
                     raftManager,
