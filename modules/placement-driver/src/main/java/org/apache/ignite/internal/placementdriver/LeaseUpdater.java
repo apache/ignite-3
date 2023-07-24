@@ -318,7 +318,7 @@ public class LeaseUpdater {
         }
 
         /**
-         * Updates leases in Meta storage. This method is supposed to be used on the busy lock.
+         * Updates leases in Meta storage. This method is supposed to be used in the busy lock.
          */
         private void updateLeaseBatchInternal() {
             long outdatedLeaseThreshold = clock.now().getPhysical() + LEASE_INTERVAL / 2;
