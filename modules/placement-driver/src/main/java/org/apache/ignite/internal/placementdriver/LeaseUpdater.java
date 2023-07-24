@@ -182,7 +182,6 @@ public class LeaseUpdater {
 
             leaseNegotiator = new LeaseNegotiator(clusterService);
 
-            //TODO: IGNITE-18879 Implement lease maintenance.
             updaterTread = new Thread(updater, NamedThreadFactory.threadPrefix(nodeName, "lease-updater") + '0');
 
             updaterTread.start();
@@ -208,7 +207,6 @@ public class LeaseUpdater {
 
             leaseNegotiator = null;
 
-            //TODO: IGNITE-18879 Implement lease maintenance.
             if (updaterTread != null) {
                 updaterTread.interrupt();
 
