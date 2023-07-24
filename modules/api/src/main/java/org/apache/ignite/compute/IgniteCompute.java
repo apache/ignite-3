@@ -100,6 +100,28 @@ public interface IgniteCompute {
      *
      * @param tableName Name of the table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
+     * @param keyMapper Mapper used to map the key to a binary representation.
+     * @param units Deployment units. Can be empty.
+     * @param jobClassName Name of the job class to execute.
+     * @param args Arguments of the job.
+     * @param <R> Job result type.
+     * @return CompletableFuture Job result.
+     */
+    <K, R> CompletableFuture<R> executeColocatedAsync(
+            String tableName,
+            K key,
+            Mapper<K> keyMapper,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    );
+
+    /**
+     * Executes a job of the given class on the node where the given key is located. The node is a leader
+     * of the corresponding RAFT group.
+     *
+     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
+     * @param key Key that identifies the node to execute the job on.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param args Arguments of the job.
@@ -119,28 +141,6 @@ public interface IgniteCompute {
             throw IgniteExceptionUtils.wrap(e);
         }
     }
-
-    /**
-     * Executes a job of the given class on the node where the given key is located. The node is a leader
-     * of the corresponding RAFT group.
-     *
-     * @param tableName Name of the table whose key is used to determine the node to execute the job on.
-     * @param key Key that identifies the node to execute the job on.
-     * @param keyMapper Mapper used to map the key to a binary representation.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return CompletableFuture Job result.
-     */
-    <K, R> CompletableFuture<R> executeColocatedAsync(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    );
 
     /**
      * Executes a job of the given class on the node where the given key is located. The node is a leader
