@@ -173,7 +173,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
 
     @Test
     @DisplayName("Should connect to cluster with incorrect password in config but correct in command")
-    void connectWithWrongAuthenticationParametersInConfig() {
+    void connectWithWrongAuthenticationParametersInConfig() throws IOException {
         // Given basic authentication is configured in config file
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
         // And wrong password is in config
@@ -182,13 +182,17 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
+        // And answer is "y"
+        bindAnswers("y");
+
         // When connect with auth parameters
         execute("connect", "--username", "admin", "--password", "password");
 
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300")
+                () -> assertOutputIs(
+                        "Config saved" + System.lineSeparator() + "Connected to http://localhost:10300" + System.lineSeparator())
         );
 
         // And prompt shows user name and node name
@@ -230,21 +234,18 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         String promptBefore = getPrompt();
         assertThat(promptBefore).isEqualTo("[disconnected]> ");
 
+        // And answer is "y"
+        bindAnswers("y");
+
         // And connected
         execute("connect", "--username", "admin", "--password", "password");
 
         // And output is
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputIs("Connected to http://localhost:10300" + System.lineSeparator())
+                () -> assertOutputIs(
+                        "Config saved" + System.lineSeparator() + "Connected to http://localhost:10300" + System.lineSeparator())
         );
-
-        // And answer is "y"
-        bindAnswers("y");
-
-        // And disconnect
-        resetOutput();
-        execute("disconnect");
 
         // And prompt shows user name and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
