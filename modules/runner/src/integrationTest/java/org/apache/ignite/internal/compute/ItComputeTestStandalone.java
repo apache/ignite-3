@@ -90,6 +90,13 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19623")
     @Override
+    void executesFailingJobOnRemoteNodesAsync() {
+        super.executesFailingJobOnRemoteNodesAsync();
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19623")
+    @Override
     void broadcastsFailingJob() throws Exception {
         super.broadcastsFailingJob();
     }
