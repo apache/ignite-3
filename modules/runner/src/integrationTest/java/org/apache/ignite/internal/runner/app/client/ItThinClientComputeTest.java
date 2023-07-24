@@ -181,27 +181,49 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertNull(cause.getCause()); // No stack trace by default.
     }
 
-    @Test
-    void testExceptionInJobPropagatesToClientWithClassAndMessage() {
-        CompletionException ex = assertThrows(
-                CompletionException.class,
-                () ->  client().compute().<String>executeAsync(Set.of(node(0)), List.of(), ExceptionJob.class.getName()).join());
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testExceptionInJobPropagatesToClientWithClassAndMessage(boolean async) {
+        IgniteException cause;
 
-        var cause = (IgniteException) ex.getCause();
+        if (async) {
+            CompletionException ex = assertThrows(
+                    CompletionException.class,
+                    () -> client().compute().<String>executeAsync(Set.of(node(0)), List.of(), ExceptionJob.class.getName()).join());
+
+            cause = (IgniteException) ex.getCause();
+        } else {
+            IgniteException ex = assertThrows(
+                    IgniteException.class,
+                    () -> client().compute().<String>execute(Set.of(node(0)), List.of(), ExceptionJob.class.getName()));
+
+            cause = (IgniteException) ex.getCause();
+        }
 
         assertThat(cause.getMessage(), containsString("ArithmeticException: math err"));
         assertEquals(INTERNAL_ERR, cause.code());
         assertNull(cause.getCause()); // No stack trace by default.
     }
 
-    @Test
-    void testExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace(boolean async) {
         // Second node has sendServerExceptionStackTraceToClient enabled.
-        CompletionException ex = assertThrows(
-                CompletionException.class,
-                () ->  client().compute().executeAsync(Set.of(node(1)), List.of(), ExceptionJob.class.getName()).join());
+        IgniteException cause;
 
-        var cause = (IgniteException) ex.getCause();
+        if (async) {
+            CompletionException ex = assertThrows(
+                    CompletionException.class,
+                    () -> client().compute().executeAsync(Set.of(node(1)), List.of(), ExceptionJob.class.getName()).join());
+
+            cause = (IgniteException) ex.getCause();
+        } else {
+            IgniteException ex = assertThrows(
+                    IgniteException.class,
+                    () -> client().compute().execute(Set.of(node(1)), List.of(), ExceptionJob.class.getName()));
+
+            cause = (IgniteException) ex.getCause();
+        }
 
         assertThat(cause.getMessage(), containsString("ArithmeticException: math err"));
         assertEquals(INTERNAL_ERR, cause.code());
