@@ -268,7 +268,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             }
         });
 
-        assertTrue(gotExceptionLatch.await(10_000, TimeUnit.MICROSECONDS));
+        assertTrue(gotExceptionLatch.await(10_000, TimeUnit.MILLISECONDS));
 
         assertEquals(gotException.get().getCause().getClass(), StorageException.class);
 

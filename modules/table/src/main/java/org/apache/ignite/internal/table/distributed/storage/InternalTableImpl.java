@@ -1475,7 +1475,7 @@ public class InternalTableImpl implements InternalTable {
              * After the method is called, a subscriber won't be received updates from the publisher.
              *
              * @param t An exception which was thrown when entries were retrieving from the cursor.
-             * @param {@True} to commit.
+             * @param commit {@code True} to commit.
              */
             private void cancel(Throwable t, boolean commit) {
                 if (!canceled.compareAndSet(false, true)) {

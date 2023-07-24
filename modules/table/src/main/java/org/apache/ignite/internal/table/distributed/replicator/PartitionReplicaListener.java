@@ -1338,6 +1338,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /**
      * Clean up txn locally.
+     *
      * @param txId Tx ID.
      * @param committed {@code True} if committed.
      */
