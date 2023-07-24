@@ -122,6 +122,7 @@ public class NonHistoricSchemas implements Schemas {
             case NUMBER:
             case DATE:
             case UUID:
+            case BOOLEAN:
                 precision = 0;
                 scale = 0;
                 length = 0;

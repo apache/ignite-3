@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.EXPRESSION_COMPILATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -98,8 +98,8 @@ import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteSystemProperties;
-import org.apache.ignite.sql.SqlException;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
@@ -392,7 +392,7 @@ public final class Commons {
 
             return (T) cbe.createInstance(new StringReader(body));
         } catch (Exception e) {
-            throw new SqlException(EXPRESSION_COMPILATION_ERR, e);
+            throw new IgniteInternalException(INTERNAL_ERR, "Unable to compile expression", e);
         }
     }
 
@@ -575,6 +575,9 @@ public final class Commons {
         assert type != null;
 
         switch (type.spec()) {
+            case BOOLEAN:
+                return Boolean.class;
+
             case INT8:
                 return Byte.class;
 
@@ -680,6 +683,7 @@ public final class Commons {
             case DECIMAL:
                 return ((DecimalNativeType) type).precision();
 
+            case BOOLEAN:
             case UUID:
             case DATE:
                 return -1;
@@ -714,6 +718,7 @@ public final class Commons {
             case NUMBER:
                 return 0;
 
+            case BOOLEAN:
             case FLOAT:
             case DOUBLE:
             case UUID:

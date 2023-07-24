@@ -63,6 +63,12 @@ public class ClientMarshallerWriter implements MarshallerWriter {
 
     /** {@inheritDoc} */
     @Override
+    public void writeBoolean(boolean val) {
+        packer.appendBoolean(val);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void writeByte(byte val) {
         packer.appendByte(val);
     }

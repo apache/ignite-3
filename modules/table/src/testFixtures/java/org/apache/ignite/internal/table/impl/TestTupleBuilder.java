@@ -99,6 +99,18 @@ public class TestTupleBuilder implements Tuple {
 
     /** {@inheritDoc} */
     @Override
+    public boolean booleanValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean booleanValue(int columnIndex) {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public byte byteValue(@NotNull String columnName) {
         return value(columnName);
     }

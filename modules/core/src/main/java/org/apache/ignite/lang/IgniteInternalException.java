@@ -69,7 +69,7 @@ public class IgniteInternalException extends RuntimeException implements Traceab
      */
     public IgniteInternalException(UUID traceId, int code) {
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -94,7 +94,7 @@ public class IgniteInternalException extends RuntimeException implements Traceab
         super(message);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -119,7 +119,7 @@ public class IgniteInternalException extends RuntimeException implements Traceab
         super((cause != null) ? cause.getLocalizedMessage() : null, cause);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -146,7 +146,7 @@ public class IgniteInternalException extends RuntimeException implements Traceab
         super(message, cause);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -241,7 +241,7 @@ public class IgniteInternalException extends RuntimeException implements Traceab
      * @return Error group.
      */
     @Override
-    public int groupCode() {
+    public short groupCode() {
         return extractGroupCode(code);
     }
 
@@ -253,7 +253,7 @@ public class IgniteInternalException extends RuntimeException implements Traceab
      * @return Error code.
      */
     @Override
-    public int errorCode() {
+    public short errorCode() {
         return extractErrorCode(code);
     }
 

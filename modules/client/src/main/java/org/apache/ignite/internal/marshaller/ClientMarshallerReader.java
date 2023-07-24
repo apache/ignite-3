@@ -66,6 +66,19 @@ public class ClientMarshallerReader implements MarshallerReader {
 
     /** {@inheritDoc} */
     @Override
+    public boolean readBoolean() {
+        return unpacker.booleanValue(index++);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Boolean readBooleanBoxed() {
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.booleanValue(idx);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public byte readByte() {
         return unpacker.byteValue(index++);
     }

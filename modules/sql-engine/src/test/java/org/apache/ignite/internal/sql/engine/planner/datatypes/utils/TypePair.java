@@ -15,23 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.notifications;
+package org.apache.ignite.internal.sql.engine.planner.datatypes.utils;
 
-import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.schema.NativeType;
 
 /**
- * Configuration storage revision change listener.
+ * Utility interface that describes pair of types.
  *
- * <p>Storage revision - monotonously increasing counter, linked to the specific storage for current configuration values.
+ * <p>Generally used in tests verifying behaviour of binary operations.
+ *
+ * <p>Although elements of pair are called "{@link #first()}" and {@link #second()}, whether
+ * the order does really matter or not is defined by particular test.
  */
-// TODO: IGNITE-19801 Get rid of this interface.
-@FunctionalInterface
-public interface ConfigurationStorageRevisionListener {
-    /**
-     * Called on update the storage version.
-     *
-     * @param newStorageRevision Updated configuration storage revision.
-     * @return Future that signifies the end of the listener execution.
-     */
-    CompletableFuture<?> onUpdate(long newStorageRevision);
+public interface TypePair {
+    /** Returns the first type of the pair. */
+    NativeType first();
+
+    /** Returns the second type of the pair. */
+    NativeType second();
 }

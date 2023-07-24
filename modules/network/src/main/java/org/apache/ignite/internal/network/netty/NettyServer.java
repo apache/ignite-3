@@ -73,9 +73,6 @@ public class NettyServer {
     @Nullable
     private CompletableFuture<Void> serverCloseFuture;
 
-    /** New connections listener. */
-    private final Consumer<NettySender> newConnectionListener;
-
     /** Flag indicating if {@link #stop()} has been called. */
     private boolean stopped;
 
@@ -84,7 +81,6 @@ public class NettyServer {
      *
      * @param configuration         Server configuration.
      * @param handshakeManager      Handshake manager supplier.
-     * @param newConnectionListener New connections listener.
      * @param messageListener       Message listener.
      * @param serializationService  Serialization service.
      * @param bootstrapFactory      Netty bootstrap factory.
@@ -92,14 +88,12 @@ public class NettyServer {
     public NettyServer(
             NetworkView configuration,
             Supplier<HandshakeManager> handshakeManager,
-            Consumer<NettySender> newConnectionListener,
             Consumer<InNetworkObject> messageListener,
             SerializationService serializationService,
             NettyBootstrapFactory bootstrapFactory
     ) {
         this.configuration = configuration;
         this.handshakeManager = handshakeManager;
-        this.newConnectionListener = newConnectionListener;
         this.messageListener = messageListener;
         this.serializationService = serializationService;
         this.bootstrapFactory = bootstrapFactory;
@@ -137,8 +131,6 @@ public class NettyServer {
                             } else {
                                 PipelineUtils.setup(ch.pipeline(), sessionSerializationService, manager, messageListener);
                             }
-
-                            manager.handshakeFuture().thenAccept(newConnectionListener);
                         }
                     });
 

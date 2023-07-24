@@ -141,6 +141,7 @@ import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -570,9 +571,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     // If node's recovery process is incomplete (no partition storage), then we consider this node's
                     // partition storage empty.
                     if (mvPartition != null) {
-                        // If applied index of a storage is greater than 0,
-                        // then there is data.
-                        contains = mvPartition.lastAppliedIndex() > 0;
+                        contains = mvPartition.closestRowId(RowId.lowestRowId(partitionId)) != null;
                     }
                 }
 
@@ -633,6 +632,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
             });
 
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 Probably should be reworked so that
+            // the future is returned along with createTableFut. Right now it will break some tests.
             writeTableAssignmentsToMetastore(tableId, assignments);
 
             return createTableFut;
@@ -641,7 +642,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    private void writeTableAssignmentsToMetastore(int tableId, List<Set<Assignment>> assignments) {
+    private CompletableFuture<Boolean> writeTableAssignmentsToMetastore(int tableId, List<Set<Assignment>> assignments) {
         assert !assignments.isEmpty();
 
         List<Operation> partitionAssignments = new ArrayList<>(assignments.size());
@@ -655,7 +656,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         Condition condition = Conditions.notExists(new ByteArray(partitionAssignments.get(0).key()));
 
-        metaStorageMgr
+        return metaStorageMgr
                 .invoke(condition, partitionAssignments, Collections.emptyList())
                 .exceptionally(e -> {
                     LOG.error("Couldn't write assignments to metastore", e);
@@ -773,7 +774,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
 
-                CompletableFuture<Void> startGroupFut;
+                CompletableFuture<Boolean> startGroupFut;
 
                 // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
                 if (localMemberAssignment != null) {
@@ -809,9 +810,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         shouldStartGroupFut = completedFuture(true);
                     }
 
-                    startGroupFut = shouldStartGroupFut.thenAcceptAsync(startGroup -> inBusyLock(busyLock, () -> {
+                    startGroupFut = shouldStartGroupFut.thenApplyAsync(startGroup -> inBusyLock(busyLock, () -> {
                         if (!startGroup) {
-                            return;
+                            return false;
                         }
                         TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
@@ -848,12 +849,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     ),
                                     groupOptions
                             );
+
+                            return true;
                         } catch (NodeStoppingException ex) {
                             throw new CompletionException(ex);
                         }
                     }), ioExecutor);
                 } else {
-                    startGroupFut = completedFuture(null);
+                    startGroupFut = completedFuture(false);
                 }
 
                 startGroupFut
@@ -868,7 +871,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         .thenAcceptAsync(updatedRaftGroupService -> inBusyLock(busyLock, () -> {
                             ((InternalTableImpl) internalTbl).updateInternalTableRaftGroupService(partId, updatedRaftGroupService);
 
-                            if (localMemberAssignment == null) {
+                            boolean startedRaftNode = startGroupFut.join();
+                            if (localMemberAssignment == null || !startedRaftNode) {
                                 return;
                             }
 
@@ -893,37 +897,39 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }), ioExecutor)
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
-                                LOG.warn("Unable to update raft groups on the node", ex);
-                            }
+                                LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);
 
-                            futures[partId].complete(null);
+                                futures[partId].completeExceptionally(ex);
+                            } else {
+                                futures[partId].complete(null);
+                            }
                         });
             }
 
             return allOf(futures);
         };
 
-        return localPartsByTableIdVv.update(causalityToken, (previous, throwable) -> inBusyLock(busyLock, () -> {
-            return getOrCreatePartitionStorages(table, parts).thenApply(u -> {
-                var newValue = new HashMap<>(previous);
+        // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
+        CompletableFuture<?> localPartsUpdateFuture = localPartsByTableIdVv.update(causalityToken,
+                (previous, throwable) -> inBusyLock(busyLock, () -> {
+                    return getOrCreatePartitionStorages(table, parts).thenApply(u -> {
+                        var newValue = new HashMap<>(previous);
 
-                newValue.put(tableId, parts);
+                        newValue.put(tableId, parts);
 
-                return newValue;
-            });
-        })).thenCompose(unused -> {
-            CompletableFuture<Void> updateAssignmentsFuture = tablesByIdVv.get(causalityToken).thenComposeAsync(
-                    tablesById -> inBusyLock(busyLock, updateAssignmentsClosure),
-                    ioExecutor
+                        return newValue;
+                    });
+                }));
+
+        return assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
+            if (e != null) {
+                return failedFuture(e);
+            }
+
+            return localPartsUpdateFuture.thenCompose(unused ->
+                    tablesByIdVv.get(causalityToken)
+                            .thenComposeAsync(tablesById -> inBusyLock(busyLock, updateAssignmentsClosure), ioExecutor)
             );
-
-            return assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
-                if (e != null) {
-                    return failedFuture(e);
-                }
-
-                return updateAssignmentsFuture;
-            });
         });
     }
 
@@ -1265,7 +1271,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     });
         }));
 
-        createTablePartitionsLocally(causalityToken, assignments, zoneDescriptor.id(), table);
+        CompletableFuture<?> createPartsFut = createTablePartitionsLocally(causalityToken, assignments, zoneDescriptor.id(), table);
 
         pendingTables.put(tableId, table);
         startedTables.put(tableId, table);
@@ -1279,7 +1285,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         // TODO should be reworked in IGNITE-16763
         // We use the event notification future as the result so that dependent components can complete the schema updates.
-        return fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableId));
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
+        return allOf(createPartsFut, fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableId)));
     }
 
     /**
@@ -1423,6 +1431,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, tableId))
                     .whenComplete((v, e) -> {
+                        Set<ByteArray> assignmentKeys = new HashSet<>();
+
+                        for (int p = 0; p < partitions; p++) {
+                            assignmentKeys.add(stablePartAssignmentsKey(new TablePartitionId(tableId, p)));
+                        }
+
+                        metaStorageMgr.removeAll(assignmentKeys);
+
                         if (e != null) {
                             LOG.error("Error on " + TableEvent.DROP + " notification", e);
                         }
@@ -2524,6 +2540,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     protected CompletableFuture<Void> handleChangeStableAssignmentEvent(WatchEvent evt) {
         if (evt.entryEvents().stream().allMatch(e -> e.oldEntry().value() == null)) {
             // It's the initial write to table stable assignments on table create event.
+            return completedFuture(null);
+        }
+
+        if (!evt.single()) {
+            // If there is not a single entry, then all entries must be tombstones (this happens after table drop).
+            assert evt.entryEvents().stream().allMatch(entryEvent -> entryEvent.newEntry().tombstone()) : evt;
+
             return completedFuture(null);
         }
 

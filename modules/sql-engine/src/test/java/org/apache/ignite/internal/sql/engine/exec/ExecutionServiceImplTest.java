@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
-import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -126,6 +125,9 @@ public class ExecutionServiceImplTest {
     /** Timeout in ms for async operations. */
     private static final long TIMEOUT_IN_MS = 2_000;
 
+    /** Timeout in ms for SQL planning phase. */
+    public static final long PLANNING_TIMEOUT = 5_000;
+
     private static final int SCHEMA_VERSION = -1;
 
     private final List<String> nodeNames = List.of("node_1", "node_2", "node_3");
@@ -149,13 +151,15 @@ public class ExecutionServiceImplTest {
     private ParserService parserService;
     private RuntimeException mappingException;
 
+    private final List<QueryTaskExecutor> executers = new ArrayList<>();
+
     private ClusterNode firstNode;
 
     @BeforeEach
     public void init() {
         testCluster = new TestCluster();
         executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
-        prepareService = new PrepareServiceImpl("test", 0, null);
+        prepareService = new PrepareServiceImpl("test", 0, null, PLANNING_TIMEOUT);
         parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
 
         prepareService.start();
@@ -170,6 +174,16 @@ public class ExecutionServiceImplTest {
         }
 
         mailboxes.clear();
+
+        executers.forEach(executer -> {
+            try {
+                executer.stop();
+            } catch (Exception e) {
+                LOG.error("Unable to stop executor", e);
+            }
+        });
+
+        executers.clear();
     }
 
     /**
@@ -201,9 +215,7 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
 
-        for (AbstractNode<?> node : execNodes) {
-            assertTrue(node.context().isCancelled());
-        }
+        awaitContextCancellation(execNodes);
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
@@ -243,9 +255,7 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
 
-        for (AbstractNode<?> node : execNodes) {
-            assertTrue(node.context().isCancelled());
-        }
+        awaitContextCancellation(execNodes);
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
@@ -299,9 +309,7 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
 
-        for (AbstractNode<?> node : execNodes) {
-            assertTrue(node.context().isCancelled());
-        }
+        awaitContextCancellation(execNodes);
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
@@ -371,9 +379,7 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
 
-        for (AbstractNode<?> node : execNodes) {
-            assertTrue(node.context().isCancelled());
-        }
+        awaitContextCancellation(execNodes);
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
@@ -561,6 +567,7 @@ public class ExecutionServiceImplTest {
         }
 
         var taskExecutor = new QueryTaskExecutorImpl(nodeName);
+        executers.add(taskExecutor);
 
         var node = testCluster.addNode(nodeName, taskExecutor);
 
@@ -642,6 +649,33 @@ public class ExecutionServiceImplTest {
         assertEquals(ctx.parameters().length, parsedResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
 
         return await(prepareService.prepareAsync(parsedResult, ctx));
+    }
+
+    private static void awaitContextCancellation(List<AbstractNode<?>> nodes) throws InterruptedException {
+        boolean success = waitForCondition(
+                () -> {
+                    for (AbstractNode<?> node : nodes) {
+                        if (!node.context().isCancelled()) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                },
+                TIMEOUT_IN_MS
+        );
+
+        if (!success) {
+            for (AbstractNode<?> node : nodes) {
+                assertTrue(
+                        node.context().isCancelled(),
+                        format(
+                                "Context is not cancelled on node {}, fragmentId={}",
+                                node.getClass().getSimpleName(), node.context().fragmentId()
+                        )
+                );
+            }
+        }
     }
 
     static class TestCluster {
@@ -760,7 +794,8 @@ public class ExecutionServiceImplTest {
                                         try {
                                             task.run();
                                         } catch (Throwable ex) {
-                                            throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, ex);
+                                            // Error code is not used.
+                                            throw new IgniteInternalException(Common.INTERNAL_ERR, ex);
                                         }
                                     }
                                 }

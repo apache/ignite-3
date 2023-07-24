@@ -1969,7 +1969,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         long appliedRevision = storage.revision();
 
-        storage.startWatches(0, (event, ts) -> completedFuture(null));
+        storage.startWatches(1, (event, ts) -> completedFuture(null));
 
         CompletableFuture<byte[]> fut = new CompletableFuture<>();
 
@@ -2310,7 +2310,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         when(mockCallback.onRevisionApplied(any(), any())).thenReturn(completedFuture(null));
 
-        storage.startWatches(0, mockCallback);
+        storage.startWatches(1, mockCallback);
 
         putToMs(key, value);
 
@@ -2505,7 +2505,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
             }
         });
 
-        storage.startWatches(0, (event, ts) -> completedFuture(null));
+        storage.startWatches(1, (event, ts) -> completedFuture(null));
 
         return resultFuture;
     }

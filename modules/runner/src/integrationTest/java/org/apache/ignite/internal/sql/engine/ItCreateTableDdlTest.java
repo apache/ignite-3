@@ -71,6 +71,45 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    public void pkWithInvalidColumns() {
+        assertThrows(
+                IgniteException.class,
+                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID2, ID0))"),
+                "Primary key cannot contain nullable column [col=ID0]"
+        );
+    }
+
+    @Test
+    public void emptyPk() {
+        assertThrows(
+                IgniteException.class,
+                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY ())"),
+                "Table without primary key is not supported."
+        );
+        assertThrows(
+                IgniteException.class,
+                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT)"),
+                "Table without primary key is not supported."
+        );
+    }
+
+    @Test
+    public void tableWithInvalidColumns() {
+        assertThrows(
+                IgniteException.class,
+                () -> sql("CREATE TABLE T0()")
+        );
+
+        assertThat(
+                assertThrows(
+                        IgniteException.class,
+                        () -> sql("CREATE TABLE T0(ID0 INT PRIMARY KEY, ID1 INT, ID0 INT)")
+                ).getMessage(),
+                containsString("Can't create table with duplicate columns: ID0, ID1, ID0")
+        );
+    }
+
+    @Test
     public void pkWithFunctionalDefault() {
         sql("create table t (id varchar default gen_random_uuid primary key, val int)");
         sql("insert into t (val) values (1), (2)");
@@ -111,7 +150,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
                         IgniteException.class,
                         () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID1, ID0, ID1)")
                 ).getMessage(),
-                containsString("Colocation columns contains duplicates")
+                containsString("Colocation columns contains duplicates: [duplicates=[ID1]]]")
         );
     }
 

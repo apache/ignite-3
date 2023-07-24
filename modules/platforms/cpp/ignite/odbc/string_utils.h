@@ -26,11 +26,10 @@ namespace ignite {
 /**
  * Remove leading spaces.
  *
-* @param str String view.
-* @return String view without leading spaces.
+ * @param str String view.
+ * @return String view without leading spaces.
  */
-inline std::string_view ltrim(std::string_view str)
-{
+inline std::string_view ltrim(std::string_view str) {
     while (!str.empty() && std::isspace(str.front()))
         str.remove_prefix(1);
 
@@ -40,11 +39,10 @@ inline std::string_view ltrim(std::string_view str)
 /**
  * Remove trailing spaces.
  *
-* @param str String view.
-* @return String view without trailing spaces.
+ * @param str String view.
+ * @return String view without trailing spaces.
  */
-inline std::string_view rtrim(std::string_view str)
-{
+inline std::string_view rtrim(std::string_view str) {
     while (!str.empty() && std::isspace(str.back()))
         str.remove_suffix(1);
 
@@ -57,8 +55,7 @@ inline std::string_view rtrim(std::string_view str)
  * @param str String view.
  * @return String view without leading and trailing spaces.
  */
-inline std::string_view trim(std::string_view str)
-{
+inline std::string_view trim(std::string_view str) {
     return ltrim(rtrim(str));
 }
 
@@ -85,14 +82,14 @@ inline std::pair<std::string_view, std::string_view> split_once(std::string_view
  * @param delimiter Delimiter.
  * @param action Action to perform.
  */
-inline void for_every_delimited(std::string_view str, char delimiter, const std::function<void(std::string_view)> &action) {
+inline void for_every_delimited(
+    std::string_view str, char delimiter, const std::function<void(std::string_view)> &action) {
     while (!str.empty()) {
         auto res = split_once(str, delimiter);
         action(res.first);
         str = res.second;
     }
 }
-
 
 /**
  * Casts value of one type to another type, using string stream.
@@ -101,8 +98,7 @@ inline void for_every_delimited(std::string_view str, char delimiter, const std:
  * @param res Resulted value.
  */
 template<typename T1, typename T2>
-void lexical_cast(const T2& val, T1& res)
-{
+void lexical_cast(const T2 &val, T1 &res) {
     std::stringstream converter;
 
     converter << val;
@@ -116,8 +112,7 @@ void lexical_cast(const T2& val, T1& res)
  * @return Resulted value.
  */
 template<typename T1, typename T2>
-T1 lexical_cast(const T2 &val)
-{
+T1 lexical_cast(const T2 &val) {
     T1 res;
 
     lexical_cast<T1, T2>(val, res);

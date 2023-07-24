@@ -185,9 +185,9 @@ final class Query extends Command {
 
         // Read expected results
         String s = script.nextLineWithoutTrim();
-        Matcher m = HASHING_PTRN.matcher(s);
+        Matcher m = Strings.isNullOrEmpty(s) ? null : HASHING_PTRN.matcher(s);
 
-        if (m.matches()) {
+        if (m != null && m.matches()) {
             // Expected results are hashing
             expectedRows = Integer.parseInt(m.group(1));
             expectedHash = m.group(2);

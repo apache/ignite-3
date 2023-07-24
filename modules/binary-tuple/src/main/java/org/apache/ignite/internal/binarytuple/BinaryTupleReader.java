@@ -85,6 +85,34 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    public boolean booleanValue(int index) {
+        seek(index);
+
+        return booleanValue(begin, end);
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param index Element index.
+     * @return Element value.
+     */
+    public @Nullable Boolean booleanValueBoxed(int index) {
+        seek(index);
+
+        if (begin == end) {
+            return null;
+        }
+
+        return booleanValue(begin, end);
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param index Element index.
+     * @return Element value.
+     */
     public byte byteValue(int index) {
         seek(index);
         return byteValue(begin, end);

@@ -19,12 +19,12 @@
 
 #ifdef _WIN32
 
-#define _WINSOCKAPI_
-#include <Windows.h>
+# define _WINSOCKAPI_
+# include <Windows.h>
 
 #endif //_WIN32
 
 #define ODBCVER 0x0380
 
-#include <sqlext.h>
 #include <odbcinst.h>
+#include <sqlext.h>

@@ -103,7 +103,7 @@ internal static class HashUtils
     /// </summary>
     /// <param name="data">Input data.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(Span<byte> data) => Hash32Internal(data, 0);
+    public static int Hash32(Span<byte> data) => data.IsEmpty ? 0 : Hash32Internal(data, 0);
 
     /// <summary>
     /// Generates 32-bit hash.

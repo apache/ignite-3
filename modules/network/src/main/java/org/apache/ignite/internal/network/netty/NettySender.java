@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.netty;
 import static org.apache.ignite.internal.network.netty.NettyUtils.toCompletableFuture;
 
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
 import io.netty.handler.stream.ChunkedInput;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
@@ -94,10 +95,12 @@ public class NettySender {
     }
 
     /**
-     * Closes channel.
+     * Closes channel and returns the {@link Channel#closeFuture()}.
+     *
+     * @return {@link Channel#closeFuture()} of the {@link #channel}.
      */
-    public void close() {
-        this.channel.close().awaitUninterruptibly();
+    public ChannelFuture close() {
+        return this.channel.close();
     }
 
     /**

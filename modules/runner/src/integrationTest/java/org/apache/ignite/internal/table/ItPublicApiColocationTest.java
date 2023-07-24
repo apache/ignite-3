@@ -96,7 +96,9 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
         sql(String.format("create table test0(id %s primary key, v INTEGER)", sqlTypeName(type)));
         sql(String.format("create table test1(id0 integer, id1 %s, v INTEGER, primary key(id0, id1)) colocate by(id1)", sqlTypeName(type)));
 
-        for (int i = 0; i < ROWS; ++i) {
+        int rowsCnt = type == NativeTypeSpec.BOOLEAN ? 2 : ROWS;
+
+        for (int i = 0; i < rowsCnt; ++i) {
             sql("insert into test0 values(?, ?)", generateValueByType(i, type), 0);
             sql("insert into test1 values(?, ?, ?)", i, generateValueByType(i, type), 0);
         }
@@ -229,6 +231,8 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
 
     static Object generateValueByType(int i, NativeTypeSpec type) {
         switch (type) {
+            case BOOLEAN:
+                return i % 2 == 0;
             case INT8:
                 return (byte) i;
             case INT16:
@@ -271,6 +275,8 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
 
     private static String sqlTypeName(NativeTypeSpec type) {
         switch (type) {
+            case BOOLEAN:
+                return "boolean";
             case INT8:
                 return "tinyint";
             case INT16:

@@ -129,6 +129,18 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
 
     /** {@inheritDoc} */
     @Override
+    public boolean booleanValue(String columnName) {
+        return tuple != null ? tuple.booleanValue(columnName) : super.booleanValue(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean booleanValue(int columnIndex) {
+        return tuple != null ? tuple.booleanValue(columnIndex) : super.booleanValue(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public byte byteValue(@NotNull String columnName) {
         return tuple != null ? tuple.byteValue(columnName) : super.byteValue(columnName);
     }

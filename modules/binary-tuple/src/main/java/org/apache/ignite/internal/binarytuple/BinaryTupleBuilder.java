@@ -35,6 +35,7 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -103,6 +104,27 @@ public class BinaryTupleBuilder {
      */
     public BinaryTupleBuilder appendNull() {
         return proceed();
+    }
+
+    /**
+     * Append a value for the current element.
+     *
+     * @param value Element value.
+     * @return {@code this} for chaining.
+     */
+    public BinaryTupleBuilder appendBoolean(boolean value) {
+        putByte(ByteUtils.booleanToByte(value));
+        return proceed();
+    }
+
+    /**
+     * Append a value for the current element.
+     *
+     * @param value Element value.
+     * @return {@code this} for chaining.
+     */
+    public BinaryTupleBuilder appendBoolean(Boolean value) {
+        return value == null ? appendNull() : appendBoolean(value.booleanValue());
     }
 
     /**

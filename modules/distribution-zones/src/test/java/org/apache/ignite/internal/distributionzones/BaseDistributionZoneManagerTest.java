@@ -93,7 +93,7 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
         components.add(metaStorageManager);
 
-        ConfigurationStorage cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultMgr);
+        ConfigurationStorage cfgStorage = new DistributedConfigurationStorage(metaStorageManager);
 
         generator = new ConfigurationTreeGenerator(
                 List.of(DistributionZonesConfiguration.KEY),

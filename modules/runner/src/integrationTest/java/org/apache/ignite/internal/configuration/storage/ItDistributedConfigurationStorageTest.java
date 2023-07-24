@@ -157,7 +157,7 @@ public class ItDistributedConfigurationStorageTest {
 
             deployWatchesFut = metaStorageManager.deployWatches();
 
-            cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
+            cfgStorage = new DistributedConfigurationStorage(metaStorageManager);
         }
 
         /**
@@ -170,17 +170,7 @@ public class ItDistributedConfigurationStorageTest {
                     .forEach(IgniteComponent::start);
 
             // this is needed to avoid assertion errors
-            cfgStorage.registerConfigurationListener(new ConfigurationStorageListener() {
-                @Override
-                public CompletableFuture<Void> onEntriesChanged(Data changedEntries) {
-                    return completedFuture(null);
-                }
-
-                @Override
-                public CompletableFuture<Void> onRevisionUpdated(long newRevision) {
-                    return completedFuture(null);
-                }
-            });
+            cfgStorage.registerConfigurationListener(changedEntries -> completedFuture(null));
         }
 
         /**
@@ -231,8 +221,6 @@ public class ItDistributedConfigurationStorageTest {
             node.waitWatches();
 
             assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
-
-            node.cfgStorage.writeConfigurationRevision(0, 1);
 
             assertTrue(waitForCondition(
                     () -> node.metaStorageManager.appliedRevision() != 0,

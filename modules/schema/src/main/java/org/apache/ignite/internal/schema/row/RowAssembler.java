@@ -113,6 +113,11 @@ public class RowAssembler {
         }
 
         switch (type.spec()) {
+            case BOOLEAN: {
+                rowAsm.appendBoolean((boolean) val);
+
+                break;
+            }
             case INT8: {
                 rowAsm.appendByte((byte) val);
 
@@ -252,6 +257,27 @@ public class RowAssembler {
         shiftColumn();
 
         return this;
+    }
+
+    /**
+     * Appends boolean value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     * @throws SchemaMismatchException If a value doesn't match the current column type.
+     */
+    public RowAssembler appendBoolean(boolean val) throws SchemaMismatchException {
+        checkType(NativeTypes.BOOLEAN);
+
+        builder.appendBoolean(val);
+
+        shiftColumn();
+
+        return this;
+    }
+
+    public RowAssembler appendBoolean(Boolean value) throws SchemaMismatchException {
+        return value == null ? appendNull() : appendBoolean(value.booleanValue());
     }
 
     /**
