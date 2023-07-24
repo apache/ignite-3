@@ -19,8 +19,10 @@ package org.apache.ignite.sql;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.table.mapper.Mapper;
@@ -52,7 +54,11 @@ public interface Session extends AutoCloseable {
     default ResultSet<SqlRow> execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
-        return new SyncResultSetAdapter<>(executeAsync(transaction, query, arguments).join());
+        try {
+            return new SyncResultSetAdapter<>(executeAsync(transaction, query, arguments).join());
+        } catch (CompletionException e) {
+            throw IgniteExceptionUtils.sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
+        }
     }
 
     /**
@@ -66,7 +72,11 @@ public interface Session extends AutoCloseable {
     default ResultSet<SqlRow> execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
 
-        return new SyncResultSetAdapter<>(executeAsync(transaction, statement, arguments).join());
+        try {
+            return new SyncResultSetAdapter<>(executeAsync(transaction, statement, arguments).join());
+        } catch (CompletionException e) {
+            throw IgniteExceptionUtils.sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
+        }
     }
 
     /**
@@ -86,7 +96,11 @@ public interface Session extends AutoCloseable {
             @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
-        return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, query, arguments).join());
+        try {
+            return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, query, arguments).join());
+        } catch (CompletionException e) {
+            throw IgniteExceptionUtils.sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
+        }
     }
 
     /**
@@ -106,7 +120,11 @@ public interface Session extends AutoCloseable {
             @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
 
-        return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, statement, arguments).join());
+        try {
+            return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, statement, arguments).join());
+        } catch (CompletionException e) {
+            throw IgniteExceptionUtils.sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
+        }
     }
 
     /**
@@ -198,7 +216,11 @@ public interface Session extends AutoCloseable {
      * @throws SqlBatchException If the batch fails.
      */
     default long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
-        return executeBatchAsync(transaction, dmlQuery, batch).join();
+        try {
+            return executeBatchAsync(transaction, dmlQuery, batch).join();
+        } catch (CompletionException e) {
+            throw IgniteExceptionUtils.sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
+        }
     }
 
     /**

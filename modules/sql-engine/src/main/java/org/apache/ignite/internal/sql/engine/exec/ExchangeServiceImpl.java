@@ -140,7 +140,7 @@ public class ExchangeServiceImpl implements ExchangeService {
             IgniteException iex = (IgniteException) cause;
             return cause == t
                     ? (IgniteException) cause
-                    : IgniteExceptionUtils.copyExceptionWithCause(cause.getClass(), iex.traceId(), iex.code(), t.getMessage(), t);
+                    : IgniteExceptionUtils.copyExceptionWithCause(iex.getClass(), iex.traceId(), iex.code(), t.getMessage(), t);
         } else if (cause instanceof IgniteInternalException) {
             IgniteInternalException iex = (IgniteInternalException) cause;
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -539,10 +540,12 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     public void testCheckNullValueErrorMessageForColumnWithDefaultValue() {
         sql("CREATE TABLE tbl(key int DEFAULT 9 primary key, val varchar)");
 
-        var e = assertThrows(IgniteException.class,
+        var e = assertThrows(SqlException.class,
                 () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
 
-        var expectedMessage = "From line 1, column 28 to line 1, column 45: Column 'KEY' does not allow NULLs";
+        assertEquals(STMT_VALIDATION_ERR, e.code());
+
+        var expectedMessage = "Failed to validate query. From line 1, column 28 to line 1, column 45: Column 'KEY' does not allow NULLs";
         assertEquals(expectedMessage, e.getMessage(), "error message");
     }
 
@@ -553,7 +556,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     private void checkWrongDefault(String sqlType, String sqlVal) {
         try {
             assertThrows(
-                    IgniteException.class,
+                    SqlException.class,
                     () -> sql("CREATE TABLE test (val " + sqlType + " DEFAULT " + sqlVal + ")"),
                     "Cannot convert literal"
             );

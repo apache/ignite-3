@@ -90,6 +90,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.SchemaNotFoundException;
@@ -356,7 +357,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         try {
-            return querySingle0(sessionId, context, qry, params);
+            return IgniteExceptionMapperUtil.convertToPublicFuture(querySingle0(sessionId, context, qry, params));
         } finally {
             busyLock.leaveBusy();
         }

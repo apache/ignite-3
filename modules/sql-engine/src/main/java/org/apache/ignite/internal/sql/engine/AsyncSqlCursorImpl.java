@@ -18,14 +18,11 @@
 package org.apache.ignite.internal.sql.engine;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteExceptionMapperUtil;
-import org.apache.ignite.lang.IgniteExceptionUtils;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -79,7 +76,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
                     implicitTx.rollback();
                 }
 
-                throw wrapIfNecessary(t);
+                throw new CompletionException(wrapIfNecessary(t));
             }
 
             if (implicitTx != null && !batch.hasMore()) {
@@ -97,15 +94,9 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
         return dataCursor.closeAsync();
     }
 
-    private static IgniteException wrapIfNecessary(Throwable t) {
+    private static Throwable wrapIfNecessary(Throwable t) {
         Throwable err = ExceptionUtils.unwrapCause(t);
 
-        if (err instanceof IgniteInternalException) {
-            IgniteInternalException iex = (IgniteInternalException) err;
-
-            return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
-        }
-
-        return IgniteExceptionUtils.sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(t));
+        return IgniteExceptionMapperUtil.mapToPublicException(err);
     }
 }

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
@@ -356,12 +358,13 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         // Outdated tx.
         Transaction outerTx0 = outerTx;
-
-        assertThrows(SqlException.class,
+        IgniteException e = assertThrows(IgniteException.class,
                 () -> checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", outerTx0, ROW_COUNT, Integer.MAX_VALUE));
+        assertEquals(TX_FAILED_READ_WRITE_OPERATION_ERR, e.code());
 
-        assertThrows(SqlException.class,
+        e = assertThrows(SqlException.class,
                 () -> checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", ROW_COUNT, Integer.MAX_VALUE));
+        assertEquals(CONSTRAINT_VIOLATION_ERR, e.code());
 
         AsyncResultSet rs = await(ses.executeAsync(null, "SELECT VAL0 FROM TEST ORDER BY VAL0"));
 
@@ -690,16 +693,22 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         // Fetched page is available after cancel.
         ars0.currentPage();
 
-        assertThrowsWithCause(
+        Throwable t = assertThrowsWithCause(
                 () -> await(ars0.fetchNextPage()),
                 ExecutionCancelledException.class
         );
 
-        assertThrowsWithCause(
+        assertTrue(t instanceof IgniteException);
+        assertEquals(Sql.EXECUTION_CANCELLED_ERR, ((IgniteException) t).code());
+
+        t = assertThrowsWithCause(
                 () -> await(ses.executeAsync(null, "SELECT ID FROM TEST")),
                 SqlException.class,
                 "Session is closed"
         );
+
+        assertTrue(t instanceof IgniteException);
+        assertEquals(Sql.SESSION_CLOSED_ERR, ((IgniteException) t).code());
     }
 
     @Test
