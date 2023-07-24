@@ -31,6 +31,8 @@ dependencies {
     implementation libs.fastutil.core
     implementation project(':ignite-api')
 
+    testAnnotationProcessor libs.auto.service
+
     testImplementation libs.auto.service.annotations
     testImplementation libs.hamcrest.core
     testImplementation libs.junit.testkit
