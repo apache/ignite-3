@@ -71,6 +71,7 @@ import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.session.Session;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
@@ -165,7 +166,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile PrepareService prepareSvc;
 
-    private volatile SqlSchemaManagerImpl sqlSchemaManager;
+    private volatile SqlSchemaManager sqlSchemaManager;
 
     /** Transaction manager. */
     private final TxManager txManager;
@@ -213,8 +214,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 busyLock
         );
 
-        registerTableListener(TableEvent.CREATE, new TableCreatedListener(sqlSchemaManager));
-        registerIndexListener(IndexEvent.CREATE, new IndexCreatedListener(sqlSchemaManager));
+        registerTableListener(TableEvent.CREATE, new TableCreatedListener((SqlSchemaManagerImpl) sqlSchemaManager));
+        registerIndexListener(IndexEvent.CREATE, new IndexCreatedListener((SqlSchemaManagerImpl) sqlSchemaManager));
     }
 
     /** {@inheritDoc} */
@@ -246,7 +247,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 msgSrvc
         ));
 
-        sqlSchemaManager.registerListener(prepareSvc);
+        ((SqlSchemaManagerImpl) sqlSchemaManager).registerListener(prepareSvc);
 
         this.prepareSvc = prepareSvc;
 
@@ -262,7 +263,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
 
-        sqlSchemaManager.registerListener(executableTableRegistry);
+        ((SqlSchemaManagerImpl) sqlSchemaManager).registerListener(executableTableRegistry);
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
@@ -281,10 +282,10 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.executionSrvc = executionSrvc;
 
-        registerTableListener(TableEvent.ALTER, new TableUpdatedListener(sqlSchemaManager));
-        registerTableListener(TableEvent.DROP, new TableDroppedListener(sqlSchemaManager));
+        registerTableListener(TableEvent.ALTER, new TableUpdatedListener(((SqlSchemaManagerImpl) sqlSchemaManager)));
+        registerTableListener(TableEvent.DROP, new TableDroppedListener(((SqlSchemaManagerImpl) sqlSchemaManager)));
 
-        registerIndexListener(IndexEvent.DROP, new IndexDroppedListener(sqlSchemaManager));
+        registerIndexListener(IndexEvent.DROP, new IndexDroppedListener(((SqlSchemaManagerImpl) sqlSchemaManager)));
 
         services.forEach(LifecycleAware::start);
     }
