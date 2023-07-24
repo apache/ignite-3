@@ -142,6 +142,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterNode;
@@ -338,12 +339,15 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
             var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
 
-            // RW scan can be committed in one RTT if it has a single batch of data.
+            // Implicit RW scan can be committed locally on a last batch or error.
             return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req)).handle(
                     (rows, err) -> {
-                        // This is full transaction (has only one scan) and no more rows left.
-                        if (req.full() && rows.size() < req.batchSize()) {
+                        if (req.full() && (err != null || rows.size() < req.batchSize())) {
                             cleanupLocal(req.transactionId(), err != null);
+                        }
+
+                        if (err != null) {
+                            IgniteExceptionUtils.sneakyThrow(err);
                         }
 
                         return rows;
@@ -1332,13 +1336,18 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     }
 
-    private void cleanupLocal(UUID txId, boolean commited) {
+    /**
+     * Clean up txn locally.
+     * @param txId Tx ID.
+     * @param committed {@code True} if committed.
+     */
+    private void cleanupLocal(UUID txId, boolean committed) {
         txCleanupReadyFutures.compute(txId, (id, txOps) -> {
             assert txOps != null;
 
             txOps.futures.clear();
 
-            txOps.state = commited ? TxState.COMMITED : TxState.ABORTED;
+            txOps.state = committed ? TxState.COMMITED : TxState.ABORTED;
 
             return txOps;
         });

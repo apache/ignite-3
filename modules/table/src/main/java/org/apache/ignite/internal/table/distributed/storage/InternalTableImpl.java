@@ -94,7 +94,6 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgnitePentaFunction;
-import org.apache.ignite.lang.IgniteQuadFunction;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteTriFunction;
 import org.apache.ignite.network.ClusterNode;
@@ -500,7 +499,7 @@ public class InternalTableImpl implements InternalTable {
         assert !(autoCommit && full) : "Invalid combination of flags";
 
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
-            if (full) { // Full txn is already finished remotely.
+            if (full) { // Full txn is already finished remotely. Just update local state.
                 // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
                 txManager.changeState(tx0.id(), PENDING, e == null ? COMMITED : ABORTED);
                 return e != null ? failedFuture(wrapReplicationException(e)) : completedFuture(r);
@@ -517,7 +516,7 @@ public class InternalTableImpl implements InternalTable {
                     throw e0;
                 }); // Preserve failed state.
             } else {
-                tx0.enlistResultFuture(fut); // TODO why is this deprecated ?
+                tx0.enlistResultFuture(fut);
 
                 if (autoCommit) {
                     return tx0.commitAsync()
@@ -1035,7 +1034,7 @@ public class InternalTableImpl implements InternalTable {
                         columnsToInclude,
                         implicit
                 ),
-                (full, fut) -> postEnlist(fut, implicit && !full, tx0, implicit && full)
+                (commit, fut) -> postEnlist(fut, commit, tx0, implicit && !commit)
         );
     }
 
@@ -1082,6 +1081,7 @@ public class InternalTableImpl implements InternalTable {
                             .columnsToInclude(columnsToInclude)
                             .batchSize(batchSize)
                             .term(recipient.term())
+                            .full(false) // Set explicitly.
                             .build();
 
                     return replicaSvc.invoke(recipient.node(), request);
@@ -1425,11 +1425,6 @@ public class InternalTableImpl implements InternalTable {
             private static final int INTERNAL_BATCH_SIZE = 10_000;
 
             /**
-             * Set to true if a first batch was loaded.
-             */
-            private volatile boolean first = true;
-
-            /**
              * The constructor.
              * TODO: IGNITE-15544 Close partition scans on node left.
              *
@@ -1446,7 +1441,7 @@ public class InternalTableImpl implements InternalTable {
             @Override
             public void request(long n) {
                 if (n <= 0) {
-                    cancel(null, false);
+                    cancel(null, true);
 
                     subscriber.onError(new IllegalArgumentException(IgniteStringFormatter
                             .format("Invalid requested amount of items [requested={}, minValue=1]", n))
@@ -1473,21 +1468,21 @@ public class InternalTableImpl implements InternalTable {
             /** {@inheritDoc} */
             @Override
             public void cancel() {
-                cancel(null, false); // Explicit cancel.
+                cancel(null, true); // Explicit cancel.
             }
 
             /**
              * After the method is called, a subscriber won't be received updates from the publisher.
              *
              * @param t An exception which was thrown when entries were retrieving from the cursor.
-             * @param full {@code True} if no more data for the scan.
+             * @param {@True} to commit.
              */
-            private void cancel(Throwable t, boolean full) {
+            private void cancel(Throwable t, boolean commit) {
                 if (!canceled.compareAndSet(false, true)) {
                     return;
                 }
 
-                onClose.apply(full, t == null ? completedFuture(null) : failedFuture(t)).handle((ignore, th) -> {
+                onClose.apply(commit, t == null ? completedFuture(null) : failedFuture(t)).handle((ignore, th) -> {
                     if (th != null) {
                         subscriber.onError(th);
                     } else {
@@ -1509,21 +1504,14 @@ public class InternalTableImpl implements InternalTable {
                 }
 
                 retrieveBatch.apply(scanId, n).thenAccept(binaryRows -> {
-                    if (binaryRows == null) {
-                        cancel(null, false);
+                    assert binaryRows != null;
+                    assert binaryRows.size() <= n : "Rows more then requested " + binaryRows.size() + " " + n;
 
-                        return;
-                    } else {
-                        assert binaryRows.size() <= n : "Rows more then requested " + binaryRows.size() + " " + n;
-
-                        binaryRows.forEach(subscriber::onNext);
-                    }
+                    binaryRows.forEach(subscriber::onNext);
 
                     if (binaryRows.size() < n) {
-                        cancel(null, first);
+                        cancel(null, false);
                     } else {
-                        first = false;
-
                         long remaining = requestedItemsCnt.addAndGet(Math.negateExact(binaryRows.size()));
 
                         if (remaining > 0) {
