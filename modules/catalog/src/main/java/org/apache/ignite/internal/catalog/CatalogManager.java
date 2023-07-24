@@ -131,4 +131,12 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * @return Operation future.
      */
     CompletableFuture<Void> renameDistributionZone(RenameZoneParams params);
+
+    // TODO: replace with safe-time waiting.
+    /**
+     * Waits for latest catalog version.
+     *
+     * @return Operation future.
+     */
+    CompletableFuture<Void> waitLatest();
 }

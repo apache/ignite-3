@@ -699,6 +699,13 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         throw new SqlException(STMT_VALIDATION_ERR, msg, params);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> waitLatest() {
+        return updateLog.lastUpdateVersion()
+                .thenCompose(versionTracker::waitFor);
+    }
+
     @FunctionalInterface
     interface UpdateProducer {
         List<UpdateEntry> get(Catalog catalog);

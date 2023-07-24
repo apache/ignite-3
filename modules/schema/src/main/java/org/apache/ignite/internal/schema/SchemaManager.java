@@ -70,8 +70,6 @@ import org.jetbrains.annotations.Nullable;
  * The class services a management of table schemas.
  */
 public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> implements IgniteComponent {
-    private static final IgniteLogger LOGGER = Loggers.forClass(SchemaManager.class);
-
     /** Initial version for schemas. */
     public static final int INITIAL_SCHEMA_VERSION = 1;
 

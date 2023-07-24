@@ -59,6 +59,11 @@ public interface UpdateLog extends IgniteComponent {
     @Override void start() throws IgniteInternalException;
 
     /**
+     * Returns last update version.
+     */
+    CompletableFuture<Integer> lastUpdateVersion();
+
+    /**
      * An interface describing a handler that will receive notification
      * when a new update is added to the log.
      */

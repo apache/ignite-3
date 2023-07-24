@@ -55,7 +55,7 @@ public class UpdateLogImpl implements UpdateLog {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
-    private final MetaStorageManager metastore;
+    public final MetaStorageManager metastore;
 
     private volatile OnUpdateHandler onUpdateHandler;
     private volatile @Nullable UpdateListener listener;
@@ -168,6 +168,13 @@ public class UpdateLogImpl implements UpdateLog {
 
             handler.handle(update, metastore.timestampByRevision(revision), revision);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Integer> lastUpdateVersion() {
+        return metastore.get(CatalogKey.currentVersion())
+                .thenApply(e -> e.value() == null ? 0 : ByteUtils.bytesToInt(e.value()));
     }
 
     private static class CatalogKey {
