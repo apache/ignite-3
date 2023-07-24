@@ -46,7 +46,7 @@ namespace Apache.Ignite.Tests
             Assert.AreEqual("Err!", ex!.Message);
             Assert.AreEqual("org.foo.bar.BazException", ex.InnerException!.Message);
             Assert.AreEqual(Guid.Empty, ex.TraceId);
-            Assert.AreEqual(ErrorGroups.Sql.QueryInvalid, ex.Code);
+            Assert.AreEqual(ErrorGroups.Sql.StmtValidation, ex.Code);
         }
 
         [Test]

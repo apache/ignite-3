@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUT_ERR;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -70,7 +70,7 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
             ParsedResult parsedResult = parserService.parse("SELECT * FROM T1 t, T1 t1, T1 t2, T1 t3");
 
             SqlTestUtils.assertThrowsSqlException(
-                    PLANNING_TIMEOUTED_ERR,
+                    PLANNING_TIMEOUT_ERR,
                     () -> await(prepareService.prepareAsync(parsedResult, ctx)));
         } finally {
             prepareService.stop();

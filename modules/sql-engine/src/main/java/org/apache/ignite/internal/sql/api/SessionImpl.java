@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.INVALID_DML_RESULT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
-import static org.apache.ignite.lang.IgniteExceptionUtils.extractCodeFrom;
+import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
+import static org.apache.ignite.lang.IgniteExceptionUtils.sneakyThrow;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
@@ -31,7 +29,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
@@ -44,11 +41,14 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.property.Property;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteExceptionUtils;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlBatchException;
@@ -165,7 +165,7 @@ public class SessionImpl implements Session {
             String query,
             @Nullable Object... arguments) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new SqlException(SESSION_NOT_FOUND_ERR, "Session is closed."));
+            return CompletableFuture.failedFuture(new SqlException(SESSION_CLOSED_ERR, "Session is closed."));
         }
 
         try {
@@ -184,7 +184,7 @@ public class SessionImpl implements Session {
             );
 
             result.whenComplete((rs, th) -> {
-                if (extractCodeFrom(th) == SESSION_NOT_FOUND_ERR) {
+                if (th instanceof SessionNotFoundException) {
                     closeInternal();
                 }
             });
@@ -231,7 +231,7 @@ public class SessionImpl implements Session {
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new SqlException(SESSION_NOT_FOUND_ERR, "Session is closed."));
+            return CompletableFuture.failedFuture(new SqlException(SESSION_CLOSED_ERR, "Session is closed."));
         }
 
         try {
@@ -326,7 +326,13 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public void close() {
-        await(closeAsync());
+        try {
+            closeAsync().toCompletableFuture().get();
+        } catch (ExecutionException e) {
+            sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
+        } catch (InterruptedException e) {
+            throw new SqlException(SESSION_CLOSED_ERR, e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -343,24 +349,6 @@ public class SessionImpl implements Session {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    /**
-     * Awaits completion of the given stage and returns its result.
-     *
-     * @param stage The stage.
-     * @param <T> Type of the result returned by the stage.
-     * @return A result of the stage.
-     */
-    @SuppressWarnings("UnusedReturnValue")
-    public static <T> T await(CompletionStage<T> stage) {
-        try {
-            return stage.toCompletableFuture().get();
-        } catch (ExecutionException e) {
-            throw new SqlException(OPERATION_INTERRUPTED_ERR, e.getCause());
-        } catch (Throwable e) {
-            throw new SqlException(OPERATION_INTERRUPTED_ERR, e);
-        }
-    }
-
     private void closeInternal() {
         if (closed.compareAndSet(false, true)) {
             busyLock.block();
@@ -373,7 +361,7 @@ public class SessionImpl implements Session {
                 || page.items().size() != 1
                 || page.items().get(0).size() != 1
                 || page.hasMore()) {
-            throw new SqlException(INVALID_DML_RESULT_ERR, "Invalid DML results: " + page);
+            throw new IgniteInternalException(INTERNAL_ERR, "Invalid DML results: " + page);
         }
     }
 }

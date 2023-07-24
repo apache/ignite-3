@@ -75,7 +75,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class ReplicaManager implements IgniteComponent {
     /** Idle safe time propagation period. */
-    private static final int IDLE_SAFE_TIME_PROPAGATION_PERIOD_SECONDS = 1;
+    public static final int IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS = 1000;
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
@@ -434,8 +434,8 @@ public class ReplicaManager implements IgniteComponent {
         scheduledIdleSafeTimeSyncExecutor.scheduleAtFixedRate(
                 this::idleSafeTimeSync,
                 0,
-                IDLE_SAFE_TIME_PROPAGATION_PERIOD_SECONDS,
-                TimeUnit.SECONDS
+                IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                TimeUnit.MILLISECONDS
         );
 
         cmgMgr.metaStorageNodes().whenComplete((nodes, e) -> {

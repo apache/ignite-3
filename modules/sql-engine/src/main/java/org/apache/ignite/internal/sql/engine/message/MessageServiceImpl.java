@@ -18,15 +18,14 @@
 package org.apache.ignite.internal.sql.engine.message;
 
 import static org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup.GROUP_TYPE;
-import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
@@ -90,9 +89,7 @@ public class MessageServiceImpl implements MessageService {
                 ClusterNode node = topSrvc.getByConsistentId(nodeName);
 
                 if (node == null) {
-                    return CompletableFuture.failedFuture(new IgniteInternalException(
-                            NODE_LEFT_ERR, "Failed to send message to node (has node left grid?): " + nodeName
-                    ));
+                    return CompletableFuture.failedFuture(new NodeLeftException(nodeName));
                 }
 
                 return messagingSrvc.send(node, msg);

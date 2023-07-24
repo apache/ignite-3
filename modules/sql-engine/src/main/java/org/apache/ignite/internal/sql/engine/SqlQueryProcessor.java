@@ -18,11 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
-import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_EXPIRED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
@@ -77,6 +74,7 @@ import org.apache.ignite.internal.sql.engine.session.Session;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 import org.apache.ignite.internal.sql.engine.session.SessionManager;
+import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
@@ -350,7 +348,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             SessionId sessionId, QueryContext context, String qry, Object... params
     ) {
         if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, new NodeStoppingException());
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
@@ -387,8 +385,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         Session session = sessionManager.session(sessionId);
 
         if (session == null) {
-            return CompletableFuture.failedFuture(
-                    new SqlException(SESSION_NOT_FOUND_ERR, format("Session not found [{}]", sessionId)));
+            return CompletableFuture.failedFuture(new SessionNotFoundException(sessionId));
         }
 
         String schemaName = session.properties().get(QueryProperty.DEFAULT_SCHEMA);
@@ -407,8 +404,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         try {
             session.registerResource(closeableResource);
         } catch (IllegalStateException ex) {
-            return CompletableFuture.failedFuture(new IgniteInternalException(SESSION_EXPIRED_ERR,
-                    format("Session has been expired [{}]", session.sessionId()), ex));
+            return CompletableFuture.failedFuture(new SessionNotFoundException(sessionId));
         }
 
         CompletableFuture<Void> start = new CompletableFuture<>();
@@ -425,7 +421,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     boolean implicitTxRequired = outerTx == null;
 
-                    tx.set(implicitTxRequired ? txManager.begin(!rwOp) : outerTx);
+                    tx.set(implicitTxRequired ? txManager.begin(!rwOp, null) : outerTx);
 
                     SchemaPlus schema = sqlSchemaManager.schema(schemaName);
 
@@ -621,7 +617,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         if (SqlQueryType.DDL == queryType && outerTx != null) {
-            throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, "DDL doesn't support transactions.");
+            throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
         }
 
         if (parsedResult.dynamicParamsCount() != params.length) {
@@ -630,7 +626,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     params.length, parsedResult.dynamicParamsCount()
             );
 
-            throw new SqlException(QUERY_INVALID_ERR, message);
+            throw new SqlException(STMT_VALIDATION_ERR, message);
         }
 
         for (Object param : params) {
@@ -638,7 +634,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 String message = format(
                         "Unsupported dynamic parameter defined. Provided '{}' is not supported.", param.getClass().getName());
 
-                throw new SqlException(QUERY_INVALID_ERR, message);
+                throw new SqlException(STMT_VALIDATION_ERR, message);
             }
         }
     }
