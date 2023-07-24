@@ -227,7 +227,19 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void executesColocatedWithTupleKey() throws Exception {
+    void executesColocatedWithTupleKey() {
+        createTestTableWithOneRow();
+
+        IgniteImpl entryNode = node(0);
+
+        String actualNodeName = entryNode.compute()
+                .executeColocated("test", Tuple.create(Map.of("k", 1)), units(), getNodeNameJobClassName());
+
+        assertThat(actualNodeName, in(allNodeNames()));
+    }
+
+    @Test
+    void executesColocatedWithTupleKeyAsync() throws Exception {
         createTestTableWithOneRow();
 
         IgniteImpl entryNode = node(0);
@@ -264,7 +276,19 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void executesColocatedWithMappedKey() throws Exception {
+    void executesColocatedWithMappedKey() {
+        createTestTableWithOneRow();
+
+        IgniteImpl entryNode = node(0);
+
+        String actualNodeName = entryNode.compute()
+                .executeColocated("test", 1, Mapper.of(Integer.class), units(), getNodeNameJobClassName());
+
+        assertThat(actualNodeName, in(allNodeNames()));
+    }
+
+    @Test
+    void executesColocatedWithMappedKeyAsync() throws Exception {
         createTestTableWithOneRow();
 
         IgniteImpl entryNode = node(0);
