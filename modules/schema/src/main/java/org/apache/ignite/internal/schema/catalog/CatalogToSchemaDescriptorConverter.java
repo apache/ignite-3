@@ -146,11 +146,10 @@ public final class CatalogToSchemaDescriptorConverter {
     /**
      * Converts given table descriptor to a {@link SchemaDescriptor}.
      *
-     * @param schemaVer A version of given schema.
      * @param tableDescriptor Descriptor to convert.
      * @return A {@link SchemaDescriptor} object representing the table descriptor.
      */
-    public static SchemaDescriptor convert(int schemaVer, CatalogTableDescriptor tableDescriptor) {
+    public static SchemaDescriptor convert(CatalogTableDescriptor tableDescriptor) {
         Set<String> keyColumnsNames = Set.copyOf(tableDescriptor.primaryKeyColumns());
 
         List<Column> keyCols = new ArrayList<>(keyColumnsNames.size());
@@ -169,7 +168,7 @@ public final class CatalogToSchemaDescriptorConverter {
         }
 
         return new SchemaDescriptor(
-                schemaVer,
+                tableDescriptor.tableVersion(),
                 keyCols.toArray(Column[]::new),
                 tableDescriptor.colocationColumns().toArray(String[]::new),
                 valCols.toArray(Column[]::new)

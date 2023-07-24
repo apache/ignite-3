@@ -141,7 +141,7 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
                 List.of("K2")
         );
 
-        SchemaDescriptor schema = CatalogToSchemaDescriptorConverter.convert(1, tableDescriptor);
+        SchemaDescriptor schema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor);
 
         assertThat(schema.keyColumns().length(), equalTo(2));
         assertThat(schema.keyColumns().column(0).name(), equalTo("K1"));
