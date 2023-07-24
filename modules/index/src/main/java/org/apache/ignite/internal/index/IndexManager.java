@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.schema.configuration.SchemaConfiguratio
 import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -649,8 +650,12 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         CompletableFuture<SchemaRegistry> schemaRegistryFuture = schemaManager.schemaRegistry(causalityToken, configTableId);
 
-        CompletableFuture<Void> startIndexFuture = tableManager.tableAsync(causalityToken, configTableId)
-                .thenCompose(tableImpl -> tablePartitionFuture.thenAcceptBoth(schemaRegistryFuture, (partitionSet, schemaRegistry) -> {
+        CompletableFuture<Void> startIndexFuture = tablePartitionFuture
+                .thenAcceptBoth(schemaRegistryFuture, (partitionSet, schemaRegistry) -> {
+                    TableImpl tableImpl = tableManager.getTable(configTableId);
+
+                    assert tableImpl != null : "tableId=" + configTableId + ", indexId=" + index.id();
+
                     var storageIndexDescriptor = StorageIndexDescriptor.create(table, index);
 
                     TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
@@ -678,7 +683,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                             tableImpl.pkId(index.id());
                         }
                     }
-                }));
+                });
 
         return allOf(fireEventFuture, fireEventFuture1, startIndexFuture);
     }
