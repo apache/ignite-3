@@ -826,7 +826,8 @@ public class ItRebalanceDistributedTest {
                     topologyAwareRaftGroupServiceFactory,
                     vaultManager,
                     cmgManager,
-                    distributionZoneManager
+                    distributionZoneManager,
+                    catalogManager
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(

@@ -42,15 +42,17 @@ public interface CatalogService {
 
     String DEFAULT_ZONE_NAME = "Default";
 
-    CatalogTableDescriptor table(String tableName, long timestamp);
+    @Nullable CatalogTableDescriptor table(String tableName, long timestamp);
 
-    CatalogTableDescriptor table(int tableId, long timestamp);
+    @Nullable CatalogTableDescriptor table(int tableId, long timestamp);
 
-    CatalogTableDescriptor table(int tableId, int catalogVersion);
+    @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion);
 
-    CatalogIndexDescriptor index(String indexName, long timestamp);
+    @Nullable CatalogIndexDescriptor index(String indexName, long timestamp);
 
-    CatalogIndexDescriptor index(int indexId, long timestamp);
+    @Nullable CatalogIndexDescriptor index(int indexId, long timestamp);
+
+    @Nullable CatalogIndexDescriptor index(int indexId, int catalogVersion);
 
     Collection<CatalogIndexDescriptor> indexes(int catalogVersion);
 

@@ -592,7 +592,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 vaultManager,
                 cmgMgr,
-                distributionZoneManager
+                distributionZoneManager,
+                catalogManager
         );
 
         tableManager.start();

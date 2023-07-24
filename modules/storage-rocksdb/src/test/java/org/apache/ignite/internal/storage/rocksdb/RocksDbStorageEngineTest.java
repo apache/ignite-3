@@ -29,7 +29,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.index.ConfigStorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -71,7 +71,7 @@ public class RocksDbStorageEngineTest {
     void testCreateTableWithDefaultDataRegion(@InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig) {
         table = engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(tablesConfig)
+                new ConfigStorageIndexDescriptorSupplier(tablesConfig)
         );
 
         table.start();
@@ -91,7 +91,7 @@ public class RocksDbStorageEngineTest {
 
         table = engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, customRegionName),
-                new StorageIndexDescriptorSupplier(tablesConfig)
+                new ConfigStorageIndexDescriptorSupplier(tablesConfig)
         );
 
         table.start();

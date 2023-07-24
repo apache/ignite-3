@@ -27,7 +27,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageConcurrencyTest;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.index.ConfigStorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
@@ -59,7 +59,7 @@ class VolatilePageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPart
 
         table = engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(tablesConfig)
+                new ConfigStorageIndexDescriptorSupplier(tablesConfig)
         );
 
         table.start();

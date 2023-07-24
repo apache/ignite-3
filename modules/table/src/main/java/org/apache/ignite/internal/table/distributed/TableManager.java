@@ -88,6 +88,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -146,6 +147,8 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.CatalogStorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.index.ConfigStorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
@@ -377,6 +380,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final ConfiguredTablesCache configuredTablesCache;
 
+    private final CatalogManager catalogManager;
+
     /**
      * Creates a new table manager.
      *
@@ -397,6 +402,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         volatile tables.
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
      * @param vaultManager Vault manager.
+     * @param catalogManager Catalog manager.
      */
     public TableManager(
             String nodeName,
@@ -422,7 +428,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             VaultManager vaultManager,
             ClusterManagementGroupManager cmgMgr,
-            DistributionZoneManager distributionZoneManager
+            DistributionZoneManager distributionZoneManager,
+            CatalogManager catalogManager
     ) {
         this.tablesCfg = tablesCfg;
         this.zonesConfig = zonesConfig;
@@ -445,6 +452,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.cmgMgr = cmgMgr;
         this.distributionZoneManager = distributionZoneManager;
+        this.catalogManager = catalogManager;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -1305,7 +1313,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         MvTableStorage tableStorage = engine.createMvTable(
                 new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), dataStorage.getDataRegion()),
-                new StorageIndexDescriptorSupplier(tablesCfg)
+                new CatalogStorageIndexDescriptorSupplier(catalogManager)
         );
 
         tableStorage.start();

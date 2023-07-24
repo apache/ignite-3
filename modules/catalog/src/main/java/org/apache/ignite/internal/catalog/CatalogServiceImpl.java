@@ -185,28 +185,33 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     @Override
-    public CatalogTableDescriptor table(String tableName, long timestamp) {
+    public @Nullable CatalogTableDescriptor table(String tableName, long timestamp) {
         return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).table(tableName);
     }
 
     @Override
-    public CatalogTableDescriptor table(int tableId, long timestamp) {
+    public @Nullable CatalogTableDescriptor table(int tableId, long timestamp) {
         return catalogAt(timestamp).table(tableId);
     }
 
     @Override
-    public CatalogTableDescriptor table(int tableId, int catalogVersion) {
+    public @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion) {
         return catalog(catalogVersion).table(tableId);
     }
 
     @Override
-    public CatalogIndexDescriptor index(String indexName, long timestamp) {
+    public @Nullable CatalogIndexDescriptor index(String indexName, long timestamp) {
         return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).index(indexName);
     }
 
     @Override
-    public CatalogIndexDescriptor index(int indexId, long timestamp) {
+    public @Nullable CatalogIndexDescriptor index(int indexId, long timestamp) {
         return catalogAt(timestamp).index(indexId);
+    }
+
+    @Override
+    public @Nullable CatalogIndexDescriptor index(int indexId, int catalogVersion) {
+        return catalog(catalogVersion).index(indexId);
     }
 
     @Override

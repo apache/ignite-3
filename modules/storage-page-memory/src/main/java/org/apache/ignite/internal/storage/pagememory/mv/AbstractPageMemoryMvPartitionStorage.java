@@ -258,7 +258,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             if (initNew) {
                 boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.indexId(), metaPageId, indexMeta.nextRowIdUuidToBuild()));
 
-                assert !replaced;
+                assert !replaced : "indexId=" + indexMeta.indexId() + ", partitionId=" + partitionId;
             }
 
             return hashIndexTree;

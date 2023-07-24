@@ -67,7 +67,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.index.ConfigStorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
@@ -365,7 +365,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     MvTableStorage mvTableStorage = storageEngine.createMvTable(
                             new StorageTableDescriptor(1, 1, DEFAULT_DATA_REGION_NAME),
-                            new StorageIndexDescriptorSupplier(tablesCfg)
+                            new ConfigStorageIndexDescriptorSupplier(tablesCfg)
                     );
                     mvTableStorage.start();
 

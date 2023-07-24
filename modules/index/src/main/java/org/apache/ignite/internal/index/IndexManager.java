@@ -75,6 +75,7 @@ import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups;
@@ -221,6 +222,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             return createIndexFuture
                     .handle((unused, throwable) -> {
                         if (throwable != null) {
+                            throwable = ExceptionUtils.unwrapCause(throwable);
+
                             if (LOG.isDebugEnabled()) {
                                 LOG.debug(
                                         "Error creating index: [schema={}, table={}, index={}]",
