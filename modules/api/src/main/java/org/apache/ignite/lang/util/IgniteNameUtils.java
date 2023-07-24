@@ -15,11 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+package org.apache.ignite.lang.util;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
-
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,7 +43,7 @@ public final class IgniteNameUtils {
         String parsedName = tokenizer.nextToken();
 
         if (tokenizer.hasNext()) {
-            throw new IgniteInternalException(ILLEGAL_ARGUMENT_ERR, "Fully qualified name is not expected [name=" + name + "]");
+            throw new IllegalArgumentException("Fully qualified name is not expected [name=" + name + "]");
         }
 
         return parsedName;
@@ -168,10 +165,7 @@ public final class IgniteNameUtils {
         }
 
         private void throwMalformedNameException() {
-            throw new IgniteInternalException(
-                    ILLEGAL_ARGUMENT_ERR,
-                    "Malformed name [name=" + source + ", pos=" + currentPosition + "]"
-            );
+            throw new IllegalArgumentException("Malformed name [name=" + source + ", pos=" + currentPosition + ']');
         }
     }
 }

@@ -18,8 +18,7 @@
 package org.apache.ignite.sql;
 
 import java.util.UUID;
-import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.util.ExceptionUtils;
 
 /**
  * Subclass of {@link SqlException} is thrown when an error occurs during a batch update operation. In addition to the
@@ -30,6 +29,9 @@ import org.apache.ignite.internal.util.ExceptionUtils;
  *
  */
 public class SqlBatchException extends SqlException {
+    /** Empty array of long. */
+    public static final long[] LONG_EMPTY_ARRAY = new long[0];
+
     private final long[] updCntrs;
 
     /**
@@ -41,7 +43,7 @@ public class SqlBatchException extends SqlException {
     public SqlBatchException(int code, long[] updCntrs, Throwable cause) {
         super(code, cause.getMessage(), cause);
 
-        this.updCntrs = updCntrs != null ? updCntrs : ArrayUtils.LONG_EMPTY_ARRAY;
+        this.updCntrs = updCntrs != null ? updCntrs : LONG_EMPTY_ARRAY;
     }
 
     /**

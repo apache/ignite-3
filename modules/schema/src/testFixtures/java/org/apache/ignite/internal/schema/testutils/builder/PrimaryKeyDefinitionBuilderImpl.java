@@ -26,7 +26,7 @@ import org.apache.ignite.internal.schema.testutils.definition.PrimaryKeyDefiniti
 import org.apache.ignite.internal.schema.testutils.definition.index.PrimaryKeyDefinitionImpl;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.internal.util.IgniteNameUtils;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 
 /**
  * Primary key builder.

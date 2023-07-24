@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.catalog.commands.CreateZoneParams.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -685,7 +686,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     private static void throwUnsupportedDdl(String msg, Object... params) {
-        throw new SqlException(STMT_VALIDATION_ERR, msg, params);
+        throw new SqlException(STMT_VALIDATION_ERR, format(msg, params));
     }
 
     @FunctionalInterface
@@ -850,8 +851,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
             if (table.isPrimaryKeyColumn(columnName)) {
                 throw new SqlException(
                         STMT_VALIDATION_ERR,
-                        "Can't drop primary key column: [name={}]",
-                        columnName
+                        "Can't drop primary key column: [name=" + columnName + ']'
                 );
             }
         }
@@ -864,9 +864,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
                         .ifPresent(columnName -> {
                             throw new SqlException(
                                     STMT_VALIDATION_ERR,
-                                    "Can't drop indexed column: [columnName={}, indexName={}]",
-                                    columnName, index.name()
-                            );
+                                    format("Can't drop indexed column: [columnName={}, indexName={}]", columnName, index.name()));
                         }));
     }
 

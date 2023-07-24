@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinitionImpl;
-import org.apache.ignite.internal.util.IgniteNameUtils;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 
 /**
  * Hash index builder.

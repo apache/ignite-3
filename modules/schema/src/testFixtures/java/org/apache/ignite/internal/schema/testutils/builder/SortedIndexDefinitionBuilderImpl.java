@@ -26,7 +26,7 @@ import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexC
 import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexColumnDefinitionImpl;
 import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinitionImpl;
-import org.apache.ignite.internal.util.IgniteNameUtils;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 
 /**
  * Sorted index builder.
