@@ -377,8 +377,6 @@ public class DistributionZonesTestUtil {
         map.put(1L, new ZoneConfiguration(false, 2, 3, "asd"));
 
         assertThat(vaultMgr.put(zoneVersionedConfigurationKey(123456789), toBytes(map)), willCompleteSuccessfully());
-
-        System.out.println();
     }
 
     /**

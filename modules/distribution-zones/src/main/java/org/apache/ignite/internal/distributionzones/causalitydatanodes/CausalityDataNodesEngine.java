@@ -115,8 +115,6 @@ public class CausalityDataNodesEngine {
      * @return The future which will be completed with data nodes for the zoneId or with exception.
      */
     public Set<String> dataNodes(long causalityToken, int zoneId) {
-        LOG.info("+++++++ dataNodes " + causalityToken + " " + zoneId);
-
         if (causalityToken < 1) {
             throw new IllegalArgumentException("causalityToken must be greater then zero [causalityToken=" + causalityToken + '"');
         }
@@ -174,12 +172,7 @@ public class CausalityDataNodesEngine {
             return dataNodesNames;
         }
 
-        LOG.info("+++++++ dataNodes lastScaleUpRevision " + lastScaleUpRevision);
-        LOG.info("+++++++ dataNodes lastScaleDownRevision " + lastScaleDownRevision);
-
         ZoneState zoneState = zonesState.get(zoneId);
-
-        LOG.info("+++++++ dataNodes zoneState " + zoneState);
 
         ConcurrentSkipListMap<Long, Augmentation> subAugmentationMap = null;
 
@@ -200,16 +193,12 @@ public class CausalityDataNodesEngine {
         // Choose the highest revision.
         long dataNodesRevision = max(causalityToken, max(scaleUpDataNodesRevision, scaleDownDataNodesRevision));
 
-        LOG.info("+++++++ dataNodes scaleUpDataNodesRevision " + scaleUpDataNodesRevision);
-        LOG.info("+++++++ dataNodes scaleDownDataNodesRevision " + scaleDownDataNodesRevision);
-
         // Read data nodes value from the meta storage on dataNodesRevision and associated trigger keys.
         Entry dataNodesEntry = msManager.getLocally(zoneDataNodesKey(zoneId), dataNodesRevision);
         Entry scaleUpChangeTriggerKey = msManager.getLocally(zoneScaleUpChangeTriggerKey(zoneId), dataNodesRevision);
         Entry scaleDownChangeTriggerKey = msManager.getLocally(zoneScaleDownChangeTriggerKey(zoneId), dataNodesRevision);
 
         if (dataNodesEntry.value() == null) {
-            LOG.info("+++++++ dataNodes The zone was removed not idempotently");
             // The zone was removed.
             // In this case it is impossible to find out the data nodes value idempotently.
             return emptySet();
@@ -219,14 +208,7 @@ public class CausalityDataNodesEngine {
         long scaleUpTriggerRevision = bytesToLong(scaleUpChangeTriggerKey.value());
         long scaleDownTriggerRevision = bytesToLong(scaleDownChangeTriggerKey.value());
 
-        LOG.info("+++++++ dataNodes scaleUpTriggerRevision " + scaleUpTriggerRevision);
-        LOG.info("+++++++ dataNodes scaleDownTriggerRevision " + scaleDownTriggerRevision);
-
-        LOG.info("+++++++ dataNodes baseDataNodes " + baseDataNodes);
-
         Set<Node> finalDataNodes = new HashSet<>(baseDataNodes);
-
-        LOG.info("+++++++ dataNodes subAugmentationMap " + subAugmentationMap);
 
         // If the subAugmentationMap is null then it means that the zone was removed. In this case all nodes from topologyAugmentationMap
         // must be already written to the meta storage.
@@ -235,29 +217,20 @@ public class CausalityDataNodesEngine {
             subAugmentationMap.forEach((rev, augmentation) -> {
                 if (augmentation.addition() && rev > scaleUpTriggerRevision && rev <= lastScaleUpRevision) {
                     for (Node node : augmentation.nodes()) {
-                        LOG.info("+++++++ dataNodes finalDataNodes.add " + node);
                         finalDataNodes.add(node);
                     }
                 }
 
                 if (!augmentation.addition() && rev > scaleDownTriggerRevision && rev <= lastScaleDownRevision) {
                     for (Node node : augmentation.nodes()) {
-                        LOG.info("+++++++ dataNodes finalDataNodes.remove " + node);
                         finalDataNodes.remove(node);
                     }
                 }
             });
         }
 
-        LOG.info("+++++++ dataNodes filter " + filter);
-        LOG.info("+++++++ dataNodes nodesAttributes " + distributionZoneManager.nodesAttributes());
-
         // Apply the filter to get the final data nodes set.
-        Set<String> result = filterDataNodes(finalDataNodes, filter, distributionZoneManager.nodesAttributes());
-
-        LOG.info("+++++++ dataNodes result " + result);
-
-        return result;
+        return filterDataNodes(finalDataNodes, filter, distributionZoneManager.nodesAttributes());
     }
 
     /**
@@ -501,8 +474,6 @@ public class CausalityDataNodesEngine {
      * @return Revision.
      */
     private long searchTriggerKey(Long scaleRevision, int zoneId, ByteArray triggerKey) {
-        System.out.println("searchTriggerKey " + scaleRevision + " " + zoneId);
-
         Entry lastEntry = msManager.getLocally(triggerKey, Long.MAX_VALUE);
 
         long upperRevision = max(lastEntry.revision(), scaleRevision);
