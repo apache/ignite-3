@@ -286,6 +286,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(distributionZoneManager.zoneIdAsyncInternal(ZONE_NAME)).thenReturn(completedFuture(ZONE_ID));
 
         when(distributionZoneManager.dataNodes(anyLong(), anyInt())).thenReturn(emptySet());
+        when(distributionZoneManager.zoneState(anyLong())).thenReturn(completedFuture(null));
 
         when(replicaMgr.stopReplica(any())).thenReturn(completedFuture(true));
 
