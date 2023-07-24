@@ -405,7 +405,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 zoneDataNodesKey(zoneId),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 Set.of(A.name()),
-                3000
+                TIMEOUT_MILLIS
         );
 
         partialNode.stop();
@@ -460,7 +460,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 zoneDataNodesKey(zoneId),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 Set.of(A.name()),
-                3000
+                TIMEOUT_MILLIS
         );
 
         partialNode.stop();
@@ -519,7 +519,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 zoneDataNodesKey(zoneId),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 Set.of(),
-                3000
+                TIMEOUT_MILLIS
         );
 
         partialNode.stop();
@@ -570,7 +570,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 zoneDataNodesKey(zoneId),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 Set.of(A.name(), B.name(), C.name()),
-                3000
+                TIMEOUT_MILLIS
         );
 
         partialNode.stop();

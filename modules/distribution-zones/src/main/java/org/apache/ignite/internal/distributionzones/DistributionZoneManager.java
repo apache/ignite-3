@@ -101,7 +101,6 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneWasRemovedException;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -305,6 +304,7 @@ public class DistributionZoneManager implements IgniteComponent {
         );
 
         causalityDataNodesEngine = new CausalityDataNodesEngine(
+                busyLock,
                 metaStorageManager,
                 vaultMgr,
                 zonesState,
@@ -643,25 +643,6 @@ public class DistributionZoneManager implements IgniteComponent {
     /**
      * Returns the data nodes of the specified zone.
      *
-     * @param zoneId Zone id.
-     * @return The latest data nodes.
-     */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 Proper causality token based implementation is expected.
-    public Set<String> dataNodes(int zoneId) {
-        return inBusyLock(busyLock, () -> {
-            ZoneState zoneState = zonesState.get(zoneId);
-
-            if (zoneState != null) {
-                return zonesState.get(zoneId).nodes();
-            } else {
-                throw new DistributionZoneWasRemovedException(zoneId);
-            }
-        });
-    }
-
-    /**
-     * Returns the data nodes of the specified zone.
-     *
      * @param causalityToken Causality token.
      * @param zoneId Zone id.
      * @return The latest data nodes.
@@ -917,9 +898,6 @@ public class DistributionZoneManager implements IgniteComponent {
                         if (maxScaleUpRevision < filterUpdateRevision) {
                             // Don't need to trigger additional scale up for the scenario, when filter update event happened after the last
                             // node join event.
-
-                            // TODO: IGNITE-19506 Think carefully for the scenario when scale up timer was immediate before restart and
-                            // causality data nodes is implemented.
                             return;
                         }
                     }
