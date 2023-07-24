@@ -37,6 +37,7 @@ set(PUBLIC_HEADERS
     ignite_time.h
     ignite_timestamp.h
     ignite_type.h
+    primitive.h
     uuid.h
 )
 
@@ -60,3 +61,4 @@ ignite_test(bytes_test bytes_test.cpp LIBS ${TARGET})
 ignite_test(uuid_test uuid_test.cpp LIBS ${TARGET})
 ignite_test(bignum_test bignum_test.cpp LIBS ${TARGET})
 ignite_test(bit_array_test bit_array_test.cpp LIBS ${TARGET})
+ignite_test(primitive_test primitive_test.cpp LIBS ${TARGET})

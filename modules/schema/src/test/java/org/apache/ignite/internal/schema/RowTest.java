@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import static org.apache.ignite.internal.schema.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -83,6 +84,7 @@ public class RowTest {
     @Test
     public void nullableFixSizedColumns() {
         Column[] keyCols = new Column[]{
+                new Column("keyBooleanCol", BOOLEAN, false),
                 new Column("keyByteCol", INT8, false),
                 new Column("keyShortCol", INT16, false),
                 new Column("keyIntCol", INT32, false),
@@ -99,6 +101,7 @@ public class RowTest {
         };
 
         Column[] valCols = new Column[]{
+                new Column("valBooleanCol", BOOLEAN, false),
                 new Column("valByteCol", INT8, false),
                 new Column("valShortCol", INT16, false),
                 new Column("valIntCol", INT32, false),
@@ -123,6 +126,7 @@ public class RowTest {
     @Test
     public void fixSizedColumns() {
         Column[] keyCols = new Column[]{
+                new Column("keyBooleanCol", BOOLEAN, false),
                 new Column("keyByteCol", INT8, false),
                 new Column("keyShortCol", INT16, false),
                 new Column("keyIntCol", INT32, false),
@@ -139,6 +143,7 @@ public class RowTest {
         };
 
         Column[] valCols = new Column[]{
+                new Column("valBooleanCol", BOOLEAN, true),
                 new Column("valByteCol", INT8, true),
                 new Column("valShortCol", INT16, true),
                 new Column("valIntCol", INT32, true),
@@ -588,6 +593,10 @@ public class RowTest {
                 NativeType type = schema.column(i).type();
 
                 switch (type.spec()) {
+                    case BOOLEAN:
+                        asm.appendBoolean((Boolean) vals[i]);
+                        break;
+
                     case INT8:
                         asm.appendByte((Byte) vals[i]);
                         break;

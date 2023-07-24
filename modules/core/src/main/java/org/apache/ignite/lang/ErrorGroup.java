@@ -27,6 +27,7 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This class represents a concept of error group. Error group defines a collection of errors that belong to a single semantic component.
@@ -47,7 +48,7 @@ public class ErrorGroup {
     private final String groupName;
 
     /** Group code. */
-    private final int groupCode;
+    private final short groupCode;
 
     /** Contains error codes for this error group. */
     private final IntSet codes = new IntOpenHashSet();
@@ -58,7 +59,7 @@ public class ErrorGroup {
      * @param groupName Group name.
      * @param groupCode Group code.
      */
-    private ErrorGroup(String groupName, int groupCode) {
+    private ErrorGroup(String groupName, short groupCode) {
         this.groupName = groupName;
         this.groupCode = groupCode;
     }
@@ -77,7 +78,7 @@ public class ErrorGroup {
      *
      * @return Group code.
      */
-    public int code() {
+    public short groupCode() {
         return groupCode;
     }
 
@@ -86,31 +87,16 @@ public class ErrorGroup {
      *
      * @param errorCode Error code to be registered.
      * @return Full error code which includes group code and specific error code.
-     * @throws IllegalArgumentException If the given {@code errorCode} is already registered
-     *      or {@code errorCode} is greater than 0xFFFF or less than or equal to 0.
+     * @throws IllegalArgumentException If the given {@code errorCode} is already registered.
      */
-    public int registerErrorCode(int errorCode) {
-        if (errorCode <= 0 || errorCode > 0xFFFF) {
-            throw new IllegalArgumentException("Error code should be greater than 0 and less than or equal to 0xFFFF");
-        }
-
+    public int registerErrorCode(short errorCode) {
         if (codes.contains(errorCode)) {
             throw new IllegalArgumentException("Error code already registered [errorCode=" + errorCode + ", group=" + name() + ']');
         }
 
         codes.add(errorCode);
 
-        return (code() << 16) | (errorCode & 0xFFFF);
-    }
-
-    /**
-     * Checks that the given {@code code} is registered for this error group.
-     *
-     * @param code Full error code to be tested.
-     * @return {@code true} If the given {@code code} is registered for this error group.
-     */
-    public boolean isRegistered(ErrorGroup group, int code) {
-        return group.codes.contains(code);
+        return (groupCode() << 16) | (errorCode & 0xFFFF);
     }
 
     /**
@@ -120,10 +106,9 @@ public class ErrorGroup {
      * @param groupCode Group code to be created.
      * @return New error group.
      * @throws IllegalArgumentException If the specified name or group code already registered.
-     *      or {@code groupCode} is greater than 0xFFFF or less than or equal to 0.
      *      Also, this exception is thrown if the given {@code groupName} is {@code null} or empty.
      */
-    public static synchronized ErrorGroup newGroup(String groupName, int groupCode) {
+    public static synchronized ErrorGroup newGroup(String groupName, short groupCode) {
         if (groupName == null || groupName.isEmpty()) {
             throw new IllegalArgumentException("Group name is null or empty");
         }
@@ -157,8 +142,8 @@ public class ErrorGroup {
      * @param code Full error code.
      * @return Group code.
      */
-    public static int extractGroupCode(int code) {
-        return code >>> 16;
+    public static short extractGroupCode(int code) {
+        return (short) (code >>> 16);
     }
 
     /**
@@ -167,8 +152,8 @@ public class ErrorGroup {
      * @param code Full error code.
      * @return Error code.
      */
-    public static int extractErrorCode(int code) {
-        return code & 0xFFFF;
+    public static short extractErrorCode(int code) {
+        return (short) (code & 0xFFFF);
     }
 
     /**
@@ -177,8 +162,18 @@ public class ErrorGroup {
      * @param groupCode Group code
      * @return Error Group.
      */
-    public static ErrorGroup errorGroupByCode(int groupCode) {
+    public static ErrorGroup errorGroupByGroupCode(short groupCode) {
         return registeredGroups.get(groupCode);
+    }
+
+    /**
+     * Returns error group identified by the given error {@code code}.
+     *
+     * @param code Full error code
+     * @return Error Group.
+     */
+    public static ErrorGroup errorGroupByCode(int code) {
+        return registeredGroups.get(extractGroupCode(code));
     }
 
     /**
@@ -203,7 +198,7 @@ public class ErrorGroup {
      * @return New error message with predefined prefix.
      */
     public static String errorMessage(UUID traceId, String groupName, int code, String message) {
-        return ERR_PREFIX + groupName + '-' + extractErrorCode(code) + " TraceId:" + traceId
+        return ERR_PREFIX + groupName + '-' + Short.toUnsignedInt(extractErrorCode(code)) + " TraceId:" + traceId
                 + ((message != null && !message.isEmpty()) ? ' ' + message : "");
     }
 
@@ -246,7 +241,7 @@ public class ErrorGroup {
      * @param errorMessage Message that is returned by {@link Throwable#getMessage()}
      * @return Extracted message.
      */
-    public static String extractCauseMessage(String errorMessage) {
+    public static @Nullable String extractCauseMessage(String errorMessage) {
         if (errorMessage == null) {
             return null;
         }
@@ -258,6 +253,6 @@ public class ErrorGroup {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return "ErrorGroup [name=" + name() + ", code=" + code() + ']';
+        return "ErrorGroup [name=" + name() + ", groupCode=" + groupCode() + ']';
     }
 }

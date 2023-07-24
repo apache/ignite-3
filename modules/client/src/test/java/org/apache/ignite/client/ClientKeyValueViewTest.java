@@ -124,6 +124,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         key.id = String.valueOf(DEFAULT_ID);
 
         AllColumnsPojo res = pojoView.get(null, key);
+        assertTrue(res.zboolean);
         assertEquals(11, res.zbyte);
         assertEquals(12, res.zshort);
         assertEquals(13, res.zint);
@@ -156,6 +157,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         val.gid = 111;
         val.id = "112";
+        val.zboolean = true;
         val.zbyte = 113;
         val.zshort = 114;
         val.zint = 115;
@@ -179,6 +181,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertNotNull(res);
         assertEquals(111, res.longValue("gid"));
         assertEquals("112", res.stringValue("id"));
+        assertTrue(res.booleanValue("zboolean"));
         assertEquals(113, res.byteValue("zbyte"));
         assertEquals(114, res.shortValue("zshort"));
         assertEquals(115, res.intValue("zint"));
@@ -225,6 +228,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertNotNull(res);
         assertNotNull(binRes);
 
+        assertNull(res.zboolean);
         assertNull(res.zbyte);
         assertNull(res.zshort);
         assertNull(res.zint);

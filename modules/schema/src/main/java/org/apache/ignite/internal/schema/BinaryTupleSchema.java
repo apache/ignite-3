@@ -291,6 +291,7 @@ public class BinaryTupleSchema {
         Element element = element(index);
 
         switch (element.typeSpec) {
+            case BOOLEAN: return tuple.booleanValueBoxed(index);
             case INT8: return tuple.byteValueBoxed(index);
             case INT16: return tuple.shortValueBoxed(index);
             case INT32: return tuple.intValueBoxed(index);

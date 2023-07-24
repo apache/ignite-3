@@ -22,8 +22,8 @@
 #include <ignite/common/config.h>
 
 #ifdef _WIN32
-# include "detail/win/win_async_client_pool.h"
 # include "detail/win/tcp_socket_client.h"
+# include "detail/win/win_async_client_pool.h"
 #else
 # include "detail/linux/linux_async_client_pool.h"
 # include "detail/linux/tcp_socket_client.h"
@@ -31,8 +31,7 @@
 
 namespace ignite::network {
 
-std::unique_ptr<socket_client> make_tcp_socket_client()
-{
+std::unique_ptr<socket_client> make_tcp_socket_client() {
     return std::make_unique<tcp_socket_client>();
 }
 

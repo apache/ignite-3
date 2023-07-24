@@ -113,6 +113,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
         return Tuple.create()
                 .set("gid", DEFAULT_ID)
                 .set("id", String.valueOf(DEFAULT_ID))
+                .set("zboolean", true)
                 .set("zbyte", (byte) 11)
                 .set("zshort", (short) 12)
                 .set("zint", (int) 13)
@@ -188,6 +189,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
     protected static class IncompletePojoNullable {
         public int gid;
         public String id;
+        public Boolean zboolean;
         public Byte zbyte;
         public Short zshort;
         public Integer zint;
@@ -200,6 +202,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
     protected static class AllColumnsPojo {
         public int gid;
         public String id;
+        public boolean zboolean;
         public byte zbyte;
         public short zshort;
         public int zint;

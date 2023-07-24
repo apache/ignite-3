@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import static org.apache.ignite.internal.schema.DefaultValueProvider.constantProvider;
+import static org.apache.ignite.internal.schema.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -47,20 +48,17 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import java.lang.reflect.Field;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
-import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.processing.Generated;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
@@ -347,22 +345,7 @@ public class RecordMarshallerTest {
      */
     @Test
     public void ensureAllTypesChecked() {
-        ensureAllTypesChecked(Stream.concat(Arrays.stream(keyColumns()), Arrays.stream(valueColumnsAllTypes())));
-    }
-
-    /**
-     * Ensure specified columns contains all type spec, presented in NativeTypeSpec.
-     *
-     * @param allColumns Columns to test.
-     */
-    public static void ensureAllTypesChecked(Stream<Column> allColumns) {
-        Set<NativeTypeSpec> testedTypes = allColumns.map(c -> c.type().spec())
-                .collect(Collectors.toSet());
-
-        Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
-                .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
-
-        assertEquals(Collections.emptySet(), missedTypes);
+        SchemaTestUtils.ensureAllTypesChecked(Stream.concat(Arrays.stream(keyColumns()), Arrays.stream(valueColumnsAllTypes())));
     }
 
     /**
@@ -429,12 +412,14 @@ public class RecordMarshallerTest {
 
     private Column[] valueColumnsAllTypes() {
         return new Column[]{
+                new Column("primitiveBooleanCol".toUpperCase(), BOOLEAN, false, constantProvider(true)),
                 new Column("primitiveByteCol".toUpperCase(), INT8, false, constantProvider((byte) 0x42)),
                 new Column("primitiveShortCol".toUpperCase(), INT16, false, constantProvider((short) 0x4242)),
                 new Column("primitiveIntCol".toUpperCase(), INT32, false, constantProvider(0x42424242)),
                 new Column("primitiveFloatCol".toUpperCase(), FLOAT, false),
                 new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
 
+                new Column("booleanCol".toUpperCase(), BOOLEAN, true),
                 new Column("byteCol".toUpperCase(), INT8, true),
                 new Column("shortCol".toUpperCase(), INT16, true),
                 new Column("longCol".toUpperCase(), INT64, true),
