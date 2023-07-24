@@ -401,6 +401,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     @Override
     public void stop() throws Exception {
         deployer.stop();
+        nodeStatusWatchListener.stop();
         tracker.cancelAll();
         deploymentUnitStore.unregisterNodeStatusListener(nodeStatusWatchListener);
         deploymentUnitStore.unregisterClusterStatusListener(clusterStatusWatchListener);
