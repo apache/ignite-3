@@ -33,7 +33,7 @@ import org.reactivestreams.Subscription;
  * Implementation of {@link Subscriber} based on {@link CompletedFileUpload} which will collect uploaded files to the
  * {@link DeploymentUnit}.
  */
-class CompletedFileUploadSubscriber implements Subscriber<CompletedFileUpload> {
+class CompletedFileUploadSubscriber implements Subscriber<CompletedFileUpload>, AutoCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(CompletedFileUploadSubscriber.class);
 
     private final CompletableFuture<DeploymentUnit> result = new CompletableFuture<>();
@@ -77,5 +77,16 @@ class CompletedFileUploadSubscriber implements Subscriber<CompletedFileUpload> {
 
     public CompletableFuture<DeploymentUnit> result() {
         return result;
+    }
+
+    @Override
+    public void close() throws Exception {
+        result.thenAccept(it -> {
+            try {
+                it.close();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 }

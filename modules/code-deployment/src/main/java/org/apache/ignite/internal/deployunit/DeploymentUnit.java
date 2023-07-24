@@ -19,16 +19,12 @@ package org.apache.ignite.internal.deployunit;
 
 import java.io.InputStream;
 import java.util.Map;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Deployment unit interface.
  */
 public class DeploymentUnit implements AutoCloseable {
-    private static final IgniteLogger LOG = Loggers.forClass(DeploymentUnit.class);
-
     private final Map<String, InputStream> content;
 
     public DeploymentUnit(Map<String, InputStream> content) {
@@ -45,11 +41,7 @@ public class DeploymentUnit implements AutoCloseable {
     }
 
     @Override
-    public void close() {
-        try {
-            IgniteUtils.closeAll(content.values());
-        } catch (Exception e) {
-            LOG.error("Failed to close deployment unit", e);
-        }
+    public void close() throws Exception {
+        IgniteUtils.closeAll(content.values());
     }
 }

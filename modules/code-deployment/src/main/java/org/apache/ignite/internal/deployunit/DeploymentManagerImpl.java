@@ -364,7 +364,13 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                                         .thenCompose(status -> {
                                             DeploymentUnit unit = toDeploymentUnit(content);
                                             return deployToLocalNode(status, unit)
-                                                    .whenComplete((deployed, throwable) -> unit.close());
+                                                    .whenComplete((deployed, throwable) -> {
+                                                        try {
+                                                            unit.close();
+                                                        } catch (Exception e) {
+                                                            LOG.error("Error closing deployment unit", e);
+                                                        }
+                                                    });
                                         });
                             });
 

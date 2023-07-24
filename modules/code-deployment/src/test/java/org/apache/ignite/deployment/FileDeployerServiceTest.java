@@ -69,7 +69,7 @@ public class FileDeployerServiceTest {
     }
 
     @Test
-    public void test() {
+    public void test() throws Exception {
         try (DeploymentUnit unit = content()) {
             CompletableFuture<Boolean> deployed = service.deploy("id", parseVersion("1.0.0"), unit);
             assertThat(deployed, willBe(true));
