@@ -271,6 +271,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             return catalogManager.dropIndex(dropIndexCommandParams)
                     .handle((unused, throwable) -> {
                         if (throwable != null) {
+                            throwable = ExceptionUtils.unwrapCause(throwable);
+
                             if (LOG.isDebugEnabled()) {
                                 LOG.debug("Error while deleting index: [schema={}, index={}]", throwable, schemaName, indexName);
                             }

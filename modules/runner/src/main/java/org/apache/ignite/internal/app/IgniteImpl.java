@@ -1096,4 +1096,10 @@ public class IgniteImpl implements Ignite {
     public TxManager txManager() {
         return txManager;
     }
+
+    /** Returns the node's catalog manager. */
+    @TestOnly
+    public CatalogManager catalogManager() {
+        return catalogManager;
+    }
 }
