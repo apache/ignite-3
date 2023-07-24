@@ -157,7 +157,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     void executesFailingJobOnRemoteNodes() {
         Ignite entryNode = node(0);
 
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
+        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
                 .execute(Set.of(node(1).node(), node(2).node()), units(), failingJobClassName()));
 
         assertThat(ex.getCause().getClass().getName(), is(jobExceptionClassName()));
