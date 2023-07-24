@@ -27,14 +27,13 @@ using namespace ignite;
  */
 class config_tools_test : public ::testing::Test {};
 
-TEST_F(config_tools_test, parse_address_basic)
-{
-    auto test_parse_address = [] (const std::vector<end_point>& exp, std::string_view in) {
+TEST_F(config_tools_test, parse_address_basic) {
+    auto test_parse_address = [](const std::vector<end_point> &exp, std::string_view in) {
         auto res = parse_address(in);
         ASSERT_EQ(exp.size(), res.size());
 
         for (size_t i = 0; i < exp.size(); ++i) {
-            EXPECT_EQ(exp[i],res[i]) << "Vectors differ at index " << i;
+            EXPECT_EQ(exp[i], res[i]) << "Vectors differ at index " << i;
         }
     };
 
@@ -42,8 +41,8 @@ TEST_F(config_tools_test, parse_address_basic)
     test_parse_address({{"127.0.0.1", 10800}, {"127.0.0.1", 10800}}, "127.0.0.1,127.0.0.1");
     test_parse_address({{"127.0.0.1", 42}}, "127.0.0.1:42");
 
-    test_parse_address({{"127.0.0.1", 42}, {"localhost", 1550}, {"0.0.0.0", 10800}},
-        "127.0.0.1:42, localhost:1550,0.0.0.0    ");
+    test_parse_address(
+        {{"127.0.0.1", 42}, {"localhost", 1550}, {"0.0.0.0", 10800}}, "127.0.0.1:42, localhost:1550,0.0.0.0    ");
 
     test_parse_address({}, "");
     test_parse_address({}, ",,,");
@@ -51,9 +50,8 @@ TEST_F(config_tools_test, parse_address_basic)
     test_parse_address({{"127.0.0.1", 10800}}, ",,,,127.0.0.1,,,,");
 }
 
-TEST_F(config_tools_test, normalize_argument_string_basic)
-{
-    auto test_normalize_argument_string = [] (std::string_view exp, std::string_view in) {
+TEST_F(config_tools_test, normalize_argument_string_basic) {
+    auto test_normalize_argument_string = [](std::string_view exp, std::string_view in) {
         EXPECT_EQ(normalize_argument_string(in), exp);
     };
 
@@ -64,9 +62,8 @@ TEST_F(config_tools_test, normalize_argument_string_basic)
     test_normalize_argument_string("a b c", " A B C ");
 }
 
-TEST_F(config_tools_test, parse_connection_string_basic)
-{
-    auto test_parse_connection_string = [] (const config_map& exp, std::string_view in) {
+TEST_F(config_tools_test, parse_connection_string_basic) {
+    auto test_parse_connection_string = [](const config_map &exp, std::string_view in) {
         EXPECT_EQ(parse_connection_string(in), exp);
     };
 
@@ -77,4 +74,3 @@ TEST_F(config_tools_test, parse_connection_string_basic)
 
     test_parse_connection_string({{"k1", "v1"}}, "k1=v1;k1=v2;k1=v3");
 }
-

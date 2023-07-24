@@ -118,6 +118,8 @@ public class CatalogDescriptorUtils {
      */
     public static NativeType getNativeType(CatalogTableColumnDescriptor column) {
         switch (column.type()) {
+            case BOOLEAN:
+                return NativeTypes.BOOLEAN;
             case INT8:
                 return NativeTypes.INT8;
             case INT16:

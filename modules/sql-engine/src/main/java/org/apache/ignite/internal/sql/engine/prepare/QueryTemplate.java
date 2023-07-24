@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_MAPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import java.util.ArrayList;
@@ -30,7 +30,7 @@ import org.apache.ignite.internal.sql.engine.metadata.FragmentMappingException;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -79,7 +79,7 @@ public class QueryTemplate {
             }
         }
 
-        throw new SqlException(QUERY_MAPPING_ERR, "Failed to map query.", ex);
+        throw new IgniteInternalException(INTERNAL_ERR, "Failed to map query.", ex);
     }
 
     @NotNull

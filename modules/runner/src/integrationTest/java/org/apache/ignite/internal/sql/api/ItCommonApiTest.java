@@ -21,7 +21,8 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.lang.ErrorGroups.Sql;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -47,10 +48,10 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -96,9 +97,9 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         waitForCondition(() -> queryProcessor().liveSessions().size() == 1, 10_000);
 
-        // first session should be expired for the moment
-        SqlException ex = assertThrows(SqlException.class, () -> ses1.execute(null, "SELECT 1 + 1"));
-        assertEquals(Sql.SESSION_NOT_FOUND_ERR, ex.code());
+        // first session should no longer exist for the moment
+        IgniteException err = assertThrows(IgniteException.class, () -> ses1.execute(null, "SELECT 1 + 1"));
+        assertThat(err.getMessage(), containsString("Session not found"));
 
         // already started query should fail due to session has been expired
         assertThrowsWithCause(() -> {
@@ -186,11 +187,8 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         TxManager txManagerInternal =
                 (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
 
-        SqlQueryProcessor queryProc =
-                (SqlQueryProcessor) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "qryEngine");
-
         SqlSchemaManager oldManager =
-                (SqlSchemaManager) IgniteTestUtils.getFieldValue(queryProc, SqlQueryProcessor.class, "sqlSchemaManager");
+                (SqlSchemaManager) IgniteTestUtils.getFieldValue(queryProcessor(), SqlQueryProcessor.class, "sqlSchemaManager");
 
         int txPrevCnt = txManagerInternal.finished();
 
@@ -219,7 +217,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         var schemaManager = new ErroneousSchemaManager();
 
         // TODO: refactor after https://issues.apache.org/jira/browse/IGNITE-17694
-        IgniteTestUtils.setFieldValue(queryProc, "sqlSchemaManager", schemaManager);
+        IgniteTestUtils.setFieldValue(queryProcessor(), "sqlSchemaManager", schemaManager);
 
         try {
             sql("SELECT a FROM NOTEXIST.TEST");
@@ -236,7 +234,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         assertEquals(4, txManagerInternal.finished() - txPrevCnt);
         assertEquals(0, txManagerInternal.pending());
 
-        IgniteTestUtils.setFieldValue(queryProc, "sqlSchemaManager", oldManager);
+        IgniteTestUtils.setFieldValue(queryProcessor(), "sqlSchemaManager", oldManager);
     }
 
     private static class ErroneousSchemaManager implements SqlSchemaManager {

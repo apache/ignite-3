@@ -93,6 +93,7 @@ public class SchemaConfigurationConverter {
     private static final Map<String, ColumnType> fixSizedTypes = new HashMap<>();
 
     static {
+        putType(ColumnType.BOOLEAN);
         putType(ColumnType.INT8);
         putType(ColumnType.INT16);
         putType(ColumnType.INT32);
@@ -525,6 +526,7 @@ public class SchemaConfigurationConverter {
      */
     public static String convertDefaultToConfiguration(Object defaultValue, ColumnType type) {
         switch (type.typeSpec()) {
+            case BOOLEAN:
             case INT8:
             case INT16:
             case INT32:
@@ -551,6 +553,8 @@ public class SchemaConfigurationConverter {
 
     private static @Nullable Object convertDefaultFromConfiguration(String defaultValue, ColumnType type) {
         switch (type.typeSpec()) {
+            case BOOLEAN:
+                return Boolean.parseBoolean(defaultValue);
             case INT8:
                 return Byte.parseByte(defaultValue);
             case INT16:

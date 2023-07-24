@@ -23,10 +23,9 @@
 namespace ignite {
 
 template<typename T>
-T* get_pointer_with_offset(T* ptr, size_t offset)
-{
-    auto* ptr_bytes = reinterpret_cast<std::uint8_t*>(ptr);
-    return (T*)(ptr_bytes + offset);
+T *get_pointer_with_offset(T *ptr, size_t offset) {
+    auto *ptr_bytes = reinterpret_cast<std::uint8_t *>(ptr);
+    return (T *) (ptr_bytes + offset);
 }
 
 /**
@@ -37,7 +36,7 @@ T* get_pointer_with_offset(T* ptr, size_t offset)
  * @param buffer_len Length of the buffer.
  * @return Length of the resulting string in buffer.
  */
-size_t copy_string_to_buffer(const std::string& str, char* buf, std::size_t buffer_len);
+size_t copy_string_to_buffer(const std::string &str, char *buf, std::size_t buffer_len);
 
 /**
  * Convert SQL string buffer to std::string.
@@ -46,6 +45,6 @@ size_t copy_string_to_buffer(const std::string& str, char* buf, std::size_t buff
  * @param sql_str_len SQL string length.
  * @return Standard string containing the same data.
  */
-std::string sql_string_to_string(const unsigned char* sql_str, std::int32_t sql_str_len);
+std::string sql_string_to_string(const unsigned char *sql_str, std::int32_t sql_str_len);
 
 } // namespace ignite

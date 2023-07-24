@@ -81,6 +81,9 @@ abstract class FieldAccessor {
             assert mode != null : "Invalid mode for type: " + field.getType();
 
             switch (mode) {
+                case P_BOOLEAN:
+                    return new BooleanPrimitiveAccessor(varHandle, colIdx);
+
                 case P_BYTE:
                     return new BytePrimitiveAccessor(varHandle, colIdx);
 
@@ -99,6 +102,7 @@ abstract class FieldAccessor {
                 case P_DOUBLE:
                     return new DoublePrimitiveAccessor(varHandle, colIdx);
 
+                case BOOLEAN:
                 case BYTE:
                 case SHORT:
                 case INT:
@@ -138,6 +142,7 @@ abstract class FieldAccessor {
     static FieldAccessor createIdentityAccessor(String col, int colIdx, BinaryMode mode) {
         switch (mode) {
             //  Marshaller read/write object contract methods allowed boxed types only.
+            case P_BOOLEAN:
             case P_BYTE:
             case P_SHORT:
             case P_INT:
@@ -186,6 +191,11 @@ abstract class FieldAccessor {
         Object val = null;
 
         switch (mode) {
+            case BOOLEAN:
+                val = reader.readBooleanBoxed();
+
+                break;
+
             case BYTE:
                 val = reader.readByteBoxed();
 
@@ -290,6 +300,11 @@ abstract class FieldAccessor {
         }
 
         switch (mode) {
+            case BOOLEAN:
+                writer.writeBoolean((Boolean) val);
+
+                break;
+
             case BYTE:
                 writer.writeByte((Byte) val);
 
@@ -558,6 +573,37 @@ abstract class FieldAccessor {
         @Override
         Object value(Object obj) {
             return obj;
+        }
+    }
+
+    /**
+     * Accessor for a field of primitive {@code boolean} type.
+     */
+    private static class BooleanPrimitiveAccessor extends FieldAccessor {
+        /**
+         * Constructor.
+         *
+         * @param varHandle VarHandle.
+         * @param colIdx    Column index.
+         */
+        BooleanPrimitiveAccessor(VarHandle varHandle, int colIdx) {
+            super(Objects.requireNonNull(varHandle), colIdx, BinaryMode.P_BOOLEAN);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        protected void write0(MarshallerWriter writer, Object obj) {
+            final boolean val = (boolean) varHandle.get(obj);
+
+            writer.writeBoolean(val);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        protected void read0(MarshallerReader reader, Object obj) {
+            final boolean val = reader.readBoolean();
+
+            varHandle.set(obj, val);
         }
     }
 

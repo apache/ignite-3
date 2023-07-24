@@ -100,8 +100,8 @@ namespace Apache.Ignite.Tests
             // ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 7);
             var javaErrorGroups = Regex.Matches(
                 javaErrorGroupsText,
-                @"ErrorGroup ([\w_]+)_ERR_GROUP = ErrorGroup.newGroup\(""(\w+)"", (\d+)\);")
-                .Select(x => (Name: x.Groups[1].Value, ShortName: x.Groups[2].Value, Code: int.Parse(x.Groups[3].Value, CultureInfo.InvariantCulture)))
+                @"ErrorGroup ([\w_]+)_ERR_GROUP = ErrorGroup.newGroup\(""(\w+)"", \(short\)\s*(\d+)\);")
+                .Select(x => (Name: x.Groups[1].Value, ShortName: x.Groups[2].Value, Code: short.Parse(x.Groups[3].Value, CultureInfo.InvariantCulture)))
                 .ToList();
 
             Assert.GreaterOrEqual(javaErrorGroups.Count, 7);
@@ -115,8 +115,8 @@ namespace Apache.Ignite.Tests
                 // TX_STATE_STORAGE_CREATE_ERR = TX_ERR_GROUP.registerErrorCode(1)
                 var javaErrors = Regex.Matches(
                         javaErrorGroupsText,
-                        @"([\w_]+) = " + grpName + @"_ERR_GROUP\.registerErrorCode\((\d+)\);")
-                    .Select(x => (Name: x.Groups[1].Value, Code: int.Parse(x.Groups[2].Value, CultureInfo.InvariantCulture)))
+                        @"([\w_]+) = " + grpName + @"_ERR_GROUP\.registerErrorCode\(\(short\)\s*(\d+)\);")
+                    .Select(x => (Name: x.Groups[1].Value, Code: short.Parse(x.Groups[2].Value, CultureInfo.InvariantCulture)))
                     .ToList();
 
                 Assert.IsNotEmpty(javaErrors);
@@ -187,13 +187,13 @@ namespace Apache.Ignite.Tests
             Assert.AreEqual(ErrorGroups.UnknownGroupName, ErrorGroups.GetGroupName(9999));
         }
 
-        private static IEnumerable<(int Code, string Name)> GetErrorGroups() => typeof(ErrorGroups).GetNestedTypes()
-                .Select(x => ((int) x.GetField("GroupCode")!.GetValue(null)!, x.Name));
+        private static IEnumerable<(short Code, string Name)> GetErrorGroups() => typeof(ErrorGroups).GetNestedTypes()
+                .Select(x => ((short) x.GetField("GroupCode")!.GetValue(null)!, x.Name));
 
-        private static IEnumerable<(int Code, int GroupCode, string Name)> GetErrorCodes() => typeof(ErrorGroups).GetNestedTypes()
+        private static IEnumerable<(int Code, short GroupCode, string Name)> GetErrorCodes() => typeof(ErrorGroups).GetNestedTypes()
                 .SelectMany(groupClass =>
                 {
-                    var groupCode = (int)groupClass.GetField("GroupCode")!.GetValue(null)!;
+                    var groupCode = (short)groupClass.GetField("GroupCode")!.GetValue(null)!;
 
                     return groupClass
                         .GetFields()

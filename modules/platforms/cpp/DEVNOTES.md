@@ -32,6 +32,7 @@ The project dependencies include the following libraries:
 
 	- msgpack-c 4.0.0
 	- gtest 1.12.1
+	- unixodbc 
 
 When the project is configured with the `-DENABLE_CONAN=OFF` CMake option, the Conan machinery is turned off and
 the dependencies are resolved by using the standard means of the build platform. For example, the project can be

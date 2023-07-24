@@ -35,8 +35,7 @@ void ignite_client_impl::get_cluster_nodes_async(ignite_callback<std::vector<clu
             auto host = protocol::unpack_object<std::string>(fields.ptr[2]);
             auto port = protocol::unpack_object<std::int32_t>(fields.ptr[3]);
 
-            nodes.emplace_back(
-                std::move(id), std::move(name), end_point{std::move(host), std::uint16_t(port)});
+            nodes.emplace_back(std::move(id), std::move(name), end_point{std::move(host), std::uint16_t(port)});
         });
 
         return nodes;

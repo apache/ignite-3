@@ -329,6 +329,10 @@ public class ClientTupleSerializer {
 
         try {
             switch (col.type()) {
+                case BOOLEAN:
+                    builder.appendBoolean((boolean) v);
+                    return;
+
                 case INT8:
                     builder.appendByte((byte) v);
                     return;
