@@ -50,7 +50,7 @@ public class ConnectSslConfigCall implements Call<ConnectSslConfigCallInput, Str
         try {
             checkConnection(input);
             saveConfig(input.getConfig());
-            return connectCall.execute(new ConnectCallInputBuilder().url(input.getUrl()).build());
+            return connectCall.execute(ConnectCallInput.builder().url(input.getUrl()).build());
         } catch (ApiException e) {
             return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getUrl()));
         }

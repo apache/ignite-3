@@ -261,13 +261,13 @@ public enum Options {
 
         public static final String PASSWORD_OPTION = "--password";
 
-        public static final String PASSWORD_OPTION_SHORT = "--p";
+        public static final String PASSWORD_OPTION_SHORT = "-p";
 
         public static final String PASSWORD_OPTION_DESC = "Password to connect to cluster";
 
         public static final String USERNAME_OPTION = "--username";
 
-        public static final String USERNAME_OPTION_SHORT = "--u";
+        public static final String USERNAME_OPTION_SHORT = "-u";
 
         public static final String USERNAME_OPTION_DESC = "Username to connect to cluster";
 

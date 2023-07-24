@@ -32,6 +32,15 @@ public class ConnectCallInput implements CallInput {
         return password;
     }
 
+    /**
+     * Builder method provider.
+     *
+     * @return new instance of {@link ConnectCallInputBuilder}.
+     */
+    public static ConnectCallInputBuilder builder() {
+        return new ConnectCallInputBuilder();
+    }
+
     public static class ConnectCallInputBuilder {
 
         private String url;
@@ -40,7 +49,7 @@ public class ConnectCallInput implements CallInput {
         @Nullable
         private String password;
 
-        public ConnectCallInputBuilder() {
+        private ConnectCallInputBuilder() {
         }
 
         public ConnectCallInputBuilder url(String url) {

@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OR_NAME_DESC;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.connect.ConnectCallInput.ConnectCallInputBuilder;
+import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.call.connect.ConnectSslCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
@@ -54,7 +54,8 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
     @Override
     public void run() {
         question.askQuestionIfConnected(nodeNameOrUrl.stringUrl())
-                .map(url -> new ConnectCallInputBuilder().url(url)
+                .map(url -> ConnectCallInput.builder()
+                        .url(url)
                         .username(connectOptions.username())
                         .password(connectOptions.password())
                         .build())

@@ -80,7 +80,7 @@ public class ConnectToClusterQuestion {
         );
 
         return Flows.<Void, ConnectCallInput>acceptQuestion(questionUiComponent,
-                        () -> new ConnectCallInputBuilder().url(defaultUrl).build())
+                        () -> ConnectCallInput.builder().url(defaultUrl).build())
                 .then(Flows.fromCall(connectCall))
                 .print()
                 .map(ignored -> sessionNodeUrl());
@@ -164,7 +164,7 @@ public class ConnectToClusterQuestion {
             return;
         }
 
-        Flows.acceptQuestion(question, () -> new ConnectCallInputBuilder().url(defaultUrl).build())
+        Flows.acceptQuestion(question, () -> ConnectCallInput.builder().url(defaultUrl).build())
                 .then(Flows.fromCall(connectCall))
                 .print()
                 .ifThen(s -> !Objects.equals(clusterUrl, defaultUrl) && session.info() != null,
