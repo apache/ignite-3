@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.api;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.sql.AbstractSession;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
@@ -43,9 +44,9 @@ public class SessionBuilderImpl implements SessionBuilder {
 
     private long sessionTimeout = DEFAULT_SESSION_TIMEOUT;
 
-    private String schema = Session.DEFAULT_SCHEMA;
+    private String schema = AbstractSession.DEFAULT_SCHEMA;
 
-    private int pageSize = Session.DEFAULT_PAGE_SIZE;
+    private int pageSize = AbstractSession.DEFAULT_PAGE_SIZE;
 
     private final Map<String, Object> props;
 

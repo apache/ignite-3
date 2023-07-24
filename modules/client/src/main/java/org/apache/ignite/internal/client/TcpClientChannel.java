@@ -60,7 +60,6 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteExceptionUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
@@ -571,7 +570,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var clusterNodeId = unpacker.unpackString();
             var clusterNodeName = unpacker.unpackString();
             var addr = sock.remoteAddress();
-            var clusterNode = new ClusterNode(clusterNodeId, clusterNodeName, new NetworkAddress(addr.getHostName(), addr.getPort()));
+            var clusterNode = new ClientClusterNode(clusterNodeId, clusterNodeName, new NetworkAddress(addr.getHostName(), addr.getPort()));
             var clusterId = unpacker.unpackUuid();
 
             var featuresLen = unpacker.unpackBinaryHeader();

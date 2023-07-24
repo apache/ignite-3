@@ -70,7 +70,7 @@ public final class ExceptionUtils {
         Method causeMtd;
 
         try {
-            causeMtd = Throwable.class.getMethod("getCause", null);
+            causeMtd = Throwable.class.getMethod("getCause", (Class<?>) null);
         } catch (Exception ignored) {
             causeMtd = null;
         }
@@ -108,7 +108,7 @@ public final class ExceptionUtils {
         Method mtd = null;
 
         try {
-            mtd = throwable.getClass().getMethod(mtdName, null);
+            mtd = throwable.getClass().getMethod(mtdName, (Class<?>) null);
         } catch (NoSuchMethodException | SecurityException ignored) {
             // exception ignored
         }
@@ -182,7 +182,7 @@ public final class ExceptionUtils {
         Class<?> cls = throwable.getClass();
         for (String methodName : CAUSE_METHOD_NAMES) {
             try {
-                Method mtd = cls.getMethod(methodName, null);
+                Method mtd = cls.getMethod(methodName, (Class<?>) null);
 
                 if (mtd != null && Throwable.class.isAssignableFrom(mtd.getReturnType())) {
                     return true;

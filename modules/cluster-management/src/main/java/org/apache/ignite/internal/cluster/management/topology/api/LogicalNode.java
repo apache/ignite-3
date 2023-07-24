@@ -22,12 +22,13 @@ import java.util.Map;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 
 /**
  * Representation of a logical node in a cluster.
  */
-public class LogicalNode extends ClusterNode {
+public class LogicalNode extends ClusterNodeImpl {
     /**
      * Node's attributes.
      *
