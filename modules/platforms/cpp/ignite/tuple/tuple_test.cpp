@@ -22,11 +22,11 @@
 #include <gtest/gtest.h>
 
 #include <cstring>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <type_traits>
 #include <vector>
-#include <optional>
 
 using namespace std::string_literals;
 using namespace ignite;
@@ -191,7 +191,7 @@ void check_reader_writer_equality(
 }
 
 TEST(tuple, AllTypes) {
-    static constexpr tuple_num_t NUM_ELEMENTS = 15;
+    static constexpr tuple_num_t NUM_ELEMENTS = 16;
 
     int8_t v1 = 1;
     int16_t v2 = 2;
@@ -211,6 +211,8 @@ TEST(tuple, AllTypes) {
     std::string v15_tmp("\1\2\3"s);
     bytes_view v15{reinterpret_cast<const std::byte *>(v15_tmp.data()), v15_tmp.size()};
 
+    big_decimal v16("-1");
+
     binary_tuple_builder tb(NUM_ELEMENTS);
     tb.start();
 
@@ -229,6 +231,7 @@ TEST(tuple, AllTypes) {
     tb.claim_varlen(v13);
     tb.claim_uuid(v14);
     tb.claim_varlen(v15);
+    tb.claim_number(v16);
 
     tb.layout();
 
@@ -247,6 +250,7 @@ TEST(tuple, AllTypes) {
     tb.append_varlen(v13);
     tb.append_uuid(v14);
     tb.append_varlen(v15);
+    tb.append_number(v16);
 
     const std::vector<std::byte> &binary_tuple = tb.build();
     binary_tuple_parser tp(NUM_ELEMENTS, binary_tuple);
@@ -266,6 +270,7 @@ TEST(tuple, AllTypes) {
     EXPECT_EQ(v13, get_value<std::string>(tp.get_next()));
     EXPECT_EQ(v14, get_value<uuid>(tp.get_next()));
     EXPECT_EQ(v15, tp.get_next());
+    EXPECT_EQ(v16, get_decimal(tp.get_next(), v16.get_scale()));
 }
 
 TEST(tuple, TwoFixedValues) { // NOLINT(cert-err58-cpp)

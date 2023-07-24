@@ -304,6 +304,7 @@ big_integer::big_integer(const std::byte *data, std::size_t size) {
         from_big_endian(data, size);
     } else {
         from_negative_big_endian(data, size);
+        sign = -1;
     }
 }
 

@@ -23,7 +23,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.stream.Stream;
-import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -48,7 +48,7 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
     @ParameterizedTest
     @MethodSource("convertedFrom")
     public void testInsertFromDynamicParameterFromConvertible(TestTypeArguments<T> arguments) {
-        var t = assertThrows(CalciteContextException.class, () -> {
+        var t = assertThrows(IgniteException.class, () -> {
             runSql("INSERT INTO t VALUES (1, ?)", arguments.argValue(0));
         });
 
@@ -107,7 +107,7 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
         String insert = format("INSERT INTO t VALUES (1, {})", arguments.valueExpr(0));
         runSql(insert);
 
-        var t = assertThrows(CalciteContextException.class, () -> {
+        var t = assertThrows(IgniteException.class, () -> {
             checkQuery("UPDATE t SET test_key = ? WHERE id=1")
                     .withParams(arguments.argValue(0))
                     .returns(1L)
@@ -125,7 +125,7 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
     @MethodSource("convertedFrom")
     public void testDisallowMismatchTypesOnInsert(TestTypeArguments<T> arguments) {
         var query = format("INSERT INTO t (id, test_key) VALUES (10, null), (20, {})", arguments.valueExpr(0));
-        var t = assertThrows(CalciteContextException.class, () -> runSql(query));
+        var t = assertThrows(IgniteException.class, () -> runSql(query));
 
         assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
     }
@@ -139,7 +139,7 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
         Object value1 = arguments.argValue(0);
 
         var query = "INSERT INTO t (id, test_key) VALUES (1, null), (2, ?)";
-        var t = assertThrows(CalciteContextException.class, () -> runSql(query, value1));
+        var t = assertThrows(IgniteException.class, () -> runSql(query, value1));
         assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
     }
 
@@ -152,7 +152,7 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
         Object value1 = arguments.argValue(0);
 
         var query = "INSERT INTO t (id, test_key) VALUES (1, 'str'), (2, ?)";
-        var t = assertThrows(CalciteContextException.class, () -> runSql(query, value1));
+        var t = assertThrows(IgniteException.class, () -> runSql(query, value1));
         assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
     }
 

@@ -121,7 +121,6 @@ public class ConfigurationTreeGeneratorTest {
         );
 
         changer.start();
-        changer.initializeDefaults();
     }
 
     @AfterEach

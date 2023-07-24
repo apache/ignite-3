@@ -67,7 +67,7 @@ public class IgniteCheckedException extends Exception implements TraceableExcept
      */
     public IgniteCheckedException(UUID traceId, int code) {
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -92,7 +92,7 @@ public class IgniteCheckedException extends Exception implements TraceableExcept
         super(message);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -117,7 +117,7 @@ public class IgniteCheckedException extends Exception implements TraceableExcept
         super((cause != null) ? cause.getLocalizedMessage() : null, cause);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -144,7 +144,7 @@ public class IgniteCheckedException extends Exception implements TraceableExcept
         super(message, cause);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
+        this.groupName = errorGroupByCode(code).name();
         this.code = code;
     }
 
@@ -188,7 +188,7 @@ public class IgniteCheckedException extends Exception implements TraceableExcept
      * @return Error group.
      */
     @Override
-    public int groupCode() {
+    public short groupCode() {
         return extractGroupCode(code);
     }
 
@@ -200,7 +200,7 @@ public class IgniteCheckedException extends Exception implements TraceableExcept
      * @return Error code.
      */
     @Override
-    public int errorCode() {
+    public short errorCode() {
         return extractErrorCode(code);
     }
 

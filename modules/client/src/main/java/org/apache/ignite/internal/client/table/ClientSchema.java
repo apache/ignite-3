@@ -177,6 +177,9 @@ public class ClientSchema {
 
     private static BinaryMode mode(ColumnType dataType) {
         switch (dataType) {
+            case BOOLEAN:
+                return BinaryMode.BOOLEAN;
+
             case INT8:
                 return BinaryMode.BYTE;
 
