@@ -26,7 +26,7 @@ testing {
             useJUnitJupiter()
 
             dependencies {
-                implementation project
+                implementation project()
                 implementation libs.junit5.api
                 implementation libs.junit5.impl
                 implementation libs.junit5.params
