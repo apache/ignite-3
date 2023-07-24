@@ -34,6 +34,7 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
@@ -142,6 +143,30 @@ public class ClientSession implements Session {
             throw new IllegalArgumentException("Unsupported statement type: " + statement.getClass());
         }
 
+        try {
+            CompletableFuture<AsyncResultSet<T>> resFut = executeAsync0(transaction, mapper, statement, arguments);
+
+            return IgniteExceptionMapperUtil.convertToPublicFuture(resFut);
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(IgniteExceptionMapperUtil.mapToPublicException(e));
+        }
+    }
+
+    /**
+     * Executes SQL statement in an asynchronous way and maps results to objects with the provided mapper.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
+     * @param statement SQL statement to execute.
+     * @param arguments Arguments for the statement.
+     * @param <T> A type of object contained in result set.
+     * @return Operation future.
+     */
+    private <T> CompletableFuture<AsyncResultSet<T>> executeAsync0(
+            @Nullable Transaction transaction,
+            @Nullable Mapper<T> mapper,
+            Statement statement,
+            @Nullable Object... arguments) {
         ClientStatement clientStatement = (ClientStatement) statement;
 
         PayloadWriter payloadWriter = w -> {

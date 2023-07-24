@@ -178,6 +178,15 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                         throw new SqlException(PLANNING_TIMEOUT_ERR);
                     }
 
+                    if (th instanceof IgniteException) {
+                        throw (IgniteException) th;
+                    }
+
+                    // todo reduce code duplication
+                    if (th instanceof CalciteContextException) {
+                        throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. " + th.getMessage(), th);
+                    }
+
                     throw new IgniteException(th);
                 }
         );

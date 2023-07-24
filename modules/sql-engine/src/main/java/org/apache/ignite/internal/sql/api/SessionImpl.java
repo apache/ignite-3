@@ -47,6 +47,7 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.BatchedArguments;
@@ -169,27 +170,9 @@ public class SessionImpl implements Session {
         }
 
         try {
-            QueryContext ctx = QueryContext.create(SqlQueryType.ALL, transaction);
+            CompletableFuture<AsyncResultSet<SqlRow>> resFut = executeAsync0(transaction, query, arguments);
 
-            CompletableFuture<AsyncResultSet<SqlRow>> result = qryProc.querySingleAsync(sessionId, ctx, query, arguments)
-                    .thenCompose(cur -> cur.requestNextAsync(pageSize)
-                            .thenApply(
-                                    batchRes -> new AsyncResultSetImpl(
-                                            cur,
-                                            batchRes,
-                                            pageSize,
-                                            () -> {}
-                                    )
-                            )
-            );
-
-            result.whenComplete((rs, th) -> {
-                if (th instanceof SessionNotFoundException) {
-                    closeInternal();
-                }
-            });
-
-            return result;
+            return IgniteExceptionMapperUtil.convertToPublicFuture(resFut);
         } catch (Exception e) {
             return CompletableFuture.failedFuture(e);
         } finally {
@@ -227,6 +210,39 @@ public class SessionImpl implements Session {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
+    /**
+     * Executes an SQL statement asynchronously.
+     *
+     * @param tx Transaction to execute the statement within or {@code null}.
+     * @param query SQL statement to execute.
+     * @param args Arguments for the statement.
+     * @return Operation future.
+     * @throws SqlException If failed.
+     */
+    private CompletableFuture<AsyncResultSet<SqlRow>> executeAsync0(@Nullable Transaction tx, String query, @Nullable Object... args) {
+        QueryContext ctx = QueryContext.create(SqlQueryType.ALL, tx);
+
+        CompletableFuture<AsyncResultSet<SqlRow>> result = qryProc.querySingleAsync(sessionId, ctx, query, args)
+                .thenCompose(cur -> cur.requestNextAsync(pageSize)
+                        .thenApply(
+                                batchRes -> new AsyncResultSetImpl(
+                                        cur,
+                                        batchRes,
+                                        pageSize,
+                                        () -> {}
+                                )
+                        )
+                );
+
+        result.whenComplete((rs, th) -> {
+            if (th instanceof SessionNotFoundException) {
+                closeInternal();
+            }
+        });
+
+        return result;
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
@@ -235,53 +251,11 @@ public class SessionImpl implements Session {
         }
 
         try {
-            QueryContext ctx = QueryContext.create(Set.of(SqlQueryType.DML), transaction);
+            CompletableFuture<long[]> resFut = executeBatchAsync0(transaction, query, batch);
 
-            var counters = new LongArrayList(batch.size());
-            CompletableFuture<Void> tail = CompletableFuture.completedFuture(null);
-            ArrayList<CompletableFuture<Void>> batchFuts = new ArrayList<>(batch.size());
-
-            for (int i = 0; i < batch.size(); ++i) {
-                Object[] args = batch.get(i).toArray();
-
-                final var qryFut = tail
-                        .thenCompose(v -> qryProc.querySingleAsync(sessionId, ctx, query, args));
-
-                tail = qryFut.thenCompose(cur -> cur.requestNextAsync(1))
-                        .thenAccept(page -> {
-                            validateDmlResult(page);
-
-                            counters.add((long) page.items().get(0).get(0));
-                        })
-                        .whenComplete((v, ex) -> {
-                            if (ex instanceof CancellationException) {
-                                qryFut.cancel(false);
-                            }
-                        });
-
-                batchFuts.add(tail);
-            }
-
-            CompletableFuture<long[]> resFut = tail
-                    .exceptionally((ex) -> {
-                        Throwable cause = ExceptionUtils.unwrapCause(ex);
-
-                        throw new SqlBatchException(
-                                cause instanceof IgniteException ? ((IgniteException) cause).code() : INTERNAL_ERR,
-                                counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY),
-                                ex);
-                    })
-                    .thenApply(v -> counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY));
-
-            resFut.whenComplete((cur, ex) -> {
-                if (ex instanceof CancellationException) {
-                    batchFuts.forEach(f -> f.cancel(false));
-                }
-            });
-
-            return resFut;
+            return IgniteExceptionMapperUtil.convertToPublicFuture(resFut);
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(e);
+            return CompletableFuture.failedFuture(IgniteExceptionMapperUtil.mapToPublicException(e));
         } finally {
             busyLock.leaveBusy();
         }
@@ -291,6 +265,63 @@ public class SessionImpl implements Session {
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /**
+     * Executes a batched SQL query asynchronously.
+     *
+     * @param transaction Transaction to execute the query within or {@code null}.
+     * @param query SQL query template.
+     * @param batch List of batch rows, where each row is a list of statement arguments.
+     * @return Operation Future completed with the number of rows affected by each query in the batch
+     *         (if the batch succeeds), future completed with the {@link SqlBatchException} (if the batch fails).
+     */
+    private CompletableFuture<long[]> executeBatchAsync0(@Nullable Transaction transaction, String query, BatchedArguments batch) {
+        QueryContext ctx = QueryContext.create(Set.of(SqlQueryType.DML), transaction);
+
+        var counters = new LongArrayList(batch.size());
+        CompletableFuture<Void> tail = CompletableFuture.completedFuture(null);
+        ArrayList<CompletableFuture<Void>> batchFuts = new ArrayList<>(batch.size());
+
+        for (int i = 0; i < batch.size(); ++i) {
+            Object[] args = batch.get(i).toArray();
+
+            final var qryFut = tail
+                    .thenCompose(v -> qryProc.querySingleAsync(sessionId, ctx, query, args));
+
+            tail = qryFut.thenCompose(cur -> cur.requestNextAsync(1))
+                    .thenAccept(page -> {
+                        validateDmlResult(page);
+
+                        counters.add((long) page.items().get(0).get(0));
+                    })
+                    .whenComplete((v, ex) -> {
+                        if (ex instanceof CancellationException) {
+                            qryFut.cancel(false);
+                        }
+                    });
+
+            batchFuts.add(tail);
+        }
+
+        CompletableFuture<long[]> resFut = tail
+                .exceptionally((ex) -> {
+                    Throwable cause = ExceptionUtils.unwrapCause(ex);
+
+                    throw new SqlBatchException(
+                            cause instanceof IgniteException ? ((IgniteException) cause).code() : INTERNAL_ERR,
+                            counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY),
+                            ex);
+                })
+                .thenApply(v -> counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY));
+
+        resFut.whenComplete((cur, ex) -> {
+            if (ex instanceof CancellationException) {
+                batchFuts.forEach(f -> f.cancel(false));
+            }
+        });
+
+        return resFut;
     }
 
     /** {@inheritDoc} */

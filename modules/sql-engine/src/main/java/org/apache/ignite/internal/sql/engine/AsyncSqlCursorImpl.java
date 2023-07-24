@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -95,7 +97,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
         return dataCursor.closeAsync();
     }
 
-    private static RuntimeException wrapIfNecessary(Throwable t) {
+    private static IgniteException wrapIfNecessary(Throwable t) {
         Throwable err = ExceptionUtils.unwrapCause(t);
 
         if (err instanceof IgniteInternalException) {
@@ -104,7 +106,6 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
             return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
         }
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-19539
-        return IgniteExceptionUtils.wrap(t);
+        return IgniteExceptionUtils.sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(t));
     }
 }
