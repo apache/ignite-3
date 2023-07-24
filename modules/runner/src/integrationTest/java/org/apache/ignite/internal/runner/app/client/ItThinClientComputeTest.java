@@ -82,6 +82,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnSpecificNode() {
+        String res1 = client().compute().execute(Set.of(node(0)), List.of(), NodeNameJob.class.getName());
+        String res2 = client().compute().execute(Set.of(node(1)), List.of(), NodeNameJob.class.getName());
+
+        assertEquals("itcct_n_3344", res1);
+        assertEquals("itcct_n_3345", res2);
+    }
+
+    @Test
+    void testExecuteOnSpecificNodeAsync() {
         String res1 = client().compute().<String>executeAsync(Set.of(node(0)), List.of(), NodeNameJob.class.getName()).join();
         String res2 = client().compute().<String>executeAsync(Set.of(node(1)), List.of(), NodeNameJob.class.getName()).join();
 
@@ -91,6 +100,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnRandomNode() {
+        String res = client().compute().execute(new HashSet<>(sortedNodes()), List.of(), NodeNameJob.class.getName());
+
+        assertTrue(Set.of("itcct_n_3344", "itcct_n_3345").contains(res));
+    }
+
+    @Test
+    void testExecuteOnRandomNodeAsync() {
         String res = client().compute().<String>executeAsync(new HashSet<>(sortedNodes()), List.of(), NodeNameJob.class.getName()).join();
 
         assertTrue(Set.of("itcct_n_3344", "itcct_n_3345").contains(res));
