@@ -88,4 +88,8 @@ public class NodeStatusWatchListener implements WatchListener {
     public void onError(Throwable e) {
         LOG.warn("Failed to process metastore deployment unit event. ", e);
     }
+
+    public void stop() {
+        executor.shutdown();
+    }
 }

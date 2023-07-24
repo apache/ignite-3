@@ -3657,8 +3657,11 @@ public class ItNodeTest {
             return false;
         });
 
-        assertTrue(waitForCondition(() -> cluster.getLeader() != null &&
-            !leader.getNodeId().equals(cluster.getLeader().getNodeId()), 10_000));
+        assertTrue(waitForCondition(() -> {
+            Node currentLeader = cluster.getLeader();
+
+            return currentLeader != null && !leader.getNodeId().equals(currentLeader.getNodeId());
+        }, 10_000));
 
         CompletableFuture<Status> res = new CompletableFuture<>();
 
