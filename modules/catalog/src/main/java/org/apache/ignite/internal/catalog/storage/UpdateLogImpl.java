@@ -150,7 +150,7 @@ public class UpdateLogImpl implements UpdateLog {
     }
 
     private void restoreStateFromVault(OnUpdateHandler handler) {
-        long appliedRevision = metastore.appliedRevision();
+        long appliedRevision = metastore.recoveryFinishedFuture().join();
 
         int ver = 1;
 

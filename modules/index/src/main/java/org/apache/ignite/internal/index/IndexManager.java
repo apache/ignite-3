@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.schema.configuration.SchemaConfiguratio
 import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
