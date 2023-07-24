@@ -119,7 +119,13 @@ class DeployFiles {
         DeploymentUnit deploymentUnit = fromPaths(paths);
         deploy = entryNode.deployment()
                 .deployAsync(id, version, force, deploymentUnit, nodesToDeploy)
-                .whenComplete((res, err) -> deploymentUnit.close());
+                .whenComplete((res, err) -> {
+                    try {
+                        deploymentUnit.close();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
 
         assertThat(deploy, willBe(true));
 
