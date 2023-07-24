@@ -115,10 +115,13 @@ public class ClientComputeTest {
         try (var client = getClient(server2)) {
             Tuple key = Tuple.create().set("key", "k");
 
-            String res1 = client.compute().<String>executeColocatedAsync(TABLE_NAME, key, List.of(), "job").join();
-            assertEquals("s2", res1);
+            String res1 = client.compute()
+                    .<String>executeColocatedAsync(TABLE_NAME, key, List.of(), "job").join();
 
-            String res2 = client.compute().<Long, String>executeColocatedAsync(TABLE_NAME, 1L, Mapper.of(Long.class), List.of(), "job").join();
+            String res2 = client.compute()
+                    .<Long, String>executeColocatedAsync(TABLE_NAME, 1L, Mapper.of(Long.class), List.of(), "job").join();
+
+            assertEquals("s2", res1);
             assertEquals("s2", res2);
         }
     }
@@ -149,14 +152,17 @@ public class ClientComputeTest {
         try (var client = getClient(server3)) {
             Tuple key = Tuple.create().set("key", "k");
 
-            String res1 = client.compute().<String>executeColocatedAsync(tableName, key, List.of(), "job").join();
-            assertEquals("s3", res1);
+            String res1 = client.compute()
+                    .<String>executeColocatedAsync(tableName, key, List.of(), "job").join();
 
             // Drop table and create a new one with a different ID.
             ((FakeIgniteTables) ignite.tables()).dropTable(tableName);
             ((FakeIgniteTables) ignite.tables()).createTable(tableName);
 
-            String res2 = client.compute().<Long, String>executeColocatedAsync(tableName, 1L, Mapper.of(Long.class), List.of(), "job").join();
+            String res2 = client.compute()
+                    .<Long, String>executeColocatedAsync(tableName, 1L, Mapper.of(Long.class), List.of(), "job").join();
+
+            assertEquals("s3", res1);
             assertEquals("s3", res2);
         }
     }
