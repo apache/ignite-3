@@ -31,6 +31,7 @@ dependencies {
     implementation libs.fastutil.core
     implementation project(':ignite-api')
 
+    testImplementation libs.auto.service.annotations
     testImplementation libs.hamcrest.core
     testImplementation libs.junit.testkit
     testImplementation libs.mockito.core
@@ -39,16 +40,20 @@ dependencies {
     testImplementation libs.archunit.junit5
 
     testFixturesAnnotationProcessor libs.auto.service
+    testFixturesAnnotationProcessor libs.micronaut.inject.annotation.processor
 
+    testFixturesImplementation project(":ignite-api")
+    testFixturesImplementation libs.auto.service.annotations
     testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.mockito.core
-    testFixturesImplementation libs.junit.testkit
     testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation libs.junit.testkit
     testFixturesImplementation libs.junit5.api
     testFixturesImplementation libs.junit5.impl
     testFixturesImplementation libs.junit5.params
+    testFixturesImplementation libs.micronaut.junit5
     testFixturesImplementation libs.mockito.core
-    testFixturesImplementation libs.auto.service.annotations
+    testFixturesImplementation libs.mockito.core
+    testFixturesImplementation libs.typesafe.config
 }
 
 test {

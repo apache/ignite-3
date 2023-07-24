@@ -73,6 +73,7 @@ import org.apache.ignite.internal.testframework.matchers.CompletableFutureExcept
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessageHandler;
@@ -116,7 +117,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     @Captor
     private ArgumentCaptor<ExecuteResponse> executeResponseCaptor;
 
-    private final ClusterNode remoteNode = new ClusterNode("remote", "remote", new NetworkAddress("remote-host", 1));
+    private final ClusterNode remoteNode = new ClusterNodeImpl("remote", "remote", new NetworkAddress("remote-host", 1));
 
     private final AtomicReference<NetworkMessageHandler> computeMessageHandlerRef = new AtomicReference<>();
 

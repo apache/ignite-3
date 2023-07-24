@@ -30,6 +30,7 @@ import org.apache.ignite.network.AbstractMessagingService;
 import org.apache.ignite.network.AbstractTopologyService;
 import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
@@ -133,7 +134,7 @@ public class ClusterServiceFactory {
         }
 
         private static ClusterNode nodeFromName(String name) {
-            return new ClusterNode(name, name, NetworkAddress.from("127.0.0.1:" + NODE_COUNTER.incrementAndGet()));
+            return new ClusterNodeImpl(name, name, NetworkAddress.from("127.0.0.1:" + NODE_COUNTER.incrementAndGet()));
         }
 
         /** {@inheritDoc} */

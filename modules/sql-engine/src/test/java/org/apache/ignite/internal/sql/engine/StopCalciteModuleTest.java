@@ -83,6 +83,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
@@ -145,7 +146,7 @@ public class StopCalciteModuleTest {
 
     private final TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
 
-    private final ClusterNode localNode = new ClusterNode("mock-node-id", NODE_NAME, null);
+    private final ClusterNode localNode = new ClusterNodeImpl("mock-node-id", NODE_NAME, null);
 
     private final int tblId = 1;
 

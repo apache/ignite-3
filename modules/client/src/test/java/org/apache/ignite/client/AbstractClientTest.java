@@ -29,6 +29,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
+import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -194,7 +195,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
      */
     public static Set<ClusterNode> getClusterNodes(String... names) {
         return Arrays.stream(names)
-                .map(s -> new ClusterNode("id", s, new NetworkAddress("127.0.0.1", 8080)))
+                .map(s -> new ClientClusterNode("id", s, new NetworkAddress("127.0.0.1", 8080)))
                 .collect(Collectors.toSet());
     }
 }

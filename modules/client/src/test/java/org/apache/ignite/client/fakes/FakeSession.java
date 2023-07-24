@@ -25,8 +25,8 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.sql.AbstractSession;
 import org.apache.ignite.sql.BatchedArguments;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
@@ -39,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client SQL session.
  */
-public class FakeSession implements Session {
+public class FakeSession implements AbstractSession {
     public static final String FAILED_SQL = "SELECT FAIL";
 
     @Nullable

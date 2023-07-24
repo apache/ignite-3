@@ -61,6 +61,7 @@ import org.apache.ignite.internal.testframework.matchers.CompletableFutureExcept
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.util.NonReentrantLock;
@@ -79,9 +80,9 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
     private static final String ANOTHER_NODE_NAME = "N2";
     private static final List<String> NODE_NAMES = List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME);
     private static final ClusterNode ROOT_NODE =
-            new ClusterNode(ROOT_NODE_NAME, ROOT_NODE_NAME, NetworkAddress.from("127.0.0.1:10001"));
+            new ClusterNodeImpl(ROOT_NODE_NAME, ROOT_NODE_NAME, NetworkAddress.from("127.0.0.1:10001"));
     private static final ClusterNode ANOTHER_NODE =
-            new ClusterNode(ANOTHER_NODE_NAME, ANOTHER_NODE_NAME, NetworkAddress.from("127.0.0.1:10002"));
+            new ClusterNodeImpl(ANOTHER_NODE_NAME, ANOTHER_NODE_NAME, NetworkAddress.from("127.0.0.1:10002"));
     private static final int SOURCE_FRAGMENT_ID = 0;
     private static final int TARGET_FRAGMENT_ID = 1;
     private static final Comparator<Object[]> COMPARATOR = Comparator.comparingInt(o -> (Integer) o[0]);
@@ -222,7 +223,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, dataNode1Name, dataNode2Name));
 
         TestDataProvider node1DataProvider = new TestDataProvider(3);
-        ClusterNode dataNode1 = new ClusterNode(dataNode1Name, dataNode1Name, NetworkAddress.from("127.0.0.1:10001"));
+        ClusterNode dataNode1 = new ClusterNodeImpl(dataNode1Name, dataNode1Name, NetworkAddress.from("127.0.0.1:10001"));
         createSourceFragment(
                 queryId,
                 dataNode1,
@@ -231,7 +232,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         );
 
         TestDataProvider node2DataProvider = new TestDataProvider(3);
-        ClusterNode dataNode2 = new ClusterNode(dataNode2Name, dataNode2Name, NetworkAddress.from("127.0.0.1:10002"));
+        ClusterNode dataNode2 = new ClusterNodeImpl(dataNode2Name, dataNode2Name, NetworkAddress.from("127.0.0.1:10002"));
         createSourceFragment(
                 queryId,
                 dataNode2,
@@ -292,7 +293,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME, dataNodeName));
 
         TestDataProvider nodeDataProvider = new TestDataProvider(1200);
-        ClusterNode dataNode = new ClusterNode(dataNodeName, dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
+        ClusterNode dataNode = new ClusterNodeImpl(dataNodeName, dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
 
         createSourceFragmentMultiTarget(
                 queryId,
@@ -359,7 +360,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME, dataNodeName));
 
         TestDataProvider nodeDataProvider = new TestDataProvider(8000);
-        ClusterNode dataNode = new ClusterNode(dataNodeName, dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
+        ClusterNode dataNode = new ClusterNodeImpl(dataNodeName, dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
 
         createSourceFragmentMultiTarget(
                 queryId,

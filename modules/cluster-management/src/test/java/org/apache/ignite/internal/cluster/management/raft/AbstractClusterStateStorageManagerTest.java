@@ -34,7 +34,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -132,7 +132,7 @@ public abstract class AbstractClusterStateStorageManagerTest {
 
         storageManager.putClusterState(newState);
 
-        var node3 = new ClusterNode("nonono", "nononono", new NetworkAddress("localhost", 123));
+        var node3 = new ClusterNodeImpl("nonono", "nononono", new NetworkAddress("localhost", 123));
 
         storageManager.restoreSnapshot(workDir);
 

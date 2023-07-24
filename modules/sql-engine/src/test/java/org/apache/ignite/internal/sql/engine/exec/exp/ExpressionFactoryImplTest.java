@@ -51,7 +51,7 @@ import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -77,7 +77,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
 
         ExecutionContext<Object[]> ctx = TestBuilders.executionContext()
                 .queryId(UUID.randomUUID())
-                .localNode(new ClusterNode("1", "node-1", new NetworkAddress("localhost", 1234)))
+                .localNode(new ClusterNodeImpl("1", "node-1", new NetworkAddress("localhost", 1234)))
                 .fragment(fragmentDescription)
                 .executor(Mockito.mock(QueryTaskExecutor.class))
                 .build();
