@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.List;
 import org.apache.calcite.sql.SqlNode;
@@ -38,7 +38,7 @@ public final class StatementParseResult extends ParseResult {
         @Override
         StatementParseResult createResult(List<SqlNode> list, int dynamicParamsCount) {
             if (list.size() > 1) {
-                throw new SqlException(QUERY_INVALID_ERR, "Multiple statements are not allowed.");
+                throw new SqlException(STMT_VALIDATION_ERR, "Multiple statements are not allowed.");
             }
 
             return new StatementParseResult(list.get(0), dynamicParamsCount);

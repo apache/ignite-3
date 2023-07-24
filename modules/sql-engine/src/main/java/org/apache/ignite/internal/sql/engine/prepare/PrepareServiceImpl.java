@@ -20,7 +20,8 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_VALIDATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
@@ -55,9 +56,7 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
@@ -169,7 +168,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         return result.exceptionally(ex -> {
                     Throwable th = ExceptionUtils.unwrapCause(ex);
                     if (planningContext.timeouted() && th instanceof RelOptPlanner.CannotPlanException) {
-                        throw new SqlException(ErrorGroups.Sql.PLANNING_TIMEOUTED_ERR);
+                        throw new SqlException(PLANNING_TIMEOUT_ERR);
                     }
 
                     throw new IgniteException(th);
@@ -192,7 +191,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                     throw new AssertionError("Unexpected queryType=" + parsedResult.queryType());
             }
         } catch (CalciteContextException e) {
-            throw new IgniteInternalException(QUERY_VALIDATION_ERR, "Failed to validate query. " + e.getMessage(), e);
+            throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. " + e.getMessage(), e);
         }
     }
 

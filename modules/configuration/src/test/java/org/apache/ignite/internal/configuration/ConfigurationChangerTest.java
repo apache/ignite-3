@@ -23,6 +23,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.FirstConfiguration.KEY;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anEmptyMap;
@@ -315,8 +316,6 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        changer.initializeDefaults();
-
         DefaultsView root = (DefaultsView) changer.getRootNode(DefaultsConfiguration.KEY);
 
         assertEquals("foo", root.defStr());
@@ -344,8 +343,6 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        changer.initializeDefaults();
-
         ConfigurationSource source = source(
                 DefaultsConfiguration.KEY,
                 (DefaultsChange change) -> change.changeChildrenList(children -> children.create("name", child -> {
@@ -371,8 +368,6 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        changer.initializeDefaults();
-
         DefaultsChildView childView = changer.getLatest(List.of(node("def"), node("child")));
 
         assertEquals("bar", childView.defStr());
@@ -395,8 +390,6 @@ public class ConfigurationChangerTest {
         ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
 
         changer.start();
-
-        changer.initializeDefaults();
 
         ConfigurationSource source = source(
                 DefaultsConfiguration.KEY,
@@ -446,8 +439,6 @@ public class ConfigurationChangerTest {
         ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
 
         changer.start();
-
-        changer.initializeDefaults();
 
         ConfigurationSource source = source(
                 DefaultsConfiguration.KEY,
@@ -513,7 +504,7 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        changer.initializeDefaults();
+        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
 
         assertEquals(1, storage.lastRevision().get(1, SECONDS));
 
@@ -566,7 +557,7 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        changer.initializeDefaults();
+        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
 
         assertEquals(1, storage.lastRevision().get(1, SECONDS));
 

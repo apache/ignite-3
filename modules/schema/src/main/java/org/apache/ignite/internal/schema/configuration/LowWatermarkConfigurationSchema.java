@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
+import static org.apache.ignite.internal.replicator.ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
@@ -35,7 +38,8 @@ public class LowWatermarkConfigurationSchema {
      * <p>Value is used when calculating the new low watermark candidate, which at the time of the update is calculated as
      * {@code now() - dataAvailabilityTime()}.
      */
-    @Range(min = 0)
+    // TODO https://issues.apache.org/jira/browse/IGNITE-18977 Make these values configurable and create dynamic validator after that.
+    @Range(min = IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS + CLOCK_SKEW)
     @Value(hasDefault = true)
     public long dataAvailabilityTime = TimeUnit.MINUTES.toMillis(45);
 

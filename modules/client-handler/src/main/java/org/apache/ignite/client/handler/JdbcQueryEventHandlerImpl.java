@@ -62,9 +62,9 @@ import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -537,17 +537,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             }
         }
 
-        private static boolean sessionExpiredError(Throwable throwable) {
-            if (!(throwable instanceof IgniteInternalException)) {
-                return false;
-            }
-
-            IgniteInternalException internalException = (IgniteInternalException) throwable;
-
-            // SESSION_EXPIRED_ERR is thrown when session has been expired but not yet been collected by cleaner thread
-            // SESSION_NOT_FOUND_ERR is thrown when session has been expired AND collected by cleaner thread
-            return internalException.code() == Sql.SESSION_EXPIRED_ERR
-                    || internalException.code() == Sql.SESSION_NOT_FOUND_ERR;
+        private static boolean sessionExpiredError(Throwable t) {
+            return t instanceof SessionNotFoundException;
         }
     }
 
