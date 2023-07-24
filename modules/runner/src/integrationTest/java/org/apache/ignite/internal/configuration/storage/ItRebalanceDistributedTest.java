@@ -461,7 +461,7 @@ public class ItRebalanceDistributedTest {
         assertEquals(3, getPartitionClusterNodes(2, 0).size());
     }
 
-//    @Test
+    @Test
     @UseTestTxStateStorage
     void testDestroyPartitionStoragesOnEvictNode() {
         createTableWithOnePartition(TABLE_1_NAME, ZONE_1_NAME, 3, true);

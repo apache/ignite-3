@@ -298,6 +298,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.dataNodes(anyLong(), anyInt())).thenReturn(emptySet());
 
+        when(distributionZoneManager.zoneState(anyLong())).thenReturn(completedFuture(null));
+
         tblManager = mockManagers();
 
         idxManager = new IndexManager(tblsCfg, schemaManager, tblManager);

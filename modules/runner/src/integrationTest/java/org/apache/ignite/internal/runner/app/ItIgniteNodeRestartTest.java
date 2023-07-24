@@ -733,8 +733,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Restarts the node which stores some data.
      */
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC) Data nodes after restart.")
-//    @Test//qwer
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC) Data nodes after restart.")
+    @Test
     public void nodeWithDataTest() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
@@ -750,7 +750,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Restarts the node which stores some data.
      */
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC) Data nodes after restart.")
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void metastorageRecoveryTest(boolean useSnapshot) throws InterruptedException {
@@ -822,7 +821,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Restarts the node which stores some data.
      */
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC) Data nodes after restart.")
     @Test
     public void nodeWithDataAndIndexRebuildTest() {
         IgniteImpl ignite = startNode(0);
@@ -871,7 +869,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      */
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC) Data nodes after restart.")
     @Test
     public void testTwoNodesRestartDirect() throws InterruptedException {
         twoNodesRestart(true);
@@ -880,7 +877,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in reverse order when they started at first.
      */
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC) Data nodes after restart.")
     @Test
     public void testTwoNodesRestartReverse() throws InterruptedException {
         twoNodesRestart(false);
@@ -947,7 +943,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Checks that one node in a cluster of 2 nodes is able to restart and recover a table that was created when this node was absent. Also
      * checks that the table created before node stop, is not available when majority if lost.
      */
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC) Data nodes after restart.")
     @Test
     public void testOneNodeRestartWithGap() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
@@ -979,7 +974,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Checks that the table created in cluster of 2 nodes, is recovered on a node after restart of this node.
      */
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC) Data nodes after restart.")
     @Test
     public void testRecoveryOnOneNode() {
         IgniteImpl ignite = startNode(0);
@@ -1002,7 +996,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Checks that a cluster is able to restart when some changes were made in configuration.
      */
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC) Data nodes after restart.")
     @Test
     public void testRestartDiffConfig() throws InterruptedException {
         List<IgniteImpl> ignites = startNodes(2);
@@ -1037,7 +1030,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC) Data nodes after restart.")
     @Test
     public void testCfgGapWithoutData() throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(3);
@@ -1119,7 +1111,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC) Data nodes after restart.")
     @Test
     public void testCfgGap() throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(4);
