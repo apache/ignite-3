@@ -37,7 +37,6 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class to wrap Ignite exceptions.
- * TODO: https://issues.apache.org/jira/browse/IGNITE-19566 this class should be merged with ExceptionUtils.
  */
 public class IgniteExceptionUtils {
     /** Private constructor to prohibit creating an instance of utility class. */
