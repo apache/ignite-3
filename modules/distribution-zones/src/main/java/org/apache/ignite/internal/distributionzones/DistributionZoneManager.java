@@ -81,6 +81,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.LongFunction;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationNodeAlreadyExistException;
 import org.apache.ignite.configuration.ConfigurationNodeDoesNotExistException;
@@ -92,6 +94,9 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.internal.causality.CompletableVersionedValue;
+import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -253,6 +258,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
     private final CausalityDataNodesEngine causalityDataNodesEngine;
 
+    private final Consumer<LongFunction<CompletableFuture<?>>> registry;
+
     /**
      * Creates a new distribution zone manager.
      *
@@ -264,6 +271,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param nodeName Node name.
      */
     public DistributionZoneManager(
+            Consumer<LongFunction<CompletableFuture<?>>> registry,
             DistributionZonesConfiguration zonesConfiguration,
             TablesConfiguration tablesConfiguration,
             MetaStorageManager metaStorageManager,
@@ -271,6 +279,7 @@ public class DistributionZoneManager implements IgniteComponent {
             VaultManager vaultMgr,
             String nodeName
     ) {
+        this.registry = registry;
         this.zonesConfiguration = zonesConfiguration;
         this.tablesConfiguration = tablesConfiguration;
         this.metaStorageManager = metaStorageManager;
@@ -290,6 +299,8 @@ public class DistributionZoneManager implements IgniteComponent {
         executor = createZoneManagerExecutor(
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, DISTRIBUTION_ZONE_MANAGER_POOL_NAME), LOG)
         );
+
+        zonesVv = new IncrementalVersionedValue<>(registry);
 
         // It's safe to leak with partially initialised object here, because rebalanceEngine is only accessible through this or by
         // meta storage notification thread that won't start before all components start.
@@ -780,12 +791,21 @@ public class DistributionZoneManager implements IgniteComponent {
         };
     }
 
+    final VersionedValue<Void> zonesVv;
+
+    public CompletableFuture<Void> zoneState(long token) {
+        return zonesVv.get(token);
+    }
+
     private class ZonesConfigurationListener implements ConfigurationNamedListListener<DistributionZoneView> {
         @Override
         public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
+            LOG.info("+++++++ onCreate zone start " + ctx.storageRevision());
             DistributionZoneView zone = ctx.newValue();
 
             createOrRestoreZoneState(zone, ctx.storageRevision());
+
+            LOG.info("+++++++ onCreate zone end " + ctx.storageRevision());
 
             return completedFuture(null);
         }
@@ -818,6 +838,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param revision Revision for which we restore zone's state.
      */
     private void createOrRestoreZoneState(DistributionZoneView zone, long revision) {
+        LOG.info("+++++++ createOrRestoreZoneState start " + zone.zoneId() + " " + revision);
         int zoneId = zone.zoneId();
 
         VaultEntry topologyAugmentationMapFromVault = vaultMgr.get(zoneTopologyAugmentationVault(zoneId)).join();
@@ -863,6 +884,8 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         causalityDataNodesEngine.onCreateOrRestoreZoneState(revision, isZoneCreation, zone);
+
+        LOG.info("+++++++ createOrRestoreZoneState end " + zone.zoneId() + " " + revision);
     }
 
     /**

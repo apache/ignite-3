@@ -208,6 +208,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
+                null,
                 zonesConfiguration,
                 tablesConfiguration,
                 metaStorageMgr,

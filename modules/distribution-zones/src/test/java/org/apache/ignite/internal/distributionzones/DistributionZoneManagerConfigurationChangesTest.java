@@ -144,6 +144,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         metaStorageManager.put(zonesLogicalTopologyVersionKey(), longToBytes(0));
 
         distributionZoneManager = new DistributionZoneManager(
+                null,
                 zonesConfiguration,
                 tablesConfiguration,
                 metaStorageManager,

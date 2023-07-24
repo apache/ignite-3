@@ -124,6 +124,7 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
         zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         distributionZoneManager = new DistributionZoneManager(
+                null,
                 zonesConfiguration,
                 tablesConfiguration,
                 metaStorageManager,

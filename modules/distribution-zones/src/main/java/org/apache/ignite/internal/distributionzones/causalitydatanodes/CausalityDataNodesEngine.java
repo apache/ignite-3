@@ -140,6 +140,8 @@ public class CausalityDataNodesEngine {
         try {
             ConcurrentSkipListMap<Long, ZoneConfiguration> versionedCfg = zonesVersionedCfg.get(zoneId);
 
+            LOG.info("+++++++ dataNodes versionedCfg " + versionedCfg);
+
             // Get the latest configuration and configuration revision for a given causality token
             Map.Entry<Long, ZoneConfiguration> zoneLastCfgEntry = versionedCfg.floorEntry(causalityToken);
 
@@ -573,7 +575,10 @@ public class CausalityDataNodesEngine {
     public void onCreateOrRestoreZoneState(long revision, boolean zoneCreation, DistributionZoneView zone) {
         int zoneId = zone.zoneId();
 
-        if (zoneCreation) {
+        VaultEntry versionedCfgEntry = vaultMgr.get(zoneVersionedConfigurationKey(zoneId)).join();
+
+        if (versionedCfgEntry == null) {
+            LOG.info("+++++++ engine createOrRestoreZoneState1 " + zone.zoneId() + " " + revision);
             ZoneConfiguration zoneConfiguration = new ZoneConfiguration(
                     false,
                     zone.dataNodesAutoAdjustScaleUp(),
@@ -590,11 +595,11 @@ public class CausalityDataNodesEngine {
             vaultMgr.put(zoneVersionedConfigurationKey(zoneId), toBytes(versionedCfg)).join();
 
         } else {
-            VaultEntry versionedCfgEntry = vaultMgr.get(zoneVersionedConfigurationKey(zoneId)).join();
+            LOG.info("+++++++ engine createOrRestoreZoneState2 " + zone.zoneId() + " " + revision);
 
-            if (versionedCfgEntry != null) {
                 zonesVersionedCfg.put(zoneId, fromBytes(versionedCfgEntry.value()));
-            }
+                LOG.info("+++++++ engine createOrRestoreZoneState3 " + zone.zoneId() + " " + revision
+                        + " " + zonesVersionedCfg.get(zoneId));
         }
     }
 

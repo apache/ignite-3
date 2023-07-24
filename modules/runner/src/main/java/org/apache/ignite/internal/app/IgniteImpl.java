@@ -438,9 +438,9 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
-        TablesConfiguration tablesConfig = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
-
         DistributionZonesConfiguration zonesConfig = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
+
+        TablesConfiguration tablesConfig = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
         distributedConfigurationUpdater = new DistributedConfigurationUpdater(
                 cmgMgr,
@@ -448,8 +448,6 @@ public class IgniteImpl implements Ignite {
         );
 
         metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageConfiguration.KEY));
-
-        DistributionZonesConfiguration zonesConfiguration = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         placementDriverMgr = new PlacementDriverManager(
                 metaStorageMgr,
@@ -461,7 +459,7 @@ public class IgniteImpl implements Ignite {
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
                 tablesConfig,
-                zonesConfiguration,
+                zonesConfig,
                 clock
         );
 
@@ -498,7 +496,8 @@ public class IgniteImpl implements Ignite {
         schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
         distributionZoneManager = new DistributionZoneManager(
-                zonesConfiguration,
+                registry,
+                zonesConfig,
                 tablesConfig,
                 metaStorageMgr,
                 logicalTopologyService,

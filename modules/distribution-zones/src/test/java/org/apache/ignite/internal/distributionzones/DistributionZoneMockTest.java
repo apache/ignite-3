@@ -42,6 +42,7 @@ public class DistributionZoneMockTest {
     @Test
     void getNonExistingZoneFromDirectProxy() throws Exception {
         DistributionZoneManager zoneMgr = new DistributionZoneManager(
+                null,
                 zonesConfiguration,
                 mock(TablesConfiguration.class),
                 mock(MetaStorageManager.class),
