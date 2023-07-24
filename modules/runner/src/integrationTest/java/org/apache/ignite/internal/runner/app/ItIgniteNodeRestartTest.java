@@ -1014,12 +1014,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 DEFAULT_CLIENT_PORT + 11
         );
 
-//        PartialNode partialNode = startPartialNode(1, cfgString);
-//
-//        TableManager tableManager = findComponent(partialNode.startedComponents(), TableManager.class);
-//
-//        assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
-
         IgniteImpl node1 = startNode(1, cfgString);
 
         TableManager tableManager = (TableManager) node1.tables();

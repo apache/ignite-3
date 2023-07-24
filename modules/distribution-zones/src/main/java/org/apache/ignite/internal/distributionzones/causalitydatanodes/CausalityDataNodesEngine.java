@@ -597,9 +597,9 @@ public class CausalityDataNodesEngine {
         } else {
             LOG.info("+++++++ engine createOrRestoreZoneState2 " + zone.zoneId() + " " + revision);
 
-                zonesVersionedCfg.put(zoneId, fromBytes(versionedCfgEntry.value()));
-                LOG.info("+++++++ engine createOrRestoreZoneState3 " + zone.zoneId() + " " + revision
-                        + " " + zonesVersionedCfg.get(zoneId));
+            zonesVersionedCfg.put(zoneId, fromBytes(versionedCfgEntry.value()));
+            LOG.info("+++++++ engine createOrRestoreZoneState3 " + zone.zoneId() + " " + revision
+                    + " " + zonesVersionedCfg.get(zoneId));
         }
     }
 

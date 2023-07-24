@@ -623,8 +623,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 });
             }
 
-//            assert !assignments.isEmpty() : "Couldn't create the table with empty assignments.";
-
             CompletableFuture<?> createTableFut = createTableLocally(
                     ctx.storageRevision(),
                     tableDescriptor,
@@ -645,9 +643,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private CompletableFuture<Boolean> writeTableAssignmentsToMetastore(int tableId, CompletableFuture<List<Set<Assignment>>> assignments) {
-//        assert !assignments.isEmpty();
-
         return assignments.thenCompose(newAssignments -> {
+            assert !newAssignments.isEmpty();
+
             List<Operation> partitionAssignments = new ArrayList<>(newAssignments.size());
 
             for (int i = 0; i < newAssignments.size(); i++) {
@@ -789,27 +787,28 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         // <MUTED> See https://issues.apache.org/jira/browse/IGNITE-16668 for details.
                         // TODO: https://issues.apache.org/jira/browse/IGNITE-19046 Restore "|| !hasData"
                         if (internalTbl.storage().isVolatile()) {
-                            shouldStartGroupFut = queryDataNodesCount(tableId, partId, newConfiguration.peers()).thenApply(dataNodesCount -> {
-                                boolean fullPartitionRestart = dataNodesCount == 0;
+                            shouldStartGroupFut = queryDataNodesCount(tableId, partId, newConfiguration.peers())
+                                    .thenApply(dataNodesCount -> {
+                                        boolean fullPartitionRestart = dataNodesCount == 0;
 
-                                if (fullPartitionRestart) {
-                                    return true;
-                                }
+                                        if (fullPartitionRestart) {
+                                            return true;
+                                        }
 
-                                boolean majorityAvailable = dataNodesCount >= (newConfiguration.peers().size() / 2) + 1;
+                                        boolean majorityAvailable = dataNodesCount >= (newConfiguration.peers().size() / 2) + 1;
 
-                                if (majorityAvailable) {
-                                    RebalanceUtil.startPeerRemoval(replicaGrpId, localMemberAssignment, metaStorageMgr);
+                                        if (majorityAvailable) {
+                                            RebalanceUtil.startPeerRemoval(replicaGrpId, localMemberAssignment, metaStorageMgr);
 
-                                    return false;
-                                } else {
-                                    // No majority and not a full partition restart - need to restart nodes
-                                    // with current partition.
-                                    String msg = "Unable to start partition " + partId + ". Majority not available.";
+                                            return false;
+                                        } else {
+                                            // No majority and not a full partition restart - need to restart nodes
+                                            // with current partition.
+                                            String msg = "Unable to start partition " + partId + ". Majority not available.";
 
-                                    throw new IgniteInternalException(msg);
-                                }
-                            });
+                                            throw new IgniteInternalException(msg);
+                                        }
+                                    });
                         } else {
                             shouldStartGroupFut = completedFuture(true);
                         }

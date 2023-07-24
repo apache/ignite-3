@@ -94,7 +94,6 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-import org.apache.ignite.internal.causality.CompletableVersionedValue;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;

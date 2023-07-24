@@ -50,7 +50,6 @@ import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -105,7 +104,6 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
      *
      * @throws Exception If fail.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC) Data nodes after restart.")
     @Test
     public void testCommitCommandKeyValueView() throws Exception {
         restartClusterWithNotAppliedCommands(
