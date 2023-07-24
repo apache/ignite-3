@@ -17,7 +17,6 @@
 
 package org.apache.ignite.compute;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;

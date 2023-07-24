@@ -27,7 +27,6 @@ import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -43,6 +42,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -132,7 +132,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     void executesFailingJobLocally() {
         IgniteImpl entryNode = node(0);
 
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
+        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
                 .execute(Set.of(entryNode.node()), units(), failingJobClassName()));
 
         assertThat(ex.getCause().getClass().getName(), is(jobExceptionClassName()));
