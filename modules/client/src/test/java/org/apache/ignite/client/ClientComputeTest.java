@@ -115,6 +115,21 @@ public class ClientComputeTest {
         try (var client = getClient(server2)) {
             Tuple key = Tuple.create().set("key", "k");
 
+            String res1 = client.compute().executeColocated(TABLE_NAME, key, List.of(), "job");
+            String res2 = client.compute().executeColocated(TABLE_NAME, 1L, Mapper.of(Long.class), List.of(), "job");
+
+            assertEquals("s2", res1);
+            assertEquals("s2", res2);
+        }
+    }
+
+    @Test
+    public void testExecuteColocatedAsync() throws Exception {
+        initServers(reqId -> false);
+
+        try (var client = getClient(server2)) {
+            Tuple key = Tuple.create().set("key", "k");
+
             String res1 = client.compute()
                     .<String>executeColocatedAsync(TABLE_NAME, key, List.of(), "job").join();
 
