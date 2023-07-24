@@ -56,6 +56,7 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Thin client compute integration test.
@@ -154,13 +155,24 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertEquals("1_2_3.3", res);
     }
 
-    @Test
-    void testIgniteExceptionInJobPropagatesToClientWithMessageAndCodeAndTraceId() {
-        CompletionException ex = assertThrows(
-                CompletionException.class,
-                () ->  client().compute().<String>executeAsync(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName()).join());
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testIgniteExceptionInJobPropagatesToClientWithMessageAndCodeAndTraceId(boolean async) {
+        IgniteException cause;
 
-        var cause = (IgniteException) ex.getCause();
+        if (async) {
+            CompletionException ex = assertThrows(
+                    CompletionException.class,
+                    () -> client().compute().<String>executeAsync(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName()).join());
+
+            cause = (IgniteException) ex.getCause();
+        } else {
+            IgniteException ex = assertThrows(
+                    IgniteException.class,
+                    () -> client().compute().<String>execute(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName()));
+
+            cause = (IgniteException) ex.getCause();
+        }
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
         assertEquals(TRACE_ID, cause.traceId());
