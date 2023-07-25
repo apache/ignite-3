@@ -71,6 +71,9 @@ public class ErrorGroups {
 
         /** Table definition is incorrect. */
         public static final int TABLE_DEFINITION_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Schema version mismatch. */
+        public static final int SCHEMA_VERSION_MISMATCH_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 7);
     }
 
     /** Client error group. */

@@ -41,4 +41,14 @@ public class SchemaException extends IgniteInternalException {
     public SchemaException(String msg, Throwable cause) {
         super(msg, cause);
     }
+
+    /**
+     * Creates a new exception with the given error code and detail message.
+     *
+     * @param code Full error code.
+     * @param message Detail message.
+     */
+    public SchemaException(int code, String message) {
+        super(code, message);
+    }
 }

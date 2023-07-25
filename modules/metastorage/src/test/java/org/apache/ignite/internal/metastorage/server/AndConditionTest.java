@@ -103,7 +103,7 @@ public class AndConditionTest {
 
         when(m.keys()).thenReturn(keys);
 
-        when(m.test(any())).thenReturn(result);
+        when(m.test(any(Entry[].class))).thenReturn(result);
 
         return m;
     }
