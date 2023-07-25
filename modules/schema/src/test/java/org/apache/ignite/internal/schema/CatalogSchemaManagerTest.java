@@ -335,6 +335,7 @@ class CatalogSchemaManagerTest {
         SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
 
         assertThat(schemaRegistry.schema().version(), is(1));
+        assertThat(schemaRegistry.schema(1).version(), is(1));
     }
 
     @Test
@@ -357,6 +358,41 @@ class CatalogSchemaManagerTest {
 
         assertThat(schemaRegistry.schema().version(), is(1));
         assertThat(schemaRegistry.schema(1).version(), is(1));
+    }
+
+    @Test
+    void previousSchemaVersionsRemainAvailable() {
+        createSomeTable();
+
+        addSomeColumn();
+
+        CompletableFuture<SchemaRegistry> future = schemaManager.schemaRegistry(CAUSALITY_TOKEN_2, TABLE_ID);
+        assertThat(future, willCompleteSuccessfully());
+
+        SchemaRegistry schemaRegistry = future.join();
+
+        SchemaDescriptor schemaDescriptor1 = schemaRegistry.schema(1);
+        assertThat(schemaDescriptor1.version(), is(1));
+
+        SchemaDescriptor schemaDescriptor2 = schemaRegistry.schema(2);
+        assertThat(schemaDescriptor2.version(), is(2));
+    }
+
+    private void addSomeColumn() {
+        when(catalogService.table(TABLE_ID, CATALOG_VERSION_2)).thenReturn(tableDescriptorAfterColumnAddition());
+
+        AddColumnEventParameters event = new AddColumnEventParameters(
+                CAUSALITY_TOKEN_2,
+                CATALOG_VERSION_2,
+                TABLE_ID,
+                List.of(new CatalogTableColumnDescriptor("v2", ColumnType.STRING, false, 0, 0, 0, null))
+        );
+
+        CompletableFuture<Boolean> future = tableAlteredListenerCaptor.getValue().notify(event, null);
+
+        assertThat(future, willBe(false));
+
+        completeCausalityToken(CAUSALITY_TOKEN_2);
     }
 
     @Test
