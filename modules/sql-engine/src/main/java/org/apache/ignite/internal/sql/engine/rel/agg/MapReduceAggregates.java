@@ -288,6 +288,7 @@ public class MapReduceAggregates {
 
     private static MapReduceAgg createCountAgg(AggregateCall call, int reduceArgumentOffset) {
         List<Integer> argList = List.of(reduceArgumentOffset);
+
         AggregateCall sum0 = AggregateCall.create(
                 SqlStdOperatorTable.SUM0,
                 call.isDistinct(),
@@ -313,7 +314,7 @@ public class MapReduceAggregates {
     private static MapReduceAgg createSimpleAgg(AggregateCall call, int reduceArgumentOffset) {
         List<Integer> argList = List.of(reduceArgumentOffset);
 
-        AggregateCall sameAgg = AggregateCall.create(
+        AggregateCall reduceCall = AggregateCall.create(
                 call.getAggregation(),
                 call.isDistinct(),
                 call.isApproximate(),
@@ -327,7 +328,7 @@ public class MapReduceAggregates {
 
         // For aggregate that use the same aggregate function for both MAP and REDUCE phases
         // use the result of an aggregate as is.
-        return new MapReduceAgg(argList, call, sameAgg, USE_INPUT);
+        return new MapReduceAgg(argList, call, reduceCall, USE_INPUT);
     }
 
     @FunctionalInterface
