@@ -28,6 +28,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ClientTxMode;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
@@ -354,14 +355,26 @@ public class ClientTableCommon {
      * @return Transaction, if present, or null.
      */
     public static @Nullable Transaction readTx(ClientMessageUnpacker in, ClientResourceRegistry resources) {
-        if (in.tryUnpackNil()) {
+        byte txMode = in.unpackByte();
+
+        if (txMode == ClientTxMode.IMPLICIT) {
             return null;
         }
 
-        try {
-            return resources.get(in.unpackLong()).get(Transaction.class);
-        } catch (IgniteInternalCheckedException e) {
-            throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
+        switch (txMode) {
+            case ClientTxMode.IMPLICIT:
+                return null;
+            case ClientTxMode.EXPLICIT_NEW:
+                return null; // TODO: Start new tx?
+            case ClientTxMode.EXPLICIT_EXISTING: {
+                try {
+                    return resources.get(in.unpackLong()).get(Transaction.class);
+                } catch (IgniteInternalCheckedException e) {
+                    throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
+                }
+            }
+            default:
+                throw new IgniteException(PROTOCOL_ERR, "Unsupported transaction mode: " + txMode);
         }
     }
 
