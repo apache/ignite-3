@@ -345,6 +345,7 @@ public class ClientTable implements Table {
 
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
+                    // TODO: If tx is present but not yet started, start it, using primary node for the given key.
                     ClientSchema schema = schemaFut.getNow(null);
                     String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
