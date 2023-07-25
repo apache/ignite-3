@@ -356,6 +356,7 @@ class CatalogSchemaManagerTest {
         SchemaRegistry schemaRegistry = future.join();
 
         assertThat(schemaRegistry.schema().version(), is(1));
+        assertThat(schemaRegistry.schema(1).version(), is(1));
     }
 
     @Test
