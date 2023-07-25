@@ -302,7 +302,8 @@ public class MapReduceAggregates {
                 call.isApproximate(),
                 call.ignoreNulls(),
                 argList,
-                call.filterArg,
+                // there is no filtering on REDUCE phase
+                -1,
                 null,
                 call.collation,
                 call.type,
@@ -327,7 +328,8 @@ public class MapReduceAggregates {
                 call.isApproximate(),
                 call.ignoreNulls(),
                 argList,
-                call.filterArg,
+                // there is no filtering on REDUCE phase
+                -1,
                 call.distinctKeys,
                 call.collation,
                 call.type,
