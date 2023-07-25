@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cli.call.connect;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.call.connect.ConnectCallInput.ConnectCallInputBuilder;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;

@@ -26,7 +26,6 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import java.util.Objects;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
-import org.apache.ignite.internal.cli.call.connect.ConnectCallInput.ConnectCallInputBuilder;
 import org.apache.ignite.internal.cli.call.connect.ConnectSslCall;
 import org.apache.ignite.internal.cli.call.connect.SslConfig;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
@@ -114,6 +113,7 @@ public class ConnectToClusterQuestion {
         }
         return Flows.from(nodeUrl);
     }
+
     /**
      * Ask if the user wants to store credentials in config.
      *
