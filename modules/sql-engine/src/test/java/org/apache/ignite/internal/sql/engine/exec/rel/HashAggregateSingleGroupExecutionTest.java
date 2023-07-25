@@ -38,6 +38,8 @@ import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
+import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
+import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.PlanUtils;
@@ -197,10 +199,10 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         map.register(scan);
 
         RelDataType hashRowType = PlanUtils.createHashAggRowType(grpSets, tf, rowType, List.of(mapCall));
-        List<AggregateCall> aggregateCalls = PlanUtils.convertAggsForReduce(List.of(mapCall), grpSets);
+        MapReduceAgg reduceAggCall = MapReduceAggregates.createMapReduceAggCall(mapCall, 0);
 
         HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, REDUCE, grpSets,
-                accFactory(ctx, aggregateCalls.get(0), REDUCE, hashRowType), rowFactory(),
+                accFactory(ctx, reduceAggCall.getReduceCall(), REDUCE, hashRowType), rowFactory(),
                 PlanUtils.computeAggFieldMapping(grpSets, REDUCE));
         reduce.register(map);
 
@@ -424,8 +426,8 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         IgniteTypeFactory tf = Commons.typeFactory();
         RelDataType hashRowType = PlanUtils.createHashAggRowType(grpSets, tf, rowType, List.of(call));
-        List<AggregateCall> aggregateCalls = PlanUtils.convertAggsForReduce(List.of(call), grpSets);
+        MapReduceAgg reduceAggCall = MapReduceAggregates.createMapReduceAggCall(call, 0);
 
-        return newHashAggNode(ctx, REDUCE, grpSets, hashRowType, aggregateCalls.get(0));
+        return newHashAggNode(ctx, REDUCE, grpSets, hashRowType, reduceAggCall.getReduceCall());
     }
 }

@@ -339,7 +339,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
     }
 
     /**
-     * Validates that COUNT aggregate is split into COUNT and COUNT_REDUCE.
+     * Validates that COUNT aggregate is split into COUNT and $SUM0.
      */
     @Test
     public void twoPhaseCountAgg() throws Exception {
@@ -350,17 +350,18 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
         Predicate<AggregateCall> countReduce = (a) -> {
             String aggName = a.getAggregation().getName();
-            return Objects.equals(aggName, "$REDUCE_COUNT") && a.getArgList().equals(List.of(1));
+            return Objects.equals(aggName, "$SUM0") && a.getArgList().equals(List.of(1));
         };
 
-        assertPlan(TestCase.CASE_22, isInstanceOf(IgniteReduceHashAggregate.class)
+        assertPlan(TestCase.CASE_22, hasChildThat(isInstanceOf(IgniteReduceHashAggregate.class)
                 .and(in -> hasAggregates(countReduce).test(in.getAggregateCalls()))
                 .and(input(isInstanceOf(IgniteExchange.class)
                         .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
-                                .and(input(isTableScan("TEST")))
-                        )
-                ))), disableRules);
+                                        .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
+                                        .and(input(isTableScan("TEST")))
+                                )
+                        ))
+                )), disableRules);
     }
 
     /**

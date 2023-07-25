@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
+import static org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.canImplementAsMapReduce;
 import static org.apache.ignite.internal.sql.engine.util.PlanUtils.complexDistinctAgg;
-import static org.apache.ignite.internal.sql.engine.util.PlanUtils.complexStateAgg;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.List;
@@ -32,14 +32,18 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
+import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
+import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.AggregateRelBuilder;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
-import org.apache.ignite.internal.sql.engine.util.PlanUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -106,42 +110,51 @@ public class SortAggregateConverterRule {
             }
 
             if (complexDistinctAgg(agg.getAggCallList())
-                    || complexStateAgg(agg.getAggCallList())
+                    || !canImplementAsMapReduce(agg.getAggCallList())
                     || HintUtils.isExpandDistinctAggregate(agg)) {
                 return null;
             }
 
             RelOptCluster cluster = agg.getCluster();
-            RelNode input = agg.getInput();
-
             RelCollation collation = TraitUtils.createCollation(agg.getGroupSet().asList());
 
             RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(collation);
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(collation);
 
-            RelNode map = new IgniteMapSortAggregate(
-                    cluster,
-                    outTrait.replace(IgniteDistributions.random()),
-                    convert(input, inTrait.replace(IgniteDistributions.random())),
-                    agg.getGroupSet(),
-                    agg.getGroupSets(),
-                    agg.getAggCallList(),
-                    collation
-            );
+            AggregateRelBuilder relBuilder = new AggregateRelBuilder() {
+                @Override
+                public IgniteRel makeMapAgg(RelOptCluster cluster, RelNode input, RelTraitSet traits, ImmutableBitSet groupSet,
+                        List<ImmutableBitSet> groupSets, List<AggregateCall> aggregateCalls) {
 
-            List<AggregateCall> aggregateCalls = PlanUtils.convertAggsForReduce(agg.getAggCallList(),
-                    List.of(agg.getGroupSet()));
+                    return new IgniteMapSortAggregate(
+                            cluster,
+                            traits,
+                            input,
+                            groupSet,
+                            groupSets,
+                            aggregateCalls,
+                            collation
+                    );
+                }
 
-            return new IgniteReduceSortAggregate(
-                    cluster,
-                    outTrait.replace(IgniteDistributions.single()),
-                    convert(map, inTrait.replace(IgniteDistributions.single())),
-                    agg.getGroupSet(),
-                    agg.getGroupSets(),
-                    aggregateCalls,
-                    agg.getRowType(),
-                    collation
-            );
+                @Override
+                public IgniteRel makeReduceAgg(RelOptCluster cluster, RelNode input, RelTraitSet traits, ImmutableBitSet groupSet,
+                        List<ImmutableBitSet> groupSets, List<AggregateCall> aggregateCalls, RelDataType outputType) {
+
+                    return new IgniteReduceSortAggregate(
+                            cluster,
+                            traits,
+                            input,
+                            groupSet,
+                            groupSets,
+                            aggregateCalls,
+                            outputType,
+                            collation
+                    );
+                }
+            };
+
+            return MapReduceAggregates.buildAggregates(agg, relBuilder, inTrait, outTrait);
         }
     }
 }

@@ -226,6 +226,9 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     @ParameterizedTest
     @EnumSource
     public void avg(TestAggregateType testAgg) {
+        Assumptions.assumeFalse(testAgg == TestAggregateType.MAP_REDUCE,
+                "AVG should be implemented as multiple aggregates");
+
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);

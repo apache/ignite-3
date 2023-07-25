@@ -19,16 +19,13 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.Collections;
 import java.util.List;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.fun.SqlAvgAggFunction;
 import org.apache.calcite.sql.fun.SqlCountAggFunction;
 import org.apache.calcite.sql.fun.SqlMinMaxAggFunction;
@@ -41,7 +38,6 @@ import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulator;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
-import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 
 /**
@@ -66,69 +62,6 @@ public class PlanUtils {
         }
         return false;
     }
-
-    /** Returns {@code true} if one of the aggregates has complex state. */
-    public static boolean complexStateAgg(List<AggregateCall> aggCalls) {
-        for (AggregateCall call : aggCalls) {
-            if (call.getAggregation() instanceof SqlAvgAggFunction) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /** Converts a list of accumulators for map phase to a list accumulators for reduce phase. */
-    public static List<AggregateCall> convertAggsForReduce(List<AggregateCall> calls, List<ImmutableBitSet> groupSets) {
-        Mapping mapping = computeAggFieldMapping(groupSets, AggregateType.REDUCE);
-        int argumentsOffset = mapping.getTargetCount();
-        List<AggregateCall> result = new ArrayList<>(calls.size());
-
-        for (AggregateCall call : calls) {
-            SqlAggFunction func = call.getAggregation();
-
-            List<Integer> argList;
-            SqlAggFunction aggFunction;
-            boolean distinct;
-            ImmutableBitSet distinctKeys;
-
-            if (func instanceof SqlCountAggFunction) {
-                argList = Collections.singletonList(argumentsOffset);
-
-                argumentsOffset += 1;
-
-                aggFunction = IgniteSqlOperatorTable.REDUCE_COUNT;
-                distinct = false;
-                distinctKeys = null;
-            } else {
-                argList = new ArrayList<>(call.getArgList().size());
-                for (int i = 0; i < call.getArgList().size(); i++) {
-                    argList.add(argumentsOffset + i);
-                    argumentsOffset += 1;
-                }
-
-                aggFunction = func;
-                distinct = call.isDistinct();
-                distinctKeys = call.distinctKeys;
-            }
-
-            AggregateCall newCall = AggregateCall.create(
-                    aggFunction,
-                    distinct,
-                    call.isApproximate(),
-                    call.ignoreNulls(),
-                    argList,
-                    call.filterArg,
-                    distinctKeys,
-                    call.collation,
-                    call.type,
-                    call.name);
-
-            result.add(newCall);
-        }
-
-        return result;
-    }
-
 
     /**
      * Creates a row type for REDUCE phase of a two phase aggregate used by hash-based map/reduce implementation.

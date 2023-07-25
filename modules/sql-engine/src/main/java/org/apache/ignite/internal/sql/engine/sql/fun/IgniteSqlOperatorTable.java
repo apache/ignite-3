@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.sql.fun;
 
-import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlKind;
@@ -28,7 +27,6 @@ import org.apache.calcite.sql.type.ReturnTypes;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeTransforms;
 import org.apache.calcite.sql.util.ReflectiveSqlOperatorTable;
-import org.apache.calcite.util.Optionality;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 
 /**
@@ -163,20 +161,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                 public boolean isDeterministic() {
                     return false;
                 }
-            };
-
-    /** Reduce phase of COUNT aggregate which sums all counts. */
-    public static final SqlAggFunction REDUCE_COUNT =
-            new SqlAggFunction("$REDUCE_COUNT",
-                    null,
-                    SqlKind.SUM,
-                    ReturnTypes.explicit(SqlTypeName.BIGINT),
-                    null,
-                    OperandTypes.typeName(SqlTypeName.BIGINT),
-                    SqlFunctionCategory.NUMERIC,
-                    false,
-                    false,
-                    Optionality.FORBIDDEN) {
             };
 
     /** Singleton instance. */
@@ -448,6 +432,5 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(NULL_BOUND);
         register(RAND_UUID);
         register(GEN_RANDOM_UUID);
-        register(REDUCE_COUNT);
     }
 }

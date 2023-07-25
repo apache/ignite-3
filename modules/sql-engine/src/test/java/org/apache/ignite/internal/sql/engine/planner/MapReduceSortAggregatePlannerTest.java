@@ -33,6 +33,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
+import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
@@ -381,16 +382,17 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
 
         Predicate<AggregateCall> countReduce = (a) -> {
             SqlAggFunction aggName = a.getAggregation();
-            return Objects.equals(aggName.getName(), "$REDUCE_COUNT") && a.getArgList().equals(List.of(1));
+            return Objects.equals(aggName.getName(), "$SUM0") && a.getArgList().equals(List.of(1));
         };
 
-        assertPlan(TestCase.CASE_22, isInstanceOf(IgniteReduceSortAggregate.class)
+        assertPlan(TestCase.CASE_22, hasChildThat(isInstanceOf(IgniteReduceSortAggregate.class)
                 .and(in -> hasAggregates(countReduce).test(in.getAggregateCalls()))
                 .and(input(isInstanceOf(IgniteExchange.class)
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
                                 )
-                        ))), disableRules);
+                        ))
+                )), disableRules);
     }
 
     /**
@@ -659,15 +661,17 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(testCase,
                 isInstanceOf(IgniteSort.class)
                         .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(0, 1, 2))))
-                        .and(input(
-                                isInstanceOf(IgniteReduceSortAggregate.class)
-                                        .and(input(isInstanceOf(
-                                                IgniteMapSortAggregate.class) //TODO: Why can't Map be pushed down to under 'exchange'.
+                        .and(input(isInstanceOf(IgniteProject.class)
+                                .and(input(isInstanceOf(IgniteReduceSortAggregate.class)
+                                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                                //TODO: Why can't Map be pushed down to under 'exchange'.
                                                 .and(input(isInstanceOf(IgniteSort.class)
                                                         .and(s -> s.collation().equals(collation))
-                                                        .and(input(isTableScan("TEST")))
+                                                        .and(input(isTableScan("TEST")
+                                                        ))
                                                 ))
                                         ))
+                                ))
                         )),
                 disableRules
         );
@@ -677,17 +681,19 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(testCase,
                 isInstanceOf(IgniteSort.class)
                         .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(0, 1, 2))))
-                        .and(input(
-                                isInstanceOf(IgniteReduceSortAggregate.class)
+                        .and(input(isInstanceOf(IgniteProject.class)
+                                .and(input(isInstanceOf(IgniteReduceSortAggregate.class)
                                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                                 //TODO: Why can't Map be pushed down to under 'exchange'.
                                                 .and(input(isInstanceOf(IgniteExchange.class)
                                                         .and(input(isInstanceOf(IgniteSort.class)
                                                                 .and(s -> s.collation().equals(collation))
-                                                                .and(input(isTableScan("TEST")))
+                                                                .and(input(isTableScan("TEST")
+                                                                ))
                                                         ))
                                                 ))
                                         ))
+                                ))
                         )),
                 disableRules
         );

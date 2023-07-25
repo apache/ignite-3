@@ -377,17 +377,18 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         };
 
         Predicate<AggregateCall> countReduce = (a) -> {
-            return Objects.equals(a.getAggregation().getName(), "$REDUCE_COUNT") && a.getArgList().equals(List.of(1));
+            return Objects.equals(a.getAggregation().getName(), "$SUM0") && a.getArgList().equals(List.of(1));
         };
 
-        assertPlan(TestCase.CASE_22, isInstanceOf(IgniteReduceHashAggregate.class)
+        assertPlan(TestCase.CASE_22, hasChildThat(isInstanceOf(IgniteReduceHashAggregate.class)
                 .and(in -> hasAggregates(countReduce).test(in.getAggregateCalls()))
                 .and(input(isInstanceOf(IgniteExchange.class)
                         .and(input(isInstanceOf(IgniteMapHashAggregate.class)
                                         .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
                                         .and(input(isTableScan("TEST")))
                                 )
-                        ))));
+                        ))
+                )));
     }
 
     /** Validate that we choose single phase AVG aggregate for AVG by default. */
