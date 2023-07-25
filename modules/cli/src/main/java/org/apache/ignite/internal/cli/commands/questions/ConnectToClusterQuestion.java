@@ -164,7 +164,7 @@ public class ConnectToClusterQuestion {
             return;
         }
 
-        Flows.acceptQuestion(question, () -> ConnectCallInput.builder().url(defaultUrl).build())
+        Flows.acceptQuestion(question, () -> ConnectCallInput.builder().url(clusterUrl).build())
                 .then(Flows.fromCall(connectCall))
                 .print()
                 .ifThen(s -> !Objects.equals(clusterUrl, defaultUrl) && session.info() != null,
