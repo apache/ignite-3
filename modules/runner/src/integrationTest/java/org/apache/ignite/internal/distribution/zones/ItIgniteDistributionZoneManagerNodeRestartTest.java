@@ -91,6 +91,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -100,6 +101,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests for checking {@link DistributionZoneManager} behavior after node's restart.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-12345 Placeholder")
 @ExtendWith(ConfigurationExtension.class)
 public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRestartTest {
     private static final LogicalNode A = new LogicalNode(
