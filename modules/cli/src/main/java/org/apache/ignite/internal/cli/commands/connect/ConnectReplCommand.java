@@ -54,15 +54,19 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
     @Override
     public void run() {
         question.askQuestionIfConnected(nodeNameOrUrl.stringUrl())
-                .map(url -> ConnectCallInput.builder()
-                        .url(nodeNameOrUrl.stringUrl())
-                        .username(connectOptions.username())
-                        .password(connectOptions.password())
-                        .build())
+                .map(url -> connectCallInput())
                 .then(Flows.fromCall(connectCall))
                 .onSuccess(() -> question.askQuestionToStoreCredentials(connectOptions.username(), connectOptions.password()))
                 .verbose(verbose)
                 .print()
                 .start();
+    }
+
+    private ConnectCallInput connectCallInput() {
+        return ConnectCallInput.builder()
+                .url(nodeNameOrUrl.stringUrl())
+                .username(connectOptions != null ? connectOptions.username() : null)
+                .password(connectOptions != null ? connectOptions.password() : null)
+                .build();
     }
 }
