@@ -288,7 +288,8 @@ public class MapReduceAggregates {
                 call.type,
                 null);
 
-        // For COUNT aggregate SUM(COUNT(count_x)) is DECIMAL, we should convert it to BIGINT.
+        // COUNT(x) aggregate that have type BIGINT, but the type of SUM(COUNT(x)) is DECIMAL,
+        // so we should convert it to back to BIGINT.
         MakeReduceExpr exprBuilder = (rexBuilder, input, args, typeFactory) -> {
             RexInputRef ref = rexBuilder.makeInputRef(input, args.get(0));
             return rexBuilder.makeCast(typeFactory.createSqlType(SqlTypeName.BIGINT), ref);
