@@ -1121,13 +1121,13 @@ public class CatalogManagerSelfTest {
 
         doNothing().when(updateLogMock).registerUpdateHandler(updateHandlerCapture.capture());
 
-        CatalogManagerImpl service = new CatalogManagerImpl(updateLogMock, clockWaiter);
-        service.start();
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockWaiter);
+        manager.start();
 
         when(updateLogMock.append(any())).thenAnswer(invocation -> {
             // here we emulate concurrent updates. First of all, we return a future completed with "false"
-            // as if someone has concurrently appended an update. Besides, in order to unblock service and allow to
-            // make another attempt, we must notify service with the same version as in current attempt.
+            // as if someone has concurrently appended an update. Besides, in order to unblock manager and allow to
+            // make another attempt, we must notify manager with the same version as in current attempt.
             VersionedUpdate updateFromInvocation = invocation.getArgument(0, VersionedUpdate.class);
 
             VersionedUpdate update = new VersionedUpdate(
@@ -1141,7 +1141,7 @@ public class CatalogManagerSelfTest {
             return completedFuture(false);
         });
 
-        CompletableFuture<Void> createTableFut = service.createTable(simpleTable("T"));
+        CompletableFuture<Void> createTableFut = manager.createTable(simpleTable("T"));
 
         assertThat(createTableFut, willThrow(IgniteInternalException.class, "Max retry limit exceeded"));
 
@@ -1153,9 +1153,9 @@ public class CatalogManagerSelfTest {
     public void catalogActivationTime() throws Exception {
         final long delayDuration = TimeUnit.DAYS.toMillis(365);
 
-        CatalogManagerImpl service = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration);
 
-        service.start();
+        manager.start();
 
         try {
             CreateTableParams params = CreateTableParams.builder()
@@ -1168,7 +1168,7 @@ public class CatalogManagerSelfTest {
                     .primaryKeyColumns(List.of("key"))
                     .build();
 
-            service.createTable(params);
+            manager.createTable(params);
 
             verify(updateLog).append(any());
             // TODO IGNITE-19400: recheck createTable future completion guarantees
@@ -1176,15 +1176,15 @@ public class CatalogManagerSelfTest {
             // This waits till the new Catalog version lands in the internal structures.
             verify(clockWaiter, timeout(10_000)).waitFor(any());
 
-            assertSame(service.schema(0), service.activeSchema(clock.nowLong()));
-            assertNull(service.table(TABLE_NAME, clock.nowLong()));
+            assertSame(manager.schema(0), manager.activeSchema(clock.nowLong()));
+            assertNull(manager.table(TABLE_NAME, clock.nowLong()));
 
             clock.update(clock.now().addPhysicalTime(delayDuration));
 
-            assertSame(service.schema(1), service.activeSchema(clock.nowLong()));
-            assertNotNull(service.table(TABLE_NAME, clock.nowLong()));
+            assertSame(manager.schema(1), manager.activeSchema(clock.nowLong()));
+            assertNotNull(manager.table(TABLE_NAME, clock.nowLong()));
         } finally {
-            service.stop();
+            manager.stop();
         }
     }
 
@@ -1192,13 +1192,13 @@ public class CatalogManagerSelfTest {
     public void catalogServiceManagesUpdateLogLifecycle() throws Exception {
         UpdateLog updateLogMock = mock(UpdateLog.class);
 
-        CatalogManagerImpl service = new CatalogManagerImpl(updateLogMock, clockWaiter);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockWaiter);
 
-        service.start();
+        manager.start();
 
         verify(updateLogMock).start();
 
-        service.stop();
+        manager.stop();
 
         verify(updateLogMock).stop();
     }
@@ -1606,9 +1606,9 @@ public class CatalogManagerSelfTest {
 
         HybridTimestamp startTs = clock.now();
 
-        CatalogManagerImpl service = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration);
 
-        service.start();
+        manager.start();
 
         try {
             CreateTableParams params = CreateTableParams.builder()
@@ -1621,7 +1621,7 @@ public class CatalogManagerSelfTest {
                     .primaryKeyColumns(List.of("key"))
                     .build();
 
-            CompletableFuture<Void> future = service.createTable(params);
+            CompletableFuture<Void> future = manager.createTable(params);
 
             assertThat(future.isDone(), is(false));
 
@@ -1634,7 +1634,7 @@ public class CatalogManagerSelfTest {
                     greaterThanOrEqualTo(delayDuration + HybridTimestamp.maxClockSkew())
             );
         } finally {
-            service.stop();
+            manager.stop();
         }
     }
 

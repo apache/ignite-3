@@ -71,6 +71,11 @@ public interface CatalogService {
 
     int activeCatalogVersion(long timestamp);
 
+    /**
+     * Returns the latest registered version of the catalog.
+     *
+     * <p>NOTE: This method should only be used at the start of components that may be removed or moved in the future.
+     */
     int latestCatalogVersion();
 
     void listen(CatalogEvent evt, EventListener<CatalogEventParameters> closure);
