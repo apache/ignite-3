@@ -259,7 +259,7 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
         SchemaRegistry registry = registriesVv.latest().get(tblId);
 
         if (registry.lastSchemaVersion() > schemaVer) {
-            return getSchemaDescriptor(schemaVer, tblId);
+            return schemaByVersion(tblId, schemaVer);
         }
 
         CompletionListener<Map<Integer, SchemaRegistryImpl>> schemaListener = (token, regs, e) -> {
@@ -326,18 +326,6 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
         } else {
             return null;
         }
-    }
-
-    /**
-     * Gets a schema descriptor from the configuration storage.
-     *
-     * @param schemaVer Schema version.
-     * @return Schema descriptor.
-     */
-    private CompletableFuture<SchemaDescriptor> getSchemaDescriptor(int schemaVer, int tableId) {
-        CompletableFuture<Entry> ent = metastorageMgr.get(schemaWithVerHistKey(tableId, schemaVer));
-
-        return ent.thenApply(e -> SchemaSerializerImpl.INSTANCE.deserialize(e.value()));
     }
 
     /**
