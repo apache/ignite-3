@@ -1492,24 +1492,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Alters a cluster table and drops columns from the table.
-     *
-     * @param params Drop column params.
-     * @return Future representing pending completion of the operation.
-     * @see TableNotFoundException
-     */
-    public CompletableFuture<Void> alterTableDropColumnAsync(AlterTableDropColumnParams params) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            return catalogManager.dropColumn(params);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
      * Drops a table with the name specified. If appropriate table does not be found, a future will be completed with
      * {@link TableNotFoundException}.
      *

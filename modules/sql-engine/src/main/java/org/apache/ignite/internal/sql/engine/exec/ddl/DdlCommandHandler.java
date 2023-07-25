@@ -26,6 +26,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.index.IndexManager;
@@ -215,13 +218,13 @@ public class DdlCommandHandler {
 
     /** Handles create table command. */
     private CompletableFuture<Boolean> handleCreateTable(CreateTableCommand cmd) {
-        return tableManager.createTableAsync(DdlToCatalogCommandConverter.convert(cmd))
+        return catalogManager.createTable(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifTableExists(), TableAlreadyExistsException.class));
     }
 
     /** Handles drop table command. */
     private CompletableFuture<Boolean> handleDropTable(DropTableCommand cmd) {
-        return tableManager.dropTableAsync(DdlToCatalogCommandConverter.convert(cmd))
+        return catalogManager.dropTable(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
     }
 
@@ -231,7 +234,7 @@ public class DdlCommandHandler {
             return completedFuture(Boolean.FALSE);
         }
 
-        return tableManager.alterTableAddColumnAsync(DdlToCatalogCommandConverter.convert(cmd))
+        return catalogManager.addColumn(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
     }
 
@@ -241,7 +244,7 @@ public class DdlCommandHandler {
             return completedFuture(Boolean.FALSE);
         }
 
-        return tableManager.alterTableDropColumnAsync(DdlToCatalogCommandConverter.convert(cmd))
+        return catalogManager.dropColumn(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
     }
 
@@ -269,13 +272,21 @@ public class DdlCommandHandler {
 
     /** Handles create index command. */
     private CompletableFuture<Boolean> handleCreateIndex(CreateIndexCommand cmd) {
-        return indexManager.createIndexAsync(DdlToCatalogCommandConverter.convert(cmd))
-                .handle(handleModificationResult(cmd.ifNotExists(), IndexAlreadyExistsException.class));
+        AbstractIndexCommandParams params = DdlToCatalogCommandConverter.convert(cmd);
+
+        if (params instanceof CreateSortedIndexParams) {
+            return catalogManager.createIndex((CreateSortedIndexParams) params)
+                    .handle(handleModificationResult(cmd.ifNotExists(), IndexAlreadyExistsException.class));
+        }
+        else {
+            return catalogManager.createIndex((CreateHashIndexParams) params)
+                    .handle(handleModificationResult(cmd.ifNotExists(), IndexAlreadyExistsException.class));
+        }
     }
 
     /** Handles drop index command. */
     private CompletableFuture<Boolean> handleDropIndex(DropIndexCommand cmd) {
-        return indexManager.dropIndexAsync(DdlToCatalogCommandConverter.convert(cmd))
+        return catalogManager.dropIndex(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifNotExists(), IndexNotFoundException.class));
     }
 }

@@ -222,7 +222,9 @@ public abstract class DistributionFunction {
         /** {@inheritDoc} */
         @Override
         public <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup m, ImmutableIntList k) {
-            assert m != null && !nullOrEmpty(m.assignments()) && !k.isEmpty();
+            if (! (m != null && !nullOrEmpty(m.assignments()) && !k.isEmpty())) {
+                throw new AssertionError();
+            }
 
             List<List<String>> assignments = Commons.transform(m.assignments(), v -> Commons.transform(v, NodeWithTerm::name));
 

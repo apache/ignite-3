@@ -26,6 +26,8 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
+import org.apache.ignite.internal.sql.engine.schema.IgniteCatalogSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.util.ColocationUtils;
@@ -36,11 +38,20 @@ import org.apache.ignite.internal.util.HashCalculator;
  */
 public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
     private final SqlSchemaManager sqlSchemaManager;
+    private final IgniteCatalogSchema sqlSchema;
     private final RowHandler<T> rowHandler;
 
+    @Deprecated(forRemoval = true)
     public HashFunctionFactoryImpl(SqlSchemaManager sqlSchemaManager, RowHandler<T> rowHandler) {
         this.sqlSchemaManager = sqlSchemaManager;
         this.rowHandler = rowHandler;
+        this.sqlSchema = null;
+    }
+
+    public HashFunctionFactoryImpl(IgniteCatalogSchema sqlSchema, RowHandler<T> rowHandler) {
+        this.sqlSchemaManager = null;
+        this.rowHandler = rowHandler;
+        this.sqlSchema = sqlSchema;
     }
 
     /** {@inheritDoc} */
@@ -48,7 +59,16 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
     public RowHashFunction<T> create(int[] fields, int tableId) {
         int fieldCnt = fields.length;
         NativeType[] fieldTypes = new NativeType[fieldCnt];
-        TableDescriptor tblDesc = sqlSchemaManager.tableById(tableId).descriptor();
+
+        //TODO: optimize this
+        TableDescriptor tblDesc = sqlSchema.getTableNames().stream()
+                .map(sqlSchema::getTable)
+                .map(IgniteTable.class::cast)
+                .filter(t -> t.id() == tableId)
+                .map(IgniteTable::descriptor)
+                .findFirst()
+                .get();
+
         ImmutableIntList colocationColumns = tblDesc.distribution().getKeys();
 
         assert colocationColumns.size() == fieldCnt : "fieldsCount=" + fieldCnt + ", colocationColumns=" + colocationColumns;

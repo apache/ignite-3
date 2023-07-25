@@ -38,7 +38,7 @@ import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchemaTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -131,7 +131,7 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
     private boolean idxCollationCheck(RelOptRuleCall call, List<RexNode> operands) {
         final IgniteLogicalTableScan scan = call.rel(0);
 
-        IgniteSchemaTable tbl = scan.getTable().unwrap(IgniteSchemaTable.class);
+        IgniteTable tbl = scan.getTable().unwrap(IgniteTable.class);
         IgniteTypeFactory typeFactory = Commons.typeFactory(scan.getCluster());
         int fieldCnt = tbl.getRowType(typeFactory).getFieldCount();
 
