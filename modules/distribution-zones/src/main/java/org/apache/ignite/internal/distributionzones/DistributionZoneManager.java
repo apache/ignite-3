@@ -252,14 +252,19 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Watch listener for data nodes keys. */
     private final WatchListener dataNodesWatchListener;
 
-    /** Watch listener for data nodes keys. */
+    /** Rebalance engine. */
     private final DistributionZoneRebalanceEngine rebalanceEngine;
 
+    /** Causality data nodes engine. */
     private final CausalityDataNodesEngine causalityDataNodesEngine;
+
+    /** Used to guarantee that the zone will be created before other components use the zone. */
+    private final VersionedValue<Void> zonesVv;
 
     /**
      * Creates a new distribution zone manager.
      *
+     * @param registry Registry for versioned values.
      * @param zonesConfiguration Distribution zones configuration.
      * @param tablesConfiguration Tables configuration.
      * @param metaStorageManager Meta Storage manager.
@@ -310,6 +315,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 this
         );
 
+        //noinspection ThisEscapedInObjectConstruction
         causalityDataNodesEngine = new CausalityDataNodesEngine(
                 busyLock,
                 metaStorageManager,
@@ -649,10 +655,11 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /**
      * Returns the data nodes of the specified zone.
+     * See {@link CausalityDataNodesEngine#dataNodes(long, int)}.
      *
      * @param causalityToken Causality token.
      * @param zoneId Zone id.
-     * @return The latest data nodes.
+     * @return The data nodes.
      */
     public Set<String> dataNodes(long causalityToken, int zoneId) {
         return causalityDataNodesEngine.dataNodes(causalityToken, zoneId);
@@ -787,21 +794,12 @@ public class DistributionZoneManager implements IgniteComponent {
         };
     }
 
-    final VersionedValue<Void> zonesVv;
-
-    public CompletableFuture<Void> zoneState(long token) {
-        return zonesVv.get(token);
-    }
-
     private class ZonesConfigurationListener implements ConfigurationNamedListListener<DistributionZoneView> {
         @Override
         public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
-            LOG.info("+++++++ onCreate zone start " + ctx.storageRevision());
             DistributionZoneView zone = ctx.newValue();
 
             createOrRestoreZoneState(zone, ctx.storageRevision());
-
-            LOG.info("+++++++ onCreate zone end " + ctx.storageRevision());
 
             return completedFuture(null);
         }
@@ -834,15 +832,12 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param revision Revision for which we restore zone's state.
      */
     private void createOrRestoreZoneState(DistributionZoneView zone, long revision) {
-        LOG.info("+++++++ createOrRestoreZoneState start " + zone.zoneId() + " " + revision);
         int zoneId = zone.zoneId();
 
         VaultEntry topologyAugmentationMapFromVault = vaultMgr.get(zoneTopologyAugmentationVault(zoneId)).join();
 
-        boolean isZoneCreation = topologyAugmentationMapFromVault == null;
-
         // First creation of a zone, or first call on the manager start for the default zone.
-        if (isZoneCreation) {
+        if (topologyAugmentationMapFromVault == null) {
             ZoneState zoneState = new ZoneState(executor);
 
             ZoneState prevZoneState = zonesState.putIfAbsent(zoneId, zoneState);
@@ -879,9 +874,7 @@ public class DistributionZoneManager implements IgniteComponent {
             restoreTimers(zone, zoneState, maxScaleUpRevision, maxScaleDownRevision, filterUpdateRevision);
         }
 
-        causalityDataNodesEngine.onCreateOrRestoreZoneState(revision, isZoneCreation, zone);
-
-        LOG.info("+++++++ createOrRestoreZoneState end " + zone.zoneId() + " " + revision);
+        causalityDataNodesEngine.onCreateOrRestoreZoneState(revision, zone);
     }
 
     /**
@@ -1321,7 +1314,6 @@ public class DistributionZoneManager implements IgniteComponent {
                             } else {
                                 newDataNodes = emptySet();
                             }
-
                         }
                     }
 
@@ -1789,6 +1781,16 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
+     * Returns a future which will be completed when the zone manager processed events with this token.
+     *
+     * @param token Causality token.
+     * @return Future.
+     */
+    public CompletableFuture<Void> waitZoneProcessing(long token) {
+        return zonesVv.get(token);
+    }
+
+    /**
      * Class responsible for storing state for a distribution zone.
      * States are needed to track nodes that we want to add or remove from the data nodes,
      * to schedule and stop scale up and scale down processes.
@@ -2081,10 +2083,5 @@ public class DistributionZoneManager implements IgniteComponent {
     @TestOnly
     public Set<NodeWithAttributes> logicalTopology() {
         return logicalTopology;
-    }
-
-    @TestOnly
-    public DistributionZonesConfiguration zonesConfiguration() {
-        return zonesConfiguration;
     }
 }

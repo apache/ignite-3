@@ -595,7 +595,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             return failedFuture(new NodeStoppingException());
         }
-        LOG.info("+++++++ onTableCreate start " + ctx.storageRevision());
 
         try {
             CatalogTableDescriptor tableDescriptor = toTableDescriptor(ctx.newValue());
@@ -610,9 +609,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (partitionAssignments(vaultManager, tableId, 0) != null) {
                 assignments = completedFuture(tableAssignments(vaultManager, tableId, zoneDescriptor.partitions()));
             } else {
-                assignments = distributionZoneManager.zoneState(ctx.storageRevision()).thenApply(ignored -> {
-                    LOG.info("+++++++ distributionZoneManager.zoneState completed " + ctx.storageRevision());
-
+                assignments = distributionZoneManager.waitZoneProcessing(ctx.storageRevision()).thenApply(ignored -> {
                     Set<String> dataNodes = distributionZoneManager.dataNodes(ctx.storageRevision(), tableDescriptor.zoneId());
 
                     return AffinityUtils.calculateAssignments(
@@ -1240,6 +1237,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param causalityToken Causality token.
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distributed zone descriptor.
+     * @param assignments Future with assignments.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<?> createTableLocally(

@@ -49,9 +49,6 @@ import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
-import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -66,9 +63,6 @@ import org.apache.ignite.lang.NodeStoppingException;
  * Causality data nodes manager.
  */
 public class CausalityDataNodesEngine {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngine.class);
-
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock;
 
@@ -78,6 +72,7 @@ public class CausalityDataNodesEngine {
     /** Vault manager. */
     private final VaultManager vaultMgr;
 
+    /** Distribution zones manager. */
     private final DistributionZoneManager distributionZoneManager;
 
     /**
@@ -87,6 +82,7 @@ public class CausalityDataNodesEngine {
     private final Map<Integer, ZoneState> zonesState;
 
     /**
+     * The map which contains configuration changes which trigger zone's data nodes recalculation.
      * zoneId -> (revision -> zoneConfiguration).
      */
     private final ConcurrentHashMap<Integer, ConcurrentSkipListMap<Long, ZoneConfiguration>> zonesVersionedCfg;
@@ -94,9 +90,11 @@ public class CausalityDataNodesEngine {
     /**
      * The constructor.
      *
-     * @param msManager msManager.
-     * @param vaultMgr vaultMgr.
-     * @param zonesState zonesState.
+     * @param busyLock Busy lock to stop synchronously.
+     * @param msManager Meta Storage manager.
+     * @param vaultMgr Vault manager.
+     * @param zonesState Map with states for distribution zones.
+     * @param distributionZoneManager Distribution zones manager.
      */
     public CausalityDataNodesEngine(
             IgniteSpinBusyLock busyLock,
@@ -117,12 +115,13 @@ public class CausalityDataNodesEngine {
     /**
      * Gets data nodes of the zone using causality token.
      *
-     * <p>Return data nodes or throw the {@link DistributionZoneNotFoundException} if the zone with the provided {@code zoneId}
-     * does not exist.
+     * <p>Return data nodes or throw the exception:
+     * {@link IllegalArgumentException} if causalityToken or zoneId is not valid.
+     * {@link DistributionZoneNotFoundException} if the zone with the provided zoneId does not exist.
      *
      * @param causalityToken Causality token.
      * @param zoneId Zone id.
-     * @return The future which will be completed with data nodes for the zoneId or with exception.
+     * @return The data nodes for the zoneId.
      */
     public Set<String> dataNodes(long causalityToken, int zoneId) {
         if (causalityToken < 1) {
@@ -139,8 +138,6 @@ public class CausalityDataNodesEngine {
 
         try {
             ConcurrentSkipListMap<Long, ZoneConfiguration> versionedCfg = zonesVersionedCfg.get(zoneId);
-
-            LOG.info("+++++++ dataNodes versionedCfg " + versionedCfg);
 
             // Get the latest configuration and configuration revision for a given causality token
             Map.Entry<Long, ZoneConfiguration> zoneLastCfgEntry = versionedCfg.floorEntry(causalityToken);
@@ -502,7 +499,6 @@ public class CausalityDataNodesEngine {
         List<Entry> entryList = msManager.getLocally(triggerKey.bytes(), scaleRevision, upperRevision);
 
         for (Entry entry : entryList) {
-
             // scaleRevision is null if the zone was removed.
             if (entry.value() == null) {
                 return entry.revision();
@@ -519,38 +515,45 @@ public class CausalityDataNodesEngine {
     }
 
     /**
-     * causalityOnUpdateScaleUp.
+     * Update zone configuration on a scale up update.
      *
-     * @param revision revision.
-     * @param zoneId zoneId.
-     * @param newScaleUp newScaleUp.
+     * @param revision Revision.
+     * @param zoneId Zone id.
+     * @param newScaleUp New scale up value.
      */
     public void causalityOnUpdateScaleUp(long revision, int zoneId, int newScaleUp) {
         updateZoneConfiguration(revision, zoneId, zoneCfg -> zoneCfg.setDataNodesAutoAdjustScaleUp(newScaleUp));
     }
 
     /**
-     * causalityOnUpdateScaleDown.
+     * Update zone configuration on a scale down update.
      *
-     * @param revision revision.
-     * @param zoneId zoneId.
-     * @param newScaleDown newScaleDown.
+     * @param revision Revision.
+     * @param zoneId Zone id.
+     * @param newScaleDown New scale down value.
      */
     public void causalityOnUpdateScaleDown(long revision, int zoneId, int newScaleDown) {
         updateZoneConfiguration(revision, zoneId, zoneCfg -> zoneCfg.setDataNodesAutoAdjustScaleDown(newScaleDown));
     }
 
     /**
-     * onUpdateFilter.
+     * Update zone configuration on a scale down update.
      *
-     * @param revision revision.
-     * @param zoneId zoneId.
-     * @param filter filter.
+     * @param revision Revision.
+     * @param zoneId Zone id.
+     * @param filter Filter.
      */
     public void onUpdateFilter(long revision, int zoneId, String filter) {
         updateZoneConfiguration(revision, zoneId, zoneCfg -> zoneCfg.setFilter(filter));
     }
 
+    /**
+     * Update zone configuration on a scale down update.
+     *
+     * @param revision Revision.
+     * @param zoneId Zone id.
+     * @param updater Closure to update a configuration.
+     */
     private void updateZoneConfiguration(long revision, int zoneId, Consumer<ZoneConfiguration> updater) {
         ConcurrentSkipListMap<Long, ZoneConfiguration> versionedCfg = zonesVersionedCfg.get(zoneId);
 
@@ -566,19 +569,18 @@ public class CausalityDataNodesEngine {
     }
 
     /**
-     * onCreateOrRestoreZoneState.
+     * Creates or restores zone's versioned configuration from the vault the Vault.
+     * We save versioned configuration in the Vault every time we receive event which triggers the data nodes recalculation.
      *
-     * @param revision revision.
-     * @param zoneCreation zoneCreation.
-     * @param zone zone.
+     * @param revision Revision.
+     * @param zone Zone's view.
      */
-    public void onCreateOrRestoreZoneState(long revision, boolean zoneCreation, DistributionZoneView zone) {
+    public void onCreateOrRestoreZoneState(long revision, DistributionZoneView zone) {
         int zoneId = zone.zoneId();
 
         VaultEntry versionedCfgEntry = vaultMgr.get(zoneVersionedConfigurationKey(zoneId)).join();
 
         if (versionedCfgEntry == null) {
-            LOG.info("+++++++ engine createOrRestoreZoneState1 " + zone.zoneId() + " " + revision);
             ZoneConfiguration zoneConfiguration = new ZoneConfiguration(
                     false,
                     zone.dataNodesAutoAdjustScaleUp(),
@@ -595,19 +597,15 @@ public class CausalityDataNodesEngine {
             vaultMgr.put(zoneVersionedConfigurationKey(zoneId), toBytes(versionedCfg)).join();
 
         } else {
-            LOG.info("+++++++ engine createOrRestoreZoneState2 " + zone.zoneId() + " " + revision);
-
             zonesVersionedCfg.put(zoneId, fromBytes(versionedCfgEntry.value()));
-            LOG.info("+++++++ engine createOrRestoreZoneState3 " + zone.zoneId() + " " + revision
-                    + " " + zonesVersionedCfg.get(zoneId));
         }
     }
 
     /**
-     * onDelete.
+     * Update zone configuration on a zone dropping.
      *
-     * @param revision revision.
-     * @param zoneId zoneId.
+     * @param revision Revision.
+     * @param zoneId Zone id.
      */
     public void onDelete(long revision, int zoneId) {
         ConcurrentSkipListMap<Long, ZoneConfiguration> versionedCfg = zonesVersionedCfg.get(zoneId);
@@ -625,6 +623,7 @@ public class CausalityDataNodesEngine {
      * Class stores zone configuration parameters. Changing of these parameters can trigger a data nodes recalculation.
      */
     public static class ZoneConfiguration implements Serializable {
+        /** Serial version UID. */
         private static final long serialVersionUID = -7212835078222590440L;
 
         /**
@@ -650,18 +649,23 @@ public class CausalityDataNodesEngine {
         /**
          * Constructor.
          *
-         * @param isRemoved isRemoved
-         * @param dataNodesAutoAdjustScaleUp dataNodesAutoAdjustScaleUp
-         * @param dataNodesAutoAdjustScaleDown dataNodesAutoAdjustScaleDown
-         * @param filter filter
+         * @param isRemoved Is this zone removed.
+         * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
+         * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
+         * @param filter Data nodes filter.
          */
-        public ZoneConfiguration(boolean isRemoved, int dataNodesAutoAdjustScaleUp, int dataNodesAutoAdjustScaleDown, String filter) {
+        ZoneConfiguration(boolean isRemoved, int dataNodesAutoAdjustScaleUp, int dataNodesAutoAdjustScaleDown, String filter) {
             this.isRemoved = isRemoved;
             this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
             this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
             this.filter = filter;
         }
 
+        /**
+         * Constructor.
+         *
+         * @param cfg Zone configuration.
+         */
         ZoneConfiguration(ZoneConfiguration cfg) {
             this.isRemoved = cfg.getIsRemoved();
             this.dataNodesAutoAdjustScaleUp = cfg.getDataNodesAutoAdjustScaleUp();

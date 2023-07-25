@@ -298,7 +298,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.dataNodes(anyLong(), anyInt())).thenReturn(emptySet());
 
-        when(distributionZoneManager.zoneState(anyLong())).thenReturn(completedFuture(null));
+        when(distributionZoneManager.waitZoneProcessing(anyLong())).thenReturn(completedFuture(null));
 
         tblManager = mockManagers();
 

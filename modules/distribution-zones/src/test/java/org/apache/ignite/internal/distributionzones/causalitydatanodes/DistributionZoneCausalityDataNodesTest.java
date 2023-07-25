@@ -110,9 +110,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private static final Set<LogicalNode> THREE_NODES = Set.of(NODE_0, NODE_1, NODE_2);
     private static final Set<String> THREE_NODES_NAMES = Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name());
 
-    private static final Set<LogicalNode> FOUR_NODES = Set.of(NODE_0, NODE_1, NODE_2, NODE_3);
-    private static final Set<String> FOUR_NODES_NAMES = Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name(), NODE_3.name());
-
     /**
      * Contains futures that is completed when the topology watch listener receive the event with expected logical topology.
      * Mapping of node names -> future with event revision.
@@ -159,7 +156,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     @BeforeEach
     void beforeEach() {
         metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), createMetastorageTopologyListener());
-
         metaStorageManager.registerPrefixWatch(zonesDataNodesPrefix(), createMetastorageDataNodesListener());
 
         ConfigurationNamedListListener<DistributionZoneView> zonesConfigurationListener = new ZonesConfigurationListener();
@@ -210,21 +206,18 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Create logical topology with NODE_0 and NODE_1.
         topology.putNode(NODE_0);
 
-        Set<LogicalNode> twoNodes1 = Set.of(NODE_0, NODE_1);
-        Set<String> twoNodesNames1 = Set.of(NODE_0.name(), NODE_1.name());
-
-        CompletableFuture<Long> dataNodesUpdateRevision = getZoneDataNodesRevision(ZONE_ID_2, twoNodes1);
+        CompletableFuture<Long> dataNodesUpdateRevision = getZoneDataNodesRevision(ZONE_ID_2, TWO_NODES);
 
         // Check that data nodes value of both zone is NODE_0 and NODE_1.
-        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes1);
+        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
         Set<String> dataNodes0 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
-        assertEquals(twoNodesNames1, dataNodes0);
+        assertEquals(TWO_NODES_NAMES, dataNodes0);
 
         long dataNodesRevisionZone = dataNodesUpdateRevision.get(3, SECONDS);
 
         Set<String> dataNodes1 = getDataNodesFromListener(dataNodesRevisionZone, ZONE_ID_2);
-        assertEquals(twoNodesNames1, dataNodes1);
+        assertEquals(TWO_NODES_NAMES, dataNodes1);
 
         // Test steps.
 
@@ -242,7 +235,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Check that data nodes value of the zone with not immediate timers with the topology update revision is NODE_0 and NODE_1.
         Set<String> dataNodes4 = getDataNodesFromListener(topologyRevision2, ZONE_ID_2);
-        assertEquals(twoNodesNames1, dataNodes4);
+        assertEquals(TWO_NODES_NAMES, dataNodes4);
 
         // Check that data nodes value of the zone with not immediate timers with the data nodes update revision is NODE_0 and NODE_2.
         dataNodesRevisionZone = dataNodesUpdateRevision.get(5, SECONDS);
@@ -281,17 +274,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Create logical topology with NODE_0 and NODE_1.
         topology.putNode(NODE_0);
 
-        Set<LogicalNode> twoNodes1 = Set.of(NODE_0, NODE_1);
-        Set<String> twoNodesNames1 = Set.of(NODE_0.name(), NODE_1.name());
-
         // Check that data nodes value of both zone is NODE_0 and NODE_1.
-        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes1);
+        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
         Set<String> dataNodes0 = getDataNodesFromListener(topologyRevision1, DEFAULT_ZONE_ID);
-        assertEquals(twoNodesNames1, dataNodes0);
+        assertEquals(TWO_NODES_NAMES, dataNodes0);
 
         Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
-        assertEquals(twoNodesNames1, dataNodes1);
+        assertEquals(TWO_NODES_NAMES, dataNodes1);
 
         // Alter zones with not immediate scale up timer.
         distributionZoneManager.alterZone(ZONE_NAME_1,
@@ -322,13 +312,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long topologyRevision2 = fireTopologyLeapAndGetRevision(twoNodes2);
 
         // Check that data nodes value of zones is NODE_0 because scale up timer has not fired yet.
-        Set<String> oneNodeNames = Set.of(NODE_0.name());
-
         Set<String> dataNodes2 = getDataNodesFromListener(topologyRevision2, DEFAULT_ZONE_ID);
-        assertEquals(oneNodeNames, dataNodes2);
+        assertEquals(ONE_NODE_NAME, dataNodes2);
 
         Set<String> dataNodes3 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
-        assertEquals(oneNodeNames, dataNodes3);
+        assertEquals(ONE_NODE_NAME, dataNodes3);
 
         // Check that data nodes value of zones is NODE_0 and NODE_2.
         long dataNodesRevisionZone0 = dataNodesUpdateRevision0.get(3, SECONDS);
@@ -371,17 +359,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Create logical topology with NODE_0 and NODE_1.
         topology.putNode(NODE_0);
 
-        Set<LogicalNode> twoNodes1 = Set.of(NODE_0, NODE_1);
-        Set<String> twoNodesNames1 = Set.of(NODE_0.name(), NODE_1.name());
-
         // Check that data nodes value of both zone is NODE_0 and NODE_1.
-        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes1);
+        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
         Set<String> dataNodes0 = getDataNodesFromListener(topologyRevision1, DEFAULT_ZONE_ID);
-        assertEquals(twoNodesNames1, dataNodes0);
+        assertEquals(TWO_NODES_NAMES, dataNodes0);
 
         Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
-        assertEquals(twoNodesNames1, dataNodes1);
+        assertEquals(TWO_NODES_NAMES, dataNodes1);
 
         // Test steps.
 
@@ -395,14 +380,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long topologyRevision2 = fireTopologyLeapAndGetRevision(twoNodes2);
 
         // Check that data nodes value of zones is NODE_0, NODE_1 and NODE_2 because scale down timer has not fired yet.
-        Set<LogicalNode> threeNodes = Set.of(NODE_0, NODE_1, NODE_2);
-        Set<String> threeNodesNames = Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name());
-
         Set<String> dataNodes2 = getDataNodesFromListener(topologyRevision2, DEFAULT_ZONE_ID);
-        assertEquals(threeNodesNames, dataNodes2);
+        assertEquals(THREE_NODES_NAMES, dataNodes2);
 
         Set<String> dataNodes3 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
-        assertEquals(threeNodesNames, dataNodes3);
+        assertEquals(THREE_NODES_NAMES, dataNodes3);
 
         // Check that data nodes value of zones is NODE_0 and NODE_2.
         long dataNodesRevisionZone0 = dataNodesUpdateRevision0.get(3, SECONDS);
@@ -433,14 +415,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 .get(3, SECONDS);
 
         // Create logical topology with NODE_0.
-        Set<LogicalNode> oneNode = Set.of(NODE_0);
-        Set<String> oneNodeName = Set.of(NODE_0.name());
-
-        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, oneNode);
+        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, ONE_NODE);
 
         // Check that data nodes value of the the zone is NODE_0.
         Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
-        assertEquals(oneNodeName, dataNodes1);
+        assertEquals(ONE_NODE_NAME, dataNodes1);
 
         // Changes a scale up timer to not immediate.
         distributionZoneManager.alterZone(
@@ -455,21 +434,18 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Test steps.
 
         // Change logical topology. NODE_1 is added.
-        Set<LogicalNode> twoNodes = Set.of(NODE_0, NODE_1);
-        Set<String> twoNodesNames = Set.of(NODE_0.name(), NODE_1.name());
-
-        long topologyRevision2 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes);
+        long topologyRevision2 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 because scale up timer has not fired yet.
         Set<String> dataNodes2 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
-        assertEquals(oneNodeName, dataNodes2);
+        assertEquals(ONE_NODE_NAME, dataNodes2);
 
         // Change scale up value to immediate.
         long scaleUpRevision = alterZoneScaleUpAndGetRevision(ZONE_NAME_1, IMMEDIATE_TIMER_VALUE);
 
         // Check that data nodes value of the zone with the scale up update revision is NODE_0 and NODE_1.
         Set<String> dataNodes3 = getDataNodesFromListener(scaleUpRevision, ZONE_ID_1);
-        assertEquals(twoNodesNames, dataNodes3);
+        assertEquals(TWO_NODES_NAMES, dataNodes3);
     }
 
     /**
@@ -493,34 +469,28 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Create logical topology with NODE_0 and NODE_1.
         topology.putNode(NODE_0);
 
-        Set<LogicalNode> twoNodes = Set.of(NODE_0, NODE_1);
-        Set<String> twoNodesNames = Set.of(NODE_0.name(), NODE_1.name());
-
-        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes);
+        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
         // Check that data nodes value of the the zone is NODE_0 and NODE_1.
         Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
-        assertEquals(twoNodesNames, dataNodes1);
+        assertEquals(TWO_NODES_NAMES, dataNodes1);
 
         // Test steps.
 
         // Change logical topology. NODE_1 is left.
-        Set<LogicalNode> oneNode = Set.of(NODE_0);
-        Set<String> oneNodeName = Set.of(NODE_0.name());
-
-        long topologyRevision2 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), oneNode);
+        long topologyRevision2 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), ONE_NODE);
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 and NODE_1
         // because scale down timer has not fired yet.
         Set<String> dataNodes2 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
-        assertEquals(twoNodesNames, dataNodes2);
+        assertEquals(TWO_NODES_NAMES, dataNodes2);
 
         // Change scale down value to immediate.
         long scaleDownRevision = alterZoneScaleDownAndGetRevision(ZONE_NAME_1, IMMEDIATE_TIMER_VALUE);
 
         // Check that data nodes value of the zone with the scale down update revision is NODE_0.
         Set<String> dataNodes3 = getDataNodesFromListener(scaleDownRevision, ZONE_ID_1);
-        assertEquals(oneNodeName, dataNodes3);
+        assertEquals(ONE_NODE_NAME, dataNodes3);
     }
 
     /**
@@ -541,15 +511,12 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 )
                 .get(3, SECONDS);
 
-        Set<LogicalNode> oneNode = Set.of(NODE_0);
-        Set<String> oneNodeName = Set.of(NODE_0.name());
-
         // Create logical topology with NODE_0.
-        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, Set.of(NODE_0));
+        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, ONE_NODE);
 
         // Check that data nodes value of the zone is NODE_0.
         Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
-        assertEquals(oneNodeName, dataNodes1);
+        assertEquals(ONE_NODE_NAME, dataNodes1);
 
         // Alter the zones with not immediate scale up timer.
         distributionZoneManager.alterZone(ZONE_NAME_1,
@@ -563,16 +530,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Test steps.
 
         // Change logical topology. NODE_1 is added.
-        Set<LogicalNode> twoNodes = Set.of(NODE_0, NODE_1);
-        Set<String> twoNodesNames = Set.of(NODE_0.name(), NODE_1.name());
-
-        long topologyRevision2 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes);
+        long topologyRevision2 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
         assertValueInStorage(
                 metaStorageManager,
                 zoneDataNodesKey(ZONE_ID_1),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                oneNodeName,
+                ONE_NODE_NAME,
                 3000
         );
 
@@ -580,7 +544,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 because scale up timer has not fired.
         Set<String> dataNodes3 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
-        assertEquals(oneNodeName, dataNodes3);
+        assertEquals(ONE_NODE_NAME, dataNodes3);
 
         // Check that zones is removed and attempt to get data nodes throws an exception.
         assertThrowsWithCause(() -> distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1), DistributionZoneNotFoundException.class);
@@ -607,28 +571,22 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Create logical topology with NODE_0 and NODE_1.
         topology.putNode(NODE_0);
 
-        Set<LogicalNode> twoNodes = Set.of(NODE_0, NODE_1);
-        Set<String> twoNodesNames = Set.of(NODE_0.name(), NODE_1.name());
-
-        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes);
+        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
         // Check that data nodes value of the the zone is NODE_0 and NODE_1.
         Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
-        assertEquals(twoNodesNames, dataNodes1);
+        assertEquals(TWO_NODES_NAMES, dataNodes1);
 
         // Test steps.
 
         // Change logical topology. NODE_1 is removed.
-        Set<LogicalNode> oneNode = Set.of(NODE_0);
-        Set<String> oneNodeName = Set.of(NODE_0.name());
-
-        long topologyRevision2 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), oneNode);
+        long topologyRevision2 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), ONE_NODE);
 
         assertValueInStorage(
                 metaStorageManager,
                 zoneDataNodesKey(ZONE_ID_1),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                twoNodesNames,
+                TWO_NODES_NAMES,
                 3000
         );
 
@@ -636,8 +594,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 and NODE_1
         // because scale down timer has not fired.
-        Set<String> dataNodes3 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
-        assertEquals(twoNodesNames, dataNodes3);
+        Set<String> dataNodes2 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
+        assertEquals(TWO_NODES_NAMES, dataNodes2);
 
         // Check that zones is removed and attempt to get data nodes throws an exception.
         assertThrowsWithCause(() -> distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1), DistributionZoneNotFoundException.class);
@@ -671,17 +629,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 .get(3, SECONDS);
 
         // Create logical topology with NODE_0.
-        Set<LogicalNode> oneNode = Set.of(NODE_0);
-        Set<String> oneNodeName = Set.of(NODE_0.name());
-
         // Check that data nodes value of both zone is NODE_0.
-        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, Set.of(NODE_0));
+        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, ONE_NODE);
 
         Set<String> dataNodes0 = getDataNodesFromListener(topologyRevision1, DEFAULT_ZONE_ID);
-        assertEquals(oneNodeName, dataNodes0);
+        assertEquals(ONE_NODE_NAME, dataNodes0);
 
-        Set<String> dataNodesFut1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
-        assertEquals(oneNodeName, dataNodesFut1);
+        Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
+        assertEquals(ONE_NODE_NAME, dataNodes1);
 
         // Alter the zones with infinite timers.
         distributionZoneManager.alterZone(ZONE_NAME_1,
@@ -711,11 +666,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Check that data nodes value of the the zone is NODE_0.
         // The future didn't hang due to the fact that the actual data nodes value did not change.
-        Set<String> dataNodes3 = getDataNodesFromListener(filterRevision0, DEFAULT_ZONE_ID);
-        assertEquals(oneNodeName, dataNodes3);
+        Set<String> dataNodes2 = getDataNodesFromListener(filterRevision0, DEFAULT_ZONE_ID);
+        assertEquals(ONE_NODE_NAME, dataNodes2);
 
-        Set<String> dataNodes4 = getDataNodesFromListener(filterRevision1, ZONE_ID_1);
-        assertEquals(oneNodeName, dataNodes4);
+        Set<String> dataNodes3 = getDataNodesFromListener(filterRevision1, ZONE_ID_1);
+        assertEquals(ONE_NODE_NAME, dataNodes3);
 
     }
 
@@ -726,10 +681,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Create logical topology with NODE_0.
         topology.putNode(NODE_0);
 
-        Set<LogicalNode> oneNode = Set.of(NODE_0);
-        Set<String> oneNodeName = Set.of(NODE_0.name());
-
-        putNodeInLogicalTopologyAndGetRevision(NODE_0, oneNode);
+        putNodeInLogicalTopologyAndGetRevision(NODE_0, ONE_NODE);
 
         // Test steps.
 
@@ -741,8 +693,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 INFINITE_TIMER_VALUE);
 
         // Check that data nodes value of the zone with the create zone revision is NODE_0.
-        Set<String> dataNodes2 = getDataNodesFromListener(createZoneRevision, ZONE_ID_1);
-        assertEquals(oneNodeName, dataNodes2);
+        Set<String> dataNodes1 = getDataNodesFromListener(createZoneRevision, ZONE_ID_1);
+        assertEquals(ONE_NODE_NAME, dataNodes1);
     }
 
     /**
@@ -757,11 +709,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Create logical topology with NODE_0 and NODE_1.
         topology.putNode(NODE_0);
         topology.putNode(NODE_1);
-
-        Set<LogicalNode> oneNode = Set.of(NODE_0);
-        Set<String> oneNodeName = Set.of(NODE_0.name());
-
-        Set<String> twoNodesNames = Set.of(NODE_0.name(), NODE_1.name());
 
         // Test steps.
 
@@ -779,8 +726,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         );
 
         // Check that data nodes value of the zone with the create zone revision is NODE_0 and NODE_1.
-        Set<String> dataNodes2 = getDataNodesFromListener(createZoneRevision, ZONE_ID_1);
-        assertEquals(twoNodesNames, dataNodes2);
+        Set<String> dataNodes = getDataNodesFromListener(createZoneRevision, ZONE_ID_1);
+        assertEquals(TWO_NODES_NAMES, dataNodes);
 
         // Drop the zone.
         long dropZoneRevision = dropZoneAndGetRevision(ZONE_NAME_1);
@@ -831,50 +778,40 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 .get(3, SECONDS);
 
         // Test steps.
-
-        Set<LogicalNode> oneNode = Set.of(NODE_0);
-        Set<String> oneNodeName = Set.of(NODE_0.name());
-
-        Set<LogicalNode> twoNodes = Set.of(NODE_0, NODE_1);
-        Set<String> twoNodesNames = Set.of(NODE_0.name(), NODE_1.name());
-
-        Set<LogicalNode> threeNodes = Set.of(NODE_0, NODE_1, NODE_2);
-        Set<String> threeNodeNames = Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name());
-
         // Change logical topology. NODE_0 is added.
-        long topologyRevision0 = putNodeInLogicalTopologyAndGetRevision(NODE_0, oneNode);
+        long topologyRevision0 = putNodeInLogicalTopologyAndGetRevision(NODE_0, ONE_NODE);
 
         // Change logical topology. NODE_1 is added.
-        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes);
+        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
         Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision0, DEFAULT_ZONE_ID);
-        assertEquals(oneNodeName, dataNodes1);
+        assertEquals(ONE_NODE_NAME, dataNodes1);
         Set<String> dataNodes2 = getDataNodesFromListener(topologyRevision0, ZONE_ID_1);
-        assertEquals(oneNodeName, dataNodes2);
+        assertEquals(ONE_NODE_NAME, dataNodes2);
 
-        Set<String> dataNodes5 = getDataNodesFromListener(topologyRevision1, DEFAULT_ZONE_ID);
-        assertEquals(twoNodesNames, dataNodes5);
-        Set<String> dataNodes6 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
-        assertEquals(twoNodesNames, dataNodes6);
+        Set<String> dataNodes3 = getDataNodesFromListener(topologyRevision1, DEFAULT_ZONE_ID);
+        assertEquals(TWO_NODES_NAMES, dataNodes3);
+        Set<String> dataNodes4 = getDataNodesFromListener(topologyRevision1, ZONE_ID_1);
+        assertEquals(TWO_NODES_NAMES, dataNodes4);
 
         Set<LogicalNode> twoNodes1 = Set.of(NODE_0, NODE_2);
         Set<String> twoNodesNames1 = Set.of(NODE_0.name(), NODE_2.name());
 
         // Change logical topology. NODE_2 is added.
-        long topologyRevision2 = putNodeInLogicalTopologyAndGetRevision(NODE_2, threeNodes);
+        long topologyRevision2 = putNodeInLogicalTopologyAndGetRevision(NODE_2, THREE_NODES);
 
         // Change logical topology. NODE_1 is left.
         long topologyRevision3 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), twoNodes1);
 
-        Set<String> dataNodes7 = getDataNodesFromListener(topologyRevision2, DEFAULT_ZONE_ID);
-        assertEquals(threeNodeNames, dataNodes7);
-        Set<String> dataNodes8 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
-        assertEquals(threeNodeNames, dataNodes8);
+        Set<String> dataNodes5 = getDataNodesFromListener(topologyRevision2, DEFAULT_ZONE_ID);
+        assertEquals(THREE_NODES_NAMES, dataNodes5);
+        Set<String> dataNodes6 = getDataNodesFromListener(topologyRevision2, ZONE_ID_1);
+        assertEquals(THREE_NODES_NAMES, dataNodes6);
 
-        Set<String> dataNodes9 = getDataNodesFromListener(topologyRevision3, DEFAULT_ZONE_ID);
-        assertEquals(twoNodesNames1, dataNodes9);
-        Set<String> dataNodes10 = getDataNodesFromListener(topologyRevision3, ZONE_ID_1);
-        assertEquals(twoNodesNames1, dataNodes10);
+        Set<String> dataNodes7 = getDataNodesFromListener(topologyRevision3, DEFAULT_ZONE_ID);
+        assertEquals(twoNodesNames1, dataNodes7);
+        Set<String> dataNodes8 = getDataNodesFromListener(topologyRevision3, ZONE_ID_1);
+        assertEquals(twoNodesNames1, dataNodes8);
     }
 
     @Test
@@ -969,19 +906,18 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 .get(3, SECONDS);
 
         Set<LogicalNode> oneNode = Set.of(NODE_0);
-        Set<String> oneNodeName = Set.of(NODE_0.name());
 
         // Change logical topology. NODE_0 is added.
         long topologyRevision0 = putNodeInLogicalTopologyAndGetRevision(NODE_0, oneNode);
 
         Set<String> dataNodes1 = getDataNodesFromListener(topologyRevision0, DEFAULT_ZONE_ID);
-        assertEquals(oneNodeName, dataNodes1);
+        assertEquals(ONE_NODE_NAME, dataNodes1);
         Set<String> dataNodes2 = getDataNodesFromListener(topologyRevision0, ZONE_ID_1);
-        assertEquals(oneNodeName, dataNodes2);
+        assertEquals(ONE_NODE_NAME, dataNodes2);
         Set<String> dataNodes3 = getDataNodesFromListener(topologyRevision0, ZONE_ID_2);
-        assertEquals(oneNodeName, dataNodes3);
+        assertEquals(ONE_NODE_NAME, dataNodes3);
         Set<String> dataNodes4 = getDataNodesFromListener(topologyRevision0, ZONE_ID_3);
-        assertEquals(oneNodeName, dataNodes4);
+        assertEquals(ONE_NODE_NAME, dataNodes4);
     }
 
     /**
