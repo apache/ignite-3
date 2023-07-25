@@ -27,8 +27,8 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
 
 /**
@@ -41,7 +41,7 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
     @Parameters(description = NODE_URL_OR_NAME_DESC, descriptionKey = CLUSTER_URL_KEY)
     private NodeNameOrUrl nodeNameOrUrl;
 
-    @Mixin
+    @ArgGroup(exclusive = false)
     private ConnectOptions connectOptions;
 
     @Inject
@@ -55,7 +55,7 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
     public void run() {
         question.askQuestionIfConnected(nodeNameOrUrl.stringUrl())
                 .map(url -> ConnectCallInput.builder()
-                        .url(url)
+                        .url(nodeNameOrUrl.stringUrl())
                         .username(connectOptions.username())
                         .password(connectOptions.password())
                         .build())
