@@ -125,6 +125,7 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
      * @param params Event parameters.
      * @return Completable future which is completed when event handling is complete.
      */
+    // TODO: IGNITE-19500 вернуть как в мастере
     public  CompletableFuture<?> fireEvent(T evt, P params) {
         return fireEvent(evt, params, null);
     }

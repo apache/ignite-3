@@ -78,7 +78,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.opentest4j.AssertionFailedError;
 
 /**
  * Tests to check a scan internal command.
@@ -749,7 +748,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                 .filter(index -> SORTED_IDX.equalsIgnoreCase(index.name()))
                 .mapToInt(CatalogObjectDescriptor::id)
                 .findFirst()
-                .orElseThrow(() -> new AssertionFailedError(SORTED_IDX + " not found"));
+                .getAsInt();
     }
 
     /**

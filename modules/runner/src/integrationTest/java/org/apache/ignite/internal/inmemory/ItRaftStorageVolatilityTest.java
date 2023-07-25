@@ -231,8 +231,13 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createTableWithMaxOneInMemoryEntryAllowed(String tableName) {
-        executeSql("CREATE ZONE ZONE1 ENGINE aimem");
+        String zoneName = "zone1";
 
-        executeSql("CREATE TABLE " + tableName + " (id int, name varchar, CONSTRAINT PK PRIMARY KEY (id)) WITH PRIMARY_ZONE='ZONE1'");
+        executeSql(String.format("CREATE ZONE \"%s\" ENGINE aimem", zoneName));
+
+        executeSql(String.format(
+                "CREATE TABLE \"%s\"(id INTEGER PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='%s'",
+                tableName, zoneName
+        ));
     }
 }

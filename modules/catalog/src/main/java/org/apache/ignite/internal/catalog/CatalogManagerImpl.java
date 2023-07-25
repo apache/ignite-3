@@ -209,7 +209,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     @Override
-    public CatalogIndexDescriptor index(int indexId, long timestamp) {
+    public @Nullable CatalogIndexDescriptor index(int indexId, long timestamp) {
         return catalogAt(timestamp).index(indexId);
     }
 
