@@ -15,31 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.streamer;
-
-import org.apache.ignite.Ignite;
-import org.apache.ignite.client.IgniteClient;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+package org.apache.ignite.internal.client.proto;
 
 /**
- * Integration test for client-side data streamer API.
+ * Error data extensions. When the server returns an error response, it may contain additional data in a map. Keys are defined here.
  */
-public class ItClientDataStreamerTest extends ItAbstractDataStreamerTest {
-    private static IgniteClient client;
-
-    @BeforeAll
-    public static void startClient() {
-        client = IgniteClient.builder().addresses("localhost").build();
-    }
-
-    @AfterAll
-    public static void stopClient() throws Exception {
-        client.close();
-    }
-
-    @Override
-    Ignite ignite() {
-        return client;
-    }
+public class ErrorExtensions {
+    public static final String EXPECTED_SCHEMA_VERSION = "expected-schema-ver";
 }

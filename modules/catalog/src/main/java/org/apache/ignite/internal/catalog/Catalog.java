@@ -120,6 +120,10 @@ public class Catalog {
         return tablesById.get(tableId);
     }
 
+    public Collection<CatalogTableDescriptor> tables() {
+        return tablesById.values();
+    }
+
     public @Nullable CatalogIndexDescriptor index(int indexId) {
         return indexesById.get(indexId);
     }

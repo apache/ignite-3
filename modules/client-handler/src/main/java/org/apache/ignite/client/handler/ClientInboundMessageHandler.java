@@ -86,6 +86,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.ErrorExtensions;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
@@ -95,6 +96,7 @@ import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.security.authentication.AnonymousRequest;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
@@ -396,6 +398,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
         err = ExceptionUtils.unwrapCause(err);
 
+        // Trace ID and error code.
         if (err instanceof TraceableException) {
             TraceableException iex = (TraceableException) err;
             packer.packUuid(iex.traceId());
@@ -405,20 +408,24 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             packer.packInt(INTERNAL_ERR);
         }
 
+        // Class name and message.
         packer.packString(err.getClass().getName());
+        packer.packString(err.getMessage());
 
-        String msg = err.getMessage();
-
-        if (msg == null) {
-            packer.packNil();
-        } else {
-            packer.packString(msg);
-        }
-
+        // Stack trace.
         if (configuration.sendServerExceptionStackTraceToClient()) {
             packer.packString(ExceptionUtils.getFullStackTrace(err));
         } else {
             packer.packNil();
+        }
+
+        // Extensions.
+        if (err instanceof SchemaVersionMismatchException) {
+            packer.packMapHeader(1);
+            packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
+            packer.packInt(((SchemaVersionMismatchException) err).expectedVersion());
+        } else {
+            packer.packNil(); // No extensions.
         }
     }
 

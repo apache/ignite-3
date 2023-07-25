@@ -36,7 +36,6 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>TBD: events
  */
-// TODO: IGNITE-19500 написать тесты для новых методов
 public interface CatalogService {
     String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
@@ -47,6 +46,8 @@ public interface CatalogService {
     @Nullable CatalogTableDescriptor table(int tableId, long timestamp);
 
     @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion);
+
+    Collection<CatalogTableDescriptor> tables(int catalogVersion);
 
     @Nullable CatalogIndexDescriptor index(String indexName, long timestamp);
 
@@ -70,6 +71,11 @@ public interface CatalogService {
 
     int activeCatalogVersion(long timestamp);
 
+    /**
+     * Returns the latest registered version of the catalog.
+     *
+     * <p>NOTE: This method should only be used at the start of components that may be removed or moved in the future.
+     */
     int latestCatalogVersion();
 
     void listen(CatalogEvent evt, EventListener<CatalogEventParameters> closure);

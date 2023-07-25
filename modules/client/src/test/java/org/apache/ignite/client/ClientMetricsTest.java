@@ -35,6 +35,7 @@ import org.apache.ignite.client.fakes.FakeSession;
 import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -49,6 +50,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class ClientMetricsTest {
     private TestServer server;
     private IgniteClient client;
+
+    @AfterEach
+    public void afterEach() throws Exception {
+        IgniteUtils.closeAll(client, server);
+    }
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
@@ -227,35 +233,24 @@ public class ClientMetricsTest {
         Table table = oneColumnTable();
         CompletableFuture<Void> streamerFut;
 
-        var publisher = new SubmissionPublisher<Tuple>(ForkJoinPool.commonPool(), 1);
-        streamerFut = table.recordView().streamData(publisher, null);
+        try (var publisher = new SubmissionPublisher<Tuple>(ForkJoinPool.commonPool(), 1)) {
+            streamerFut = table.recordView().streamData(publisher, null);
 
-        publisher.submit(Tuple.create().set("ID", "1"));
-        publisher.submit(Tuple.create().set("ID", "2"));
+            publisher.submit(Tuple.create().set("ID", "1"));
+            publisher.submit(Tuple.create().set("ID", "2"));
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> metrics().streamerItemsQueued() == 2, 1000));
-        assertEquals(0, metrics().streamerItemsSent());
-        assertEquals(0, metrics().streamerBatchesSent());
-        assertEquals(0, metrics().streamerBatchesActive());
+            assertTrue(IgniteTestUtils.waitForCondition(() -> metrics().streamerItemsQueued() == 2, 1000));
+            assertEquals(0, metrics().streamerItemsSent());
+            assertEquals(0, metrics().streamerBatchesSent());
+            assertEquals(0, metrics().streamerBatchesActive());
+        }
 
-        publisher.close();
         streamerFut.orTimeout(3, TimeUnit.SECONDS).join();
 
         assertEquals(2, metrics().streamerItemsSent());
         assertEquals(1, metrics().streamerBatchesSent());
         assertEquals(0, metrics().streamerBatchesActive());
         assertEquals(0, metrics().streamerItemsQueued());
-    }
-
-    @AfterEach
-    public void afterAll() throws Exception {
-        if (client != null) {
-            client.close();
-        }
-
-        if (server != null) {
-            server.close();
-        }
     }
 
     private Table oneColumnTable() {
