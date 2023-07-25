@@ -184,7 +184,7 @@ class JdbcQueryEventHandlerImplTest {
         )));
 
         verify(queryProcessor).createSession(any());
-        verify(queryProcessor).querySingleAsync(eq(expectedSessionId), any(), any(), any());
+        verify(queryProcessor).querySingleAsync(eq(expectedSessionId), any(), any(), any(Object[].class));
         verifyNoMoreInteractions(queryProcessor);
     }
 
@@ -272,7 +272,7 @@ class JdbcQueryEventHandlerImplTest {
         verify(tx).commitAsync();
 
         verifyNoMoreInteractions(igniteTransactions);
-        verify(queryProcessor, times(5)).querySingleAsync(any(), any(), any(), any());
+        verify(queryProcessor, times(5)).querySingleAsync(any(), any(), any(), any(Object[].class));
     }
 
     @Test

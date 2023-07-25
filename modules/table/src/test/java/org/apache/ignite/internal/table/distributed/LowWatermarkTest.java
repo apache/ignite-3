@@ -32,6 +32,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -141,7 +142,7 @@ public class LowWatermarkTest {
 
         inOrder.verify(txManager).updateLowWatermark(newLowWatermarkCandidate);
 
-        inOrder.verify(vaultManager).put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(newLowWatermarkCandidate));
+        inOrder.verify(vaultManager, timeout(1000)).put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(newLowWatermarkCandidate));
 
         inOrder.verify(mvGc).updateLowWatermark(newLowWatermarkCandidate);
 

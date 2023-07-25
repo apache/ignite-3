@@ -182,7 +182,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
             CompletableFuture<Boolean> deployed = node.deployment().deployAsync(
                     unitId,
                     unitVersion,
-                    CompletableFuture.completedFuture(() -> Map.of(jarName, jarStream)),
+                    new org.apache.ignite.internal.deployunit.DeploymentUnit(Map.of(jarName, jarStream)),
                     new NodesToDeploy(MAJORITY)
             );
 
