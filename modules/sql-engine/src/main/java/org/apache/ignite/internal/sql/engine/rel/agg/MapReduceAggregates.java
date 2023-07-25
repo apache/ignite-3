@@ -99,6 +99,7 @@ public class MapReduceAggregates {
         // REDUCE [c1, c2, agg1, agg2]
 
         // Creates a list of descriptors for map/reduce version of the given arguments.
+        // This list is later used to create MAP/REDUCE version for each aggregate.
 
         List<AggregateCall> mapAggCalls = new ArrayList<>(agg.getAggCallList().size());
 
