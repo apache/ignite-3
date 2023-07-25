@@ -438,8 +438,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Tuple t1 = Tuple.create().set("ID", 1L);
         Tuple t2 = Tuple.create().set("ID", 2L);
 
-        assertEquals(nodeKey1, compute().executeColocated(table.name(), t1, List.of(), "job").join());
-        assertEquals(nodeKey2, compute().executeColocated(table.name(), t2, List.of(), "job").join());
+        assertEquals(nodeKey1, compute().executeColocatedAsync(table.name(), t1, List.of(), "job").join());
+        assertEquals(nodeKey2, compute().executeColocatedAsync(table.name(), t2, List.of(), "job").join());
     }
 
     @Test
@@ -447,8 +447,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         var mapper = Mapper.of(Long.class);
         Table table = defaultTable();
 
-        assertEquals(nodeKey1, compute().executeColocated(table.name(), 1L, mapper, List.of(), "job").join());
-        assertEquals(nodeKey2, compute().executeColocated(table.name(), 2L, mapper, List.of(), "job").join());
+        assertEquals(nodeKey1, compute().executeColocatedAsync(table.name(), 1L, mapper, List.of(), "job").join());
+        assertEquals(nodeKey2, compute().executeColocatedAsync(table.name(), 2L, mapper, List.of(), "job").join());
     }
 
     @Test
