@@ -66,7 +66,7 @@ public class MapReduceAggregates {
     );
 
     /** Creates an expression that returns a value of {@code args.get(0)} field of its input. */
-    private static final MakeReduceExpr USE_INPUT = (rexBuilder, input, args, typeFactory) -> rexBuilder.makeInputRef(input, args.get(0));
+    private static final MakeReduceExpr USE_INPUT_FIELD = (rexBuilder, input, args, typeFactory) -> rexBuilder.makeInputRef(input, args.get(0));
 
     private MapReduceAggregates() {
 
@@ -163,7 +163,7 @@ public class MapReduceAggregates {
             MakeReduceExpr projectionExpr = mapReduceAgg.makeReduceExpr;
             projection.add(new SimpleEntry<>(argList, projectionExpr));
 
-            if (projectionExpr != USE_INPUT) {
+            if (projectionExpr != USE_INPUT_FIELD) {
                 sameAggsForBothPhases = false;
             }
         }
@@ -328,7 +328,7 @@ public class MapReduceAggregates {
 
         // For aggregate that use the same aggregate function for both MAP and REDUCE phases
         // use the result of an aggregate as is.
-        return new MapReduceAgg(argList, call, reduceCall, USE_INPUT);
+        return new MapReduceAgg(argList, call, reduceCall, USE_INPUT_FIELD);
     }
 
     @FunctionalInterface
