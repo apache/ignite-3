@@ -26,6 +26,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Schema definition contains database schema objects.
@@ -74,11 +75,11 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
         return indexes;
     }
 
-    public CatalogTableDescriptor table(String name) {
+    public @Nullable CatalogTableDescriptor table(String name) {
         return tablesMap.get(name);
     }
 
-    public CatalogIndexDescriptor index(String name) {
+    public @Nullable CatalogIndexDescriptor index(String name) {
         return indexesMap.get(name);
     }
 
