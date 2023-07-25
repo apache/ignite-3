@@ -89,14 +89,11 @@ public class MapReduceAggregates {
     public static IgniteRel buildAggregates(LogicalAggregate agg, AggregateRelBuilder builder,
             RelTraitSet inTrait, RelTraitSet outTrait) {
 
-        List<MapReduceAgg> mapReduceAggs = new ArrayList<>(agg.getAggCallList().size());
-        // groupSet include all columns from GROUP BY/GROUPING SETS clauses.
-        int argumentOffset = agg.getGroupSet().cardinality();
-
         //
         // To implement MAP/REDUCE aggregate, LogicalAggregate is transformed into
-        // a MapRelNode,a  ReduceRelNode, and an optional ProjectNode (some aggregate can be split into multiple ones,
-        // or require some additional work after REDUCE phase, to combine the results).
+        // a map aggregate node, a reduce aggregate node, and an optional project node
+        // (since some aggregate can be split into multiple ones, or require some additional work after REDUCE phase,
+        // to combine the results).
         //
         // SELECT c1, MIN(c2), COUNT(c3) FROM test GROUP BY c1, c2
         //
@@ -112,6 +109,10 @@ public class MapReduceAggregates {
 
         // Create a list of descriptors for map/reduce version of the given arguments.
         // This list is later used to create MAP/REDUCE version for each aggregate.
+
+        List<MapReduceAgg> mapReduceAggs = new ArrayList<>(agg.getAggCallList().size());
+        // groupSet include all columns from GROUP BY/GROUPING SETS clauses.
+        int argumentOffset = agg.getGroupSet().cardinality();
 
         List<AggregateCall> mapAggCalls = new ArrayList<>(agg.getAggCallList().size());
 
