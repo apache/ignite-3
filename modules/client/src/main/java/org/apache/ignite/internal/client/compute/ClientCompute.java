@@ -78,7 +78,7 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Args args) {
+    public <R> CompletableFuture<R> executeAsync(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Args args) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
@@ -94,7 +94,7 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> executeColocated(
+    public <R> CompletableFuture<R> executeColocatedAsync(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
@@ -112,13 +112,13 @@ public class ClientCompute implements IgniteCompute {
                 .thenCompose(r ->
                         // If a table was dropped, try again: maybe a new table was created with the same name and new id.
                         r == MISSING_TABLE_TOKEN
-                                ? executeColocated(tableName, key, units, jobClassName, args)
+                                ? executeColocatedAsync(tableName, key, units, jobClassName, args)
                                 : CompletableFuture.completedFuture(r));
     }
 
     /** {@inheritDoc} */
     @Override
-    public <K, R> CompletableFuture<R> executeColocated(
+    public <K, R> CompletableFuture<R> executeColocatedAsync(
             String tableName,
             K key,
             Mapper<K> keyMapper,
@@ -138,13 +138,13 @@ public class ClientCompute implements IgniteCompute {
                 .thenCompose(r ->
                         // If a table was dropped, try again: maybe a new table was created with the same name and new id.
                         r == MISSING_TABLE_TOKEN
-                                ? executeColocated(tableName, key, keyMapper, units, jobClassName, args)
+                                ? executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, args)
                                 : CompletableFuture.completedFuture(r));
     }
 
     /** {@inheritDoc} */
     @Override
-    public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(
+    public <R> Map<ClusterNode, CompletableFuture<R>> broadcastAsync(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,

@@ -63,6 +63,7 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Thin client compute integration test.
@@ -89,8 +90,17 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnSpecificNode() {
-        String res1 = client().compute().<String>execute(Set.of(node(0)), List.of(), NodeNameJob.class.getName()).join();
-        String res2 = client().compute().<String>execute(Set.of(node(1)), List.of(), NodeNameJob.class.getName()).join();
+        String res1 = client().compute().execute(Set.of(node(0)), List.of(), NodeNameJob.class.getName());
+        String res2 = client().compute().execute(Set.of(node(1)), List.of(), NodeNameJob.class.getName());
+
+        assertEquals("itcct_n_3344", res1);
+        assertEquals("itcct_n_3345", res2);
+    }
+
+    @Test
+    void testExecuteOnSpecificNodeAsync() {
+        String res1 = client().compute().<String>executeAsync(Set.of(node(0)), List.of(), NodeNameJob.class.getName()).join();
+        String res2 = client().compute().<String>executeAsync(Set.of(node(1)), List.of(), NodeNameJob.class.getName()).join();
 
         assertEquals("itcct_n_3344", res1);
         assertEquals("itcct_n_3345", res2);
@@ -98,14 +108,21 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnRandomNode() {
-        String res = client().compute().<String>execute(new HashSet<>(sortedNodes()), List.of(), NodeNameJob.class.getName()).join();
+        String res = client().compute().execute(new HashSet<>(sortedNodes()), List.of(), NodeNameJob.class.getName());
+
+        assertTrue(Set.of("itcct_n_3344", "itcct_n_3345").contains(res));
+    }
+
+    @Test
+    void testExecuteOnRandomNodeAsync() {
+        String res = client().compute().<String>executeAsync(new HashSet<>(sortedNodes()), List.of(), NodeNameJob.class.getName()).join();
 
         assertTrue(Set.of("itcct_n_3344", "itcct_n_3345").contains(res));
     }
 
     @Test
     void testBroadcastOneNode() {
-        Map<ClusterNode, CompletableFuture<String>> futuresPerNode = client().compute().broadcast(
+        Map<ClusterNode, CompletableFuture<String>> futuresPerNode = client().compute().broadcastAsync(
                 Set.of(node(1)),
                 List.of(),
                 NodeNameJob.class.getName(),
@@ -121,7 +138,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testBroadcastAllNodes() {
-        Map<ClusterNode, CompletableFuture<String>> futuresPerNode = client().compute().broadcast(
+        Map<ClusterNode, CompletableFuture<String>> futuresPerNode = client().compute().broadcastAsync(
                 new HashSet<>(sortedNodes()),
                 List.of(),
                 NodeNameJob.class.getName(),
@@ -140,18 +157,29 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteWithArgs() {
         var nodes = new HashSet<>(client().clusterNodes());
-        String res = client().compute().<String>execute(nodes, List.of(), ConcatJob.class.getName(), PojoArgs.fromArray(1, "2", 3.3)).join();
+        String res = client().compute().<String>executeAsync(nodes, List.of(), ConcatJob.class.getName(), PojoArgs.fromArray(1, "2", 3.3)).join();
 
         assertEquals("1_2_3.3", res);
     }
 
-    @Test
-    void testIgniteExceptionInJobPropagatesToClientWithMessageAndCodeAndTraceId() {
-        CompletionException ex = assertThrows(
-                CompletionException.class,
-                () ->  client().compute().<String>execute(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName()).join());
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testIgniteExceptionInJobPropagatesToClientWithMessageAndCodeAndTraceId(boolean async) {
+        IgniteException cause;
 
-        var cause = (IgniteException) ex.getCause();
+        if (async) {
+            CompletionException ex = assertThrows(
+                    CompletionException.class,
+                    () -> client().compute().<String>executeAsync(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName()).join());
+
+            cause = (IgniteException) ex.getCause();
+        } else {
+            IgniteException ex = assertThrows(
+                    IgniteException.class,
+                    () -> client().compute().<String>execute(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName()));
+
+            cause = (IgniteException) ex.getCause();
+        }
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
         assertEquals(TRACE_ID, cause.traceId());
@@ -160,27 +188,49 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertNull(cause.getCause()); // No stack trace by default.
     }
 
-    @Test
-    void testExceptionInJobPropagatesToClientWithClassAndMessage() {
-        CompletionException ex = assertThrows(
-                CompletionException.class,
-                () ->  client().compute().<String>execute(Set.of(node(0)), List.of(), ExceptionJob.class.getName()).join());
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testExceptionInJobPropagatesToClientWithClassAndMessage(boolean async) {
+        IgniteException cause;
 
-        var cause = (IgniteException) ex.getCause();
+        if (async) {
+            CompletionException ex = assertThrows(
+                    CompletionException.class,
+                    () -> client().compute().<String>executeAsync(Set.of(node(0)), List.of(), ExceptionJob.class.getName()).join());
+
+            cause = (IgniteException) ex.getCause();
+        } else {
+            IgniteException ex = assertThrows(
+                    IgniteException.class,
+                    () -> client().compute().<String>execute(Set.of(node(0)), List.of(), ExceptionJob.class.getName()));
+
+            cause = (IgniteException) ex.getCause();
+        }
 
         assertThat(cause.getMessage(), containsString("ArithmeticException: math err"));
         assertEquals(INTERNAL_ERR, cause.code());
         assertNull(cause.getCause()); // No stack trace by default.
     }
 
-    @Test
-    void testExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace(boolean async) {
         // Second node has sendServerExceptionStackTraceToClient enabled.
-        CompletionException ex = assertThrows(
-                CompletionException.class,
-                () ->  client().compute().execute(Set.of(node(1)), List.of(), ExceptionJob.class.getName()).join());
+        IgniteException cause;
 
-        var cause = (IgniteException) ex.getCause();
+        if (async) {
+            CompletionException ex = assertThrows(
+                    CompletionException.class,
+                    () -> client().compute().executeAsync(Set.of(node(1)), List.of(), ExceptionJob.class.getName()).join());
+
+            cause = (IgniteException) ex.getCause();
+        } else {
+            IgniteException ex = assertThrows(
+                    IgniteException.class,
+                    () -> client().compute().execute(Set.of(node(1)), List.of(), ExceptionJob.class.getName()));
+
+            cause = (IgniteException) ex.getCause();
+        }
 
         assertThat(cause.getMessage(), containsString("ArithmeticException: math err"));
         assertEquals(INTERNAL_ERR, cause.code());
@@ -198,8 +248,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var keyTuple = Tuple.create().set(COLUMN_KEY, key);
         var keyPojo = new TestPojo(key);
 
-        String tupleRes = client().compute().<String>executeColocated(table, keyTuple, List.of(), NodeNameJob.class.getName()).join();
-        String pojoRes = client().compute().<TestPojo, String>executeColocated(
+        String tupleRes = client().compute().<String>executeColocatedAsync(table, keyTuple, List.of(), NodeNameJob.class.getName()).join();
+        String pojoRes = client().compute().<TestPojo, String>executeColocatedAsync(
                 table,
                 keyPojo,
                 Mapper.of(TestPojo.class),
@@ -216,7 +266,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testExecuteOnUnknownUnitWithLatestVersionThrows() {
         CompletionException ex = assertThrows(
                 CompletionException.class,
-                () -> client().compute().<String>execute(
+                () -> client().compute().<String>executeAsync(
                         Set.of(node(0)),
                         List.of(new DeploymentUnit("u", "latest")),
                         NodeNameJob.class.getName()
@@ -233,7 +283,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testExecuteColocatedOnUnknownUnitWithLatestVersionThrows() {
         CompletionException ex = assertThrows(
                 CompletionException.class,
-                () -> client().compute().<String>executeColocated(
+                () -> client().compute().<String>executeColocatedAsync(
                         TABLE_NAME,
                         Tuple.create().set(COLUMN_KEY, 1),
                         List.of(new DeploymentUnit("u", "latest")),
@@ -328,7 +378,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     private void testEchoArg(Object arg) {
-        Object res = client().compute().execute(Set.of(node(0)), List.of(), EchoJob.class.getName(), PojoArgs.fromArray(arg, arg.toString())).join();
+        Object res = client().compute().executeAsync(Set.of(node(0)), List.of(), EchoJob.class.getName(), PojoArgs.fromArray(arg, arg.toString())).join();
 
         if (arg instanceof byte[]) {
             assertArrayEquals((byte[]) arg, (byte[]) res);

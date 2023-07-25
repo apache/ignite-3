@@ -400,6 +400,9 @@ namespace Apache.Ignite.Internal
             string? message = reader.ReadStringNullable();
             string? javaStackTrace = reader.ReadStringNullable();
 
+            // TODO IGNITE-19838 Retry outdated schema error
+            reader.Skip(); // Error extensions.
+
             return ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
         }
 

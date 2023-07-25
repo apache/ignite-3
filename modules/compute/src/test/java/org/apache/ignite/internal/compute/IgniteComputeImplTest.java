@@ -78,7 +78,7 @@ class IgniteComputeImplTest {
         when(computeComponent.executeLocally(testDeploymentUnits, "org.example.SimpleJob", PojoArgs.fromArray("a", 42)))
                 .thenReturn(CompletableFuture.completedFuture("jobResponse"));
 
-        String result = compute.<String>execute(singleton(localNode), testDeploymentUnits, "org.example.SimpleJob", PojoArgs.fromArray("a", 42)).get();
+        String result = compute.<String>executeAsync(singleton(localNode), testDeploymentUnits, "org.example.SimpleJob", PojoArgs.fromArray("a", 42)).get();
 
         assertThat(result, is("jobResponse"));
 
@@ -89,7 +89,7 @@ class IgniteComputeImplTest {
     void whenNodeIsRemoteThenExecutesRemotely() throws Exception {
         respondWhenExecutingSimpleJobRemotely();
 
-        String result = compute.<String>execute(singleton(remoteNode), testDeploymentUnits, "org.example.SimpleJob", PojoArgs.fromArray("a", 42)).get();
+        String result = compute.<String>executeAsync(singleton(remoteNode), testDeploymentUnits, "org.example.SimpleJob", PojoArgs.fromArray("a", 42)).get();
 
         assertThat(result, is("remoteResponse"));
 
@@ -109,7 +109,7 @@ class IgniteComputeImplTest {
         doReturn(42).when(table).partition(any());
         doReturn(remoteNode).when(table).leaderAssignment(42);
 
-        String result = compute.<String>executeColocated(
+        String result = compute.<String>executeColocatedAsync(
                 "test",
                 Tuple.create(Map.of("k", 1)),
                 testDeploymentUnits,
@@ -128,7 +128,7 @@ class IgniteComputeImplTest {
         doReturn(42).when(table).partition(any(), any());
         doReturn(remoteNode).when(table).leaderAssignment(42);
 
-        String result = compute.<Integer, String>executeColocated(
+        String result = compute.<Integer, String>executeColocatedAsync(
                 "test",
                 1,
                 Mapper.of(Integer.class),
