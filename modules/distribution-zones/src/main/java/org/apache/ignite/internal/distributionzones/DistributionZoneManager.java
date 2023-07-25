@@ -257,8 +257,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
     private final CausalityDataNodesEngine causalityDataNodesEngine;
 
-    private final Consumer<LongFunction<CompletableFuture<?>>> registry;
-
     /**
      * Creates a new distribution zone manager.
      *
@@ -278,7 +276,6 @@ public class DistributionZoneManager implements IgniteComponent {
             VaultManager vaultMgr,
             String nodeName
     ) {
-        this.registry = registry;
         this.zonesConfiguration = zonesConfiguration;
         this.tablesConfiguration = tablesConfiguration;
         this.metaStorageManager = metaStorageManager;

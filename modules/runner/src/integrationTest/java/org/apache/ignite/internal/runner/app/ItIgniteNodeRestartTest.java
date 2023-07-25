@@ -733,7 +733,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Restarts the node which stores some data.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955 (Random ticket to pass a check on TC) Data nodes after restart.")
     @Test
     public void nodeWithDataTest() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
