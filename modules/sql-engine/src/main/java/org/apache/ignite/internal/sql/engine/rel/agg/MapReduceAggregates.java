@@ -104,8 +104,8 @@ public class MapReduceAggregates {
         //
         // =>
         //
-        // {map: map_agg1, reduce; reduce_agg1, expr: expr_agg1, ..}
-        // {map: map_agg2, reduce; reduce_agg2, expr: expr_agg2, ..}
+        // {map: map_agg1, reduce: reduce_agg1, expr: expr_agg1, ..}
+        // {map: map_agg2, reduce: reduce_agg2, expr: expr_agg2, ..}
         //
 
         // Create a list of descriptors for map/reduce version of the given arguments.
