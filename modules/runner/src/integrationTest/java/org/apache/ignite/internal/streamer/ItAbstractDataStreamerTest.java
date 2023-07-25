@@ -68,14 +68,16 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     public void testBasicStreamingRecordBinaryView(int batchSize) {
         RecordView<Tuple> view = defaultTable().recordView();
 
-        var publisher = new SubmissionPublisher<Tuple>();
-        var options = DataStreamerOptions.builder().batchSize(batchSize).build();
-        CompletableFuture<Void> streamerFut = view.streamData(publisher, options);
+        CompletableFuture<Void> streamerFut;
 
-        publisher.submit(tuple(1, "foo"));
-        publisher.submit(tuple(2, "bar"));
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().batchSize(batchSize).build();
+            streamerFut = view.streamData(publisher, options);
 
-        publisher.close();
+            publisher.submit(tuple(1, "foo"));
+            publisher.submit(tuple(2, "bar"));
+        }
+
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
 
         assertNotNull(view.get(null, tupleKey(1)));
@@ -137,49 +139,53 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     public void testAutoFlushByTimer() throws InterruptedException {
         RecordView<Tuple> view = this.defaultTable().recordView();
 
-        var publisher = new SubmissionPublisher<Tuple>();
-        var options = DataStreamerOptions.builder().autoFlushFrequency(100).build();
-        view.streamData(publisher, options);
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().autoFlushFrequency(100).build();
+            view.streamData(publisher, options);
 
-        publisher.submit(tuple(1, "foo"));
-        assertTrue(waitForCondition(() -> {
-            @SuppressWarnings("resource")
-            var tx = ignite().transactions().begin(new TransactionOptions().readOnly(true));
+            publisher.submit(tuple(1, "foo"));
+            assertTrue(waitForCondition(() -> {
+                @SuppressWarnings("resource")
+                var tx = ignite().transactions().begin(new TransactionOptions().readOnly(true));
 
-            try {
-                return view.get(tx, tupleKey(1)) != null;
-            } finally {
-                tx.rollback();
-            }
-        }, 50, 5000));
+                try {
+                    return view.get(tx, tupleKey(1)) != null;
+                } finally {
+                    tx.rollback();
+                }
+            }, 50, 5000));
+        }
     }
 
     @Test
     public void testAutoFlushDisabled() throws InterruptedException {
         RecordView<Tuple> view = this.defaultTable().recordView();
 
-        var publisher = new SubmissionPublisher<Tuple>();
-        var options = DataStreamerOptions.builder().autoFlushFrequency(-1).build();
-        view.streamData(publisher, options);
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().autoFlushFrequency(-1).build();
+            view.streamData(publisher, options);
 
-        publisher.submit(tuple(1, "foo"));
-        assertFalse(waitForCondition(() -> view.get(null, tupleKey(1)) != null, 1000));
+            publisher.submit(tuple(1, "foo"));
+            assertFalse(waitForCondition(() -> view.get(null, tupleKey(1)) != null, 1000));
+        }
     }
 
     @Test
     public void testMissingKeyColumn() {
         RecordView<Tuple> view = this.defaultTable().recordView();
 
-        var publisher = new SubmissionPublisher<Tuple>();
-        var options = DataStreamerOptions.builder().build();
-        CompletableFuture<Void> streamerFut = view.streamData(publisher, options);
+        CompletableFuture<Void> streamerFut;
 
-        var tuple = Tuple.create()
-                .set("id1", 1)
-                .set("name1", "x");
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().build();
+            streamerFut = view.streamData(publisher, options);
 
-        publisher.submit(tuple);
-        publisher.close();
+            var tuple = Tuple.create()
+                    .set("id1", 1)
+                    .set("name1", "x");
+
+            publisher.submit(tuple);
+        }
 
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
         assertEquals("Missed key column: ID", ex.getCause().getMessage());
@@ -189,15 +195,17 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     public void testManyItems() {
         RecordView<Tuple> view = defaultTable().recordView();
 
-        var publisher = new SubmissionPublisher<Tuple>();
-        var options = DataStreamerOptions.builder().batchSize(33).build();
-        CompletableFuture<Void> streamerFut = view.streamData(publisher, options);
+        CompletableFuture<Void> streamerFut;
 
-        for (int i = 0; i < 10_000; i++) {
-            publisher.submit(tuple(i, "x-" + i));
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().batchSize(33).build();
+            streamerFut = view.streamData(publisher, options);
+
+            for (int i = 0; i < 10_000; i++) {
+                publisher.submit(tuple(i, "x-" + i));
+            }
         }
 
-        publisher.close();
         streamerFut.orTimeout(30, TimeUnit.SECONDS).join();
 
         assertNotNull(view.get(null, tupleKey(1)));
