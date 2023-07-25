@@ -65,6 +65,7 @@ public class MapReduceAggregates {
             "ANY_VALUE"
     );
 
+    /** Creates an expression that returns a value of {@code args.get(0)} field of its input. */
     private static final MakeReduceExpr SAME_AGG = (rexBuilder, input, args, typeFactory) -> rexBuilder.makeInputRef(input, args.get(0));
 
     private MapReduceAggregates() {
