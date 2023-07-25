@@ -126,8 +126,8 @@ public class MapReduceAggregates {
         }
 
         // MAP phase should have no less than the number of arguments as original aggregate.
-        // Otherwise there is a bug.
-        assert agg.getAggCallList().size() <= mapAggCalls.size() :
+        // Otherwise there is a bug, because some aggregates were ignored.
+        assert mapAggCalls.size() >= agg.getAggCallList().size():
                 format("The number of MAP aggregates is not correct. Original: {}\nMAP: {}", agg.getAggCallList(), mapAggCalls);
 
         RelNode map = builder.makeMapAgg(
