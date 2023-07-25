@@ -100,6 +100,8 @@ public class MapReduceAggregates {
 
         // Creates a list of descriptors for map/reduce version of the given arguments.
 
+        List<AggregateCall> mapCalls = new ArrayList<>(agg.getAggCallList().size());
+
         for (AggregateCall call : agg.getAggCallList()) {
             MapReduceAgg mapReduceAgg = createMapReduceAggCall(call, argumentOffset);
             argumentOffset += 1;
@@ -114,7 +116,7 @@ public class MapReduceAggregates {
                 outTrait.replace(IgniteDistributions.random()),
                 agg.getGroupSet(),
                 agg.getGroupSets(),
-                agg.getAggCallList()
+                mapCalls
         );
 
         List<RelDataTypeField> outputRowFields = agg.getRowType().getFieldList();
@@ -134,17 +136,17 @@ public class MapReduceAggregates {
         // Build a list of aggregate calls for REDUCE phase.
         // Build a list of projection that accept reduce phase and combine/collect/cast results.
 
-        List<AggregateCall> aggCalls = new ArrayList<>();
+        List<AggregateCall> reduceAggCalls = new ArrayList<>();
         List<Map.Entry<List<Integer>, MakeReduceExpr>> projection = new ArrayList<>();
 
         for (MapReduceAgg mapReduceAgg : mapReduceAggs) {
             AggregateCall reduceCall = mapReduceAgg.reduceCall;
+            reduceType.add("f" + reduceType.getFieldCount(), reduceCall.getType());
+            reduceAggCalls.add(reduceCall);
+
             List<Integer> argList = mapReduceAgg.argList;
             MakeReduceExpr projectionExpr = mapReduceAgg.makeReduceExpr;
-
             projection.add(new SimpleEntry<>(argList, projectionExpr));
-            reduceType.add("f" + reduceType.getFieldCount(), reduceCall.getType());
-            aggCalls.add(reduceCall);
 
             if (projectionExpr != SAME_AGG) {
                 sameAggsForBothPhases = false;
@@ -165,7 +167,7 @@ public class MapReduceAggregates {
                 outTrait.replace(IgniteDistributions.single()),
                 agg.getGroupSet(),
                 agg.getGroupSets(),
-                aggCalls,
+                reduceAggCalls,
                 reduceTypeToUse
         );
 
@@ -199,7 +201,7 @@ public class MapReduceAggregates {
             // since Project::isValid only shows types.
             assert resultExpr.getType().equals(outputRowFields.get(i).getType()) :
                     format("Type at position#{} does not match. Expected: {} but got {}.\nREDUCE aggregates: {}\nRow: {}.\nExpr: {}",
-                            i, resultExpr.getType(), outputRowFields.get(i).getType(), aggCalls, outputRowFields, resultExpr);
+                            i, resultExpr.getType(), outputRowFields.get(i).getType(), reduceAggCalls, outputRowFields, resultExpr);
 
             i++;
         }
@@ -243,12 +245,15 @@ public class MapReduceAggregates {
 
         final List<Integer> argList;
 
+        final AggregateCall mapCall;
+
         final AggregateCall reduceCall;
 
         final MakeReduceExpr makeReduceExpr;
 
-        MapReduceAgg(List<Integer> argList, AggregateCall reduceCall, MakeReduceExpr makeReduceExpr) {
+        MapReduceAgg(List<Integer> argList, AggregateCall mapCall, AggregateCall reduceCall, MakeReduceExpr makeReduceExpr) {
             this.argList = argList;
+            this.mapCall = mapCall;
             this.reduceCall = reduceCall;
             this.makeReduceExpr = makeReduceExpr;
         }
@@ -279,11 +284,12 @@ public class MapReduceAggregates {
             return rexBuilder.makeCast(typeFactory.createSqlType(SqlTypeName.BIGINT), ref);
         };
 
-        return new MapReduceAgg(argList, sum0, exprBuilder);
+        return new MapReduceAgg(argList, call, sum0, exprBuilder);
     }
 
     private static MapReduceAgg createSimpleAgg(AggregateCall call, int reduceArgumentOffset) {
         List<Integer> argList = List.of(reduceArgumentOffset);
+
         AggregateCall sameAgg = AggregateCall.create(
                 call.getAggregation(),
                 call.isDistinct(),
@@ -298,7 +304,7 @@ public class MapReduceAggregates {
 
         // For aggregate that use the same aggregate function for both MAP and REDUCE phases.
         // Uses the result of an aggregate as is.
-        return new MapReduceAgg(argList, sameAgg, SAME_AGG);
+        return new MapReduceAgg(argList, call, sameAgg, SAME_AGG);
     }
 
     @FunctionalInterface
