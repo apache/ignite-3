@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -100,6 +101,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         // first session should no longer exist for the moment
         IgniteException err = assertThrows(IgniteException.class, () -> ses1.execute(null, "SELECT 1 + 1"));
         assertThat(err.getMessage(), containsString("Session not found"));
+        assertEquals(INTERNAL_ERR, err.code());
 
         // already started query should fail due to session has been expired
         assertThrowsWithCause(() -> {
