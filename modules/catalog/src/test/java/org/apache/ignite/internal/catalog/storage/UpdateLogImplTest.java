@@ -72,7 +72,7 @@ class UpdateLogImplTest {
     public void tearDown() throws Exception {
         IgniteUtils.closeAll(
                 metastore == null ? null : metastore::stop,
-                vault == null ? null : metastore::stop
+                vault == null ? null : vault::stop
         );
     }
 
