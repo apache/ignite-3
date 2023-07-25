@@ -100,7 +100,7 @@ public class MapReduceAggregates {
 
         // Creates a list of descriptors for map/reduce version of the given arguments.
 
-        List<AggregateCall> mapCalls = new ArrayList<>(agg.getAggCallList().size());
+        List<AggregateCall> mapAggCalls = new ArrayList<>(agg.getAggCallList().size());
 
         for (AggregateCall call : agg.getAggCallList()) {
             MapReduceAgg mapReduceAgg = createMapReduceAggCall(call, argumentOffset);
@@ -116,7 +116,7 @@ public class MapReduceAggregates {
                 outTrait.replace(IgniteDistributions.random()),
                 agg.getGroupSet(),
                 agg.getGroupSets(),
-                mapCalls
+                mapAggCalls
         );
 
         List<RelDataTypeField> outputRowFields = agg.getRowType().getFieldList();
@@ -126,7 +126,7 @@ public class MapReduceAggregates {
         boolean sameAggsForBothPhases = true;
 
         // Build row type for input of reduce phase.
-        // It consists of columns from GROUP BY clause.
+        // It consists of columns from agg.groupSet and aggregate expressions.
 
         for (int i = 0; i < groupByColumns; i++) {
             RelDataType type = outputRowFields.get(i).getType();
@@ -140,10 +140,12 @@ public class MapReduceAggregates {
         List<Map.Entry<List<Integer>, MakeReduceExpr>> projection = new ArrayList<>();
 
         for (MapReduceAgg mapReduceAgg : mapReduceAggs) {
+            // Update row type returned by reduce node.
             AggregateCall reduceCall = mapReduceAgg.reduceCall;
             reduceType.add("f" + reduceType.getFieldCount(), reduceCall.getType());
             reduceAggCalls.add(reduceCall);
 
+            // Update projection list
             List<Integer> argList = mapReduceAgg.argList;
             MakeReduceExpr projectionExpr = mapReduceAgg.makeReduceExpr;
             projection.add(new SimpleEntry<>(argList, projectionExpr));
@@ -159,6 +161,14 @@ public class MapReduceAggregates {
         } else {
             reduceTypeToUse = reduceType.build();
         }
+
+        // if the number of aggregates on MAP phase is larger then the number of aggregates on REDUCE phase,
+        // then some of MAP aggregates are not used by REDUCE phase and this is a bug.
+        //
+        // NOTE: In general case REDUCE phase can use more aggregates than MAP phase,
+        // but at the moment there is no support for such aggregates.
+        assert mapAggCalls.size() <= reduceAggCalls.size() :
+                format("The number of MAP/REDUCE aggregates does not match. MAP: {}\nREDUCE: {}", mapAggCalls, reduceAggCalls);
 
         // Reduce node.
         IgniteRel reduce = builder.makeReduceAgg(
