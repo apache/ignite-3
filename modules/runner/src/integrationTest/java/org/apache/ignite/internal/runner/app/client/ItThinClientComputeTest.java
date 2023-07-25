@@ -317,7 +317,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         MappedArgs args = MappedArgs.fromArray(PojoJobMapper.class, ser.serialize(arg1), ser.serialize(arg2), ser.serialize(arg3));
         Object join = client.compute()
-                .<PojoClass>execute(Set.of(node(0)), List.of(), PojoClassJob.class.getName(), args).join();
+                .<PojoClass>execute(Set.of(node(0)), List.of(), PojoClassJob.class.getName(), args);
         PojoClass pojo = ser.deserialize((byte[]) join, PojoClass.class);
 
         assertEquals("id1id2id3", pojo.id);
@@ -345,14 +345,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         MappedArgs args = MappedArgs.fromArray(GenericArgMapper1.class, ser.serialize(strArg), ser.serialize(intArg), ser.serialize(doubleArg));
         String result = client.compute()
-                .<String>execute(Set.of(node(0)), List.of(), GenericJob.class.getName(), args).join();
+                .<String>execute(Set.of(node(0)), List.of(), GenericJob.class.getName(), args);
 
         assertEquals("id1type1id21id3" + Math.PI, result);
 
 
         MappedArgs args2 = MappedArgs.fromArray(GenericArgMapper2.class, ser.serialize(doubleArg), ser.serialize(intArg), ser.serialize(strArg));
         String result2 = client.compute()
-                .<String>execute(Set.of(node(0)), List.of(), GenericJob.class.getName(), args2).join();
+                .<String>execute(Set.of(node(0)), List.of(), GenericJob.class.getName(), args2);
 
         assertEquals("id3" + Math.PI + "id21id1type1", result2);
     }

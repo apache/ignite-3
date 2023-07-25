@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.arg.Args;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -46,7 +47,7 @@ public class FakeCompute implements IgniteCompute {
     }
 
     @Override
-    public <R> CompletableFuture<R> executeAsync(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
+    public <R> CompletableFuture<R> executeAsync(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Args args) {
         if (Objects.equals(jobClassName, GET_UNITS)) {
             String unitString = units.stream().map(DeploymentUnit::render).collect(Collectors.joining(","));
             return CompletableFuture.completedFuture((R) unitString);
@@ -61,7 +62,7 @@ public class FakeCompute implements IgniteCompute {
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            Args args
     ) {
         return future != null ? future : CompletableFuture.completedFuture((R) nodeName);
     }
@@ -73,7 +74,7 @@ public class FakeCompute implements IgniteCompute {
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            Args args
     ) {
         return future != null ? future : CompletableFuture.completedFuture((R) nodeName);
     }
@@ -83,7 +84,7 @@ public class FakeCompute implements IgniteCompute {
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            Args args
     ) {
         return null;
     }
