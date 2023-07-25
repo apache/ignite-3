@@ -19,16 +19,19 @@ package org.apache.ignite.internal.schema;
 
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -99,6 +102,8 @@ class CatalogSchemaManagerTest {
     private ArgumentCaptor<EventListener<CatalogEventParameters>> tableCreatedListenerCaptor;
     @Captor
     private ArgumentCaptor<EventListener<CatalogEventParameters>> tableAlteredListenerCaptor;
+
+    private final Exception cause = new Exception("Oops");
 
     @BeforeEach
     void setUp() {
@@ -288,6 +293,34 @@ class CatalogSchemaManagerTest {
         );
 
         return new CatalogTableDescriptor(TABLE_ID, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null);
+    }
+
+    @Test
+    void propagatesExceptionFromCatalogOnTableCreation() {
+        CompletableFuture<Boolean> future = tableCreatedListenerCaptor.getValue().notify(mock(CreateTableEventParameters.class), cause);
+
+        assertThat(future, willThrow(equalTo(cause)));
+    }
+
+    @Test
+    void propagatesExceptionFromCatalogOnColumnAddition() {
+        CompletableFuture<Boolean> future = tableAlteredListenerCaptor.getValue().notify(mock(AddColumnEventParameters.class), cause);
+
+        assertThat(future, willThrow(equalTo(cause)));
+    }
+
+    @Test
+    void propagatesExceptionFromCatalogOnColumnRemoval() {
+        CompletableFuture<Boolean> future = tableAlteredListenerCaptor.getValue().notify(mock(DropColumnEventParameters.class), cause);
+
+        assertThat(future, willThrow(equalTo(cause)));
+    }
+
+    @Test
+    void propagatesExceptionFromCatalogOnColumnAlteration() {
+        CompletableFuture<Boolean> future = tableAlteredListenerCaptor.getValue().notify(mock(AddColumnEventParameters.class), cause);
+
+        assertThat(future, willThrow(equalTo(cause)));
     }
 
     @Test
