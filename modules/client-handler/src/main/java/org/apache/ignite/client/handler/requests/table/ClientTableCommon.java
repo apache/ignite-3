@@ -46,7 +46,9 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -354,18 +356,23 @@ public class ClientTableCommon {
      * @param resources Resource registry.
      * @return Transaction, if present, or null.
      */
-    public static @Nullable Transaction readTx(ClientMessageUnpacker in, ClientResourceRegistry resources) {
+    public static @Nullable Transaction readTx(
+            ClientMessageUnpacker in,
+            ClientResourceRegistry resources,
+            IgniteTransactions transactions) {
         byte txMode = in.unpackByte();
-
-        if (txMode == ClientTxMode.IMPLICIT) {
-            return null;
-        }
 
         switch (txMode) {
             case ClientTxMode.IMPLICIT:
                 return null;
-            case ClientTxMode.EXPLICIT_NEW:
-                return null; // TODO: Start new tx?
+
+            case ClientTxMode.EXPLICIT_NEW: {
+                TransactionOptions options = readTxOptions(in);
+
+                // TODO: Async? Is it blocking on coordinator?
+                return transactions.begin(options);
+            }
+
             case ClientTxMode.EXPLICIT_EXISTING: {
                 try {
                     return resources.get(in.unpackLong()).get(Transaction.class);
@@ -373,9 +380,21 @@ public class ClientTableCommon {
                     throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
                 }
             }
+
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unsupported transaction mode: " + txMode);
         }
+    }
+
+    @Nullable
+    public static TransactionOptions readTxOptions(ClientMessageUnpacker in) {
+        TransactionOptions options = null;
+
+        if (in.unpackBoolean()) {
+            options = new TransactionOptions().readOnly(true);
+        }
+
+        return options;
     }
 
     /**

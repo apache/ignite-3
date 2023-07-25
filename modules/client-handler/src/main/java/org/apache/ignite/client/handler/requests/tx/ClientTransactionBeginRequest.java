@@ -21,12 +21,14 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.client.handler.requests.table.ClientTableCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.TransactionOptions;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client transaction begin request.
@@ -48,11 +50,7 @@ public class ClientTransactionBeginRequest {
             IgniteTransactions transactions,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics) {
-        TransactionOptions options = null;
-
-        if (in.unpackBoolean()) {
-            options = new TransactionOptions().readOnly(true);
-        }
+        TransactionOptions options = ClientTableCommon.readTxOptions(in);
 
         return transactions.beginAsync(options).thenAccept(tx -> {
             try {
