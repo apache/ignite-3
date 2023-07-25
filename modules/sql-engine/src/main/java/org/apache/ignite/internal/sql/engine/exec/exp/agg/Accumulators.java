@@ -75,8 +75,6 @@ public class Accumulators {
         switch (call.getAggregation().getName()) {
             case "COUNT":
                 return LongCount.FACTORY;
-            case "$REDUCE_COUNT":
-                return LongSumEmptyIsZero.FACTORY;
             case "AVG":
                 return avgFactory(call);
             case "SUM":
