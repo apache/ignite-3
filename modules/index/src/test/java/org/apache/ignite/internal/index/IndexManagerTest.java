@@ -45,7 +45,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
@@ -145,7 +145,7 @@ public class IndexManagerTest {
 
         clockWaiter = new ClockWaiter(nodeName, clock);
 
-        catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageManager), clockWaiter);
+        catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageManager), clockWaiter);
 
         indexManager = new IndexManager(
                 tablesConfig,
