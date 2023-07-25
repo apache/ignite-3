@@ -46,7 +46,7 @@ public class FakeCompute implements IgniteCompute {
     }
 
     @Override
-    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
+    public <R> CompletableFuture<R> executeAsync(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
         if (Objects.equals(jobClassName, GET_UNITS)) {
             String unitString = units.stream().map(DeploymentUnit::render).collect(Collectors.joining(","));
             return CompletableFuture.completedFuture((R) unitString);
@@ -56,7 +56,7 @@ public class FakeCompute implements IgniteCompute {
     }
 
     @Override
-    public <R> CompletableFuture<R> executeColocated(
+    public <R> CompletableFuture<R> executeColocatedAsync(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
@@ -67,7 +67,7 @@ public class FakeCompute implements IgniteCompute {
     }
 
     @Override
-    public <K, R> CompletableFuture<R> executeColocated(
+    public <K, R> CompletableFuture<R> executeColocatedAsync(
             String tableName,
             K key,
             Mapper<K> keyMapper,
@@ -79,7 +79,7 @@ public class FakeCompute implements IgniteCompute {
     }
 
     @Override
-    public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(
+    public <R> Map<ClusterNode, CompletableFuture<R>> broadcastAsync(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
