@@ -36,7 +36,7 @@ public interface ReadWriteSwapRowReplicaRequest extends SwapRowReplicaRequest, R
     TablePartitionId commitPartitionId();
 
     /**
-     * @return {@code True} if this is a full transaction.
+     * Return {@code true} if this is a full transaction.
      */
     boolean full();
 }

@@ -36,7 +36,7 @@ public interface ReadWriteSingleRowReplicaRequest extends SingleRowReplicaReques
     TablePartitionId commitPartitionId();
 
     /**
-     * @return {@code True} if this is a full transaction.
+     * Return {@code true} if this is a full transaction.
      */
     boolean full();
 }
