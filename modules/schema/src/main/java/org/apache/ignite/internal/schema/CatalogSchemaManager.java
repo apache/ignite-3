@@ -461,7 +461,7 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
                 });
     }
 
-    private int extractVerFromSchemaKey(String key) {
+    private static int extractVerFromSchemaKey(String key) {
         int pos = key.lastIndexOf('.');
         assert pos != -1 : "Unexpected key: " + key;
 
