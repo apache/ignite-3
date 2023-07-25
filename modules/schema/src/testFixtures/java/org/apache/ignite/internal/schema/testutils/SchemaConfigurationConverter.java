@@ -42,6 +42,7 @@ import org.apache.ignite.internal.schema.configuration.ColumnChange;
 import org.apache.ignite.internal.schema.configuration.ColumnTypeChange;
 import org.apache.ignite.internal.schema.configuration.ColumnTypeView;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.PrimaryKeyView;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
@@ -411,6 +412,8 @@ public class SchemaConfigurationConverter {
                 colsChg.create(col.name(), colChg -> convert(col, colChg));
             }
         });
+
+        ((ExtendedTableChange) tblChg).changeSchemaId(1);
 
         tblChg.changePrimaryKey(pkCng -> pkCng.changeColumns(tbl.keyColumns().toArray(String[]::new))
                 .changeColocationColumns(tbl.colocationColumns().toArray(String[]::new)));
