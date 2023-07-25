@@ -121,6 +121,8 @@ public class MapReduceAggregates {
             MapReduceAgg mapReduceAgg = createMapReduceAggCall(call, argumentOffset);
             argumentOffset += 1;
             mapReduceAggs.add(mapReduceAgg);
+
+            mapAggCalls.add(mapReduceAgg.mapCall);
         }
 
         RelNode map = builder.makeMapAgg(
