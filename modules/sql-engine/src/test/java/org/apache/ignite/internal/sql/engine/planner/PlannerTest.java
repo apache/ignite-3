@@ -929,7 +929,7 @@ public class PlannerTest extends AbstractPlannerTest {
         }
 
         public ColocationGroup colocationGroup() {
-            throw new IllegalStateException("Not used");
+            throw new IllegalStateException("Colocation group has not been specified");
         }
 
         ColocationGroup getColocationGroup() {
