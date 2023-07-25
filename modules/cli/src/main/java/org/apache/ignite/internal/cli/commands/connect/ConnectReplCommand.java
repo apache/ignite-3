@@ -27,6 +27,7 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
@@ -56,17 +57,27 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
         question.askQuestionIfConnected(nodeNameOrUrl.stringUrl())
                 .map(url -> connectCallInput())
                 .then(Flows.fromCall(connectCall))
-                .onSuccess(() -> question.askQuestionToStoreCredentials(connectOptions.username(), connectOptions.password()))
+                .onSuccess(() -> question.askQuestionToStoreCredentials(username(connectOptions), password(connectOptions)))
                 .verbose(verbose)
                 .print()
                 .start();
     }
 
+    @Nullable
+    private String username(ConnectOptions connectOptions) {
+        return connectOptions != null ? connectOptions.username() : null;
+    }
+
+    @Nullable
+    private String password(ConnectOptions connectOptions) {
+        return connectOptions != null ? connectOptions.password() : null;
+    }
+
     private ConnectCallInput connectCallInput() {
         return ConnectCallInput.builder()
                 .url(nodeNameOrUrl.stringUrl())
-                .username(connectOptions != null ? connectOptions.username() : null)
-                .password(connectOptions != null ? connectOptions.password() : null)
+                .username(username(connectOptions))
+                .password(password(connectOptions))
                 .build();
     }
 }
