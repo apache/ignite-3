@@ -18,14 +18,18 @@
 package org.apache.ignite.internal.configuration;
 
 import org.apache.ignite.lang.ErrorGroups.NodeConfiguration;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * Throws when node bootstrap configuration read failed with IO problem.
+ * Throws when node bootstrap configuration file failed to create with IO problem.
  */
-public class NodeConfigReadException extends IgniteException {
+public class NodeConfigCreateException extends IgniteInternalException {
 
-    public NodeConfigReadException(String msg, Throwable cause) {
-        super(NodeConfiguration.CONFIG_READ_ERR, msg, cause);
+    public NodeConfigCreateException(String msg) {
+        super(NodeConfiguration.CONFIG_FILE_CREATE_ERR, msg);
+    }
+
+    public NodeConfigCreateException(String msg, Throwable cause) {
+        super(NodeConfiguration.CONFIG_FILE_CREATE_ERR, msg, cause);
     }
 }
