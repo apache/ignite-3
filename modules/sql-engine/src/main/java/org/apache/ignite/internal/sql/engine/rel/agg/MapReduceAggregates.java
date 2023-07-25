@@ -300,7 +300,7 @@ public class MapReduceAggregates {
                 call.type,
                 null);
 
-        // COUNT(x) aggregate that have type BIGINT, but the type of SUM(COUNT(x)) is DECIMAL,
+        // COUNT(x) aggregate have type BIGINT, but the type of SUM(COUNT(x)) is DECIMAL,
         // so we should convert it to back to BIGINT.
         MakeReduceExpr exprBuilder = (rexBuilder, input, args, typeFactory) -> {
             RexInputRef ref = rexBuilder.makeInputRef(input, args.get(0));
@@ -325,8 +325,8 @@ public class MapReduceAggregates {
                 call.type,
                 call.name);
 
-        // For aggregate that use the same aggregate function for both MAP and REDUCE phases.
-        // Use the result of an aggregate as is.
+        // For aggregate that use the same aggregate function for both MAP and REDUCE phases
+        // use the result of an aggregate as is.
         return new MapReduceAgg(argList, call, sameAgg, USE_INPUT);
     }
 
