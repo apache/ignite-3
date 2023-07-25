@@ -125,6 +125,11 @@ public class MapReduceAggregates {
             mapAggCalls.add(mapReduceAgg.mapCall);
         }
 
+        // MAP phase should have no less than the number of arguments as original aggregate.
+        // Otherwise there is a bug.
+        assert agg.getAggCallList().size() <= mapAggCalls.size() :
+                format("The number of MAP aggregates is not correct. Original: {}\nMAP: {}", agg.getAggCallList(), mapAggCalls);
+
         RelNode map = builder.makeMapAgg(
                 agg.getCluster(),
                 convert(agg.getInput(), inTrait.replace(IgniteDistributions.random())),
@@ -183,7 +188,7 @@ public class MapReduceAggregates {
         // NOTE: In general case REDUCE phase can use more aggregates than MAP phase,
         // but at the moment there is no support for such aggregates.
         assert mapAggCalls.size() <= reduceAggCalls.size() :
-                format("The number of MAP/REDUCE aggregates does not match. MAP: {}\nREDUCE: {}", mapAggCalls, reduceAggCalls);
+                format("The number of MAP/REDUCE aggregates is not correct. MAP: {}\nREDUCE: {}", mapAggCalls, reduceAggCalls);
 
         IgniteRel reduce = builder.makeReduceAgg(
                 agg.getCluster(),
