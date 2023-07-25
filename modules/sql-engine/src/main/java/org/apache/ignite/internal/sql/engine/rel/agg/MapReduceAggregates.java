@@ -91,7 +91,7 @@ public class MapReduceAggregates {
             RelTraitSet inTrait, RelTraitSet outTrait) {
 
         //
-        // To implement MAP/REDUCE aggregate, LogicalAggregate is transformed into
+        // To implement MAP/REDUCE aggregate LogicalAggregate is transformed into
         // a map aggregate node, a reduce aggregate node, and an optional project node
         // (since some aggregate can be split into multiple ones, or require some additional work after REDUCE phase,
         // to combine the results).
@@ -109,10 +109,10 @@ public class MapReduceAggregates {
         //
 
         // Create a list of descriptors for map/reduce version of the given arguments.
-        // This list is later used to create MAP/REDUCE version for each aggregate.
+        // This list is later used to create MAP/REDUCE version of each aggregate.
 
         List<MapReduceAgg> mapReduceAggs = new ArrayList<>(agg.getAggCallList().size());
-        // groupSet include all columns from GROUP BY/GROUPING SETS clauses.
+        // groupSet includes all columns from GROUP BY/GROUPING SETS clauses.
         int argumentOffset = agg.getGroupSet().cardinality();
 
         List<AggregateCall> mapAggCalls = new ArrayList<>(agg.getAggCallList().size());
