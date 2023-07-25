@@ -512,8 +512,6 @@ public class Accumulators {
 
     private static final class MinMaxAccumulator implements Accumulator {
 
-        private static final long serialVersionUID = 0;
-
         private final boolean min;
 
         private final List<RelDataType> arguments;
