@@ -27,12 +27,15 @@ public class SessionInfo {
 
     private final String username;
 
+    private final ConnectionStatus connectionStatus;
+
     /** Constructor. */
-    public SessionInfo(String nodeUrl, String nodeName, String jdbcUrl, String username) {
+    public SessionInfo(String nodeUrl, String nodeName, String jdbcUrl, String username, ConnectionStatus connectionStatus) {
         this.nodeUrl = nodeUrl;
         this.nodeName = nodeName;
         this.jdbcUrl = jdbcUrl;
         this.username = username;
+        this.connectionStatus = connectionStatus;
     }
 
     public String nodeUrl() {
@@ -49,5 +52,17 @@ public class SessionInfo {
 
     public String username() {
         return username;
+    }
+
+    public ConnectionStatus connectionStatus() {
+        return connectionStatus;
+    }
+
+    /**
+     * Connection statuses.
+     */
+    public enum ConnectionStatus {
+        OPEN,
+        BROkEN
     }
 }

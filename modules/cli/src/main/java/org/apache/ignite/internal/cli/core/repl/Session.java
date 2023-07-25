@@ -73,4 +73,9 @@ public class Session {
     public SessionInfo info() {
         return info.get();
     }
+
+    public void updateSessionInfo(SessionInfo sessionInfo) {
+        SessionInfo currentSessionInfo = info.get();
+        info.compareAndSet(currentSessionInfo, sessionInfo);
+    }
 }

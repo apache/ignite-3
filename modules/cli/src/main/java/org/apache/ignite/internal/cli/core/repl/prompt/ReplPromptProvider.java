@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo.ConnectionStatus;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 
 /**
@@ -45,7 +46,8 @@ public class ReplPromptProvider implements PromptProvider {
         SessionInfo sessionInfo = session.info();
         if (sessionInfo != null) {
             String username = sessionInfo.username();
-            return ansi(fg(Color.GREEN).mark(
+            Color color = sessionInfo.connectionStatus() == ConnectionStatus.BROkEN ? Color.YELLOW : Color.GREEN;
+            return ansi(fg(color).mark(
                     "["
                             + (username != null ? username + ":" : "")
                             + sessionInfo.nodeName()

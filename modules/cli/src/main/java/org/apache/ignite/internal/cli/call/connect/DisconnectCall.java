@@ -23,6 +23,7 @@ import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.call.EmptyCallInput;
+import org.apache.ignite.internal.cli.core.repl.ConnectionHeartBeat;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
@@ -36,8 +37,12 @@ public class DisconnectCall implements Call<EmptyCallInput, String> {
     @Inject
     private final Session session;
 
-    public DisconnectCall(Session session) {
+    @Inject
+    private final ConnectionHeartBeat connectionHeartBeat;
+
+    public DisconnectCall(Session session, ConnectionHeartBeat connectionHeartBeat) {
         this.session = session;
+        this.connectionHeartBeat = connectionHeartBeat;
     }
 
     @Override
@@ -46,6 +51,7 @@ public class DisconnectCall implements Call<EmptyCallInput, String> {
         if (sessionInfo != null) {
             String nodeUrl = sessionInfo.nodeUrl();
             session.disconnect();
+            connectionHeartBeat.stop();
             return DefaultCallOutput.success(
                     MessageUiComponent.fromMessage("Disconnected from %s", UiElements.url(nodeUrl)).render()
             );

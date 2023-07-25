@@ -45,6 +45,7 @@ import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrat
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo.ConnectionStatus;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterRegistry;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.CompleterFilter;
@@ -245,7 +246,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     }
 
     private void connected() {
-        session.connect(new SessionInfo(DEFAULT_REST_URL, null, null, null));
+        session.connect(new SessionInfo(DEFAULT_REST_URL, null, null, null, ConnectionStatus.OPEN));
     }
 
     private Stream<Arguments> nodeConfigUpdateSuggestedSource() {

@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.List;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo.ConnectionStatus;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine.Model.OptionSpec;
 
@@ -47,7 +48,7 @@ class SessionDefaultValueProviderTest {
         assertEquals(JDBC_URL_CONFIG, provider.defaultValue(spec));
 
         // When session is connected
-        session.connect(new SessionInfo("nodeUrl", "nodeName", JDBC_URL_SESSION, null));
+        session.connect(new SessionInfo("nodeUrl", "nodeName", JDBC_URL_SESSION, null, ConnectionStatus.OPEN));
 
         // Then default value is taken from the session
         assertEquals(JDBC_URL_SESSION, provider.defaultValue(spec));
