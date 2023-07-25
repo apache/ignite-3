@@ -39,6 +39,7 @@ import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -353,7 +354,7 @@ public class ItConnectionManagerTest {
 
             assertTrue(
                     waitForCondition(
-                            () -> manager1.channels().size() == 1 && manager2.channels().size() == 1,
+                            () -> singleOpenedChannel(manager1) && singleOpenedChannel(manager2),
                             TimeUnit.SECONDS.toMillis(1)
                     )
             );
@@ -387,6 +388,12 @@ public class ItConnectionManagerTest {
             assertEquals(locAddr1.getPort(), remoteAddr2.getPort());
             assertEquals(locAddr2.getPort(), remoteAddr1.getPort());
         }
+    }
+
+    private static boolean singleOpenedChannel(ConnectionManagerWrapper manager) {
+        Iterator<NettySender> it = manager.channels().values().iterator();
+
+        return it.hasNext() && it.next().isOpen() && !it.hasNext();
     }
 
     /**
