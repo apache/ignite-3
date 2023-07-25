@@ -33,6 +33,10 @@ import org.apache.ignite.table.mapper.Mapper;
  * @see ComputeJob#execute(JobExecutionContext, Object...)
  */
 public interface IgniteCompute {
+    default <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName) {
+        return execute(nodes, units, jobClassName, Args.empty());
+    }
+
     /**
      * Executes a {@link ComputeJob} of the given class on a single node from a set of candidate nodes.
      *
@@ -43,10 +47,6 @@ public interface IgniteCompute {
      * @param <R>      Job result type
      * @return CompletableFuture Job result.
      */
-    default <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName) {
-        return execute(nodes, units, jobClassName, Args.empty());
-    }
-
     <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Args args);
 
     /**

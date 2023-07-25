@@ -80,6 +80,7 @@ public class ClientBinaryTupleUtils {
                 return reader.stringValue(valIdx);
 
             case BYTE_ARRAY:
+                //TODO: check scale to define JSON or not.
                 return reader.bytesValue(valIdx);
 
             case BITMASK:
@@ -185,8 +186,7 @@ public class ClientBinaryTupleUtils {
             builder.appendPeriod((Period) obj);
         } else {
             builder.appendInt(ColumnType.BYTE_ARRAY.ordinal());
-            String className = obj.getClass().getName();
-            builder.appendStringNotNull(className);
+            builder.appendInt(1);
             builder.appendBytes(marshaller.serialize(obj));
         }
     }

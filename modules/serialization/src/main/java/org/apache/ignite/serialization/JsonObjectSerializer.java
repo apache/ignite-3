@@ -42,9 +42,7 @@ public class JsonObjectSerializer implements UserObjectSerializer {
         return gson.fromJson(new String(bytes, StandardCharsets.UTF_8), descriptor.type());
     }
 
-
-
-    public static Number readNumber(JsonReader in) throws IOException, JsonParseException {
+    private static Number readNumber(JsonReader in) throws IOException, JsonParseException {
         String value = in.nextString();
 
         try {
@@ -54,13 +52,17 @@ public class JsonObjectSerializer implements UserObjectSerializer {
                 return Long.parseLong(value);
             } catch (NumberFormatException longE) {
                 try {
-                    Double d = Double.valueOf(value);
-                    if ((d.isInfinite() || d.isNaN()) && !in.isLenient()) {
-                        throw new MalformedJsonException("JSON forbids NaN and infinities: " + d + "; at path " + in.getPreviousPath());
+                    return Float.valueOf(value);
+                } catch (NumberFormatException floatE) {
+                    try {
+                        Double d = Double.valueOf(value);
+                        if ((d.isInfinite() || d.isNaN()) && !in.isLenient()) {
+                            throw new MalformedJsonException("JSON forbids NaN and infinities: " + d + "; at path " + in.getPreviousPath());
+                        }
+                        return d;
+                    } catch (NumberFormatException doubleE) {
+                        throw new JsonParseException("Cannot parse " + value + "; at path " + in.getPreviousPath(), doubleE);
                     }
-                    return d;
-                } catch (NumberFormatException doubleE) {
-                    throw new JsonParseException("Cannot parse " + value + "; at path " + in.getPreviousPath(), doubleE);
                 }
             }
         }
