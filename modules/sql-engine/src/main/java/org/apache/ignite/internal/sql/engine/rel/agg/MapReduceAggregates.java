@@ -93,12 +93,24 @@ public class MapReduceAggregates {
         // groupSet include all columns from GROUP BY/GROUPING SETS clauses.
         int argumentOffset = agg.getGroupSet().cardinality();
 
-        // SELECT c1, MIN(c2) FROM test GROUP BY c1, c2
         //
-        // MAP    [c1, c2, agg1, agg2]
-        // REDUCE [c1, c2, agg1, agg2]
+        // To implement MAP/REDUCE aggregate, LogicalAggregate is transformed into
+        // a MapRelNode,a  ReduceRelNode, and an optional ProjectNode (some aggregate can be split into multiple ones,
+        // or require some additional work after REDUCE phase, to combine the results).
+        //
+        // SELECT c1, MIN(c2), COUNT(c3) FROM test GROUP BY c1, c2
+        //
+        // MAP      [c1, c2, map_agg1, map_agg2]
+        // REDUCE   [c1, c2, reduce_agg1, reduce_agg2]
+        // PROJECT: [c1, c2, expr_agg1, expr_agg2]
+        //
+        // =>
+        //
+        // {map: map_agg1, reduce; reduce_agg1, expr: expr_agg1, ..}
+        // {map: map_agg2, reduce; reduce_agg2, expr: expr_agg2, ..}
+        //
 
-        // Creates a list of descriptors for map/reduce version of the given arguments.
+        // Create a list of descriptors for map/reduce version of the given arguments.
         // This list is later used to create MAP/REDUCE version for each aggregate.
 
         List<AggregateCall> mapAggCalls = new ArrayList<>(agg.getAggCallList().size());
@@ -108,8 +120,6 @@ public class MapReduceAggregates {
             argumentOffset += 1;
             mapReduceAggs.add(mapReduceAgg);
         }
-
-        // Create a MAP aggregate.
 
         RelNode map = builder.makeMapAgg(
                 agg.getCluster(),
@@ -126,7 +136,7 @@ public class MapReduceAggregates {
         int groupByColumns = agg.getGroupSet().cardinality();
         boolean sameAggsForBothPhases = true;
 
-        // Build row type for input of reduce phase.
+        // Build row type for input of REDUCE phase.
         // It consists of columns from agg.groupSet and aggregate expressions.
 
         for (int i = 0; i < groupByColumns; i++) {
@@ -141,7 +151,7 @@ public class MapReduceAggregates {
         List<Map.Entry<List<Integer>, MakeReduceExpr>> projection = new ArrayList<>();
 
         for (MapReduceAgg mapReduceAgg : mapReduceAggs) {
-            // Update row type returned by reduce node.
+            // Update row type returned by REDUCE node.
             AggregateCall reduceCall = mapReduceAgg.reduceCall;
             reduceType.add("f" + reduceType.getFieldCount(), reduceCall.getType());
             reduceAggCalls.add(reduceCall);
@@ -171,7 +181,6 @@ public class MapReduceAggregates {
         assert mapAggCalls.size() <= reduceAggCalls.size() :
                 format("The number of MAP/REDUCE aggregates does not match. MAP: {}\nREDUCE: {}", mapAggCalls, reduceAggCalls);
 
-        // Reduce node.
         IgniteRel reduce = builder.makeReduceAgg(
                 agg.getCluster(),
                 convert(map, inTrait.replace(IgniteDistributions.single())),
