@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
-import static org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.canImplementAsMapReduce;
+import static org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.canBeImplementedAsMapReduce;
 import static org.apache.ignite.internal.sql.engine.util.PlanUtils.complexDistinctAgg;
 
 import java.util.List;
@@ -94,7 +94,7 @@ public class HashAggregateConverterRule {
         protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq,
                 LogicalAggregate agg) {
             if (complexDistinctAgg(agg.getAggCallList())
-                    || !canImplementAsMapReduce(agg.getAggCallList())
+                    || !canBeImplementedAsMapReduce(agg.getAggCallList())
                     || HintUtils.isExpandDistinctAggregate(agg)) {
                 return null;
             }

@@ -73,7 +73,7 @@ public class MapReduceAggregates {
     }
 
     /** Checks whether the given list or aggregates can be represented in MAP/REDUCE form. */
-    public static boolean canImplementAsMapReduce(List<AggregateCall> aggCalls) {
+    public static boolean canBeImplementedAsMapReduce(List<AggregateCall> aggCalls) {
         for (AggregateCall call : aggCalls) {
             SqlAggFunction agg = call.getAggregation();
             if (!AGG_SUPPORTING_MAP_REDUCE.contains(agg.getName())) {
