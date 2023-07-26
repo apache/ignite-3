@@ -41,13 +41,43 @@ public final class NoOpTransaction implements InternalTransaction {
 
     private final TablePartitionId groupId = new TablePartitionId(1, 0);
 
+    private final boolean readOnly;
+
+    /** Creates a read-write transaction. */
+    public static NoOpTransaction readWrite(String name) {
+        return new NoOpTransaction(name, false);
+    }
+
+    /** Creates a read only transaction. */
+    public static NoOpTransaction readOnly(String name) {
+        return new NoOpTransaction(name, true);
+    }
+
     /**
-     * Constructs the object.
+     * Constructs a read only transaction.
      *
      * @param name Name of the node.
      */
     public NoOpTransaction(String name) {
-        replica = new PrimaryMetaTestImpl(name, new HybridTimestamp(1L, 0), HybridTimestamp.MAX_VALUE);
+        this(name, true);
+    }
+
+    /**
+     * Constructs a transaction.
+     *
+     * @param name Name of the node.
+     * @param readOnly Read-only or not.
+     */
+    private NoOpTransaction(String name, boolean readOnly) {
+        var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
+        this.tuple = new IgniteBiTuple<>(new ClusterNode(name, name, networkAddress), 1L);
+        this.readOnly = readOnly;
+        this.replica = new PrimaryMetaTestImpl(name, new HybridTimestamp(1L, 0), HybridTimestamp.MAX_VALUE);
+    }
+
+    /** Node at which this transaction was start. */
+    public ClusterNode clusterNode() {
+        return tuple.get1();
     }
 
     @Override
@@ -72,11 +102,14 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public boolean isReadOnly() {
-        return true;
+        return readOnly;
     }
 
     @Override
     public HybridTimestamp readTimestamp() {
+        if (!isReadOnly()) {
+            return null;
+        }
         return hybridTimestamp;
     }
 

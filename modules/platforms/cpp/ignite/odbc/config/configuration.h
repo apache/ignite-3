@@ -17,26 +17,23 @@
 
 #pragma once
 
-#include "ignite/odbc/config/value_with_default.h"
 #include "ignite/odbc/config/config_tools.h"
+#include "ignite/odbc/config/value_with_default.h"
 
 #include "ignite/common/end_point.h"
 
 #include <cstdint>
 #include <string>
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * ODBC configuration abstraction.
  */
-class configuration
-{
+class configuration {
 public:
     /** Default values for configuration. */
-    struct default_value
-    {
+    struct default_value {
         /** Default value for fetch results page size attribute. */
         static inline const std::int32_t page_size{1024};
 
@@ -48,6 +45,9 @@ public:
 
         /** Default value for address attribute. */
         static inline const std::vector<end_point> address{{host, port}};
+
+        /** Default value for Driver attribute. */
+        static inline const std::string schema{"PUBLIC"};
     };
 
     // Default.
@@ -58,18 +58,21 @@ public:
      *
      * @return Addresses.
      */
-    [[nodiscard]] const value_with_default<std::vector<end_point>>& get_address() const {
-        return m_end_points;
-    }
+    [[nodiscard]] const value_with_default<std::vector<end_point>> &get_address() const { return m_end_points; }
 
     /**
      * Get fetch results page size.
      *
      * @return Fetch results page size.
      */
-    [[nodiscard]] value_with_default<std::int32_t> get_page_size() const {
-        return m_page_size;
-    }
+    [[nodiscard]] const value_with_default<std::int32_t> &get_page_size() const { return m_page_size; }
+
+    /**
+     * Get schema.
+     *
+     * @return Schema.
+     */
+    [[nodiscard]] const value_with_default<std::string> &get_schema() const { return m_schema; }
 
     /**
      * Fill from configuration params.
@@ -81,10 +84,13 @@ public:
 
 private:
     /** Request and response page size. */
-    value_with_default<int32_t> m_page_size{default_value::page_size, false};
+    value_with_default<std::int32_t> m_page_size{default_value::page_size, false};
 
     /** Connection end-points. */
     value_with_default<std::vector<end_point>> m_end_points{default_value::address, false};
+
+    /** Schema. */
+    value_with_default<std::string> m_schema{default_value::schema, false};
 };
 
 } // namespace ignite

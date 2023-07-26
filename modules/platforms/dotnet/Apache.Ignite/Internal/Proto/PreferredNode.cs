@@ -23,26 +23,14 @@ namespace Apache.Ignite.Internal.Proto;
 internal record struct PreferredNode
 {
     /// <summary>
-    /// Gets the id.
+    /// Gets the name (same as Consistent ID).
     /// </summary>
-    public string? Id { get; private init; }
-
-    /// <summary>
-    /// Gets the name.
-    /// </summary>
-    public string? Name { get; private init; }
+    public string Name { get; private init; }
 
     /// <summary>
     /// Creates an instance from name.
     /// </summary>
     /// <param name="name">Name.</param>
     /// <returns>Preferred node.</returns>
-    public static PreferredNode FromName(string name) => new() { Id = null, Name = name };
-
-    /// <summary>
-    /// Creates an instance from id.
-    /// </summary>
-    /// <param name="id">Id.</param>
-    /// <returns>Preferred node.</returns>
-    public static PreferredNode FromId(string id) => new() { Id = id, Name = null };
+    public static PreferredNode FromName(string name) => new() { Name = name };
 }

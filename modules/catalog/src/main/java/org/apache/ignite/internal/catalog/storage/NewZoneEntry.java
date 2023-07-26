@@ -54,8 +54,8 @@ public class NewZoneEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken) {
-        return new CreateZoneEventParameters(causalityToken, descriptor);
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new CreateZoneEventParameters(causalityToken, catalogVersion, descriptor);
     }
 
     @Override

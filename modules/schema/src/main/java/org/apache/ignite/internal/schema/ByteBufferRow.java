@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.schema;
 
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.ROW_HAS_VALUE_FLAG;
+
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
 /**
  * Heap byte buffer-based row.
  */
+// TODO: remove this class, see https://issues.apache.org/jira/browse/IGNITE-19937
 public class ByteBufferRow implements BinaryRow {
-    public static final ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
-
     /** Row buffer. */
     private final ByteBuffer buf;
 
@@ -58,9 +58,7 @@ public class ByteBufferRow implements BinaryRow {
 
     @Override
     public boolean hasValue() {
-        byte schemaVer = buf.get(HAS_VALUE_OFFSET);
-
-        return schemaVer == 1;
+        return (buf.get(TUPLE_OFFSET) & ROW_HAS_VALUE_FLAG) != 0;
     }
 
     /** {@inheritDoc} */
@@ -75,19 +73,12 @@ public class ByteBufferRow implements BinaryRow {
 
     /** {@inheritDoc} */
     @Override
-    public byte[] bytes() {
-        // TODO IGNITE-15934 avoid copy.
-        byte[] tmp = new byte[buf.limit()];
-
-        buf.get(tmp);
-        buf.rewind();
-
-        return tmp;
+    public ByteBuffer byteBuffer() {
+        return buf.duplicate().order(ORDER);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public ByteBuffer byteBuffer() {
-        return buf.slice().order(ORDER);
+    public int tupleSliceLength() {
+        return buf.remaining() - TUPLE_OFFSET;
     }
 }

@@ -16,10 +16,20 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
+import java.nio.charset.StandardCharsets;
+
 /**
  *
  */
 public final class AsciiStringUtil {
+
+    public static byte[] unsafeEncode(final CharSequence in, byte[] out, int offset) {
+        final int len = in.length();
+        for (int i = 0; i < len; i++) {
+            out[i + offset] = (byte) in.charAt(i);
+        }
+        return out;
+    }
 
     public static byte[] unsafeEncode(final CharSequence in) {
         final int len = in.length();
@@ -31,11 +41,7 @@ public final class AsciiStringUtil {
     }
 
     public static String unsafeDecode(final byte[] in, final int offset, final int len) {
-        final char[] out = new char[len];
-        for (int i = 0; i < len; i++) {
-            out[i] = (char) (in[i + offset] & 0xFF);
-        }
-        return moveToString(out);
+        return new String(in, offset, len, StandardCharsets.ISO_8859_1);
     }
 
     public static String unsafeDecode(final byte[] in) {

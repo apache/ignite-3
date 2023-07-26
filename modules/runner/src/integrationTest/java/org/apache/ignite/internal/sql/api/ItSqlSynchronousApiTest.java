@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.lang.ErrorGroups.Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -62,6 +62,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -172,7 +173,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         SqlException ex = IgniteTestUtils.cause(assertThrows(Throwable.class,
                 () -> await(ses.executeAsync(null, "ALTER TABLE TEST DROP COLUMN (val0, val1)"))), SqlException.class);
         assertNotNull(ex);
-        assertEquals(DROP_IDX_COLUMN_CONSTRAINT_ERR, ex.code());
+        assertEquals(STMT_VALIDATION_ERR, ex.code());
 
         String msg = ex.getMessage();
         String explainMsg = "Unexpected error message: " + msg;
@@ -279,6 +280,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19919")
     public void errors() throws InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
@@ -364,11 +366,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
             assertEquals(1, sql("SELECT ID FROM TEST WHERE ID = -1").size());
         }
 
-        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
-
-        var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
-
-        assertEquals(txManagerInternal.finished(), states.size());
+        assertEquals(0, ((IgniteImpl) CLUSTER_NODES.get(0)).txManager().pending());
     }
 
     @Test
@@ -430,7 +428,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
                 () -> ses.executeBatch(null, "INSERT INTO TEST VALUES (?, ?)", args)
         );
 
-        assertEquals(Sql.DUPLICATE_KEYS_ERR, batchEx.code());
+        assertEquals(Sql.CONSTRAINT_VIOLATION_ERR, batchEx.code());
         assertEquals(err, batchEx.updateCounters().length);
         IntStream.range(0, batchEx.updateCounters().length).forEach(i -> assertEquals(1, batchEx.updateCounters()[i]));
     }

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.CatalogService.PUBLIC;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 
 import java.util.Arrays;
 import java.util.List;
@@ -58,13 +58,13 @@ public class DropTableEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken) {
-        return new DropTableEventParameters(causalityToken, tableId);
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new DropTableEventParameters(causalityToken, catalogVersion, tableId);
     }
 
     @Override
     public Catalog applyUpdate(Catalog catalog) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(PUBLIC));
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
 
         return new Catalog(
                 catalog.version(),

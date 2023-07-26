@@ -30,17 +30,13 @@ import org.apache.calcite.util.ImmutableNullableList;
  * Parse tree for {@code ALTER TABLE ... DROP COLUMN} statement.
  */
 public class IgniteSqlAlterTableDropColumn extends IgniteAbstractSqlAlterTable {
-    /** Whether to ignore error in case column with specified name doesn't exist. */
-    private final boolean ifExistsColumn;
-
-    /** Coluns to drop. */
+    /** Columns to drop. */
     private final SqlNodeList columns;
 
     /** Constructor. */
     public IgniteSqlAlterTableDropColumn(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName,
-            boolean ifExistsColumn, SqlNodeList columns) {
+            SqlNodeList columns) {
         super(pos, ifExists, tblName);
-        this.ifExistsColumn = ifExistsColumn;
         this.columns = Objects.requireNonNull(columns, "columns list");
     }
 
@@ -56,20 +52,7 @@ public class IgniteSqlAlterTableDropColumn extends IgniteAbstractSqlAlterTable {
         writer.keyword("DROP");
         writer.keyword("COLUMN");
 
-        if (ifExistsColumn) {
-            writer.keyword("IF EXISTS");
-        }
-
         columns.unparse(writer, leftPrec, rightPrec);
-    }
-
-    /**
-     * Existance flag.
-     *
-     * @return Whether the IF EXISTS is specified for columns.
-     */
-    public boolean ifExistsColumn() {
-        return ifExistsColumn;
     }
 
     /** Processing columns definition. */

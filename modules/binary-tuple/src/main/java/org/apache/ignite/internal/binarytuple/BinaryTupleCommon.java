@@ -17,13 +17,6 @@
 
 package org.apache.ignite.internal.binarytuple;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.Period;
-import java.util.UUID;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -33,11 +26,14 @@ public class BinaryTupleCommon {
     /** Size of a tuple header, in bytes. */
     public static final int HEADER_SIZE = 1;
 
+    /** Empty varlen token. */
+    public static final byte VARLEN_EMPTY_BYTE = (byte) 0x80;
+
     /** Mask for size of entries in variable-length offset table. */
     public static final int VARSIZE_MASK = 0b011;
 
-    /** Flag that indicates null map presence. */
-    public static final int NULLMAP_FLAG = 1 << 2;
+    /** Flag that indicates that offset table is oversized. */
+    public static final int OFFSET_TABLE_OVERSIZED = 1 << 2;
 
     /**
      * Flag that indicates that a Binary Tuple is instead a Binary Tuple Prefix.
@@ -54,26 +50,11 @@ public class BinaryTupleCommon {
      */
     public static final int EQUALITY_FLAG = 1 << 4;
 
-    /** Default value for UUID elements. */
-    public static final UUID DEFAULT_UUID = new UUID(0, 0);
-
-    /** Default value for Date elements (Jan 1st 1 BC). */
-    public static final LocalDate DEFAULT_DATE = LocalDate.of(0, 1, 1);
-
-    /** Default value for Time elements (00:00:00). */
-    public static final LocalTime DEFAULT_TIME = LocalTime.of(0, 0);
-
-    /** Default value for DateTime elements (Jan 1st 1 BC, 00:00:00). */
-    public static final LocalDateTime DEFAULT_DATE_TIME = LocalDateTime.of(0, 1, 1, 0, 0);
-
-    /** Default value for Timestamp elements. */
-    public static final Instant DEFAULT_TIMESTAMP = Instant.EPOCH;
-
-    /** Default value for Duration elements. */
-    public static final Duration DEFAULT_DURATION = Duration.ZERO;
-
-    /** Default value for Period elements. */
-    public static final Period DEFAULT_PERIOD = Period.ZERO;
+    /**
+     * Flag used when a Binary Tuple represents a Table Row. If it is set, then this Row contains both a Primary Key columns and Value
+     * columns.
+     */
+    public static final int ROW_HAS_VALUE_FLAG = 1 << 5;
 
     /**
      * Calculates flags for a given size of variable-length area.
@@ -102,36 +83,6 @@ public class BinaryTupleCommon {
      */
     public static int flagsToEntrySize(byte flags) {
         return 1 << (flags & VARSIZE_MASK);
-    }
-
-    /**
-     * Calculates the null map size.
-     *
-     * @param numElements Number of tuple elements.
-     * @return Null map size in bytes.
-     */
-    public static int nullMapSize(int numElements) {
-        return (numElements + 7) / 8;
-    }
-
-    /**
-     * Returns offset of the byte that contains null-bit of a given tuple element.
-     *
-     * @param index Tuple element index.
-     * @return Offset of the required byte relative to the tuple start.
-     */
-    public static int nullOffset(int index) {
-        return HEADER_SIZE + index / 8;
-    }
-
-    /**
-     * Returns a null-bit mask corresponding to a given tuple element.
-     *
-     * @param index Tuple element index.
-     * @return Mask to extract the required null-bit.
-     */
-    public static byte nullMask(int index) {
-        return (byte) (1 << (index % 8));
     }
 
     /**

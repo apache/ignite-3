@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -97,6 +99,7 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             return completedFuture(null);
         }
 
-        return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()));
+        return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(
+                new TxIdAndTimestamp(readTimestamp, id())).thenRun(() -> txManager.changeState(id(), PENDING, COMMITED));
     }
 }

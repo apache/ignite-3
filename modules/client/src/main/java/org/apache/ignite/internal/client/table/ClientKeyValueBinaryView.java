@@ -451,13 +451,14 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
         // Partition-aware (best effort) sender with retries.
         // The batch may go to a different node when a direct connection is not available.
-        StreamerBatchSender<Entry<Tuple, Tuple>, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
+        StreamerBatchSender<Entry<Tuple, Tuple>, String> batchSender = (nodeName, items) -> tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> ser.writeKvTuples(null, items, s, w),
                 r -> null,
-                PartitionAwarenessProvider.of(nodeId),
+                PartitionAwarenessProvider.of(nodeName),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
+        //noinspection resource
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 }

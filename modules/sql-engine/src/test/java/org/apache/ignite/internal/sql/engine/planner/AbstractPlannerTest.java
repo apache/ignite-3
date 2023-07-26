@@ -570,6 +570,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 return;
             }
         } catch (Throwable th) {
+            if (lastErrorMsg == null) {
+                lastErrorMsg = th.getMessage();
+            }
+
             String invalidPlanMsg = "Failed to validate plan (" + lastErrorMsg + "):\n"
                     + RelOptUtil.toString(plan, SqlExplainLevel.ALL_ATTRIBUTES);
 
@@ -1036,7 +1040,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * TestTableDescriptor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    static class TestTableDescriptor implements TableDescriptor {
+    public static class TestTableDescriptor implements TableDescriptor {
         private final Supplier<IgniteDistribution> distributionSupp;
 
         private final RelDataType rowType;
@@ -1045,7 +1049,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
          * Constructor.
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          */
-        TestTableDescriptor(Supplier<IgniteDistribution> distribution, RelDataType rowType) {
+        public TestTableDescriptor(Supplier<IgniteDistribution> distribution, RelDataType rowType) {
             this.distributionSupp = distribution;
             this.rowType = rowType;
         }

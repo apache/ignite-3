@@ -35,6 +35,7 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -65,35 +66,25 @@ public class BinaryTupleBuilder {
     /** Charset encoder for strings. Initialized lazily. */
     private CharsetEncoder cachedEncoder;
 
-    /** Flag indicating if any NULL values were really put here. */
-    private boolean hasNullValues = false;
-
     /**
      * Creates a builder.
      *
      * @param numElements Number of tuple elements.
-     * @param allowNulls True if NULL values are possible, false otherwise.
      */
-    public BinaryTupleBuilder(int numElements, boolean allowNulls) {
-        this(numElements, allowNulls, -1);
+    public BinaryTupleBuilder(int numElements) {
+        this(numElements, -1);
     }
 
     /**
      * Creates a builder.
      *
      * @param numElements Number of tuple elements.
-     * @param allowNulls True if NULL values are possible, false otherwise.
      * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
      */
-    public BinaryTupleBuilder(int numElements, boolean allowNulls, int totalValueSize) {
+    public BinaryTupleBuilder(int numElements, int totalValueSize) {
         this.numElements = numElements;
 
-        int base = BinaryTupleCommon.HEADER_SIZE;
-        if (allowNulls) {
-            base += BinaryTupleCommon.nullMapSize(numElements);
-        }
-
-        entryBase = base;
+        entryBase = BinaryTupleCommon.HEADER_SIZE;
 
         if (totalValueSize < 0) {
             entrySize = Integer.BYTES;
@@ -101,16 +92,9 @@ public class BinaryTupleBuilder {
             entrySize = BinaryTupleCommon.flagsToEntrySize(BinaryTupleCommon.valueSizeToFlags(totalValueSize));
         }
 
-        valueBase = base + entrySize * numElements;
+        valueBase = entryBase + entrySize * numElements;
 
         allocate(totalValueSize);
-    }
-
-    /**
-     * Check if the binary tuple contains a null map.
-     */
-    public boolean hasNullMap() {
-        return entryBase > BinaryTupleCommon.HEADER_SIZE;
     }
 
     /**
@@ -119,25 +103,6 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendNull() {
-        if (!hasNullMap()) {
-            throw new IllegalStateException("Appending a NULL value in binary tuple builder with disabled NULLs");
-        }
-
-        hasNullValues = true;
-
-        int nullIndex = BinaryTupleCommon.nullOffset(elementIndex);
-        byte nullMask = BinaryTupleCommon.nullMask(elementIndex);
-        buffer.put(nullIndex, (byte) (buffer.get(nullIndex) | nullMask));
-
-        return proceed();
-    }
-
-    /**
-     * Append a default (empty) value for the current element.
-     *
-     * @return {@code this} for chaining.
-     */
-    public BinaryTupleBuilder appendDefault() {
         return proceed();
     }
 
@@ -147,10 +112,29 @@ public class BinaryTupleBuilder {
      * @param value Element value.
      * @return {@code this} for chaining.
      */
+    public BinaryTupleBuilder appendBoolean(boolean value) {
+        putByte(ByteUtils.booleanToByte(value));
+        return proceed();
+    }
+
+    /**
+     * Append a value for the current element.
+     *
+     * @param value Element value.
+     * @return {@code this} for chaining.
+     */
+    public BinaryTupleBuilder appendBoolean(Boolean value) {
+        return value == null ? appendNull() : appendBoolean(value.booleanValue());
+    }
+
+    /**
+     * Append a value for the current element.
+     *
+     * @param value Element value.
+     * @return {@code this} for chaining.
+     */
     public BinaryTupleBuilder appendByte(byte value) {
-        if (value != 0) {
-            putByte(value);
-        }
+        putByte(value);
         return proceed();
     }
 
@@ -251,9 +235,7 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendFloat(float value) {
-        if (value != 0.0F) {
-            putFloat(value);
-        }
+        putFloat(value);
         return proceed();
     }
 
@@ -298,10 +280,7 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendNumberNotNull(BigInteger value) {
-        if (!value.equals(BigInteger.ZERO)) {
-            putBytes(value.toByteArray());
-        }
-
+        putBytes(value.toByteArray());
         return proceed();
     }
 
@@ -370,7 +349,7 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendBytesNotNull(byte[] value) {
-        putBytes(value);
+        putBytesWithEmptyCheck(value);
         return proceed();
     }
 
@@ -391,12 +370,8 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendUuidNotNull(UUID value) {
-        long lsb = value.getLeastSignificantBits();
-        long msb = value.getMostSignificantBits();
-        if ((lsb | msb) != 0L) {
-            putLong(msb);
-            putLong(lsb);
-        }
+        putLong(value.getMostSignificantBits());
+        putLong(value.getLeastSignificantBits());
         return proceed();
     }
 
@@ -417,7 +392,7 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendBitmaskNotNull(BitSet value) {
-        putBytes(value.toByteArray());
+        putBytesWithEmptyCheck(value.toByteArray());
         return proceed();
     }
 
@@ -438,9 +413,7 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendDateNotNull(LocalDate value) {
-        if (value != BinaryTupleCommon.DEFAULT_DATE) {
-            putDate(value);
-        }
+        putDate(value);
         return proceed();
     }
 
@@ -461,9 +434,7 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendTimeNotNull(LocalTime value) {
-        if (value != BinaryTupleCommon.DEFAULT_TIME) {
-            putTime(value);
-        }
+        putTime(value);
         return proceed();
     }
 
@@ -484,10 +455,8 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendDateTimeNotNull(LocalDateTime value) {
-        if (value != BinaryTupleCommon.DEFAULT_DATE_TIME) {
-            putDate(value.toLocalDate());
-            putTime(value.toLocalTime());
-        }
+        putDate(value.toLocalDate());
+        putTime(value.toLocalTime());
         return proceed();
     }
 
@@ -508,13 +477,11 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendTimestampNotNull(Instant value) {
-        if (value != BinaryTupleCommon.DEFAULT_TIMESTAMP) {
-            long seconds = value.getEpochSecond();
-            int nanos = value.getNano();
-            putLong(seconds);
-            if (nanos != 0) {
-                putInt(nanos);
-            }
+        long seconds = value.getEpochSecond();
+        int nanos = value.getNano();
+        putLong(seconds);
+        if (nanos != 0) {
+            putInt(nanos);
         }
         return proceed();
     }
@@ -536,13 +503,11 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendDurationNotNull(Duration value) {
-        if (value != BinaryTupleCommon.DEFAULT_DURATION) {
-            long seconds = value.getSeconds();
-            int nanos = value.getNano();
-            putLong(seconds);
-            if (nanos != 0) {
-                putInt(nanos);
-            }
+        long seconds = value.getSeconds();
+        int nanos = value.getNano();
+        putLong(seconds);
+        if (nanos != 0) {
+            putInt(nanos);
         }
         return proceed();
     }
@@ -564,28 +529,26 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendPeriodNotNull(Period value) {
-        if (value != BinaryTupleCommon.DEFAULT_PERIOD) {
-            int years = value.getYears();
-            int months = value.getMonths();
-            int days = value.getDays();
+        int years = value.getYears();
+        int months = value.getMonths();
+        int days = value.getDays();
 
-            if (Byte.MIN_VALUE <= years && years <= Byte.MAX_VALUE
-                    && Byte.MIN_VALUE <= months && months <= Byte.MAX_VALUE
-                    && Byte.MIN_VALUE <= days && days <= Byte.MAX_VALUE) {
-                putByte((byte) years);
-                putByte((byte) months);
-                putByte((byte) days);
-            } else if (Short.MIN_VALUE <= years && years <= Short.MAX_VALUE
-                    && Short.MIN_VALUE <= months && months <= Short.MAX_VALUE
-                    && Short.MIN_VALUE <= days && days <= Short.MAX_VALUE) {
-                putShort((short) years);
-                putShort((short) months);
-                putShort((short) days);
-            } else {
-                putInt(years);
-                putInt(months);
-                putInt(days);
-            }
+        if (Byte.MIN_VALUE <= years && years <= Byte.MAX_VALUE
+                && Byte.MIN_VALUE <= months && months <= Byte.MAX_VALUE
+                && Byte.MIN_VALUE <= days && days <= Byte.MAX_VALUE) {
+            putByte((byte) years);
+            putByte((byte) months);
+            putByte((byte) days);
+        } else if (Short.MIN_VALUE <= years && years <= Short.MAX_VALUE
+                && Short.MIN_VALUE <= months && months <= Short.MAX_VALUE
+                && Short.MIN_VALUE <= days && days <= Short.MAX_VALUE) {
+            putShort((short) years);
+            putShort((short) months);
+            putShort((short) days);
+        } else {
+            putInt(years);
+            putInt(months);
+            putInt(days);
         }
 
         return proceed();
@@ -599,17 +562,6 @@ public class BinaryTupleBuilder {
      */
     public BinaryTupleBuilder appendPeriod(Period value) {
         return value == null ? appendNull() : appendPeriodNotNull(value);
-    }
-
-    /**
-     * Append some arbitrary content as the current element.
-     *
-     * @param bytes Buffer with element raw bytes.
-     * @return {@code this} for chaining.
-     */
-    public BinaryTupleBuilder appendElementBytes(ByteBuffer bytes) {
-        putElement(bytes);
-        return proceed();
     }
 
     /**
@@ -692,21 +644,6 @@ public class BinaryTupleBuilder {
             offset = (entrySize - desiredEntrySize) * numElements;
         }
 
-        // Drop or move null map if needed.
-        if (hasNullMap()) {
-            if (!hasNullValues) {
-                offset += BinaryTupleCommon.nullMapSize(numElements);
-            } else {
-                flags |= BinaryTupleCommon.NULLMAP_FLAG;
-                if (offset != 0) {
-                    int n = BinaryTupleCommon.nullMapSize(numElements);
-                    for (int i = BinaryTupleCommon.HEADER_SIZE + n - 1; i >= BinaryTupleCommon.HEADER_SIZE; i--) {
-                        buffer.put(i + offset, buffer.get(i));
-                    }
-                }
-            }
-        }
-
         buffer.put(offset, flags);
 
         return buffer.flip().position(offset);
@@ -754,8 +691,26 @@ public class BinaryTupleBuilder {
         buffer.put(bytes);
     }
 
+    private void putBytesWithEmptyCheck(byte[] bytes) {
+        if (bytes.length == 0 || bytes[0] == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+            ensure(bytes.length + 1);
+            buffer.put(BinaryTupleCommon.VARLEN_EMPTY_BYTE);
+        } else {
+            ensure(bytes.length);
+        }
+        buffer.put(bytes);
+    }
+
     /** Put a string to the buffer extending it if needed. */
     private void putString(String value) throws CharacterCodingException {
+        if (value.isEmpty()) {
+            ensure(1);
+            buffer.put(BinaryTupleCommon.VARLEN_EMPTY_BYTE);
+            return;
+        }
+
+        int begin = buffer.position();
+
         CharsetEncoder coder = encoder().reset();
         CharBuffer input = CharBuffer.wrap(value);
 
@@ -775,6 +730,12 @@ public class BinaryTupleBuilder {
 
         if (result.isError()) {
             result.throwException();
+        }
+
+        // UTF-8 encoded strings should not start with 0x80 (character codes larger than 127 have a multi-byte encoding).
+        // We trust this but verify.
+        if (buffer.get(begin) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+            throw new BinaryTupleFormatException("Failed to encode a string element: resulting payload starts with invalid 0x80 byte");
         }
     }
 
@@ -809,17 +770,6 @@ public class BinaryTupleBuilder {
             long time = (hour << 22) | (minute << 16) | (second << 10) | (nanos / 1000000);
             putInt((int) time);
         }
-    }
-
-    /** Put element bytes to the buffer extending it if needed. */
-    private void putElement(ByteBuffer bytes) {
-        ensure(bytes.remaining());
-
-        int pos = bytes.position();
-
-        buffer.put(bytes);
-
-        bytes.position(pos);
     }
 
     /** Put element bytes to the buffer extending it if needed. */

@@ -22,11 +22,17 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
+import java.io.ByteArrayInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.FileDeployerService;
 import org.apache.ignite.internal.deployunit.UnitContent;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -63,21 +69,32 @@ public class FileDeployerServiceTest {
     }
 
     @Test
-    public void test() throws IOException {
-        CompletableFuture<Boolean> deployed = service.deploy("id", parseVersion("1.0.0"), content());
-        assertThat(deployed, willBe(true));
+    public void test() throws Exception {
+        try (DeploymentUnit unit = content()) {
+            CompletableFuture<Boolean> deployed = service.deploy("id", parseVersion("1.0.0"), unit);
+            assertThat(deployed, willBe(true));
+        }
 
-        CompletableFuture<UnitContent> unitContent = service.getUnitContent("id", parseVersion("1.0.0"));
-        assertThat(unitContent, willBe(equalTo(content())));
+        try (DeploymentUnit unit = content()) {
+            CompletableFuture<UnitContent> unitContent = service.getUnitContent("id", parseVersion("1.0.0"));
+            assertThat(unitContent, willBe(equalTo(UnitContent.readContent(unit))));
+        }
     }
 
-    private UnitContent content() throws IOException {
-        byte[] content1 = Files.readAllBytes(file1);
-        byte[] content2 = Files.readAllBytes(file2);
-        byte[] content3 = Files.readAllBytes(file3);
+    private DeploymentUnit content() {
+        Map<String, InputStream> map = Stream.of(file1, file2, file3)
+                .collect(Collectors.toMap(it -> it.getFileName().toString(), it -> {
+                    try {
+                        byte[] buf = Files.readAllBytes(it);
+                        if (buf.length == 0) {
+                            throw new RuntimeException(new FileNotFoundException(it.toString()));
+                        }
+                        return new ByteArrayInputStream(buf);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }));
 
-        return new UnitContent(Map.of(file1.getFileName().toString(), content1,
-                file2.getFileName().toString(), content2,
-                file3.getFileName().toString(), content3));
+        return new DeploymentUnit(map);
     }
 }

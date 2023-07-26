@@ -81,12 +81,12 @@ dependencies {
 
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core
-    testImplementation libs.mockito.inline
     testImplementation libs.hamcrest.core
     testImplementation libs.slf4j.jdk14
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
 
+    testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation libs.jetbrains.annotations

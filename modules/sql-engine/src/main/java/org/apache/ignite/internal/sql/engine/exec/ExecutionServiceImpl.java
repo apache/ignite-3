@@ -20,8 +20,8 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fromJson;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.DDL_EXEC_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -50,6 +50,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
+import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
@@ -88,7 +89,6 @@ import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -96,7 +96,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -314,11 +313,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         if (e instanceof IgniteInternalCheckedException) {
-            return new IgniteInternalException(DDL_EXEC_ERR, "Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
+            return new IgniteInternalException(INTERNAL_ERR, "Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
                     + ", err=" + e.getMessage() + ']', e);
         }
 
-        return (e instanceof RuntimeException) ? (RuntimeException) e : new SqlException(DDL_EXEC_ERR, e);
+        return (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteInternalException(INTERNAL_ERR, e);
     }
 
     private AsyncCursor<List<Object>> executeExplain(ExplainPlan plan) {
@@ -529,9 +528,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private void onNodeLeft(String nodeName) {
             remoteFragmentInitCompletion.entrySet().stream()
                     .filter(e -> nodeName.equals(e.getKey().nodeName()))
-                    .forEach(e -> e.getValue()
-                            .completeExceptionally(new IgniteInternalException(
-                                    NODE_LEFT_ERR, "Node left the cluster [nodeName=" + nodeName + "]")));
+                    .forEach(e -> e.getValue().completeExceptionally(new NodeLeftException(nodeName)));
         }
 
         private CompletableFuture<Void> executeFragment(IgniteRel treeRoot, ResolvedDependencies deps, ExecutionContext<RowT> ectx) {
@@ -703,10 +700,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                                         throw ExceptionUtils.withCauseAndCode(
                                                 IgniteInternalException::new,
-                                                Common.INTERNAL_ERR,
+                                                INTERNAL_ERR,
                                                 format("Unable to send fragment [targetNode={}, fragmentId={}, cause={}]",
-                                                        nodeName, fragment.fragmentId(), t.getMessage()),
-                                                t
+                                                        nodeName, fragment.fragmentId(), t.getMessage()), t
                                         );
                                     })
                             );
@@ -844,7 +840,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private CompletableFuture<Void> close(boolean cancel) {
             if (!cancelled.compareAndSet(false, true)) {
-                return cancelFut.thenApply(Function.identity());
+                return cancelFut;
             }
 
             CompletableFuture<Void> start = closeExecNode(cancel);
@@ -856,23 +852,30 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                 : closeLocalFragments();
 
                         var finalStepFut = cancelResult.whenComplete((r, e) -> {
+                            if (e != null) {
+                                Throwable ex = unwrapCause(e);
+
+                                LOG.warn("Fragment closing processed with errors: [queryId={}]", ex, ctx.queryId());
+                            }
+
                             queryManagerMap.remove(ctx.queryId());
 
                             try {
                                 ctx.cancel().cancel();
-                            } catch (Exception ignored) {
-                                // NO-OP
+                            } catch (Exception th) {
+                                LOG.debug("Exception raised while cancel", th);
                             }
 
                             cancelFut.complete(null);
                         });
 
                         return cancelResult.thenCombine(finalStepFut, (none1, none2) -> null);
-                    });
+                    })
+                    .thenRun(() -> localFragments.forEach(f -> f.context().cancel()));
 
             start.completeAsync(() -> null, taskExecutor);
 
-            return cancelFut.thenApply(Function.identity());
+            return cancelFut;
         }
 
         private CompletableFuture<Void> closeLocalFragments() {
@@ -880,9 +883,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             List<CompletableFuture<?>> localFragmentCompletions = new ArrayList<>();
             for (AbstractNode<?> node : localFragments) {
-                if (node.context().isCancelled()) {
-                    continue;
-                }
+                assert !node.context().isCancelled() : "node context is cancelled, but node still processed";
 
                 localFragmentCompletions.add(
                         node.context().submit(() -> node.onError(ex), node::onError)
@@ -940,7 +941,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
          * @return Completable future that should run asynchronously.
          */
         private CompletableFuture<Void> closeExecNode(boolean cancel) {
-            CompletableFuture<Void> fut = new CompletableFuture<>();
+            CompletableFuture<Void> start = new CompletableFuture<>();
 
             if (!root.completeExceptionally(new ExecutionCancelledException()) && !root.isCompletedExceptionally()) {
                 AsyncRootNode<RowT, List<Object>> node = root.getNow(null);
@@ -948,13 +949,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 if (!cancel) {
                     CompletableFuture<Void> closeFut = node.closeAsync();
 
-                    return fut.thenCompose(v -> closeFut);
+                    return start.thenCompose(v -> closeFut);
                 }
 
                 node.onError(new ExecutionCancelledException());
             }
 
-            return fut;
+            return start;
         }
     }
 

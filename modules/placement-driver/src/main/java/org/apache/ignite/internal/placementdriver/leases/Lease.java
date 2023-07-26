@@ -22,11 +22,14 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.ByteUtils;
 
 /**
  * A lease representation in memory.
@@ -34,7 +37,7 @@ import org.apache.ignite.internal.tostring.S;
  */
 public class Lease implements ReplicaMeta {
     /** The object is used when nothing holds the lease. Empty lease is always expired. */
-    public static Lease EMPTY_LEASE = new Lease(null, MIN_VALUE, MIN_VALUE);
+    public static Lease EMPTY_LEASE = new Lease(null, MIN_VALUE, MIN_VALUE, null);
 
     /** A node that holds a lease. */
     private final String leaseholder;
@@ -51,15 +54,20 @@ public class Lease implements ReplicaMeta {
     /** The lease is available to prolong in the same leaseholder. */
     private final boolean prolongable;
 
+    /** Id of replication group. */
+    private final ReplicationGroupId replicationGroupId;
+
     /**
      * Creates a new lease.
      *
      * @param leaseholder Lease holder.
      * @param startTime Start lease timestamp.
      * @param leaseExpirationTime Lease expiration timestamp.
+     * @param replicationGroupId Id of replication group.
      */
-    public Lease(String leaseholder, HybridTimestamp startTime, HybridTimestamp leaseExpirationTime) {
-        this(leaseholder, startTime, leaseExpirationTime, false, false);
+    public Lease(String leaseholder, HybridTimestamp startTime, HybridTimestamp leaseExpirationTime,
+            ReplicationGroupId replicationGroupId) {
+        this(leaseholder, startTime, leaseExpirationTime, false, false, replicationGroupId);
     }
 
     /**
@@ -76,13 +84,15 @@ public class Lease implements ReplicaMeta {
             HybridTimestamp startTime,
             HybridTimestamp leaseExpirationTime,
             boolean prolong,
-            boolean accepted
+            boolean accepted,
+            ReplicationGroupId replicationGroupId
     ) {
         this.leaseholder = leaseholder;
         this.startTime = startTime;
         this.expirationTime = leaseExpirationTime;
         this.prolongable = prolong;
         this.accepted = accepted;
+        this.replicationGroupId = replicationGroupId;
     }
 
     /**
@@ -102,7 +112,7 @@ public class Lease implements ReplicaMeta {
                 + ", expirationTime=" + expirationTime
                 + ", prolongTo=" + to + ']';
 
-        return new Lease(leaseholder, startTime, to, true, true);
+        return new Lease(leaseholder, startTime, to, true, true, replicationGroupId);
     }
 
     /**
@@ -116,7 +126,7 @@ public class Lease implements ReplicaMeta {
                 + "leaseholder=" + leaseholder
                 + ", expirationTime=" + expirationTime + ']';
 
-        return new Lease(leaseholder, startTime, to, true, true);
+        return new Lease(leaseholder, startTime, to, true, true, replicationGroupId);
     }
 
     /**
@@ -129,7 +139,7 @@ public class Lease implements ReplicaMeta {
                 + "leaseholder=" + leaseholder
                 + ", expirationTime=" + expirationTime + ']';
 
-        return new Lease(leaseholder, startTime, expirationTime, false, true);
+        return new Lease(leaseholder, startTime, expirationTime, false, true, replicationGroupId);
     }
 
     @Override
@@ -165,6 +175,10 @@ public class Lease implements ReplicaMeta {
         return accepted;
     }
 
+    public ReplicationGroupId replicationGroupId() {
+        return replicationGroupId;
+    }
+
     /**
      * Encodes this lease into sequence of bytes.
      *
@@ -173,9 +187,13 @@ public class Lease implements ReplicaMeta {
     public byte[] bytes() {
         byte[] leaseholderBytes = leaseholder == null ? null : leaseholder.getBytes(StandardCharsets.UTF_8);
         short leaseholderBytesSize = (short) (leaseholderBytes == null ? 0 : leaseholderBytes.length);
-        int bufSize = leaseholderBytesSize + Short.BYTES + HYBRID_TIMESTAMP_SIZE * 2 + 1 + 1;
 
-        ByteBuffer buf = ByteBuffer.allocate(bufSize);
+        byte[] groupIdBytes = replicationGroupId == null ? null : ByteUtils.toBytes(replicationGroupId);
+        short groupIdBytesSize = (short) (groupIdBytes == null ? 0 : groupIdBytes.length);
+
+        int bufSize = leaseholderBytesSize + groupIdBytesSize + Short.BYTES * 2 + HYBRID_TIMESTAMP_SIZE * 2 + 1 + 1;
+
+        ByteBuffer buf = ByteBuffer.allocate(bufSize).order(ByteOrder.LITTLE_ENDIAN);
 
         buf.put((byte) (accepted ? 1 : 0));
         buf.put((byte) (prolongable ? 1 : 0));
@@ -185,6 +203,10 @@ public class Lease implements ReplicaMeta {
         if (leaseholderBytes != null) {
             buf.put(leaseholderBytes);
         }
+        buf.putShort(groupIdBytesSize);
+        if (groupIdBytes != null) {
+            buf.put(groupIdBytes);
+        }
 
         return buf.array();
     }
@@ -192,12 +214,10 @@ public class Lease implements ReplicaMeta {
     /**
      * Decodes a lease from the sequence of bytes.
      *
-     * @param bytes Lease representation in a byte array.
+     * @param buf Byte buffer containing lease representation. Requires to be in little-endian.
      * @return Decoded lease.
      */
-    public static Lease fromBytes(byte[] bytes) {
-        ByteBuffer buf = ByteBuffer.wrap(bytes);
-
+    public static Lease fromBytes(ByteBuffer buf) {
         boolean accepted = buf.get() == 1;
         boolean prolongable = buf.get() == 1;
         HybridTimestamp startTime = hybridTimestamp(buf.getLong());
@@ -212,7 +232,17 @@ public class Lease implements ReplicaMeta {
             leaseholder = null;
         }
 
-        return new Lease(leaseholder, startTime, expirationTime, prolongable, accepted);
+        short groupIdBytesSize = buf.getShort();
+        ReplicationGroupId groupId;
+        if (groupIdBytesSize > 0) {
+            byte[] groupIdBytes = new byte[groupIdBytesSize];
+            buf.get(groupIdBytes);
+            groupId = ByteUtils.fromBytes(groupIdBytes);
+        } else {
+            groupId = null;
+        }
+
+        return new Lease(leaseholder, startTime, expirationTime, prolongable, accepted, groupId);
     }
 
     @Override
@@ -230,11 +260,12 @@ public class Lease implements ReplicaMeta {
         }
         Lease lease = (Lease) o;
         return accepted == lease.accepted && prolongable == lease.prolongable && Objects.equals(leaseholder, lease.leaseholder)
-                && Objects.equals(startTime, lease.startTime) && Objects.equals(expirationTime, lease.expirationTime);
+                && Objects.equals(startTime, lease.startTime) && Objects.equals(expirationTime, lease.expirationTime)
+                && Objects.equals(replicationGroupId, lease.replicationGroupId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(leaseholder, accepted, startTime, expirationTime, prolongable);
+        return Objects.hash(leaseholder, accepted, startTime, expirationTime, prolongable, replicationGroupId);
     }
 }

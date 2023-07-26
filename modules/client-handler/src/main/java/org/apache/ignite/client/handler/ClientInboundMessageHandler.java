@@ -86,6 +86,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.ErrorExtensions;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
@@ -95,6 +96,7 @@ import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.security.authentication.AnonymousRequest;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
@@ -103,9 +105,9 @@ import org.apache.ignite.internal.security.authentication.UsernamePasswordReques
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.security.AuthenticationException;
@@ -237,18 +239,17 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         ByteBuf byteBuf = (ByteBuf) msg;
 
         // Each inbound handler in a pipeline has to release the received messages.
-        try (var unpacker = getUnpacker(byteBuf)) {
-            metrics.bytesReceivedAdd(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
+        var unpacker = getUnpacker(byteBuf);
+        metrics.bytesReceivedAdd(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
 
-            // Packer buffer is released by Netty on send, or by inner exception handlers below.
-            var packer = getPacker(ctx.alloc());
+        // Packer buffer is released by Netty on send, or by inner exception handlers below.
+        var packer = getPacker(ctx.alloc());
 
-            if (clientContext == null) {
-                metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
-                handshake(ctx, unpacker, packer);
-            } else {
-                processOperation(ctx, unpacker, packer);
-            }
+        if (clientContext == null) {
+            metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
+            handshake(ctx, unpacker, packer);
+        } else {
+            processOperation(ctx, unpacker, packer);
         }
     }
 
@@ -325,6 +326,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             }
 
             metrics.sessionsRejectedIncrement();
+        } finally {
+            unpacker.close();
         }
     }
 
@@ -395,12 +398,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
         err = ExceptionUtils.unwrapCause(err);
 
-        if (err instanceof IgniteException) {
-            IgniteException iex = (IgniteException) err;
-            packer.packUuid(iex.traceId());
-            packer.packInt(iex.code());
-        } else if (err instanceof IgniteCheckedException) {
-            IgniteCheckedException iex = (IgniteCheckedException) err;
+        // Trace ID and error code.
+        if (err instanceof TraceableException) {
+            TraceableException iex = (TraceableException) err;
             packer.packUuid(iex.traceId());
             packer.packInt(iex.code());
         } else {
@@ -408,20 +408,24 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             packer.packInt(INTERNAL_ERR);
         }
 
+        // Class name and message.
         packer.packString(err.getClass().getName());
+        packer.packString(err.getMessage());
 
-        String msg = err.getMessage();
-
-        if (msg == null) {
-            packer.packNil();
-        } else {
-            packer.packString(msg);
-        }
-
+        // Stack trace.
         if (configuration.sendServerExceptionStackTraceToClient()) {
             packer.packString(ExceptionUtils.getFullStackTrace(err));
         } else {
             packer.packNil();
+        }
+
+        // Extensions.
+        if (err instanceof SchemaVersionMismatchException) {
+            packer.packMapHeader(1);
+            packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
+            packer.packInt(((SchemaVersionMismatchException) err).expectedVersion());
+        } else {
+            packer.packNil(); // No extensions.
         }
     }
 
@@ -457,6 +461,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             if (fut == null) {
                 // Operation completed synchronously.
+                in.close();
                 write(out, ctx);
 
                 if (LOG.isTraceEnabled()) {
@@ -471,6 +476,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 var op = opCode;
 
                 fut.whenComplete((Object res, Object err) -> {
+                    in.close();
                     metrics.requestsActiveDecrement();
 
                     if (err != null) {
@@ -489,6 +495,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 });
             }
         } catch (Throwable t) {
+            in.close();
             out.close();
 
             writeError(requestId, opCode, t, ctx);

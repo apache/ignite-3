@@ -19,6 +19,9 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.tx.TxState.ABORTED;
+import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.util.Comparator;
@@ -34,6 +37,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -108,19 +112,24 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public InternalTransaction begin() {
-        return begin(false);
+        return begin(false, null);
     }
 
     @Override
-    public InternalTransaction begin(boolean readOnly) {
+    public InternalTransaction begin(boolean readOnly, HybridTimestamp observableTimestamp) {
+        assert readOnly || observableTimestamp == null : "Observable timestamp is applicable just for read-only transactions.";
+
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
+        changeState(txId, null, PENDING);
 
         if (!readOnly) {
             return new ReadWriteTransactionImpl(this, txId);
         }
 
-        HybridTimestamp readTimestamp = beginTimestamp;
+        HybridTimestamp readTimestamp = observableTimestamp != null
+                ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp())
+                : clock.now();
 
         lowWatermarkReadWriteLock.readLock().lock();
 
@@ -133,7 +142,7 @@ public class TxManagerImpl implements TxManager {
                 if (lowWatermark != null && readTimestamp.compareTo(lowWatermark) <= 0) {
                     throw new IgniteInternalException(
                             TX_READ_ONLY_TOO_OLD_ERR,
-                            "Timestamp read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
+                            "Timestamp of read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
                             readTimestamp, lowWatermark
                     );
                 }
@@ -147,20 +156,38 @@ public class TxManagerImpl implements TxManager {
         }
     }
 
+    /**
+     * Current read timestamp, for calculation of read timestamp of read-only transactions.
+     *
+     * @return Current read timestamp.
+     */
+    private HybridTimestamp currentReadTimestamp() {
+        HybridTimestamp now = clock.now();
+
+        return new HybridTimestamp(now.getPhysical()
+                - ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                - HybridTimestamp.CLOCK_SKEW,
+                0
+        );
+    }
+
     @Override
     public TxState state(UUID txId) {
         return states.get(txId);
     }
 
     @Override
-    public boolean changeState(UUID txId, TxState before, TxState after) {
-        return states.compute(txId, (k, v) -> {
+    public void changeState(UUID txId, TxState before, TxState after) {
+        TxState computeResult = states.compute(txId, (k, v) -> {
             if (v == before) {
                 return after;
             } else {
                 return v;
             }
-        }) == after;
+        });
+
+        assert computeResult == after : "Unable to change transaction state, expected = [" + before + "],"
+                + " got = [" + computeResult + "], state to set = [" + after + ']';
     }
 
     @Override
@@ -188,7 +215,7 @@ public class TxManagerImpl implements TxManager {
 
         return replicaService.invoke(recipientNode, req)
                 // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
-                .thenRun(() -> changeState(txId, null, commit ? TxState.COMMITED : TxState.ABORTED));
+                .thenRun(() -> changeState(txId, PENDING, commit ? COMMITED : ABORTED));
     }
 
     @Override
@@ -221,7 +248,12 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public int finished() {
-        return (int) states.entrySet().stream().filter(e -> e.getValue() == TxState.COMMITED || e.getValue() == TxState.ABORTED).count();
+        return (int) states.entrySet().stream().filter(e -> e.getValue() == COMMITED || e.getValue() == ABORTED).count();
+    }
+
+    @Override
+    public int pending() {
+        return (int) states.entrySet().stream().filter(e -> e.getValue() == PENDING).count();
     }
 
     @Override

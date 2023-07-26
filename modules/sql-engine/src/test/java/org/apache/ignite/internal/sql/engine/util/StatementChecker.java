@@ -272,7 +272,9 @@ public class StatementChecker {
         // Capture current stacktrace to show error location.
         AssertionError exception = new AssertionError("Statement check failed");
 
-        return shouldFail(name, exception, new TypeSafeMatcher<>() {
+        // please do not replace generic in TypeSafeMatcher with diamond.
+        // Sometimes IDEA goes crazy and start throwing error on compilation                                  V
+        return shouldFail(name, exception, new TypeSafeMatcher<Throwable>() {
             @Override
             protected boolean matchesSafely(Throwable t) {
                 return t.getMessage().contains(errorMessage);

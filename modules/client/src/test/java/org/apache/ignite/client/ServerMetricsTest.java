@@ -92,8 +92,8 @@ public class ServerMetricsTest extends AbstractClientTest {
         CompletableFuture computeFut = new CompletableFuture();
         FakeCompute.future = computeFut;
 
-        client.compute().execute(getClusterNodes("s1"), List.of(), "job");
-        client.compute().execute(getClusterNodes("s1"), List.of(), "job");
+        client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
+        client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsActive() == 2, 1000),
@@ -110,7 +110,7 @@ public class ServerMetricsTest extends AbstractClientTest {
     public void testRequestsProcessed() throws Exception {
         long processed = testServer.metrics().requestsProcessed();
 
-        client.compute().execute(getClusterNodes("s1"), List.of(), "job");
+        client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsProcessed() == processed + 1, 1000),
@@ -123,7 +123,7 @@ public class ServerMetricsTest extends AbstractClientTest {
 
         FakeCompute.future = CompletableFuture.failedFuture(new RuntimeException("test"));
 
-        client.compute().execute(getClusterNodes("s1"), List.of(), "job");
+        client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsFailed() == 1, 1000),
@@ -137,7 +137,7 @@ public class ServerMetricsTest extends AbstractClientTest {
         assertFalse(testServer.metrics().enabled());
         assertEquals(0, testServer.metrics().requestsProcessed());
 
-        client.compute().execute(getClusterNodes("s1"), List.of(), "job").join();
+        client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job").join();
 
         assertEquals(0, testServer.metrics().requestsProcessed());
         assertFalse(testServer.metrics().enabled());

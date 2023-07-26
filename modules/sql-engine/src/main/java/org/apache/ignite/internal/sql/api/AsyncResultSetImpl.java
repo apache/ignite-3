@@ -137,7 +137,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
                     .thenApply(page -> {
                         curPage = page;
 
-                        return AsyncResultSetImpl.this;
+                        return this;
                     });
         }
     }
@@ -234,6 +234,18 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         @Override
         public BinaryObject binaryObjectValue(int columnIndex) {
             return (BinaryObject) row.get(columnIndex);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean booleanValue(String columnName) {
+            return (boolean) row.get(columnIndexChecked(columnName));
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean booleanValue(int columnIndex) {
+            return (boolean) row.get(columnIndex);
         }
 
         /** {@inheritDoc} */

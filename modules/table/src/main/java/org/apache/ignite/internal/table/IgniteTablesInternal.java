@@ -18,13 +18,11 @@
 package org.apache.ignite.internal.table;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.table.manager.IgniteTables;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Internal tables facade provides low-level methods for table operations.
@@ -87,11 +85,10 @@ public interface IgniteTablesInternal extends IgniteTables {
      * @param tableId Unique id of a table.
      * @return List of the current assignments.
      */
-    @Nullable
-    List<String> assignments(int tableId) throws NodeStoppingException;
+    CompletableFuture<List<String>> assignmentsAsync(int tableId) throws NodeStoppingException;
 
     /**
-     * Adds a listener to track changes in {@link #assignments(UUID)}.
+     * Adds a listener to track changes in {@link #assignmentsAsync}.
      *
      * @param listener Listener.
      */

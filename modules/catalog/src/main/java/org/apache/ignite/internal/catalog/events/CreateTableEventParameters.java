@@ -30,10 +30,11 @@ public class CreateTableEventParameters extends CatalogEventParameters {
      * Constructor.
      *
      * @param causalityToken Causality token.
+     * @param catalogVersion Catalog version.
      * @param tableDescriptor Newly created table descriptor.
      */
-    public CreateTableEventParameters(long causalityToken, CatalogTableDescriptor tableDescriptor) {
-        super(causalityToken);
+    public CreateTableEventParameters(long causalityToken, int catalogVersion, CatalogTableDescriptor tableDescriptor) {
+        super(causalityToken, catalogVersion);
 
         this.tableDescriptor = tableDescriptor;
     }

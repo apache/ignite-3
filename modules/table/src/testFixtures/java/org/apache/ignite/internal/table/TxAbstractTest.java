@@ -21,7 +21,10 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MAX_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -81,6 +84,7 @@ import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -299,6 +303,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(BALANCE_2 + DELTA, view.get(null, makeKey(2)).doubleValue("balance"));
 
         assertEquals(5, clientTxManager().finished());
+        assertEquals(0, clientTxManager().pending());
     }
 
     /**
@@ -323,6 +328,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(BALANCE_2 + DELTA, accounts.recordView().get(null, makeKey(2)).doubleValue("balance"));
 
         assertEquals(5, clientTxManager().finished());
+        assertEquals(0, clientTxManager().pending());
     }
 
     /**
@@ -771,7 +777,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         Collection<Tuple> ret = accounts.recordView().getAll(null, keys);
 
-        assertEquals(0, ret.size());
+        assertThat(ret, contains(null, null));
 
         accounts.recordView().upsert(null, makeValue(1, 100.));
         accounts.recordView().upsert(null, makeValue(2, 200.));
@@ -1704,15 +1710,11 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param rows Rows.
      * @param expected Expected values.
      */
-    private void validateBalance(Collection<Tuple> rows, double... expected) {
-        List<Tuple> rows0 = new ArrayList<>(rows);
-
-        assertEquals(expected.length, rows.size());
-
-        for (int i = 0; i < expected.length; i++) {
-            double v = expected[i];
-            assertEquals(v, rows0.get(i).doubleValue("balance"));
-        }
+    private static void validateBalance(Collection<Tuple> rows, @Nullable Double... expected) {
+        assertThat(
+                rows.stream().map(tuple -> tuple == null ? null : tuple.doubleValue("balance")).collect(toList()),
+                contains(expected)
+        );
     }
 
     /**
@@ -1905,7 +1907,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         Transaction readOnlyTx2 = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         Collection<Tuple> retrievedKeys3 = accounts.recordView().getAll(readOnlyTx2, List.of(makeKey(1), makeKey(2)));
-        validateBalance(retrievedKeys3, 300.);
+        validateBalance(retrievedKeys3, null, 300.);
     }
 
     @Test
@@ -1972,7 +1974,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         } else {
             res = accountsRv.getAll(null, List.of(makeKey(1), makeKey(2)));
 
-            assertTrue(CollectionUtils.nullOrEmpty(res));
+            assertThat(res, contains(null, null));
         }
     }
 

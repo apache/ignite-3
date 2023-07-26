@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.hamcrest.CoreMatchers.not;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
@@ -30,8 +28,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
@@ -61,11 +57,14 @@ import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
+import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
-import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
+import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
+import org.apache.ignite.internal.sql.engine.sql.ParserService;
+import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -83,6 +82,7 @@ public class TestNode implements LifecycleAware {
     private final SchemaPlus schema;
     private final PrepareService prepareService;
     private final ExecutionService executionService;
+    private final ParserService parserService;
 
     private final List<LifecycleAware> services = new ArrayList<>();
 
@@ -99,7 +99,7 @@ public class TestNode implements LifecycleAware {
             SqlSchemaManager schemaManager
     ) {
         this.nodeName = nodeName;
-        this.prepareService = registerService(new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class)));
+        this.prepareService = registerService(new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class), PLANNING_TIMEOUT));
         this.schema = schemaManager.schema("PUBLIC");
 
         TopologyService topologyService = clusterService.topologyService();
@@ -140,8 +140,20 @@ public class TestNode implements LifecycleAware {
 
                         return new ScanNode<>(ctx, dataProvider);
                     }
+
+                    @Override
+                    public Node<Object[]> visit(IgniteIndexScan rel) {
+                        TestTable tbl = rel.getTable().unwrap(TestTable.class);
+                        TestIndex idx = (TestIndex) tbl.getIndex(rel.indexName());
+
+                        DataProvider<Object[]> dataProvider = idx.dataProvider(ctx.localNode().name());
+
+                        return new ScanNode<>(ctx, dataProvider);
+                    }
                 }
         ));
+
+        parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
     }
 
     /** {@inheritDoc} */
@@ -185,25 +197,23 @@ public class TestNode implements LifecycleAware {
      * @return A plan to execute.
      */
     public QueryPlan prepare(String query) {
-        StatementParseResult parseResult = IgniteSqlParser.parse(query, StatementParseResult.MODE);
+        ParsedResult parsedResult = parserService.parse(query);
         BaseQueryContext ctx = createContext();
 
-        assertEquals(ctx.parameters().length, parseResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
+        assertEquals(ctx.parameters().length, parsedResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
 
-        return await(prepareService.prepareAsync(parseResult.statement(), ctx));
+        return await(prepareService.prepareAsync(parsedResult, ctx));
     }
 
     /**
      * Prepares (validates, and optimizes) the given query AST
      * and returns the plan to execute.
      *
-     * @param queryAst Parsed ASD of a query to prepare.
+     * @param parsedResult Parsed AST of a query to prepare.
      * @return A plan to execute.
      */
-    public QueryPlan prepare(SqlNode queryAst) {
-        assertThat(queryAst, not(instanceOf(SqlNodeList.class)));
-
-        return await(prepareService.prepareAsync(queryAst, createContext()));
+    public QueryPlan prepare(ParsedResult parsedResult) {
+        return await(prepareService.prepareAsync(parsedResult, createContext()));
     }
 
     private BaseQueryContext createContext() {
@@ -222,5 +232,4 @@ public class TestNode implements LifecycleAware {
 
         return service;
     }
-
 }

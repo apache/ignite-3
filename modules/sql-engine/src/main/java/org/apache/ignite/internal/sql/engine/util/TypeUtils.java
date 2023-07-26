@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.schema.VarlenNativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.sql.ColumnType;
@@ -281,11 +283,6 @@ public class TypeUtils {
                                                             ? SqlFunctions.toDouble(num) :
                                                             BigDecimal.class.equals(storageType) ? SqlFunctions.toBigDecimal(num) : num;
         } else {
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-17298 SQL: Support BOOLEAN datatype.
-            //   Fix this after BOOLEAN type supported is implemented.
-            if (storageType == Boolean.class || storageType == boolean.class) {
-                return val;
-            }
             var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
             assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
 
@@ -317,11 +314,6 @@ public class TypeUtils {
         } else if (storageType == byte[].class && val instanceof ByteString) {
             return ((ByteString) val).getBytes();
         } else {
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-17298 SQL: Support BOOLEAN datatype.
-            //   Fix this after BOOLEAN type supported is implemented.
-            if (storageType == Boolean.class) {
-                return val;
-            }
             var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
             assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
 
@@ -418,6 +410,8 @@ public class TypeUtils {
      */
     public static RelDataType native2relationalType(RelDataTypeFactory factory, NativeType nativeType) {
         switch (nativeType.spec()) {
+            case BOOLEAN:
+                return factory.createSqlType(SqlTypeName.BOOLEAN);
             case INT8:
                 return factory.createSqlType(SqlTypeName.TINYINT);
             case INT16:
@@ -491,7 +485,7 @@ public class TypeUtils {
     public static NativeType columnType2NativeType(ColumnType columnType, int precision, int scale) {
         switch (columnType) {
             case BOOLEAN:
-                throw new IllegalArgumentException("No NativeType for type: " + columnType);
+                return NativeTypes.BOOLEAN;
             case INT8:
                 return NativeTypes.INT8;
             case INT16:
@@ -533,6 +527,49 @@ public class TypeUtils {
         }
     }
 
+    /** Checks whether cast operation is necessary in {@code SearchBound}. */
+    public static boolean needCastInSearchBounds(IgniteTypeFactory typeFactory, RelDataType fromType, RelDataType toType) {
+        // No need to cast between char and varchar.
+        if (SqlTypeUtil.isCharacter(toType) && SqlTypeUtil.isCharacter(fromType)) {
+            return false;
+        }
+
+        // No need to cast if the source type precedence list
+        // contains target type. i.e. do not cast from
+        // tinyint to int or int to bigint.
+        if (fromType.getPrecedenceList().containsType(toType)
+                && SqlTypeUtil.isIntType(fromType)
+                && SqlTypeUtil.isIntType(toType)) {
+            return false;
+        }
+
+        // Implicit type coercion does not handle nullability.
+        if (SqlTypeUtil.equalSansNullability(typeFactory, fromType, toType)) {
+            return false;
+        }
+        // Should keep sync with rules in SqlTypeCoercionRule.
+        assert SqlTypeUtil.canCastFrom(toType, fromType, true);
+        return true;
+    }
+
+    /**
+     * Checks whether one type can be casted to another if one of type is a custom data type.
+     *
+     * <p>This method expects at least one of its arguments to be a custom data type.
+     */
+    public static boolean customDataTypeNeedCast(IgniteTypeFactory factory, RelDataType fromType, RelDataType toType) {
+        IgniteCustomTypeCoercionRules typeCoercionRules = factory.getCustomTypeCoercionRules();
+        if (toType instanceof IgniteCustomType) {
+            IgniteCustomType to = (IgniteCustomType) toType;
+            return typeCoercionRules.needToCast(fromType, to);
+        } else if (fromType instanceof IgniteCustomType) {
+            boolean sameType = SqlTypeUtil.equalSansNullability(fromType, toType);
+            return !sameType;
+        } else {
+            String message = format("Invalid arguments. Expected at least one custom data type but got {} and {}", fromType, toType);
+            throw new AssertionError(message);
+        }
+    }
 
     /**
      * Checks that {@code toType} and {@code fromType} have compatible type families taking into account custom data types.

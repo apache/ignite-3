@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -36,7 +39,9 @@ import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -59,6 +64,7 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -296,6 +302,101 @@ public class ItConnectionManagerTest {
     }
 
     /**
+     * Tests that if two nodes are opening channels to each other, only one channel survives.
+     *
+     * @throws Exception If failed.
+     */
+    @RepeatedTest(100)
+    public void testOneChannelLeftIfConnectToEachOther() throws Exception {
+        try (
+                ConnectionManagerWrapper manager1 = startManager(4000);
+                ConnectionManagerWrapper manager2 = startManager(4001)
+        ) {
+            CompletableFuture<NettySender> fut1 = manager1.openChannelTo(manager2).toCompletableFuture();
+            CompletableFuture<NettySender> fut2 = manager2.openChannelTo(manager1).toCompletableFuture();
+
+            NettySender sender1 = null;
+            NettySender sender2 = null;
+
+            try {
+                sender1 = fut1.get(1, TimeUnit.SECONDS);
+            } catch (Exception ignored) {
+                // No-op.
+            }
+            try {
+                sender2 = fut2.get(1, TimeUnit.SECONDS);
+            } catch (Exception ignored) {
+                // No-op.
+            }
+
+            NettySender highlander = null;
+
+            assertTrue(sender1 != null || sender2 != null);
+
+            if (sender1 != null && sender1.isOpen()) {
+                highlander = sender1;
+
+                boolean sender2NullOrClosed = sender2 == null || !sender2.isOpen();
+
+                assertTrue(sender2NullOrClosed);
+            }
+
+            if (sender2 != null && sender2.isOpen()) {
+                highlander = sender2;
+
+                boolean sender1NullOrClosed = sender1 == null || !sender1.isOpen();
+
+                assertTrue(sender1NullOrClosed);
+            }
+
+            assertNotNull(highlander);
+            assertTrue(highlander.isOpen());
+
+            assertTrue(
+                    waitForCondition(
+                            () -> singleOpenedChannel(manager1) && singleOpenedChannel(manager2),
+                            TimeUnit.SECONDS.toMillis(1)
+                    )
+            );
+
+            CompletableFuture<NettySender> channelFut1 = manager1.connectionManager.channel(
+                    manager2.connectionManager.consistentId(),
+                    ChannelType.DEFAULT,
+                    manager2.connectionManager.localAddress()
+            ).toCompletableFuture();
+
+            CompletableFuture<NettySender> channelFut2 = manager2.connectionManager.channel(
+                    manager1.connectionManager.consistentId(),
+                    ChannelType.DEFAULT,
+                    manager1.connectionManager.localAddress()
+            ).toCompletableFuture();
+
+            assertThat(channelFut1, is(completedFuture()));
+            assertThat(channelFut2, is(completedFuture()));
+
+            NettySender channel1 = channelFut1.getNow(null);
+            NettySender channel2 = channelFut2.getNow(null);
+
+            InetSocketAddress locAddr1 = (InetSocketAddress) channel1.channel().localAddress();
+            InetSocketAddress remoteAddr1 = (InetSocketAddress) channel1.channel().remoteAddress();
+
+            InetSocketAddress locAddr2 = (InetSocketAddress) channel2.channel().localAddress();
+            InetSocketAddress remoteAddr2 = (InetSocketAddress) channel2.channel().remoteAddress();
+
+            // Only compare ports because hosts may look different, eg localhost and 0.0.0.0. They are technically not same,
+            // although equal.
+            assertEquals(locAddr1.getPort(), remoteAddr2.getPort());
+            assertEquals(locAddr2.getPort(), remoteAddr1.getPort());
+        }
+    }
+
+    private static boolean singleOpenedChannel(ConnectionManagerWrapper manager) {
+        Iterator<NettySender> it = manager.channels().values().iterator();
+
+        return it.hasNext() && it.next().isOpen() && !it.hasNext();
+    }
+
+    /**
      * Creates a mock {@link MessageSerializationRegistry} that throws an exception when trying to get a serializer or a deserializer.
      */
     private static MessageSerializationRegistry mockSerializationRegistry() {
@@ -383,5 +484,8 @@ public class ItConnectionManagerTest {
             );
         }
 
+        public Map<ConnectorKey<String>, NettySender> channels() {
+            return connectionManager.channels();
+        }
     }
 }

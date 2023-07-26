@@ -91,8 +91,11 @@ internal static class DataStreamer
 
             await foreach (var item in data.WithCancellation(cancellationToken))
             {
-                var (batch, partition) = Add(item);
+                // WithCancellation passes the token to the producer.
+                // However, not all producers support cancellation, so we need to check it here as well.
+                cancellationToken.ThrowIfCancellationRequested();
 
+                var (batch, partition) = Add(item);
                 if (batch.Count >= options.BatchSize)
                 {
                     await SendAsync(batch, partition).ConfigureAwait(false);
@@ -121,6 +124,9 @@ internal static class DataStreamer
             foreach (var batch in batches.Values)
             {
                 batch.Buffer.Dispose();
+
+                Metrics.StreamerItemsQueuedDecrement(batch.Count);
+                Metrics.StreamerBatchesActiveDecrement();
             }
         }
 
@@ -151,7 +157,7 @@ internal static class DataStreamer
 
             var partition = partitionAssignment == null
                 ? string.Empty // Default connection.
-                : partitionAssignment[Math.Abs(tupleBuilder.Hash % partitionAssignment.Length)];
+                : partitionAssignment[Math.Abs(tupleBuilder.GetHash() % partitionAssignment.Length)];
 
             var batch = GetOrCreateBatch(partition);
 
@@ -162,6 +168,8 @@ internal static class DataStreamer
                 noValueSet.CopyTo(batch.Buffer.MessageWriter.WriteBitSet(columnCount));
                 batch.Buffer.MessageWriter.Write(tupleBuilder.Build().Span);
             }
+
+            Metrics.StreamerItemsQueuedIncrement();
 
             return (batch, partition);
         }
@@ -174,6 +182,8 @@ internal static class DataStreamer
             {
                 batchRef = new Batch();
                 InitBuffer(batchRef);
+
+                Metrics.StreamerBatchesActiveIncrement();
             }
 
             return batchRef;
@@ -200,26 +210,34 @@ internal static class DataStreamer
                 buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
                 buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
-                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task);
+                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Count);
 
                 batch.Count = 0;
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
                 InitBuffer(batch);
                 batch.LastFlush = Stopwatch.GetTimestamp();
+
+                Metrics.StreamerBatchesActiveIncrement();
             }
         }
 
-        async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition, Task oldTask)
+        async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition, Task oldTask, int count)
         {
             try
             {
                 // Wait for the previous batch for this node to preserve item order.
                 await oldTask.ConfigureAwait(false);
                 await sender(buf, partition, retryPolicy).ConfigureAwait(false);
+
+                Metrics.StreamerBatchesSent.Add(1);
+                Metrics.StreamerItemsSent.Add(count);
             }
             finally
             {
                 buf.Dispose();
+
+                Metrics.StreamerItemsQueuedDecrement(count);
+                Metrics.StreamerBatchesActiveDecrement();
             }
         }
 

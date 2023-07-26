@@ -19,24 +19,22 @@
 
 #include "ignite/odbc/diagnostic/diagnosable.h"
 
-#define IGNITE_ODBC_API_CALL(...)                       \
-        m_diagnostic_records.reset();                   \
-        sql_result result = (__VA_ARGS__);              \
-        m_diagnostic_records.set_header_record(result)
+#define IGNITE_ODBC_API_CALL(...)                                                                                      \
+ m_diagnostic_records.reset();                                                                                         \
+ sql_result result = (__VA_ARGS__);                                                                                    \
+ m_diagnostic_records.set_header_record(result)
 
-#define IGNITE_ODBC_API_CALL_ALWAYS_SUCCESS                             \
-        m_diagnostic_records.reset();                                   \
-        m_diagnostic_records.set_header_record(sql_result::AI_SUCCESS)
+#define IGNITE_ODBC_API_CALL_ALWAYS_SUCCESS                                                                            \
+ m_diagnostic_records.reset();                                                                                         \
+ m_diagnostic_records.set_header_record(sql_result::AI_SUCCESS)
 
-namespace ignite
-{
+namespace ignite {
 class odbc_error;
 
 /**
  * Diagnosable interface.
  */
-class diagnosable_adapter : public diagnosable
-{
+class diagnosable_adapter : public diagnosable {
 public:
     // Default
     diagnosable_adapter() = default;
@@ -46,8 +44,7 @@ public:
      *
      * @return Diagnostic record.
      */
-    [[nodiscard]] const diagnostic_record_storage& get_diagnostic_records() const override
-    {
+    [[nodiscard]] const diagnostic_record_storage &get_diagnostic_records() const override {
         return m_diagnostic_records;
     }
 
@@ -56,10 +53,7 @@ public:
      *
      * @return Diagnostic record.
      */
-    [[nodiscard]] diagnostic_record_storage& get_diagnostic_records() override
-    {
-        return m_diagnostic_records;
-    }
+    [[nodiscard]] diagnostic_record_storage &get_diagnostic_records() override { return m_diagnostic_records; }
 
     /**
      * Add new status record.
@@ -69,8 +63,8 @@ public:
      * @param row_num Associated row number.
      * @param column_num Associated column number.
      */
-    void add_status_record(sql_state  sql_state, const std::string& message, int32_t row_num,
-        int32_t column_num) override;
+    void add_status_record(
+        sql_state sql_state, const std::string &message, int32_t row_num, int32_t column_num) override;
 
     /**
      * Add new status record.
@@ -78,28 +72,28 @@ public:
      * @param sql_state SQL state.
      * @param message Message.
      */
-    void add_status_record(sql_state  sql_state, const std::string& message) override;
+    void add_status_record(sql_state sql_state, const std::string &message) override;
 
     /**
      * Add new status record with sql_state::SHY000_GENERAL_ERROR state.
      *
      * @param message Message.
      */
-    void add_status_record(const std::string& message);
+    void add_status_record(const std::string &message);
 
     /**
      * Add new status record.
      *
      * @param err Error.
      */
-    void add_status_record(const odbc_error& err) override;
+    void add_status_record(const odbc_error &err) override;
 
     /**
      * Add new status record.
      *
      * @param rec Record.
      */
-    void add_status_record(const diagnostic_record& rec) override;
+    void add_status_record(const diagnostic_record &rec) override;
 
 protected:
     /** Diagnostic records. */

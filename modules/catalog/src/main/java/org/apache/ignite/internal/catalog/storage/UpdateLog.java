@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.IgniteInternalException;
 
@@ -67,7 +68,9 @@ public interface UpdateLog extends IgniteComponent {
          * An actual handler that will be invoked when new update is appended to the log.
          *
          * @param update A new update.
+         * @param metaStorageUpdateTimestamp Timestamp assigned to the update by the Metastorage.
+         * @param causalityToken Causality token.
          */
-        void handle(VersionedUpdate update);
+        void handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken);
     }
 }

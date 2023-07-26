@@ -37,6 +37,7 @@ import java.util.function.Function;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -57,13 +58,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     @AfterEach
     public void afterEach() throws Exception {
-        if (client2 != null) {
-            client2.close();
-        }
-
-        if (testServer2 != null) {
-            testServer2.close();
-        }
+        IgniteUtils.closeAll(client2, testServer2);
     }
 
     @ParameterizedTest
@@ -71,14 +66,16 @@ public class DataStreamerTest extends AbstractClientTableTest {
     public void testBasicStreamingRecordBinaryView(int batchSize) {
         RecordView<Tuple> view = defaultTable().recordView();
 
-        var publisher = new SubmissionPublisher<Tuple>();
-        var options = DataStreamerOptions.builder().batchSize(batchSize).build();
-        CompletableFuture<Void> streamerFut = view.streamData(publisher, options);
+        CompletableFuture<Void> streamerFut;
 
-        publisher.submit(tuple(1L, "foo"));
-        publisher.submit(tuple(2L, "bar"));
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().batchSize(batchSize).build();
+            streamerFut = view.streamData(publisher, options);
 
-        publisher.close();
+            publisher.submit(tuple(1L, "foo"));
+            publisher.submit(tuple(2L, "bar"));
+        }
+
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
 
         assertNotNull(view.get(null, tupleKey(1L)));
@@ -140,24 +137,26 @@ public class DataStreamerTest extends AbstractClientTableTest {
     public void testAutoFlushByTimer() throws InterruptedException {
         RecordView<Tuple> view = this.defaultTable().recordView();
 
-        var publisher = new SubmissionPublisher<Tuple>();
-        var options = DataStreamerOptions.builder().autoFlushFrequency(100).build();
-        view.streamData(publisher, options);
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().autoFlushFrequency(100).build();
+            view.streamData(publisher, options);
 
-        publisher.submit(tuple(1L, "foo"));
-        assertTrue(waitForCondition(() -> view.get(null, tupleKey(1L)) != null, 1000));
+            publisher.submit(tuple(1L, "foo"));
+            assertTrue(waitForCondition(() -> view.get(null, tupleKey(1L)) != null, 1000));
+        }
     }
 
     @Test
     public void testAutoFlushDisabled() throws InterruptedException {
         RecordView<Tuple> view = this.defaultTable().recordView();
 
-        var publisher = new SubmissionPublisher<Tuple>();
-        var options = DataStreamerOptions.builder().autoFlushFrequency(-1).build();
-        view.streamData(publisher, options);
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().autoFlushFrequency(-1).build();
+            view.streamData(publisher, options);
 
-        publisher.submit(tuple(1L, "foo"));
-        assertFalse(waitForCondition(() -> view.get(null, tupleKey(1L)) != null, 1000));
+            publisher.submit(tuple(1L, "foo"));
+            assertFalse(waitForCondition(() -> view.get(null, tupleKey(1L)) != null, 1000));
+        }
     }
 
     @Test
@@ -171,25 +170,25 @@ public class DataStreamerTest extends AbstractClientTableTest {
         RecordView<Tuple> view = defaultTableView(ignite2, client2);
 
         var bufferSize = 2;
-        var publisher = new SubmissionPublisher<Tuple>(ForkJoinPool.commonPool(), bufferSize);
+        try (var publisher = new SubmissionPublisher<Tuple>(ForkJoinPool.commonPool(), bufferSize)) {
+            var options = DataStreamerOptions.builder()
+                    .batchSize(bufferSize)
+                    .perNodeParallelOperations(1)
+                    .build();
 
-        var options = DataStreamerOptions.builder()
-                .batchSize(bufferSize)
-                .perNodeParallelOperations(1)
-                .build();
+            var streamerFut = view.streamData(publisher, options);
 
-        var streamerFut = view.streamData(publisher, options);
+            // Stream 10 items while buffer capacity is 2 to trigger back pressure.
+            var submitFut = CompletableFuture.runAsync(() -> {
+                for (long i = 0; i < 10; i++) {
+                    publisher.submit(tuple(i, "foo_" + i));
+                }
+            });
 
-        // Stream 10 items while buffer capacity is 2 to trigger back pressure.
-        var submitFut = CompletableFuture.runAsync(() -> {
-            for (long i = 0; i < 10; i++) {
-                publisher.submit(tuple(i, "foo_" + i));
-            }
-        });
-
-        // Due to `responseDelay` above, `publisher.submit` is blocking when buffer is full => submitFut can't complete in 200 ms.
-        assertThrows(TimeoutException.class, () -> submitFut.get(200, TimeUnit.MILLISECONDS));
-        assertFalse(streamerFut.isDone());
+            // Due to `responseDelay` above, `publisher.submit` is blocking when buffer is full => submitFut can't complete in 200 ms.
+            assertThrows(TimeoutException.class, () -> submitFut.get(200, TimeUnit.MILLISECONDS));
+            assertFalse(streamerFut.isDone());
+        }
     }
 
     @Test

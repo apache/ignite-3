@@ -52,6 +52,7 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -68,7 +69,6 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
@@ -202,9 +202,9 @@ public class ItColocationTest {
             RaftGroupService r = groupRafts.get(request.groupId());
 
             if (request instanceof ReadWriteMultiRowReplicaRequest) {
-                Map<UUID, ByteBuffer> rows = ((ReadWriteMultiRowReplicaRequest) request).binaryRows()
+                Map<UUID, ByteBuffer> rows = ((ReadWriteMultiRowReplicaRequest) request).binaryRowsBytes()
                         .stream()
-                        .collect(toMap(row -> TestTransactionIds.newTransactionId(), BinaryRow::byteBuffer));
+                        .collect(toMap(row -> TestTransactionIds.newTransactionId(), Function.identity()));
 
                 return r.run(MSG_FACTORY.updateAllCommand()
                                 .tablePartitionId(MSG_FACTORY.tablePartitionIdMessage()
@@ -261,6 +261,8 @@ public class ItColocationTest {
 
     private static NativeType nativeType(NativeTypeSpec type) {
         switch (type) {
+            case BOOLEAN:
+                return NativeTypes.BOOLEAN;
             case INT8:
                 return NativeTypes.INT8;
             case INT16:
@@ -300,6 +302,8 @@ public class ItColocationTest {
 
     private static Object generateValueByType(int i, NativeTypeSpec type) {
         switch (type) {
+            case BOOLEAN:
+                return i % 2 == 0;
             case INT8:
                 return (byte) i;
             case INT16:
@@ -385,13 +389,15 @@ public class ItColocationTest {
     @MethodSource("twoColumnsParameters")
     public void colocationTwoColumnsInsertAll(NativeTypeSpec t0, NativeTypeSpec t1)
             throws TupleMarshallerException {
+        int keysCount = t0 == NativeTypeSpec.BOOLEAN && t0 == t1 ? 2 : KEYS;
+
         init(t0, t1);
 
-        tbl.recordView().insertAll(null, IntStream.range(0, KEYS).mapToObj(i -> createTuple(i, t0, t1)).collect(Collectors.toSet()));
+        tbl.recordView().insertAll(null, IntStream.range(0, keysCount).mapToObj(i -> createTuple(i, t0, t1)).collect(Collectors.toSet()));
 
         Int2IntMap partsMap = new Int2IntOpenHashMap();
 
-        for (int i = 0; i < KEYS; ++i) {
+        for (int i = 0; i < keysCount; ++i) {
             Tuple t = createTuple(i, t0, t1);
 
             BinaryRowEx r = marshaller.marshal(t);

@@ -24,8 +24,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Diagnostic record storage.
@@ -38,8 +37,7 @@ namespace ignite
  * This class provides interface for interaction with all handle diagnostic records. That means both header and status
  * records.
  */
-class diagnostic_record_storage
-{
+class diagnostic_record_storage {
 public:
     // Default
     diagnostic_record_storage() = default;
@@ -63,7 +61,7 @@ public:
      * @param sql_state SQL state.
      * @param message Message.
      */
-    void add_status_record(sql_state  sql_state, const std::string& message);
+    void add_status_record(sql_state sql_state, const std::string &message);
 
     /**
      * Add status record to diagnostic records.
@@ -71,7 +69,7 @@ public:
      * TODO: Replace with move
      * @param record Status record.
      */
-    void add_status_record(const diagnostic_record& record);
+    void add_status_record(const diagnostic_record &record);
 
     /**
      * reset diagnostic records state.
@@ -104,7 +102,7 @@ public:
      *
      * @return String that describes the SQL statement that the underlying function executed.
      */
-    [[nodiscard]] const std::string& get_dynamic_function() const;
+    [[nodiscard]] const std::string &get_dynamic_function() const;
 
     /**
      * Get dynamic function code.
@@ -133,7 +131,7 @@ public:
      * @param idx Status record index.
      * @return Status record instance reference.
      */
-    [[nodiscard]] const diagnostic_record& get_status_record(int32_t idx) const;
+    [[nodiscard]] const diagnostic_record &get_status_record(int32_t idx) const;
 
     /**
      * Get specified status record.
@@ -141,7 +139,7 @@ public:
      * @param idx Status record index.
      * @return Status record instance reference.
      */
-    diagnostic_record& get_status_record(int32_t idx);
+    diagnostic_record &get_status_record(int32_t idx);
 
     /**
      * Get last non-retrieved status record index.
@@ -166,7 +164,7 @@ public:
      * @param buffer Buffer to put data to.
      * @return Operation result.
      */
-    sql_result get_field(int32_t rec_num, diagnostic_field field, application_data_buffer& buffer) const;
+    sql_result get_field(int32_t rec_num, diagnostic_field field, application_data_buffer &buffer) const;
 
 private:
     /** Header record field. This field contains the count of rows in the cursor. */

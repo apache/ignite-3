@@ -67,7 +67,6 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-storage-api')))
     testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation libs.mockito.core
-    testImplementation libs.mockito.inline
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
@@ -96,6 +95,7 @@ dependencies {
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.mockito.core
     testFixturesImplementation libs.mockito.junit
+    testFixturesImplementation libs.hamcrest.core
 
     integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-raft-api')
@@ -105,6 +105,7 @@ dependencies {
     integrationTestImplementation project(':ignite-placement-driver-api')
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
+    integrationTestImplementation(testFixtures(project(':ignite-table')))
     integrationTestImplementation(testFixtures(project(':ignite-placement-driver-api')))
     integrationTestImplementation(testFixtures(project(':ignite-schema')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))

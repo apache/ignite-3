@@ -200,9 +200,9 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var partition = Math.Abs(colocationHash % assignment.Length);
-            var nodeId = assignment[partition];
+            var nodeConsistentId = assignment[partition];
 
-            return PreferredNode.FromId(nodeId);
+            return PreferredNode.FromName(nodeConsistentId);
         }
 
         /// <summary>
@@ -323,6 +323,7 @@ namespace Apache.Ignite.Internal.Table
             var schemaVersion = r.ReadInt32();
             var columnCount = r.ReadArrayHeader();
             var keyColumnCount = 0;
+            var colocationColumnCount = 0;
 
             var columns = new Column[columnCount];
 
@@ -337,13 +338,13 @@ namespace Apache.Ignite.Internal.Table
                 var type = r.ReadInt32();
                 var isKey = r.ReadBoolean();
                 var isNullable = r.ReadBoolean();
-                var isColocation = r.ReadBoolean(); // IsColocation.
+                var colocationIndex = r.ReadInt32();
                 var scale = r.ReadInt32();
                 var precision = r.ReadInt32();
 
                 r.Skip(propertyCount - expectedCount);
 
-                var column = new Column(name, (ColumnType)type, isNullable, isColocation, isKey, i, scale, precision);
+                var column = new Column(name, (ColumnType)type, isNullable, isKey, colocationIndex, i, scale, precision);
 
                 columns[i] = column;
 
@@ -351,9 +352,20 @@ namespace Apache.Ignite.Internal.Table
                 {
                     keyColumnCount++;
                 }
+
+                if (colocationIndex >= 0)
+                {
+                    colocationColumnCount++;
+                }
             }
 
-            var schema = new Schema(schemaVersion, Id, keyColumnCount, columns);
+            var schema = new Schema(
+                Version: schemaVersion,
+                TableId: Id,
+                KeyColumnCount: keyColumnCount,
+                ColocationColumnCount: colocationColumnCount,
+                Columns: columns);
+
             _schemas[schemaVersion] = Task.FromResult(schema);
 
             if (_logger?.IsEnabled(LogLevel.Debug) == true)

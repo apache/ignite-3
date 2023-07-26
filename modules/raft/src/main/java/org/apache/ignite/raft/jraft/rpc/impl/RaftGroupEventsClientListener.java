@@ -18,12 +18,12 @@
 package org.apache.ignite.raft.jraft.rpc.impl;
 
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.function.BiConsumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterNode;
 
@@ -33,7 +33,7 @@ import org.apache.ignite.network.ClusterNode;
 public class RaftGroupEventsClientListener {
     private static final IgniteLogger LOG = Loggers.forClass(RaftGroupEventsClientListener.class);
 
-    private final Map<ReplicationGroupId, List<BiConsumer<ClusterNode, Long>>> leaderElectionListeners = new ConcurrentHashMap<>();
+    private final Map<ReplicationGroupId, List<LeaderElectionListener>> leaderElectionListeners = new ConcurrentHashMap<>();
 
     /**
      * Register leader election listener for client.
@@ -41,7 +41,7 @@ public class RaftGroupEventsClientListener {
      * @param groupId Group id.
      * @param listener Listener.
     */
-    public void addLeaderElectionListener(ReplicationGroupId groupId, BiConsumer<ClusterNode, Long> listener) {
+    public void addLeaderElectionListener(ReplicationGroupId groupId, LeaderElectionListener listener) {
         leaderElectionListeners.compute(groupId, (k, listeners) -> {
             if (listeners == null) {
                 listeners = new ArrayList<>();
@@ -53,13 +53,13 @@ public class RaftGroupEventsClientListener {
         });
     }
 
-        /**
-         * Unregister leader election listener for client.
-         *
-         * @param groupId Group id.
-         * @param listener Listener.
-        */
-    public void removeLeaderElectionListener(ReplicationGroupId groupId, BiConsumer<ClusterNode, Long> listener) {
+    /**
+     * Unregister leader election listener for client.
+     *
+     * @param groupId Group id.
+     * @param listener Listener.
+    */
+    public void removeLeaderElectionListener(ReplicationGroupId groupId, LeaderElectionListener listener) {
         leaderElectionListeners.compute(groupId, (k, listeners) -> {
             if (listeners == null) {
                 return null;
@@ -79,12 +79,12 @@ public class RaftGroupEventsClientListener {
      * @param term Election term.
     */
     public void onLeaderElected(ReplicationGroupId groupId, ClusterNode leader, long term) {
-        List<BiConsumer<ClusterNode, Long>> listeners = leaderElectionListeners.get(groupId);
+        List<LeaderElectionListener> listeners = leaderElectionListeners.get(groupId);
 
         if (listeners != null) {
-            for (BiConsumer<ClusterNode, Long> listener : listeners) {
+            for (LeaderElectionListener listener : listeners) {
                 try {
-                    listener.accept(leader, term);
+                    listener.onLeaderElected(leader, term);
                 } catch (Exception e) {
                     LOG.warn("Failed to notify leader election listener for group=" + groupId, e);
                 }

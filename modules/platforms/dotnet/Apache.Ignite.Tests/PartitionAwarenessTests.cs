@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Ignite.Compute;
 using Ignite.Table;
 using Internal.Proto;
 using NUnit.Framework;
@@ -32,14 +33,14 @@ public class PartitionAwarenessTests
 {
     private static readonly object[] KeyNodeCases =
     {
-        new object[] { 3, 1 },
-        new object[] { 5, 1 },
-        new object[] { 8, 1 },
+        new object[] { 0, 1 },
         new object[] { 1, 2 },
+        new object[] { 3, 1 },
         new object[] { 4, 2 },
-        new object[] { 0, 2 },
+        new object[] { 5, 2 },
+        new object[] { 8, 2 },
         new object[] { int.MaxValue, 2 },
-        new object[] { int.MaxValue - 1, 1 },
+        new object[] { int.MaxValue - 1, 2 },
         new object[] { int.MinValue, 2 }
     };
 
@@ -52,7 +53,7 @@ public class PartitionAwarenessTests
         _server1 = new FakeServer(nodeName: "srv1");
         _server2 = new FakeServer(nodeName: "srv2");
 
-        var assignment = new[] { _server1.Node.Id, _server2.Node.Id };
+        var assignment = new[] { _server1.Node.Name, _server2.Node.Name };
         _server1.PartitionAssignment = assignment;
         _server2.PartitionAssignment = assignment;
     }
@@ -77,7 +78,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2, _server1);
         await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 3), ClientOp.TupleUpsert, _server1, _server2);
         await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 4), ClientOp.TupleUpsert, _server2, _server1);
-        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 5), ClientOp.TupleUpsert, _server1, _server2);
+        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 7), ClientOp.TupleUpsert, _server1, _server2);
     }
 
     [Test]
@@ -264,8 +265,8 @@ public class PartitionAwarenessTests
         await Test("1", Guid.Empty, _server1);
         await Test("1", Guid.Parse("b0000000-0000-0000-0000-000000000000"), _server2);
 
-        await Test("a", Guid.Empty, _server2);
-        await Test("a", Guid.Parse("b0000000-0000-0000-0000-000000000000"), _server1);
+        await Test("c", Guid.Empty, _server2);
+        await Test("c", Guid.Parse("b0000000-0000-0000-0000-000000000000"), _server1);
 
         async Task Test(string idStr, Guid idGuid, FakeServer node) =>
             await AssertOpOnNode(() => view.UpsertAsync(null, new CompositeKey(idStr, idGuid)), ClientOp.TupleUpsert, node);
@@ -282,7 +283,7 @@ public class PartitionAwarenessTests
 
         // Both columns are part of key, but only string column is colocation key, so random Guid does not affect the hash.
         await Test("1", Guid.NewGuid(), _server2);
-        await Test("a", Guid.NewGuid(), _server1);
+        await Test("c", Guid.NewGuid(), _server1);
 
         async Task Test(string idStr, Guid idGuid, FakeServer node) =>
             await AssertOpOnNode(() => view.UpsertAsync(null, new CompositeKey(idStr, idGuid)), ClientOp.TupleUpsert, node);
@@ -297,10 +298,10 @@ public class PartitionAwarenessTests
         var key = new IgniteTuple { ["ID"] = keyId };
 
         // Warm up.
-        await client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, key, "job");
+        await client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job");
 
         await AssertOpOnNode(
-            () => client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, key, "job"),
+            () => client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job"),
             ClientOp.ComputeExecuteColocated,
             expectedNode);
     }
@@ -314,10 +315,12 @@ public class PartitionAwarenessTests
         var key = new SimpleKey(keyId);
 
         // Warm up.
-        await client.Compute.ExecuteColocatedAsync<object?, SimpleKey>(FakeServer.ExistingTableName, key, "job");
+        await client.Compute.ExecuteColocatedAsync<object?, SimpleKey>(
+            FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job");
 
         await AssertOpOnNode(
-            () => client.Compute.ExecuteColocatedAsync<object?, SimpleKey>(FakeServer.ExistingTableName, key, "job"),
+            () => client.Compute.ExecuteColocatedAsync<object?, SimpleKey>(
+                FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job"),
             ClientOp.ComputeExecuteColocated,
             expectedNode);
     }

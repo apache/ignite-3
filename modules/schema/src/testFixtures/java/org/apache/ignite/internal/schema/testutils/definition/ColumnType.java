@@ -24,6 +24,9 @@ import java.util.Objects;
  */
 @SuppressWarnings("PublicInnerClass")
 public class ColumnType {
+    /** Boolean. */
+    public static final ColumnType BOOLEAN = new ColumnType(ColumnTypeSpec.BOOLEAN);
+
     /** 8-bit signed int. */
     public static final ColumnType INT8 = new ColumnType(ColumnTypeSpec.INT8);
 
@@ -527,6 +530,9 @@ public class ColumnType {
      * Column type spec.
      */
     public enum ColumnTypeSpec {
+        /** Boolean. */
+        BOOLEAN,
+
         /** 8-bit signed integer. */
         INT8,
 

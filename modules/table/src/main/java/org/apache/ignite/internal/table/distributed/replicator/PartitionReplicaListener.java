@@ -22,8 +22,8 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toIndexDescriptor;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
+import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toIndexDescriptor;
+import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.filter;
@@ -579,9 +579,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 for (CompletableFuture<BinaryRow> resolutionFut : resolutionFuts) {
                     BinaryRow resolvedReadResult = resolutionFut.join();
 
-                    if (resolvedReadResult != null) {
-                        result.add(resolvedReadResult);
-                    }
+                    result.add(resolvedReadResult);
                 }
 
                 return result;
@@ -1841,7 +1839,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForInsert(searchRow, rowId0, txId)
                             .thenCompose(rowIdLock -> applyUpdateCommand(
-                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId))
+                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow, txId))
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1863,7 +1861,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return lockFut
                             .thenCompose(rowIdLock -> applyUpdateCommand(
-                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId))
+                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow, txId))
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1885,7 +1883,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return lockFut
                             .thenCompose(rowIdLock -> applyUpdateCommand(
-                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId))
+                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow, txId))
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1903,7 +1901,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
                             .thenCompose(rowIdLock -> applyUpdateCommand(
-                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow.byteBuffer(), txId))
+                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow, txId))
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1921,7 +1919,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
                             .thenCompose(rowLock -> applyUpdateCommand(
-                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow.byteBuffer(), txId))
+                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow, txId))
                                     .thenApply(ignored -> rowLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -2083,7 +2081,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             }
 
                             return applyUpdateCommand(
-                                    updateCommand(commitPartitionId, validatedRowId.get1().uuid(), newRow.byteBuffer(), txId))
+                                    updateCommand(commitPartitionId, validatedRowId.get1().uuid(), newRow, txId))
                                     .thenApply(ignored -> validatedRowId)
                                     .thenApply(rowIdLock -> {
                                         // Release short term locks.
@@ -2339,19 +2337,19 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param tablePartId {@link TablePartitionId} object to construct {@link UpdateCommand} object with.
      * @param rowUuid Row UUID.
-     * @param rowBuf {@link ByteBuffer} representation of {@link BinaryRow}.
+     * @param row Row.
      * @param txId Transaction ID.
      * @return Constructed {@link UpdateCommand} object.
      */
-    private UpdateCommand updateCommand(TablePartitionId tablePartId, UUID rowUuid, @Nullable ByteBuffer rowBuf, UUID txId) {
+    private UpdateCommand updateCommand(TablePartitionId tablePartId, UUID rowUuid, @Nullable BinaryRow row, UUID txId) {
         UpdateCommandBuilder bldr = MSG_FACTORY.updateCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowUuid(rowUuid)
                 .txId(txId)
                 .safeTimeLong(hybridClock.nowLong());
 
-        if (rowBuf != null) {
-            bldr.rowBuffer(rowBuf);
+        if (row != null) {
+            bldr.rowBuffer(row.byteBuffer());
         }
 
         return bldr.build();

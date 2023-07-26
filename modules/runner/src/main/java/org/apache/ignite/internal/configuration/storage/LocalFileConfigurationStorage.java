@@ -220,11 +220,6 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     }
 
     @Override
-    public CompletableFuture<Void> writeConfigurationRevision(long prevRevision, long currentRevision) {
-        return CompletableFuture.completedFuture(null);
-    }
-
-    @Override
     public void close() {
         futureTracker.cancelInFlightFutures();
 

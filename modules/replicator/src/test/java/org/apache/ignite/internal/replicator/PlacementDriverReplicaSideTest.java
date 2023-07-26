@@ -35,11 +35,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
+import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -62,11 +62,11 @@ public class PlacementDriverReplicaSideTest {
 
     private Replica replica;
 
-    private AtomicReference<BiConsumer<ClusterNode, Long>> callbackHolder = new AtomicReference<>();
+    private final AtomicReference<LeaderElectionListener> callbackHolder = new AtomicReference<>();
 
     private PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
-    private AtomicLong indexOnLeader = new AtomicLong(0);
+    private final AtomicLong indexOnLeader = new AtomicLong(0);
 
     private Peer currentLeader = null;
 
@@ -76,7 +76,7 @@ public class PlacementDriverReplicaSideTest {
         TopologyAwareRaftGroupService raftClient = mock(TopologyAwareRaftGroupService.class);
 
         when(raftClient.subscribeLeader(any())).thenAnswer(invocationOnMock -> {
-            BiConsumer<ClusterNode, Long> callback = invocationOnMock.getArgument(0);
+            LeaderElectionListener callback = invocationOnMock.getArgument(0);
             callbackHolder.set(callback);
 
             return completedFuture(null);
@@ -126,7 +126,7 @@ public class PlacementDriverReplicaSideTest {
      */
     private void leaderElection(ClusterNode leader) {
         if (callbackHolder.get() != null) {
-            callbackHolder.get().accept(leader, 1L);
+            callbackHolder.get().onLeaderElected(leader, 1L);
         }
     }
 

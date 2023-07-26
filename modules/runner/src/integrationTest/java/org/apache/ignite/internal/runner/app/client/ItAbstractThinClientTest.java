@@ -107,7 +107,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
                 .metaStorageNodeNames(List.of(metaStorageNode))
                 .clusterName("cluster")
                 .build();
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());
@@ -142,11 +142,11 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         IgniteUtils.closeAll(closeables);
     }
 
-    protected String getNodeAddress() {
+    String getNodeAddress() {
         return getClientAddresses().get(0);
     }
 
-    protected List<String> getClientAddresses() {
+    List<String> getClientAddresses() {
         return getClientAddresses(startedNodes);
     }
 
@@ -157,15 +157,19 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
      * @return List of client addresses.
      */
     public static List<String> getClientAddresses(List<Ignite> nodes) {
-        List<String> res = new ArrayList<>(nodes.size());
+        return getClientPorts(nodes).stream()
+                .map(port -> "127.0.0.1" + ":" + port)
+                .collect(toList());
+    }
 
-        for (Ignite ignite : nodes) {
-            int port = ((IgniteImpl) ignite).clientAddress().port();
+    List<Integer> getClientPorts() {
+        return getClientPorts(startedNodes);
+    }
 
-            res.add("127.0.0.1:" + port);
-        }
-
-        return res;
+    private static List<Integer> getClientPorts(List<Ignite> nodes) {
+        return nodes.stream()
+                .map(ignite -> ((IgniteImpl) ignite).clientAddress().port())
+                .collect(toList());
     }
 
     protected IgniteClient client() {
@@ -174,6 +178,29 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
 
     protected Ignite server() {
         return startedNodes.get(0);
+    }
+
+    protected Ignite server(int idx) {
+        return startedNodes.get(idx);
+    }
+
+    void waitForTableOnAllNodes(String tableName) throws InterruptedException {
+        // TODO IGNITE-18733, IGNITE-18449: remove this workaround when issues are fixed.
+        // Currently newly created table is not immediately available on all nodes.
+        boolean res = IgniteTestUtils.waitForCondition(() -> {
+            var nodeCount = client().clusterNodes().size();
+
+            // Do N checks - they will go to different nodes becase of request balancing.
+            for (int i = 0; i < nodeCount; i++) {
+                if (client().tables().table(tableName) == null) {
+                    return false;
+                }
+            }
+
+            return true;
+        }, 3000);
+
+        assertTrue(res);
     }
 
     /**

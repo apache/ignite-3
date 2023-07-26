@@ -58,7 +58,13 @@ public class ClientMarshallerWriter implements MarshallerWriter {
     @Override
     public void writeAbsentValue() {
         noValueSet.set(packer.elementIndex());
-        packer.appendDefault();
+        packer.appendNull();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeBoolean(boolean val) {
+        packer.appendBoolean(val);
     }
 
     /** {@inheritDoc} */
