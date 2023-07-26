@@ -104,12 +104,20 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
     }
 
     private CompletableFuture<Boolean> onTableCreated(CatalogEventParameters event, @Nullable Throwable ex) {
+        if (ex != null) {
+            return failedFuture(ex);
+        }
+
         CreateTableEventParameters creationEvent = (CreateTableEventParameters) event;
 
-        return onTableCreatedOrAltered(creationEvent.tableDescriptor(), creationEvent.causalityToken(), ex);
+        return onTableCreatedOrAltered(creationEvent.tableDescriptor(), creationEvent.causalityToken());
     }
 
     private CompletableFuture<Boolean> onTableAltered(CatalogEventParameters event, @Nullable Throwable ex) {
+        if (ex != null) {
+            return failedFuture(ex);
+        }
+
         assert event instanceof TableEventParameters;
 
         TableEventParameters tableEvent = ((TableEventParameters) event);
@@ -118,23 +126,18 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
 
         assert tableDescriptor != null;
 
-        return onTableCreatedOrAltered(tableDescriptor, event.causalityToken(), ex);
+        return onTableCreatedOrAltered(tableDescriptor, event.causalityToken());
     }
 
     private CompletableFuture<Boolean> onTableCreatedOrAltered(
             CatalogTableDescriptor tableDescriptor,
-            long causalityToken,
-            @Nullable Throwable incomingEx
+            long causalityToken
     ) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
 
         try {
-            if (incomingEx != null) {
-                return failedFuture(incomingEx);
-            }
-
             int tableId = tableDescriptor.id();
             int newSchemaVersion = tableDescriptor.tableVersion();
 
