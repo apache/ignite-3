@@ -518,6 +518,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         lowWatermark.start();
 
+        fireCreateTablesOnStartManager();
+
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), assignmentsSwitchRebalanceListener);
@@ -551,8 +553,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
 
         addMessageHandler(clusterService.messagingService());
-
-        fireCreateTablesOnStartManager();
     }
 
     /**
