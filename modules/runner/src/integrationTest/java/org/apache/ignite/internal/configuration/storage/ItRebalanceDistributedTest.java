@@ -343,7 +343,6 @@ public class ItRebalanceDistributedTest {
         assertEquals(2, getPartitionClusterNodes(2, 0).size());
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
     @Test
     void testOnLeaderElectedRebalanceRestart() throws Exception {
         String zoneName = "zone2";
@@ -491,7 +490,6 @@ public class ItRebalanceDistributedTest {
         checkInvokeDestroyedPartitionStorages(evictedNode, TABLE_1_NAME, 0);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
     @Test
     @UseTestTxStateStorage
     @UseRocksMetaStorage
