@@ -114,6 +114,8 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
 
         CatalogTableDescriptor tableDescriptor = catalogService.table(tableEvent.tableId(), tableEvent.catalogVersion());
 
+        assert tableDescriptor != null;
+
         return onTableCreatedOrAltered(tableDescriptor, event.causalityToken(), ex);
     }
 
