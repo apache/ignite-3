@@ -440,9 +440,10 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
     }
 
     /**
-     * Gets the defined version of the table schema which available in Metastore.
+     * Loads the table schema descriptor by version from Metastore.
      *
      * @param tblId Table id.
+     * @param ver Schema version.
      * @return Schema representation if schema found, {@code null} otherwise.
      */
     private CompletableFuture<SchemaDescriptor> loadSchema(int tblId, int ver) {
