@@ -78,6 +78,7 @@ import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
@@ -551,6 +552,13 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     protected TxManager txManager() {
         return ((IgniteImpl) CLUSTER_NODES.get(0)).txManager();
+    }
+
+    /**
+     * Returns transaction manager for first cluster node.
+     */
+    protected IgniteTransactions igniteTx() {
+        return CLUSTER_NODES.get(0).transactions();
     }
 
     /**
