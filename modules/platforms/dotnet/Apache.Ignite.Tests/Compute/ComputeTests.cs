@@ -23,6 +23,7 @@ namespace Apache.Ignite.Tests.Compute
     using System.Linq;
     using System.Net;
     using System.Numerics;
+    using System.Text.Json.Serialization;
     using System.Threading.Tasks;
     using Ignite.Compute;
     using Ignite.Table;
@@ -47,6 +48,8 @@ namespace Apache.Ignite.Tests.Compute
         private const string ErrorJob = ItThinClientComputeTest + "$IgniteExceptionJob";
 
         private const string EchoJob = ItThinClientComputeTest + "$EchoJob";
+
+        private const string PojoClassJob = ItThinClientComputeTest + "$PojoClassJob";
 
         private const string PlatformTestNodeRunner = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
 
@@ -117,6 +120,47 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreSame(nodes[0], taskMap.Keys.Single());
 
             Assert.AreEqual(PlatformTestNodeRunner + "123", res);
+        }
+
+        [Test]
+        public async Task TestPojoClassJob()
+        {
+            var nodes = await GetNodeAsync(0);
+
+            var arg1 = new PojoArg
+            {
+                Id = "test1",
+                Map = new Dictionary<string, string>
+                {
+                    ["id1"] = "value1"
+                }
+            };
+
+            var arg2 = new PojoArg
+            {
+                Id = "test2",
+                Map = new Dictionary<string, string>
+                {
+                    ["id2"] = "value2"
+                }
+            };
+
+            IDictionary<IClusterNode, Task<PojoResult>> taskMap = Client.Compute.BroadcastAsync<PojoResult>(nodes, PojoClassJob, arg1, arg2);
+
+            Assert.AreEqual(1, taskMap.Count);
+            var pojoResult = new PojoResult
+            {
+                Id = "test1test2",
+                Map = new Dictionary<string, string>
+                    {
+                        ["id1"] = "value1",
+                        ["id2"] = "value2"
+                    }
+            };
+            var task = taskMap.Values.Single();
+            var result = await task;
+            Assert.AreEqual(pojoResult.Id, result.Id);
+            Assert.AreEqual(pojoResult.Map, result.Map);
         }
 
         [Test]
@@ -414,5 +458,23 @@ namespace Apache.Ignite.Tests.Compute
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
             (await Client.GetClusterNodesAsync()).OrderBy(n => n.Name).Skip(index).Take(1).ToList();
+
+        private class PojoArg
+        {
+            [JsonPropertyName("id")]
+            public string? Id { get; set; }
+
+            [JsonPropertyName("map")]
+            public IDictionary<string, string>? Map { get; set; }
+        }
+
+        private class PojoResult
+        {
+            [JsonPropertyName("id")]
+            public string? Id { get; set; }
+
+            [JsonPropertyName("map")]
+            public IDictionary<string, string>? Map { get; set; }
+        }
     }
 }

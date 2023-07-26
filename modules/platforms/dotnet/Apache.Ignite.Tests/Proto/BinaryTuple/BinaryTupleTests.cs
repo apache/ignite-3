@@ -775,23 +775,23 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 },
                 17);
 
-            Assert.IsNull(reader.GetObject(0, ColumnType.String));
-            Assert.AreEqual(sbyte.MaxValue, reader.GetObject(1, ColumnType.Int8));
-            Assert.AreEqual(short.MaxValue, reader.GetObject(2, ColumnType.Int16));
-            Assert.AreEqual(int.MaxValue, reader.GetObject(3, ColumnType.Int32));
-            Assert.AreEqual(long.MaxValue, reader.GetObject(4, ColumnType.Int64));
-            Assert.AreEqual(float.MaxValue, reader.GetObject(5, ColumnType.Float));
-            Assert.AreEqual(double.MaxValue, reader.GetObject(6, ColumnType.Double));
-            Assert.AreEqual(decimal.One, reader.GetObject(7, ColumnType.Decimal));
-            Assert.AreEqual(BigInteger.One, reader.GetObject(8, ColumnType.Number));
-            Assert.AreEqual("foo", reader.GetObject(9, ColumnType.String));
-            Assert.AreEqual(bitArray, reader.GetObject(10, ColumnType.Bitmask));
-            Assert.AreEqual(guid, reader.GetObject(11, ColumnType.Uuid));
-            Assert.AreEqual(bytes, reader.GetObject(12, ColumnType.ByteArray));
-            Assert.AreEqual(LocalTime.FromMinutesSinceMidnight(123), reader.GetObject(13, ColumnType.Time));
-            Assert.AreEqual(date, reader.GetObject(14, ColumnType.Date));
-            Assert.AreEqual(dateTime, reader.GetObject(15, ColumnType.Datetime));
-            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject(16, ColumnType.Timestamp));
+            Assert.IsNull(reader.GetObject<object?>(0, ColumnType.String));
+            Assert.AreEqual(sbyte.MaxValue, reader.GetObject<sbyte>(1, ColumnType.Int8));
+            Assert.AreEqual(short.MaxValue, reader.GetObject<short>(2, ColumnType.Int16));
+            Assert.AreEqual(int.MaxValue, reader.GetObject<int>(3, ColumnType.Int32));
+            Assert.AreEqual(long.MaxValue, reader.GetObject<long>(4, ColumnType.Int64));
+            Assert.AreEqual(float.MaxValue, reader.GetObject<float>(5, ColumnType.Float));
+            Assert.AreEqual(double.MaxValue, reader.GetObject<double>(6, ColumnType.Double));
+            Assert.AreEqual(decimal.One, reader.GetObject<decimal>(7, ColumnType.Decimal));
+            Assert.AreEqual(BigInteger.One, reader.GetObject<BigInteger>(8, ColumnType.Number));
+            Assert.AreEqual("foo", reader.GetObject<string>(9, ColumnType.String));
+            Assert.AreEqual(bitArray, reader.GetObject<BitArray>(10, ColumnType.Bitmask));
+            Assert.AreEqual(guid, reader.GetObject<Guid>(11, ColumnType.Uuid));
+            Assert.AreEqual(bytes, reader.GetObject<byte[]>(12, ColumnType.ByteArray));
+            Assert.AreEqual(LocalTime.FromMinutesSinceMidnight(123), reader.GetObject<LocalTime>(13, ColumnType.Time));
+            Assert.AreEqual(date, reader.GetObject<LocalDate>(14, ColumnType.Date));
+            Assert.AreEqual(dateTime, reader.GetObject<LocalDate>(15, ColumnType.Datetime));
+            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject<LocalDate>(16, ColumnType.Timestamp));
         }
 
         [Test]
@@ -827,23 +827,23 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 },
                 17 * 3);
 
-            Assert.IsNull(reader.GetObject(0));
-            Assert.AreEqual(sbyte.MaxValue, reader.GetObject(3));
-            Assert.AreEqual(short.MaxValue, reader.GetObject(6));
-            Assert.AreEqual(int.MaxValue, reader.GetObject(9));
-            Assert.AreEqual(long.MaxValue, reader.GetObject(12));
-            Assert.AreEqual(float.MaxValue, reader.GetObject(15));
-            Assert.AreEqual(double.MaxValue, reader.GetObject(18));
-            Assert.AreEqual(decimal.One, reader.GetObject(21));
-            Assert.AreEqual(BigInteger.One, reader.GetObject(24));
-            Assert.AreEqual("foo", reader.GetObject(27));
-            Assert.AreEqual(bitArray, reader.GetObject(30));
-            Assert.AreEqual(guid, reader.GetObject(33));
-            Assert.AreEqual(bytes, reader.GetObject(36));
-            Assert.AreEqual(LocalTime.FromMinutesSinceMidnight(123), reader.GetObject(39));
-            Assert.AreEqual(date, reader.GetObject(42));
-            Assert.AreEqual(dateTime, reader.GetObject(45));
-            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject(48));
+            Assert.IsNull(reader.GetObject<object?>(0));
+            Assert.AreEqual(sbyte.MaxValue, reader.GetObject<sbyte>(3));
+            Assert.AreEqual(short.MaxValue, reader.GetObject<short>(6));
+            Assert.AreEqual(int.MaxValue, reader.GetObject<int>(9));
+            Assert.AreEqual(long.MaxValue, reader.GetObject<long>(12));
+            Assert.AreEqual(float.MaxValue, reader.GetObject<float>(15));
+            Assert.AreEqual(double.MaxValue, reader.GetObject<double>(18));
+            Assert.AreEqual(decimal.One, reader.GetObject<decimal>(21));
+            Assert.AreEqual(BigInteger.One, reader.GetObject<BigInteger>(24));
+            Assert.AreEqual("foo", reader.GetObject<string>(27));
+            Assert.AreEqual(bitArray, reader.GetObject<BitArray>(30));
+            Assert.AreEqual(guid, reader.GetObject<Guid>(33));
+            Assert.AreEqual(bytes, reader.GetObject<byte[]>(36));
+            Assert.AreEqual(LocalTime.FromMinutesSinceMidnight(123), reader.GetObject<LocalDate>(39));
+            Assert.AreEqual(date, reader.GetObject<LocalDate>(42));
+            Assert.AreEqual(dateTime, reader.GetObject<LocalDate>(45));
+            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject<LocalDate>(48));
         }
 
         [Test]

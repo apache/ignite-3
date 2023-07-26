@@ -35,9 +35,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -46,11 +48,16 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.arg.MappedArgs;
+import org.apache.ignite.compute.arg.PojoArgs;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.serialization.JsonObjectSerializer;
+import org.apache.ignite.serialization.descriptor.GenericClassDescriptor;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
@@ -119,8 +126,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 Set.of(node(1)),
                 List.of(),
                 NodeNameJob.class.getName(),
-                "_",
-                123);
+                PojoArgs.fromArray("_", 123)
+        );
 
         assertEquals(1, futuresPerNode.size());
 
@@ -135,8 +142,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 new HashSet<>(sortedNodes()),
                 List.of(),
                 NodeNameJob.class.getName(),
-                "_",
-                123);
+                PojoArgs.fromArray("_", 123)
+        );
 
         assertEquals(2, futuresPerNode.size());
 
@@ -150,7 +157,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteWithArgs() {
         var nodes = new HashSet<>(client().clusterNodes());
-        String res = client().compute().<String>executeAsync(nodes, List.of(), ConcatJob.class.getName(), 1, "2", 3.3).join();
+        String res = client().compute().<String>executeAsync(nodes, List.of(), ConcatJob.class.getName(), PojoArgs.fromArray(1, "2", 3.3)).join();
 
         assertEquals("1_2_3.3", res);
     }
@@ -262,7 +269,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 () -> client().compute().<String>executeAsync(
                         Set.of(node(0)),
                         List.of(new DeploymentUnit("u", "latest")),
-                        NodeNameJob.class.getName()).join());
+                        NodeNameJob.class.getName()
+                ).join());
 
         var cause = (IgniteException) ex.getCause();
         assertThat(cause.getMessage(), containsString("Deployment unit u:latest doesn't exist"));
@@ -279,13 +287,74 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                         TABLE_NAME,
                         Tuple.create().set(COLUMN_KEY, 1),
                         List.of(new DeploymentUnit("u", "latest")),
-                        NodeNameJob.class.getName()).join());
+                        NodeNameJob.class.getName()
+                ).join());
 
         var cause = (IgniteException) ex.getCause();
         assertThat(cause.getMessage(), containsString("Deployment unit u:latest doesn't exist"));
 
         // TODO IGNITE-19823 DeploymentUnitNotFoundException is internal, does not propagate to client.
         assertEquals(INTERNAL_ERR, cause.code());
+    }
+
+    @Test
+    public void testPojoClass() {
+        IgniteClient client = client();
+
+        ArgClass arg1 = new ArgClass();
+        arg1.setId("id1");
+        arg1.setList(List.of("key1", "value1"));
+
+        ArgClass arg2 = new ArgClass();
+        arg2.setId("id2");
+        arg2.setList(List.of("key2", "value2"));
+
+        ArgClass arg3 = new ArgClass();
+        arg3.setId("id3");
+        arg3.setList(List.of("key3", "value3"));
+
+        JsonObjectSerializer ser = new JsonObjectSerializer();
+
+        MappedArgs args = MappedArgs.fromArray(PojoJobMapper.class, ser.serialize(arg1), ser.serialize(arg2), ser.serialize(arg3));
+        Object join = client.compute()
+                .<PojoClass>execute(Set.of(node(0)), List.of(), PojoClassJob.class.getName(), args);
+        PojoClass pojo = ser.deserialize((byte[]) join, PojoClass.class);
+
+        assertEquals("id1id2id3", pojo.id);
+        assertEquals(List.of("key1", "value1", "key2", "value2", "key3", "value3"),
+                pojo.list);
+    }
+
+    @Test
+    public void testGenericArgs() {
+        IgniteClient client = client();
+
+        GenericArg<String> strArg = new GenericArg<>();
+        strArg.setId("id1");
+        strArg.setType("type1");
+
+        GenericArg<Integer> intArg = new GenericArg<>();
+        intArg.setId("id2");
+        intArg.setType(1);
+
+        GenericArg<Double> doubleArg = new GenericArg<>();
+        doubleArg.setId("id3");
+        doubleArg.setType(Math.PI);
+
+        JsonObjectSerializer ser = new JsonObjectSerializer();
+
+        MappedArgs args = MappedArgs.fromArray(GenericArgMapper1.class, ser.serialize(strArg), ser.serialize(intArg), ser.serialize(doubleArg));
+        String result = client.compute()
+                .<String>execute(Set.of(node(0)), List.of(), GenericJob.class.getName(), args);
+
+        assertEquals("id1type1id21id3" + Math.PI, result);
+
+
+        MappedArgs args2 = MappedArgs.fromArray(GenericArgMapper2.class, ser.serialize(doubleArg), ser.serialize(intArg), ser.serialize(strArg));
+        String result2 = client.compute()
+                .<String>execute(Set.of(node(0)), List.of(), GenericJob.class.getName(), args2);
+
+        assertEquals("id3" + Math.PI + "id21id1type1", result2);
     }
 
     @Test
@@ -309,7 +378,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     private void testEchoArg(Object arg) {
-        Object res = client().compute().executeAsync(Set.of(node(0)), List.of(), EchoJob.class.getName(), arg, arg.toString()).join();
+        Object res = client().compute().executeAsync(Set.of(node(0)), List.of(), EchoJob.class.getName(), PojoArgs.fromArray(arg, arg.toString())).join();
 
         if (arg instanceof byte[]) {
             assertArrayEquals((byte[]) arg, (byte[]) res);
@@ -381,6 +450,157 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     public static class CustomException extends IgniteException {
         public CustomException(UUID traceId, int code, String message, Throwable cause) {
             super(traceId, code, message, cause);
+        }
+    }
+
+    private static class PojoClassJob implements ComputeJob<PojoClass> {
+        @Override
+        public PojoClass execute(JobExecutionContext context, Object... args) {
+            StringBuilder id = new StringBuilder();
+            List<String> list = new ArrayList<>();
+            for (Object arg : args) {
+                ArgClass argCast = (ArgClass) arg;
+                id.append(argCast.id);
+                list.addAll(argCast.list);
+            }
+            return new PojoClass(id.toString(), list);
+        }
+    }
+
+    private static class PojoJobMapper implements org.apache.ignite.compute.arg.Mapper {
+
+        @Override
+        public Object[] map(Object[] content) {
+            JsonObjectSerializer serializer = new JsonObjectSerializer();
+            return Arrays.stream(content).map(arg -> serializer.deserialize((byte[]) arg, ArgClass.class)).toArray();
+        }
+    }
+
+    private static class PojoClass {
+        private String id;
+        private List<String> list;
+
+        public PojoClass() {
+            this(null, null);
+        }
+
+        public PojoClass(String id, List<String> list) {
+            this.id = id;
+            this.list = list;
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public List<String> getList() {
+            return list;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+        }
+
+        public void setList(List<String> list) {
+            this.list = list;
+        }
+    }
+
+    private static class ArgClass {
+        private String id;
+        private List<String> list;
+
+        public String getId() {
+            return id;
+        }
+
+        public void setList(List<String> list) {
+            this.list = list;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+        }
+
+        public List<String> getList() {
+            return list;
+        }
+    }
+
+    private static class GenericJob implements ComputeJob<String> {
+
+        @Override
+        public String execute(JobExecutionContext context, Object... args) {
+            StringBuilder result = new StringBuilder();
+            for (Object arg : args) {
+                GenericArg<?> argCast = (GenericArg<?>) arg;
+                result.append(argCast.id).append(argCast.type);
+            }
+            return result.toString();
+        }
+    }
+
+    private static class GenericArgMapper1 implements org.apache.ignite.compute.arg.Mapper {
+
+        @Override
+        public Object[] map(Object[] content) {
+            JsonObjectSerializer serializer = new JsonObjectSerializer();
+            Object[] result = new Object[3];
+
+            for (int i = 0; i < content.length; i++) {
+                Object o = content[i];
+                if (i == 0) {
+                    result[i] = serializer.deserialize((byte[]) o, new GenericClassDescriptor<GenericArg<String>>() { });
+                } else if (i == 1) {
+                    result[i] = serializer.deserialize((byte[]) o, new GenericClassDescriptor<GenericArg<Integer>>() { });
+                } else {
+                    result[i] = serializer.deserialize((byte[]) o, new GenericClassDescriptor<GenericArg<Double>>() { });
+                }
+            }
+            return result;
+        }
+    }
+    private static class GenericArgMapper2 implements org.apache.ignite.compute.arg.Mapper {
+
+        @Override
+        public Object[] map(Object[] content) {
+            JsonObjectSerializer serializer = new JsonObjectSerializer();
+            Object[] result = new Object[3];
+
+            for (int i = 0; i < content.length; i++) {
+                Object o = content[i];
+                if (i == 0) {
+                    result[i] = serializer.deserialize((byte[]) o, new GenericClassDescriptor<GenericArg<Double>>() { });
+                } else if (i == 1) {
+                    result[i] = serializer.deserialize((byte[]) o, new GenericClassDescriptor<GenericArg<Integer>>() { });
+                } else {
+                    result[i] = serializer.deserialize((byte[]) o, new GenericClassDescriptor<GenericArg<String>>() { });
+                }
+            }
+            return result;
+        }
+    }
+
+
+
+    private static class GenericArg<T> {
+        private String id;
+        private T type;
+
+        public String getId() {
+            return id;
+        }
+
+        public T getType() {
+            return type;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+        }
+
+        public void setType(T type) {
+            this.type = type;
         }
     }
 }

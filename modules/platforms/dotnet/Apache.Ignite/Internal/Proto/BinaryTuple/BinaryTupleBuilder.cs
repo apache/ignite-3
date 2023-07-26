@@ -23,6 +23,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Diagnostics;
     using System.Numerics;
     using System.Runtime.InteropServices;
+    using System.Text.Json;
     using Buffers;
     using Ignite.Sql;
     using NodaTime;
@@ -959,7 +960,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 default:
+                    AppendInt((int)ColumnType.ByteArray);
+                    AppendStringNullable(value.GetType().FullName);
+                    AppendBytes(JsonSerializer.SerializeToUtf8Bytes(value));
+                    break;
+/*
                     throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + value.GetType());
+*/
             }
         }
 

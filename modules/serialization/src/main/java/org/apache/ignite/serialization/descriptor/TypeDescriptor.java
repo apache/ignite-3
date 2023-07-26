@@ -15,20 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+package org.apache.ignite.serialization.descriptor;
 
-/**
- * A Compute job that may be executed on a single Ignite node, on several nodes, or on the entire cluster.
- *
- * @param <R> Job result type.
- */
-public interface ComputeJob<R> {
-    /**
-     * Executes the job on an Ignite node.
-     *
-     * @param context  The execution context.
-     * @param args     Job arguments.
-     * @return Job result.
-     */
-    R execute(JobExecutionContext context, Object... args);
+import java.lang.reflect.Type;
+
+public interface TypeDescriptor {
+    Type type();
 }

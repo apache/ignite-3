@@ -22,6 +22,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Collections;
     using System.Diagnostics;
     using System.Numerics;
+    using System.Text.Json;
     using Ignite.Sql;
     using NodaTime;
 
@@ -399,6 +400,17 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Deserialize object from JSON.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <typeparam name="T">Value type.</typeparam>
+        /// <returns>Value.</returns>
+        public T? GetFromJson<T>(int index) => Seek(index) switch
+        {
+            var s => JsonSerializer.Deserialize<T>(s)
+        };
+
+        /// <summary>
         /// Gets a period value.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -461,9 +473,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="index">Index.</param>
         /// <param name="columnType">Column type.</param>
-        /// <param name="scale">Column decimal scale.</param>
+        /// <typeparam name="T">Value type.</typeparam>
         /// <returns>Value.</returns>
-        public object? GetObject(int index, ColumnType columnType, int scale = 0) =>
+        public T? GetObject<T>(int index, ColumnType columnType) =>
             columnType switch
             {
                 ColumnType.Int8 => GetByteNullable(index),
@@ -492,18 +504,18 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Gets an object value according to the type code at the specified index.
         /// </summary>
         /// <param name="index">Index.</param>
+        /// <typeparam name="T">Value type.</typeparam>
         /// <returns>Value.</returns>
-        public object? GetObject(int index)
+        public T? GetObject<T>(int index)
         {
             if (IsNull(index))
             {
-                return null;
+                return default;
             }
 
             var type = (ColumnType)GetInt(index);
-            var scale = GetInt(index + 1);
 
-            return GetObject(index + 2, type, scale);
+            return GetObject<T>(index + 1, type);
         }
 
         private static LocalDate ReadDate(ReadOnlySpan<byte> span)
@@ -577,6 +589,36 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private static InvalidOperationException GetInvalidLengthException(int index, int expectedLength, int actualLength) =>
             new($"Binary tuple element with index {index} has invalid length (expected {expectedLength}, actual {actualLength}).");
+
+        private object? GetPrimitive(ColumnType columnType, int index)
+        {
+            int scale = GetInt(index);
+            index++;
+            return columnType switch
+            {
+                ColumnType.Int8 => GetByte(index),
+                ColumnType.Int16 => GetShort(index),
+                ColumnType.Int32 => GetInt(index),
+                ColumnType.Int64 => GetLong(index),
+                ColumnType.Float => GetFloat(index),
+                ColumnType.Double => GetDouble(index),
+                ColumnType.Uuid => GetGuid(index),
+                ColumnType.String => GetString(index),
+                ColumnType.Decimal => GetDecimal(index, scale),
+                ColumnType.ByteArray => GetBytes(index),
+                ColumnType.Bitmask => GetBitmask(index),
+                ColumnType.Date => GetDate(index),
+                ColumnType.Time => GetTime(index),
+                ColumnType.Datetime => GetDateTime(index),
+                ColumnType.Timestamp => GetTimestamp(index),
+                ColumnType.Number => GetNumber(index),
+                ColumnType.Boolean => GetByteAsBool(index),
+                ColumnType.Period => GetPeriod(index),
+                ColumnType.Duration => GetDuration(index),
+                ColumnType.Null => null,
+                _ => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType)
+            };
+        }
 
         private int GetOffset(int position)
         {

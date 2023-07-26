@@ -56,6 +56,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.arg.PojoArgs;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
@@ -150,7 +151,7 @@ class ComputeComponentImplTest {
 
     @Test
     void executesLocally() throws Exception {
-        String result = computeComponent.<String>executeLocally(List.of(), SimpleJob.class.getName(), "a", 42).get();
+        String result = computeComponent.<String>executeLocally(List.of(), SimpleJob.class.getName(), PojoArgs.fromArray("a", 42)).get();
 
         assertThat(result, is("jobResponse"));
 
@@ -177,7 +178,7 @@ class ComputeComponentImplTest {
     void executesRemotelyUsingNetworkCommunication() throws Exception {
         respondWithExecuteResponseWhenExecuteRequestIsSent();
 
-        String result = computeComponent.<String>executeRemotely(remoteNode, List.of(), SimpleJob.class.getName(), "a", 42).get();
+        String result = computeComponent.<String>executeRemotely(remoteNode, List.of(), SimpleJob.class.getName(), PojoArgs.fromArray("a", 42)).get();
 
         assertThat(result, is("remoteResponse"));
 
@@ -198,7 +199,7 @@ class ComputeComponentImplTest {
         ExecuteRequest capturedRequest = executeRequestCaptor.getValue();
 
         assertThat(capturedRequest.jobClassName(), is(SimpleJob.class.getName()));
-        assertThat(capturedRequest.args(), is(equalTo(new Object[]{"a", 42})));
+        assertThat(capturedRequest.args(), is(equalTo(new Object[]{PojoArgs.fromArray("a", 42)})));
     }
 
     @Test
@@ -229,7 +230,7 @@ class ComputeComponentImplTest {
         ExecuteRequest request = new ComputeMessagesFactory().executeRequest()
                 .deploymentUnits(List.of())
                 .jobClassName(SimpleJob.class.getName())
-                .args(new Object[]{"a", 42})
+                .args(new Object[]{PojoArgs.fromArray("a", 42)})
                 .build();
         computeMessageHandlerRef.get().onReceived(request, sender, 123L);
 
@@ -304,7 +305,7 @@ class ComputeComponentImplTest {
         ExecuteRequest request = new ComputeMessagesFactory().executeRequest()
                 .deploymentUnits(List.of())
                 .jobClassName(SimpleJob.class.getName())
-                .args(new Object[]{"a", 42})
+                .args(new Object[]{PojoArgs.fromArray("a", 42)})
                 .build();
         computeMessageHandlerRef.get().onReceived(request, sender, 123L);
 

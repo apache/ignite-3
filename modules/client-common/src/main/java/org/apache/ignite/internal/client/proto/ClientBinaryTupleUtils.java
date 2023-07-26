@@ -32,20 +32,16 @@ import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.serialization.JsonObjectSerializer;
+import org.apache.ignite.serialization.UserObjectSerializer;
 import org.apache.ignite.sql.ColumnType;
 
 /**
  * Client binary tuple utils.
  */
 public class ClientBinaryTupleUtils {
+    private static final UserObjectSerializer marshaller = new JsonObjectSerializer();
 
-    /**
-     * Reads an object from binary tuple at the specified index.
-     *
-     * @param reader Binary tuple reader.
-     * @param index  Starting index in the binary tuple.
-     * @return Object.
-     */
     public static Object readObject(BinaryTupleReader reader, int index) {
         if (reader.hasNullValue(index)) {
             return null;
@@ -84,6 +80,7 @@ public class ClientBinaryTupleUtils {
                 return reader.stringValue(valIdx);
 
             case BYTE_ARRAY:
+                //TODO: check scale to define JSON or not.
                 return reader.bytesValue(valIdx);
 
             case BITMASK:
@@ -188,7 +185,9 @@ public class ClientBinaryTupleUtils {
             appendTypeAndScale(builder, ColumnType.PERIOD);
             builder.appendPeriod((Period) obj);
         } else {
-            throw unsupportedTypeException(obj.getClass());
+            builder.appendInt(ColumnType.BYTE_ARRAY.ordinal());
+            builder.appendInt(1);
+            builder.appendBytes(marshaller.serialize(obj));
         }
     }
 

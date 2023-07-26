@@ -51,7 +51,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var index = 0; index < count; index++)
             {
                 var column = columns[index];
-                tuple[column.Name] = tupleReader.GetObject(index, column.Type, column.Scale);
+                tuple[column.Name] = tupleReader.GetObject<object?>(index, column.Type);
             }
 
             return tuple;
