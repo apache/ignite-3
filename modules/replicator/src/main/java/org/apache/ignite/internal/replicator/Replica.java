@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -78,6 +79,9 @@ public class Replica {
     /** Latest lease expiration time. */
     private volatile HybridTimestamp leaseExpirationTime = null;
 
+    /** Executor. */
+    private final ExecutorService executor;
+
     /**
      * The constructor of a replica server.
      *
@@ -94,7 +98,8 @@ public class Replica {
             ReplicaListener listener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TopologyAwareRaftGroupService raftClient,
-            ClusterNode localNode
+            ClusterNode localNode,
+            ExecutorService executor
     ) {
         this.replicaGrpId = replicaGrpId;
         this.whenReplicaReady = replicaReady;
@@ -102,6 +107,7 @@ public class Replica {
         this.storageIndexTracker = storageIndexTracker;
         this.raftClient = raftClient;
         this.localNode = localNode;
+        this.executor = executor;
 
         raftClient.subscribeLeader(this::onLeaderElected);
     }
@@ -254,7 +260,7 @@ public class Replica {
             return failedFuture(new TimeoutException());
         }
 
-        return retryOperationUntilSuccess(raftClient::readIndex, e -> currentTimeMillis() > expirationTime, Runnable::run)
+        return retryOperationUntilSuccess(raftClient::readIndex, e -> currentTimeMillis() > expirationTime, executor)
                 .orTimeout(timeout, TimeUnit.MILLISECONDS)
                 .thenCompose(storageIndexTracker::waitFor);
     }

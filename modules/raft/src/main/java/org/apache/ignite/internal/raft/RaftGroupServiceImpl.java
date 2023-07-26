@@ -52,7 +52,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -111,9 +110,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    /** Prevents double stopping of the component. */
-    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /**
      * Constructor.
@@ -464,10 +460,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     // TODO: IGNITE-18636 Shutdown raft services on components' stop.
     @Override
     public void shutdown() {
-        if (!stopGuard.compareAndSet(false, true)) {
-            return;
-        }
-
         busyLock.block();
     }
 

@@ -676,6 +676,7 @@ public class ItRebalanceDistributedTest {
                     new TestConfigurationValidator());
 
             replicaManager = new ReplicaManager(
+                    name,
                     clusterService,
                     cmgManager,
                     hybridClock,
