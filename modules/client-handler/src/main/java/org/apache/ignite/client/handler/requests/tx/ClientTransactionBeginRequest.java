@@ -23,6 +23,7 @@ import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -54,7 +55,10 @@ public class ClientTransactionBeginRequest {
             options = new TransactionOptions().readOnly(true);
         }
 
-        return transactions.beginAsync(options).thenAccept(tx -> {
+        // TODO: Read observable timestamp.
+        HybridTimestamp observableTs = null;
+
+        return transactions.beginAsync(options, null).thenAccept(tx -> {
             try {
                 long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
                 out.packLong(resourceId);

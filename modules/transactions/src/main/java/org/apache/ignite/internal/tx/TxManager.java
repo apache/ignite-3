@@ -55,7 +55,7 @@ public interface TxManager extends IgniteComponent {
      * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_TOO_OLD_ERR} if transaction much older than the data available
      *      in the tables.
      */
-    InternalTransaction begin(boolean readOnly, HybridTimestamp observableTimestamp);
+    InternalTransaction begin(boolean readOnly, @Nullable HybridTimestamp observableTimestamp);
 
     /**
      * Returns a transaction state.

@@ -117,7 +117,7 @@ public class TxManagerImpl implements TxManager {
     }
 
     @Override
-    public InternalTransaction begin(boolean readOnly, HybridTimestamp observableTimestamp) {
+    public InternalTransaction begin(boolean readOnly, @Nullable HybridTimestamp observableTimestamp) {
         assert readOnly || observableTimestamp == null : "Observable timestamp is applicable just for read-only transactions.";
 
         HybridTimestamp beginTimestamp = clock.now();
