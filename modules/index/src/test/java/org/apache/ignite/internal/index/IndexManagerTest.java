@@ -118,15 +118,17 @@ public class IndexManagerTest {
         when(tableManagerMock.tableAsync(anyLong(), anyString())).thenAnswer(inv -> {
             InternalTable tbl = mock(InternalTable.class);
 
-            doReturn(catalogManager.table(inv.getArgument(1), clock.nowLong()).id()).when(tbl).tableId();
+            String tableName = inv.getArgument(1);
+
+            doReturn(tablesConfig.tables().get(tableName).id().value()).when(tbl).tableId();
 
             return completedFuture(new TableImpl(tbl, new HeapLockManager()));
         });
 
-        when(tableManagerMock.getTable(anyString())).thenAnswer(inv -> {
+        when(tableManagerMock.getTable(anyInt())).thenAnswer(inv -> {
             InternalTable tbl = mock(InternalTable.class);
 
-            doReturn(catalogManager.table(inv.getArgument(0), clock.nowLong()).id()).when(tbl).tableId();
+            doReturn(inv.getArgument(0)).when(tbl).tableId();
 
             return new TableImpl(tbl, new HeapLockManager());
         });
@@ -296,11 +298,12 @@ public class IndexManagerTest {
         );
 
         CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) catalogManager.index(indexName, clock.nowLong());
-        CatalogTableDescriptor table = catalogManager.table(TABLE_NAME, clock.nowLong());
+        // TODO: IGNITE-19499 Only catalog should be used
+        int tableId = tablesConfig.tables().get(TABLE_NAME).id().value();
 
         assertThat(holder.get(), notNullValue());
         assertThat(holder.get().indexId(), equalTo(index.id()));
-        assertThat(holder.get().tableId(), equalTo(table.id()));
+        assertThat(holder.get().tableId(), equalTo(tableId));
         assertThat(holder.get().indexDescriptor().name(), equalTo(indexName));
 
         assertThat(
@@ -313,6 +316,6 @@ public class IndexManagerTest {
 
         assertThat(holder.get(), notNullValue());
         assertThat(holder.get().indexId(), equalTo(index.id()));
-        assertThat(holder.get().tableId(), equalTo(table.id()));
+        assertThat(holder.get().tableId(), equalTo(tableId));
     }
 }

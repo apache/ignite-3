@@ -91,6 +91,8 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.causality.CompletionListener;
@@ -1264,7 +1266,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         var table = new TableImpl(internalTable, lockMgr);
 
         // TODO: IGNITE-19082 Need another way to wait for indexes
-        table.addIndexesToWait(collectTableIndexIds(tableId));
+        table.addIndexesToWait(collectTableIndexIds(tableName));
 
         tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
@@ -2685,11 +2687,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    // TODO: IGNITE-19500 переделать на каталог
-    private int[] collectTableIndexIds(int tableId) {
-        return tablesCfg.value().indexes().stream()
-                .filter(tableIndexView -> tableIndexView.tableId() == tableId)
-                .mapToInt(TableIndexView::id)
+    // TODO: IGNITE-19499 We need to get the table ID from the catalog and also the version of the catalog
+    private int[] collectTableIndexIds(String tableName) {
+        int catalogVersion = catalogManager.latestCatalogVersion();
+
+        CatalogSchemaDescriptor schema = catalogManager.schema(catalogVersion);
+
+        assert schema != null : catalogVersion;
+
+        CatalogTableDescriptor table = schema.table(tableName);
+
+        assert table != null : "tableName=" + tableName + ", catalogVersion=" + catalogVersion;
+
+        return Stream.of(schema.indexes())
+                .filter(index -> table.id() == index.tableId())
+                .mapToInt(CatalogIndexDescriptor::id)
                 .toArray();
     }
 
@@ -2747,7 +2759,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param name Table name.
      */
-    // TODO: IGNITE-19500 избавиться или описать костылище
+    @TestOnly
     public @Nullable TableImpl getTable(String name) {
         return findTableImplByName(startedTables.values(), name);
     }
@@ -2800,7 +2812,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return new CatalogDataStorageDescriptor(config.name(), dataRegion);
     }
 
-    // TODO: IGNITE-19500 добавить описание удаления костыля
     private static @Nullable TableImpl findTableImplByName(Collection<TableImpl> tables, String name) {
         return tables.stream().filter(table -> table.name().equals(name)).findAny().orElse(null);
     }

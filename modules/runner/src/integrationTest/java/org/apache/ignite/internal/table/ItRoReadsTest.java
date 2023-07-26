@@ -148,12 +148,14 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void createTable() {
-        table = startTable(node(), TABLE_NAME);
+        startTable(TABLE_NAME);
+
+        table = ((TableManager) node().tables()).getTable(TABLE_NAME);
     }
 
     @AfterEach
     void dropTable() {
-        stopTable(node(), TABLE_NAME);
+        stopTable(TABLE_NAME);
 
         table = null;
     }
@@ -514,7 +516,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static Table startTable(Ignite node, String tableName) {
+    private static void startTable(String tableName) {
         String zoneName = "zone_" + tableName;
 
         sql(String.format("CREATE ZONE \"%s\" WITH PARTITIONS=1", zoneName));
@@ -523,11 +525,9 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
                 "CREATE TABLE \"%s\"(\"key\" BIGINT PRIMARY KEY, valInt INTEGER, valStr VARCHAR DEFAULT 'default') WITH PRIMARY_ZONE='%s'",
                 tableName, zoneName
         ));
-
-        return ((TableManager) node.tables()).getTable(tableName);
     }
 
-    private static void stopTable(Ignite node, String tableName) {
+    private static void stopTable(String tableName) {
         sql(String.format("DROP TABLE IF EXISTS \"%s\"", tableName));
         sql(String.format("DROP ZONE IF EXISTS \"%s\"", "zone_" + tableName));
     }
